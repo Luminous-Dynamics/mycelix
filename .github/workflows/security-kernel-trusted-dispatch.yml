@@ -1,9 +1,11 @@
 name: Security Kernel Qualification — Trusted Dispatcher
-run-name: SEC-KERNEL-DISPATCH repo_id=${{ github.event.pull_request.head.repo.id }} pr=${{ github.event.pull_request.number }} candidate=${{ github.event.pull_request.head.sha }}
+run-name: SEC-KERNEL-DISPATCH event=${{ github.event_name }} pr=${{ github.event.pull_request.number || 'scheduled' }} candidate=${{ github.event.pull_request.head.sha || github.sha }}
 
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: "*/5 * * * *"
 
 permissions:
   actions: read
@@ -11,7 +13,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: security-kernel-trusted-dispatch-pr-${{ github.event.pull_request.number }}
+  group: security-kernel-trusted-dispatch-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -19,7 +21,7 @@ env:
   BASE_REPOSITORY_ID: "1176351975"
   BASE_BRANCH: "main"
   TRUSTED_INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "42b9bfe548a90475ce1a4dc531c76991facd2111"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "c8e480f462c6524c3dd073c35e8ba3e9e507ecb3"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
 
 jobs:
@@ -33,19 +35,24 @@ jobs:
       candidate_sha: ${{ steps.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ steps.resolve.outputs.candidate_repository }}
       candidate_repository_id: ${{ steps.resolve.outputs.candidate_repository_id }}
+      invocation_source: ${{ steps.resolve.outputs.invocation_source }}
+      dispatch_decision: ${{ steps.resolve.outputs.dispatch_decision }}
+      eligible_count: ${{ steps.resolve.outputs.eligible_count }}
     steps:
       - name: Verify trusted dispatcher context and exact PR identity
         id: resolve
-        shell: bash
         env:
           TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-          HEAD_REPOSITORY_ID: ${{ github.event.pull_request.head.repo.id }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER_EVENT: ${{ github.event.pull_request.number }}
+          HEAD_SHA_EVENT: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPOSITORY_EVENT: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_REPOSITORY_ID_EVENT: ${{ github.event.pull_request.head.repo.id }}
           BASE_REPOSITORY_ID_EVENT: ${{ github.event.pull_request.base.repo.id }}
           BASE_REPOSITORY_EVENT: ${{ github.event.pull_request.base.repo.full_name }}
           BASE_BRANCH_EVENT: ${{ github.event.pull_request.base.ref }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-dispatch.yml@refs/heads/main"
@@ -54,46 +61,155 @@ jobs:
           test "$GITHUB_REPOSITORY_ID" = "$BASE_REPOSITORY_ID"
           test "$GITHUB_REF_PROTECTED" = "true"
           test "${ACTIONS_CACHE_MODE:-}" = "none"
-          test "$GITHUB_EVENT_NAME" = "pull_request_target"
-          printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'
-          printf '%s' "$HEAD_SHA" | grep -Eq '^[0-9a-f]{40}$'
-          printf '%s' "$HEAD_REPOSITORY_ID" | grep -Eq '^[0-9]+$'
-          printf '%s' "$BASE_REPOSITORY_ID_EVENT" | grep -Eq '^[0-9]+$'
-          test "$BASE_REPOSITORY_EVENT" = "$BASE_REPOSITORY"
-          test "$BASE_REPOSITORY_ID_EVENT" = "$BASE_REPOSITORY_ID"
-          test "$BASE_BRANCH_EVENT" = "$BASE_BRANCH"
-          test -n "$HEAD_REPOSITORY"
+          case "$EVENT_NAME" in
+            pull_request_target)
+              printf "%s" "$PR_NUMBER_EVENT" | grep -Eq "^[0-9]+$"
+              printf "%s" "$HEAD_SHA_EVENT" | grep -Eq "^[0-9a-f]{40}$"
+              printf "%s" "$HEAD_REPOSITORY_EVENT" | grep -Eq "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              printf "%s" "$HEAD_REPOSITORY_ID_EVENT" | grep -Eq "^[0-9]+$"
+              test "$BASE_REPOSITORY_EVENT" = "$BASE_REPOSITORY"
+              test "$BASE_REPOSITORY_ID_EVENT" = "$BASE_REPOSITORY_ID"
+              test "$BASE_BRANCH_EVENT" = "$BASE_BRANCH"
+              ;;
+            schedule)
+              ;;
+            *) echo "unsupported Security Kernel dispatcher event: $EVENT_NAME" >&2; exit 1 ;;
+          esac
           python3 - <<'PY'
-          import json, os, urllib.request
-          repo=os.environ["BASE_REPOSITORY"]
-          pr_number=int(os.environ["PR_NUMBER"])
-          req=urllib.request.Request(
-              f"https://api.github.com/repos/{repo}/pulls/{pr_number}",
-              headers={
-                  "Accept":"application/vnd.github+json",
-                  "Authorization":f"Bearer {os.environ['TOKEN']}",
-                  "X-GitHub-Api-Version":"2022-11-28",
-              })
-          with urllib.request.urlopen(req, timeout=20) as response:
-              pr=json.load(response)
-          assert pr["number"] == pr_number
-          assert pr["state"] == "open"
-          assert pr["base"]["repo"]["full_name"] == repo
-          assert pr["base"]["repo"]["id"] == int(os.environ["BASE_REPOSITORY_ID"])
-          assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
-          assert pr["head"]["repo"]["full_name"] == os.environ["HEAD_REPOSITORY"]
-          assert pr["head"]["repo"]["id"] == int(os.environ["HEAD_REPOSITORY_ID"])
-          assert pr["head"]["sha"] == os.environ["HEAD_SHA"]
-          print("PASS: trusted default-branch dispatcher bound the exact current PR repository/SHA")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"candidate_pr={pr_number}\n")
-              output.write(f"candidate_sha={os.environ['HEAD_SHA']}\n")
-              output.write(f"candidate_repository={os.environ['HEAD_REPOSITORY']}\n")
-              output.write(f"candidate_repository_id={os.environ['HEAD_REPOSITORY_ID']}\n")
+          import base64, json, os, re, urllib.error, urllib.parse, urllib.request
+          repo=os.environ["BASE_REPOSITORY"]; event=os.environ["EVENT_NAME"]; token=os.environ["TOKEN"]; workflow_sha=os.environ["GITHUB_WORKFLOW_SHA"]; run_id=int(os.environ["RUN_ID"])
+          headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {token}","X-GitHub-Api-Version":"2022-11-28"}
+          SCHEDULE_RATE_LIMIT_MIN_REMAINING=400
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers):
+                  return None
+          api_opener=urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect)
+          def get(path):
+              req=urllib.request.Request("https://api.github.com"+path,headers=headers)
+              try:
+                  with api_opener.open(req,timeout=20) as response:
+                      if event=="schedule":
+                          remaining=response.headers.get("x-ratelimit-remaining")
+                          if remaining is None:
+                              raise SystemExit("GitHub API response omitted x-ratelimit-remaining; refusing to continue scheduled discovery")
+                          try:
+                              remaining_int=int(remaining)
+                          except ValueError as exc:
+                              raise SystemExit("GitHub API x-ratelimit-remaining was not an integer") from exc
+                          if remaining_int <= SCHEDULE_RATE_LIMIT_MIN_REMAINING:
+                              raise SystemExit(
+                                  f"GitHub API rate-limit reserve exhausted or fully consumed: remaining={remaining_int} reserve={SCHEDULE_RATE_LIMIT_MIN_REMAINING}"
+                              )
+                      return json.load(response)
+              except urllib.error.HTTPError as error:
+                  if error.code in (301,302,303,307,308):
+                      raise SystemExit(f"GitHub API endpoint unexpectedly redirected with HTTP {error.code}; refusing to follow")
+                  raise
+          def content(path,ref):
+              return get("/repos/"+repo+"/contents/"+urllib.parse.quote(path,safe="/")+"?ref="+urllib.parse.quote(ref,safe=""))
+          dispatcher=content(".github/workflows/security-kernel-trusted-dispatch.yml",workflow_sha); s1=content(".github/workflows/security-kernel-independent-qualification.yml",workflow_sha)
+          assert re.fullmatch(r"[0-9a-f]{40}",workflow_sha); assert dispatcher["path"]==".github/workflows/security-kernel-trusted-dispatch.yml"; assert s1["path"]==".github/workflows/security-kernel-independent-qualification.yml"
+          assert re.fullmatch(r"[0-9a-f]{40}",dispatcher["sha"]) and re.fullmatch(r"[0-9a-f]{40}",s1["sha"])
+          def assert_bash_run_blocks_compile(workflow_text):
+              lines=workflow_text.splitlines()
+              blocks=0
+              i=0
+              while i<len(lines):
+                  if re.fullmatch(r" {8}run:\s*\|",lines[i]):
+                      content_indent=10
+                      i+=1
+                      script_lines=[]
+                      while i<len(lines):
+                          line=lines[i]
+                          if line.strip() and len(line)-len(line.lstrip(" "))<content_indent:
+                              break
+                          if line.strip():
+                              assert len(line)>=content_indent, f"run block indentation underflow at line {i+1}"
+                              script_lines.append(line[content_indent:])
+                          else:
+                              script_lines.append("")
+                          i+=1
+                      script="\n".join(script_lines).rstrip()+"\n"
+                      import subprocess
+                      checked=subprocess.run(["bash","-n"],input=script,text=True,capture_output=True)
+                      assert checked.returncode==0, checked.stderr
+                      blocks+=1
+                      continue
+                  i+=1
+              assert blocks==2, f"expected exactly two S0 bash run blocks, found {blocks}"
+
+          dispatcher_text=base64.b64decode(dispatcher["content"]).decode("utf-8")
+          assert_bash_run_blocks_compile(dispatcher_text)
+          registered=re.findall(r'(?m)^\s*TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA:\s*"([0-9a-f]{40})"\s*$',text); delegated=re.findall(r'(?m)^\s*trusted_workflow_blob_sha:\s*"([0-9a-f]{40})"\s*$',text); assert len(registered)==1 and len(delegated)==1 and registered[0]==s1["sha"] and delegated[0]==s1["sha"]
+          trust_paths={".github/workflows/security-kernel-trusted-dispatch.yml",".github/workflows/security-kernel-independent-qualification.yml",".github/workflows/security-kernel-trusted-result-verifier.yml",".github/security-kernel/reference_verify_source_policy.py",".github/security-kernel/reference_verify_execution_binding.py",".github/security-kernel/reference_verify_evidence_retention_binding.py"}
+          if event=="pull_request_target":
+              candidate_pr=int(os.environ["PR_NUMBER_EVENT"]); candidate_sha=os.environ["HEAD_SHA_EVENT"]; candidate_repository=os.environ["HEAD_REPOSITORY_EVENT"]; candidate_repository_id=int(os.environ["HEAD_REPOSITORY_ID_EVENT"]); invocation_source="trusted-dispatch"; dispatch_decision="qualified"; eligible_count="event"
+          else:
+              invocation_source="scheduled-fallback"; prs=[]
+              for page in range(1,5):
+                  page_items=get(f"/repos/{repo}/pulls?state=open&base=main&sort=updated&direction=asc&per_page=50&page={page}")
+                  assert isinstance(page_items,list); prs.extend(page_items)
+                  if len(page_items)<50: break
+              if len(prs)>=200: raise SystemExit("scheduled PR discovery exceeded bounded 200-PR window")
+              eligible=[]
+              for pr in prs:
+                  if pr.get("state")!="open" or (pr.get("base") or {}).get("ref")!="main": continue
+                  changed=pr.get("changed_files"); number=pr.get("number")
+                  if not isinstance(changed,int) or changed<1 or changed>500 or not isinstance(number,int) or number<1: continue
+                  matched=False
+                  for fp in range(1,6):
+                      items=get(f"/repos/{repo}/pulls/{number}/files?per_page=100&page={fp}")
+                      assert isinstance(items,list)
+                      if any(isinstance(item,dict) and (item.get("filename") in trust_paths or item.get("previous_filename") in trust_paths) for item in items): matched=True; break
+                      if len(items)<100: break
+                  if matched: eligible.append(pr)
+              if not eligible:
+                  dispatch_decision="suppressed"; eligible_count="0"
+                  candidate_pr=""; candidate_sha=""; candidate_repository=""; candidate_repository_id=""
+              else:
+                  dispatch_decision="qualified"; eligible_count=str(len(eligible))
+                  eligible.sort(key=lambda item:int(item["number"])); selected=eligible[run_id % len(eligible)]; candidate_pr=int(selected["number"])
+                  current=get(f"/repos/{repo}/pulls/{candidate_pr}"); candidate_sha=current["head"]["sha"]; candidate_repository=current["head"]["repo"]["full_name"]; candidate_repository_id=int(current["head"]["repo"]["id"])
+          if dispatch_decision=="qualified":
+              current=get(f"/repos/{repo}/pulls/{candidate_pr}")
+              assert current["number"]==candidate_pr and current["state"]=="open"; assert current["base"]["repo"]["full_name"]==repo and current["base"]["repo"]["id"]==int(os.environ["BASE_REPOSITORY_ID"]) and current["base"]["ref"]=="main"
+              assert current["head"]["sha"]==candidate_sha and current["head"]["repo"]["full_name"]==candidate_repository and current["head"]["repo"]["id"]==candidate_repository_id
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf-8") as output:
+              output.write(f"candidate_pr={candidate_pr}\n"); output.write(f"candidate_sha={candidate_sha}\n"); output.write(f"candidate_repository={candidate_repository}\n"); output.write(f"candidate_repository_id={candidate_repository_id}\n"); output.write(f"invocation_source={invocation_source}\n"); output.write(f"dispatch_decision={dispatch_decision}\n"); output.write(f"eligible_count={eligible_count}\n")
           PY
+  decision:
+    name: "Dispatch decision: ${{ needs.resolve.outputs.invocation_source }}/${{ needs.resolve.outputs.dispatch_decision }}/eligible=${{ needs.resolve.outputs.eligible_count }}"
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify dispatch decision witness
+        shell: bash
+        env:
+          INVOCATION_SOURCE: ${{ needs.resolve.outputs.invocation_source }}
+          DISPATCH_DECISION: ${{ needs.resolve.outputs.dispatch_decision }}
+          ELIGIBLE_COUNT: ${{ needs.resolve.outputs.eligible_count }}
+        run: |
+          set -euo pipefail
+          case "$INVOCATION_SOURCE:$DISPATCH_DECISION" in
+            trusted-dispatch:qualified)
+              test "$ELIGIBLE_COUNT" = "event"
+              ;;
+            scheduled-fallback:qualified)
+              printf "%s" "$ELIGIBLE_COUNT" | grep -Eq "^(1[0-9]{2}|[1-9][0-9]?)$"
+              ;;
+            scheduled-fallback:suppressed)
+              test "$ELIGIBLE_COUNT" = "0"
+              ;;
+            *)
+              echo "unsupported Security Kernel dispatch decision witness" >&2
+              exit 1
+              ;;
+          esac
 
   qualify:
     name: Execute exact candidate qualification
+    if: ${{ needs.resolve.outputs.dispatch_decision == 'qualified' }}
     needs: resolve
     permissions:
       actions: read
@@ -106,5 +222,6 @@ jobs:
       candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
       candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}
-      trusted_workflow_blob_sha: "42b9bfe548a90475ce1a4dc531c76991facd2111"
+      invocation_source: ${{ needs.resolve.outputs.invocation_source }}
+      trusted_workflow_blob_sha: "c8e480f462c6524c3dd073c35e8ba3e9e507ecb3"
 

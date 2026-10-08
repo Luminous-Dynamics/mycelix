@@ -19,9 +19,19 @@ env:
   BASE_REPOSITORY_ID: "1176351975"
   BASE_BRANCH: "main"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "ac91d40e653b1ed2ddeb4b7d7111954d0fa4f4bb"
+  TRUSTED_DISPATCHER_WORKFLOW_ID: "375560659"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "d58e808ff53a47d2ddc9147f3b11059a93497883"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "42b9bfe548a90475ce1a4dc531c76991facd2111"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "c8e480f462c6524c3dd073c35e8ba3e9e507ecb3"
+  RETENTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_evidence_retention_binding.py"
+  RETENTION_REFERENCE_VERIFIER_BLOB_SHA: "18dfd77cab186c0f467d81fcd6ce6d6d713795c2"
+  EXECUTION_REFERENCE_VERIFIER_PATH: ".github/security-kernel/reference_verify_execution_binding.py"
+  EXECUTION_REFERENCE_VERIFIER_BLOB_SHA: "b660622db144aa69a8536ebb5ca5736f658992b4"
+  SOURCE_POLICY_VERIFIER_PATH: ".github/security-kernel/reference_verify_source_policy.py"
+  SOURCE_POLICY_VERIFIER_BLOB_SHA: "0a3e4266cb44d021b50a7d3c408340eb2ed18782"
+  EGRESS_BROKER_PATH: ".github/security-kernel/github_egress_proxy.py"
+  EGRESS_BROKER_BLOB_SHA: "65b140b0fbc2df0b457de46ba2b42f349629f543"
+  EGRESS_BROKER_IMAGE: "docker.io/library/python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -38,13 +48,59 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Audit trusted verifier shell syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, subprocess
+          from pathlib import Path
+
+          trusted_s2_workflow = Path(os.environ["GITHUB_WORKSPACE"])/".github/workflows/security-kernel-trusted-result-verifier.yml"
+          lines = trusted_s2_workflow.read_text(encoding="utf-8").splitlines()
+          blocks = 0
+          i = 0
+          while i < len(lines):
+              if re.fullmatch(r" {8}run:\s*\|", lines[i]):
+                  content_indent = 10
+                  i += 1
+                  script_lines = []
+                  while i < len(lines):
+                      line = lines[i]
+                      if line.strip() and len(line) - len(line.lstrip(" ")) < content_indent:
+                          break
+                      if line.strip():
+                          if len(line) < content_indent:
+                              raise AssertionError(f"run block indentation underflow at line {i + 1}")
+                          script_lines.append(line[content_indent:])
+                      else:
+                          script_lines.append("")
+                      i += 1
+                  script = "\n".join(script_lines).rstrip() + "\n"
+                  checked = subprocess.run(
+                      ["bash", "-n"],
+                      input=script,
+                      text=True,
+                      capture_output=True,
+                  )
+                  if checked.returncode != 0:
+                      raise AssertionError(checked.stderr)
+                  blocks += 1
+                  continue
+              i += 1
+
+          if blocks != 4:
+              raise AssertionError(f"expected exactly four trusted S2 bash run blocks, found {blocks}")
+          print("PASS: S2 exact verifier workflow shell syntax is valid")
+          PY
+
       - name: Verify trusted dispatcher, reusable S1, and qualification gates
         id: verify_result
-        shell: bash
         env:
           TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
           RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-result-verifier.yml@refs/heads/main"
@@ -55,12 +111,30 @@ jobs:
           test "${ACTIONS_CACHE_MODE:-}" = "none"
           workflow_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- ".github/workflows/security-kernel-trusted-result-verifier.yml" | awk '{print $3}')"
           printf "%s" "$workflow_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
+          retention_reference_verifier_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- "$RETENTION_REFERENCE_VERIFIER_PATH" | awk '{print $3}')"
+          printf "%s" "$retention_reference_verifier_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
+          test "$retention_reference_verifier_blob_sha" = "$RETENTION_REFERENCE_VERIFIER_BLOB_SHA"
+          execution_reference_verifier_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- "$EXECUTION_REFERENCE_VERIFIER_PATH" | awk '{print $3}')"
+          printf "%s" "$execution_reference_verifier_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
+          test "$execution_reference_verifier_blob_sha" = "$EXECUTION_REFERENCE_VERIFIER_BLOB_SHA"
+          test -f "$EXECUTION_REFERENCE_VERIFIER_PATH"
+          source_policy_verifier_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- "$SOURCE_POLICY_VERIFIER_PATH" | awk '{print $3}')"
+          printf "%s" "$source_policy_verifier_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
+          test "$source_policy_verifier_blob_sha" = "$SOURCE_POLICY_VERIFIER_BLOB_SHA"
+          test -f "$SOURCE_POLICY_VERIFIER_PATH"
+          export SOURCE_POLICY_VERIFIER_BLOB_SHA="$source_policy_verifier_blob_sha"
+          test -f "$RETENTION_REFERENCE_VERIFIER_PATH"
           git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
           git merge-base --is-ancestor "$GITHUB_WORKFLOW_SHA" "refs/remotes/origin/main"
 
           export WORKFLOW_BLOB_SHA="$workflow_blob_sha"
           python3 - <<'PY'
-          import hashlib, io, json, os, re, subprocess, urllib.error, urllib.parse, urllib.request, zipfile
+          import base64 as _source_policy_base64
+          import base64, datetime, hashlib, io, json, os, re, subprocess, tempfile, urllib.error, urllib.parse, urllib.request, zipfile
+          class ApiNoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers):
+                  return None
+          api_opener=urllib.request.build_opener(urllib.request.ProxyHandler({}), ApiNoRedirect)
 
           base = "https://api.github.com"
           token = os.environ["TOKEN"]
@@ -77,7 +151,7 @@ jobs:
                       "X-GitHub-Api-Version": "2022-11-28",
                   },
               )
-              with urllib.request.urlopen(req, timeout=20) as response:
+              with api_opener.open(req, timeout=20) as response:
                   return json.load(response)
 
           repository_obj = get(f"/repos/{repo}")
@@ -89,7 +163,7 @@ jobs:
           assert run["run_attempt"] == run_attempt
           assert run["status"] == "completed"
           assert run["conclusion"] == "success"
-          assert run["event"] == "pull_request_target"
+          assert run["event"] in ("pull_request_target", "schedule")
           assert run["ref"] == "refs/heads/main"
           assert run["path"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"]
           assert run["repository"]["full_name"] == repo
@@ -99,6 +173,9 @@ jobs:
           assert isinstance(run.get("run_number"), int) and run["run_number"] >= 1
 
           workflow_sha = run.get("workflow_sha")
+          workflow_id = run.get("workflow_id")
+          assert isinstance(workflow_id, int) and workflow_id > 0, f"unexpected dispatcher workflow_id: {workflow_id!r}"
+          assert workflow_id == int(os.environ["TRUSTED_DISPATCHER_WORKFLOW_ID"])
           assert re.fullmatch(r"[0-9a-f]{40}", workflow_sha or ""), f"unexpected dispatcher workflow_sha: {workflow_sha!r}"
           verifier_file = get(f"/repos/{repo}/contents/.github/workflows/security-kernel-trusted-result-verifier.yml?ref={os.environ['GITHUB_WORKFLOW_SHA']}")
           assert verifier_file["type"] == "file"
@@ -132,7 +209,35 @@ jobs:
           assert current_s1["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], (
               "registered S1 trust profile is stale relative to current protected main"
           )
+          current_broker = get(f"/repos/{repo}/contents/{os.environ['EGRESS_BROKER_PATH']}?ref={main_sha}")
+          assert current_broker["sha"] == os.environ["EGRESS_BROKER_BLOB_SHA"], (
+              "registered egress broker source is stale relative to current protected main"
+          )
           print("PASS: registered S0/S1 workflow trust profile still matches the current protected main tip")
+
+          def decode_file(document):
+              assert document.get("type") == "file"
+              assert document.get("encoding") == "base64"
+              return base64.b64decode(document["content"]).decode("utf-8")
+
+          dispatcher_text = decode_file(dispatcher_at_run)
+          registered_s1 = re.findall(
+              r'(?m)^\s*TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA:\s*"([0-9a-f]{40})"\s*$',
+              dispatcher_text,
+          )
+          delegated_s1 = re.findall(
+              r'(?m)^\s*trusted_workflow_blob_sha:\s*"([0-9a-f]{40})"\s*$',
+              dispatcher_text,
+          )
+          assert len(registered_s1) == 1, f"expected exactly one registered S1 blob pin in S0, found {len(registered_s1)}"
+          assert len(delegated_s1) == 1, f"expected exactly one delegated S1 blob pin in S0, found {len(delegated_s1)}"
+          assert registered_s1[0] == current_s1["sha"], (
+              "S0 registered S1 blob pin is inconsistent with the current protected-main S1 workflow"
+          )
+          assert delegated_s1[0] == current_s1["sha"], (
+              "S0 reusable-workflow input pin is inconsistent with the current protected-main S1 workflow"
+          )
+          print("PASS: S0 registered S1 pin and reusable-workflow input pin are mutually coherent with S1")
 
 
           s1_at_run = get(
@@ -141,48 +246,134 @@ jobs:
           assert s1_at_run["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], (
               "same-commit S1 reusable workflow blob is outside the registered trust profile"
           )
-
-          title = run.get("display_title", "")
-          match = re.fullmatch(
-              r"SEC-KERNEL-DISPATCH repo_id=([0-9]+) pr=([0-9]+) candidate=([0-9a-f]{40})",
-              title,
-          )
-          assert match, f"unexpected trusted-dispatch run name: {title!r}"
-          candidate_repo_id, candidate_pr, candidate_sha = match.groups()
-          candidate_repo_id = int(candidate_repo_id)
-          candidate_pr = int(candidate_pr)
-
-          run_prs = run.get("pull_requests") or []
-          assert len(run_prs) == 1, f"S0 run must identify exactly one PR: {len(run_prs)}"
-          assert run_prs[0]["number"] == candidate_pr
-
-          pr = get(f"/repos/{repo}/pulls/{candidate_pr}")
-          assert pr["number"] == candidate_pr
-          assert pr["state"] == "open"
-          assert pr["base"]["repo"]["full_name"] == repo
-          assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
-          assert pr["head"]["sha"] == candidate_sha
-
-          candidate_repository_obj = pr.get("head", {}).get("repo") or {}
-          candidate_repository = candidate_repository_obj.get("full_name")
-          candidate_repository_id = candidate_repository_obj.get("id")
-          assert candidate_repository, "candidate PR is missing head repository identity"
-          assert candidate_repository_id == candidate_repo_id, (
-              "current PR head repository identity differs from the trusted S0-bound repository"
+          broker_at_run = get(f"/repos/{repo}/contents/{os.environ['EGRESS_BROKER_PATH']}?ref={workflow_sha}")
+          assert broker_at_run["sha"] == os.environ["EGRESS_BROKER_BLOB_SHA"], (
+              "same-commit trusted egress broker source is outside the registered trust profile"
           )
 
+          trigger_event = run["event"]
           jobs = get(
               f"/repos/{repo}/actions/runs/{run_id}/attempts/{run_attempt}/jobs?per_page=100"
           )["jobs"]
-          assert len(jobs) == 2, f"trusted dispatcher must have exactly two jobs: {len(jobs)}"
+          assert len(jobs) == 3, f"trusted dispatcher must have exactly three jobs: {len(jobs)}"
           assert all(job["run_id"] == int(run_id) for job in jobs)
           assert all(job["status"] == "completed" for job in jobs)
-
           resolver_jobs = [job for job in jobs if job["name"] == "Resolve exact pull request subject"]
           assert len(resolver_jobs) == 1, f"expected one S0 resolver job, found {len(resolver_jobs)}"
           resolver_job = resolver_jobs[0]
           assert resolver_job["conclusion"] == "success"
           assert resolver_job["id"] > 0
+          decision_jobs = [job for job in jobs if job["name"].startswith("Dispatch decision: ")]
+          assert len(decision_jobs) == 1, f"expected one S0 decision witness job, found {len(decision_jobs)}"
+          decision_job = decision_jobs[0]
+          decision_match = re.fullmatch(
+              r"Dispatch decision: (trusted-dispatch|scheduled-fallback)/(qualified|suppressed)/eligible=(event|0|[1-9][0-9]?|1[0-9]{2})",
+              decision_job["name"],
+          )
+          assert decision_match, f"unexpected S0 decision witness job name: {decision_job['name']!r}"
+          dispatch_invocation_source, dispatch_decision, dispatch_eligible_count = decision_match.groups()
+          assert decision_job["conclusion"] == "success"
+          assert decision_job["id"] > 0
+          if trigger_event == "pull_request_target":
+              assert dispatch_invocation_source == "trusted-dispatch"
+              assert dispatch_decision == "qualified"
+              assert dispatch_eligible_count == "event"
+          elif trigger_event == "schedule":
+              assert dispatch_invocation_source == "scheduled-fallback"
+              if dispatch_decision == "suppressed":
+                  assert dispatch_eligible_count == "0"
+                  matching_s1_jobs = [
+                      job for job in jobs
+                      if job["name"] == os.environ["EXPECTED_JOB_NAME"]
+                      or job["name"].endswith(" / " + os.environ["EXPECTED_JOB_NAME"])
+                  ]
+                  assert len(matching_s1_jobs) == 1, f"expected one suppressed S1 job, found {len(matching_s1_jobs)}"
+                  assert matching_s1_jobs[0]["status"] == "completed"
+                  assert matching_s1_jobs[0]["conclusion"] == "skipped"
+                  with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                      output.write("dispatch_decision=suppressed\n")
+                      output.write("dispatch_invocation_source=scheduled-fallback\n")
+                      output.write("dispatch_eligible_count=0\n")
+                  print("SUPPRESSED: scheduled Security Kernel dispatcher completed with no eligible candidate in its bounded discovery window; no candidate qualification was executed")
+                  raise SystemExit(0)
+              assert dispatch_decision == "qualified"
+              assert re.fullmatch(r"(?:[1-9][0-9]?|1[0-9]{2})", dispatch_eligible_count)
+          else:
+              raise AssertionError(f"unexpected trusted dispatcher workflow event: {trigger_event!r}")
+          if trigger_event == "pull_request_target":
+              title = run.get("display_title", "")
+              match = re.fullmatch(
+                  r"SEC-KERNEL-DISPATCH event=pull_request_target pr=([0-9]+) candidate=([0-9a-f]{40})",
+                  title,
+              )
+              assert match, f"unexpected trusted-dispatch run name: {title!r}"
+              candidate_pr, candidate_sha = match.groups()
+              candidate_pr = int(candidate_pr)
+              run_prs = run.get("pull_requests") or []
+              assert len(run_prs) == 1 and run_prs[0]["number"] == candidate_pr
+              pr = get(f"/repos/{repo}/pulls/{candidate_pr}")
+              assert pr["number"] == candidate_pr and pr["state"] == "open"
+              assert pr["base"]["repo"]["full_name"] == repo and pr["base"]["ref"] == os.environ["BASE_BRANCH"]
+              assert pr["head"]["sha"] == candidate_sha
+              candidate_repository_obj = pr.get("head", {}).get("repo") or {}
+              candidate_repository = candidate_repository_obj.get("full_name")
+              candidate_repository_id = candidate_repository_obj.get("id")
+              assert candidate_repository and isinstance(candidate_repository_id, int)
+              assert candidate_repository_id == int(pr["head"]["repo"]["id"])
+          else:
+              assert trigger_event == "schedule"
+              assert (run.get("pull_requests") or []) == []
+              artifacts = get(f"/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100").get("artifacts", [])
+              receipts = [
+                  item for item in artifacts
+                  if re.fullmatch(r"security-kernel-independent-qualification-[0-9a-f]{40}-attempt-[0-9]+\.txt", item.get("name", ""))
+                  and (item.get("workflow_run") or {}).get("id") == int(run_id)
+              ]
+              assert len(receipts) == 1, f"scheduled dispatcher must expose exactly one qualification receipt: {len(receipts)}"
+              receipt_artifact = receipts[0]
+              candidate_sha = re.fullmatch(r"security-kernel-independent-qualification-([0-9a-f]{40})-attempt-[0-9]+\.txt", receipt_artifact["name"]).group(1)
+              archive_url = receipt_artifact.get("archive_download_url")
+              assert isinstance(archive_url, str) and archive_url
+              request = urllib.request.Request(archive_url,headers={"Accept":"application/octet-stream","Authorization":f"Bearer {token}","X-GitHub-Api-Version":"2026-03-10"})
+              class NoRedirect(urllib.request.HTTPRedirectHandler):
+                  def redirect_request(self, req, fp, code, msg, headers):
+                      return None
+              try:
+                  with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect).open(request,timeout=30) as response:
+                      raise AssertionError("scheduled qualification receipt endpoint unexpectedly returned 200")
+              except urllib.error.HTTPError as error:
+                  assert error.code in (301,302,303,307,308)
+                  download_url=error.headers.get("Location")
+                  assert isinstance(download_url,str) and download_url
+              parsed=urllib.parse.urlparse(download_url)
+              assert parsed.scheme=="https" and not parsed.username and not parsed.password and parsed.port in (None,443)
+              with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect).open(download_url,timeout=30) as response:
+                  payload=response.read(16*1024+1)
+              assert payload and len(payload)<=16*1024
+              if zipfile.is_zipfile(io.BytesIO(payload)):
+                  with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+                      infos=archive.infolist()
+                      assert len(infos)==1 and not infos[0].is_dir()
+                      assert 0<infos[0].file_size<=16*1024 and 0<infos[0].compress_size<=16*1024
+                      payload=archive.read(infos[0])
+              receipt_fields={}
+              for line in payload.decode("utf-8").splitlines():
+                  assert "=" in line
+                  key,value=line.split("=",1)
+                  assert key not in receipt_fields
+                  receipt_fields[key]=value
+              assert receipt_fields.get("schema")=="security-kernel-independent-qualification-v1"
+              assert receipt_fields.get("candidate_sha")==candidate_sha
+              assert receipt_fields.get("qualification_invocation_source")=="scheduled-fallback"
+              candidate_pr=int(receipt_fields["candidate_pr"])
+              candidate_repository=receipt_fields["candidate_repository"]
+              candidate_repository_id=int(receipt_fields["candidate_repository_id"])
+              pr=get(f"/repos/{repo}/pulls/{candidate_pr}")
+              assert pr["number"]==candidate_pr and pr["state"]=="open"
+              assert pr["base"]["repo"]["full_name"]==repo and pr["base"]["ref"]==os.environ["BASE_BRANCH"]
+              assert pr["head"]["sha"]==candidate_sha
+              assert pr["head"]["repo"]["full_name"]==candidate_repository and pr["head"]["repo"]["id"]==candidate_repository_id
+
           assert resolver_job["name"] == "Resolve exact pull request subject"
 
           matching = [
@@ -217,6 +408,7 @@ jobs:
               "Prepare locked dependency subject",
               "Vendor locked dependency closure in fetch sandbox",
               "Execute sandbox negative controls",
+              "Upload sandbox negative-control transcript",
               "Execute candidate qualification in disposable networkless sandbox",
               "Verify candidate source immutability",
               "Verify dependency substrate immutability",
@@ -235,15 +427,16 @@ jobs:
 
           def execution_binding_document(
               *,
-              repository_id, repository, candidate_repository_id, candidate_repository,
+              repository_id, repository, workflow_id, candidate_repository_id, candidate_repository,
               candidate_pr, candidate_sha, dispatcher_workflow_path, dispatcher_workflow_sha,
-              s1_workflow_path, s1_workflow_blob_sha, run_id, run_attempt, run_number,
-              resolver_job_id, s1_job_id,
+              s1_workflow_path, s1_workflow_blob_sha, verifier_workflow_path, verifier_workflow_sha,
+              verifier_workflow_blob_sha, trigger_event, run_id, run_attempt, run_number, resolver_job_id, s1_job_id,
           ):
               return {
-                  "schema": "security-kernel-execution-binding-v1",
+                  "schema": "security-kernel-execution-binding-v4",
                   "repository_id": int(repository_id),
                   "repository": str(repository),
+                  "workflow_id": int(workflow_id),
                   "candidate_repository_id": int(candidate_repository_id),
                   "candidate_repository": str(candidate_repository),
                   "candidate_pr": int(candidate_pr),
@@ -252,6 +445,9 @@ jobs:
                   "dispatcher_workflow_sha": str(dispatcher_workflow_sha),
                   "s1_workflow_path": str(s1_workflow_path),
                   "s1_workflow_blob_sha": str(s1_workflow_blob_sha),
+                  "verifier_workflow_path": str(verifier_workflow_path),
+                  "verifier_workflow_sha": str(verifier_workflow_sha),
+                  "verifier_workflow_blob_sha": str(verifier_workflow_blob_sha),
                   "run_id": int(run_id),
                   "run_attempt": int(run_attempt),
                   "run_number": int(run_number),
@@ -266,6 +462,7 @@ jobs:
           binding = execution_binding_document(
               repository_id=repository_obj["id"],
               repository=repository_obj["full_name"],
+              workflow_id=workflow_id,
               candidate_repository_id=candidate_repo_id,
               candidate_repository=candidate_repository,
               candidate_pr=candidate_pr,
@@ -274,6 +471,10 @@ jobs:
               dispatcher_workflow_sha=workflow_sha,
               s1_workflow_path=os.environ["INDEPENDENT_WORKFLOW_PATH"],
               s1_workflow_blob_sha=s1_at_run["sha"],
+              verifier_workflow_path=".github/workflows/security-kernel-trusted-result-verifier.yml",
+              verifier_workflow_sha=os.environ["GITHUB_WORKFLOW_SHA"],
+              verifier_workflow_blob_sha=os.environ["WORKFLOW_BLOB_SHA"],
+              trigger_event=trigger_event,
               run_id=run_id,
               run_attempt=run_attempt,
               run_number=run["run_number"],
@@ -283,6 +484,7 @@ jobs:
           expected_binding = {
               "repository_id": int(os.environ["BASE_REPOSITORY_ID"]),
               "repository": repository_obj["full_name"],
+              "workflow_id": workflow_id,
               "candidate_repository_id": candidate_repo_id,
               "candidate_repository": candidate_repository,
               "candidate_pr": candidate_pr,
@@ -291,6 +493,10 @@ jobs:
               "dispatcher_workflow_sha": workflow_sha,
               "s1_workflow_path": os.environ["INDEPENDENT_WORKFLOW_PATH"],
               "s1_workflow_blob_sha": s1_at_run["sha"],
+              "verifier_workflow_path": ".github/workflows/security-kernel-trusted-result-verifier.yml",
+              "verifier_workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
+              "verifier_workflow_blob_sha": os.environ["WORKFLOW_BLOB_SHA"],
+              "trigger_event": trigger_event,
               "run_id": int(run_id),
               "run_attempt": run_attempt,
               "run_number": run["run_number"],
@@ -303,6 +509,7 @@ jobs:
           mutations = {
               "repository_id": binding["repository_id"] + 1,
               "repository": binding["repository"] + "-mutated",
+              "workflow_id": binding["workflow_id"] + 1,
               "candidate_repository_id": binding["candidate_repository_id"] + 1,
               "candidate_repository": binding["candidate_repository"] + "-mutated",
               "candidate_pr": binding["candidate_pr"] + 1,
@@ -316,6 +523,10 @@ jobs:
               "run_number": binding["run_number"] + 1,
               "resolver_job_id": binding["resolver_job_id"] + 1,
               "s1_job_id": binding["s1_job_id"] + 1,
+              "verifier_workflow_path": binding["verifier_workflow_path"] + ".mutated",
+              "verifier_workflow_sha": "5" * 40,
+              "verifier_workflow_blob_sha": "6" * 40,
+              "trigger_event": "mutated",
           }
           for field, replacement in mutations.items():
               mutated = dict(binding)
@@ -337,6 +548,10 @@ jobs:
           )
           artifact = matching_artifacts[0]
           assert artifact.get("expired") is False, "qualification receipt artifact is expired"
+          receipt_expires_at = artifact.get("expires_at")
+          assert isinstance(receipt_expires_at, str) and receipt_expires_at, "qualification receipt artifact has no expiration timestamp"
+          receipt_expiry = datetime.datetime.fromisoformat(receipt_expires_at.replace("Z", "+00:00"))
+          assert receipt_expiry > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30), "qualification receipt artifact must retain for at least 30 days after verification"
           artifact_run = artifact.get("workflow_run") or {}
           assert artifact_run.get("repository_id") == run["repository"]["id"], (
               "qualification receipt artifact repository identity differs from triggering workflow run"
@@ -353,7 +568,8 @@ jobs:
           assert artifact.get("workflow_run", {}).get("id") == int(run_id), (
               "qualification receipt artifact is not bound to the exact trusted dispatcher run"
           )
-          assert int(artifact.get("size_in_bytes", 0)) > 0, "qualification receipt artifact is empty"
+          artifact_size = int(artifact.get("size_in_bytes", 0))
+          assert 0 < artifact_size <= 16 * 1024, "qualification receipt artifact advertised size exceeds the 16 KiB verifier bound"
           artifact_digest = artifact.get("digest")
           assert re.fullmatch(r"sha256:[0-9a-f]{64}", artifact_digest or ""), (
               f"unexpected qualification receipt artifact digest: {artifact_digest!r}"
@@ -375,7 +591,7 @@ jobs:
                   return None
 
           try:
-              with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
+              with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect).open(request, timeout=30) as response:
                   raise AssertionError(f"artifact download returned unexpected HTTP {response.status} without redirect")
           except urllib.error.HTTPError as error:
               if error.code not in (301, 302, 303, 307, 308):
@@ -383,10 +599,20 @@ jobs:
               download_url = error.headers.get("Location")
               assert isinstance(download_url, str) and download_url, "artifact download redirect did not provide a Location"
 
-          with urllib.request.urlopen(download_url, timeout=30) as response:
-              artifact_bytes = response.read(1024 * 1024 + 1)
+          parsed_download_url = urllib.parse.urlparse(download_url)
+          assert parsed_download_url.scheme == "https", "qualification receipt redirect URL must use HTTPS"
+          assert not parsed_download_url.username and not parsed_download_url.password, "qualification receipt redirect URL must not contain userinfo"
+          assert parsed_download_url.port in (None, 443), "qualification receipt redirect URL must not use a non-standard port"
+          try:
+              with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect).open(download_url, timeout=30) as response:
+                  assert response.status == 200, f"qualification receipt redirect target returned HTTP {response.status}"
+                  artifact_bytes = response.read(16 * 1024 + 1)
+          except urllib.error.HTTPError as error:
+              raise AssertionError(
+                  f"qualification receipt redirect target performed an unexpected second HTTP redirect/status: {error.code}"
+              ) from error
           assert artifact_bytes, "qualification receipt artifact download is empty"
-          assert len(artifact_bytes) <= 1024 * 1024, "qualification receipt artifact exceeds 1 MiB verifier bound"
+          assert len(artifact_bytes) <= 16 * 1024, "qualification receipt artifact exceeds the 16 KiB verifier bound"
           assert "sha256:" + hashlib.sha256(artifact_bytes).hexdigest() == artifact_digest, (
               "downloaded qualification receipt bytes do not match GitHub's recorded artifact digest"
           )
@@ -394,8 +620,16 @@ jobs:
           receipt_bytes = artifact_bytes
           if zipfile.is_zipfile(io.BytesIO(artifact_bytes)):
               with zipfile.ZipFile(io.BytesIO(artifact_bytes)) as archive:
-                  files = [info for info in archive.infolist() if not info.is_dir()]
+                  infos = archive.infolist()
+                  assert len(infos) <= 16, f"qualification receipt archive contains {len(infos)} entries, exceeding verifier bound"
+                  files = [info for info in infos if not info.is_dir()]
                   assert len(files) == 1, f"qualification receipt archive contains {len(files)} files, expected exactly one"
+                  assert 0 < files[0].file_size <= 16 * 1024, (
+                      f"qualification receipt member expands to {files[0].file_size} bytes, outside verifier bound"
+                  )
+                  assert 0 < files[0].compress_size <= 16 * 1024, (
+                      f"qualification receipt member compressed size {files[0].compress_size} is outside verifier bound"
+                  )
                   receipt_member = files[0].filename
                   assert receipt_member.rsplit("/", 1)[-1] == expected_artifact_name, (
                       f"qualification receipt member name mismatch: {receipt_member!r}"
@@ -414,13 +648,22 @@ jobs:
               receipt[key] = value
 
           expected_receipt_keys = {
-              "schema","candidate_repository","candidate_repository_id","candidate_pr","candidate_sha",
+              "schema","candidate_repository","candidate_repository_id","candidate_pr","candidate_sha","qualification_invocation_source",
               "candidate_tree","candidate_source_tree_entry_count","candidate_source_file_count",
               "candidate_source_total_path_bytes","candidate_source_total_bytes","candidate_source_max_blob_bytes",
-              "candidate_source_digest","candidate_cargo_lock_format","candidate_cargo_lock_sha256",
-              "candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges","vendor_digest",
+              "candidate_source_digest","source_staging_digest","executed_source_digest","candidate_cargo_lock_format","candidate_cargo_lock_sha256",
+              "source_resource_profile","source_max_bytes","source_max_inodes","source_tmpfs_size","source_tmpfs_nr_inodes",
+              "dependency_manifest_max_bytes","dependency_lock_max_bytes",
+              "source_volume_name","source_volume_spec","source_copy_bytes","source_copy_files","source_copy_inodes",
+              "candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges",
+              "vendor_resource_profile","vendor_max_bytes","vendor_max_files","vendor_max_inodes",
+              "vendor_tmpfs_size","vendor_tmpfs_nr_inodes","vendor_config_resource_profile","vendor_config_max_bytes","vendor_config_max_inodes",
+              "vendor_config_tmpfs_size","vendor_config_tmpfs_nr_inodes","vendor_config_volume_name","vendor_config_volume_spec",
+              "vendor_config_observed_bytes","vendor_config_observed_inodes","vendor_config_digest",
+              "vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","vendor_resource_measurement","vendor_digest",
               "sandbox_negative_controls","sandbox_negative_controls_log_sha256","dependency_substrate_postflight",
-              "git_fetch_image","sandbox_image","sandbox_network","sandbox_rootfs","sandbox_user",
+              "git_fetch_image","egress_broker_path","egress_broker_blob_sha","egress_broker_image","egress_broker_proxy",
+              "egress_broker_upstream","egress_network_mode","egress_direct_external","sandbox_image","sandbox_network","sandbox_rootfs","sandbox_user",
               "sandbox_capabilities","sandbox_no_new_privileges","source_event","trusted_dispatcher_workflow",
               "trusted_workflow_ref","trusted_workflow_sha","trusted_workflow_name","trusted_repository_id",
               "trusted_workflow_repository","trusted_workflow_file_path","trusted_ref_protected","cache_mode",
@@ -434,7 +677,23 @@ jobs:
               "candidate_repository_id": str(candidate_repo_id),
               "candidate_pr": str(candidate_pr),
               "candidate_sha": candidate_sha,
-              "source_event": "pull_request_target",
+              "source_event": trigger_event,
+              "qualification_invocation_source": "trusted-dispatch" if trigger_event == "pull_request_target" else "scheduled-fallback",
+              "source_resource_profile": "v1",
+              "dependency_manifest_max_bytes": "2097152",
+              "dependency_lock_max_bytes": "33554432",
+              "source_max_bytes": "1073741824",
+              "source_max_inodes": "300000",
+              "source_tmpfs_size": "1024m",
+              "source_tmpfs_nr_inodes": "300000",
+              "source_volume_spec": "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000",
+              "egress_broker_path": os.environ["EGRESS_BROKER_PATH"],
+              "egress_broker_blob_sha": os.environ["EGRESS_BROKER_BLOB_SHA"],
+              "egress_broker_image": os.environ["EGRESS_BROKER_IMAGE"],
+              "egress_broker_proxy": "egress-broker:3128",
+              "egress_broker_upstream": "github.com:443",
+              "egress_network_mode": "internal-fetch-plus-dedicated-external-broker",
+              "egress_direct_external": "blocked",
               "trusted_workflow_sha": workflow_sha,
               "registered_s1_workflow_blob_sha": s1_at_run["sha"],
               "called_workflow_ref": f"{repo}/{os.environ['INDEPENDENT_WORKFLOW_PATH']}@refs/heads/main",
@@ -448,6 +707,18 @@ jobs:
               "sandbox_user": "non-root",
               "sandbox_capabilities": "all-dropped",
               "sandbox_no_new_privileges": "true",
+              "vendor_resource_profile": "v2",
+              "vendor_max_bytes": "1073741824",
+              "vendor_max_files": "100000",
+              "vendor_max_inodes": "150000",
+              "vendor_tmpfs_size": "1024m",
+              "vendor_tmpfs_nr_inodes": "150000",
+              "vendor_config_resource_profile": "v1",
+              "vendor_config_max_bytes": "16777216",
+              "vendor_config_max_inodes": "64",
+              "vendor_config_tmpfs_size": "16m",
+              "vendor_config_tmpfs_nr_inodes": "64",
+              "vendor_resource_measurement": "bounded-pass",
               "sandbox_negative_controls": "passed",
               "dependency_substrate_postflight": "passed",
               "qualification_pass": "true",
@@ -461,7 +732,7 @@ jobs:
                   f"{receipt.get(key)!r} != {expected_value!r}"
               )
           evidence_binding = dict(binding)
-          evidence_binding["schema"] = "security-kernel-execution-binding-v2"
+          evidence_binding["schema"] = "security-kernel-execution-binding-v4"
           evidence_binding["artifact_name"] = expected_artifact_name
           evidence_binding["artifact_id"] = int(artifact["id"])
           evidence_binding["artifact_digest"] = artifact_digest
@@ -470,6 +741,36 @@ jobs:
           evidence_binding_digest = hashlib.sha256(
               json.dumps(evidence_binding, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
           ).hexdigest()
+          execution_reference_input = dict(evidence_binding)
+          with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
+              json.dump(execution_reference_input, handle, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+              execution_reference_path = handle.name
+          try:
+              execution_reference_output = subprocess.check_output(
+                  [
+                      "python3",
+                      os.path.join(os.environ["GITHUB_WORKSPACE"], os.environ["EXECUTION_REFERENCE_VERIFIER_PATH"]),
+                      execution_reference_path,
+                  ],
+                  text=True,
+                  stderr=subprocess.STDOUT,
+                  timeout=20,
+              )
+          except subprocess.CalledProcessError as exc:
+              raise AssertionError(f"independent execution reference verifier rejected binding: {exc.output!r}") from exc
+          finally:
+              os.unlink(execution_reference_path)
+          execution_reference_fields = {}
+          for line in execution_reference_output.splitlines():
+              assert "=" in line
+              key, value = line.split("=", 1)
+              assert key not in execution_reference_fields
+              execution_reference_fields[key] = value
+          assert set(execution_reference_fields) == {"schema", "reference_digest", "mutations_verified"}
+          assert execution_reference_fields["schema"] == "security-kernel-execution-binding-v4"
+          assert re.fullmatch(r"[0-9a-f]{64}", execution_reference_fields["reference_digest"])
+          assert execution_reference_fields["mutations_verified"] == str(len(evidence_binding) - 1)
+          execution_reference_binding_sha256 = execution_reference_fields["reference_digest"]
           for field, replacement in (
               ("artifact_name", expected_artifact_name + "-mutated"),
               ("artifact_id", evidence_binding["artifact_id"] + 1),
@@ -485,20 +786,59 @@ jobs:
               )
           print(f"PASS: final retained-evidence binding SHA-256={evidence_binding_digest}")
 
-          for key in ("candidate_cargo_lock_sha256", "candidate_source_digest", "vendor_digest", "sandbox_negative_controls_log_sha256"):
+          for key in ("candidate_cargo_lock_sha256", "candidate_source_digest", "source_staging_digest", "executed_source_digest", "vendor_digest", "vendor_config_digest", "sandbox_negative_controls_log_sha256"):
               assert re.fullmatch(r"[0-9a-f]{64}", receipt.get(key, "")), (
                   f"qualification receipt field {key!r} is not a SHA-256 digest"
               )
+          expected_source_volume_name = f"security-kernel-source-{run_id}-{run_attempt}"
+          assert receipt["source_staging_digest"] == receipt["candidate_source_digest"], "staged-source digest does not match candidate source digest"
+          assert receipt["executed_source_digest"] == receipt["candidate_source_digest"], "executed source volume digest does not match candidate source digest"
+          assert receipt["source_volume_name"] == expected_source_volume_name, "source volume name is not bound to exact S1 run identity"
           for key in (
               "candidate_source_tree_entry_count","candidate_source_file_count","candidate_source_total_path_bytes",
-              "candidate_source_total_bytes","candidate_source_max_blob_bytes","candidate_cargo_lock_package_count",
-              "candidate_cargo_lock_dependency_edges","s1_run_id","s1_run_attempt",
+              "candidate_source_total_bytes","candidate_source_max_blob_bytes","candidate_cargo_lock_package_count","candidate_cargo_lock_dependency_edges",
+              "source_max_bytes","source_max_inodes","dependency_manifest_max_bytes","dependency_lock_max_bytes","source_copy_bytes","source_copy_files","source_copy_inodes",
+              "vendor_max_bytes","vendor_max_files","vendor_max_inodes","vendor_tmpfs_nr_inodes","vendor_config_max_bytes","vendor_config_max_inodes","vendor_config_tmpfs_nr_inodes","vendor_config_observed_bytes","vendor_config_observed_inodes",
+              "vendor_observed_bytes","vendor_observed_files","vendor_observed_inodes","s1_run_id","s1_run_attempt",
           ):
               assert re.fullmatch(r"[0-9]+", receipt.get(key, "")), (
                   f"qualification receipt field {key!r} is not a canonical non-negative integer"
               )
           assert receipt["candidate_cargo_lock_format"] == "v4"
-          assert receipt["source_event"] == "pull_request_target"
+          assert receipt["source_resource_profile"] == "v1"
+          assert receipt["source_max_bytes"] == "1073741824"
+          assert receipt["dependency_manifest_max_bytes"] == "2097152"
+          assert receipt["dependency_lock_max_bytes"] == "33554432"
+          assert receipt["source_max_inodes"] == "300000"
+          assert receipt["source_tmpfs_size"] == "1024m"
+          assert receipt["source_tmpfs_nr_inodes"] == "300000"
+          assert receipt["source_volume_spec"] == "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=1024m,nr_inodes=300000"
+          assert 0 < int(receipt["source_copy_bytes"]) <= int(receipt["source_max_bytes"])
+          assert 0 < int(receipt["source_copy_files"]) <= 200000
+          assert 0 < int(receipt["source_copy_inodes"]) <= int(receipt["source_max_inodes"])
+          assert receipt["vendor_resource_profile"] == "v2"
+          assert receipt["vendor_config_resource_profile"] == "v1"
+          assert receipt["vendor_config_max_bytes"] == "16777216"
+          assert receipt["vendor_config_max_inodes"] == "64"
+          assert receipt["vendor_config_tmpfs_size"] == "16m"
+          assert receipt["vendor_config_tmpfs_nr_inodes"] == "64"
+          expected_vendor_config_volume_name = f"security-kernel-vendor-config-{run_id}-{run_attempt}"
+          assert receipt["vendor_config_volume_name"] == expected_vendor_config_volume_name, "vendor-config volume name is not bound to exact S1 run identity"
+          assert receipt["vendor_config_volume_spec"] == "local|tmpfs|tmpfs|rw,nosuid,nodev,noexec,size=16m,nr_inodes=64"
+          assert 0 < int(receipt["vendor_config_observed_bytes"]) <= int(receipt["vendor_config_max_bytes"])
+          assert 0 < int(receipt["vendor_config_observed_inodes"]) <= int(receipt["vendor_config_max_inodes"])
+          assert receipt["vendor_max_bytes"] == "1073741824"
+          assert receipt["vendor_max_files"] == "100000"
+          assert receipt["vendor_max_inodes"] == "150000"
+          assert receipt["vendor_tmpfs_size"] == "1024m"
+          assert receipt["vendor_tmpfs_nr_inodes"] == "150000"
+          assert receipt["vendor_resource_measurement"] == "bounded-pass"
+          assert 0 < int(receipt["vendor_observed_bytes"]) <= int(receipt["vendor_max_bytes"])
+          assert 0 < int(receipt["vendor_observed_files"]) <= int(receipt["vendor_max_files"])
+          assert 0 < int(receipt["vendor_observed_inodes"]) <= int(receipt["vendor_max_inodes"])
+          assert re.fullmatch(r"[0-9a-f]{64}", receipt["vendor_config_digest"])
+
+          assert receipt["source_event"] == trigger_event
           assert receipt["trusted_dispatcher_workflow"] == run["workflow_ref"]
           assert receipt["trusted_workflow_ref"] == run["workflow_ref"]
           assert receipt["trusted_workflow_sha"] == workflow_sha
@@ -514,11 +854,15 @@ jobs:
           )
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"dispatch_decision={dispatch_decision}\n")
+              output.write(f"dispatch_invocation_source={dispatch_invocation_source}\n")
+              output.write(f"dispatch_eligible_count={dispatch_eligible_count}\n")
               output.write(f"candidate_sha={candidate_sha}\n")
               output.write(f"candidate_pr={candidate_pr}\n")
               output.write(f"candidate_repository={candidate_repository}\n")
               output.write(f"candidate_repository_id={candidate_repo_id}\n")
               output.write(f"trusted_dispatcher_workflow_sha={workflow_sha}\n")
+              output.write(f"trusted_dispatcher_workflow_id={workflow_id}\n")
               output.write(f"trusted_dispatcher_workflow_blob_sha={dispatcher_at_run['sha']}\n")
               output.write(f"trusted_s1_workflow_blob_sha={s1_at_run['sha']}\n")
               output.write(f"trusted_dispatch_run_id={run_id}\n")
@@ -531,6 +875,10 @@ jobs:
               output.write(f"verifier_workflow_blob_sha={os.environ['WORKFLOW_BLOB_SHA']}\n")
               output.write(f"execution_binding_sha256={binding_digest}\n")
               output.write(f"evidence_binding_sha256={evidence_binding_digest}\n")
+              output.write(f"sandbox_negative_controls_log_sha256={receipt['sandbox_negative_controls_log_sha256']}\n")
+              output.write(f"receipt_artifact_expires_at={receipt_expires_at}\n")
+              output.write(f"source_policy_reference_result_sha256={source_policy_reference_result_sha256}\n")
+              output.write(f"execution_reference_binding_sha256={execution_reference_binding_sha256}\n")
           print("PASS: trusted metadata and artifact identity are ready for independent direct-file verification")
 
           print(json.dumps({
@@ -553,11 +901,307 @@ jobs:
               "independent_qualification": "metadata-pass",
               "status_publication": "deliberately-deferred-to-protected-status-plane",
           }, sort_keys=True))
+          def run_reference_source_policy():
+              expected = {
+                  "s0": os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"],
+                  "s1": os.environ["INDEPENDENT_WORKFLOW_PATH"],
+                  "s2": ".github/workflows/security-kernel-trusted-result-verifier.yml",
+                  "retention": os.environ["RETENTION_REFERENCE_VERIFIER_PATH"],
+                   "execution": os.environ["EXECUTION_REFERENCE_VERIFIER_PATH"],
+                  "policy": os.environ["SOURCE_POLICY_VERIFIER_PATH"],
+                  "egress_broker": os.environ["EGRESS_BROKER_PATH"],
+              }
+              snapshot = {"schema": "security-kernel-source-policy-reference-v1", "files": {}}
+              for name, file_path in expected.items():
+                  blob_sha = subprocess.check_output(
+                      ["git", "ls-tree", os.environ["GITHUB_WORKFLOW_SHA"], "--", file_path],
+                      text=True,
+                  ).strip().split()[2]
+                  raw = subprocess.check_output(["git", "show", f"{os.environ['GITHUB_WORKFLOW_SHA']}:{file_path}"])
+                  assert hashlib.sha1(f"blob {len(raw)}\\0".encode("ascii") + raw).hexdigest() == blob_sha
+                  snapshot["files"][name] = {
+                      "path": file_path,
+                      "ref": os.environ["GITHUB_WORKFLOW_SHA"],
+                      "sha": blob_sha,
+                      "encoding": "base64",
+                      "content": _source_policy_base64.b64encode(raw).decode("ascii"),
+                  }
+              verifier = os.path.join(os.environ["GITHUB_WORKSPACE"], os.environ["SOURCE_POLICY_VERIFIER_PATH"])
+              with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
+                  json.dump(snapshot, handle, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+                  snapshot_path = handle.name
+              try:
+                  output = subprocess.check_output(["python3", verifier, snapshot_path], text=True, stderr=subprocess.STDOUT, timeout=20)
+              except subprocess.CalledProcessError as exc:
+                  raise AssertionError(f"independent source-policy verifier rejected raw snapshot: {exc.output!r}") from exc
+              finally:
+                  os.unlink(snapshot_path)
+              result = json.loads(output)
+              expected_keys = {"schema", "policy_result", "workflow_file_count", "reference_file_count", "action_pins_verified", "exact_job_topologies_verified", "exact_trigger_topologies_verified", "exact_step_topologies_verified"}
+              assert set(result) == expected_keys, "source-policy reference result schema drift"
+              assert result["schema"] == "security-kernel-source-policy-reference-v1"
+              assert result["policy_result"] == "verified"
+              assert result["workflow_file_count"] == 3
+              assert result["reference_file_count"] == 4
+              assert result["action_pins_verified"] == 3
+              assert result["exact_job_topologies_verified"] == 3
+              assert result["exact_trigger_topologies_verified"] == 3
+              assert result["exact_step_topologies_verified"] == 3
+              return result
+
+          source_policy_reference_result = run_reference_source_policy()
+          source_policy_reference_result_sha256 = hashlib.sha256(
+              json.dumps(source_policy_reference_result, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+          ).hexdigest()
+          assert re.fullmatch(r"[0-9a-f]{64}", source_policy_reference_result_sha256)
           PY
 
 
+      - name: Verify retained negative-control evidence binding
+        if: ${{ success() && steps.verify_result.outputs.dispatch_decision == 'qualified' }}
+        id: verify_negative_controls_log
+        env:
+          TOKEN: ${{ github.token }}
+          BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
+          BASE_REPOSITORY_ID: "1176351975"
+          RUN_ID: ${{ steps.verify_result.outputs.trusted_dispatch_run_id }}
+          RUN_ATTEMPT: ${{ steps.verify_result.outputs.trusted_dispatch_run_attempt }}
+          CANDIDATE_SHA: ${{ steps.verify_result.outputs.candidate_sha }}
+          CANDIDATE_PR: ${{ steps.verify_result.outputs.candidate_pr }}
+          RECEIPT_LOG_SHA256: ${{ steps.verify_result.outputs.sandbox_negative_controls_log_sha256 }}
+          PARENT_EVIDENCE_BINDING_SHA256: ${{ steps.verify_result.outputs.evidence_binding_sha256 }}
+          RECEIPT_ARTIFACT_EXPIRES_AT: ${{ steps.verify_result.outputs.receipt_artifact_expires_at }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import datetime, hashlib, io, json, os, re, urllib.error, urllib.parse, urllib.request, zipfile
+          class ApiNoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers):
+                  return None
+          api_opener=urllib.request.build_opener(urllib.request.ProxyHandler({}), ApiNoRedirect)
+
+          base = "https://api.github.com"
+          token = os.environ["TOKEN"]
+          repo = os.environ["BASE_REPOSITORY"]
+          repo_id = int(os.environ["BASE_REPOSITORY_ID"])
+          run_id = int(os.environ["RUN_ID"])
+          run_attempt = int(os.environ["RUN_ATTEMPT"])
+          candidate_sha = os.environ["CANDIDATE_SHA"]
+          candidate_pr = int(os.environ["CANDIDATE_PR"])
+          receipt_log_sha256 = os.environ["RECEIPT_LOG_SHA256"]
+          parent_binding = os.environ["PARENT_EVIDENCE_BINDING_SHA256"]
+          receipt_expires_at = os.environ["RECEIPT_ARTIFACT_EXPIRES_AT"]
+
+          assert re.fullmatch(r"[0-9a-f]{64}", receipt_log_sha256), "S1 negative-control transcript digest is not canonical"
+          assert re.fullmatch(r"[0-9a-f]{64}", parent_binding), "parent evidence binding digest is not canonical"
+          assert isinstance(receipt_expires_at, str) and receipt_expires_at, "receipt artifact expiration is missing from S2 step binding"
+          receipt_expiry = datetime.datetime.fromisoformat(receipt_expires_at.replace("Z", "+00:00"))
+          assert receipt_expiry > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30), "receipt artifact must retain for at least 30 days after verification"
+
+          def get(path):
+              req = urllib.request.Request(
+                  base + path,
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {token}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              with api_opener.open(req, timeout=20) as response:
+                  return json.load(response)
+
+          expected_name = f"security-kernel-negative-controls-{candidate_sha}-attempt-{run_attempt}.log"
+          encoded_name = urllib.parse.quote(expected_name, safe="")
+          artifact_response = get(
+              f"/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100&name={encoded_name}"
+          )
+          artifacts = artifact_response.get("artifacts", [])
+          assert artifact_response.get("total_count") == len(artifacts), "negative-control artifact name-filter count mismatch"
+          assert len(artifacts) == 1, f"expected exactly one retained negative-control transcript artifact: {len(artifacts)}"
+          artifact = artifacts[0]
+          assert artifact.get("expired") is False, "negative-control transcript artifact is expired"
+          assert artifact.get("name") == expected_name, "negative-control transcript artifact name mismatch"
+          assert int(artifact.get("id", 0)) > 0, "negative-control transcript artifact id is invalid"
+          assert artifact.get("workflow_run", {}).get("id") == run_id, "negative-control transcript artifact is not bound to the exact S0 run"
+          assert artifact.get("workflow_run", {}).get("repository_id") == repo_id, "negative-control transcript artifact repository identity mismatch"
+          assert artifact.get("workflow_run", {}).get("head_sha") == candidate_sha, "negative-control transcript artifact head SHA mismatch"
+          artifact_digest = artifact.get("digest")
+          assert re.fullmatch(r"sha256:[0-9a-f]{64}", artifact_digest or ""), "negative-control transcript artifact digest is not canonical"
+          artifact_size = int(artifact.get("size_in_bytes", 0))
+          assert 0 < artifact_size <= 65536, "negative-control transcript artifact size exceeds the 64 KiB capture ceiling"
+          transcript_expires_at = artifact.get("expires_at")
+          assert isinstance(transcript_expires_at, str) and transcript_expires_at, "negative-control transcript artifact has no expiration timestamp"
+          transcript_expiry = datetime.datetime.fromisoformat(transcript_expires_at.replace("Z", "+00:00"))
+          assert transcript_expiry > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30), "negative-control transcript artifact must retain for at least 30 days after verification"
+
+          pr = get(f"/repos/{repo}/pulls/{candidate_pr}")
+          assert pr["number"] == candidate_pr
+          assert pr["state"] == "open"
+          assert pr["base"]["repo"]["id"] == repo_id
+          assert pr["base"]["ref"] == "main"
+          assert pr["head"]["sha"] == candidate_sha
+          assert pr["head"]["repo"]["id"] == artifact.get("workflow_run", {}).get("head_repository_id"), "candidate head repository differs from transcript artifact provenance"
+
+          archive_url = artifact.get("archive_download_url")
+          assert isinstance(archive_url, str) and archive_url, "negative-control transcript artifact has no download URL"
+          request = urllib.request.Request(
+              archive_url,
+              headers={
+                  "Accept": "application/octet-stream",
+                  "Authorization": f"Bearer {token}",
+                  "X-GitHub-Api-Version": "2026-03-10",
+              },
+          )
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers):
+                  return None
+
+          try:
+              with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect).open(request, timeout=30) as response:
+                  raise AssertionError(f"negative-control transcript download returned unexpected HTTP {response.status} without redirect")
+          except urllib.error.HTTPError as error:
+              if error.code not in (301, 302, 303, 307, 308):
+                  raise
+              download_url = error.headers.get("Location")
+              assert isinstance(download_url, str) and download_url, "negative-control transcript redirect omitted Location"
+
+          parsed_download_url = urllib.parse.urlparse(download_url)
+          assert parsed_download_url.scheme == "https", "negative-control transcript redirect URL must use HTTPS"
+          assert not parsed_download_url.username and not parsed_download_url.password, "negative-control transcript redirect URL must not contain userinfo"
+          assert parsed_download_url.port in (None, 443), "negative-control transcript redirect URL must not use a non-standard port"
+          try:
+              with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect).open(download_url, timeout=30) as response:
+                  assert response.status == 200, f"negative-control transcript redirect target returned HTTP {response.status}"
+                  downloaded = response.read(65536 + 1)
+          except urllib.error.HTTPError as error:
+              raise AssertionError(
+                  f"negative-control transcript redirect target performed an unexpected second HTTP redirect/status: {error.code}"
+              ) from error
+          assert downloaded, "negative-control transcript download is empty"
+          assert len(downloaded) <= 1024 * 1024, "negative-control transcript download exceeds verifier bound"
+          assert artifact_digest == "sha256:" + hashlib.sha256(downloaded).hexdigest(), "transcript download does not match GitHub artifact digest"
+
+          content = downloaded
+          if zipfile.is_zipfile(io.BytesIO(downloaded)):
+              with zipfile.ZipFile(io.BytesIO(downloaded)) as archive:
+                  infos = archive.infolist()
+                  assert len(infos) <= 16, f"negative-control transcript archive contains {len(infos)} entries, exceeding verifier bound"
+                  members = [info for info in infos if not info.is_dir()]
+                  assert len(members) == 1, f"negative-control transcript archive contains {len(members)} files, expected exactly one"
+                  assert 0 < members[0].file_size <= 1024 * 1024, (
+                      f"negative-control transcript member expands to {members[0].file_size} bytes, outside verifier bound"
+                  )
+                  assert 0 < members[0].compress_size <= 1024 * 1024, (
+                      f"negative-control transcript member compressed size {members[0].compress_size} is outside verifier bound"
+                  )
+                  assert members[0].filename.rsplit("/", 1)[-1] == expected_name, "negative-control transcript member name mismatch"
+                  content = archive.read(members[0])
+
+          content_sha256 = hashlib.sha256(content).hexdigest()
+          assert content_sha256 == receipt_log_sha256, "retained transcript bytes do not match the independently parsed S1 receipt digest"
+          text = content.decode("utf-8")
+          marker = "PASS: active negative controls rejected writable-root, source/vendor/config mutation, token visibility, device exposure, network access, and untrusted background-process assumptions"
+          assert marker in text, "negative-control transcript is missing the required semantic pass marker"
+          assert "unexpectedly succeeded" not in text, "negative-control transcript contains an unexpected-success marker"
+
+          binding = {
+              "schema": "security-kernel-evidence-retention-binding-v1",
+              "parent_evidence_binding_sha256": parent_binding,
+              "candidate_pr": candidate_pr,
+              "candidate_sha": candidate_sha,
+              "run_id": run_id,
+              "run_attempt": run_attempt,
+              "artifact_name": expected_name,
+              "artifact_id": int(artifact["id"]),
+              "artifact_digest": artifact_digest,
+              "artifact_size": artifact_size,
+              "content_sha256": content_sha256,
+              "receipt_artifact_expires_at": receipt_expires_at,
+              "transcript_artifact_expires_at": transcript_expires_at,
+               "reference_verifier_path": os.environ["RETENTION_REFERENCE_VERIFIER_PATH"],
+               "reference_verifier_blob_sha": retention_reference_verifier_blob_sha,
+          }
+          encoded = json.dumps(binding, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+          binding_sha256 = hashlib.sha256(encoded).hexdigest()
+
+           expected_retention_binding_keys = {
+               "schema", "parent_evidence_binding_sha256", "candidate_pr", "candidate_sha",
+               "run_id", "run_attempt", "artifact_name", "artifact_id", "artifact_digest",
+               "artifact_size", "content_sha256", "receipt_artifact_expires_at",
+               "transcript_artifact_expires_at", "reference_verifier_path", "reference_verifier_blob_sha",
+           }
+           assert set(binding) == expected_retention_binding_keys, "retention binding schema drift"
+           assert binding["reference_verifier_path"] == os.environ["RETENTION_REFERENCE_VERIFIER_PATH"]
+           assert binding["reference_verifier_blob_sha"] == retention_reference_verifier_blob_sha
+
+           retention_reference_input = dict(binding)
+           with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
+               json.dump(retention_reference_input, handle, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+               retention_reference_path = handle.name
+           try:
+               retention_reference_output = subprocess.check_output(
+                   [
+                       "python3",
+                       os.path.join(os.environ["GITHUB_WORKSPACE"], os.environ["RETENTION_REFERENCE_VERIFIER_PATH"]),
+                       retention_reference_path,
+                   ],
+                   text=True,
+                   stderr=subprocess.STDOUT,
+                   timeout=20,
+               )
+           except subprocess.CalledProcessError as exc:
+               raise AssertionError(f"independent retention reference verifier rejected binding: {exc.output!r}") from exc
+           finally:
+               os.unlink(retention_reference_path)
+           reference_fields = {}
+           for line in retention_reference_output.splitlines():
+               assert "=" in line
+               key, value = line.split("=", 1)
+               assert key not in reference_fields
+               reference_fields[key] = value
+           assert set(reference_fields) == {"schema", "reference_digest", "mutations_verified"}
+           assert reference_fields["schema"] == binding["schema"]
+           assert re.fullmatch(r"[0-9a-f]{64}", reference_fields["reference_digest"])
+           assert reference_fields["mutations_verified"] == str(len(binding) - 1)
+           retention_reference_digest = reference_fields["reference_digest"]
+
+          for field, replacement in (
+              ("parent_evidence_binding_sha256", "0" * 64),
+              ("candidate_pr", candidate_pr + 1),
+              ("candidate_sha", "1" * 40),
+              ("run_id", run_id + 1),
+              ("run_attempt", run_attempt + 1),
+              ("artifact_name", expected_name + ".mutated"),
+              ("artifact_id", int(artifact["id"]) + 1),
+              ("artifact_digest", "sha256:" + "2" * 64),
+              ("artifact_size", artifact_size + 1),
+              ("content_sha256", "3" * 64),
+              ("receipt_artifact_expires_at", receipt_expires_at + "-mutated"),
+              ("transcript_artifact_expires_at", transcript_expires_at + "-mutated"),
+               ("reference_verifier_path", os.environ["RETENTION_REFERENCE_VERIFIER_PATH"] + "-mutated"),
+               ("reference_verifier_blob_sha", "4" * 40),
+          ):
+              mutated = dict(binding)
+              mutated[field] = replacement
+              mutated_sha256 = hashlib.sha256(
+                  json.dumps(mutated, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+              ).hexdigest()
+              assert mutated_sha256 != binding_sha256, f"evidence-retention binding is invariant under mutation of {field}"
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"negative_controls_log_artifact_id={artifact['id']}\n")
+              output.write(f"negative_controls_log_artifact_name={expected_name}\n")
+              output.write(f"negative_controls_log_artifact_digest={artifact_digest}\n")
+              output.write(f"negative_controls_log_artifact_size={artifact_size}\n")
+              output.write(f"negative_controls_log_content_sha256={content_sha256}\n")
+              output.write(f"evidence_retention_binding_sha256={binding_sha256}\n")
+              output.write(f"retention_reference_binding_sha256={retention_reference_digest}\n")
+          print(f"PASS: evidence-retention binding SHA-256={binding_sha256}")
+          PY
+
       - name: Download retained qualification receipt through official artifact client
-        if: success()
+        if: ${{ success() && steps.verify_result.outputs.dispatch_decision == 'qualified' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           artifact-ids: ${{ steps.verify_result.outputs.artifact_id }}
@@ -567,11 +1211,33 @@ jobs:
           run-id: ${{ steps.verify_result.outputs.trusted_dispatch_run_id }}
           digest-mismatch: error
 
+      - name: Download retained sandbox negative-control transcript through official artifact client
+        if: ${{ success() && steps.verify_result.outputs.dispatch_decision == 'qualified' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_id }}
+          path: ${{ runner.temp }}/security-kernel-official-negative-controls
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.verify_result.outputs.trusted_dispatch_run_id }}
+          digest-mismatch: error
+
       - name: Verify official receipt transport and publish verified result
-        if: success()
-        shell: bash
+        if: ${{ !cancelled() && (steps.verify_result.outputs.dispatch_decision == 'suppressed' || (success() && steps.verify_result.outputs.dispatch_decision == 'qualified')) }}
         env:
           RECEIPT_ROOT: ${{ runner.temp }}/security-kernel-official-receipt
+          NEGATIVE_CONTROLS_ROOT: ${{ runner.temp }}/security-kernel-official-negative-controls
+          EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_NAME: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_name }}
+          EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_DIGEST: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_digest }}
+          EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_SIZE: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_size }}
+          EXPECTED_NEGATIVE_CONTROLS_LOG_SHA256: ${{ steps.verify_negative_controls_log.outputs.negative_controls_log_content_sha256 }}
+          DISPATCH_DECISION: ${{ steps.verify_result.outputs.dispatch_decision }}
+          DISPATCH_INVOCATION_SOURCE: ${{ steps.verify_result.outputs.dispatch_invocation_source }}
+          DISPATCH_ELIGIBLE_COUNT: ${{ steps.verify_result.outputs.dispatch_eligible_count }}
+          EVIDENCE_RETENTION_BINDING_SHA256: ${{ steps.verify_negative_controls_log.outputs.evidence_retention_binding_sha256 }}
+          SOURCE_POLICY_REFERENCE_RESULT_SHA256: ${{ steps.verify_result.outputs.source_policy_reference_result_sha256 }}
+          EXECUTION_REFERENCE_BINDING_SHA256: ${{ steps.verify_result.outputs.execution_reference_binding_sha256 }}
+          RETENTION_REFERENCE_BINDING_SHA256: ${{ steps.verify_negative_controls_log.outputs.retention_reference_binding_sha256 }}
           EXPECTED_ARTIFACT_NAME: ${{ steps.verify_result.outputs.artifact_name }}
           EXPECTED_ARTIFACT_DIGEST: ${{ steps.verify_result.outputs.artifact_digest }}
           EXPECTED_ARTIFACT_SIZE: ${{ steps.verify_result.outputs.artifact_size }}
@@ -587,8 +1253,18 @@ jobs:
           ARTIFACT_ID: ${{ steps.verify_result.outputs.artifact_id }}
           EXECUTION_BINDING_SHA256: ${{ steps.verify_result.outputs.execution_binding_sha256 }}
           EVIDENCE_BINDING_SHA256: ${{ steps.verify_result.outputs.evidence_binding_sha256 }}
+        shell: bash
         run: |
           set -euo pipefail
+          if [ "$DISPATCH_DECISION" = "suppressed" ]; then
+            test "$DISPATCH_INVOCATION_SOURCE" = "scheduled-fallback"
+            test "$DISPATCH_ELIGIBLE_COUNT" = "0"
+            echo "SUPPRESSED: trusted S0 decision witness verified; no candidate qualification or evidence-retention path was executed"
+            exit 0
+          fi
+          test "$DISPATCH_DECISION" = "qualified"
+          test "$DISPATCH_INVOCATION_SOURCE" = "trusted-dispatch" || test "$DISPATCH_INVOCATION_SOURCE" = "scheduled-fallback"
+          test "$DISPATCH_ELIGIBLE_COUNT" != "0"
           test -d "$RECEIPT_ROOT"
           mapfile -t receipt_files < <(find "$RECEIPT_ROOT" -type f -print)
           test "${#receipt_files[@]}" -eq 1
@@ -597,6 +1273,19 @@ jobs:
           test "$(stat -c %s "$receipt_path")" = "$EXPECTED_ARTIFACT_SIZE"
           actual_digest="$(sha256sum "$receipt_path" | awk '{print $1}')"
           test "sha256:$actual_digest" = "$EXPECTED_ARTIFACT_DIGEST"
+          test -d "$NEGATIVE_CONTROLS_ROOT"
+          mapfile -t negative_controls_files < <(find "$NEGATIVE_CONTROLS_ROOT" -type f -print)
+          test "${#negative_controls_files[@]}" -eq 1
+          negative_controls_path="${negative_controls_files[0]}"
+          test "$(basename "$negative_controls_path")" = "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_NAME"
+          test "$(stat -c %s "$negative_controls_path")" = "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_SIZE"
+          negative_controls_digest="$(sha256sum "$negative_controls_path" | awk '{print $1}')"
+          test "sha256:$negative_controls_digest" = "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_DIGEST"
+          test "$negative_controls_digest" = "$EXPECTED_NEGATIVE_CONTROLS_LOG_SHA256"
+          grep -Fq 'PASS: active negative controls rejected writable-root, source/vendor/config mutation, token visibility, device exposure, network access, and untrusted background-process assumptions' "$negative_controls_path"
+          ! grep -Fq 'unexpectedly succeeded' "$negative_controls_path"
+          printf "%s\n" "$EVIDENCE_RETENTION_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
+          echo "PASS: official artifact client returned the retained negative-control transcript with exact filename, size, artifact digest, content digest, and semantic pass marker"
           test "$ARTIFACT_ID" -gt 0
           printf '%s\n' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s\n' "$TRUSTED_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
@@ -605,6 +1294,12 @@ jobs:
           printf '%s\n' "$VERIFIER_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s\n' "$VERIFIER_BLOB_SHA" | grep -Eq '^[0-9a-f]{40}$'
           echo "PASS: official artifact client returned exactly one direct-file receipt with exact filename, size, and SHA-256"
+          printf "execution_reference_binding_sha256=%s\n" "$EXECUTION_REFERENCE_BINDING_SHA256"
+          printf "retention_reference_binding_sha256=%s\n" "$RETENTION_REFERENCE_BINDING_SHA256"
+          printf "evidence_retention_binding_sha256=%s\nnegative_controls_log_artifact_id=%s\nnegative_controls_log_artifact_name=%s\nnegative_controls_log_artifact_digest=%s\nnegative_controls_log_content_sha256=%s\n" "$EVIDENCE_RETENTION_BINDING_SHA256" "${{ steps.verify_negative_controls_log.outputs.negative_controls_log_artifact_id }}" "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_NAME" "$EXPECTED_NEGATIVE_CONTROLS_ARTIFACT_DIGEST" "$negative_controls_digest"
           printf "%s\n" "$EXECUTION_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
           printf "%s\n" "$EVIDENCE_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
-          printf 'candidate_sha=%s\ncandidate_pr=%s\ncandidate_repository=%s\ncandidate_repository_id=%s\ntrusted_dispatcher_workflow_sha=%s\ntrusted_dispatcher_workflow_blob_sha=%s\ntrusted_s1_workflow_blob_sha=%s\nexecution_binding_sha256=%s\nevidence_binding_sha256=%s\nverifier_workflow_sha=%s\nverifier_workflow_blob_sha=%s\nqualification_receipt_artifact_id=%s\nqualification_receipt_artifact_digest=%s\nqualification_receipt_content_sha256=%s\nindependent_qualification=verified-pass\nstatus_publication=deliberately-deferred-to-protected-status-plane\n' "$CANDIDATE_SHA" "$CANDIDATE_PR" "$CANDIDATE_REPOSITORY" "$CANDIDATE_REPOSITORY_ID" "$TRUSTED_WORKFLOW_SHA" "$S0_BLOB_SHA" "$S1_BLOB_SHA" "$EXECUTION_BINDING_SHA256" "$EVIDENCE_BINDING_SHA256" "$VERIFIER_WORKFLOW_SHA" "$VERIFIER_BLOB_SHA" "$ARTIFACT_ID" "$EXPECTED_ARTIFACT_DIGEST" "$actual_digest"
+          printf "%s\n" "$EXECUTION_REFERENCE_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
+          printf "%s\n" "$RETENTION_REFERENCE_BINDING_SHA256" | grep -Eq "^[0-9a-f]{64}$"
+          printf "%s\n" "$SOURCE_POLICY_REFERENCE_RESULT_SHA256" | grep -Eq "^[0-9a-f]{64}$"
+          printf 'candidate_sha=%s\ncandidate_pr=%s\ncandidate_repository=%s\ncandidate_repository_id=%s\ntrusted_dispatcher_workflow_sha=%s\ntrusted_dispatcher_workflow_blob_sha=%s\ntrusted_s1_workflow_blob_sha=%s\nexecution_binding_sha256=%s\nevidence_binding_sha256=%s\nexecution_reference_binding_sha256=%s\nretention_reference_binding_sha256=%s\nsource_policy_reference_result_sha256=%s\nverifier_workflow_sha=%s\nverifier_workflow_blob_sha=%s\nqualification_receipt_artifact_id=%s\nqualification_receipt_artifact_digest=%s\nqualification_receipt_content_sha256=%s\nindependent_qualification=verified-pass\nstatus_publication=deliberately-deferred-to-protected-status-plane\n' "$CANDIDATE_SHA" "$CANDIDATE_PR" "$CANDIDATE_REPOSITORY" "$CANDIDATE_REPOSITORY_ID" "$TRUSTED_WORKFLOW_SHA" "$S0_BLOB_SHA" "$S1_BLOB_SHA" "$EXECUTION_BINDING_SHA256" "$EVIDENCE_BINDING_SHA256" "$EXECUTION_REFERENCE_BINDING_SHA256" "$RETENTION_REFERENCE_BINDING_SHA256" "$SOURCE_POLICY_REFERENCE_RESULT_SHA256" "$VERIFIER_WORKFLOW_SHA" "$VERIFIER_BLOB_SHA" "$ARTIFACT_ID" "$EXPECTED_ARTIFACT_DIGEST" "$actual_digest"
