@@ -199,6 +199,12 @@ jobs:
           assert "owner_after = repository_after.get(\"owner\")" in scanned_text
           assert "repository owner governance drift during observation" in scanned_text
           assert "branch-payload-after.json" in scanned_text
+          assert "branch_commit_before = branch_before.get(\"commit\")" in scanned_text
+          assert "branch_commit_after = branch_after.get(\"commit\")" in scanned_text
+          assert "main branch commit changed during governance observation" in scanned_text
+          assert "main branch commit SHA is invalid" in scanned_text
+          assert "live_main_sha = branch.get(\"commit\", {}).get(\"sha\")" in scanned_text
+          assert "EXPECTED_LIVE_MAIN_SHA" in scanned_text
           assert "rulesets-payload-after.json" in scanned_text
           assert "rulesets-after/${ruleset_id}.json" in scanned_text
           assert "branch-protection-payload-after.json" in scanned_text
