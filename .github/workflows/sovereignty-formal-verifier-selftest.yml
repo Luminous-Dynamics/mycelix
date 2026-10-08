@@ -22,6 +22,8 @@ on:
       - 'docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_QUALIFICATION_PROFILE_V1.json'
       - 'docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json'
       - 'mycelix-governance/tools/formal/effective_contestability_pins.json'
+      - 'mycelix-governance/tools/formal/test_effective_contestability_control_matrix.py'
+      - 'docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CONTROL_MATRIX_V1.json'
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
@@ -61,6 +63,16 @@ jobs:
         run: |
           set -euo pipefail
           python3 mycelix-governance/tools/formal/test_qualify_sovereignty_formal_blackbox.py
+
+      - name: Run effective-contestability control matrix self-test
+        run: |
+          set -euo pipefail
+          python3 mycelix-governance/tools/formal/test_effective_contestability_control_matrix.py \
+            --matrix docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CONTROL_MATRIX_V1.json \
+            --tla docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.tla \
+            --negative-tla docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1NegativeControls.tla \
+            --alloy docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.als \
+            --reference docs/qualification/fixtures/effective-contestability/effective_contestability_reference_explorer.py
 
       - name: Run effective-contestability tree gate self-test
         run: |
