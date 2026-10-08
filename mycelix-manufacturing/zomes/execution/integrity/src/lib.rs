@@ -70,8 +70,26 @@ pub struct MaterialLotEntry {
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
+pub struct InspectionCriterionEntry {
+    pub requirement_id: String,
+    pub revision: String,
+    pub characteristic: String,
+    pub unit: String,
+    pub lower_bound: Option<f64>,
+    pub upper_bound: Option<f64>,
+    pub measurement_method: Option<String>,
+    pub required_instrument_class: Option<String>,
+    pub specification_reference: Option<String>,
+    pub created_at: Timestamp,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct MeasurementEntry {
     pub measurement_id: String,
+    /// Optional during schema migration; accepted executions require it.
+    #[serde(default)]
+    pub criterion_hash: Option<ActionHash>,
     pub kind: String,
     pub value: f64,
     pub unit: String,
@@ -120,6 +138,7 @@ pub enum EntryTypes {
     MaterialLot(MaterialLotEntry),
     Measurement(MeasurementEntry),
     Calibration(CalibrationEntry),
+    InspectionCriterion(InspectionCriterionEntry),
     CapabilityContract(CapabilityContractEntry),
     Evidence(EvidenceEntry),
     ExecutionReceipt(ExecutionReceiptEntry),
@@ -130,6 +149,7 @@ pub enum LinkTypes {
     AllMaterialLots,
     AllMeasurements,
     AllCalibrations,
+    AllInspectionCriteria,
     AllCapabilityContracts,
     AllEvidence,
     AllExecutions,
@@ -200,6 +220,56 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                 if lower > upper {
                     return Ok(ValidateCallbackResult::Invalid(
                         "lower_bound must be <= upper_bound".into(),
+                    ));
+                }
+            }
+            if let Some(hash) = m.criterion_hash.clone() {
+                let record = must_get_valid_record(hash)?;
+                let criterion: Option<InspectionCriterionEntry> = record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.to_string())))?;
+                let Some(criterion) = criterion else {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "measurement criterion reference is not an inspection criterion".into(),
+                    ));
+                };
+                if m.kind != criterion.characteristic || m.unit != criterion.unit {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "measurement does not match its inspection criterion".into(),
+                    ));
+                }
+                if criterion.lower_bound.is_some_and(|lower| m.value < lower)
+                    || criterion.upper_bound.is_some_and(|upper| m.value > upper)
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "measurement value is outside its authoritative inspection criterion".into(),
+                    ));
+                }
+            }
+        }
+        EntryTypes::InspectionCriterion(c) => {
+            if c.requirement_id.is_empty() || c.revision.is_empty() || c.characteristic.is_empty() || c.unit.is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "inspection criterion requires requirement_id, revision, characteristic and unit".into(),
+                ));
+            }
+            if c.lower_bound.is_none() && c.upper_bound.is_none() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "inspection criterion requires at least one authoritative bound".into(),
+                ));
+            }
+            if c.lower_bound.is_some_and(|v| !v.is_finite())
+                || c.upper_bound.is_some_and(|v| !v.is_finite())
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "inspection criterion bounds must be finite".into(),
+                ));
+            }
+            if let (Some(lower), Some(upper)) = (c.lower_bound, c.upper_bound) {
+                if lower > upper {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "inspection criterion lower_bound must be <= upper_bound".into(),
                     ));
                 }
             }
@@ -480,6 +550,13 @@ fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
                         "execution measurement must fall within the execution interval".into(),
                     ));
                 }
+                if matches!(e.disposition, Disposition::Accepted)
+                    && measurement.criterion_hash.is_none()
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "accepted execution measurements require an inspection criterion".into(),
+                    ));
+                }
                 if let Some(instrument_hash) = measurement.instrument_hash.clone() {
                     measurement_instruments.insert(instrument_hash);
                 }
@@ -552,9 +629,46 @@ mod tests {
     use super::*;
 
     #[test]
+    fn rejects_malformed_inspection_criterion() {
+        let entry = InspectionCriterionEntry {
+            requirement_id: "".into(),
+            revision: "A".into(),
+            characteristic: "length".into(),
+            unit: "mm".into(),
+            lower_bound: Some(0.0),
+            upper_bound: Some(1.0),
+            measurement_method: None,
+            required_instrument_class: None,
+            specification_reference: None,
+            created_at: Timestamp::from_micros(0),
+        };
+        let result = validate_create(EntryTypes::InspectionCriterion(entry)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn rejects_unbounded_inspection_criterion() {
+        let entry = InspectionCriterionEntry {
+            requirement_id: "CRIT-1".into(),
+            revision: "A".into(),
+            characteristic: "length".into(),
+            unit: "mm".into(),
+            lower_bound: None,
+            upper_bound: None,
+            measurement_method: None,
+            required_instrument_class: None,
+            specification_reference: None,
+            created_at: Timestamp::from_micros(0),
+        };
+        let result = validate_create(EntryTypes::InspectionCriterion(entry)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
     fn rejects_invalid_measurement() {
         let entry = MeasurementEntry {
             measurement_id: "M1".into(),
+            criterion_hash: None,
             kind: "length".into(),
             value: f64::NAN,
             unit: "mm".into(),
