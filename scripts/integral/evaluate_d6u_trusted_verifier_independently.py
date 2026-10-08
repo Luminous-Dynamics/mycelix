@@ -14,6 +14,7 @@ import json
 import importlib.util
 import pathlib
 import subprocess
+import tempfile
 import sys
 
 
@@ -341,6 +342,97 @@ def run(candidate_root: pathlib.Path) -> None:
         'executor_run["run_attempt"] == int(record["executor_run_attempt"])',
         "candidate verifier accepted an executor run from a different attempt",
     )
+
+    record_header = "D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE\\n"
+    with tempfile.TemporaryDirectory() as scratch:
+        scratch_path = pathlib.Path(scratch)
+        valid_record_path = scratch_path / "valid-record.txt"
+        valid_record_path.write_text(
+            record_header + "status=passed\\nworkflow_run_id=200\\n",
+            encoding="utf-8",
+        )
+        assert verifier.load_record(valid_record_path) == {
+            "status": "passed",
+            "workflow_run_id": "200",
+        }
+
+        duplicate_record_path = scratch_path / "duplicate-record.txt"
+        duplicate_record_path.write_text(
+            record_header + "status=passed\\nstatus=failed\\n",
+            encoding="utf-8",
+        )
+        assert_rejected(
+            lambda: verifier.load_record(duplicate_record_path),
+            "duplicate evidence key",
+            "candidate verifier accepted duplicate record keys",
+        )
+
+        malformed_record_path = scratch_path / "malformed-record.txt"
+        malformed_record_path.write_text(
+            record_header + "not-a-key-value-line\\n",
+            encoding="utf-8",
+        )
+        assert_rejected(
+            lambda: verifier.load_record(malformed_record_path),
+            "malformed evidence record line",
+            "candidate verifier accepted a malformed record line",
+        )
+
+        wrong_header_path = scratch_path / "wrong-header.txt"
+        wrong_header_path.write_text(
+            "UNTRUSTED HEADER\\nstatus=passed\\n",
+            encoding="utf-8",
+        )
+        assert_rejected(
+            lambda: verifier.load_record(wrong_header_path),
+            "D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE",
+            "candidate verifier accepted an unexpected record header",
+        )
+
+        artifact_dir = scratch_path / "artifact-valid"
+        artifact_dir.mkdir()
+        (artifact_dir / "d6u-runtime-evidence.txt").write_text(
+            "inert evidence fixture\\n", encoding="utf-8"
+        )
+        verifier.verify_artifact_layout(
+            artifact_dir,
+            {"d6u-runtime-evidence.txt"},
+            max_entries=2,
+        )
+
+        extra_file = artifact_dir / "unexpected.txt"
+        extra_file.write_text("extra\\n", encoding="utf-8")
+        assert_rejected(
+            lambda: verifier.verify_artifact_layout(
+                artifact_dir,
+                {"d6u-runtime-evidence.txt"},
+                max_entries=4,
+            ),
+            "unexpected trusted input files",
+            "candidate verifier accepted an extra artifact file",
+        )
+
+        symlink_dir = scratch_path / "artifact-symlink"
+        symlink_dir.mkdir()
+        (symlink_dir / "link").symlink_to(valid_record_path)
+        assert_rejected(
+            lambda: verifier.verify_artifact_layout(
+                symlink_dir, {"link"}, max_entries=2
+            ),
+            "trusted artifact contains symlink",
+            "candidate verifier accepted a symlink artifact member",
+        )
+
+        nested_dir = scratch_path / "artifact-nested"
+        nested_dir.mkdir()
+        (nested_dir / "nested").mkdir()
+        assert_rejected(
+            lambda: verifier.verify_artifact_layout(
+                nested_dir, set(), max_entries=4
+            ),
+            "trusted artifact contains nested directory",
+            "candidate verifier accepted nested artifact directories",
+        )
 
     tampered = dict(record)
     tampered["workflow_run_id"] = "201"
