@@ -36,6 +36,7 @@ pub struct GetMachinesByTypeInput {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum MachineStateResolution {
+    NotFound,
     Resolved { status: MachineStatus },
     Ambiguous { statuses: Vec<MachineStatus> },
     Deleted,
@@ -132,7 +133,7 @@ pub fn get_machine(hash: ActionHash) -> ExternResult<Option<Record>> {
 pub fn get_current_machine_state(machine_hash: ActionHash) -> ExternResult<MachineStateResolution> {
     let details = get_details(machine_hash.clone(), GetOptions::default())?;
     let Some(Details::Record(record_details)) = details else {
-        return Ok(MachineStateResolution::Deleted);
+        return Ok(MachineStateResolution::NotFound);
     };
 
     if !record_details.deletes.is_empty() {
