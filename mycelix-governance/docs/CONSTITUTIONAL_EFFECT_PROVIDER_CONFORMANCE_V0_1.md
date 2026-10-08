@@ -396,15 +396,19 @@ one final-provider-entry proof commitment for each attempt/action pair, in paral
 with the terminal evidence commitment.
 
 These values are canonical digest commitments, not Holochain `ActionHash` references.
-Resolution receipts also cap the number of parallel action/evidence tuples at 256, so a single DHT entry cannot amplify resource consumption through unbounded proof-root vectors.
-The integrity zome therefore validates namespace/shape and vector alignment, while the
-host-side effect boundary remains responsible for dereferencing the commitments against
-its durable admission/evidence receipts.
+Resolution receipts also cap the number of parallel action/evidence tuples at 256, so a single DHT entry cannot amplify resource consumption through unbounded proof-root vectors. At creation time, the coordinator additionally parses and validates the prepared timelock's action payload and requires exactly one tuple per action; empty action batches and mismatched tuple counts are rejected.
 
-This separation matters: a well-formed commitment is not proof that the referenced
-host-side evidence actually exists. A future promotion gate should require an independent
-host-side receipt reconciliation step before treating an `ExecutionResolution` as
-fully evidenced.
+The integrity zome therefore validates canonical digest namespaces, digest shape, vector
+alignment, and the maximum count. The coordinator additionally enforces cardinality
+against the prepared action payload. These checks do **not** prove that each root
+semantically corresponds to its same-index action, nor do they authenticate the referenced
+host-side receipt. The host-side effect boundary remains responsible for dereferencing
+and verifying commitments against its durable admission/evidence receipts.
+
+This separation matters: a well-formed commitment and complete tuple count are necessary,
+but insufficient, evidence that the intended effect actually occurred. A future promotion
+gate should require independent host-side receipt reconciliation and exact-action
+correspondence before treating an `ExecutionResolution` as fully evidenced.
 
 ## Adapter contract added by D1D0
 
