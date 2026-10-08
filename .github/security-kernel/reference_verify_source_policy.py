@@ -1147,6 +1147,15 @@ def main() -> None:
         lambda: verify_s0(inject_extra_permission(raw["s0"]), s1_sha),
         "S0 security-events: write",
     )
+
+    expect_rejection(
+        lambda: verify_s0(raw["s0"].replace(
+            b'item.get("filename") in trust_paths or item.get("previous_filename") in trust_paths',
+            b'item.get("filename") in trust_paths',
+            1,
+        ), s1_sha),
+        "S0 scheduled trust-surface rename provenance removed",
+    )
     expect_rejection(
         lambda: verify_s1(inject_extra_permission(raw["s1"]), s1_sha),
         "S1 security-events: write",
