@@ -243,7 +243,7 @@ jobs:
                       f"trigger_run_attempt={run_attempt}",
                       f"trigger_head_sha={head_sha}",
                       f"trigger_workflow_commit_sha={workflow_commit}",
-                      f"trigger_workflow_blob_sha={record["workflow_file_blob_sha"]}",
+                      f'trigger_workflow_blob_sha={record["workflow_file_blob_sha"]}',
                       f"artifact_id={artifact['id']}",
                       f"artifact_digest=sha256:{observed_digest}",
                   ]
@@ -260,7 +260,7 @@ jobs:
           print(
               "verified D6S workflow provenance: "
               f"run={run_id} attempt={run_attempt} "
-              f"workflow_commit={workflow_commit} workflow_blob={record["workflow_file_blob_sha"]}"
+              f'workflow_commit={workflow_commit} workflow_blob={record["workflow_file_blob_sha"]}'
           )
           PY
 
