@@ -355,7 +355,7 @@ jobs:
               -H "Authorization: Bearer ${GOVERNANCE_ADMIN_TOKEN}" \
               -o evidence/governance/admin-capability-probe-payload.json \
               -w "%{http_code}" \
-              "https://api.github.com/orgs/Luminous-Dynamics/rulesets?per_page=1" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/rulesets/rule-suites?per_page=1" \
               > evidence/governance/admin-capability-probe-http-status.txt
             capability_probe_curl_status=$?
             set -e
@@ -417,7 +417,7 @@ jobs:
               -H "Authorization: Bearer ${GOVERNANCE_ADMIN_TOKEN}" \
               -o evidence/governance/admin-capability-probe-payload-after.json \
               -w "%{http_code}" \
-              "https://api.github.com/orgs/Luminous-Dynamics/rulesets?per_page=1" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/rulesets/rule-suites?per_page=1" \
               > evidence/governance/admin-capability-probe-http-status-after.txt
             capability_probe_curl_status_after=$?
             set -e
@@ -1605,7 +1605,7 @@ jobs:
               -H "Authorization: Bearer ${GOVERNANCE_ADMIN_TOKEN}" \
               -o evidence/governance/admin-capability-probe-payload.json \
               -w "%{http_code}" \
-              "https://api.github.com/orgs/Luminous-Dynamics/rulesets?per_page=1" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/rulesets/rule-suites?per_page=1" \
               > evidence/governance/admin-capability-probe-http-status.txt
             capability_probe_curl_status=$?
             set -e
@@ -1667,7 +1667,7 @@ jobs:
               -H "Authorization: Bearer ${GOVERNANCE_ADMIN_TOKEN}" \
               -o evidence/governance/admin-capability-probe-payload-after.json \
               -w "%{http_code}" \
-              "https://api.github.com/orgs/Luminous-Dynamics/rulesets?per_page=1" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/rulesets/rule-suites?per_page=1" \
               > evidence/governance/admin-capability-probe-http-status-after.txt
             capability_probe_curl_status_after=$?
             set -e
