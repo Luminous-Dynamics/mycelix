@@ -716,9 +716,10 @@ impl PinnedProviderAdapterRegistry {
 
 /// Constructor-bound authority/evidence trust root.
 ///
-/// Admission authority, provider-adapter selection, terminal evidence
-/// verification, final-entry freshness verification, and both recovery
-/// authorities are pinned when the boundary is constructed.
+/// Admission authority, terminal evidence verification, final-entry freshness
+/// verification, and both recovery authorities are pinned when the boundary is
+/// constructed. Concrete provider adapter objects are separately owned by the
+/// constructor-pinned provider registry.
 pub trait BoundaryTrustRoot {
     fn admission_verifier_identity(&self) -> &str;
     fn authorize_admission(
