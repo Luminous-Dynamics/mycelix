@@ -37,6 +37,7 @@ pub struct GetMachinesByTypeInput {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum MachineStateResolution {
     NotFound,
+    InvalidRecord,
     Resolved {
         status: MachineStatus,
         head_action: ActionHash,
@@ -79,6 +80,10 @@ fn resolve_machine_state_from_action(
         let Some(Details::Record(record_details)) = details else {
             return Ok(MachineStateResolution::NotFound);
         };
+
+        if record_details.validation_status != ValidationStatus::Valid {
+            return Ok(MachineStateResolution::InvalidRecord);
+        }
 
         if !record_details.deletes.is_empty() {
             saw_deleted = true;
@@ -278,6 +283,11 @@ mod tests {
         let json = serde_json::to_string(&resolved).unwrap();
         let back: MachineStateResolution = serde_json::from_str(&json).unwrap();
         assert_eq!(back, resolved);
+
+        let invalid = MachineStateResolution::InvalidRecord;
+        let json = serde_json::to_string(&invalid).unwrap();
+        let back: MachineStateResolution = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, invalid);
 
         let ambiguous = MachineStateResolution::Ambiguous {
             statuses: vec![MachineStatus::Available, MachineStatus::Running],
