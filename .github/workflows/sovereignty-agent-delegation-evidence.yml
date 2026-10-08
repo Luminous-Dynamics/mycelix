@@ -111,11 +111,10 @@ jobs:
             javac -cp "$RUNNER_TEMP/authority-tools/alloy.jar" \
               -d "$RUNNER_TEMP/authority-java" \
               mycelix-governance/tools/formal/AgentDelegationAuthorityAlloyRunner.java
-            java_version="$(java -version 2>&1 | head -n 1)"
-            javac_version="$(javac -version 2>&1 | head -n 1)"
-            printf "{\"schema\":\"mycelix.agent-delegation-authority-formal-runtime.v1\",\"nixpkgs_rev\":\"%s\",\"jdk_package\":\"jdk17_headless\",\"java_major\":17,\"java_version\":\"%s\",\"javac_version\":\"%s\"}\n" \
-              "$NIXPKGS_REV" "$java_version" "$javac_version" > \
-              "$RUNNER_TEMP/authority-evidence/runtime.json"
+            java -version 2>&1 | tee "$RUNNER_TEMP/authority-evidence/java-version.txt"
+            javac -version 2>&1 | tee "$RUNNER_TEMP/authority-evidence/javac-version.txt"
+            printf "{\"schema\":\"mycelix.agent-delegation-authority-formal-runtime.v1\",\"nixpkgs_rev\":\"%s\",\"jdk_package\":\"jdk17_headless\",\"java_major\":17}\n" \
+              "$NIXPKGS_REV" > "$RUNNER_TEMP/authority-evidence/runtime.json"
           '
 
       - name: Execute evidence provenance matrix
