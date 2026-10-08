@@ -1048,6 +1048,7 @@ def test_executor_run_live_identity_is_rejected() -> None:
     record = {
         "executor_run_id": "42",
         "executor_run_attempt": "3",
+        "executor_workflow_commit_sha": "b" * 40,
     }
     valid = {
         "id": 42,
@@ -1069,6 +1070,7 @@ def test_executor_run_live_identity_is_rejected() -> None:
         ("id", 43, "executor run ID"),
         ("run_attempt", 4, "executor run attempt"),
         ("conclusion", "failure", "executor conclusion"),
+        ("head_sha", "c" * 40, "executor workflow commit/run-head mismatch"),
     ]:
         tampered = {**valid, field: value}
         assert_rejected(
