@@ -22,7 +22,8 @@ use crate::contestable_finality::{
     ExternalObservedEvidenceV1, ExternalObservationSetV1, ObservationClassificationV1,
     ObservationSetAssessmentV1, CONTESTABLE_FINALITY_CLAIM_CEILING,
 };
-use crate::observer_lifecycle::{
+use crate::effect_finality::ExternalObservedStateV1;
+    use crate::observer_lifecycle::{
     EvidenceEligibilityDispositionV1, EvidenceEligibilityReceiptV1,
     ObserverEvidenceProvenanceV1,
 };
@@ -643,7 +644,7 @@ pub fn current_finality_receipt_is_non_authorizing(
 mod tests {
     use super::*;
     use crate::contestable_finality::{
-        ExternalObserverProfileV1, ExternalObservedStateV1, ExternalObservationSourceV1,
+        ExternalObserverProfileV1, ExternalObservationSourceV1,
         ExternalObserverRoleV1, ObservationAssessmentV1, ObservationSetDispositionV1,
     };
     use crate::observer_lifecycle::{
