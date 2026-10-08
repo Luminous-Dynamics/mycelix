@@ -46,7 +46,7 @@ impl SqliteActionFenceStore {
     /// historical semantics.
     pub fn open(path: impl AsRef<Path>) -> Result<Self, String> {
         let path = path.as_ref().to_path_buf();
-        let conn = open_connection(&path)?;
+        let mut conn = open_connection(&path)?;
         ensure_schema(&mut conn)?;
         Ok(Self { path })
     }
@@ -533,7 +533,10 @@ fn ensure_schema(conn: &mut Connection) -> Result<(), String> {
     let meta_exists = table_exists(conn, META_TABLE)?;
     let managed_exists = [ATTEMPT_TABLE, FENCE_TABLE, REPLAY_TABLE]
         .into_iter()
-        .any(|table| table_exists(conn, table).unwrap_or(false));
+        .map(|table| table_exists(conn, table))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .any(|exists| exists);
 
     if !meta_exists {
         let user_table_exists: bool = conn
