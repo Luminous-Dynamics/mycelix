@@ -194,6 +194,14 @@ def validate_observation_shape(observation: Any) -> None:
     require(isinstance(branch_raw, dict), "branch raw payload must be an object")
     require(branch_raw.get("name") == "main", "branch raw name drift")
     require(isinstance(branch_raw.get("protected"), bool), "branch raw protected must be boolean")
+    branch_commit = branch_raw.get("commit")
+    require(isinstance(branch_commit, dict), "branch raw commit missing")
+    live_main_sha = branch_commit.get("sha")
+    require(isinstance(live_main_sha, str) and re.fullmatch(r"[0-9a-f]{40}", live_main_sha), "branch raw commit sha invalid")
+    require(
+        observation.get("live_main_sha") == live_main_sha,
+        "normalized live_main_sha observation does not match raw branch payload",
+    )
     require(isinstance(rulesets_index_raw, list), "rulesets index raw payload must be a list")
     require(isinstance(rulesets_raw, list), "rulesets raw payload must be a list")
     require(isinstance(effective_rules_raw, list), "effective rules raw payload must be a list")
@@ -246,6 +254,10 @@ def validate_observation_shape(observation: Any) -> None:
         observation.get("branch", {}).get("name") == branch_raw.get("name")
         and observation.get("branch", {}).get("protected") == branch_raw.get("protected"),
         "normalized branch observation does not match raw branch payload",
+    )
+    require(
+        observation.get("live_main_sha") == branch_raw["commit"]["sha"],
+        "normalized live_main_sha does not match raw branch commit",
     )
     require(
         observation.get("rulesets", {}).get("entries") == rulesets_raw,
@@ -1133,7 +1145,7 @@ def fixture_observation(
             {"type": "deletion"},
         ],
     }
-    branch_payload = {"name": "main", "protected": True}
+    branch_payload = {"name": "main", "protected": True, "commit": {"sha": "a" * 40}}
     rulesets_payload = [ruleset_entry]
     effective_rules_payload = [
         {
@@ -1195,6 +1207,7 @@ def fixture_observation(
         "target_ref": TARGET_REF,
         "observed_at_utc": "2026-10-07T00:00:00Z",
         "default_branch": "main",
+        "live_main_sha": branch_payload["commit"]["sha"],
         "admin_capability_probe": {"http_status": 200},
         "admin_capability_payload_base64": base64.b64encode(capability_raw).decode(),
         "admin_capability_payload_sha256": hashlib.sha256(capability_raw).hexdigest(),
@@ -1256,6 +1269,7 @@ def _refresh_bound_fixture_payloads(observation: dict[str, Any]) -> None:
         {
             "name": observation["branch"]["name"],
             "protected": observation["branch"]["protected"],
+            "commit": {"sha": observation["live_main_sha"]},
         },
         separators=(",", ":"),
         sort_keys=True,
