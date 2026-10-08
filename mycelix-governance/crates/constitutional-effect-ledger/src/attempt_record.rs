@@ -419,7 +419,7 @@ impl AuthorizationAdmissionProofV1 {
         hasher.update(&valid_until_unix_ms.to_be_bytes());
         push_str(&mut hasher, &verifier_identity);
 
-        Ok(Self {
+        let out = Self {
             attempt_identity: attempt.attempt_identity.clone(),
             action_key_digest: action_key.digest().to_owned(),
             operation_id: attempt.operation_id.clone(),
@@ -442,8 +442,6 @@ impl AuthorizationAdmissionProofV1 {
         };
         out.validate()?;
         Ok(out)
-    }
-
     pub fn from_persisted(
         attempt_identity: String,
         action_key_digest: String,
