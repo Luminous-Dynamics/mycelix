@@ -11,14 +11,34 @@ use manufacturing_common::{MachineStatus, MachineType};
 /// Maximum controller lease duration for the initial deterministic authority model.
 pub const MAX_MACHINE_CONTROLLER_LEASE_MICROS: i64 = 86_400_000_000;
 /// Domain-separated payload signed by the machine registrant for a controller lease.
-pub const MACHINE_CONTROLLER_LEASE_SCHEMA_ID: &str =
+pub const MACHINE_CONTROLLER_LEASE_SCHEMA_ID_V1: &str =
     "mycelix-manufacturing-machine-controller-lease-v1";
+pub const MACHINE_CONTROLLER_LEASE_SCHEMA_ID_V2: &str =
+    "mycelix-manufacturing-machine-controller-lease-v2";
+pub const MACHINE_CONTROLLER_TRANSITION_APPROVAL_SCHEMA_ID: &str =
+    "mycelix-manufacturing-machine-transition-approval-v1";
+pub const MAX_MACHINE_TRANSITION_APPROVAL_MICROS: i64 = 300_000_000;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct MachineControllerLeasePayload {
     pub schema_id: String,
     pub machine_hash: ActionHash,
     pub controller_agent: AgentPubKey,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+    #[serde(default)]
+    pub requires_transition_approval: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineControllerTransitionApprovalPayload {
+    pub schema_id: String,
+    pub machine_hash: ActionHash,
+    pub authority_hash: ActionHash,
+    pub controller_agent: AgentPubKey,
+    pub predecessor_action: ActionHash,
+    pub new_status: MachineStatus,
+    pub work_order_hash: Option<ActionHash>,
     pub valid_from: Timestamp,
     pub valid_until: Timestamp,
 }
@@ -35,11 +55,47 @@ pub struct MachineEntry {
     pub current_work_order: Option<ActionHash>,
     #[serde(default)]
     pub last_status_authority_hash: Option<ActionHash>,
+    #[serde(default)]
+    pub last_status_transition_approval_hash: Option<ActionHash>,
     pub registered_at: Timestamp,
 }
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
+pub struct MachineControllerAuthorityEntry {
+    pub machine_hash: ActionHash,
+    pub controller_agent: AgentPubKey,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+    #[serde(default)]
+    pub lease_schema_version: u8,
+    #[serde(default)]
+    pub requires_transition_approval: bool,
+    /// Cryptographic proof that the machine registrant authored the exact lease fields.
+    /// None is migration compatibility only; unsigned legacy authorities cannot be
+    /// used for new control-field updates.
+    #[serde(default)]
+    pub issuer_signature: Option<Signature>,
+}
+
+impl MachineControllerAuthorityEntry {
+    pub fn signed_payload(&self) -> MachineControllerLeasePayload {
+        let v2 = self.lease_schema_version >= 2;
+        MachineControllerLeasePayload {
+            schema_id: if v2 {
+                MACHINE_CONTROLLER_LEASE_SCHEMA_ID_V2.to_string()
+            } else {
+                MACHINE_CONTROLLER_LEASE_SCHEMA_ID_V1.to_string()
+            },
+            machine_hash: self.machine_hash.clone(),
+            controller_agent: self.controller_agent.clone(),
+            valid_from: self.valid_from,
+            valid_until: self.valid_until,
+            requires_transition_approval: v2 && self.requires_transition_approval,
+        }
+    }
+}
+
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct MachineControllerTransitionApprovalEntry {
@@ -69,31 +125,6 @@ impl MachineControllerTransitionApprovalEntry {
         }
     }
 }
-
-pub struct MachineControllerAuthorityEntry {
-    pub machine_hash: ActionHash,
-    pub controller_agent: AgentPubKey,
-    pub valid_from: Timestamp,
-    pub valid_until: Timestamp,
-    /// Cryptographic proof that the machine registrant authored the exact lease fields.
-    /// `None` is migration compatibility only; unsigned legacy authorities cannot be
-    /// used for new control-field updates.
-    #[serde(default)]
-    pub issuer_signature: Option<Signature>,
-}
-
-impl MachineControllerAuthorityEntry {
-    pub fn signed_payload(&self) -> MachineControllerLeasePayload {
-        MachineControllerLeasePayload {
-            schema_id: MACHINE_CONTROLLER_LEASE_SCHEMA_ID.to_string(),
-            machine_hash: self.machine_hash.clone(),
-            controller_agent: self.controller_agent.clone(),
-            valid_from: self.valid_from,
-            valid_until: self.valid_until,
-        }
-    }
-}
-
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct MachineStatusLog {
