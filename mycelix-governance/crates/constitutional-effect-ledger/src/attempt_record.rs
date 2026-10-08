@@ -442,6 +442,8 @@ impl AuthorizationAdmissionProofV1 {
         };
         out.validate()?;
         Ok(out)
+    }
+
     pub fn from_persisted(
         attempt_identity: String,
         action_key_digest: String,
