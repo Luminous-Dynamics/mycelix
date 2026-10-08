@@ -388,6 +388,7 @@ pub fn create_machine_time_authority_profile(
         source_profile: input.source_profile.clone(),
         valid_from: input.valid_from,
         valid_until: input.valid_until,
+        max_accuracy_micros: input.max_accuracy_micros,
     };
     let profile_signature = sign(machine_record.action().author().clone(), profile_payload)?;
     let profile = MachineTimeAuthorityProfileEntry {
@@ -429,7 +430,11 @@ pub fn create_machine_temporal_attestation(
             "current agent is not the designated time authority".into(),
         )));
     }
-    if !temporal_profile_contains(&profile, input.attested_at)
+    if !temporal_profile_contains_interval(
+            &profile,
+            input.attested_at,
+            input.accuracy_micros,
+        )
         || input.source_reference.is_empty()
         || input.source_commitment.is_empty()
         || input.source_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
@@ -534,10 +539,12 @@ pub fn resolve_machine_temporal_attestations(
 
         if profile_record.machine_hash != attestation.machine_hash
             || profile_record.authority_agent != record.action().author()
-            || !temporal_interval_contains(
+            || attestation.accuracy_micros > profile_record.max_accuracy_micros
+            || !temporal_interval_contains_interval(
                 profile_record.valid_from,
                 profile_record.valid_until,
                 attestation.attested_at,
+                attestation.accuracy_micros,
             )
         {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
