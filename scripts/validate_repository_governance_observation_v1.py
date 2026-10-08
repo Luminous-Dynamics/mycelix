@@ -52,6 +52,19 @@ def sha256(value: Any, label: str) -> str:
     return value
 
 
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    parsed: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in parsed:
+            raise EvidenceError(f"duplicate JSON object key: {key!r}")
+        parsed[key] = value
+    return parsed
+
+
+def _reject_nonstandard_json_constant(value: str) -> None:
+    raise EvidenceError(f"non-standard JSON constant: {value!r}")
+
+
 def validate_bound_raw_payload(observation: Any, name: str) -> Any:
     raw_field = f"{name}_payload_base64"
     digest_field = f"{name}_payload_sha256"
@@ -60,7 +73,11 @@ def validate_bound_raw_payload(observation: Any, name: str) -> Any:
     require(isinstance(encoded, str) and encoded != "", f"{raw_field} missing")
     try:
         raw = base64.b64decode(encoded, validate=True)
-        parsed = json.loads(raw.decode("utf-8"))
+        parsed = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_json_keys,
+            parse_constant=_reject_nonstandard_json_constant,
+        )
     except (ValueError, TypeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise EvidenceError(f"{raw_field} is not valid UTF-8 JSON") from exc
     actual_digest = hashlib.sha256(raw).hexdigest()
@@ -149,6 +166,18 @@ def validate_policy(policy: Any) -> None:
     require(
         observation_contract.get("ruleset_source_identity_must_match_source_type") is True,
         "ruleset source identity contract drift",
+    )
+    require(
+        observation_contract.get("github_ref_pattern_pathname_semantics_must_be_bound") is True,
+        "GitHub ref pathname semantics contract drift",
+    )
+    require(
+        observation_contract.get("github_unsupported_ref_pattern_syntax_must_fail_closed") is True,
+        "GitHub unsupported ref pattern syntax contract drift",
+    )
+    require(
+        observation_contract.get("raw_json_must_reject_duplicate_keys_and_nonstandard_constants") is True,
+        "strict raw JSON contract drift",
     )
     require(
         observation_contract.get("github_special_targeting_token_semantics_must_be_bound") is True,
@@ -309,6 +338,10 @@ def _github_ref_pattern_matches(value: str, pattern: str) -> bool:
     """Match GitHub ruleset ref patterns with pathname-aware fnmatch semantics."""
     if not isinstance(value, str) or not isinstance(pattern, str) or not pattern:
         return False
+    # GitHub does not support '\\' as a quoting character.
+    # Refuse any backslash-bearing pattern rather than inheriting Python/Ruby escaping.
+    if "\\" in pattern:
+        return False
     # GitHub does not support '^' as a bracket-expression complement.
     # Refuse that Python-only interpretation rather than risking a false match.
     if re.search(r"\[\^", pattern):
@@ -323,7 +356,7 @@ def _github_ref_pattern_matches(value: str, pattern: str) -> bool:
         if not parts:
             return not candidates
         head, *tail = parts
-        if head == "**":
+        if head == "**" and tail:
             return match(tail, candidates) or (
                 bool(candidates) and match(parts, candidates[1:])
             )
@@ -1141,6 +1174,8 @@ def fixture_policy() -> dict[str, Any]:
             "ruleset_condition_schema_must_match_source_type": True,
             "ruleset_source_identity_must_match_source_type": True,
             "github_ref_pattern_pathname_semantics_must_be_bound": True,
+            "github_unsupported_ref_pattern_syntax_must_fail_closed": True,
+            "raw_json_must_reject_duplicate_keys_and_nonstandard_constants": True,
             "github_special_targeting_token_semantics_must_be_bound": True,
             "unobserved_repository_selector_properties_must_fail_closed": True,
             "repository_owner_identity_must_be_rechecked": True,
@@ -1549,6 +1584,47 @@ def self_test(policy: dict[str, Any]) -> None:
     result = evaluate(policy, x)
     assert result["governance_state"] == "VERIFIED"
     assert result["grants_trusted_verifier_root"] is True
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = ["refs/**"]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+    x["rulesets"]["entries"][0]["conditions"]["ref_name"]["include"] = [
+        "refs/heads/" + chr(92) + "main"
+    ]
+    _refresh_bound_fixture_payloads(x)
+    result = evaluate(policy, x)
+    assert result["governance_state"] == "UNVERIFIED"
+    assert result["grants_trusted_verifier_root"] is False
+
+    x = copy.deepcopy(fixture_observation(policy))
+    x["branch_payload_base64"] = base64.b64encode(
+        b'{"name":"main","name":"attacker","protected":true,"commit":{"sha":"a"*40}}'
+    ).decode()
+    x["branch_payload_sha256"] = hashlib.sha256(
+        base64.b64decode(x["branch_payload_base64"])
+    ).hexdigest()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("duplicate JSON object keys must be rejected")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    raw_branch = b'{"name":"main","protected":true,"commit":{"sha":"' + b"a" * 40 + b'"},"nonstandard":NaN}'
+    x["branch_payload_base64"] = base64.b64encode(raw_branch).decode()
+    x["branch_payload_sha256"] = hashlib.sha256(raw_branch).hexdigest()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("non-standard JSON constants must be rejected")
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404))
     x["effective_rules"]["entries"] = [
