@@ -74,6 +74,10 @@ impl VerifiedTerminalOutcomeV1 {
         })
     }
 
+    pub fn verifier_identity(&self) -> &str {
+        &self.verifier_identity
+    }
+
     fn matches(
         &self,
         attempt: &AttemptRecordV1,
@@ -571,6 +575,87 @@ pub trait ProviderEntryClaimRecoveryAuthorizer {
     ) -> Result<(), String>;
 }
 
+/// Constructor-bound authority/evidence trust root.
+///
+/// Provider adapters may still vary by invocation, but evidence verification and
+/// recovery authority cannot be replaced after the host boundary is constructed.
+pub trait BoundaryTrustRoot {
+    fn outcome_verifier(&self) -> &dyn OutcomeVerifier;
+    fn outcome_verifier_identity(&self) -> &str;
+    fn final_entry_verifier(&self) -> &dyn FinalProviderEntryVerifier;
+    fn final_entry_verifier_identity(&self) -> &str;
+    fn recovery_authorizer(&self) -> &dyn RecoveryAuthorizer;
+    fn provider_entry_claim_recovery_authorizer(
+        &self,
+    ) -> &dyn ProviderEntryClaimRecoveryAuthorizer;
+}
+
+/// Concrete trust-root container for deployments that pin four independent
+/// authorities while keeping their identities explicit.
+pub struct PinnedBoundaryTrustRoot {
+    outcome_verifier: Box<dyn OutcomeVerifier>,
+    outcome_verifier_identity: String,
+    final_entry_verifier: Box<dyn FinalProviderEntryVerifier>,
+    final_entry_verifier_identity: String,
+    recovery_authorizer: Box<dyn RecoveryAuthorizer>,
+    claim_recovery_authorizer: Box<dyn ProviderEntryClaimRecoveryAuthorizer>,
+}
+
+impl PinnedBoundaryTrustRoot {
+    pub fn new(
+        outcome_verifier: Box<dyn OutcomeVerifier>,
+        outcome_verifier_identity: impl Into<String>,
+        final_entry_verifier: Box<dyn FinalProviderEntryVerifier>,
+        final_entry_verifier_identity: impl Into<String>,
+        recovery_authorizer: Box<dyn RecoveryAuthorizer>,
+        claim_recovery_authorizer: Box<dyn ProviderEntryClaimRecoveryAuthorizer>,
+    ) -> Result<Self, String> {
+        let outcome_verifier_identity = outcome_verifier_identity.into();
+        let final_entry_verifier_identity = final_entry_verifier_identity.into();
+        if outcome_verifier_identity.trim().is_empty()
+            || final_entry_verifier_identity.trim().is_empty()
+        {
+            return Err("pinned verifier identities must be non-empty".into());
+        }
+        Ok(Self {
+            outcome_verifier,
+            outcome_verifier_identity,
+            final_entry_verifier,
+            final_entry_verifier_identity,
+            recovery_authorizer,
+            claim_recovery_authorizer,
+        })
+    }
+}
+
+impl BoundaryTrustRoot for PinnedBoundaryTrustRoot {
+    fn outcome_verifier(&self) -> &dyn OutcomeVerifier {
+        self.outcome_verifier.as_ref()
+    }
+
+    fn outcome_verifier_identity(&self) -> &str {
+        &self.outcome_verifier_identity
+    }
+
+    fn final_entry_verifier(&self) -> &dyn FinalProviderEntryVerifier {
+        self.final_entry_verifier.as_ref()
+    }
+
+    fn final_entry_verifier_identity(&self) -> &str {
+        &self.final_entry_verifier_identity
+    }
+
+    fn recovery_authorizer(&self) -> &dyn RecoveryAuthorizer {
+        self.recovery_authorizer.as_ref()
+    }
+
+    fn provider_entry_claim_recovery_authorizer(
+        &self,
+    ) -> &dyn ProviderEntryClaimRecoveryAuthorizer {
+        self.claim_recovery_authorizer.as_ref()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BoundaryOutcome {
     Admitted(AtomicAdmissionDecision),
@@ -603,17 +688,21 @@ impl std::fmt::Display for BoundaryError {
 
 impl std::error::Error for BoundaryError {}
 
-#[derive(Debug)]
 pub struct EffectBoundaryHostV1 {
     store: SqliteActionFenceStore,
+    trust_root: Box<dyn BoundaryTrustRoot>,
     entry_claim_nonce: u64,
 }
 
 impl EffectBoundaryHostV1 {
-    pub fn new(store: SqliteActionFenceStore) -> Result<Self, BoundaryError> {
+    pub fn new(
+        store: SqliteActionFenceStore,
+        trust_root: Box<dyn BoundaryTrustRoot>,
+    ) -> Result<Self, BoundaryError> {
         store.audit_integrity().map_err(BoundaryError::Store)?;
         Ok(Self {
             store,
+            trust_root,
             entry_claim_nonce: 0,
         })
     }
@@ -667,18 +756,12 @@ impl EffectBoundaryHostV1 {
 
     /// Provider invocation is reachable only after a durable read confirms
     /// DISPATCH_PENDING for the exact attempt owner.
-    pub fn dispatch<
-        P: ProviderAdapter,
-        V: OutcomeVerifier,
-        G: FinalProviderEntryVerifier,
-    >(
+    pub fn dispatch<P: ProviderAdapter>(
         &mut self,
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
         provider: &mut P,
-        verifier: &V,
-        entry_verifier: &G,
     ) -> Result<BoundaryOutcome, BoundaryError> {
         let current = self.owned_attempt(action_key, attempt_identity, owner_token_digest)?;
         if current.state.is_terminal() {
@@ -717,11 +800,10 @@ impl EffectBoundaryHostV1 {
 
         let verifier_now_unix_ms = current_unix_ms().map_err(BoundaryError::Store)?;
         let context = ProviderActionContextV1::from_attempt(&pending, action_key)?;
-        let final_entry_proof = match entry_verifier.verify(
-            &pending,
-            &context,
-            verifier_now_unix_ms,
-        ) {
+        let final_entry_proof = match self
+            .trust_root
+            .final_entry_verifier()
+            .verify(&pending, &context, verifier_now_unix_ms) {
             Ok(proof) => proof,
             Err(error) => {
                 let marker = format!("final provider-entry gate rejected: {error}");
@@ -765,6 +847,30 @@ impl EffectBoundaryHostV1 {
                     return Ok(BoundaryOutcome::IndeterminateHeld {
                         reason: format!(
                             "final-entry proof expired and claim release was not confirmed: {release_error:?}"
+                        ),
+                    });
+                }
+            }
+        }
+
+        if final_entry_proof.verifier_identity()
+            != self.trust_root.final_entry_verifier_identity()
+        {
+            let marker = "final-entry verifier identity does not match pinned trust root".to_owned();
+            match self.store.atomically_release_provider_entry_claim_not_entered(
+                action_key,
+                attempt_identity,
+                owner_token_digest,
+                &claim_token,
+                marker.clone(),
+            ) {
+                Ok(()) => return Ok(BoundaryOutcome::FinalEntryRejectedNotEntered {
+                    reason: marker,
+                }),
+                Err(release_error) => {
+                    return Ok(BoundaryOutcome::IndeterminateHeld {
+                        reason: format!(
+                            "pinned final-entry verifier mismatch and claim release was not confirmed: {release_error:?}"
                         ),
                     });
                 }
@@ -859,7 +965,7 @@ impl EffectBoundaryHostV1 {
                 "provider outcome is indeterminate".into(),
             ),
             ProviderObservation::Executed { .. } | ProviderObservation::Failed { .. } => {
-                match verifier.verify(
+                match self.trust_root.outcome_verifier().verify(
                     &invoked,
                     permit.provider_idempotency_key(),
                     &observation,
@@ -895,6 +1001,11 @@ impl EffectBoundaryHostV1 {
         purpose: VerificationPurpose,
         verified: VerifiedTerminalOutcomeV1,
     ) -> Result<BoundaryOutcome, BoundaryError> {
+        if verified.verifier_identity() != self.trust_root.outcome_verifier_identity() {
+            return Err(BoundaryError::Semantic(
+                "terminal verifier identity does not match pinned trust root".into(),
+            ));
+        }
         if !verified.matches(attempt, action_key, purpose, provider_idempotency_key) {
             return Err(BoundaryError::Semantic(
                 "terminal verification proof is not bound to the exact attempt, action, or purpose"
@@ -1061,7 +1172,7 @@ impl EffectBoundaryHostV1 {
             ProviderObservation::Executed { .. } | ProviderObservation::Failed { .. } => {
                 let provider_idempotency_key =
                     indeterminate.provider_idempotency_key.clone();
-                match verifier.verify(
+                match self.trust_root.outcome_verifier().verify(
                     &indeterminate,
                     &provider_idempotency_key,
                     &observation,
@@ -1090,11 +1201,10 @@ impl EffectBoundaryHostV1 {
     /// the deployment has fenced the old claimant. The durable mutation itself
     /// is atomic, so the claim cannot be cleared while leaving the attempt
     /// ambiguously pre-entry.
-    pub fn recover_provider_entry_claim<R: ProviderEntryClaimRecoveryAuthorizer>(
+    pub fn recover_provider_entry_claim(
         &mut self,
         action_key: &ActionKeyV1,
         authorization: &ProviderEntryClaimRecoveryAuthorizationV1,
-        authorizer: &R,
     ) -> Result<BoundaryOutcome, BoundaryError> {
         let attempt_identity = AttemptIdentityV1::new(
             &authorization.boundary_kind,
@@ -1141,7 +1251,8 @@ impl EffectBoundaryHostV1 {
             ));
         }
 
-        authorizer
+        self.trust_root
+            .provider_entry_claim_recovery_authorizer()
             .verify(authorization, &current, action_key, &claim)
             .map_err(BoundaryError::Semantic)?;
 
@@ -1181,12 +1292,11 @@ impl EffectBoundaryHostV1 {
 
     /// Pre-entry recovery is a distinct operation and is impossible once the
     /// attempt reached DISPATCH_PENDING.
-    pub fn recover_pre_entry<R: RecoveryAuthorizer>(
+    pub fn recover_pre_entry(
         &mut self,
         action_key: &ActionKeyV1,
         authorization: &PreEntryRecoveryAuthorizationV1,
         marker: impl Into<String>,
-        authorizer: &R,
     ) -> Result<BoundaryOutcome, BoundaryError> {
         let attempt_identity = AttemptIdentityV1::new(
             &authorization.boundary_kind,
@@ -1217,7 +1327,8 @@ impl EffectBoundaryHostV1 {
             ));
         }
 
-        authorizer
+        self.trust_root
+            .recovery_authorizer()
             .verify(authorization, &current, action_key)
             .map_err(BoundaryError::Semantic)?;
 
