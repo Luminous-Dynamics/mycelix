@@ -6,7 +6,7 @@ from pathlib import Path
 
 TLA_OK = "Model checking completed. No error has been found."
 TLA_INVARIANTS = ["TypeOK","EffectiveExitIsIndependent","EffectiveExitRequiresPortability","SharedRootsCannotBecomeEffectiveExit","ProviderFailureDoesNotExpandAuthority","MigrationPreservesObligationsAndHistory","ProviderSwitchDoesNotTransferAuthorityOrJurisdiction","HighSwitchingCostTriggersReview","NoEffectiveExitWithoutNominalExit"];
-TLA_CONTROLS = {"nominal-effective":"EffectiveExitRequiresPortability","shared-root":"SharedRootsCannotBecomeEffectiveExit","failure-authority":"ProviderFailureDoesNotExpandAuthority","switch-obligation":"MigrationPreservesObligationsAndHistory","switch-jurisdiction":"ProviderSwitchDoesNotTransferAuthorityOrJurisdiction","switch-review":"HighSwitchingCostTriggersReview"};
+TLA_CONTROLS = {"nominal-effective":"EffectiveExitRequiresPortability","shared-root":"SharedRootsCannotBecomeEffectiveExit","failure-authority":"ProviderFailureDoesNotExpandAuthority","switch-obligation":"MigrationPreservesObligationsAndHistory","switch-authority":"ProviderSwitchDoesNotTransferAuthorityOrJurisdiction","switch-jurisdiction":"ProviderSwitchDoesNotTransferAuthorityOrJurisdiction","switch-review":"HighSwitchingCostTriggersReview"};
 ALLOY_SAT = ["NominalExitWithoutEffective","EffectiveIndependentAlternative","MigrationContinuityWitness","ProviderFailureNoAuthorityChangeWitness","HighSwitchingCostReviewWitness"];
 ALLOY_UNSAT = ["EffectiveAlternativesHaveIndependentRoots","MigrationsPreserveObligationsHistoryAuthorityAndJurisdiction","ProviderFailuresPreserveAuthority","ReviewIsRequiredAtHighSwitchingCost"];
 ALLOY_NEGATIVE_FACTS = {"EffectiveExitRequiresIndependentRoots":"EffectiveAlternativesHaveIndependentRoots","MigrationPreservesContinuity":"MigrationsPreserveObligationsHistoryAuthorityAndJurisdiction","ProviderFailureDoesNotTransferAuthority":"ProviderFailuresPreserveAuthority","ReviewAtThreshold":"ReviewIsRequiredAtHighSwitchingCost"};
@@ -46,6 +46,7 @@ def main() -> int:
     subject=profile.get("subject",{})
     if profile.get("authority")!="non-authoritative" or profile.get("status")!="candidate-verification-profile": fail("profile authority/status mismatch")
     if not re.fullmatch(r"[0-9a-f]{40}",str(subject.get("head_sha",""))): fail("subject head is not exact")
+    if not isinstance(subject.get("source_branch"),str) or not subject.get("source_branch"): fail("subject source branch is missing")
     tree=subject.get("tree_sha")
     if not re.fullmatch(r"[0-9a-f]{40}",str(tree or "")):
         receipt={"receipt_schema":"effective-contestability-formal-receipt-v1","result":"BlockedMissingExactSubjectTree","subject_head":subject.get("head_sha"),"subject_tree":tree,"failure":"exact subject tree binding is required and unresolved","nonclaims":profile.get("nonclaims",[])}
@@ -53,6 +54,15 @@ def main() -> int:
         print(json.dumps(receipt,sort_keys=True)); return 2
 
     if pins.get("schema")!="mycelix.effective-contestability-formal-tool-pins.v1": fail("pin schema mismatch")
+    head=subject["head_sha"]; branch_name=subject["source_branch"]
+    fetched=run(["git","fetch","--no-tags","--depth","1","origin",head])
+    if fetched.returncode!=0: fail("unable to fetch exact subject commit")
+    remote=run(["git","ls-remote","origin",f"refs/heads/{branch_name}"])
+    remote_head=remote.stdout.split()[0] if remote.returncode==0 and remote.stdout.strip() else ""
+    if remote_head!=head: fail("subject branch does not point at frozen head")
+    actual_tree=run(["git","rev-parse",f"{head}^{{tree}}"])
+    if actual_tree.returncode!=0 or actual_tree.stdout.strip()!=tree: fail("frozen subject tree does not match commit")
+    if crosswalk.get("subject_head")!=head or crosswalk.get("subject_tree")!=tree: fail("crosswalk subject binding mismatch")
     expected_paths=profile["verifier"]["fixture_paths"]
     actual_paths={
         "tla":a.tla.as_posix(),"cfg":a.cfg.as_posix(),"negative_tla":a.negative_tla.as_posix(),
