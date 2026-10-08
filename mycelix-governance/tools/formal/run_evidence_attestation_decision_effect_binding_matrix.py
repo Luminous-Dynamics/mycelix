@@ -4,7 +4,7 @@ import argparse, hashlib, json, re, subprocess
 from pathlib import Path
 
 CONTROL_IDS=[
-"authority-epoch","request-commitment","target","policy-epoch",
+"decision-identity","authority-epoch","request-commitment","target","policy-epoch",
 "adapter-profile","invocation-identity","capability-expiry","decision-horizon"
 ]
 BOUND={x:"" for x in CONTROL_IDS}
@@ -91,7 +91,7 @@ canon=run(["java","-cp",cp,"AgentDelegationAuthorityAlloyRunner",str(a.alloy)])
 (a.evidence_dir/"alloy-canonical.log").write_text(canon.stdout)
 if canon.returncode: raise RuntimeError("canonical Alloy runner failed")
 rows=alloy_rows(canon.stdout)
-required={"ValidEffectAdmissionWitness":"SAT"}
+required={"ValidEffectAdmissionWitness":"SAT","DecisionToEffectAuthorityStillBound":"UNSAT"}
 for c in controls:
     required[c["alloy_witness"]]="UNSAT"
 for c in controls:
@@ -110,7 +110,7 @@ for c in controls:
     if mr.get(c["alloy_witness"])!="SAT" or mr.get(c["alloy_assertion"])!="SAT":
         raise RuntimeError("Alloy negative mismatch "+c["id"]+": "+repr(mr))
     changed={k for k in set(rows)|set(mr) if rows.get(k)!=mr.get(k)}
-    allowed={c["alloy_witness"],c["alloy_assertion"]}
+    allowed={c["alloy_witness"],c["alloy_assertion"],"DecisionToEffectAuthorityStillBound"}
     if changed!=allowed: raise RuntimeError("unrelated Alloy outcomes changed for "+c["id"]+": "+repr(sorted(changed)))
     receipt["alloy"]["mutations"][c["id"]]={"removed_fact":c["alloy_mutant_fact"],"changed_outcomes":sorted(changed),"outcomes":mr}
 
