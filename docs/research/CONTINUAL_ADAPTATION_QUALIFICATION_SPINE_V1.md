@@ -674,6 +674,7 @@ Symthaea:
 - #5859 — sensor provenance-aware learning;
 - #7029 — unified continual-adaptation evaluation spine;
 - #7030 — adaptive cognition evaluation with evaluator-state and observation-shift integrity.
+- #7041 — target-regime transport of continual-adaptation evidence;
 
 ## Claim ceiling
 
