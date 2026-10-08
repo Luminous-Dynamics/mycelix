@@ -126,6 +126,12 @@ impl SqliteActionFenceStore {
 
             let mut updated = current.clone();
             updated.state = next_state;
+            if next_state == AttemptRecordState::Indeterminate {
+                updated.reconciliation_token_digest =
+                    Some(updated.reconciliation_token_digest());
+            } else {
+                updated.reconciliation_token_digest = None;
+            }
             update_attempt_tx(tx, &current, &updated)?;
             Ok(())
         })
@@ -144,12 +150,18 @@ impl SqliteActionFenceStore {
                 .map_err(storage_error)?
                 .ok_or(ActionFenceMutationError::NotOwner)?;
 
-            verify_owner_and_key(
-                &current,
-                action_key,
-                attempt_identity,
-                owner_token_digest,
-            )?;
+            if current.state == AttemptRecordState::Indeterminate {
+                if current.reconciliation_token_digest.as_deref() != Some(owner_token_digest) {
+                    return Err(ActionFenceMutationError::OwnershipTokenMismatch);
+                }
+            } else {
+                verify_owner_and_key(
+                    &current,
+                    action_key,
+                    attempt_identity,
+                    owner_token_digest,
+                )?;
+            }
 
             if current.state.is_terminal() {
                 return Err(ActionFenceMutationError::AlreadyClosed);
@@ -183,10 +195,19 @@ impl SqliteActionFenceStore {
             let fence = load_fence_tx(tx, action_key.digest())
                 .map_err(storage_error)?
                 .ok_or(ActionFenceMutationError::NotOccupied)?;
-            verify_fence_owner(&fence, attempt_identity, owner_token_digest)?;
+            if current.state == AttemptRecordState::Indeterminate {
+                if fence.owner_attempt_identity != attempt_identity.digest()
+                    || fence.state.is_closed()
+                {
+                    return Err(ActionFenceMutationError::NotOwner);
+                }
+            } else {
+                verify_fence_owner(&fence, attempt_identity, owner_token_digest)?;
+            }
 
             let mut updated = current.clone();
             updated.state = next_state;
+            updated.reconciliation_token_digest = None;
             updated.terminal_evidence_digest = Some(terminal_evidence.digest().to_owned());
             update_attempt_tx(tx, &current, &updated)?;
 
@@ -388,13 +409,17 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
-    ) -> Result<(), ActionFenceMutationError> {
+    ) -> Result<String, ActionFenceMutationError> {
         self.transition_state(
             action_key,
             attempt_identity,
             owner_token_digest,
             AttemptRecordState::Indeterminate,
-        )
+        )?;
+        self.durably_read_attempt(attempt_identity)
+            .map_err(storage_error)?
+            .and_then(|attempt| attempt.reconciliation_token_digest)
+            .ok_or(ActionFenceMutationError::InvalidTransition)
     }
 
     fn atomically_release_after_failed(
