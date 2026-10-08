@@ -44,7 +44,6 @@ struct RoutingStepProjection {
 
 #[derive(Serialize, Deserialize, SerializedBytes, Debug, Clone)]
 struct CapabilityRequirementProjection {
-    #[serde(default)]
     requirement: CapabilityRequirement,
 }
 
@@ -322,13 +321,6 @@ fn capability_profile_from_contract(
         supported_protocols: contract.supported_protocols.clone(),
         qualification: contract.qualification.clone(),
     }
-}
-
-fn routing_contains_sequence(
-    routing: &RoutingRevisionProjection,
-    sequence: u32,
-) -> bool {
-    routing_step_for_sequence(routing, sequence).is_some()
 }
 
 fn validate_create(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
