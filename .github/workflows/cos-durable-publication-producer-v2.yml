@@ -427,13 +427,21 @@ jobs:
           from pathlib import Path
           data=json.loads(Path('main-branch-protection.json').read_text())
           assert data['enforce_admins']['enabled'] is True
+          assert data.get('required_linear_history',{}).get('enabled') is True
+          assert data.get('required_conversation_resolution',{}).get('enabled') is True
           reviews=data.get('required_pull_request_reviews')
           assert reviews is not None
           assert int(reviews.get('required_approving_review_count',0)) >= 1
           checks=data.get('required_status_checks')
           assert checks is not None
           contexts=list(checks.get('contexts',[]))
-          assert contexts
+          fine_checks=list(checks.get('checks',[]))
+          assert contexts or fine_checks
+          required_checks=[{'context':x,'app_id':None} for x in contexts] + [
+              {'context':x['context'],'app_id':x.get('app_id')} for x in fine_checks
+          ]
+          dedup={(x['context'],x['app_id']) for x in required_checks}
+          assert len(required_checks)==len(dedup)
           assert data.get('allow_force_pushes',{}).get('enabled') is False
           assert data.get('allow_deletions',{}).get('enabled') is False
           projection={
@@ -441,7 +449,7 @@ jobs:
               'branch':'refs/heads/main',
               'enforce_admins':True,
               'required_approving_review_count':int(reviews['required_approving_review_count']),
-              'required_status_checks':{'strict':bool(checks.get('strict',False)),'contexts':sorted(contexts)},
+              'required_status_checks':{'strict':bool(checks.get('strict',False)),'checks':sorted(required_checks,key=lambda x:(x['context'], -1 if x['app_id'] is None else x['app_id']))},
               'allow_force_pushes':False,
               'allow_deletions':False,
           }
