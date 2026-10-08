@@ -190,7 +190,7 @@ def simulate_scenario(name, scenario, mutation, gossip_reg, witness_reg, gossip_
     }
 
 def main():
-    if len(sys.argv)!=7:
+    if len(sys.argv)!=9:
         print("usage: verifier GOSSIP_REGISTRY SIM_FIXTURE CAMPAIGN GOSSIP_FIXTURE WITNESS_REGISTRY VDS_FIXTURE TREE_HEAD_FIXTURE REPORT",file=sys.stderr)
         return 2
     # There are eight runtime paths after the script name.
