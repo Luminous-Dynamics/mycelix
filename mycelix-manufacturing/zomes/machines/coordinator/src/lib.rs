@@ -248,25 +248,22 @@ pub fn create_machine_transition_approval(
             "only the machine registrant may create transition approvals".into(),
         )));
     }
-    let machine: MachineEntry = machine_record.entry().to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Could not deserialize machine".into())))?;
-    if !machine.status.can_transition_to(&input.new_status) {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Invalid machine transition: {:?} -> {:?}", machine.status, input.new_status
-        ))));
-    }
-    let MachineStateResolution::Resolved { status, head_action } =
+    let MachineStateResolution::Resolved { head_action, .. } =
         get_current_machine_state(input.machine_hash.clone())?
     else {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "machine state is not uniquely resolvable".into(),
         )));
     };
-    if status != machine.status {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "machine state changed while preparing transition approval".into(),
-        )));
+    let head_record = get(head_action.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Current machine head not found".into())))?;
+    let current_machine: MachineEntry = head_record.entry().to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Could not deserialize current machine".into())))?;
+    if !current_machine.status.can_transition_to(&input.new_status) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Invalid machine transition: {:?} -> {:?}", current_machine.status, input.new_status
+        ))));
     }
     let authority_record = get(input.authority_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Machine controller authority not found".into())))?;
@@ -306,7 +303,7 @@ pub fn create_machine_transition_approval(
         machine_hash: input.machine_hash.clone(),
         authority_hash: input.authority_hash.clone(),
         controller_agent: authority.controller_agent.clone(),
-        predecessor_action: head_action,
+        predecessor_action: head_action.clone(),
         new_status: input.new_status,
         work_order_hash: input.work_order_hash,
         valid_from: input.valid_from,
