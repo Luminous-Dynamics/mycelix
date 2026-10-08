@@ -43,3 +43,16 @@ deployment prerequisites.
 
 This adapter does not authenticate terminal evidence or grant execution authority.
 A separate authority/evidence verifier must do that before terminal resolution.
+
+## Verifier affirmation
+
+Terminal verification is represented as a typed `VerifiedTerminalOutcomeV1`
+proof. The proof carries the exact attempt identity, operation identifier,
+native replay identity, action-key digest, and verification purpose that were
+evaluated. The effect boundary checks all of those bindings again before it
+commits or releases the durable attempt/fence state.
+
+The type is constructed from the evaluated attempt rather than from caller-
+supplied identity fields. A verifier that returns a terminal outcome for a
+different attempt, action, or purpose is therefore rejected at the boundary
+and the occupied fence remains held.
