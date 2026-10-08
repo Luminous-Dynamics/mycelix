@@ -16,6 +16,10 @@ permissions:
   actions: read
   contents: read
 
+concurrency:
+  group: cos-durable-publication-${{ inputs.expected_main_sha }}-${{ inputs.attestor_run_id }}
+  cancel-in-progress: false
+
 jobs:
   prepare:
     name: Read-only qualification handoff
