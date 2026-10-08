@@ -714,24 +714,26 @@ mod tests {
     }
 
     #[test]
-    fn same_cause_cannot_authorize_two_distinct_mutation_classes() {
+    fn same_cause_can_fan_out_when_source_allows_multiple_effects() {
         let transfer = base_transfer();
         let mut fee = base_transfer();
+        fee.identity.namespace = EconomicIdentityNamespaceV1::Fee;
+        fee.identity.key = "fee-1".into();
         fee.identity.mutation_class = MutationClass::Fee;
         fee.credits = vec![allocation("treasury", AllocationRole::Treasury, 100)];
 
-        let seen_cause = vec!["cause-1".to_string()];
-        assert_eq!(
-            fee.validate(EffectValidationContext {
+        assert!(transfer
+            .validate(EffectValidationContext {
                 seen_effect_identities: &[],
                 seen_economic_identities: &[],
-            }),
-            Err(EconomicEffectError::CauseReplay)
-        );
-        assert!(transfer.validate(EffectValidationContext {
-            seen_effect_identities: &[],
-                        seen_economic_identities: &[],
-        }).is_ok());
+            })
+            .is_ok());
+        assert!(fee
+            .validate(EffectValidationContext {
+                seen_effect_identities: &[],
+                seen_economic_identities: &[],
+            })
+            .is_ok());
     }
 
     #[test]
@@ -949,6 +951,7 @@ mod tests {
                 predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
                 effect_identity: EconomicEffectIdentityV1 {
+                    namespace: EconomicIdentityNamespaceV1::Transfer,
                     key: "transfer-b".into(),
                     predecessor_action_reference: "prev-1".into(),
                     cause_action_reference: "cause-b".into(),
