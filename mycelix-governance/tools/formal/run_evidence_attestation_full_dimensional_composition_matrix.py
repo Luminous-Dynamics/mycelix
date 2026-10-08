@@ -124,9 +124,12 @@ receipt["reference"] = {
 }
 
 def tlc(cfg, module_path, label):
+    metadir = a.evidence_dir / (label + "-metadir")
+    metadir.mkdir(parents=True, exist_ok=True)
     result = run([
         "java", "-cp", str(a.tla_jar), "tlc2.TLC",
-        "-workers", "1", "-config", str(cfg), str(module_path),
+        "-workers", "1", "-metadir", str(metadir),
+        "-config", str(cfg), str(module_path),
     ])
     (a.evidence_dir / (label + ".log")).write_text(result.stdout, encoding="utf-8")
     if result.returncode == 0 and "Model checking completed. No error has been found." in result.stdout:
