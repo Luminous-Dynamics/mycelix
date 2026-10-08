@@ -154,6 +154,21 @@ jobs:
           assert run_id > 0 and run_attempt > 0
           assert re.fullmatch(r"[0-9a-f]{40}", subject_workflow_blob)
 
+          upstream = api_get(f"/actions/runs/{run_id}")
+          assert upstream["id"] == run_id
+          assert upstream["name"] == "D6S Canonical Qualification"
+          assert upstream["path"] == ".github/workflows/d6s-canonical-qualification.yml"
+          assert upstream["workflow_id"] == 371215723
+          assert upstream["event"] == "pull_request"
+          assert upstream["conclusion"] == "success"
+          assert upstream["run_attempt"] == run_attempt
+          assert upstream["repository"]["full_name"] == repo
+          assert int(upstream["repository"]["id"]) == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert upstream["head_repository"]["full_name"] == repo
+          assert int(upstream["head_repository"]["id"]) == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert upstream["head_branch"] == head_branch
+          assert upstream["head_sha"] == head_sha
+
           name_query = urllib.parse.quote(expected_name, safe="")
           artifacts = api_get(
               f"/actions/runs/{run_id}/artifacts?per_page=100&name={name_query}"
@@ -219,6 +234,11 @@ jobs:
           assert record["run_id"] == str(run_id)
           assert record["run_attempt"] == str(run_attempt)
           assert record["event"] == "pull_request"
+          workflow_ref = record.get("workflow_ref", "")
+          assert workflow_ref.startswith(
+              f"{repo}/.github/workflows/d6s-canonical-qualification.yml@refs/pull/"
+          )
+          assert workflow_ref.endswith("/merge")
           assert record["claim_ceiling"] == "ReferenceModelOnly"
 
           tree = api_get(
