@@ -56,9 +56,9 @@ def verify_head(att,w,reg,entries):
     except Exception:return None,'head-signature-invalid'
     return att,None
 
-def head_quorum(fixture,reg):
+def head_quorum(head_fixture,reg,entries,expected_root):
     vals=[]
-    for w,a in fixture['head_quorum'].items():
+    for w,a in head_fixture['heads']['size_7']['attestations'].items():
         v,e=verify_head(a,w,reg,fixture['entries'])
         if e:return None,e
         vals.append(v)
