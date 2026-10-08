@@ -212,10 +212,13 @@ MigrationPreservesObligationsAndHistory ==
     /\ obligationsPreserved[s]
     /\ historyPreserved[s]
 
-ProviderSwitchDoesNotTransferAuthorityOrJurisdiction ==
+ProviderSwitchDoesNotTransferAuthority ==
   \A s \in Subjects, switchObserved[s] =>
-    /\ authority[s] = authorityBeforeSwitch[s]
-    /\ jurisdiction[s] = jurisdictionBeforeSwitch[s]
+    authority[s] = authorityBeforeSwitch[s]
+
+ProviderSwitchDoesNotTransferJurisdiction ==
+  \A s \in Subjects, switchObserved[s] =>
+    jurisdiction[s] = jurisdictionBeforeSwitch[s]
 
 HighSwitchingCostTriggersReview ==
   \A s \in Subjects :
