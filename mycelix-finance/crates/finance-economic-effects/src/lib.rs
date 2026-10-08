@@ -47,6 +47,37 @@ impl MutationClass {
     }
 }
 
+/// Canonical semantic identity of one economic effect.
+///
+/// This is deliberately derived from immutable economic references and the
+/// mutation class rather than supplied as a free-form caller label. One exact
+/// predecessor + one exact cause cannot silently authorize two independent
+/// effects just by choosing different presentation IDs.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct EconomicEffectIdentityV1 {
+    pub predecessor_action_reference: String,
+    pub cause_action_reference: String,
+    pub asset: String,
+    pub mutation_class: MutationClass,
+    pub source_owner: String,
+}
+
+impl EconomicEffectIdentityV1 {
+    fn validate(&self) -> Result<(), EconomicEffectError> {
+        validate_id(
+            &self.predecessor_action_reference,
+            EconomicEffectError::InvalidPredecessorReference,
+        )?;
+        validate_id(
+            &self.cause_action_reference,
+            EconomicEffectError::InvalidCauseReference,
+        )?;
+        validate_id(&self.asset, EconomicEffectError::InvalidAsset)?;
+        validate_id(&self.source_owner, EconomicEffectError::InvalidSourceOwner)?;
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AllocationRole {
     Account,
@@ -75,12 +106,8 @@ impl EconomicAllocation {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EconomicEffectV1 {
     pub schema_version: u16,
-    pub effect_id: String,
-    pub predecessor_action_reference: String,
-    pub cause_action_reference: String,
-    pub asset: String,
-    pub mutation_class: MutationClass,
-    pub source_owner: String,
+    pub identity: EconomicEffectIdentityV1,
+
     pub debits: Vec<EconomicAllocation>,
     pub credits: Vec<EconomicAllocation>,
 }
@@ -93,22 +120,9 @@ impl EconomicEffectV1 {
         if self.schema_version != ECONOMIC_EFFECT_V1_SCHEMA_VERSION {
             return Err(EconomicEffectError::UnsupportedSchema);
         }
-        validate_id(&self.effect_id, EconomicEffectError::InvalidEffectId)?;
-        validate_id(
-            &self.predecessor_action_reference,
-            EconomicEffectError::InvalidPredecessorReference,
-        )?;
-        validate_id(
-            &self.cause_action_reference,
-            EconomicEffectError::InvalidCauseReference,
-        )?;
-        validate_id(&self.asset, EconomicEffectError::InvalidAsset)?;
-        validate_id(
-            &self.source_owner,
-            EconomicEffectError::InvalidSourceOwner,
-        )?;
+        self.identity.validate()?;
 
-        if context.seen_effect_ids.iter().any(|id| id == &self.effect_id) {
+        if context.seen_effect_identities.iter().any(|identity| identity == &self.identity) {
             return Err(EconomicEffectError::EffectReplay);
         }
 
@@ -119,7 +133,7 @@ impl EconomicEffectV1 {
             return Err(EconomicEffectError::EmptyEffect);
         }
 
-        match self.mutation_class {
+        match self.identity.mutation_class {
             MutationClass::Transfer => {
                 require_one(&self.debits, AllocationRole::Account)?;
                 require_one(&self.credits, AllocationRole::Account)?;
@@ -212,7 +226,7 @@ impl EconomicEffectV1 {
         let debit_total = checked_total(&self.debits)?;
         let credit_total = checked_total(&self.credits)?;
 
-        if self.mutation_class.requires_exact_conservation() {
+        if self.identity.mutation_class.requires_exact_conservation() {
             require_equal_totals(debit_total, credit_total)?;
         }
         Ok(credit_total)
@@ -221,7 +235,7 @@ impl EconomicEffectV1 {
 
 #[derive(Clone, Copy, Debug)]
 pub struct EffectValidationContext<'a> {
-    pub seen_effect_ids: &'a [String],
+    pub seen_effect_identities: &'a [EconomicEffectIdentityV1],
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -235,7 +249,7 @@ pub struct ValidatedEconomicEffect<'a> {
 pub struct EconomicEffectObservation {
     pub predecessor_action_reference: String,
     pub successor_action_reference: String,
-    pub effect_id: String,
+    pub effect_identity: EconomicEffectIdentityV1,
 }
 
 impl EconomicEffectObservation {
@@ -248,7 +262,7 @@ impl EconomicEffectObservation {
             &self.successor_action_reference,
             EconomicEffectError::InvalidSuccessorReference,
         )?;
-        validate_id(&self.effect_id, EconomicEffectError::InvalidEffectId)?;
+        self.effect_identity.validate()?;
         if self.predecessor_action_reference == self.successor_action_reference {
             return Err(EconomicEffectError::SelfReferentialSuccessor);
         }
@@ -289,19 +303,19 @@ pub fn classify_successors(
         EconomicEffectError::InvalidPredecessorReference,
     )?;
 
-    let mut unique_by_action: BTreeMap<String, String> = BTreeMap::new();
+    let mut unique_by_action: BTreeMap<String, EconomicEffectIdentityV1> = BTreeMap::new();
     for observation in observations {
         observation.validate_shape()?;
         if observation.predecessor_action_reference != predecessor_action_reference {
             return Err(EconomicEffectError::PredecessorReferenceMismatch);
         }
         match unique_by_action.get(&observation.successor_action_reference) {
-            Some(existing) if existing == &observation.effect_id => {}
+            Some(existing) if existing == &observation.effect_identity => {}
             Some(_) => return Err(EconomicEffectError::InconsistentDuplicateAction),
             None => {
                 unique_by_action.insert(
                     observation.successor_action_reference.clone(),
-                    observation.effect_id.clone(),
+                    observation.effect_identity.clone(),
                 );
             }
         }
@@ -386,7 +400,6 @@ fn validate_id(value: &str, error: EconomicEffectError) -> Result<(), EconomicEf
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EconomicEffectError {
     UnsupportedSchema,
-    InvalidEffectId,
     InvalidPredecessorReference,
     InvalidCauseReference,
     InvalidSuccessorReference,
@@ -429,7 +442,7 @@ mod tests {
     fn base_transfer() -> EconomicEffectV1 {
         EconomicEffectV1 {
             schema_version: ECONOMIC_EFFECT_V1_SCHEMA_VERSION,
-            effect_id: "effect-1".into(),
+            effect_identity: effect.identity.clone(),
             predecessor_action_reference: "prev-1".into(),
             cause_action_reference: "cause-1".into(),
             asset: "SAP".into(),
@@ -441,7 +454,7 @@ mod tests {
     }
 
     fn validate(effect: &EconomicEffectV1) -> Result<ValidatedEconomicEffect<'_>, EconomicEffectError> {
-        effect.validate(EffectValidationContext { seen_effect_ids: &[] })
+        effect.validate(EffectValidationContext { seen_effect_identities: &[] })
     }
 
     #[test]
@@ -530,7 +543,7 @@ mod tests {
         let effect = base_transfer();
         assert_eq!(
             effect.validate(EffectValidationContext {
-                seen_effect_ids: &["effect-1".into()]
+                seen_effect_identities: &[effect.identity.clone()]
             }),
             Err(EconomicEffectError::EffectReplay)
         );
@@ -589,12 +602,18 @@ mod tests {
             EconomicEffectObservation {
                 predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
-                effect_id: "effect-a".into(),
+                effect_identity: base_transfer().identity.clone(),
             },
             EconomicEffectObservation {
                 predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-b".into(),
-                effect_id: "effect-b".into(),
+                effect_identity: EconomicEffectIdentityV1 {
+                    predecessor_action_reference: "prev-1".into(),
+                    cause_action_reference: "cause-b".into(),
+                    asset: "SAP".into(),
+                    mutation_class: MutationClass::Transfer,
+                    source_owner: "alice".into(),
+                },
             },
         ];
         let status = classify_successors("prev-1", &observations).unwrap();
@@ -608,7 +627,7 @@ mod tests {
             EconomicEffectObservation {
                 predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
-                effect_id: "effect-a".into(),
+                effect_identity: base_transfer().identity.clone(),
             },
             EconomicEffectObservation {
                 predecessor_action_reference: "prev-1".into(),
@@ -630,7 +649,13 @@ mod tests {
             EconomicEffectObservation {
                 predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
-                effect_id: "effect-b".into(),
+                effect_identity: EconomicEffectIdentityV1 {
+                predecessor_action_reference: "prev-1".into(),
+                cause_action_reference: "cause-b".into(),
+                asset: "SAP".into(),
+                mutation_class: MutationClass::Transfer,
+                source_owner: "alice".into(),
+            },
             },
         ];
         assert_eq!(
