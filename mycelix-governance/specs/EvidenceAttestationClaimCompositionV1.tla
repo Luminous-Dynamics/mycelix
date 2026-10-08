@@ -1,0 +1,69 @@
+---------------- MODULE EvidenceAttestationClaimCompositionV1 ----------------
+EXTENDS Naturals, FiniteSets
+
+CONSTANTS R1, R2,
+          Read, Write,
+          Claim1, Claim2
+
+Resources == {R1, R2}
+Actions == {Read, Write}
+Claims == {Claim1, Claim2}
+
+Capability1 == [resource |-> R1, action |-> Read]
+Capability2 == [resource |-> R2, action |-> Write]
+
+ClaimCapabilities ==
+  [c \in Claims |-> CASE
+    c = Claim1 -> {Capability1}
+    [] c = Claim2 -> {Capability2}]
+
+ClaimAuthorized ==
+  [c \in Claims |-> TRUE]
+
+ClaimGrantBacked ==
+  [c \in Claims |-> TRUE]
+
+VARIABLES authorizedClaims, composedAuthority
+
+vars == <<authorizedClaims, composedAuthority>>
+
+AuthorizedCapabilities ==
+  UNION {ClaimCapabilities[c] : c \in authorizedClaims}
+
+ClaimResourceUnion ==
+  {c.resource : c \in AuthorizedCapabilities}
+
+ClaimActionUnion ==
+  {c.action : c \in AuthorizedCapabilities}
+
+CartesianCapabilities ==
+  { [resource |-> r, action |-> a] :
+      r \in ClaimResourceUnion,
+      a \in ClaimActionUnion }
+
+Init ==
+  /\ authorizedClaims = Claims
+  /\ composedAuthority = {}
+
+ComposeClaims ==
+  /\ authorizedClaims # {}
+  /\ composedAuthority' = AuthorizedCapabilities
+  /\ UNCHANGED authorizedClaims
+
+Next ==
+  ComposeClaims
+
+TypeOK ==
+  /\ authorizedClaims \subseteq Claims
+  /\ composedAuthority \subseteq
+       { [resource |-> r, action |-> a] :
+           r \in Resources, a \in Actions }
+
+AllAuthorizedClaimsGrantBacked ==
+  \A c \in authorizedClaims :
+    ClaimAuthorized[c] /\ ClaimGrantBacked[c]
+
+CompositionOnlyUsesAtomicAuthorizedCapabilities ==
+  composedAuthority \subseteq AuthorizedCapabilities
+
+=========================================================================
