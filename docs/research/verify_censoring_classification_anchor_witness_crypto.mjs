@@ -92,7 +92,7 @@ function keyFor(reg,w,kid,version){
 }
 function verifyAtt(cp,w,a,root,reg){
   const fields=["schema","witness_id","key_id","algorithm","domain","claims","signature"];
-  if(!a||typeof a!=="object"||Array.isArray(a)||Object.keys(a).sort().join("|")!==fields.join("|"))return[null,"signature-wrapping-or-schema"];
+  if(!a||typeof a!=="object"||Array.isArray(a)||Object.keys(a).sort().join("|")!==fields.slice().sort().join("|"))return[null,"signature-wrapping-or-schema"];
   if(a.schema!==SIG_SCHEMA)return[null,"attestation-schema"];
   if(a.witness_id!==w)return[null,"witness-id-mismatch"];
   if(a.algorithm!==ALG)return[null,"algorithm-substitution"];
