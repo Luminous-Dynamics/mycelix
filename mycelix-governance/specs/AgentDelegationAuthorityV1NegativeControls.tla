@@ -6,7 +6,7 @@ CONSTANT Control
 BadUndelegatedChild ==
   /\ activeGrants' = activeGrants \cup {G2}
   /\ revokedGrants' = revokedGrants
-  /\ authority' = [authority EXCEPT ![B] = @ \cup {P2}]
+  /\ authority' = [authority EXCEPT ![B] = @ \cup {P1}]
   /\ UNCHANGED <<evidenceRecorded, providerFailed, authorityBeforeFailure>>
 
 BadGrandchildExceedsAncestor ==
