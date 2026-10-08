@@ -12,7 +12,9 @@ import sys
 from pathlib import Path
 
 SEED = 0x43505601
-VERSION = "censoring-classification-provenance-v3"
+VERSION = "censoring-classification-provenance-v4-scope-fields"
+SCOPE_ANCHOR = "sha256:5e37680263c44c37406c1d65a2f3d0797d48c7935383c05aeba2533015260acb"
+FOREIGN_SCOPE_ANCHOR = "sha256:1415e536f9e5bab08514ba2451fa63f044b5273a51f37f0d26813931ad8365c7"
 
 FIELDS = (
     "attempt_id",
@@ -22,6 +24,7 @@ FIELDS = (
     "policy_blob_sha",
     "basis_id",
     "revision",
+    "claim_scope_anchor",
 )
 
 
@@ -56,7 +59,16 @@ def revision_node(policy_sha: str, revision: str = "1", classification_epoch: st
         "policy_blob_sha": policy_sha,
         "basis_id": "B1",
         "revision": revision,
+        "claim_scope_anchor": SCOPE_ANCHOR,
     }
+    node["commitment"] = classification_commitment(node)
+    return node
+
+
+def foreign_revision_node(policy_sha: str, revision: str = "1") -> dict:
+    node = revision_node(policy_sha, revision=revision)
+    node["id"] = "c99"
+    node["claim_scope_anchor"] = FOREIGN_SCOPE_ANCHOR
     node["commitment"] = classification_commitment(node)
     return node
 
@@ -219,6 +231,7 @@ def main() -> int:
             "expected_verdict": expected,
         })
 
+
     omission_mutations = [
         [["remove_node", "c01"]],
         [["remove_node", "c01"], ["add_node", revision_node(policy_sha, revision="0")],
@@ -356,7 +369,7 @@ def main() -> int:
             mutation[0][1]["commitment"] = classification_commitment(mutation[0][1])
             mutation.append([
                 "add_node",
-                {"id":"a02","type":"Attempt","censoring_reason":"ActionInducedCensoring","outcome_epoch":"t1","action":"UPDATE"},
+                {"id":"a02","type":"Attempt","censoring_reason":"ActionInducedCensoring","outcome_epoch":"t1","action":"UPDATE","claim_scope_anchor":SCOPE_ANCHOR},
             ])
             expected = "unqualified"
         cases.append({
@@ -415,7 +428,7 @@ def main() -> int:
     assert len(cases) == 168
 
     corpus = {
-        "schema": "mycelix.continual-adaptation.censoring-classification-provenance-generated-properties.v1",
+        "schema": "mycelix.continual-adaptation.censoring-classification-provenance-generated-properties.v2",
         "status": "research-fixture-only",
         "generator": {
             "version": VERSION,

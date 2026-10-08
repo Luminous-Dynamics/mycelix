@@ -16,6 +16,7 @@ IDENTITY_FIELDS = (
     "policy_blob_sha",
     "basis_id",
     "revision",
+    "claim_scope_anchor",
 )
 RELATIONS = (
     "requires",
@@ -96,6 +97,18 @@ def validate_structure(graph: dict, policy: dict) -> tuple[bool, str]:
         or nodes["claim"].get("type") != "Claim"
     ):
         return False, "claim-root"
+
+    cfg = policy["classification"]
+    if cfg.get("claim_scope_binding_required", True):
+        claim = nodes["claim"]
+        claim_scope_anchor = claim.get("claim_scope_anchor")
+        expected_scope_anchor = digest({"id": claim["id"], "type": claim["type"]})
+        if claim_scope_anchor != expected_scope_anchor:
+            return False, "claim-scope-root"
+        for node in nodes.values():
+            if node.get("type") in {"AttemptCensus", "Attempt", "CensoringClassification"}:
+                if node.get("claim_scope_anchor") != claim_scope_anchor:
+                    return False, "claim-scope-mismatch"
 
     edges = graph.get("edges")
     if not isinstance(edges, list):
@@ -494,7 +507,7 @@ def main() -> int:
         "cases": rows,
         "failures": failures,
         "policy_blob_sha": actual_sha,
-        "schema": "mycelix.continual-adaptation.censoring-classification-provenance-report.v1",
+        "schema": "mycelix.continual-adaptation.censoring-classification-provenance-report.v2",
         "status": "research-evidence-only",
     }
     Path(report_path).write_text(
