@@ -469,6 +469,7 @@ jobs:
       - test-hearth
       - test-finance
       - finance-update-integrity-audit
+      - finance-sap-cause-audit
       - test-finance-integration
       - test-governance
       - test-identity
@@ -488,6 +489,7 @@ jobs:
           echo "Hearth: ${{ needs.test-hearth.result }}"
           echo "Finance: ${{ needs.test-finance.result }}"
           echo "Finance Update Audit: ${{ needs.finance-update-integrity-audit.result }}"
+          echo "Finance SAP Cause Audit: ${{ needs.finance-sap-cause-audit.result }}"
           # Reported but not gated below — expected red until the finance
           # zomes/tests are synced from the monorepo. See the job's own comment.
           echo "Finance Integration (informational): ${{ needs.test-finance-integration.result }}"
@@ -500,7 +502,7 @@ jobs:
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.finance-update-integrity-audit.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.finance-update-integrity-audit.result }}" "${{ needs.finance-sap-cause-audit.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
