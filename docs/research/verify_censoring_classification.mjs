@@ -192,6 +192,12 @@ function verify(graph, policy, actualPolicySha, anchors) {
 
   const nodes = nodeIndex(graph);
   const local = claimLocalNodes(graph, policy);
+  if (policy.classification.supersession_must_be_claim_local ?? true) {
+    for (const edge of graph.edges) {
+      if (edge[2] !== "supersedes") continue;
+      if (!local.has(edge[0]) || !local.has(edge[1])) return "unresolved";
+    }
+  }
   if (hasSupersedesCycle(graph)) return "unresolved";
 
   if (policy.classification.active_classification_required) {

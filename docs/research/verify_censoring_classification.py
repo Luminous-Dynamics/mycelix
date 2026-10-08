@@ -328,6 +328,13 @@ def verify(
     assert nodes is not None
     claim_nodes = claim_local_nodes(graph, policy)
 
+    if policy["classification"].get("supersession_must_be_claim_local", True):
+        for edge in graph["edges"]:
+            if edge[2] != "supersedes":
+                continue
+            if edge[0] not in claim_nodes or edge[1] not in claim_nodes:
+                return "unresolved"
+
     if has_supersedes_cycle(graph):
         return "unresolved"
 

@@ -1266,6 +1266,443 @@
       ],
       "expected_verdict": "unresolved",
       "reason": "a superseding revision cannot repair a base anchor whose attempted-episode lineage was removed"
+    },
+    {
+      "case_id": "CCP-037",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "0",
+            "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_node",
+          {
+            "id": "c99",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "1",
+            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "c01",
+            "supersedes"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "off-claim supersession cannot hide the immutable base from active-state evaluation"
+    },
+    {
+      "case_id": "CCP-038",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "1",
+            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "c01",
+            "supersedes"
+          ]
+        ],
+        [
+          "add_node",
+          {
+            "id": "c99",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "1",
+            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "c01",
+            "supersedes"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "even redundant off-claim supersession is not part of the claim-local lineage"
+    },
+    {
+      "case_id": "CCP-039",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "0",
+            "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_node",
+          {
+            "id": "c99",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "1",
+            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "c01",
+            "supersedes"
+          ]
+        ],
+        [
+          "reverse_collection",
+          "nodes"
+        ],
+        [
+          "reverse_collection",
+          "edges"
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "representation changes cannot move an off-claim lineage edge into scope"
+    },
+    {
+      "case_id": "CCP-040",
+      "mutation": [
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "0",
+            "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_node",
+          {
+            "id": "c99",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "1",
+            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c99",
+            "c01",
+            "supersedes"
+          ]
+        ],
+        [
+          "add_node",
+          {
+            "id": "i01",
+            "type": "InvalidationRecord",
+            "reason": "historical invalidation",
+            "epoch": "t1"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "c01",
+            "i01",
+            "invalidated_by"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "off-claim supersession cannot mask a claim-local invalidation state"
     }
   ]
 }

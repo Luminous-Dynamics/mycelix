@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 SEED = 0x43505601
-VERSION = "censoring-classification-provenance-v2"
+VERSION = "censoring-classification-provenance-v3"
 
 FIELDS = (
     "attempt_id",
@@ -172,6 +172,51 @@ def main() -> int:
             "property": "anchor_claim_local_lineage_representation",
             "mutation": mutation,
             "expected_verdict": lineage_mutations[i][1],
+        })
+
+
+    def off_claim_scope_attack(policy_sha: str, replacement_revision: str = "0") -> list[list[object]]:
+        base_node = revision_node(policy_sha, revision=replacement_revision)
+        base_node["id"] = "c02"
+        base_node["commitment"] = classification_commitment(base_node)
+        foreign = revision_node(policy_sha, revision="1")
+        foreign["id"] = "c99"
+        foreign["commitment"] = classification_commitment(foreign)
+        mutation = [
+            ["add_node", base_node],
+            ["add_edge", ["attempts", "c02", "uses"]],
+            ["add_edge", ["c02", "a01", "classifies"]],
+            ["add_edge", ["c02", "p01", "frozen_by"]],
+            ["add_edge", ["c02", "b01", "supported_by"]],
+            ["add_node", foreign],
+            ["add_edge", ["c99", "a01", "classifies"]],
+            ["add_edge", ["c99", "p01", "frozen_by"]],
+            ["add_edge", ["c99", "b01", "supported_by"]],
+            ["add_edge", ["c99", "c01", "supersedes"]],
+        ]
+        return mutation
+
+    scope_mutations = [
+        (off_claim_scope_attack(policy_sha, "0"), "unresolved"),
+        (off_claim_scope_attack(policy_sha, "0") + [["reverse_collection", "nodes"], ["reverse_collection", "edges"]], "unresolved"),
+        (off_claim_scope_attack(policy_sha, "1") + [
+            ["add_edge", ["c02", "c01", "supersedes"]]
+        ], "unresolved"),
+        (off_claim_scope_attack(policy_sha, "0") + [
+            ["add_node", {"id": "i01", "type": "InvalidationRecord", "reason": "historical invalidation", "epoch": "t1"}],
+            ["add_edge", ["c01", "i01", "invalidated_by"]]
+        ], "unresolved"),
+        (off_claim_scope_attack(policy_sha, "0") + [["reverse_collection", "nodes"]], "unresolved"),
+        (off_claim_scope_attack(policy_sha, "0") + [["reverse_collection", "edges"]], "unresolved"),
+        (off_claim_scope_attack(policy_sha, "0") + [["reverse_collection", "nodes"], ["reverse_collection", "edges"], ["reverse_collection", "nodes"]], "unresolved"),
+        (off_claim_scope_attack(policy_sha, "1") + [["reverse_collection", "nodes"], ["reverse_collection", "edges"]], "unresolved"),
+    ]
+    for i, (mutation, expected) in enumerate(scope_mutations):
+        cases.append({
+            "case_id": f"CPV-GEN-SCOPE-{i:03d}",
+            "property": "claim_local_supersession_scope",
+            "mutation": mutation,
+            "expected_verdict": expected,
         })
 
     omission_mutations = [
@@ -367,7 +412,7 @@ def main() -> int:
             "expected_verdict": expected,
         })
 
-    assert len(cases) == 160
+    assert len(cases) == 168
 
     corpus = {
         "schema": "mycelix.continual-adaptation.censoring-classification-provenance-generated-properties.v1",
