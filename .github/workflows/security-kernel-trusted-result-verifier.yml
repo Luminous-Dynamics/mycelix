@@ -1193,7 +1193,7 @@ jobs:
           digest-mismatch: error
 
       - name: Verify official receipt transport and publish verified result
-        if: success()
+        if: ${{ !cancelled() && (steps.verify_result.outputs.dispatch_decision == 'qualified' || steps.verify_result.outputs.dispatch_decision == 'suppressed') }}
         env:
           RECEIPT_ROOT: ${{ runner.temp }}/security-kernel-official-receipt
           NEGATIVE_CONTROLS_ROOT: ${{ runner.temp }}/security-kernel-official-negative-controls
