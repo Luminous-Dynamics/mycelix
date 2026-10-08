@@ -405,6 +405,21 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         (),
     )?;
 
+    // Stable timelock-ID index: the Timelock itself is updated from Ready to
+    // Prepared after this point, so its ActionHash is not a durable lookup key
+    // for the execution chain.
+    let execution_by_timelock_anchor =
+        format!("execution_by_timelock:{}", input.timelock_id);
+    create_entry(&EntryTypes::Anchor(Anchor(
+        execution_by_timelock_anchor.clone(),
+    )))?;
+    create_link(
+        anchor_hash(&execution_by_timelock_anchor)?,
+        execution_hash.clone(),
+        LinkTypes::ExecutionByTimelock,
+        (),
+    )?;
+
     let prepared_timelock = Timelock {
         id: current_timelock.id.clone(),
         proposal_id: current_timelock.proposal_id.clone(),
