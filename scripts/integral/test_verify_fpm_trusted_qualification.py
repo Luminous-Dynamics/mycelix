@@ -306,6 +306,23 @@ def main() -> None:
         finally:
             shutil.rmtree(fresh)
 
+        stale_policy = mutated_case(
+            root,
+            "pull-request.json",
+            lambda x: (x.__setitem__("state", "open"), x.__setitem__("draft", False)),
+        )
+        try:
+            (stale_policy / "main-ref.json").write_bytes(
+                cjson({"ref": "refs/heads/main", "object": {"sha": BASE}}) + b"\n"
+            )
+            result = run(stale_policy)
+            assert result.returncode == 0, result.stderr + result.stdout
+            verified = json.loads(result.stdout)
+            assert verified["historical_qualification_valid"] is True
+            assert verified["current_promotion_eligible"] is False
+        finally:
+            shutil.rmtree(stale_policy)
+
         snapshot(root)
         raw = (root / "qualification-receipt.json").read_bytes()
         (root / "qualification-receipt.json").write_bytes(b" " + raw)
