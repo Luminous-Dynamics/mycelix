@@ -487,7 +487,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 fn validate_create_entry(
     entry: EntryTypes,
-    action: TypedAction<CreateData>,
+    action: TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::EncryptedEmail(email) => validate_encrypted_email(&email, &action),
