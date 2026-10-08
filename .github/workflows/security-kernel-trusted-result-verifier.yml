@@ -19,6 +19,7 @@ env:
   BASE_REPOSITORY_ID: "1176351975"
   BASE_BRANCH: "main"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
+  TRUSTED_DISPATCHER_WORKFLOW_ID: "375560659"
   TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "46e562d4eb824e6fb4fcd9aae4a4f0a06403aa69"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "874ce85538a12025bce82928acec38bcf99ab541"
@@ -167,6 +168,7 @@ jobs:
           workflow_sha = run.get("workflow_sha")
           workflow_id = run.get("workflow_id")
           assert isinstance(workflow_id, int) and workflow_id > 0, f"unexpected dispatcher workflow_id: {workflow_id!r}"
+          assert workflow_id == int(os.environ["TRUSTED_DISPATCHER_WORKFLOW_ID"])
           assert re.fullmatch(r"[0-9a-f]{40}", workflow_sha or ""), f"unexpected dispatcher workflow_sha: {workflow_sha!r}"
           verifier_file = get(f"/repos/{repo}/contents/.github/workflows/security-kernel-trusted-result-verifier.yml?ref={os.environ['GITHUB_WORKFLOW_SHA']}")
           assert verifier_file["type"] == "file"
