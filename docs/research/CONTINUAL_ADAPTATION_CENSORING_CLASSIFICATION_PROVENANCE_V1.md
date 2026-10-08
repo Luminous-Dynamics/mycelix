@@ -311,7 +311,7 @@ The closure therefore requires each declared base anchor to be both claim-local 
 
 This preserves the distinction between historical continuity and current reachability while preventing an unrelated revision-0 replacement from inheriting the anchor.
 
-The generated campaign now exercises 168 deterministic cases, including anchor-lineage and representation-composition mutations.
+The generated campaign now exercises 168 deterministic cases, including anchor-lineage and representation-composition mutations. The fixed fixture is also required to have unique case identifiers; duplicate IDs are rejected before fixed-corpus execution so policy-liveness lookup cannot select the wrong mutation.
 
 
 ## Claim-local supersession scope closure
@@ -330,7 +330,7 @@ A composition review found that claim-local membership was partly a reachability
 
 ## Object-identity closure follow-up
 
-The object-identity closure adds eight fixed cases for known non-base identifier continuity, including valid anchored materialization, semantic rebinding with valid topology, revision rebinding, target rebinding, foreign scope, valid new identifiers, representation reordering, and late classification. The external anchor deliberately binds the identifier together with the exact semantic commitment so a recomputed commitment cannot silently legitimize reuse of the same historical ID.
+The object-identity closure adds eight fixed cases for known non-base identifier continuity, covering valid anchored materialization, semantic rebinding, revision rebinding, scope rebinding, late classification, a genuinely new identifier, and a committed-content substitution. The generated object-identity family additionally exercises explicit target rebinding and representation reordering. The external anchor deliberately binds the identifier together with the exact semantic commitment so a recomputed commitment cannot silently legitimize reuse of the same historical ID.
 
 
 ## Independent-anchor ceiling

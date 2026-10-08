@@ -1,0 +1,344 @@
+{
+  "schema": "mycelix.continual-adaptation.censoring-classification-anchor-governance-campaign.v1",
+  "status": "research-fixture-only",
+  "expected_trust_root_sha256": "sha256:d70d03373580c0714a84d03b2fd3c8a443cad3f9928a71af42b9b35a89d85331",
+  "current_manifest_version": 2,
+  "previous_manifest_version": 1,
+  "cases": [
+    {
+      "case_id": "CAG-001",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "qualified",
+      "mode": "fixed-pin"
+    },
+    {
+      "case_id": "CAG-002",
+      "source_case_id": "CCP-046",
+      "expected_verdict": "unqualified",
+      "mode": "fixed-pin"
+    },
+    {
+      "case_id": "CAG-003",
+      "source_case_id": "CCP-047",
+      "expected_verdict": "unqualified",
+      "mode": "fixed-pin"
+    },
+    {
+      "case_id": "CAG-004",
+      "source_case_id": "CCP-048",
+      "expected_verdict": "unqualified",
+      "mode": "fixed-pin"
+    },
+    {
+      "case_id": "CAG-005",
+      "source_case_id": "CCP-049",
+      "expected_verdict": "unqualified",
+      "mode": "fixed-pin"
+    },
+    {
+      "case_id": "CAG-006",
+      "source_case_id": "CCP-050",
+      "expected_verdict": "unqualified",
+      "mode": "fixed-pin"
+    },
+    {
+      "case_id": "CAG-007",
+      "source_case_id": "CCP-051",
+      "expected_verdict": "qualified",
+      "mode": "fixed-pin"
+    },
+    {
+      "case_id": "CAG-008",
+      "source_case_id": "CCP-052",
+      "expected_verdict": "unqualified",
+      "mode": "fixed-pin"
+    },
+    {
+      "case_id": "CAG-009",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "qualified",
+      "mode": "fixed-pin",
+      "subject_mutations": [
+        [
+          "reverse_collection",
+          "nodes"
+        ],
+        [
+          "reverse_collection",
+          "edges"
+        ]
+      ]
+    },
+    {
+      "case_id": "CAG-010",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unqualified",
+      "mode": "fixed-pin",
+      "subject_mutations": [
+        [
+          "add_node",
+          {
+            "id": "a02",
+            "type": "Attempt",
+            "censoring_reason": "ActionInducedCensoring",
+            "outcome_epoch": "t1",
+            "action": "UPDATE",
+            "claim_scope_anchor": "sha256:5e37680263c44c37406c1d65a2f3d0797d48c7935383c05aeba2533015260acb"
+          }
+        ],
+        [
+          "set_node",
+          "c02",
+          "attempt_id",
+          "a02"
+        ],
+        [
+          "set_node",
+          "c02",
+          "commitment",
+          "sha256:797bb6d9fb7a74a29604358f1813c1214c5b11d5c4559004d7c6aa2c735e4936"
+        ]
+      ]
+    },
+    {
+      "case_id": "CAG-011",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unresolved",
+      "mode": "fixed-pin",
+      "fixture_suffix": "\n"
+    },
+    {
+      "case_id": "CAG-012",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unresolved",
+      "mode": "fixed-pin",
+      "manifest_source": "previous"
+    },
+    {
+      "case_id": "CAG-013",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unresolved",
+      "mode": "fixed-pin",
+      "manifest_mutations": [
+        [
+          "set",
+          "manifest_version",
+          3
+        ],
+        [
+          "set",
+          "previous_manifest_sha256",
+          "sha256:290649ab061c8ec5cdfb81c0add4946fbb597c4df96a8ac613fbc4f9b371f31f"
+        ]
+      ],
+      "derive_manifest_hash": true
+    },
+    {
+      "case_id": "CAG-014",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unresolved",
+      "mode": "fixed-pin",
+      "manifest_mutations": [
+        [
+          "set",
+          "authority_id",
+          "mycelix.research.attacker.v1"
+        ]
+      ]
+    },
+    {
+      "case_id": "CAG-015",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unresolved",
+      "mode": "semantic-liveness",
+      "manifest_mutations": [
+        [
+          "set",
+          "expires_after_epoch",
+          "t0"
+        ]
+      ],
+      "derive_manifest_hash": true,
+      "derive_root_hash": true
+    },
+    {
+      "case_id": "CAG-016",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unresolved",
+      "mode": "semantic-liveness",
+      "manifest_mutations": [
+        [
+          "set",
+          "entries.c02.registration_epoch",
+          "t2"
+        ]
+      ],
+      "derive_manifest_hash": true,
+      "derive_root_hash": true
+    },
+    {
+      "case_id": "CAG-017",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unresolved",
+      "mode": "semantic-liveness",
+      "manifest_mutations": [
+        [
+          "set",
+          "policy_blob_sha",
+          "sha256:deadbeef"
+        ]
+      ],
+      "derive_manifest_hash": true,
+      "derive_root_hash": true
+    },
+    {
+      "case_id": "CAG-018",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unresolved",
+      "mode": "semantic-liveness",
+      "manifest_mutations": [
+        [
+          "set",
+          "claim_scope_anchor",
+          "sha256:1415e536f9e5bab08514ba2451fa63f044b5273a51f37f0d26813931ad8365c7"
+        ]
+      ],
+      "derive_manifest_hash": true,
+      "derive_root_hash": true
+    },
+    {
+      "case_id": "CAG-019",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unresolved",
+      "mode": "semantic-liveness",
+      "manifest_mutations": [
+        [
+          "set",
+          "previous_manifest_sha256",
+          "sha256:deadbeef"
+        ]
+      ],
+      "derive_manifest_hash": true,
+      "derive_root_hash": true
+    },
+    {
+      "case_id": "CAG-020",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unresolved",
+      "mode": "semantic-liveness",
+      "manifest_mutations": [
+        [
+          "set",
+          "entries.c02.status",
+          "revoked"
+        ]
+      ],
+      "derive_manifest_hash": true,
+      "derive_root_hash": true
+    },
+    {
+      "case_id": "CAG-021",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unresolved",
+      "mode": "semantic-liveness",
+      "root_mutations": [
+        [
+          "set",
+          "authority_id",
+          "mycelix.research.attacker.v1"
+        ]
+      ],
+      "derive_root_hash": true
+    },
+    {
+      "case_id": "CAG-022",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "qualified",
+      "mode": "semantic-liveness",
+      "manifest_mutations": [
+        [
+          "set",
+          "manifest_version",
+          3
+        ],
+        [
+          "set",
+          "previous_manifest_sha256",
+          "sha256:290649ab061c8ec5cdfb81c0add4946fbb597c4df96a8ac613fbc4f9b371f31f"
+        ]
+      ],
+      "derive_manifest_hash": true,
+      "root_mutations": [
+        [
+          "set",
+          "root_version",
+          3
+        ],
+        [
+          "set",
+          "current_manifest_version",
+          3
+        ],
+        [
+          "set",
+          "maximum_manifest_version",
+          3
+        ],
+        [
+          "set",
+          "previous_root_sha256",
+          "sha256:d70d03373580c0714a84d03b2fd3c8a443cad3f9928a71af42b9b35a89d85331"
+        ]
+      ],
+      "derive_root_hash": true,
+      "previous_manifest_source": "current"
+    },
+    {
+      "case_id": "CAG-023",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unresolved",
+      "mode": "semantic-liveness",
+      "manifest_mutations": [
+        [
+          "set",
+          "entries.c02.status",
+          "revoked"
+        ]
+      ],
+      "derive_manifest_hash": true,
+      "derive_root_hash": true
+    },
+    {
+      "case_id": "CAG-024",
+      "source_case_id": "CCP-045",
+      "expected_verdict": "unresolved",
+      "mode": "semantic-liveness",
+      "manifest_source": "previous",
+      "derive_manifest_hash": true,
+      "root_mutations": [
+        [
+          "set",
+          "root_version",
+          1
+        ],
+        [
+          "set",
+          "current_manifest_version",
+          1
+        ],
+        [
+          "set",
+          "minimum_manifest_version",
+          1
+        ],
+        [
+          "set",
+          "maximum_manifest_version",
+          1
+        ]
+      ],
+      "derive_root_hash": true
+    }
+  ],
+  "expected_observed_state_sha256": "sha256:10406333afe0bfdeead43b5d85ef21f56fd0e9d099fd4ee4c4cc7cb77019932f"
+}

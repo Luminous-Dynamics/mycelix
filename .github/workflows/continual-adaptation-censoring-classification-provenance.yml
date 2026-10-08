@@ -11,6 +11,14 @@ on:
       - "docs/research/verify_censoring_classification.mjs"
       - "docs/research/verify_censoring_classification_policy_liveness.py"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_PROVENANCE_V1.md"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST_V1.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_TRUST_ROOT.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_OBSERVED_STATE.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_GOVERNANCE_FIXTURES.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_GOVERNANCE_V1.md"
+      - "docs/research/verify_censoring_classification_anchor_governance.py"
+      - "docs/research/verify_censoring_classification_anchor_governance.mjs"
       - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -23,6 +31,14 @@ on:
       - "docs/research/verify_censoring_classification.mjs"
       - "docs/research/verify_censoring_classification_policy_liveness.py"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_PROVENANCE_V1.md"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST_V1.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_TRUST_ROOT.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_OBSERVED_STATE.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_GOVERNANCE_FIXTURES.json"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_GOVERNANCE_V1.md"
+      - "docs/research/verify_censoring_classification_anchor_governance.py"
+      - "docs/research/verify_censoring_classification_anchor_governance.mjs"
       - ".github/workflows/continual-adaptation-censoring-classification-provenance.yml"
   workflow_dispatch:
 
@@ -127,6 +143,16 @@ jobs:
         run: |
           set -euo pipefail
           python3 docs/research/verify_censoring_classification_policy_liveness.py             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY_LIVENESS_FIXTURES.json             docs/research/verify_censoring_classification.py             docs/research/verify_censoring_classification.mjs
+
+      - name: Run independently pinned anchor-governance campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANCHOR_ROOT_SHA256="sha256:d70d03373580c0714a84d03b2fd3c8a443cad3f9928a71af42b9b35a89d85331"
+          ANCHOR_OBSERVED_SHA256="sha256:10406333afe0bfdeead43b5d85ef21f56fd0e9d099fd4ee4c4cc7cb77019932f"
+          python3 docs/research/verify_censoring_classification_anchor_governance.py             "$ANCHOR_ROOT_SHA256" "$ANCHOR_OBSERVED_SHA256"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_OBSERVED_STATE.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_TRUST_ROOT.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST_V1.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_GOVERNANCE_FIXTURES.json             anchor-governance-python.json
+          node docs/research/verify_censoring_classification_anchor_governance.mjs             "$ANCHOR_ROOT_SHA256" "$ANCHOR_OBSERVED_SHA256"             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_OBSERVED_STATE.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_TRUST_ROOT.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_MANIFEST_V1.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_POLICY.json             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_GOVERNANCE_FIXTURES.json             anchor-governance-node.json
+          diff -u anchor-governance-python.json anchor-governance-node.json
 
       - name: Emit exact-head receipt
         shell: bash

@@ -492,6 +492,13 @@ def main() -> int:
 
     failures = []
     rows = []
+    case_ids = [case.get("case_id") for case in fixture["cases"]]
+    if (
+        any(not isinstance(case_id, str) for case_id in case_ids)
+        or len(case_ids) != len(set(case_ids))
+    ):
+        print("duplicate or invalid fixed case IDs", file=sys.stderr)
+        return 1
     for case in fixture["cases"]:
         graph = apply_mutations(fixture["base_graph"], case["mutation"])
         verdict = verify(

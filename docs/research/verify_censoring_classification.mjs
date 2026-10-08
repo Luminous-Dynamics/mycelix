@@ -305,6 +305,11 @@ if (fixture.policy_binding?.git_blob_sha !== actualSha) process.exit(1);
 
 const failures = [];
 const rows = [];
+const caseIds = fixture.cases.map(c => c.case_id);
+if (caseIds.some(id => typeof id !== "string") || new Set(caseIds).size !== caseIds.length) {
+  console.error("duplicate or invalid fixed case IDs");
+  process.exit(1);
+}
 for (const c of fixture.cases) {
   const graph = applyMutations(fixture.base_graph, c.mutation);
   const verdict = verify(graph, policy, actualSha, fixture.history_anchors, fixture.object_identity_anchors);
