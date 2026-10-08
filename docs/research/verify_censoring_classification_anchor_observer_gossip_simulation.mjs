@@ -90,6 +90,7 @@ function verifyTreeHead(head,w,reg,entries){
   return verifyEd(pub,sig,Buffer.from(canonical(payload),"utf8"))?[head,null]:[null,"head-signature-invalid"];
 }
 function validateHeadQuorum(headFixture,wreg,vds,name){
+  if(wreg.registry_id!==WREG_ID||wreg.registry_version!==2)return[null,"witness-registry-binding"];
   const heads=headFixture.heads?.[name]?.attestations;if(!heads||Object.keys(heads).length<3)return[null,"head-below-threshold"];
   const vals=[];
   for(const[w,h]of Object.entries(heads)){const[v,e]=verifyTreeHead(h,w,wreg,vds.entries);if(e)return[null,e];vals.push(v);}
@@ -233,8 +234,9 @@ const rows=[],failures=[];
 for(const c of campaign.cases){
   const scenario=simFixture.scenarios[c.scenario];if(!scenario)process.exit(1);
   const report=simulateScenario(c.scenario,scenario,c.mutation,greg,wreg,gossipFixture,vds,headFixture,q4);
-  const row={case_id:c.case_id,expected_verdict:c.expected_verdict,...report};rows.push(row);
-  if(row.verdict!==c.expected_verdict)failures.push([c.case_id,c.expected_verdict,row.verdict,row.reason]);
+  const assertionResults=Object.fromEntries(Object.entries(c.expected_metrics||{}).map(([k,v])=>[k,canonical(report[k])===canonical(v)]));
+  const row={case_id:c.case_id,expected_verdict:c.expected_verdict,...report,assertion_results:assertionResults};rows.push(row);
+  if(row.verdict!==c.expected_verdict||Object.values(assertionResults).some(x=>!x))failures.push([c.case_id,c.expected_verdict,row.verdict,Object.values(assertionResults).every(Boolean)?row.reason:"metric-assertion-failed"]);
 }
 fs.writeFileSync(outp,canonical({schema:"mycelix.continual-adaptation.censoring-classification-anchor-observer-gossip-simulation-report.v1",status:"research-evidence-only",case_count:rows.length,cases:rows,failures})+"\n");
 console.log("cases="+rows.length+" failures="+failures.length);process.exit(failures.length?1:0);
