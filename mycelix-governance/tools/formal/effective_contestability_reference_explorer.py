@@ -85,15 +85,23 @@ def mutate(state: State, kind: str) -> State:
         return replace(state, authority=((), ("PowerB",)), failure_observed=True,
                        failed=("P1",), failure_authority=state.authority)
     if kind == "switch-obligation":
-        return replace(state, current=("P2", "P1"), switched=(True, False), obligations=(False, True))
+        return replace(
+            state, current=("P2", "P1"), switched=(True, False),
+            nominal=(("P2",), ()), effective=((), ()), obligations=(False, True)
+        )
     if kind == "switch-authority":
-        return replace(state, current=("P2", "P1"), switched=(True, False),
-                       authority=((), ("PowerB",)),
-                       authority_before_switch=state.authority)
+        return replace(
+            state, current=("P2", "P1"), switched=(True, False),
+            nominal=(("P2",), ()), effective=((), ()),
+            authority=((), ("PowerB",)), authority_before_switch=state.authority
+        )
     if kind == "switch-jurisdiction":
-        return replace(state, current=("P2", "P1"), switched=(True, False),
-                       jurisdiction=(("J1", "J2"), ("J1",)),
-                       jurisdiction_before_switch=state.jurisdiction)
+        return replace(
+            state, current=("P2", "P1"), switched=(True, False),
+            nominal=(("P2",), ()), effective=((), ()),
+            jurisdiction=(("J1", "J2"), ("J1",)),
+            jurisdiction_before_switch=state.jurisdiction
+        )
     if kind == "switch-review":
         return replace(state, switching_cost=(REVIEW_THRESHOLD, 0), review_required=(False, False))
     raise ValueError(kind)
@@ -121,10 +129,13 @@ def successors(state: State) -> list[State]:
             authority_before[i] = state.authority[i]
             jurisdiction_before = list(state.jurisdiction_before_switch)
             jurisdiction_before[i] = state.jurisdiction[i]
+            effective = list(state.effective)
+            effective[i] = ()
             out.append(replace(
                 state,
                 current=tuple(current),
                 switched=tuple(switched),
+                effective=tuple(effective),
                 authority_before_switch=tuple(authority_before),
                 jurisdiction_before_switch=tuple(jurisdiction_before),
             ))
