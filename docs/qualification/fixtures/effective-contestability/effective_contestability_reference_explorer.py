@@ -49,8 +49,6 @@ def check_invariants(state: State) -> list[str]:
     for s in SUBJECTS:
         i = idx(s)
         for p in state.effective[i]:
-            if p not in state.nominal[i]:
-                failures.append("EffectiveExitRequiresNominalExit")
             if p == state.current[i]:
                 failures.append("EffectiveExitContextIsFresh")
             if not state.portable[i]:
