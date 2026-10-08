@@ -398,7 +398,7 @@ fn validate_update_entry(
 
 fn validate_attestation(
     attestation: &TrustAttestation,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Truster must be the author
     if attestation.truster != action.author() {
@@ -461,7 +461,7 @@ fn validate_attestation(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_score(score: &TrustScore, _action: &Create) -> ExternResult<ValidateCallbackResult> {
+fn validate_score(score: &TrustScore, _action: &TypedAction<EntryCreationData>) -> ExternResult<ValidateCallbackResult> {
     // Score must be in valid range and finite
     if !score.score.is_finite() || score.score < 0.0 || score.score > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -542,7 +542,7 @@ fn validate_score(score: &TrustScore, _action: &Create) -> ExternResult<Validate
 
 fn validate_dispute(
     dispute: &TrustDispute,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Disputer must be author
     if dispute.disputer != action.author() {
@@ -563,7 +563,7 @@ fn validate_dispute(
 
 fn validate_introduction(
     intro: &TrustIntroduction,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Introducer must be author
     if intro.introducer != action.author() {
