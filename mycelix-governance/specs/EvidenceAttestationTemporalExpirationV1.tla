@@ -7,11 +7,7 @@ CONSTANTS Root, Alice,
           AudienceA,
           T1, T2, T3,
           G1,
-          E1,
-          SignatureValid, SignerTrusted, ClaimAuthorized,
-          EvidenceSubject, TargetSubject,
-          ClaimExpiry,
-          GrantResource, GrantAction, GrantAudience, GrantExpiry
+          E1
 
 Agents == {Root, Alice}
 Resources == {R1}
@@ -30,6 +26,17 @@ TimeRank == [t \in Times |-> CASE
 NextTime == [t \in {T1, T2} |-> CASE
   t = T1 -> T2
   [] t = T2 -> T3]
+
+SignatureValid == [e \in Evidence |-> TRUE]
+SignerTrusted == [e \in Evidence |-> TRUE]
+ClaimAuthorized == [e \in Evidence |-> TRUE]
+EvidenceSubject == [e \in Evidence |-> Alice]
+TargetSubject == [e \in Evidence |-> Alice]
+ClaimExpiry == [e \in Evidence |-> T1]
+GrantResource == [g \in Grants |-> R1]
+GrantAction == [g \in Grants |-> Read]
+GrantAudience == [g \in Grants |-> AudienceA]
+GrantExpiry == [g \in Grants |-> T1]
 
 Capability(g) ==
   [resource |-> GrantResource[g],
