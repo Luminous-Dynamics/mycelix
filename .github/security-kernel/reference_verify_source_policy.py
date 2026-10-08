@@ -631,7 +631,7 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
         fail("S0 API client must import explicit HTTP error handling for redirect rejection")
     if exact_count(l, "class NoRedirect(urllib.request.HTTPRedirectHandler):") != 1:
         fail("S0 API client must install an explicit no-redirect handler")
-    if exact_count(l, "api_opener=urllib.request.build_opener(NoRedirect)") != 1:
+    if exact_count(l, "api_opener=urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect)") != 1:
         fail("S0 API client must use the no-redirect opener")
     if exact_count(l, 'if error.code in (301,302,303,307,308):') != 1:
         fail("S0 API client must fail closed on all standard HTTP redirect statuses")
@@ -763,7 +763,7 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 trusted workflow blob input binding mismatch")
     if exact_count(l, "class NoRedirect(urllib.request.HTTPRedirectHandler):") != 4:
         fail("S1 token-bearing GitHub API clients must each install a no-redirect handler")
-    if exact_count(l, "api_opener=urllib.request.build_opener(NoRedirect)") != 4:
+    if exact_count(l, "api_opener=urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect)") != 4:
         fail("S1 GitHub API clients must use their no-redirect openers")
     if "urllib.request.urlopen(" in joined:
         fail("S1 token-bearing GitHub API client must not use urllib.request.urlopen directly")
@@ -1074,8 +1074,10 @@ def verify_s2(raw: bytes, expected_s0_sha: str, expected_s1_sha: str, expected_r
         fail("S2 source-policy verifier self-pin mismatch")
     if exact_count(l, "class ApiNoRedirect(urllib.request.HTTPRedirectHandler):") != 2:
         fail("S2 token-bearing GitHub API reads must each install an explicit no-redirect handler")
-    if exact_count(l, "api_opener=urllib.request.build_opener(ApiNoRedirect)") != 2:
+    if exact_count(l, "api_opener=urllib.request.build_opener(urllib.request.ProxyHandler({}), ApiNoRedirect)") != 2:
         fail("S2 token-bearing GitHub API reads must use explicit no-redirect openers")
+    if exact_count(l, 'urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect).open') != 6:
+        fail("S2 artifact transport openers must explicitly disable ambient proxies")
     if "with urllib.request.urlopen(req, timeout=20) as response:" in joined:
         fail("S2 token-bearing GitHub API reads must not use urllib.request.urlopen directly")
     if exact_count(l, 'TRUSTED_DISPATCHER_WORKFLOW_ID: "375560659"') != 1:
@@ -1239,12 +1241,30 @@ def main() -> None:
     )
 
     expect_rejection(
+        lambda: verify_s0(raw["s0"].replace(
+            b'api_opener=urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect)',
+            b'api_opener=urllib.request.build_opener(NoRedirect)',
+            1,
+        ), s1_sha),
+        "S0 ambient proxy disablement removed",
+    )
+
+    expect_rejection(
         lambda: verify_s1(raw["s1"].replace(
             b'class NoRedirect(urllib.request.HTTPRedirectHandler):',
             b'class NoRedirectRemoved:',
             1,
         ), s1_sha),
         "S1 token-bearing GitHub API no-redirect handler removed",
+    )
+
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(
+            b'api_opener=urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect)',
+            b'api_opener=urllib.request.build_opener(NoRedirect)',
+            1,
+        ), s1_sha),
+        "S1 ambient proxy disablement removed",
     )
     expect_rejection(
         lambda: verify_s1(inject_extra_permission(raw["s1"]), s1_sha),
@@ -1362,6 +1382,37 @@ def main() -> None:
             files["policy"]["sha"],
         ),
         "S2 token-bearing GitHub API no-redirect handler removed",
+    )
+
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'api_opener=urllib.request.build_opener(urllib.request.ProxyHandler({}), ApiNoRedirect)',
+                b'api_opener=urllib.request.build_opener(ApiNoRedirect)',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 ambient proxy disablement removed from token-bearing API client",
+    )
+    expect_rejection(
+        lambda: verify_s2(
+            raw["s2"].replace(
+                b'with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect).open',
+                b'with urllib.request.build_opener(NoRedirect).open',
+                1,
+            ),
+            s0_sha,
+            s1_sha,
+            retention_sha,
+            execution_sha,
+            files["policy"]["sha"],
+        ),
+        "S2 ambient proxy disablement removed from artifact transport",
     )
     expect_rejection(
         lambda: verify_s2(
