@@ -1663,6 +1663,21 @@ def self_test(policy: dict[str, Any]) -> None:
 
     x = copy.deepcopy(fixture_observation(policy))
     raw_branch = json.dumps(
+        {"name": "main", "protected": True, "commit": {"sha": "b" * 40}},
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    x["branch_payload_base64"] = base64.b64encode(raw_branch).decode()
+    x["branch_payload_sha256"] = hashlib.sha256(raw_branch).hexdigest()
+    try:
+        evaluate(policy, x)
+    except EvidenceError:
+        pass
+    else:
+        raise AssertionError("rehashed main commit substitution must be rejected")
+
+    x = copy.deepcopy(fixture_observation(policy))
+    raw_branch = json.dumps(
         {"name": "attacker", "protected": True},
         separators=(",", ":"),
         sort_keys=True,
