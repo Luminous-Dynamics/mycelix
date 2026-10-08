@@ -341,6 +341,25 @@ impl MachineStatus {
 // MRP (Material Requirements Planning)
 // ============================================================================
 
+/// Semantic state of MRP feasibility.
+///
+/// Material sufficiency is intentionally distinct from manufacturing schedule
+/// feasibility. A plan cannot become fully feasible merely because no material
+/// shortage was observed.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum MrpFeasibility {
+    MaterialInfeasible,
+    SchedulingNotEvaluated,
+    SchedulingInfeasible,
+    Feasible,
+}
+
+impl Default for MrpFeasibility {
+    fn default() -> Self {
+        Self::SchedulingNotEvaluated
+    }
+}
+
 /// Result of an MRP planning run.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MrpResult {
@@ -348,6 +367,11 @@ pub struct MrpResult {
     pub scheduled_operations: Vec<ScheduledOperation>,
     pub capacity_warnings: Vec<CapacityWarning>,
     pub material_shortages: Vec<MaterialShortage>,
+    /// Full manufacturing feasibility, not merely material sufficiency.
+    #[serde(default)]
+    pub feasibility: MrpFeasibility,
+    /// Legacy compatibility flag. This may only be true when feasibility is
+    /// Feasible; material-only success must remain false.
     pub feasible: bool,
 }
 
@@ -749,6 +773,7 @@ mod tests {
                 quantity_available: 20,
                 short_quantity: 80,
             }],
+            feasibility: MrpFeasibility::MaterialInfeasible,
             feasible: false,
         };
         assert!(!result.feasible);
