@@ -1493,6 +1493,34 @@ fn validate_foreign_keys(conn: &Connection) -> Result<(), String> {
             "NO ACTION".to_owned(),
         ),
     ];
+
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA foreign_key_list({AUTHORIZATION_PROOF_TABLE})"))
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+    let actual = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    let expected = vec![(
+        ATTEMPT_TABLE.to_owned(),
+        "attempt_identity".to_owned(),
+        "attempt_identity".to_owned(),
+        "NO ACTION".to_owned(),
+    )];
+    if actual != expected {
+        return Err(format!(
+            "unexpected {AUTHORIZATION_PROOF_TABLE} foreign keys: {actual:?}"
+        ));
+    }
     if actual != expected {
         return Err(format!(
             "unexpected {ENTRY_CLAIM_TABLE} foreign keys: {actual:?}"
@@ -1631,11 +1659,13 @@ fn load_authorization_admission_proof_tx(
     attempt_identity: &str,
 ) -> Result<Option<AuthorizationAdmissionProofV1>, String> {
     tx.query_row(
-        "SELECT attempt_identity, action_key_digest, operation_id, native_replay_identity,
-                action_digest, effecting_target_identity, provider_environment, provider_audience,
-                adapter_identity, authorization_snapshot_digest, policy_snapshot_digest,
-                status_snapshot_digest, checked_at_unix_ms, valid_until_unix_ms, verifier_identity, digest
-         FROM " + AUTHORIZATION_PROOF_TABLE + " WHERE attempt_identity = ?1",
+        &format!(
+            "SELECT attempt_identity, action_key_digest, operation_id, native_replay_identity,
+                    action_digest, effecting_target_identity, provider_environment, provider_audience,
+                    adapter_identity, authorization_snapshot_digest, policy_snapshot_digest,
+                    status_snapshot_digest, checked_at_unix_ms, valid_until_unix_ms, verifier_identity, digest
+             FROM {AUTHORIZATION_PROOF_TABLE} WHERE attempt_identity = ?1"
+        ),
         params![attempt_identity],
         |row| {
             AuthorizationAdmissionProofV1::from_persisted(
