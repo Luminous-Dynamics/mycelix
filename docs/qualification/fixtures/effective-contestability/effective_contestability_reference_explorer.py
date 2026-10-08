@@ -39,7 +39,6 @@ def independent(s: str, p: str, state: State) -> bool:
     return (
         p != cur and
         p in state.nominal[i] and
-        state.portable[i] and
         all(a != b for a, b in zip(ROOTS[p], ROOTS[cur]))
     )
 
@@ -103,7 +102,7 @@ def successors(state: State) -> list[State]:
             row = list(nominal[i]); row.append(other); nominal[i] = tuple(sorted(set(row)))
             out.append(replace(state, nominal=tuple(nominal)))
 
-        if other in state.nominal[i] and independent(s, other, state) and other not in state.effective[i]:
+        if other in state.nominal[i] and state.portable[i] and independent(s, other, state) and other not in state.effective[i]:
             effective = list(state.effective)
             row = list(effective[i]); row.append(other); effective[i] = tuple(sorted(set(row)))
             out.append(replace(state, effective=tuple(effective)))
