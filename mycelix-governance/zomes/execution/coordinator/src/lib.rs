@@ -1758,165 +1758,147 @@ fn validate_execution_resolution_for_release(
     Ok(())
 }
 
+fn select_unique_terminal_resolution(
+    candidates: Vec<ExecutionResolution>,
+) -> Result<Option<ExecutionResolution>, String> {
+    let mut unique = Vec::new();
+    for candidate in candidates {
+        if !unique.contains(&candidate) {
+            unique.push(candidate);
+        }
+    }
+    match unique.len() {
+        0 => Ok(None),
+        1 => Ok(unique.into_iter().next()),
+        _ => Err(
+            "multiple distinct terminal execution resolutions exist for the same timelock"
+                .into(),
+        ),
+    }
+}
+
+fn find_terminal_resolution_for_prepared_execution(
+    timelock_record: &Record,
+    timelock: &Timelock,
+) -> ExternResult<Option<ExecutionResolution>> {
+    let anchor = execution_by_timelock_anchor(timelock.id.as_str());
+    let execution_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(&anchor)?,
+            LinkTypes::ExecutionByTimelock,
+        )?,
+        GetStrategy::default(),
+    )?;
+    let mut candidates = Vec::new();
+
+    for execution_link in execution_links {
+        let execution_hash = match ActionHash::try_from(execution_link.target.clone()) {
+            Ok(hash) => hash,
+            Err(_) => continue,
+        };
+        let Some(execution_record) = get_latest_record(execution_hash)? else {
+            continue;
+        };
+        let Some(execution) = execution_record
+            .entry()
+            .to_app_option::<Execution>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            continue;
+        };
+        if execution.timelock_id != timelock.id
+            || execution.proposal_id != timelock.proposal_id
+            || execution.status != ExecutionStatus::Prepared
+        {
+            continue;
+        }
+
+        let resolution_links = get_links(
+            LinkQuery::try_new(
+                execution_record.action_address().clone(),
+                LinkTypes::ExecutionToResolution,
+            )?,
+            GetStrategy::default(),
+        )?;
+
+        for resolution_link in resolution_links {
+            let resolution_hash = match ActionHash::try_from(resolution_link.target.clone()) {
+                Ok(hash) => hash,
+                Err(_) => continue,
+            };
+            let Some(resolution_record) = get_latest_record(resolution_hash)? else {
+                continue;
+            };
+            let Some(resolution) = resolution_record
+                .entry()
+                .to_app_option::<ExecutionResolution>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            else {
+                continue;
+            };
+
+            let validation = match &resolution.outcome {
+                ExecutionResolutionOutcome::Executed => validate_execution_resolution_for_release(
+                    &resolution,
+                    &execution,
+                    execution_record.action_address(),
+                    timelock,
+                    timelock_record.action_address(),
+                ),
+                ExecutionResolutionOutcome::Failed => validate_execution_resolution_for_refund(
+                    &resolution,
+                    &execution,
+                    execution_record.action_address(),
+                    timelock,
+                    timelock_record.action_address(),
+                ),
+            };
+            validation.map_err(|error| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "terminal resolution is structurally invalid: {error}"
+                )))
+            })?;
+            candidates.push(resolution);
+        }
+    }
+
+    select_unique_terminal_resolution(candidates).map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(error))
+    })
+}
+
 fn find_executed_resolution_for_prepared_execution(
     timelock_record: &Record,
     timelock: &Timelock,
 ) -> ExternResult<Option<ExecutionResolution>> {
-    // Use the stable timelock-ID index rather than TimelockToExecution from the
-    // latest timelock ActionHash. The timelock is updated Ready -> Prepared,
-    // so the source ActionHash at which the execution link was created is not
-    // the latest timelock ActionHash.
-    let execution_by_timelock_anchor = execution_by_timelock_anchor(timelock.id.as_str());
-    let execution_links = get_links(
-        LinkQuery::try_new(
-            anchor_hash(&execution_by_timelock_anchor)?,
-            LinkTypes::ExecutionByTimelock,
-        )?,
-        GetStrategy::default(),
-    )?;
-
-    for execution_link in execution_links {
-        let execution_hash = match ActionHash::try_from(execution_link.target.clone()) {
-            Ok(hash) => hash,
-            Err(_) => continue,
-        };
-        let Some(execution_record) = get_latest_record(execution_hash)? else {
-            continue;
-        };
-        let Some(execution) = execution_record
-            .entry()
-            .to_app_option::<Execution>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        else {
-            continue;
-        };
-
-        if execution.timelock_id != timelock.id
-            || execution.proposal_id != timelock.proposal_id
-            || execution.status != ExecutionStatus::Prepared
-        {
-            continue;
-        }
-
-        let resolution_links = get_links(
-            LinkQuery::try_new(
-                execution_record.action_address().clone(),
-                LinkTypes::ExecutionToResolution,
-            )?,
-            GetStrategy::default(),
-        )?;
-
-        for resolution_link in resolution_links {
-            let resolution_hash = match ActionHash::try_from(resolution_link.target.clone()) {
-                Ok(hash) => hash,
-                Err(_) => continue,
-            };
-            let Some(resolution_record) = get_latest_record(resolution_hash)? else {
-                continue;
-            };
-            let Some(resolution) = resolution_record
-                .entry()
-                .to_app_option::<ExecutionResolution>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-            else {
-                continue;
-            };
-
-            if validate_execution_resolution_for_release(
-                &resolution,
-                &execution,
-                execution_record.action_address(),
-                timelock,
-                timelock_record.action_address(),
-            )
-            .is_ok()
-            {
-                return Ok(Some(resolution));
-            }
-        }
+    let Some(resolution) = find_terminal_resolution_for_prepared_execution(
+        timelock_record,
+        timelock,
+    )?
+    else {
+        return Ok(None);
+    };
+    match resolution.outcome {
+        ExecutionResolutionOutcome::Executed => Ok(Some(resolution)),
+        ExecutionResolutionOutcome::Failed => Ok(None),
     }
-
-    Ok(None)
 }
+
 fn find_failed_resolution_for_prepared_execution(
     timelock_record: &Record,
     timelock: &Timelock,
 ) -> ExternResult<Option<ExecutionResolution>> {
-    // Use the stable timelock-ID index rather than TimelockToExecution from the
-    // latest timelock ActionHash. The timelock is updated Ready -> Prepared,
-    // so the source ActionHash at which the execution link was created is not
-    // the latest timelock ActionHash.
-    let execution_by_timelock_anchor = execution_by_timelock_anchor(timelock.id.as_str());
-    let execution_links = get_links(
-        LinkQuery::try_new(
-            anchor_hash(&execution_by_timelock_anchor)?,
-            LinkTypes::ExecutionByTimelock,
-        )?,
-        GetStrategy::default(),
-    )?;
-
-    for execution_link in execution_links {
-        let execution_hash = match ActionHash::try_from(execution_link.target.clone()) {
-            Ok(hash) => hash,
-            Err(_) => continue,
-        };
-        let Some(execution_record) = get_latest_record(execution_hash)? else {
-            continue;
-        };
-        let Some(execution) = execution_record
-            .entry()
-            .to_app_option::<Execution>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        else {
-            continue;
-        };
-
-        if execution.timelock_id != timelock.id
-            || execution.proposal_id != timelock.proposal_id
-            || execution.status != ExecutionStatus::Prepared
-        {
-            continue;
-        }
-
-        let resolution_links = get_links(
-            LinkQuery::try_new(
-                execution_record.action_address().clone(),
-                LinkTypes::ExecutionToResolution,
-            )?,
-            GetStrategy::default(),
-        )?;
-
-        for resolution_link in resolution_links {
-            let resolution_hash = match ActionHash::try_from(resolution_link.target.clone()) {
-                Ok(hash) => hash,
-                Err(_) => continue,
-            };
-            let Some(resolution_record) = get_latest_record(resolution_hash)? else {
-                continue;
-            };
-            let Some(resolution) = resolution_record
-                .entry()
-                .to_app_option::<ExecutionResolution>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-            else {
-                continue;
-            };
-
-            if validate_execution_resolution_for_refund(
-                &resolution,
-                &execution,
-                execution_record.action_address(),
-                timelock,
-                timelock_record.action_address(),
-            )
-            .is_ok()
-            {
-                return Ok(Some(resolution));
-            }
-        }
+    let Some(resolution) = find_terminal_resolution_for_prepared_execution(
+        timelock_record,
+        timelock,
+    )?
+    else {
+        return Ok(None);
+    };
+    match resolution.outcome {
+        ExecutionResolutionOutcome::Failed => Ok(Some(resolution)),
+        ExecutionResolutionOutcome::Executed => Ok(None),
     }
-
-    Ok(None)
 }
 
 /// Input for refunding funds
