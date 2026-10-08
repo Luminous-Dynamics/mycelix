@@ -19,6 +19,39 @@ pub const MACHINE_CONTROLLER_TRANSITION_APPROVAL_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-transition-approval-v1";
 pub const MAX_MACHINE_TRANSITION_APPROVAL_MICROS: i64 = 300_000_000;
 
+pub const MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID: &str =
+    "mycelix-manufacturing-machine-time-authority-profile-v1";
+pub const MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID: &str =
+    "mycelix-manufacturing-machine-temporal-attestation-v1";
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum MachineTemporalEvidenceKind {
+    TransitionApproval,
+    MachineActionExistence,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineTimeAuthorityProfilePayload {
+    pub schema_id: String,
+    pub machine_hash: ActionHash,
+    pub authority_agent: AgentPubKey,
+    pub profile_id: String,
+    pub source_profile: String,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineTemporalAttestationPayload {
+    pub schema_id: String,
+    pub machine_hash: ActionHash,
+    pub profile_hash: ActionHash,
+    pub subject_hash: ActionHash,
+    pub evidence_kind: MachineTemporalEvidenceKind,
+    pub attested_at: Timestamp,
+    pub source_reference: String,
+}
+
 fn default_lease_schema_version() -> u8 {
     1
 }
@@ -69,6 +102,58 @@ pub struct MachineEntry {
     #[serde(default)]
     pub last_status_transition_approval_hash: Option<ActionHash>,
     pub registered_at: Timestamp,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct MachineTimeAuthorityProfileEntry {
+    pub machine_hash: ActionHash,
+    pub authority_agent: AgentPubKey,
+    pub profile_id: String,
+    pub source_profile: String,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+    pub registrant_signature: Signature,
+}
+
+impl MachineTimeAuthorityProfileEntry {
+    pub fn signed_payload(&self) -> MachineTimeAuthorityProfilePayload {
+        MachineTimeAuthorityProfilePayload {
+            schema_id: MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID.to_string(),
+            machine_hash: self.machine_hash.clone(),
+            authority_agent: self.authority_agent.clone(),
+            profile_id: self.profile_id.clone(),
+            source_profile: self.source_profile.clone(),
+            valid_from: self.valid_from,
+            valid_until: self.valid_until,
+        }
+    }
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct MachineTemporalAttestationEntry {
+    pub machine_hash: ActionHash,
+    pub profile_hash: ActionHash,
+    pub subject_hash: ActionHash,
+    pub evidence_kind: MachineTemporalEvidenceKind,
+    pub attested_at: Timestamp,
+    pub source_reference: String,
+    pub authority_signature: Signature,
+}
+
+impl MachineTemporalAttestationEntry {
+    pub fn signed_payload(&self) -> MachineTemporalAttestationPayload {
+        MachineTemporalAttestationPayload {
+            schema_id: MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID.to_string(),
+            machine_hash: self.machine_hash.clone(),
+            profile_hash: self.profile_hash.clone(),
+            subject_hash: self.subject_hash.clone(),
+            evidence_kind: self.evidence_kind.clone(),
+            attested_at: self.attested_at,
+            source_reference: self.source_reference.clone(),
+        }
+    }
 }
 
 #[hdk_entry_helper]
@@ -163,6 +248,8 @@ pub enum EntryTypes {
     StatusLog(MachineStatusLog),
     MachineControllerAuthority(MachineControllerAuthorityEntry),
     MachineControllerTransitionApproval(MachineControllerTransitionApprovalEntry),
+    MachineTimeAuthorityProfile(MachineTimeAuthorityProfileEntry),
+    MachineTemporalAttestation(MachineTemporalAttestationEntry),
 }
 
 #[hdk_link_types]
@@ -175,6 +262,10 @@ pub enum LinkTypes {
     AllMachineControllerAuthorities,
     MachineToTransitionApprovals,
     AllMachineTransitionApprovals,
+    MachineToTimeAuthorityProfiles,
+    AllMachineTimeAuthorityProfiles,
+    MachineToTemporalAttestations,
+    AllMachineTemporalAttestations,
     LocationToMachines,
 }
 
@@ -200,6 +291,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::MachineControllerTransitionApproval(approval) => {
                     validate_create_transition_approval(action, approval)
                 }
+                EntryTypes::MachineTimeAuthorityProfile(profile) => {
+                    validate_create_time_authority_profile(action, profile)
+                }
+                EntryTypes::MachineTemporalAttestation(attestation) => {
+                    validate_create_temporal_attestation(action, attestation)
+                }
                 other => validate_create_entry(other),
             }
         }
@@ -217,6 +314,115 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+fn validate_create_time_authority_profile(
+    action: TypedAction<CreateData>,
+    profile: MachineTimeAuthorityProfileEntry,
+) -> ExternResult<ValidateCallbackResult> {
+    if profile.profile_id.is_empty() || profile.source_profile.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "time authority profile requires profile_id and source_profile".into(),
+        ));
+    }
+    if profile.valid_until < profile.valid_from {
+        return Ok(ValidateCallbackResult::Invalid(
+            "time authority profile validity window is inverted".into(),
+        ));
+    }
+    let machine_record = must_get_valid_record(profile.machine_hash.clone())?;
+    if !matches!(machine_record.action(), Action::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "time authority profile must bind to a machine root".into(),
+        ));
+    }
+    if machine_record.action().author() != action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "only the machine registrant may establish a time authority profile".into(),
+        ));
+    }
+    if !verify_signature(
+        action.author().clone(),
+        profile.registrant_signature.clone(),
+        profile.signed_payload(),
+    )? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "time authority profile registrant signature is invalid".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_temporal_attestation(
+    action: TypedAction<CreateData>,
+    attestation: MachineTemporalAttestationEntry,
+) -> ExternResult<ValidateCallbackResult> {
+    if attestation.source_reference.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "temporal attestation requires a source reference".into(),
+        ));
+    }
+    let profile_record = must_get_valid_record(attestation.profile_hash.clone())?;
+    let profile: Option<MachineTimeAuthorityProfileEntry> = profile_record
+        .entry().to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let Some(profile) = profile else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "temporal attestation profile reference is not a time authority profile".into(),
+        ));
+    };
+    if profile.machine_hash != attestation.machine_hash
+        || profile.authority_agent != action.author()
+        || !temporal_profile_contains(&profile, attestation.attested_at)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "temporal attestation is outside its exact machine/authority profile".into(),
+        ));
+    }
+    let subject_record = must_get_valid_record(attestation.subject_hash.clone())?;
+    match attestation.evidence_kind {
+        MachineTemporalEvidenceKind::TransitionApproval => {
+            let approval: Option<MachineControllerTransitionApprovalEntry> = subject_record
+                .entry().to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            let Some(approval) = approval else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "temporal approval evidence subject is not a transition approval".into(),
+                ));
+            };
+            if approval.machine_hash != attestation.machine_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "temporal approval evidence subject belongs to a different machine".into(),
+                ));
+            }
+        }
+        MachineTemporalEvidenceKind::MachineActionExistence => {
+            let machine: Option<MachineEntry> = subject_record
+                .entry().to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            let Some(_) = machine else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "machine action temporal evidence subject is not a machine record".into(),
+                ));
+            };
+            let root = resolve_machine_root_action_hash(attestation.subject_hash.clone())?;
+            if root != attestation.machine_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "machine action temporal evidence subject belongs to a different machine".into(),
+                ));
+            }
+        }
+    }
+    if !verify_signature(
+        profile.authority_agent.clone(),
+        attestation.authority_signature.clone(),
+        attestation.signed_payload(),
+    )? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "temporal attestation authority signature is invalid".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_transition_approval(
@@ -533,6 +739,8 @@ fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResu
         }
         EntryTypes::MachineControllerAuthority(_) => unreachable!(),
         EntryTypes::MachineControllerTransitionApproval(_) => unreachable!(),
+        EntryTypes::MachineTimeAuthorityProfile(_) => unreachable!(),
+        EntryTypes::MachineTemporalAttestation(_) => unreachable!(),
     }
 }
 
@@ -599,6 +807,12 @@ fn transition_approval_matches_update(
         && approval.new_status == *new_status
         && approval.work_order_hash.as_ref() == work_order_hash
         && approval_valid_at(approval, action_timestamp)
+}
+fn temporal_profile_contains(
+    profile: &MachineTimeAuthorityProfileEntry,
+    timestamp: Timestamp,
+) -> bool {
+    profile.valid_from <= timestamp && timestamp <= profile.valid_until
 }
 fn authority_valid_at(
     authority: &MachineControllerAuthorityEntry,
