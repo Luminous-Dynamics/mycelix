@@ -66,8 +66,8 @@ jobs:
 
           grep -Fq 'constitutional-effect-ledger = { path = "../../mycelix-governance/crates/constitutional-effect-ledger" }' "$manifest"
           grep -Fq 'rusqlite = { version = "0.32", features = ["bundled"] }' "$manifest"
-          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 3' "$source"
-          grep -Fq 'constitutional-effect-ledger/sqlite-fence-store-v3' "$source"
+          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 4' "$source"
+          grep -Fq 'constitutional-effect-ledger/sqlite-fence-store-v4' "$source"
           grep -Fq 'transaction_with_behavior(TransactionBehavior::Immediate)' "$source"
           grep -Fq 'PRIMARY KEY NOT NULL' "$source"
           grep -Fq 'UNIQUE' "$source"
@@ -97,6 +97,9 @@ jobs:
           grep -Fq 'durably_read_provider_entry_claim' "$source"
           grep -Fq 'ProviderEntryClaimRecoveryAuthorizationV1' "$boundary"
           grep -Fq 'ProviderEntryClaimRecoveryAuthorizer' "$boundary"
+          grep -Fq 'provider_idempotency_key' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
+          grep -Fq 'provider_idempotency_key does not match versioned derivation' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
+          grep -Fq 'persisted_provider_idempotency_key_is_versioned_and_fail_closed' mycelix-governance/crates/constitutional-effect-ledger/src/attempt_record.rs
           grep -Fq 'VerifiedTerminalOutcomeV1::new' "$boundary"
           grep -Fq 'terminal verification proof is not bound to the exact attempt' "$boundary"
           grep -Fq 'VerificationPurpose::InitialInvocation' "$boundary"
