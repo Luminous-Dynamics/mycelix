@@ -17,7 +17,8 @@ pub mod boundary;
 use constitutional_effect_ledger::{
     ActionFenceMutationError, ActionFenceRecordV1, ActionFenceState, ActionKeyV1,
     AtomicAdmissionDecision, AttemptIdentityV1, AttemptRecordState, AttemptRecordV1,
-    DurableActionFenceStore, NativeReplayBindingV1, TerminalEvidenceV1, TerminalOutcomeV1,
+    DurableActionFenceStore, NativeReplayBindingV1, ProviderEntryClaimV1, TerminalEvidenceV1,
+    TerminalOutcomeV1,
     ACTION_FENCE_SCHEMA_VERSION, ATTEMPT_RECORD_SCHEMA_VERSION,
     NATIVE_REPLAY_BINDING_SCHEMA_VERSION,
 };
@@ -26,15 +27,16 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-pub const SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 2;
+pub const SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 3;
 pub const SQLITE_FENCE_STORE_PROFILE: &str =
-    "constitutional-effect-ledger/sqlite-fence-store-v2";
+    "constitutional-effect-ledger/sqlite-fence-store-v3";
 pub const SQLITE_FENCE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 const META_TABLE: &str = "effect_fence_store_meta";
 const ATTEMPT_TABLE: &str = "effect_attempts";
 const FENCE_TABLE: &str = "effect_action_fences";
 const REPLAY_TABLE: &str = "effect_native_replay_bindings";
+const ENTRY_CLAIM_TABLE: &str = "effect_provider_entry_claims";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SqliteActionFenceStore {
@@ -123,6 +125,14 @@ impl SqliteActionFenceStore {
                 .map_err(storage_error)?
                 .ok_or(ActionFenceMutationError::NotOccupied)?;
             verify_fence_owner(&fence, attempt_identity, owner_token_digest)?;
+
+            if next_state == AttemptRecordState::Indeterminate
+                && load_provider_entry_claim_tx(tx, attempt_identity.digest())
+                    .map_err(storage_error)?
+                    .is_some()
+            {
+                return Err(ActionFenceMutationError::ProviderEntryClaimed);
+            }
 
             let mut updated = current.clone();
             updated.state = next_state;
@@ -390,18 +400,85 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
         )
     }
 
+    fn atomically_claim_provider_entry(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<ProviderEntryClaimV1, ActionFenceMutationError> {
+        self.with_transaction(|tx| {
+            let current = load_attempt_tx(tx, attempt_identity.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::NotOwner)?;
+            verify_owner_and_key(&current, action_key, attempt_identity, owner_token_digest)?;
+            if current.state != AttemptRecordState::DispatchPending {
+                return Err(ActionFenceMutationError::InvalidTransition);
+            }
+            if load_provider_entry_claim_tx(tx, attempt_identity.digest())
+                .map_err(storage_error)?.is_some()
+            {
+                return Err(ActionFenceMutationError::ProviderEntryClaimed);
+            }
+            let fence = load_fence_tx(tx, action_key.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::NotOccupied)?;
+            verify_fence_owner(&fence, attempt_identity, owner_token_digest)?;
+            let claim = ProviderEntryClaimV1::new(
+                attempt_identity.digest(), action_key.digest(), owner_token_digest, claim_token_digest,
+            ).map_err(storage_error)?;
+            tx.execute(
+                "INSERT INTO effect_provider_entry_claims
+                 (attempt_identity, action_key_digest, owner_token_digest, claim_token_digest, record_digest)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![claim.attempt_identity, claim.action_key_digest, claim.owner_token_digest,
+                        claim.claim_token_digest, claim.record_digest()],
+            ).map_err(storage_error)?;
+            Ok(claim)
+        })
+    }
+
     fn atomically_mark_invoked(
         &mut self,
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
+        claim_token_digest: &str,
     ) -> Result<(), ActionFenceMutationError> {
-        self.transition_state(
-            action_key,
-            attempt_identity,
-            owner_token_digest,
-            AttemptRecordState::Invoked,
-        )
+        self.with_transaction(|tx| {
+            let current = load_attempt_tx(tx, attempt_identity.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::NotOwner)?;
+            verify_owner_and_key(&current, action_key, attempt_identity, owner_token_digest)?;
+            if current.state != AttemptRecordState::DispatchPending {
+                return Err(ActionFenceMutationError::InvalidTransition);
+            }
+            let claim = load_provider_entry_claim_tx(tx, attempt_identity.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::ProviderEntryClaimMismatch)?;
+            if claim.action_key_digest != action_key.digest()
+                || claim.owner_token_digest != owner_token_digest
+                || claim.claim_token_digest != claim_token_digest
+            {
+                return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+            }
+            let mut updated = current.clone();
+            updated.state = AttemptRecordState::Invoked;
+            updated.reconciliation_token_digest = None;
+            update_attempt_tx(tx, &current, &updated)?;
+            let changed = tx.execute(
+                "DELETE FROM effect_provider_entry_claims
+                 WHERE attempt_identity = ?1 AND action_key_digest = ?2
+                   AND owner_token_digest = ?3 AND claim_token_digest = ?4
+                   AND record_digest = ?5",
+                params![attempt_identity.digest(), action_key.digest(), owner_token_digest,
+                        claim_token_digest, claim.record_digest()],
+            ).map_err(storage_error)?;
+            if changed != 1 {
+                return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+            }
+            Ok(())
+        })
     }
 
     fn atomically_mark_indeterminate(
@@ -532,6 +609,14 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
     ) -> Result<Option<NativeReplayBindingV1>, String> {
         let conn = open_connection(&self.path)?;
         load_replay_txless(&conn, native_replay_identity)
+    }
+
+    fn durably_read_provider_entry_claim(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<ProviderEntryClaimV1>, String> {
+        let conn = open_connection(&self.path)?;
+        load_provider_entry_claim_txless(&conn, attempt_identity.digest())
     }
 }
 
@@ -1084,6 +1169,16 @@ CREATE TABLE effect_native_replay_bindings (
     operation_id TEXT NOT NULL,
     action_key_digest TEXT NOT NULL,
     record_digest TEXT NOT NULL
+);
+
+CREATE TABLE effect_provider_entry_claims (
+    attempt_identity TEXT PRIMARY KEY NOT NULL,
+    action_key_digest TEXT NOT NULL UNIQUE,
+    owner_token_digest TEXT NOT NULL,
+    claim_token_digest TEXT NOT NULL UNIQUE,
+    record_digest TEXT NOT NULL,
+    FOREIGN KEY(attempt_identity) REFERENCES effect_attempts(attempt_identity),
+    FOREIGN KEY(action_key_digest) REFERENCES effect_action_fences(action_key_digest)
 );
 "#;
 
