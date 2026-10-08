@@ -12,6 +12,7 @@ use std::collections::HashSet;
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct ProcessRecipeEntry {
+    pub schema_id: String,
     pub recipe_id: String,
     pub revision: String,
     pub process_family: String,
@@ -99,6 +100,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::ProcessRecipe(recipe) => {
+                if recipe.schema_id != "mycelix-manufacturing-process-recipe-v1" {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "process recipe schema_id is invalid".into(),
+                    ));
+                }
                 if recipe.recipe_id.is_empty()
                     || recipe.revision.is_empty()
                     || recipe.process_family.is_empty()
