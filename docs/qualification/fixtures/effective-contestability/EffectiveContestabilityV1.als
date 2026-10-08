@@ -54,9 +54,13 @@ sig ProviderFailure {
   authorityAfter: set Power
 }
 
-fact EffectiveExitRequiresNominalAndPortability {
+fact EffectiveExitRequiresNominal {
   all s: Subject, p: s.effective |
-    p in s.nominal and
+    p in s.nominal
+}
+
+fact EffectiveExitRequiresPortability {
+  all s: Subject, p: s.effective |
     s.portable = On
 }
 
@@ -81,10 +85,15 @@ fact MigrationPreservesContinuity {
       m.historyPreserved = On
 }
 
-fact MigrationPreservesAuthorityAndJurisdiction {
+fact MigrationPreservesAuthority {
   all m: Migration |
     m.to in m.subject.effective implies
-      m.authorityUnchanged = On and
+      m.authorityUnchanged = On
+}
+
+fact MigrationPreservesJurisdiction {
+  all m: Migration |
+    m.to in m.subject.effective implies
       m.jurisdictionUnchanged = On
 }
 
@@ -137,6 +146,11 @@ pred HighSwitchingCostReviewWitness {
     s.reviewRequired = On
 }
 
+pred EffectiveExitWithoutNominalWitness {
+  some s: Subject, p: s.effective |
+    p not in s.nominal
+}
+
 pred NonPortableEffectiveExitWitness {
   some s: Subject, p: s.effective |
     s.portable = Off
@@ -162,7 +176,13 @@ pred MigrationContinuityBreakWitness {
 pred MigrationAuthorityTransferWitness {
   some m: Migration |
     m.to in m.subject.effective and
-    (m.authorityUnchanged = Off or m.jurisdictionUnchanged = Off)
+    m.authorityUnchanged = Off
+}
+
+pred MigrationJurisdictionTransferWitness {
+  some m: Migration |
+    m.to in m.subject.effective and
+    m.jurisdictionUnchanged = Off
 }
 
 pred ProviderFailureAuthorityTransferWitness {
@@ -181,6 +201,9 @@ pred SharedRootEffectiveAlternative {
 }
 
 run NominalExitWithoutEffective
+  for 4 but 4 int, 4 Subject, 4 Provider
+
+run EffectiveExitWithoutNominalWitness
   for 4 but 4 int, 4 Subject, 4 Provider
 
 run EffectiveIndependentAlternative
