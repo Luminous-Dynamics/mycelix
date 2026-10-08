@@ -212,6 +212,7 @@ fn push_rejection(
         machine_hash,
         capability_contract_hash: contract_hash,
         qualification_attestation_hashes: attestation_hashes,
+        machine_state_authority_hash: None,
         machine_status,
         machine_state_head,
         eligible: false,
@@ -812,6 +813,8 @@ pub fn select_live_capability(
             decisions.push(CapabilityPlanDecision {
                 machine_hash: Some(machine_hash.clone()),
                 capability_contract_hash: contract_hash.clone(),
+                qualification_attestation_hashes: attestation_hashes.clone(),
+                machine_state_authority_hash: Some(authority_hash.clone()),
                 machine_status: Some(status.clone()),
                 machine_state_head: Some(head_action.clone()),
                 eligible: decision.eligible,
