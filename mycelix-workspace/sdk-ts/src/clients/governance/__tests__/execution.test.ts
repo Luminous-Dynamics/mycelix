@@ -211,19 +211,21 @@ describe('ExecutionClient', () => {
       executionId: 'execution-1',
       timelockId: 'timelock-1',
       executorDid: 'did:mycelix:executor',
-      attemptIdentities: ['constitutional-attempt-identity-v1:' + 'a'.repeat(64)],
-      actionKeyDigests: ['constitutional-action-key-v1:' + 'b'.repeat(64)],
-      terminalEvidenceDigests: ['constitutional-terminal-evidence-v3:' + 'c'.repeat(64)],
-      authorizationAdmissionProofDigests: [
-        'constitutional-authorization-admission-proof-v1:' + 'd'.repeat(64),
-      ],
-      finalProviderEntryProofDigests: [
-        'constitutional-final-provider-entry-proof-v1:' + 'e'.repeat(64),
+      bindings: [
+        {
+          attemptIdentity: 'constitutional-attempt-identity-v1:' + 'a'.repeat(64),
+          actionKeyDigest: 'constitutional-action-key-v1:' + 'b'.repeat(64),
+          terminalEvidenceDigest: 'constitutional-terminal-evidence-v3:' + 'c'.repeat(64),
+          authorizationAdmissionProofDigest:
+            'constitutional-authorization-admission-proof-v1:' + 'd'.repeat(64),
+          finalProviderEntryProofDigest:
+            'constitutional-final-provider-entry-proof-v1:' + 'e'.repeat(64),
+        },
       ],
       outcome: 'Executed' as const,
     };
 
-    it('should submit all canonical proof-root vectors', async () => {
+    it('should submit typed proof-root bindings as one tuple per action', async () => {
       const record = mockRecord({ id: 'resolution:execution-1' });
       (mockAppClient.callZome as ReturnType<typeof vi.fn>).mockResolvedValueOnce(record);
 
@@ -237,24 +239,30 @@ describe('ExecutionClient', () => {
             execution_id: 'execution-1',
             timelock_id: 'timelock-1',
             executor_did: 'did:mycelix:executor',
-            attempt_identities: input.attemptIdentities,
-            action_key_digests: input.actionKeyDigests,
-            terminal_evidence_digests: input.terminalEvidenceDigests,
-            authorization_admission_proof_digests: input.authorizationAdmissionProofDigests,
-            final_provider_entry_proof_digests: input.finalProviderEntryProofDigests,
+            bindings: [
+              {
+                attempt_identity: input.bindings[0].attemptIdentity,
+                action_key_digest: input.bindings[0].actionKeyDigest,
+                terminal_evidence_digest: input.bindings[0].terminalEvidenceDigest,
+                authorization_admission_proof_digest:
+                  input.bindings[0].authorizationAdmissionProofDigest,
+                final_provider_entry_proof_digest:
+                  input.bindings[0].finalProviderEntryProofDigest,
+              },
+            ],
             outcome: 'Executed',
           },
         })
       );
     });
 
-    it('should reject misaligned vectors before calling the zome', async () => {
+    it('should reject empty binding lists before calling the zome', async () => {
       await expect(
         client.recordPreparedExecutionResolution({
           ...input,
-          finalProviderEntryProofDigests: [],
+          bindings: [],
         })
-      ).rejects.toThrow('aligned attempt/action/evidence proof tuples');
+      ).rejects.toThrow('1–256 typed attempt/action/evidence proof bindings');
       expect(mockAppClient.callZome).not.toHaveBeenCalled();
     });
   });
