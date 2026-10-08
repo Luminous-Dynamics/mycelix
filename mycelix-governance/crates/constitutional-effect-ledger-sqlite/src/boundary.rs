@@ -302,6 +302,23 @@ impl EffectBoundaryHostV1 {
         )
         .map_err(BoundaryError::Semantic)?;
 
+        let terminal_token = match attempt.state {
+            AttemptRecordState::Indeterminate => attempt
+                .reconciliation_token_digest
+                .as_deref()
+                .ok_or_else(|| {
+                    BoundaryError::Semantic(
+                        "Indeterminate attempt lacks reconciliation token".into(),
+                    )
+                })?,
+            AttemptRecordState::Invoked => owner_token_digest,
+            _ => {
+                return Err(BoundaryError::Semantic(
+                    "terminalization requires Invoked or Indeterminate attempt".into(),
+                ))
+            }
+        };
+
         match verified.outcome {
             TerminalOutcomeV1::Executed => self.store.atomically_close_executed(
                 action_key,
