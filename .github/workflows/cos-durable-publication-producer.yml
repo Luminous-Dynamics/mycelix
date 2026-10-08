@@ -165,6 +165,7 @@ jobs:
       - name: Read exact signing-input artifact metadata
         env:
           COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
         run: |
           set -euo pipefail
           artifact_id="$(python - <<'PY'
@@ -174,6 +175,13 @@ jobs:
           PY
           )"
           GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}" > signing-input-artifact.json
+          verifier_run_id="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('signing-input-source-request.json').read_text())['verifier_run_id'])
+          PY
+          )"
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${verifier_run_id}" > verifier-run.json
           python - <<'PY'
           import json
           from pathlib import Path
@@ -184,6 +192,12 @@ jobs:
           assert data['size_in_bytes']>0
           assert data['digest']==req['artifact_digest']
           assert data['workflow_run']['id']==req['verifier_run_id']
+          verifier=json.loads(Path('verifier-run.json').read_text())
+          assert verifier['id']==req['verifier_run_id']
+          assert verifier['status']=='completed'
+          assert verifier['conclusion']=='success'
+          assert verifier['path']=='.github/workflows/cos-conformance-evidence.yml'
+          assert verifier['head_sha']==__import__('os').environ['EXPECTED_MAIN_SHA']
           Path('signing-input-source.json').write_text(json.dumps({
               'artifact_id':data['id'],
               'artifact_name':data['name'],
