@@ -44,6 +44,15 @@ DECISION = Decision(
     "adapter-v1", "inv-1", 2, 10, 12
 )
 
+CAPABILITY_EXPIRY_DECISION = Decision(
+    "decision-1", 1, "req-1", "target-1", 7,
+    "adapter-v1", "inv-1", 2, 10, 2
+)
+DECISION_HORIZON_DECISION = Decision(
+    "decision-1", 1, "req-1", "target-1", 7,
+    "adapter-v1", "inv-1", 2, 2, 12
+)
+
 
 def authority_failures(a: Admission) -> list[str]:
     if not a.authorized:
@@ -83,20 +92,25 @@ NEGATIVE_CASES = {
     "policy-epoch": (EffectContext(1, "req-1", "target-1", 8, "adapter-v1", "inv-1", 3), "decision-1"),
     "adapter-profile": (EffectContext(1, "req-1", "target-1", 7, "adapter-v2", "inv-1", 3), "decision-1"),
     "invocation-identity": (EffectContext(1, "req-1", "target-1", 7, "adapter-v1", "inv-2", 3), "decision-1"),
-    "capability-expiry": (EffectContext(1, "req-1", "target-1", 7, "adapter-v1", "inv-1", 13), "decision-1"),
-    "decision-horizon": (EffectContext(1, "req-1", "target-1", 7, "adapter-v1", "inv-1", 11), "decision-1"),
+    "capability-expiry": (EffectContext(1, "req-1", "target-1", 7, "adapter-v1", "inv-1", 3), "decision-1"),
+    "decision-horizon": (EffectContext(1, "req-1", "target-1", 7, "adapter-v1", "inv-1", 3), "decision-1"),
 }
 
 
-def make_negative(name: str, context: EffectContext, recorded_id: str = "decision-1") -> Admission:
-    return Admission(DECISION, context, True, recorded_id)
+def make_negative(name: str, context: EffectContext, recorded_id: str = "decision-1", decision: Decision = DECISION) -> Admission:
+    return Admission(decision, context, True, recorded_id)
 
 
 assert authority_failures(CANONICAL) == []
 
 for name, case in NEGATIVE_CASES.items():
     context, recorded_id = case
-    negative = make_negative(name, context, recorded_id)
+    decision = (
+        CAPABILITY_EXPIRY_DECISION if name == "capability-expiry"
+        else DECISION_HORIZON_DECISION if name == "decision-horizon"
+        else DECISION
+    )
+    negative = make_negative(name, context, recorded_id, decision)
     failures = authority_failures(negative)
     assert failures == [(
         {
