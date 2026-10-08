@@ -97,6 +97,22 @@ ENUMERATION_KEYS = frozenset(
     }
 )
 
+CONTROL_KEYS = frozenset(
+    {
+        "repository",
+        "repository_id",
+        "path",
+        "ref",
+        "workflow_ref",
+        "workflow_sha",
+        "workflow_blob_sha",
+        "reference_verifier_path",
+        "reference_verifier_blob_sha",
+        "artifact_collector_path",
+        "artifact_collector_blob_sha",
+    }
+)
+
 INDEX_ARTIFACT_KEYS = frozenset(
     {
         "id",
@@ -499,7 +515,13 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
     commit = json.loads((snapshot_dir / "subject-commit.json").read_text(encoding="utf-8"))
     manifest = json.loads((snapshot_dir / "manifest.json").read_text(encoding="utf-8"))
     policy_file = json.loads((snapshot_dir / "policy-file.json").read_text(encoding="utf-8"))
-    verifier_control = json.loads((snapshot_dir / "verifier-control.json").read_text(encoding="utf-8"))
+    verifier_control = load_canonical_json(snapshot_dir / "verifier-control.json")
+    if set(verifier_control) != CONTROL_KEYS:
+        fail(
+            "verifier-control closed-world mismatch: "
+            f"missing={sorted(CONTROL_KEYS - set(verifier_control))!r} "
+            f"extra={sorted(set(verifier_control) - CONTROL_KEYS)!r}"
+        )
     if verifier_control.get("reference_verifier_blob_sha") is None:
         fail("reference verifier blob SHA is missing")
     if verifier_control.get("artifact_collector_blob_sha") is None:
