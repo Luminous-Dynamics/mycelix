@@ -601,6 +601,51 @@ A failed target validation is immutable evidence against the corresponding trans
 Do not create a universal generalization or transportability scalar.
 
 
+## Freshness and target-regime drift
+
+Transport evidence is historical evidence about the exact validated subject, target regime, evaluator, observation process, and applicability profile.
+
+Therefore:
+
+    transport-supported
+    !=
+    permanently current
+
+Current operational applicability requires a distinct currentness assessment.
+
+A currentness profile should bind, as applicable:
+
+- source qualification identity;
+- target-regime identity;
+- subject/runtime/hardware identity;
+- evaluator/reference identity;
+- observation-policy identity;
+- environment/process profile;
+- validation epoch/window;
+- freshness horizon/policy;
+- drift detection policy;
+- counterexample/invalidation rules.
+
+Track drift dimensions separately:
+
+    SubjectDrift
+    EnvironmentProcessDrift
+    ObservationPolicyDrift
+    TargetPopulationDrift
+    EvaluatorReferenceDrift
+    ProtocolPolicyDrift
+    HardwareRuntimeDrift
+    EvidenceCounterexampleDrift
+
+Freshness triggers may include elapsed policy horizon, detected regime shift, support degradation, sensor/calibration change, evaluator/reference change, material hardware/runtime change, newly discovered failure modes, changed update semantics, or unexplained performance/calibration drift.
+
+A trigger restricts or suspends the affected claim until the policy-required evidence is restored.
+
+Do not refresh a freshness timestamp without new qualifying evidence. Do not let a later positive campaign silently erase a prior failed transport assessment; create a new lineage and preserve the historical result.
+
+Existing Mycelix currentness, applicability, revocation, change-impact, and evidence-lineage mechanisms remain authoritative. This spine composes with them rather than defining a second freshness oracle.
+
+
 ## Resource normalization
 
 Adaptation mechanisms must not win only through unconstrained resources.
@@ -675,6 +720,7 @@ Symthaea:
 - #7029 — unified continual-adaptation evaluation spine;
 - #7030 — adaptive cognition evaluation with evaluator-state and observation-shift integrity.
 - #7041 — target-regime transport of continual-adaptation evidence;
+- #7043 — freshness of transported adaptation evidence under regime drift;
 
 ## Claim ceiling
 
