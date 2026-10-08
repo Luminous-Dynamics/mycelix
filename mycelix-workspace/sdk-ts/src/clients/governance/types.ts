@@ -810,15 +810,19 @@ export type ExecutionResolutionOutcome = 'Executed' | 'Failed';
  * prepared timelock. The host must independently authenticate the referenced
  * receipts; this input type only transports those references.
  */
+export interface ExecutionResolutionBindingV1 {
+  attemptIdentity: string;
+  actionKeyDigest: string;
+  terminalEvidenceDigest: string;
+  authorizationAdmissionProofDigest: string;
+  finalProviderEntryProofDigest: string;
+}
+
 export interface RecordPreparedExecutionResolutionInput {
   executionId: string;
   timelockId: string;
   executorDid: string;
-  attemptIdentities: string[];
-  actionKeyDigests: string[];
-  terminalEvidenceDigests: string[];
-  authorizationAdmissionProofDigests: string[];
-  finalProviderEntryProofDigests: string[];
+  bindings: ExecutionResolutionBindingV1[];
   outcome: ExecutionResolutionOutcome;
 }
 
