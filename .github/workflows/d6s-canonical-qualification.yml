@@ -274,9 +274,10 @@ jobs:
       - name: Verify executing workflow definition provenance
         run: |
           set -euo pipefail
-          case "$GITHUB_WORKFLOW_REF" in
-            "$GITHUB_REPOSITORY/.github/workflows/d6s-canonical-qualification.yml@refs/pull/"*/merge) ;;
-            *) echo "unexpected pull_request workflow ref: $GITHUB_WORKFLOW_REF" >&2; exit 1 ;;
+          case "$GITHUB_EVENT_NAME:$GITHUB_WORKFLOW_REF" in
+            "pull_request:$GITHUB_REPOSITORY/.github/workflows/d6s-canonical-qualification.yml@refs/pull/"*/merge) ;;
+            "workflow_dispatch:$GITHUB_REPOSITORY/.github/workflows/d6s-canonical-qualification.yml@refs/heads/myc-int-demo-d6u-holochain-07-runtime") ;;
+            *) echo "unexpected workflow provenance context: $GITHUB_EVENT_NAME / $GITHUB_WORKFLOW_REF" >&2; exit 1 ;;
           esac
           printf "%s\n" "$GITHUB_WORKFLOW_SHA" | grep -Eq "^[0-9a-f]{40}$"
           git -c credential.helper= -c protocol.version=2 fetch --no-tags --depth=1 origin "$GITHUB_WORKFLOW_SHA"
