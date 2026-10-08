@@ -546,3 +546,234 @@ impl EffectBoundaryHostV1 {
         })
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+    use tempfile::tempdir;
+
+    struct FakeProvider {
+        invocation: ProviderObservation,
+        reconciliation: ProviderObservation,
+        invoked_states: Arc<Mutex<Vec<AttemptRecordState>>>,
+    }
+
+    impl ProviderAdapter for FakeProvider {
+        fn invoke(&mut self, attempt: &AttemptRecordV1) -> Result<ProviderObservation, String> {
+            self.invoked_states.lock().unwrap().push(attempt.state);
+            Ok(self.invocation.clone())
+        }
+
+        fn reconcile(&mut self, attempt: &AttemptRecordV1) -> Result<ProviderObservation, String> {
+            assert_eq!(attempt.state, AttemptRecordState::Indeterminate);
+            Ok(self.reconciliation.clone())
+        }
+    }
+
+    struct Verifier;
+
+    impl OutcomeVerifier for Verifier {
+        fn verify(
+            &self,
+            _attempt: &AttemptRecordV1,
+            observation: &ProviderObservation,
+            _purpose: VerificationPurpose,
+        ) -> Result<VerifiedTerminalOutcomeV1, String> {
+            match observation {
+                ProviderObservation::Executed { evidence_commitment } => Ok(
+                    VerifiedTerminalOutcomeV1 {
+                        outcome: TerminalOutcomeV1::Executed,
+                        evidence_commitment: evidence_commitment.clone(),
+                        verifier_identity: "verified-provider-v1".into(),
+                    },
+                ),
+                ProviderObservation::Failed { evidence_commitment } => Ok(
+                    VerifiedTerminalOutcomeV1 {
+                        outcome: TerminalOutcomeV1::Failed,
+                        evidence_commitment: evidence_commitment.clone(),
+                        verifier_identity: "verified-provider-v1".into(),
+                    },
+                ),
+                ProviderObservation::Indeterminate { .. } => {
+                    Err("indeterminate observation is not terminal".into())
+                }
+            }
+        }
+    }
+
+    struct AllowRecovery;
+
+    impl RecoveryAuthorizer for AllowRecovery {
+        fn verify(
+            &self,
+            authorization: &PreEntryRecoveryAuthorizationV1,
+            _attempt: &AttemptRecordV1,
+            _action_key: &ActionKeyV1,
+        ) -> Result<(), String> {
+            if authorization.authorization_commitment == "authorized-recovery-v1" {
+                Ok(())
+            } else {
+                Err("recovery authorization rejected".into())
+            }
+        }
+    }
+
+    fn action() -> ActionKeyV1 {
+        ActionKeyV1::new("rp-test", "provider-target", "material-action-1").unwrap()
+    }
+
+    fn identity(id: &str) -> AttemptIdentityV1 {
+        AttemptIdentityV1::new("governance", "host-1", id).unwrap()
+    }
+
+    fn attempt_record(id: &str, op: &str, state: AttemptRecordState) -> AttemptRecordV1 {
+        let action = action();
+        AttemptRecordV1::new(
+            &identity(id),
+            op,
+            format!("native-{op}"),
+            action.material_action_digest(),
+            &action,
+            Some("provider-seed".into()),
+            Some("provider-descriptor".into()),
+            "provider-env",
+            "provider-audience",
+            "provider-adapter-v1",
+            format!("owner-{id}"),
+            state,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn provider_is_not_called_before_confirmed_dispatch_pending() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("dispatch.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action = action();
+        let owner = identity("attempt-1");
+        boundary
+            .admit(
+                &action,
+                &owner,
+                attempt_record("attempt-1", "operation-1", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+
+        let states = Arc::new(Mutex::new(Vec::new()));
+        let mut provider = FakeProvider {
+            invocation: ProviderObservation::Executed {
+                evidence_commitment: "exec-evidence".into(),
+            },
+            reconciliation: ProviderObservation::Indeterminate {
+                evidence_commitment: None,
+            },
+            invoked_states: Arc::clone(&states),
+        };
+
+        assert_eq!(
+            boundary
+                .dispatch(
+                    &action,
+                    &owner,
+                    "owner-attempt-1",
+                    &mut provider,
+                    &Verifier,
+                )
+                .unwrap(),
+            BoundaryOutcome::ExecutedConfirmed
+        );
+        assert_eq!(&*states.lock().unwrap(), &[AttemptRecordState::DispatchPending]);
+    }
+
+    #[test]
+    fn invocation_error_holds_fence_as_indeterminate() {
+        struct ErrorProvider;
+        impl ProviderAdapter for ErrorProvider {
+            fn invoke(&mut self, _attempt: &AttemptRecordV1) -> Result<ProviderObservation, String> {
+                Err("timeout after send".into())
+            }
+            fn reconcile(&mut self, _attempt: &AttemptRecordV1) -> Result<ProviderObservation, String> {
+                unreachable!()
+            }
+        }
+
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("ambiguous.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action = action();
+        let owner = identity("attempt-ambiguous");
+        boundary
+            .admit(
+                &action,
+                &owner,
+                attempt_record("attempt-ambiguous", "operation-ambiguous", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+
+        let mut provider = ErrorProvider;
+        assert!(matches!(
+            boundary
+                .dispatch(&action, &owner, "owner-attempt-ambiguous", &mut provider, &Verifier)
+                .unwrap(),
+            BoundaryOutcome::IndeterminateHeld { .. }
+        ));
+        assert_eq!(
+            boundary
+                .store()
+                .durably_read_attempt(&owner)
+                .unwrap()
+                .unwrap()
+                .state,
+            AttemptRecordState::Indeterminate
+        );
+    }
+
+    #[test]
+    fn pre_entry_recovery_cannot_release_a_dispatch_pending_attempt() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("recovery.db")).unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action = action();
+        let owner = identity("attempt-recovery");
+        boundary
+            .admit(
+                &action,
+                &owner,
+                attempt_record("attempt-recovery", "operation-recovery", AttemptRecordState::Consumed),
+            )
+            .unwrap();
+        boundary
+            .store_mut()
+            .atomically_mark_dispatch_pending(&action, &owner, "owner-attempt-recovery")
+            .unwrap();
+
+        let auth = PreEntryRecoveryAuthorizationV1::new(
+            &owner,
+            "operation-recovery",
+            "native-operation-recovery",
+            &action,
+            "authorized-recovery-v1",
+            "recovery-authorizer-v1",
+        )
+        .unwrap();
+
+        assert!(matches!(
+            boundary
+                .recover_pre_entry(
+                    &action,
+                    &auth,
+                    "not-entered-marker",
+                    &AllowRecovery,
+                )
+                .unwrap(),
+            BoundaryOutcome::RecoveryHeld { .. }
+        ));
+        assert_eq!(
+            boundary.store().durably_read_fence(&action).unwrap().unwrap().state,
+            ActionFenceState::Occupied
+        );
+    }
+}
