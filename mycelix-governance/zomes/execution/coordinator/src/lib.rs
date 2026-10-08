@@ -1614,6 +1614,72 @@ pub fn refund_locked_funds(input: RefundFundsInput) -> ExternResult<Record> {
         ))));
     }
 
+    let timelock_id = alloc.timelock_id.trim();
+    if timelock_id.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Fund allocation is missing the timelock required for refund verification".into()
+        )));
+    }
+
+    let timelock_record = find_timelock_by_id(timelock_id)?;
+    let timelock: Timelock = timelock_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid timelock entry for fund refund".into()
+        )))?;
+
+    match timelock.status {
+        TimelockStatus::Cancelled => {}
+        TimelockStatus::Pending | TimelockStatus::Ready => {
+            if sys_time()? < timelock.expires {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Locked funds cannot be refunded before timelock expiry or cancellation".into()
+                )));
+            }
+        }
+        TimelockStatus::Prepared | TimelockStatus::Failed => {
+            let resolution = find_failed_resolution_for_prepared_execution(
+                &timelock_record,
+                &timelock,
+            )?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Locked funds cannot be refunded without an exact Failed host-side resolution"
+                    .into()
+            )))?;
+
+            // Re-validate the exact source anchors before mutating the economic record.
+            let execution_record = find_execution_by_id(&resolution.execution_id)?;
+            let execution: Execution = execution_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Invalid execution referenced by failed resolution".into()
+                )))?;
+
+            validate_execution_resolution_for_refund(
+                &resolution,
+                &execution,
+                execution_record.action_address(),
+                &timelock,
+                timelock_record.action_address(),
+            )
+            .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
+        }
+        TimelockStatus::Executed => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Locked funds cannot be refunded after execution".into()
+            )));
+        }
+        TimelockStatus::Vetoed => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Vetoed timelocks must transition to Cancelled before refund".into()
+            )));
+        }
+    }
+
     let refunded = FundAllocation {
         status: AllocationStatus::Refunded,
         status_reason: Some(input.reason),
@@ -1634,6 +1700,35 @@ pub fn refund_locked_funds(input: RefundFundsInput) -> ExternResult<Record> {
 /// execution attached to this timelock. This checks source ActionHash anchors and
 /// the immutable resolution outcome, but deliberately does not claim that the
 /// proof roots themselves have been externally verified by this zome.
+fn validate_execution_resolution_for_refund(
+    resolution: &ExecutionResolution,
+    execution: &Execution,
+    execution_action_hash: &ActionHash,
+    timelock: &Timelock,
+    timelock_action_hash: &ActionHash,
+) -> Result<(), String> {
+    if resolution.outcome != ExecutionResolutionOutcome::Failed {
+        return Err("execution resolution is not terminally Failed".into());
+    }
+    if resolution.execution_id != execution.id
+        || resolution.timelock_id != timelock.id
+        || resolution.proposal_id != timelock.proposal_id
+        || execution.timelock_id != timelock.id
+        || execution.proposal_id != timelock.proposal_id
+    {
+        return Err("failed execution resolution does not match timelock/execution scope".into());
+    }
+    if resolution.executor != execution.executor {
+        return Err("failed execution resolution executor does not match prepared execution".into());
+    }
+    if resolution.execution_action_hash.as_ref() != Some(execution_action_hash)
+        || resolution.timelock_action_hash.as_ref() != Some(timelock_action_hash)
+    {
+        return Err("failed execution resolution source ActionHash anchors do not match".into());
+    }
+    Ok(())
+}
+
 fn validate_execution_resolution_for_release(
     resolution: &ExecutionResolution,
     execution: &Execution,
@@ -1728,6 +1823,86 @@ fn find_executed_resolution_for_prepared_execution(
             };
 
             if validate_execution_resolution_for_release(
+                &resolution,
+                &execution,
+                execution_record.action_address(),
+                timelock,
+                timelock_record.action_address(),
+            )
+            .is_ok()
+            {
+                return Ok(Some(resolution));
+            }
+        }
+    }
+
+    Ok(None)
+}
+fn find_failed_resolution_for_prepared_execution(
+    timelock_record: &Record,
+    timelock: &Timelock,
+) -> ExternResult<Option<ExecutionResolution>> {
+    // Use the stable timelock-ID index rather than TimelockToExecution from the
+    // latest timelock ActionHash. The timelock is updated Ready -> Prepared,
+    // so the source ActionHash at which the execution link was created is not
+    // the latest timelock ActionHash.
+    let execution_by_timelock_anchor = execution_by_timelock_anchor(timelock.id.as_str());
+    let execution_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(&execution_by_timelock_anchor)?,
+            LinkTypes::ExecutionByTimelock,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    for execution_link in execution_links {
+        let execution_hash = match ActionHash::try_from(execution_link.target.clone()) {
+            Ok(hash) => hash,
+            Err(_) => continue,
+        };
+        let Some(execution_record) = get_latest_record(execution_hash)? else {
+            continue;
+        };
+        let Some(execution) = execution_record
+            .entry()
+            .to_app_option::<Execution>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            continue;
+        };
+
+        if execution.timelock_id != timelock.id
+            || execution.proposal_id != timelock.proposal_id
+            || execution.status != ExecutionStatus::Prepared
+        {
+            continue;
+        }
+
+        let resolution_links = get_links(
+            LinkQuery::try_new(
+                execution_record.action_address().clone(),
+                LinkTypes::ExecutionToResolution,
+            )?,
+            GetStrategy::default(),
+        )?;
+
+        for resolution_link in resolution_links {
+            let resolution_hash = match ActionHash::try_from(resolution_link.target.clone()) {
+                Ok(hash) => hash,
+                Err(_) => continue,
+            };
+            let Some(resolution_record) = get_latest_record(resolution_hash)? else {
+                continue;
+            };
+            let Some(resolution) = resolution_record
+                .entry()
+                .to_app_option::<ExecutionResolution>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            else {
+                continue;
+            };
+
+            if validate_execution_resolution_for_refund(
                 &resolution,
                 &execution,
                 execution_record.action_address(),
@@ -1893,6 +2068,77 @@ mod tests {
 
         resolution.execution_action_hash = None;
         assert!(validate_execution_resolution_for_release(
+            &resolution,
+            &execution,
+            &execution_hash,
+            &timelock,
+            &timelock_hash,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn execution_resolution_for_refund_requires_failed_exact_source_anchors() {
+        let timelock_hash = ActionHash::from_raw_36(vec![3; 36]);
+        let execution_hash = ActionHash::from_raw_36(vec![4; 36]);
+        let timelock = Timelock {
+            id: "tl-refund-1".into(),
+            proposal_id: "prop-refund-1".into(),
+            actions: "[]".into(),
+            started: ts(1_000_000),
+            expires: ts(2_000_000),
+            status: TimelockStatus::Prepared,
+            cancellation_reason: None,
+        };
+        let execution = Execution {
+            id: "execution-refund-1".into(),
+            timelock_id: "tl-refund-1".into(),
+            proposal_id: "prop-refund-1".into(),
+            executor: "did:mycelix:test".into(),
+            status: ExecutionStatus::Prepared,
+            result: None,
+            error: None,
+            executed_at: ts(2_000_001),
+        };
+        let mut resolution = ExecutionResolution {
+            id: "resolution:execution-refund-1".into(),
+            execution_id: "execution-refund-1".into(),
+            timelock_id: "tl-refund-1".into(),
+            proposal_id: "prop-refund-1".into(),
+            executor: "did:mycelix:test".into(),
+            execution_action_hash: Some(execution_hash.clone()),
+            timelock_action_hash: Some(timelock_hash.clone()),
+            attempt_identities: vec![],
+            action_key_digests: vec![],
+            terminal_evidence_digests: vec![],
+            authorization_admission_proof_digests: vec![],
+            final_provider_entry_proof_digests: vec![],
+            outcome: ExecutionResolutionOutcome::Failed,
+            resolved_at: ts(2_000_010),
+        };
+
+        assert!(validate_execution_resolution_for_refund(
+            &resolution,
+            &execution,
+            &execution_hash,
+            &timelock,
+            &timelock_hash,
+        )
+        .is_ok());
+
+        resolution.outcome = ExecutionResolutionOutcome::Executed;
+        assert!(validate_execution_resolution_for_refund(
+            &resolution,
+            &execution,
+            &execution_hash,
+            &timelock,
+            &timelock_hash,
+        )
+        .is_err());
+
+        resolution.outcome = ExecutionResolutionOutcome::Failed;
+        resolution.timelock_action_hash = Some(ActionHash::from_raw_36(vec![9; 36]));
+        assert!(validate_execution_resolution_for_refund(
             &resolution,
             &execution,
             &execution_hash,

@@ -406,10 +406,6 @@ pub fn check_update_timelock(original: &Timelock, updated: &Timelock) -> Result<
         | (TimelockStatus::Pending, TimelockStatus::Cancelled)
         | (TimelockStatus::Ready, TimelockStatus::Prepared)
         | (TimelockStatus::Ready, TimelockStatus::Cancelled)
-        // Prepared execution cannot be terminalized by an ordinary timelock
-        // update. Terminal outcome acceptance requires a separately qualified
-        // resolution path; cancellation remains available to the creator.
-        | (TimelockStatus::Prepared, TimelockStatus::Cancelled)
         // Veto override transitions:
         | (TimelockStatus::Ready, TimelockStatus::Vetoed)      // Guardian veto
         | (TimelockStatus::Pending, TimelockStatus::Vetoed)    // Guardian veto on pending
@@ -1091,6 +1087,17 @@ mod tests {
         let mut bad = vetoed.clone();
         bad.status = TimelockStatus::Executed;
         assert!(check_update_timelock(&vetoed, &bad).is_err());
+    }
+
+    #[test]
+    fn test_prepared_timelock_cannot_be_cancelled_without_host_resolution() {
+        let mut prepared = make_timelock();
+        prepared.status = TimelockStatus::Prepared;
+
+        let mut cancelled = prepared.clone();
+        cancelled.status = TimelockStatus::Cancelled;
+
+        assert!(check_update_timelock(&prepared, &cancelled).is_err());
     }
 
     #[test]
