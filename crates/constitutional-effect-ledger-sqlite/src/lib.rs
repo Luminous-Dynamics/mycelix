@@ -2220,7 +2220,13 @@ mod tests {
             "test-status-snapshot-v1",
             "test-admission-verifier-v1",
         )?;
-        authorized_admit(&mut store, action_key, attempt_identity, record, proof)
+        store.atomically_admit(
+            action_key,
+            attempt_identity,
+            record,
+            proof,
+            100,
+        )
     }
 
     fn evidence(
