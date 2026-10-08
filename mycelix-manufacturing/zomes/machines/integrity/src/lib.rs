@@ -23,6 +23,8 @@ pub const MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-time-authority-profile-v1";
 pub const MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-temporal-attestation-v1";
+/// Maximum encoded size for the opaque external evidence commitment.
+pub const MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES: usize = 128;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct MachineTemporalEvidenceObservation {
@@ -33,6 +35,7 @@ pub struct MachineTemporalEvidenceObservation {
     pub evidence_kind: MachineTemporalEvidenceKind,
     pub attested_at: Timestamp,
     pub source_reference: String,
+    pub source_commitment: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -183,6 +186,7 @@ pub struct MachineTemporalAttestationEntry {
     pub evidence_kind: MachineTemporalEvidenceKind,
     pub attested_at: Timestamp,
     pub source_reference: String,
+    pub source_commitment: Vec<u8>,
     pub authority_signature: Signature,
 }
 
@@ -196,6 +200,7 @@ impl MachineTemporalAttestationEntry {
             evidence_kind: self.evidence_kind.clone(),
             attested_at: self.attested_at,
             source_reference: self.source_reference.clone(),
+            source_commitment: self.source_commitment.clone(),
         }
     }
 }
@@ -402,9 +407,12 @@ fn validate_create_temporal_attestation(
     action: TypedAction<CreateData>,
     attestation: MachineTemporalAttestationEntry,
 ) -> ExternResult<ValidateCallbackResult> {
-    if attestation.source_reference.is_empty() {
+    if attestation.source_reference.is_empty()
+        || attestation.source_commitment.is_empty()
+        || attestation.source_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "temporal attestation requires a source reference".into(),
+            "temporal attestation requires bounded source reference and commitment".into(),
         ));
     }
     let profile_record = must_get_valid_record(attestation.profile_hash.clone())?;
@@ -1129,6 +1137,7 @@ mod content_restriction_tests {
             evidence_kind: MachineTemporalEvidenceKind::TransitionApproval,
             attested_at: Timestamp::from_micros(time),
             source_reference: format!("tsa://example/{attestation_byte}"),
+            source_commitment: vec![attestation_byte; 32],
         }
     }
 
