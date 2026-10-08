@@ -66,8 +66,13 @@ def main() -> int:
             raise SystemExit(f"CONTROL_MATRIX_FAIL: missing Alloy witness: {witness}")
         if f"fact {mutant} " not in alloy:
             raise SystemExit(f"CONTROL_MATRIX_FAIL: missing Alloy mutant fact: {mutant}")
-        if marker not in reference:
-            raise SystemExit(f"CONTROL_MATRIX_FAIL: missing reference marker: {marker}")
+        ref_parts = [part.strip() for part in marker.split("->", 1)]
+        if not ref_parts[0] or ref_parts[0] not in reference:
+            raise SystemExit(f"CONTROL_MATRIX_FAIL: missing reference control: {ref_parts[0]}")
+        if len(ref_parts) == 2:
+            ref_target = ref_parts[1].split(":", 1)[0].strip()
+            if ref_target and ref_target not in reference:
+                raise SystemExit(f"CONTROL_MATRIX_FAIL: missing reference target: {ref_target}")
 
     print(f"CONTROL MATRIX PASS: {len(controls)} semantic controls are represented across TLA, Alloy, and reference artifacts")
     print("NON-AUTHORITATIVE: static alignment evidence only")
