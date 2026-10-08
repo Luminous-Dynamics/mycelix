@@ -58,5 +58,4 @@ jobs:
           assert 'candidate_not_authoritative_until_protected_adoption' in text
           assert 'ReferenceModelOnly' in text
           assert 'sha256_a' in text and 'sha256_b' in text
-          assert 'git','hash-object' in text if False else True
           PY
