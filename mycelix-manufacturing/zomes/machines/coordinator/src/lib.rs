@@ -36,6 +36,18 @@ pub struct UpdateMachineStatusInput {
     pub new_status: MachineStatus,
     pub work_order_hash: Option<ActionHash>,
     pub authority_hash: ActionHash,
+    #[serde(default)]
+    pub transition_approval_hash: Option<ActionHash>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CreateMachineTransitionApprovalInput {
+    pub machine_hash: ActionHash,
+    pub authority_hash: ActionHash,
+    pub new_status: MachineStatus,
+    pub work_order_hash: Option<ActionHash>,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -187,6 +199,8 @@ pub fn grant_machine_controller(
         controller_agent: input.controller_agent,
         valid_from: input.valid_from,
         valid_until: input.valid_until,
+        lease_schema_version: 2,
+        requires_transition_approval: true,
         issuer_signature: None,
     };
     let issuer_signature = sign(issuer, authority.signed_payload())?;
@@ -217,6 +231,109 @@ pub fn grant_machine_controller(
     Ok(hash)
 }
 
+/// Create a registrant-signed authorization for one exact machine transition.
+#[hdk_extern]
+pub fn create_machine_transition_approval(
+    input: CreateMachineTransitionApprovalInput,
+) -> ExternResult<ActionHash> {
+    let machine_record = get(input.machine_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Machine not found".into())))?;
+    if !matches!(machine_record.action(), Action::Create(_)) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "transition approval must target the machine root".into(),
+        )));
+    }
+    if machine_record.action().author() != agent_info()?.agent_initial_pubkey {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "only the machine registrant may create transition approvals".into(),
+        )));
+    }
+    let machine: MachineEntry = machine_record.entry().to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Could not deserialize machine".into())))?;
+    if !machine.status.can_transition_to(&input.new_status) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Invalid machine transition: {:?} -> {:?}", machine.status, input.new_status
+        ))));
+    }
+    let MachineStateResolution::Resolved { status, head_action } =
+        get_current_machine_state(input.machine_hash.clone())?
+    else {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "machine state is not uniquely resolvable".into(),
+        )));
+    };
+    if status != machine.status {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "machine state changed while preparing transition approval".into(),
+        )));
+    }
+    let authority_record = get(input.authority_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Machine controller authority not found".into())))?;
+    let authority: MachineControllerAuthorityEntry = authority_record.entry().to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Could not deserialize machine controller authority".into())))?;
+    if authority.lease_schema_version != 2 || !authority.requires_transition_approval {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "transition approval requires a schema-v2 controller lease".into(),
+        )));
+    }
+    if authority.issuer_signature.is_none() || authority.machine_hash != input.machine_hash {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "transition approval authority provenance is invalid".into(),
+        )));
+    }
+    if input.valid_until < input.valid_from {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "transition approval validity window is inverted".into(),
+        )));
+    }
+    let duration = input.valid_until.as_micros().checked_sub(input.valid_from.as_micros())
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "transition approval validity arithmetic overflow".into(),
+        )))?;
+    if duration > MAX_MACHINE_TRANSITION_APPROVAL_MICROS {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "transition approval exceeds the maximum 5-minute validity".into(),
+        )));
+    }
+    if input.valid_from < authority.valid_from || input.valid_until > authority.valid_until {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "transition approval interval exceeds controller authority interval".into(),
+        )));
+    }
+    let approval = MachineControllerTransitionApprovalEntry {
+        machine_hash: input.machine_hash.clone(),
+        authority_hash: input.authority_hash.clone(),
+        controller_agent: authority.controller_agent.clone(),
+        predecessor_action: head_action,
+        new_status: input.new_status,
+        work_order_hash: input.work_order_hash,
+        valid_from: input.valid_from,
+        valid_until: input.valid_until,
+        issuer_signature: sign(
+            machine_record.action().author().clone(),
+            MachineControllerTransitionApprovalPayload {
+                schema_id: MACHINE_CONTROLLER_TRANSITION_APPROVAL_SCHEMA_ID.to_string(),
+                machine_hash: input.machine_hash.clone(),
+                authority_hash: input.authority_hash.clone(),
+                controller_agent: authority.controller_agent.clone(),
+                predecessor_action: head_action.clone(),
+                new_status: input.new_status.clone(),
+                work_order_hash: input.work_order_hash.clone(),
+                valid_from: input.valid_from,
+                valid_until: input.valid_until,
+            },
+        )?,
+    };
+    let hash = create_entry(EntryTypes::MachineControllerTransitionApproval(approval))?;
+    create_link(input.machine_hash.clone(), hash.clone(), LinkTypes::MachineToTransitionApprovals, ())?;
+    let path = Path::from("all_machine_transition_approvals")
+        .typed(LinkTypes::AllMachineTransitionApprovals)?;
+    path.ensure()?;
+    create_link(path.path_entry_hash()?, hash.clone(), LinkTypes::AllMachineTransitionApprovals, ())?;
+    Ok(hash)
+}
 /// Get a controller authority by action hash.
 #[hdk_extern]
 pub fn get_machine_controller_authority(
@@ -328,6 +445,43 @@ pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<Ac
             "Unsigned legacy controller authority cannot authorize new machine status".into(),
         )));
     }
+    if authority.requires_transition_approval {
+        let approval_hash = input.transition_approval_hash.clone().ok_or(wasm_error!(
+            WasmErrorInner::Guest("schema-v2 controller status requires a transition approval".into()),
+        ))?;
+        let approval_record = get(approval_hash.clone(), GetOptions::default())?
+            .ok_or(wasm_error!(WasmErrorInner::Guest("Transition approval not found".into())))?;
+        let approval: MachineControllerTransitionApprovalEntry = approval_record.entry().to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest("Could not deserialize transition approval".into())))?;
+        let registrant = get(input.machine_hash.clone(), GetOptions::default())?
+            .ok_or(wasm_error!(WasmErrorInner::Guest("Machine root not found".into())))?;
+        if approval.machine_hash != input.machine_hash
+            || approval.authority_hash != input.authority_hash
+            || approval.controller_agent != authority.controller_agent
+            || approval.controller_agent != agent_info()?.agent_initial_pubkey
+            || approval.predecessor_action != head_action
+            || approval.new_status != input.new_status
+            || approval.work_order_hash.as_ref() != input.work_order_hash.as_ref()
+            || approval.valid_from < authority.valid_from
+            || approval.valid_until > authority.valid_until
+            || now < approval.valid_from
+            || now > approval.valid_until
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "transition approval does not exactly authorize this machine update".into(),
+            )));
+        }
+        if !verify_signature(
+            registrant.action().author().clone(),
+            approval.issuer_signature.clone(),
+            approval.signed_payload(),
+        )? {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "transition approval signature is invalid".into(),
+            )));
+        }
+    }
     if now < authority.valid_from || now > authority.valid_until {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Controller authority is not currently valid".into(),
@@ -340,6 +494,7 @@ pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<Ac
         status: input.new_status,
         current_work_order: input.work_order_hash.clone(),
         last_status_authority_hash: Some(authority_hash.clone()),
+        last_status_transition_approval_hash: input.transition_approval_hash.clone(),
         ..machine
     };
     let update_hash = update_entry(head_action, EntryTypes::Machine(updated))?;
@@ -351,6 +506,7 @@ pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<Ac
         previous_status,
         new_status: input.new_status.clone(),
         work_order_hash: input.work_order_hash.clone(),
+        transition_approval_hash: input.transition_approval_hash.clone(),
         changed_at: now,
     };
     let log_hash = create_entry(EntryTypes::StatusLog(log))?;
@@ -512,6 +668,7 @@ mod tests {
             new_status: MachineStatus::Running,
             work_order_hash: Some(ActionHash::from_raw_36(vec![1u8; 36])),
             authority_hash: ActionHash::from_raw_36(vec![2u8; 36]),
+            transition_approval_hash: None,
         };
         let json = serde_json::to_string(&input).unwrap();
         let back: UpdateMachineStatusInput = serde_json::from_str(&json).unwrap();
@@ -544,6 +701,7 @@ mod tests {
             status: MachineStatus::Available,
             current_work_order: None,
             last_status_authority_hash: None,
+            last_status_transition_approval_hash: None,
             registered_at: Timestamp::from_micros(0),
         };
         let json = serde_json::to_string(&entry).unwrap();
