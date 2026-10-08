@@ -183,7 +183,7 @@
   },
   "derived_dependence": {
     "node_type": "Result",
-    "derived_from_field": "derived_from",
+    "edge_relation": "derived_from",
     "source_node": "result",
     "verdict": "qualified-with-dependence",
     "reason": "derived result shares ancestry"
@@ -195,5 +195,19 @@
     "reject_duplicate_edges": true,
     "reject_dangling_edges": true,
     "semantic_array_order": "preserve"
+  },
+  "claim_local_projection": {
+    "root": "claim",
+    "relation_allowlist": [
+      "qualifies",
+      "requires",
+      "generated_by",
+      "uses",
+      "derived_from",
+      "applies_to"
+    ],
+    "traverse_both_directions": true,
+    "node_collection": "unordered-by-id",
+    "edge_collection": "unordered-by-tuple"
   }
 }
