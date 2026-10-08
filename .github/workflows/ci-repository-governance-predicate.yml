@@ -173,6 +173,10 @@ jobs:
           assert "admin-capability-probe-payload.json" in scanned_text
           assert "admin-capability-probe-http-status.txt" in scanned_text
           assert "admin_capability_probe" in scanned_text
+          assert "admin-capability-probe-payload-after.json" in scanned_text
+          assert "admin-capability-probe-http-status-after.txt" in scanned_text
+          assert "admin capability observation status changed during governance observation" in scanned_text
+          assert "capability_status == 200" in scanned_text
           assert "base_sha" in scanned_text
           assert "base_ref" in scanned_text
           assert 'test "${base_ref}" = "main"' in scanned_text
