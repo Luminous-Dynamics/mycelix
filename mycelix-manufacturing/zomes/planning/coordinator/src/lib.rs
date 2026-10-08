@@ -76,8 +76,8 @@ pub enum CapabilityPlanRejection {
     MachineNotFound,
     MachineMalformed,
     MachineLookupFailed,
-    MachineNotFound,
     MachineStateAmbiguous,
+    MachineInvalidRecord,
     MachineDeleted,
     MachineUnavailable,
     MultipleContractsForMachine,
@@ -117,6 +117,7 @@ struct CapabilityContractProjection {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 enum MachineStateResolutionProjection {
     NotFound,
+    InvalidRecord,
     Resolved {
         status: MachineStatus,
         head_action: ActionHash,
