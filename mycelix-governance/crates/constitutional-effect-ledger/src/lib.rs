@@ -1,9 +1,10 @@
 pub mod action_key;
 pub use action_key::{
-    execution_authorization_digest, material_action_digest, ActionKeyV1, AttemptIdentityV1,
-    ACTION_KEY_PREFIX, ACTION_KEY_SCHEMA_VERSION, ATTEMPT_IDENTITY_PREFIX,
-    ATTEMPT_IDENTITY_SCHEMA_VERSION, EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
-    MATERIAL_ACTION_DIGEST_PREFIX,
+    derive_native_replay_identity, execution_authorization_digest, material_action_digest,
+    ActionKeyV1, AttemptIdentityV1, ACTION_KEY_PREFIX, ACTION_KEY_SCHEMA_VERSION,
+    ATTEMPT_IDENTITY_PREFIX, ATTEMPT_IDENTITY_SCHEMA_VERSION,
+    EXECUTION_AUTHORIZATION_SCHEMA_VERSION, MATERIAL_ACTION_DIGEST_PREFIX,
+    NATIVE_REPLAY_IDENTITY_PREFIX, NATIVE_REPLAY_IDENTITY_SCHEMA_VERSION,
 };
 pub mod attempt_record;
 pub use attempt_record::{
