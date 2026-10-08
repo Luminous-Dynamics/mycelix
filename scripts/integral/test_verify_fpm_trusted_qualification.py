@@ -249,6 +249,10 @@ def assert_evidence_archive_contract() -> None:
     assert "required_commands=(bash env grep tr timeout cargo rustc rustfmt cc ld as ldd realpath sha256sum sed uname cat)" in workflow
     assert "sandbox_system_closure" in verifier
     assert workflow.count("- name: Extract evidence targets with strict JSON parser") == 1
+    assert "root_config_hits=\"$(git ls-files --stage -- .cargo/config .cargo/config.toml || true)\"" in workflow
+    assert "test ! -e .cargo/config" in workflow
+    assert "test ! -e .cargo/config.toml" in workflow
+    assert "config_hit=\"$(git ls-files | grep -E" not in workflow
     
 
 
