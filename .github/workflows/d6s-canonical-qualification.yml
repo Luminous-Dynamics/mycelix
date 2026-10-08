@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: d6s-canon-reference-${{ github.event.pull_request.number || github.ref }}
+  group: d6s-canon-reference-${{ github.workflow_ref }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -22,6 +22,9 @@ jobs:
 
   d6s-canon-reference:
     name: D6S canonical reference qualification
+    if: >-
+      github.ref == 'refs/heads/myc-int-demo-d6u-holochain-07-runtime' ||
+      github.event.pull_request.head.ref == 'myc-int-demo-d6u-holochain-07-runtime'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
