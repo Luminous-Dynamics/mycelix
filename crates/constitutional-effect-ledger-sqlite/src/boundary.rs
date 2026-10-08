@@ -1637,6 +1637,28 @@ mod tests {
         }
     }
 
+    struct MismatchedAdmissionIdentity;
+
+    impl AdmissionAuthorizer for MismatchedAdmissionIdentity {
+        fn verify(
+            &self,
+            attempt: &AttemptRecordV1,
+            action_key: &ActionKeyV1,
+            now_unix_ms: u64,
+        ) -> Result<AuthorizationAdmissionProofV1, String> {
+            AuthorizationAdmissionProofV1::new(
+                attempt,
+                action_key,
+                now_unix_ms,
+                now_unix_ms.saturating_add(60_000),
+                "authorization-snapshot-v1",
+                "policy-snapshot-v1",
+                "status-snapshot-v1",
+                "wrong-admission-verifier-v1",
+            )
+        }
+    }
+
     struct AllowFinalEntry;
 
     impl FinalProviderEntryVerifier for AllowFinalEntry {
@@ -2060,6 +2082,34 @@ mod tests {
             .durably_read_provider_entry_claim(&owner)
             .unwrap()
             .is_none());
+    }
+
+    #[test]
+    fn admission_proof_identity_must_match_pinned_trust_root() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("admission-identity.db")).unwrap();
+        let mut boundary =
+            EffectBoundaryHostV1::new(store, test_root_with_admission(Box::new(MismatchedAdmissionIdentity))).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-admission-identity");
+
+        let result = boundary.admit(
+            &action_key,
+            &owner,
+            attempt_record(
+                "attempt-admission-identity",
+                "operation-admission-identity",
+                AttemptRecordState::Consumed,
+            ),
+        );
+
+        assert!(matches!(
+            result,
+            Err(BoundaryError::Semantic(message))
+                if message.contains("admission verifier identity does not match pinned trust root")
+        ));
+        assert!(boundary.store.durably_read_attempt(&owner).unwrap().is_none());
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_none());
     }
 
     #[test]
