@@ -1041,6 +1041,15 @@ fn validate_update_entry(
         EntryTypes::MachineControllerAuthority(_) => Ok(ValidateCallbackResult::Invalid(
             "Machine controller authorities are immutable".into(),
         )),
+        EntryTypes::MachineControllerTransitionApproval(_) => Ok(ValidateCallbackResult::Invalid(
+            "Machine transition approvals are immutable".into(),
+        )),
+        EntryTypes::MachineTimeAuthorityProfile(_) => Ok(ValidateCallbackResult::Invalid(
+            "Machine time authority profiles are immutable".into(),
+        )),
+        EntryTypes::MachineTemporalAttestation(_) => Ok(ValidateCallbackResult::Invalid(
+            "Machine temporal attestations are immutable".into(),
+        )),
     }
 }
 
