@@ -2,7 +2,7 @@
 EXTENDS Naturals
 
 CONSTANTS
-  DecisionId,
+  DecisionId, RecordedDecisionId,
   BoundAuthorityEpoch, CurrentAuthorityEpoch,
   BoundRequestCommitment, CurrentRequestCommitment,
   BoundTarget, CurrentTarget,
@@ -29,7 +29,7 @@ TypeOK ==
   admitted \in BOOLEAN
 
 DecisionIdentityBound ==
-  TRUE
+  ~admitted \/ RecordedDecisionId = DecisionId
 
 DecisionIssuedBeforeEffect ==
   DecisionIssuedAt <= CurrentTime
