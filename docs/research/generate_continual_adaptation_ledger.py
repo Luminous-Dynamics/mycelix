@@ -136,6 +136,14 @@ def main() -> int:
         })
 
     for i in range(32):
+        edge = required_edges[i % len(required_edges)]
+        cases.append({
+            "case_id": f"GEN-ENDPOINT-{i:03d}",
+            "property": "endpoint_rejection",
+            "mutation": [["add_edge", [edge[1], edge[0], edge[2]]]],
+        })
+
+    for i in range(32):
         if i < 10:
             first = "first" if i % 2 == 0 else "second"
             second = "second" if i % 2 == 0 else "first"
@@ -172,6 +180,7 @@ def main() -> int:
             "version": GENERATOR_VERSION,
             "seed": SEED,
             "mutation_count": len(cases),
+            "endpoint_attack_count": 32,
             "base_fixture_schema": fixed.get("schema"),
         },
         "policy_binding": fixed["policy_binding"],
