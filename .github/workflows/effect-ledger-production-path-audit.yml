@@ -100,8 +100,8 @@ jobs:
             exit 1
           }
 
-          grep -Fq 'pub fn complete_prepared_execution' "$executor" || {
-            echo "NOT QUALIFIED: prepared execution has no explicit host-resolution handoff."
+          grep -Fq 'pub fn record_prepared_execution_resolution' "$executor" || {
+            echo "NOT QUALIFIED: prepared execution has no explicit host-resolution attestation handoff."
             exit 1
           }
 
