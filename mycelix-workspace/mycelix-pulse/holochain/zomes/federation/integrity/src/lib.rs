@@ -539,7 +539,7 @@ fn validate_create_entry(
 /// input, always setting it to Some(agent) (P0 author-binding gap).
 fn validate_federation_audit_log(
     log: &FederationAuditLog,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     if log.actor.as_ref() != Some(&action.author()) {
         return Ok(ValidateCallbackResult::Invalid(
@@ -551,7 +551,7 @@ fn validate_federation_audit_log(
 
 fn validate_network(
     network: &FederatedNetwork,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // register_network already derives owner from agent_info() coordinator-side with
     // zero user input -- bind it at the DHT level too (P0 author-binding gap: ownership
@@ -602,7 +602,7 @@ fn validate_network(
 
 fn validate_route(
     route: &FederationRoute,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Only the source network's real owner may create routes for it. create_route
     // already has a real coordinator-side is_network_owner() check -- this re-derives
@@ -664,7 +664,7 @@ fn validate_route(
 
 fn validate_envelope(
     envelope: &FederatedEnvelope,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Three genuinely different trust stories, none of which can share one check -- see
     // memory/mycelix_attribution_author_binding_jul8.md for the full reasoning:
@@ -795,7 +795,7 @@ fn validate_envelope(
 
 fn validate_bridge_agent(
     bridge: &BridgeAgent,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Agent must be the author
     if bridge.agent != action.author() {
@@ -823,7 +823,7 @@ fn validate_bridge_agent(
 
 fn validate_domain(
     domain: &DomainRegistration,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Domain must not be empty
     if domain.domain.is_empty() {
