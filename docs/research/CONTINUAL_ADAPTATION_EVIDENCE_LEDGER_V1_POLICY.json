@@ -194,7 +194,8 @@
     "reject_duplicate_node_ids": true,
     "reject_duplicate_edges": true,
     "reject_dangling_edges": true,
-    "semantic_array_order": "preserve"
+    "semantic_array_order": "preserve",
+    "string_policy": "ASCII-only"
   },
   "claim_local_projection": {
     "root": "claim",
