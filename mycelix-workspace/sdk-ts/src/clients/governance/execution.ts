@@ -262,7 +262,8 @@ export class ExecutionClient extends ZomeClient {
   getStatusDescription(status: TimelockStatus): string {
     const descriptions: Record<TimelockStatus, string> = {
       Pending: 'Timelock delay period is active',
-      Ready: 'Timelock delay expired, ready for execution',
+      Ready: 'Timelock delay expired, ready for preparation',
+      Prepared: 'Timelock is prepared for host-side effect execution',
       Executed: 'Proposal actions have been executed',
       Cancelled: 'Timelock was cancelled (e.g., via veto)',
       Failed: 'Execution failed',
