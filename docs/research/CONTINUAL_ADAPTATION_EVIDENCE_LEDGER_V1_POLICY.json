@@ -207,8 +207,28 @@
       "derived_from",
       "applies_to"
     ],
-    "traverse_both_directions": true,
+    "traverse_both_directions": false,
     "node_collection": "unordered-by-id",
-    "edge_collection": "unordered-by-tuple"
+    "edge_collection": "unordered-by-tuple",
+    "relation_directions": {
+      "qualifies": [
+        "incoming"
+      ],
+      "requires": [
+        "outgoing"
+      ],
+      "applies_to": [
+        "outgoing"
+      ],
+      "generated_by": [
+        "outgoing"
+      ],
+      "uses": [
+        "outgoing"
+      ],
+      "derived_from": [
+        "outgoing"
+      ]
+    }
   }
 }
