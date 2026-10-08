@@ -52,13 +52,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          manifest='mycelix-governance/crates/constitutional-effect-ledger-sqlite/Cargo.toml'
-          source='mycelix-governance/crates/constitutional-effect-ledger-sqlite/src/lib.rs'
+          manifest='crates/constitutional-effect-ledger-sqlite/Cargo.toml'
+          source='crates/constitutional-effect-ledger-sqlite/src/lib.rs'
           test -f "$manifest"
           test -f "$source"
 
-          grep -Fq 'constitutional-effect-ledger = { path = "../constitutional-effect-ledger" }' "$manifest"
+          grep -Fq 'constitutional-effect-ledger = { path = "../../mycelix-governance/crates/constitutional-effect-ledger" }' "$manifest"
           grep -Fq 'rusqlite = { version = "0.32", features = ["bundled"] }' "$manifest"
+          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 2' "$source"
+          grep -Fq 'constitutional-effect-ledger/sqlite-fence-store-v2' "$source"
+          grep -Fq 'reconciliation_token_digest' "$source"
+          grep -Fq 'TerminalEvidenceV1::from_attempt' "$source"
           grep -Fq 'transaction_with_behavior(TransactionBehavior::Immediate)' "$source"
           grep -Fq 'PRIMARY KEY NOT NULL' "$source"
           grep -Fq 'UNIQUE' "$source"
@@ -74,13 +78,21 @@ jobs:
           fi
 
       - name: Check formatting
-        run: cargo fmt --manifest-path mycelix-governance/Cargo.toml --all --check
+        run: |
+          cargo fmt --manifest-path mycelix-governance/Cargo.toml --all --check
+          cargo fmt --manifest-path crates/constitutional-effect-ledger-sqlite/Cargo.toml --all --check
 
       - name: Compile the exact effect-ledger surface
-        run: cargo check --manifest-path mycelix-governance/Cargo.toml -p constitutional-effect-ledger -p constitutional-effect-ledger-sqlite
+        run: |
+          cargo check --manifest-path mycelix-governance/Cargo.toml -p constitutional-effect-ledger
+          cargo check --manifest-path crates/constitutional-effect-ledger-sqlite/Cargo.toml
 
       - name: Run reference-model and durable-store tests
-        run: cargo test --manifest-path mycelix-governance/Cargo.toml -p constitutional-effect-ledger -p constitutional-effect-ledger-sqlite --all-targets
+        run: |
+          cargo test --manifest-path mycelix-governance/Cargo.toml -p constitutional-effect-ledger --all-targets
+          cargo test --manifest-path crates/constitutional-effect-ledger-sqlite/Cargo.toml --all-targets
 
       - name: Run clippy with warnings denied
-        run: cargo clippy --manifest-path mycelix-governance/Cargo.toml -p constitutional-effect-ledger -p constitutional-effect-ledger-sqlite --all-targets -- -D warnings
+        run: |
+          cargo clippy --manifest-path mycelix-governance/Cargo.toml -p constitutional-effect-ledger --all-targets -- -D warnings
+          cargo clippy --manifest-path crates/constitutional-effect-ledger-sqlite/Cargo.toml --all-targets -- -D warnings
