@@ -65,14 +65,20 @@ function claimLocalDigest(graph, policy) {
   if (n === null) return "invalid";
   const root = policy.claim_local_projection.root;
   const allowed = new Set(policy.claim_local_projection.relation_allowlist);
+  const directions = policy.claim_local_projection.relation_directions;
   const included = new Set([root]);
   let changed = true;
   while (changed) {
     changed = false;
     for (const edge of n.edges) {
       if (!allowed.has(edge[2])) continue;
-      if (included.has(edge[0]) && !included.has(edge[1])) { included.add(edge[1]); changed = true; }
-      else if (included.has(edge[1]) && !included.has(edge[0])) { included.add(edge[0]); changed = true; }
+      const relationDirections = new Set(directions[edge[2]] ?? []);
+      if (relationDirections.has("outgoing") && included.has(edge[0]) && !included.has(edge[1])) {
+        included.add(edge[1]); changed = true;
+      }
+      if (relationDirections.has("incoming") && included.has(edge[1]) && !included.has(edge[0])) {
+        included.add(edge[0]); changed = true;
+      }
     }
   }
   return digest({
