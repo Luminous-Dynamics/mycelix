@@ -468,7 +468,7 @@ def main() -> int:
     assert len(cases) == 176
 
     corpus = {
-        "schema": "mycelix.continual-adaptation.censoring-classification-provenance-generated-properties.v1",
+        "schema": "mycelix.continual-adaptation.censoring-classification-provenance-generated-properties.v2",
         "status": "research-fixture-only",
         "generator": {
             "version": VERSION,
