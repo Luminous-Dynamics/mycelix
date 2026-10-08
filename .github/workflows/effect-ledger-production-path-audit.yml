@@ -8,6 +8,7 @@ on:
       - hardening/effect-ledger-verifier-affirmation-v1
       - hardening/effect-ledger-provider-context-v1
       - hardening/effect-ledger-persisted-idempotency-v1
+      - hardening/effect-ledger-final-entry-gate-v1
   pull_request:
   workflow_dispatch:
 
