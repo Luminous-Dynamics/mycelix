@@ -30,6 +30,7 @@ pub enum MachineTemporalEvidenceResolution {
     NoEvidence,
     Unique(Timestamp),
     Conflicting(Vec<Timestamp>),
+    InvalidEvidence,
 }
 
 fn resolve_temporal_times(mut times: Vec<Timestamp>) -> MachineTemporalEvidenceResolution {
@@ -282,6 +283,7 @@ pub enum LinkTypes {
     AllMachineTimeAuthorityProfiles,
     MachineToTemporalAttestations,
     AllMachineTemporalAttestations,
+    SubjectToTemporalAttestations,
     LocationToMachines,
 }
 
