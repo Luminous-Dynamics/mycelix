@@ -163,7 +163,12 @@ pub enum ExecutionStatus {
     Failed,
 }
 
-/// Immutable host-side terminal resolution attestation.
+/// Immutable host-side execution-resolution receipt.
+///
+/// The receipt records the parallel roots for the authorization decision, action
+/// identity, provider-entry authorization, and terminal evidence that together
+/// describe the external-effect lifecycle. It is an evidence binding, not itself
+/// a provider-effect authorization or runtime qualification claim.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct ExecutionResolution {
