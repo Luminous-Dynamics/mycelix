@@ -81,49 +81,133 @@ pred DecisionSubstitutionWitness {
   some a: EffectAttempt, d2: Decision |
     a.committed = On and
     d2.id != a.decision.id and
-    a.recordedDecision = d2.id
+    a.recordedDecision = d2.id and
+    a.recordedIntent = a.intent.id and
+    a.recordedOperation = a.intent.operation and
+    a.recordedUse = a.use.id and
+    a.recordedTarget = a.intent.target and
+    a.recordedAdapter = a.intent.adapter and
+    a.recordedInvocation = a.intent.invocation and
+    a.use.decision = a.decision and
+    a.use.intent = a.intent and
+    a.use.operation = a.intent.operation and
+    a.use.target = a.intent.target and
+    a.use.adapter = a.intent.adapter and
+    a.use.invocation = a.intent.invocation
 }
 
 pred IntentSubstitutionWitness {
   some a: EffectAttempt, i2: EffectIntent |
     a.committed = On and
     i2.id != a.intent.id and
-    a.recordedIntent = i2.id
+    a.recordedDecision = a.decision.id and
+    a.recordedIntent = i2.id and
+    a.recordedOperation = a.intent.operation and
+    a.recordedUse = a.use.id and
+    a.recordedTarget = a.intent.target and
+    a.recordedAdapter = a.intent.adapter and
+    a.recordedInvocation = a.intent.invocation and
+    a.use.decision = a.decision and
+    a.use.intent = a.intent and
+    a.use.operation = a.intent.operation and
+    a.use.target = a.intent.target and
+    a.use.adapter = a.intent.adapter and
+    a.use.invocation = a.intent.invocation
 }
 
 pred OperationSubstitutionWitness {
   some a: EffectAttempt, op2: OperationCommitment |
     a.committed = On and
     op2 != a.intent.operation and
-    a.recordedOperation = op2
+    a.recordedDecision = a.decision.id and
+    a.recordedIntent = a.intent.id and
+    a.recordedOperation = op2 and
+    a.recordedUse = a.use.id and
+    a.recordedTarget = a.intent.target and
+    a.recordedAdapter = a.intent.adapter and
+    a.recordedInvocation = a.intent.invocation and
+    a.use.decision = a.decision and
+    a.use.intent = a.intent and
+    a.use.operation = a.intent.operation and
+    a.use.target = a.intent.target and
+    a.use.adapter = a.intent.adapter and
+    a.use.invocation = a.intent.invocation
 }
 
 pred UseSubstitutionWitness {
   some a: EffectAttempt, u2: UseCommitment |
     a.committed = On and
     u2 != a.use.id and
-    a.recordedUse = u2
+    a.recordedDecision = a.decision.id and
+    a.recordedIntent = a.intent.id and
+    a.recordedOperation = a.intent.operation and
+    a.recordedUse = u2 and
+    a.recordedTarget = a.intent.target and
+    a.recordedAdapter = a.intent.adapter and
+    a.recordedInvocation = a.intent.invocation and
+    a.use.decision = a.decision and
+    a.use.intent = a.intent and
+    a.use.operation = a.intent.operation and
+    a.use.target = a.intent.target and
+    a.use.adapter = a.intent.adapter and
+    a.use.invocation = a.intent.invocation
 }
 
 pred TargetSubstitutionWitness {
   some a: EffectAttempt, t2: Target |
     a.committed = On and
     t2 != a.intent.target and
-    a.recordedTarget = t2
+    a.recordedDecision = a.decision.id and
+    a.recordedIntent = a.intent.id and
+    a.recordedOperation = a.intent.operation and
+    a.recordedUse = a.use.id and
+    a.recordedTarget = t2 and
+    a.recordedAdapter = a.intent.adapter and
+    a.recordedInvocation = a.intent.invocation and
+    a.use.decision = a.decision and
+    a.use.intent = a.intent and
+    a.use.operation = a.intent.operation and
+    a.use.target = a.intent.target and
+    a.use.adapter = a.intent.adapter and
+    a.use.invocation = a.intent.invocation
 }
 
 pred AdapterSubstitutionWitness {
   some a: EffectAttempt, ad2: Adapter |
     a.committed = On and
     ad2 != a.intent.adapter and
-    a.recordedAdapter = ad2
+    a.recordedDecision = a.decision.id and
+    a.recordedIntent = a.intent.id and
+    a.recordedOperation = a.intent.operation and
+    a.recordedUse = a.use.id and
+    a.recordedTarget = a.intent.target and
+    a.recordedAdapter = ad2 and
+    a.recordedInvocation = a.intent.invocation and
+    a.use.decision = a.decision and
+    a.use.intent = a.intent and
+    a.use.operation = a.intent.operation and
+    a.use.target = a.intent.target and
+    a.use.adapter = a.intent.adapter and
+    a.use.invocation = a.intent.invocation
 }
 
 pred InvocationSubstitutionWitness {
   some a: EffectAttempt, v2: Invocation |
     a.committed = On and
     v2 != a.intent.invocation and
-    a.recordedInvocation = v2
+    a.recordedDecision = a.decision.id and
+    a.recordedIntent = a.intent.id and
+    a.recordedOperation = a.intent.operation and
+    a.recordedUse = a.use.id and
+    a.recordedTarget = a.intent.target and
+    a.recordedAdapter = a.intent.adapter and
+    a.recordedInvocation = v2 and
+    a.use.decision = a.decision and
+    a.use.intent = a.intent and
+    a.use.operation = a.intent.operation and
+    a.use.target = a.intent.target and
+    a.use.adapter = a.intent.adapter and
+    a.use.invocation = a.intent.invocation
 }
 
 assert IdentityConservation {
