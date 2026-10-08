@@ -16,6 +16,10 @@ permissions:
   actions: read
   contents: read
 
+concurrency:
+  group: cos-durable-publication-${{ inputs.expected_main_sha }}-${{ inputs.attestor_run_id }}
+  cancel-in-progress: false
+
 jobs:
   prepare:
     name: Read-only qualification handoff
@@ -40,6 +44,47 @@ jobs:
           printf '%s\n' "${EXPECTED_MAIN_SHA}" | grep -Eq '^[0-9a-f]{40}$'
           test "${EXPECTED_REPOSITORY_ID}" = "1176351975"
 
+      - name: Read and freeze durable-publication environment policy
+        run: |
+          set -euo pipefail
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/environments/cos-durable-publication" > environment-policy-api.json
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          data=json.loads(Path('environment-policy-api.json').read_text())
+          assert data['name'].lower()=='cos-durable-publication'
+          required=[r for r in data.get('protection_rules',[]) if r.get('type')=='required_reviewers']
+          assert len(required)==1
+          reviewers=sorted([{'type':x['type'],'id':x['reviewer']['id']} for x in required[0].get('reviewers',[])],key=lambda x:(x['type'],x['id']))
+          assert reviewers and required[0].get('prevent_self_review') is True
+          branch_policy=data.get('deployment_branch_policy')
+          assert branch_policy=={'protected_branches':True,'custom_branch_policies':False}
+          projection={'schema':'MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1','name':'cos-durable-publication','required_reviewers':reviewers,'prevent_self_review':True,'deployment_branch_policy':branch_policy,'other_protection_rules':sorted([{'type':r.get('type'),'id':r.get('id'),'wait_timer':r.get('wait_timer')} for r in data.get('protection_rules',[]) if r.get('type')!='required_reviewers'],key=lambda x:(str(x.get('type','')),int(x.get('id',0))))}
+          raw=json.dumps(projection,sort_keys=True,separators=(',',':')).encode()
+          projection['sha256']=hashlib.sha256(raw).hexdigest()
+          Path('environment-policy-v1.json').write_text(json.dumps(projection,indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Snapshot effective active main rules
+        run: |
+          set -euo pipefail
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/rules/branches/main?per_page=100" > effective-main-rules.json
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          rules=json.loads(Path('effective-main-rules.json').read_text())
+          assert isinstance(rules,list)
+          canonical=[]
+          for rule in rules:
+              item={'type':rule.get('type'),'ruleset_id':rule.get('ruleset_id'),'ruleset_source_type':rule.get('ruleset_source_type'),'ruleset_source':rule.get('ruleset_source'),'parameters':rule.get('parameters',{})}
+              assert item['type']
+              canonical.append(item)
+          canonical=sorted(canonical,key=lambda x:(str(x['ruleset_source_type']),str(x['ruleset_source']),int(x['ruleset_id'] or 0),x['type'],json.dumps(x['parameters'],sort_keys=True,separators=(',',':'))))
+          projection={'schema':'MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1','branch':'refs/heads/main','rules':canonical}
+          raw=json.dumps(projection,sort_keys=True,separators=(',',':')).encode()
+          projection['sha256']=hashlib.sha256(raw).hexdigest()
+          Path('effective-main-rules-v1.json').write_text(json.dumps(projection,indent=2,sort_keys=True)+'\n')
+          PY
       - name: Read exact attestor run
         env:
           RUN_ID: ${{ inputs.attestor_run_id }}
@@ -47,8 +92,8 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s\n' "${RUN_ID}" | grep -Eq '^[0-9]+$'
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" > attestor-run.json
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" > attestor-artifacts.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" > attestor-run.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" > attestor-artifacts.json
           python - <<'PY'
           import json,os
           from pathlib import Path
@@ -123,14 +168,14 @@ jobs:
           print(json.loads(Path('signing-input-request.json').read_text())['artifact_id'])
           PY
           )"
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}" > signing-input-artifact.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}" > signing-input-artifact.json
           verifier_id="$(python - <<'PY'
           import json
           from pathlib import Path
           print(json.loads(Path('signing-input-request.json').read_text())['verifier_run_id'])
           PY
           )"
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${verifier_id}" > verifier-run.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/actions/runs/${verifier_id}" > verifier-run.json
           EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" python - <<'PY'
           import json,os
           from pathlib import Path
@@ -143,7 +188,7 @@ jobs:
           assert run['id']==req['verifier_run_id'] and run['status']=='completed' and run['conclusion']=='success'
           assert run['path']=='.github/workflows/cos-conformance-evidence.yml'
           assert run['head_sha']==os.environ['EXPECTED_MAIN_SHA']
-          Path('signing-input-source.json').write_text(json.dumps({'artifact_id':art['id'],'artifact_name':art['name'],'artifact_digest':art['digest'],'workflow_run_id':run['id']},indent=2,sort_keys=True)+'\n')
+          Path('signing-input-source.json').write_text(json.dumps({'artifact_id':art['id'],'artifact_name':art['name'],'artifact_digest':art['digest'],'workflow_run_id':run['id'],'workflow_run_attempt':run['run_attempt']},indent=2,sort_keys=True)+'\n')
           PY
           signing_name="$(python - <<'PY'
           import json
@@ -213,8 +258,8 @@ jobs:
           print(json.loads(Path('source-facts.json').read_text())['attestor_workflow_sha'])
           PY
           )"
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/contents/.github/cos/qualification-trust-root-v2.json" -f "ref=${EXPECTED_MAIN_SHA}" > trust-root-api.json
-          GH_TOKEN="${GITHUB_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/cos-conformance-qualification-attestor.yml" -f "ref=${signer_sha}" > signer-workflow-api.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/contents/.github/cos/qualification-trust-root-v2.json" -f "ref=${EXPECTED_MAIN_SHA}" > trust-root-api.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/cos-conformance-qualification-attestor.yml" -f "ref=${signer_sha}" > signer-workflow-api.json
           python - <<'PY'
           import base64,hashlib,json,subprocess
           from pathlib import Path
@@ -310,7 +355,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "${COS_RELEASE_ADMIN_TOKEN}"
-          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api "repos/${GITHUB_REPOSITORY}/immutable-releases" > immutable-release-capability.json
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/immutable-releases" > immutable-release-capability.json
           python - <<'PY'
           import json
           from pathlib import Path
