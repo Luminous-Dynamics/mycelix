@@ -20,9 +20,10 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Disposable D6U sandbox boundary probe. This PR-only job has read-only
-  # repository permission and runs entirely inside a pinned job container;
-  # it never receives the runner Docker socket.
+  # Disposable D6U sandbox boundary probe. Use an explicit child container so
+  # the probe can request Docker's real networkless mode. GitHub job-container
+  # options do not support --network and the Actions runner supplies its own
+  # job network, so a job-level container cannot prove this boundary.
   d6u-container-boundary-probe:
     name: D6U container boundary probe
     if: github.event_name == 'pull_request'
@@ -30,19 +31,6 @@ jobs:
       contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    container:
-      image: rust@sha256:d8f0d5c09580253ecdd6d6894ff112b2b760683ff2a74585e5189f2578728ce4
-      options: >-
-        --network none
-        --cap-drop=ALL
-        --security-opt=no-new-privileges
-        --read-only
-        --pids-limit 64
-        --ulimit nofile=1024:1024
-        --ulimit core=0
-        --memory 2g
-        --tmpfs /tmp:rw,nosuid,nodev,noexec,size=1g
-        --user 1001:1001
     steps:
       - name: Checkout exact PR head
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
@@ -50,23 +38,19 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
-      - name: Assert container boundary
+      - name: Assert host-side Docker baseline
         run: |
           set -euo pipefail
-          test "$(id -u)" = "1001"
-          test "$(id -g)" = "1001"
-          test ! -e /var/run/docker.sock
-          test "$(awk '/^NoNewPrivs:/ {print $2}' /proc/self/status)" = "1"
-          test "$(awk '/^CapEff:/ {print $2}' /proc/self/status)" = "0000000000000000"
-          test "$(awk '/^CapBnd:/ {print $2}' /proc/self/status)" = "0000000000000000"
-          test -w /tmp
-          test ! -w /etc
+          docker version --format '{{.Server.Version}}'
+          test -S /var/run/docker.sock
+          docker info --format '{{.SecurityOptions}}' | grep -q 'name=seccomp'
 
-      - name: Create adversarial build script
+      - name: Create adversarial build probe
         run: |
           set -euo pipefail
           probe="$RUNNER_TEMP/d6u-container-boundary-probe"
-          mkdir -p "$probe/src" "$probe/target"
+          rm -rf "$probe"
+          mkdir -p "$probe/src"
           cat > "$probe/Cargo.toml" <<'EOF'
           [package]
           name = "d6u-container-boundary-probe"
@@ -98,6 +82,8 @@ jobs:
               let workspace = env::var("GITHUB_WORKSPACE").expect("workspace");
               assert!(OpenOptions::new().create(true).write(true)
                   .open(Path::new(&workspace).join("d6u-container-build-script-write-probe")).is_err());
+              assert!(OpenOptions::new().create(true).write(true)
+                  .open("/etc/d6u-container-rootfs-write-probe").is_err());
               for name in ["GITHUB_TOKEN", "GH_TOKEN", "ACTIONS_RUNTIME_TOKEN",
                            "ACTIONS_ID_TOKEN_REQUEST_TOKEN", "GITHUB_ENV", "GITHUB_PATH",
                            "GITHUB_OUTPUT", "GITHUB_STATE", "GITHUB_STEP_SUMMARY"] {
@@ -105,21 +91,17 @@ jobs:
               }
           }
           EOF
-          printf '%s\n' 'fn main() {}' > "$probe/src/main.rs"
+          printf '%s
+' 'fn main() {}' > "$probe/src/main.rs"
 
-      - name: Run adversarial build script offline
+      - name: Run adversarial build probe in networkless child
+        env:
+          RUST_IMAGE: rust@sha256:d8f0d5c09580253ecdd6d6894ff112b2b760683ff2a74585e5189f2578728ce4
         run: |
           set -euo pipefail
           probe="$RUNNER_TEMP/d6u-container-boundary-probe"
-          chmod -R a-w "$GITHUB_WORKSPACE"
-          test ! -w "$GITHUB_WORKSPACE"
-          env -u GITHUB_TOKEN -u GH_TOKEN -u ACTIONS_RUNTIME_TOKEN \
-            -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u GITHUB_ENV -u GITHUB_PATH \
-            -u GITHUB_OUTPUT -u GITHUB_STATE -u GITHUB_STEP_SUMMARY \
-            CARGO_HOME=/tmp/cargo-home \
-            CARGO_TARGET_DIR="$probe/target" \
-            CARGO_NET_OFFLINE=true \
-            cargo check --manifest-path "$probe/Cargo.toml" --offline
+          docker pull "$RUST_IMAGE"
+          docker run --rm             --network none             --cap-drop=ALL             --security-opt=no-new-privileges             --read-only             --pids-limit 64             --ulimit nofile=1024:1024             --ulimit core=0             --memory 2g             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=1g             --user 1001:1001             --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace,readonly"             --mount "type=bind,src=$probe,dst=/probe,readonly"             -e GITHUB_WORKSPACE=/workspace             -e CARGO_HOME=/tmp/cargo-home             -e CARGO_TARGET_DIR=/tmp/cargo-target             -e CARGO_NET_OFFLINE=true             --entrypoint /usr/local/cargo/bin/cargo             "$RUST_IMAGE"             check --manifest-path /probe/Cargo.toml --offline
           test ! -e "$GITHUB_WORKSPACE/d6u-container-build-script-write-probe"
 
   # Detect which clusters changed
