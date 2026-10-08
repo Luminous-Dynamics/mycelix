@@ -79,6 +79,7 @@ jobs:
               assert_eq!(field("NoNewPrivs").as_deref(), Some("1"));
               assert_eq!(field("CapEff").as_deref(), Some("0000000000000000"));
               assert_eq!(field("CapBnd").as_deref(), Some("0000000000000000"));
+              assert_eq!(field("Seccomp").as_deref(), Some("2"));
               let workspace = env::var("GITHUB_WORKSPACE").expect("workspace");
               assert!(OpenOptions::new().create(true).write(true)
                   .open(Path::new(&workspace).join("d6u-container-build-script-write-probe")).is_err());
