@@ -36,7 +36,17 @@ function nodeIndex(graph) {
   return index;
 }
 
+function containsNonAscii(value) {
+  if (typeof value === "string") return [...value].some(ch => ch.codePointAt(0) > 0x7F);
+  if (Array.isArray(value)) return value.some(containsNonAscii);
+  if (value && typeof value === "object") return Object.values(value).some(containsNonAscii);
+  return false;
+}
+
 function semanticNormalize(graph, policy) {
+  if (policy.graph_canonicalization.string_policy === "ASCII-only" && containsNonAscii(graph)) {
+    return null;
+  }
   const nodes = nodeIndex(graph);
   if (!nodes) return null;
 
