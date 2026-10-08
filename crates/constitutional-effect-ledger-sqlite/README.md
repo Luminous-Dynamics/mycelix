@@ -206,3 +206,20 @@ selects it from the constructor-pinned registry.
 This closes the distinction between an allowed identity string and an allowed
 executable object: a caller cannot inject an arbitrary object that merely
 self-reports a permitted adapter identity.
+
+
+## Durable authorization evidence receipt
+
+The authorization proof is persisted in full, not only as a digest in the
+attempt record. The receipt contains the exact action/attempt scope, provider
+scope, authorization/policy/status snapshot commitments, verifier identity, and
+its validity window.
+
+The receipt is self-validating: on restart, SQLite recomputes its digest and
+rejects any tampered preimage or receipt/attempt mismatch. The receipt table is
+foreign-keyed to the attempt table, and the durable integrity audit rejects both
+orphan receipts and attempts whose admission receipt is missing.
+
+This is an evidence-preservation mechanism, not a second authorization system.
+The deployment's admission authorizer remains responsible for producing the
+proof in the first place.
