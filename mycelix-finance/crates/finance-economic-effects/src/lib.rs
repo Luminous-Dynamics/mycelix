@@ -687,7 +687,6 @@ mod tests {
                 seen_effect_identities: &[effect.identity.clone()],
                 seen_cause_action_references: &[],
                 seen_economic_identities: &[],
-                seen_economic_identities: &[],
             }),
             Err(EconomicEffectError::EffectReplay)
         );
@@ -920,7 +919,6 @@ mod tests {
     fn repeated_same_action_is_only_deduped_when_effect_identity_matches() {
         let observations = vec![
             EconomicEffectObservation {
-                predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
                 effect_identity: base_transfer().identity.clone(),
             },
@@ -945,8 +943,9 @@ mod tests {
                 predecessor_action_reference: "prev-1".into(),
                 successor_action_reference: "succ-a".into(),
                 effect_identity: EconomicEffectIdentityV1 {
-                predecessor_action_reference: "prev-1".into(),
-                cause_action_reference: "cause-b".into(),
+                    economic_identity: "transfer-b".into(),
+                    predecessor_action_reference: "prev-1".into(),
+                    cause_action_reference: "cause-b".into(),
                 asset: "SAP".into(),
                 mutation_class: MutationClass::Transfer,
                 source_owner: "alice".into(),
