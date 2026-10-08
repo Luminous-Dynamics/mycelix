@@ -307,90 +307,6 @@ fn validate_create_transition_approval(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_transition_approval(
-    action: TypedAction<CreateData>,
-    approval: MachineControllerTransitionApprovalEntry,
-) -> ExternResult<ValidateCallbackResult> {
-    if approval.valid_until < approval.valid_from {
-        return Ok(ValidateCallbackResult::Invalid(
-            "transition approval validity window is inverted".into(),
-        ));
-    }
-    let Some(duration) = approval.valid_until.as_micros().checked_sub(approval.valid_from.as_micros()) else {
-        return Ok(ValidateCallbackResult::Invalid(
-            "transition approval validity arithmetic overflow".into(),
-        ));
-    };
-    if duration > MAX_MACHINE_TRANSITION_APPROVAL_MICROS {
-        return Ok(ValidateCallbackResult::Invalid(
-            "transition approval exceeds the maximum 5-minute validity".into(),
-        ));
-    }
-    let authority_record = must_get_valid_record(approval.authority_hash.clone())?;
-    let authority: Option<MachineControllerAuthorityEntry> = authority_record
-        .entry().to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
-    let Some(authority) = authority else {
-        return Ok(ValidateCallbackResult::Invalid(
-            "transition approval references a non-authority record".into(),
-        ));
-    };
-    if authority.lease_schema_version != 2 || !authority.requires_transition_approval {
-        return Ok(ValidateCallbackResult::Invalid(
-            "transition approval requires a schema-v2 controller lease".into(),
-        ));
-    }
-    if authority.machine_hash != approval.machine_hash || authority.controller_agent != approval.controller_agent {
-        return Ok(ValidateCallbackResult::Invalid(
-            "transition approval does not match the controller authority".into(),
-        ));
-    }
-    if approval.valid_from < authority.valid_from || approval.valid_until > authority.valid_until {
-        return Ok(ValidateCallbackResult::Invalid(
-            "transition approval interval exceeds controller lease interval".into(),
-        ));
-    }
-    let machine_record = must_get_valid_record(approval.machine_hash.clone())?;
-    if !matches!(machine_record.action(), Action::Create(_)) {
-        return Ok(ValidateCallbackResult::Invalid(
-            "transition approval must target a machine root".into(),
-        ));
-    }
-    let machine: Option<MachineEntry> = machine_record.entry().to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
-    if machine.is_none() || machine_record.action().author() != action.author() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "only the machine registrant may create transition approvals".into(),
-        ));
-    }
-    if !verify_signature(
-        machine_record.action().author().clone(),
-        approval.issuer_signature.clone(),
-        approval.signed_payload(),
-    )? {
-        return Ok(ValidateCallbackResult::Invalid(
-            "transition approval issuer signature does not match the exact approval payload".into(),
-        ));
-    }
-    let predecessor_record = must_get_valid_record(approval.predecessor_action.clone())?;
-    if !matches!(predecessor_record.action(), Action::Create(_) | Action::Update(_)) {
-        return Ok(ValidateCallbackResult::Invalid(
-            "transition approval predecessor is not a machine entry action".into(),
-        ));
-    }
-    let predecessor_root = resolve_machine_root_action_hash(approval.predecessor_action.clone())?;
-    if predecessor_root != approval.machine_hash {
-        return Ok(ValidateCallbackResult::Invalid(
-            "transition approval predecessor belongs to a different machine".into(),
-        ));
-    }
-    if !authority_valid_at(&authority, approval.valid_from) || !authority_valid_at(&authority, approval.valid_until) {
-        return Ok(ValidateCallbackResult::Invalid(
-            "transition approval interval is outside controller authority validity".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
-}
 fn validate_create_authority(
     action: TypedAction<CreateData>,
     authority: MachineControllerAuthorityEntry,
@@ -719,6 +635,46 @@ fn validate_update_entry(
                     return Ok(ValidateCallbackResult::Invalid(
                         "unsigned legacy controller authority cannot authorize new machine updates".into(),
                     ));
+                }
+                if authority.requires_transition_approval {
+                    let Some(approval_hash) = m.last_status_transition_approval_hash.clone() else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "schema-v2 controller updates require a transition approval".into(),
+                        ));
+                    };
+                    let approval_record = must_get_valid_record(approval_hash)?;
+                    let approval: Option<MachineControllerTransitionApprovalEntry> = approval_record
+                        .entry().to_app_option()
+                        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+                    let Some(approval) = approval else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "transition approval reference is not an approval record".into(),
+                        ));
+                    };
+                    if approval.machine_hash != machine_root
+                        || approval.authority_hash != authority_hash
+                        || approval.controller_agent != action.author().clone()
+                        || approval.predecessor_action != original_action_hash
+                        || approval.new_status != m.status
+                        || approval.work_order_hash.as_ref() != m.current_work_order.as_ref()
+                        || approval.valid_from < authority.valid_from
+                        || approval.valid_until > authority.valid_until
+                        || !approval_valid_at(&approval, action.timestamp())
+                    {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "transition approval does not exactly authorize this machine update".into(),
+                        ));
+                    }
+                    let machine_root_record = must_get_valid_record(machine_root.clone())?;
+                    if !verify_signature(
+                        machine_root_record.action().author().clone(),
+                        approval.issuer_signature.clone(),
+                        approval.signed_payload(),
+                    )? {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "transition approval signature is invalid for this machine registrant".into(),
+                        ));
+                    }
                 }
                 if action.author() != authority.controller_agent {
                     return Ok(ValidateCallbackResult::Invalid(
