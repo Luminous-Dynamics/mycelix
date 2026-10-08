@@ -295,6 +295,14 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
     )?;
 
     for step in &entry.steps {
+        if let Some(recipe_hash) = step.process_recipe_hash.clone() {
+            create_link(
+                action_hash.clone(),
+                recipe_hash,
+                LinkTypes::RoutingToProcessRecipes,
+                (),
+            )?;
+        }
         for criterion_hash in &step.required_inspection_criterion_hashes {
             create_link(
                 action_hash.clone(),
