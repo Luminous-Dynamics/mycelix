@@ -625,6 +625,16 @@ def verify_s0(raw: bytes, expected_s1_sha: str) -> None:
     require_permissions(l, 2)
     if exact_count(l, "cache-mode: none") != 1:
         fail("S0 must declare exactly one cache-mode: none gate")
+    if exact_count(l, "RATE_LIMIT_MIN_REMAINING=400") != 1:
+        fail("S0 schedule must reserve a deterministic GitHub API rate-limit floor")
+    if exact_count(l, 'remaining=response.headers.get("x-ratelimit-remaining")') != 1:
+        fail("S0 schedule API wrapper must inspect the authoritative rate-limit remaining header")
+    if exact_count(l, 'if remaining is None:') != 1:
+        fail("S0 schedule API wrapper must fail closed when the rate-limit header is absent")
+    if exact_count(l, 'remaining_int=int(remaining)') != 1:
+        fail("S0 schedule API wrapper must parse the rate-limit remaining header as an integer")
+    if exact_count(l, "if remaining_int < RATE_LIMIT_MIN_REMAINING:") != 1:
+        fail("S0 schedule API wrapper must fail closed below the reserved rate-limit floor")
     if exact_count(l, 'test "$GITHUB_REF_PROTECTED" = "true"') != 1:
         fail("S0 must contain exactly one protected-ref runtime guard")
     if exact_count(l, '  group: security-kernel-trusted-dispatch-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}') != 1:
@@ -1186,6 +1196,15 @@ def main() -> None:
         ), s1_sha),
         "S0 scheduled trust-surface rename provenance removed",
     )
+    expect_rejection(
+        lambda: verify_s0(raw["s0"].replace(
+            b'RATE_LIMIT_MIN_REMAINING=400',
+            b'# schedule rate-limit reserve removed',
+            1,
+        ), s1_sha),
+        "S0 scheduled GitHub API rate-limit reserve removed",
+    )
+
     expect_rejection(
         lambda: verify_s1(inject_extra_permission(raw["s1"]), s1_sha),
         "S1 security-events: write",
