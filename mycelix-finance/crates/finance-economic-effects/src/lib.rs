@@ -55,8 +55,24 @@ impl MutationClass {
 /// theorem must define that key (for collateral issuance, FIN-SAFE-014 uses
 /// the canonical mint_id).
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum EconomicIdentityNamespaceV1 {
+    CollateralMint,
+    GovernanceMint,
+    Transfer,
+    Fee,
+    Demurrage,
+    TreasuryAllocation,
+    Burn,
+    Generic,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct EconomicEffectIdentityV1 {
-    pub economic_identity: String,
+    /// Source-defined canonical economic key. For example, collateral
+    /// issuance binds this to FIN-SAFE-010's canonical mint_id; transfer
+    /// binds it to the canonical transfer ID.
+    pub namespace: EconomicIdentityNamespaceV1,
+    pub key: String,
     pub predecessor_action_reference: String,
     pub cause_action_reference: String,
     pub asset: String,
@@ -66,7 +82,7 @@ pub struct EconomicEffectIdentityV1 {
 
 impl EconomicEffectIdentityV1 {
     fn validate(&self) -> Result<(), EconomicEffectError> {
-        validate_id(&self.economic_identity, EconomicEffectError::InvalidEconomicIdentity)?;
+        validate_id(&self.key, EconomicEffectError::InvalidEconomicIdentity)?;
         validate_id(
             &self.predecessor_action_reference,
             EconomicEffectError::InvalidPredecessorReference,
@@ -235,16 +251,9 @@ impl EconomicEffectV1 {
             return Err(EconomicEffectError::EffectReplay);
         }
         if context
-            .seen_cause_action_references
-            .iter()
-            .any(|reference| reference == &self.identity.cause_action_reference)
-        {
-            return Err(EconomicEffectError::CauseReplay);
-        }
-        if context
             .seen_economic_identities
             .iter()
-            .any(|identity| identity == &self.identity.economic_identity)
+            .any(|identity| identity == &self.identity.key)
         {
             return Err(EconomicEffectError::EconomicReplay);
         }
@@ -359,7 +368,6 @@ impl EconomicEffectV1 {
 #[derive(Clone, Copy, Debug)]
 pub struct EffectValidationContext<'a> {
     pub seen_effect_identities: &'a [EconomicEffectIdentityV1],
-    pub seen_cause_action_references: &'a [String],
     pub seen_economic_identities: &'a [String],
 }
 
@@ -578,7 +586,8 @@ mod tests {
         EconomicEffectV1 {
             schema_version: ECONOMIC_EFFECT_V1_SCHEMA_VERSION,
             identity: EconomicEffectIdentityV1 {
-                economic_identity: "transfer-1".into(),
+                namespace: EconomicIdentityNamespaceV1::Transfer,
+                key: "transfer-1".into(),
                 predecessor_action_reference: "prev-1".into(),
                 cause_action_reference: "cause-1".into(),
                 asset: "SAP".into(),
@@ -685,7 +694,6 @@ mod tests {
         assert_eq!(
             effect.validate(EffectValidationContext {
                 seen_effect_identities: &[effect.identity.clone()],
-                seen_cause_action_references: &[],
                 seen_economic_identities: &[],
             }),
             Err(EconomicEffectError::EffectReplay)
@@ -719,7 +727,6 @@ mod tests {
         assert_eq!(
             fee.validate(EffectValidationContext {
                 seen_effect_identities: &[],
-                seen_cause_action_references: &seen_cause,
                 seen_economic_identities: &[],
             }),
             Err(EconomicEffectError::CauseReplay)
@@ -904,7 +911,8 @@ mod tests {
             EconomicEffectObservation {
                 successor_action_reference: "succ-b".into(),
                 effect_identity: EconomicEffectIdentityV1 {
-                    economic_identity: "transfer-b".into(),
+                    namespace: EconomicIdentityNamespaceV1::Transfer,
+                    key: "transfer-b".into(),
                     predecessor_action_reference: "prev-1".into(),
                     cause_action_reference: "cause-b".into(),
                     asset: "SAP".into(),
