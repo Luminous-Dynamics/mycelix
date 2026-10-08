@@ -24,8 +24,6 @@ one sig RunState {
  greedyOutcome: one Bit,
  childDenotation: set Request
 }
-one sig Matcher { witness: ParentClause -> ChildClause }
-
 fun parentDenotation: set Request { AliceBusiness + AliceRefund }
 
 pred atomSubsumes[c:ChildClause,p:ParentClause] {
@@ -34,11 +32,12 @@ pred atomSubsumes[c:ChildClause,p:ParentClause] {
   or (c = ChildExtra and (p = ParentNarrow or p = ParentBroad))
 }
 
-pred hasInjectiveMatching {
-  Matcher.witness in ParentClause -> RunState.childActive
-  all p: ParentClause | one p.Matcher.witness and atomSubsumes[p.Matcher.witness,p]
-  all c: RunState.childActive | lone Matcher.witness.c
+pred matchingWitness[w: ParentClause -> ChildClause] {
+  w in ParentClause -> RunState.childActive
+  all p: ParentClause | one p.w and atomSubsumes[p.w,p]
+  all c: RunState.childActive | lone w.c
 }
+pred hasInjectiveMatching { some w: ParentClause -> ChildClause | matchingWitness[w] }
 
 pred canonicalEnvironment {
   RunState.control = Canonical
@@ -75,8 +74,14 @@ pred mutationEnvironment {
 
 fact Environment { canonicalEnvironment or mutationEnvironment }
 
-assert WitnessSound { all p: ParentClause | all c: p.Matcher.witness | atomSubsumes[c,p] }
-assert WitnessInjective { all c: ChildClause | lone Matcher.witness.c }
+assert WitnessSound {
+  all w: ParentClause -> ChildClause |
+    matchingWitness[w] implies all p: ParentClause | atomSubsumes[p.w,p]
+}
+assert WitnessInjective {
+  all w: ParentClause -> ChildClause |
+    matchingWitness[w] implies all c: RunState.childActive | lone w.c
+}
 assert CanonicalAggregate {
   RunState.control = Canonical implies
     (hasInjectiveMatching and RunState.childDenotation = parentDenotation and RunState.childSupported = On)
