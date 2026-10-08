@@ -40,6 +40,12 @@ const REPLAY_TABLE: &str = "effect_native_replay_bindings";
 const ENTRY_CLAIM_TABLE: &str = "effect_provider_entry_claims";
 const AUTHORIZATION_PROOF_TABLE: &str = "effect_authorization_admission_proofs";
 
+const TERMINAL_EVIDENCE_DIGEST_PREFIX: &str = "constitutional-terminal-evidence-v3:";
+const AUTHORIZATION_ADMISSION_PROOF_DIGEST_PREFIX: &str =
+    "constitutional-authorization-admission-proof-v1:";
+const FINAL_PROVIDER_ENTRY_PROOF_DIGEST_PREFIX: &str =
+    "constitutional-final-provider-entry-proof-v1:";
+
 /// One per-action reference tuple received from a DHT execution resolution.
 ///
 /// This is deliberately separate from the Holochain zome type so the host-side
@@ -114,11 +120,20 @@ impl SqliteActionFenceStore {
 
         if !is_tagged_digest(&binding.attempt_identity, ATTEMPT_IDENTITY_PREFIX)
             || !is_tagged_digest(&binding.action_key_digest, ACTION_KEY_PREFIX)
-            || binding.terminal_evidence_digest.trim().is_empty()
-            || binding.authorization_admission_proof_digest.trim().is_empty()
-            || binding.final_provider_entry_proof_digest.trim().is_empty()
+            || !is_tagged_digest(
+                &binding.terminal_evidence_digest,
+                TERMINAL_EVIDENCE_DIGEST_PREFIX,
+            )
+            || !is_tagged_digest(
+                &binding.authorization_admission_proof_digest,
+                AUTHORIZATION_ADMISSION_PROOF_DIGEST_PREFIX,
+            )
+            || !is_tagged_digest(
+                &binding.final_provider_entry_proof_digest,
+                FINAL_PROVIDER_ENTRY_PROOF_DIGEST_PREFIX,
+            )
         {
-            return Err("resolution binding contains an invalid or empty durable root".into());
+            return Err("resolution binding contains a non-canonical durable root".into());
         }
         if expected_action_digest.trim().is_empty()
             || expected_effecting_target_identity.trim().is_empty()
