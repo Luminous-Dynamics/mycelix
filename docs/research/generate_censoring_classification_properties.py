@@ -104,6 +104,76 @@ def main() -> int:
             "expected_verdict": "qualified",
         })
 
+    lineage_mutations = [
+        (
+            [["remove_edge", ["attempts", "c01", "uses"]], ["add_node", {**revision_node(policy_sha, revision="0" )}],
+             ["add_edge", ["attempts", "c02", "uses"]],
+             ["add_edge", ["c02", "a01", "classifies"]],
+             ["add_edge", ["c02", "p01", "frozen_by"]],
+             ["add_edge", ["c02", "b01", "supported_by"]]],
+            "unresolved",
+        ),
+        (
+            [["remove_edge", ["c01", "a01", "classifies"]], ["add_node", {**revision_node(policy_sha, revision="0" )}],
+             ["add_edge", ["attempts", "c02", "uses"]],
+             ["add_edge", ["c02", "a01", "classifies"]],
+             ["add_edge", ["c02", "p01", "frozen_by"]],
+             ["add_edge", ["c02", "b01", "supported_by"]]],
+            "unresolved",
+        ),
+        (
+            [["remove_edge", ["attempts", "c01", "uses"]]] + add_valid_revision(policy_sha),
+            "qualified",
+        ),
+        (
+            [["remove_edge", ["attempts", "a01", "uses"]]],
+            "unresolved",
+        ),
+        (
+            [["remove_edge", ["attempts", "c01", "uses"], ["remove_edge", ["c01", "a01", "classifies"]]] + [
+                ["add_node", revision_node(policy_sha, revision="0")],
+                ["add_edge", ["attempts", "c02", "uses"]],
+                ["add_edge", ["c02", "a01", "classifies"]],
+                ["add_edge", ["c02", "p01", "frozen_by"]],
+                ["add_edge", ["c02", "b01", "supported_by"]],
+            ],
+            "unresolved",
+        ),
+        (
+            [["remove_edge", ["c01", "a01", "classifies"]]] + add_valid_revision(policy_sha),
+            "unresolved",
+        ),
+        (
+            [["remove_edge", ["attempts", "a01", "uses"]]] + add_valid_revision(policy_sha),
+            "unresolved",
+        ),
+        (
+            [["remove_edge", ["attempts", "c01", "uses"]]] + add_valid_revision(policy_sha) + [["reverse_collection", "nodes"], ["reverse_collection", "edges"]],
+            "qualified",
+        ),
+    ]
+    for i, (mutation, expected) in enumerate(lineage_mutations):
+        cases.append({
+            "case_id": f"CPV-GEN-LINEAGE-LOCAL-{i:03d}",
+            "property": "anchor_claim_local_lineage",
+            "mutation": mutation,
+            "expected_verdict": expected,
+        })
+    for i in range(8):
+        state = rng_step(state)
+        base_lineage = lineage_mutations[i][0]
+        mutation = copy.deepcopy(base_lineage)
+        if state & 1:
+            mutation.append(["reverse_collection", "nodes"])
+        if state & 2:
+            mutation.append(["reverse_collection", "edges"])
+        cases.append({
+            "case_id": f"CPV-GEN-LINEAGE-LOCAL-REP-{i:03d}",
+            "property": "anchor_claim_local_lineage_representation",
+            "mutation": mutation,
+            "expected_verdict": lineage_mutations[i][1],
+        })
+
     omission_mutations = [
         [["remove_node", "c01"]],
         [["remove_node", "c01"], ["add_node", revision_node(policy_sha, revision="0")],
@@ -297,7 +367,7 @@ def main() -> int:
             "expected_verdict": expected,
         })
 
-    assert len(cases) == 144
+    assert len(cases) == 160
 
     corpus = {
         "schema": "mycelix.continual-adaptation.censoring-classification-provenance-generated-properties.v1",

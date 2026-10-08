@@ -917,6 +917,355 @@
       ],
       "expected_verdict": "unresolved",
       "reason": "classification loses its basis provenance"
+    },
+    {
+      "case_id": "CCP-031",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "attempts",
+            "c01",
+            "uses"
+          ]
+        ],
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "0",
+            "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "orphaned base anchor plus replacement revision-0 cannot become active"
+    },
+    {
+      "case_id": "CCP-032",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "c01",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "0",
+            "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "anchor without its attempted-episode lineage cannot be bypassed by a replacement revision-0"
+    },
+    {
+      "case_id": "CCP-033",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "attempts",
+            "c01",
+            "uses"
+          ]
+        ],
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "1",
+            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "c01",
+            "supersedes"
+          ]
+        ]
+      ],
+      "expected_verdict": "qualified",
+      "reason": "valid supersession can retain the immutable base through lineage without direct census membership"
+    },
+    {
+      "case_id": "CCP-034",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "attempts",
+            "a01",
+            "uses"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "anchor lineage target is outside the claim-local attempt projection"
+    },
+    {
+      "case_id": "CCP-035",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "attempts",
+            "c01",
+            "uses"
+          ]
+        ],
+        [
+          "remove_edge",
+          [
+            "c01",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "0",
+            "commitment": "sha256:0482af6e0c9f3772bce582afb0afd3505b5200c318e0251af9f6dbe2b190428a"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "anchor cannot be preserved as an unrelated orphan while a replacement revision-0 becomes active"
+    },
+    {
+      "case_id": "CCP-036",
+      "mutation": [
+        [
+          "remove_edge",
+          [
+            "c01",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_node",
+          {
+            "id": "c02",
+            "type": "CensoringClassification",
+            "attempt_id": "a01",
+            "censoring_reason": "ActionInducedCensoring",
+            "classification_epoch": "t0",
+            "frozen_epoch": "t0",
+            "policy_blob_sha": "1c8a577e7e572a0ca95f2e91b5debab3ee8c752a",
+            "basis_id": "B1",
+            "revision": "1",
+            "commitment": "sha256:a8c7efa631314b316624fc5b00c0ff52315955791f8dce4456a66e66882cec3d"
+          }
+        ],
+        [
+          "add_edge",
+          [
+            "attempts",
+            "c02",
+            "uses"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "a01",
+            "classifies"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "p01",
+            "frozen_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "b01",
+            "supported_by"
+          ]
+        ],
+        [
+          "add_edge",
+          [
+            "c02",
+            "c01",
+            "supersedes"
+          ]
+        ]
+      ],
+      "expected_verdict": "unresolved",
+      "reason": "a superseding revision cannot repair a base anchor whose attempted-episode lineage was removed"
     }
   ]
 }

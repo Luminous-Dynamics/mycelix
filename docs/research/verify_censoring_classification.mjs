@@ -214,6 +214,16 @@ function verify(graph, policy, actualPolicySha, anchors) {
       if (node.type !== "CensoringClassification") return "unresolved";
       if (node.revision !== "0") return "unresolved";
       if (node.commitment !== anchor) return "unqualified";
+      if (!local.has(cid)) return "unresolved";
+      const anchorTargets = graph.edges
+        .filter(e => e[0] === cid && e[2] === "classifies")
+        .map(e => e[1]);
+      if (anchorTargets.length !== 1) return "unresolved";
+      const anchorAttempt = nodes.get(anchorTargets[0]);
+      if (!anchorAttempt || anchorAttempt.type !== "Attempt" ||
+          !local.has(anchorTargets[0]) || node.attempt_id !== anchorTargets[0]) {
+        return "unresolved";
+      }
     }
   }
 
