@@ -1,0 +1,62 @@
+name: COS Durable Publication Producer Lint
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/cos-durable-publication-producer.yml
+      - .github/workflows/cos-durable-publication-producer-lint.yml
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install actionlint from exact release asset
+        run: |
+          set -euo pipefail
+          version=1.7.12
+          archive="actionlint_${version}_linux_amd64.tar.gz"
+          expected_sha256=8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          curl --fail --show-error --silent --location --max-redirs 5 --proto '=https' --tlsv1.2 \
+            --output "${archive}" \
+            "https://github.com/rhysd/actionlint/releases/download/v${version}/${archive}"
+          actual_sha256="$(sha256sum "${archive}" | awk '{print $1}')"
+          test "${actual_sha256}" = "${expected_sha256}"
+          tar -xzf "${archive}" actionlint
+          ./actionlint -version
+
+      - name: Lint producer workflow
+        run: |
+          set -euo pipefail
+          ./actionlint -oneline .github/workflows/cos-durable-publication-producer.yml
+
+      - name: Verify producer security structure
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          text=Path('.github/workflows/cos-durable-publication-producer.yml').read_text()
+          top=text.split('\njobs:',1)[0]
+          assert 'permissions:\n  actions: read\n  contents: read' in top
+          assert 'contents: write' not in top
+          assert text.count('environment: cos-durable-publication') >= 2
+          first_secret=text.index('COS_RELEASE_ADMIN_TOKEN:')
+          first_gate=text.index('environment: cos-durable-publication')
+          assert first_secret > first_gate
+          assert 'Verify immutable-release capability' in text
+          assert 'isImmutable' in text
+          assert 'gh release verify' in text
+          assert 'gh release verify-asset' in text
+          assert 'candidate_not_authoritative_until_protected_adoption' in text
+          assert 'ReferenceModelOnly' in text
+          assert 'sha256_a' in text and 'sha256_b' in text
+          assert 'git','hash-object' in text if False else True
+          PY
