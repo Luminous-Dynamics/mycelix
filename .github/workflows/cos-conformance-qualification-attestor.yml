@@ -350,7 +350,7 @@ jobs:
           assert refs == expected, f"attestor action pin drift: {refs!r}"
           assert "subject-digest: sha256:${{ needs.validate.outputs.manifest_sha256 }}" in scanned
 
-          # Enforce the workflow graph itself: exactly two jobs, 20 uniquely named
+          # Enforce the workflow graph itself: exactly two jobs, 25 uniquely named
           # steps, one executor per step, and unique step IDs. This prevents a
           # future construction edit from silently adding a second execution path.
           jobs_start = scanned.index("\njobs:\n")
