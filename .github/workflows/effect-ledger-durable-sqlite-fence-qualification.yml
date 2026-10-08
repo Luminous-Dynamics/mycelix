@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - hardening/effect-ledger-durable-sqlite-fence-v1
+      - hardening/effect-ledger-entry-claim-v1
       - hardening/effect-ledger-verifier-affirmation-v1
   pull_request:
   workflow_dispatch:
@@ -65,8 +66,8 @@ jobs:
 
           grep -Fq 'constitutional-effect-ledger = { path = "../../mycelix-governance/crates/constitutional-effect-ledger" }' "$manifest"
           grep -Fq 'rusqlite = { version = "0.32", features = ["bundled"] }' "$manifest"
-          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 2' "$source"
-          grep -Fq 'constitutional-effect-ledger/sqlite-fence-store-v2' "$source"
+          grep -Fq 'SQLITE_FENCE_STORE_SCHEMA_VERSION: i64 = 3' "$source"
+          grep -Fq 'constitutional-effect-ledger/sqlite-fence-store-v3' "$source"
           grep -Fq 'transaction_with_behavior(TransactionBehavior::Immediate)' "$source"
           grep -Fq 'PRIMARY KEY NOT NULL' "$source"
           grep -Fq 'UNIQUE' "$source"
@@ -78,6 +79,11 @@ jobs:
           grep -Fq 'reconciliation_token_digest' "$source"
           grep -Fq 'TerminalEvidenceV1::from_attempt' "$source"
           grep -Fq 'DurableActionFenceStore' "$boundary"
+          grep -Fq 'ProviderEntryClaimV1' "$source"
+          grep -Fq 'atomically_claim_provider_entry' "$source"
+          grep -Fq 'ProviderEntryPermitV1' "$boundary"
+          grep -Fq 'constitutional-provider-idempotency-v1:' "$boundary"
+          grep -Fq 'atomically_recover_provider_entry_claim' "$source"
           grep -Fq 'VerifiedTerminalOutcomeV1::new' "$boundary"
           grep -Fq 'terminal verification proof is not bound to the exact attempt' "$boundary"
           grep -Fq 'VerificationPurpose::InitialInvocation' "$boundary"
