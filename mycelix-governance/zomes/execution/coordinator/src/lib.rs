@@ -47,6 +47,48 @@ fn extract_scope_name(scope: &serde_json::Value) -> &str {
     }
 }
 
+/// Minimal proposal mirror used to bind timelock creation to the canonical
+/// proposal state without linking the proposal integrity crate into this WASM.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, SerializedBytes)]
+struct ProposalMirrorForTimelock {
+    pub id: String,
+    pub status: ProposalStatusMirrorForTimelock,
+    pub actions: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+enum ProposalStatusMirrorForTimelock {
+    Draft,
+    Active,
+    Ended,
+    Approved,
+    Signed,
+    Rejected,
+    Executed,
+    Cancelled,
+    Failed,
+}
+
+fn validate_timelock_proposal_binding(
+    proposal: &ProposalMirrorForTimelock,
+    proposal_id: &str,
+    actions: &str,
+) -> Result<(), String> {
+    if proposal.id != proposal_id {
+        return Err("Timelock proposal binding does not match the requested proposal".into());
+    }
+    if !matches!(
+        proposal.status,
+        ProposalStatusMirrorForTimelock::Approved | ProposalStatusMirrorForTimelock::Signed
+    ) {
+        return Err("Timelock can only be created from an Approved or Signed proposal".into());
+    }
+    if proposal.actions != actions {
+        return Err("Timelock actions must exactly match the approved proposal actions".into());
+    }
+    Ok(())
+}
+
 /// Helper to get an anchor entry hash
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
@@ -160,6 +202,31 @@ pub fn create_timelock(input: CreateTimelockInput) -> ExternResult<Record> {
             "Duration cannot exceed 8,760 hours (1 year)".into()
         )));
     }
+
+    let proposal_io = governance_utils::call_local(
+        "proposals",
+        "get_proposal",
+        input.proposal_id.clone(),
+    )?;
+    let proposal_record = proposal_io
+        .decode::<Option<Record>>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Canonical proposal lookup returned no proposal".into()
+        )))?;
+    let proposal = proposal_record
+        .entry()
+        .to_app_option::<ProposalMirrorForTimelock>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Canonical proposal record could not be decoded".into()
+        )))?;
+    validate_timelock_proposal_binding(
+        &proposal,
+        &input.proposal_id,
+        &input.actions,
+    )
+    .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
 
     let now = sys_time()?;
     let timelock_id = format!("timelock:{}:{}", input.proposal_id, now.as_micros());
@@ -2154,6 +2221,33 @@ mod tests {
             &timelock_hash,
         )
         .is_err());
+    }
+
+    #[test]
+    fn test_timelock_proposal_binding_requires_approved_status_and_exact_actions() {
+        let proposal = ProposalMirrorForTimelock {
+            id: "proposal-1".into(),
+            status: ProposalStatusMirrorForTimelock::Approved,
+            actions: r#"[{"type":"EmitEvent","event":"x"}]"#.into(),
+        };
+        assert!(validate_timelock_proposal_binding(
+            &proposal,
+            "proposal-1",
+            &proposal.actions,
+        )
+        .is_ok());
+
+        assert!(
+            validate_timelock_proposal_binding(&proposal, "proposal-1", "different-actions")
+                .is_err()
+        );
+
+        let mut not_approved = proposal.clone();
+        not_approved.status = ProposalStatusMirrorForTimelock::Active;
+        assert!(
+            validate_timelock_proposal_binding(&not_approved, "proposal-1", &not_approved.actions)
+                .is_err()
+        );
     }
 
     #[test]
