@@ -71,6 +71,7 @@ pub struct CreateMachineTemporalAttestationInput {
     pub attested_at: Timestamp,
     pub accuracy_micros: i64,
     pub source_reference: String,
+    pub source_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
     pub source_commitment: Vec<u8>,
 }
 #[derive(Serialize, Deserialize, Debug)]
@@ -463,6 +464,7 @@ pub fn create_machine_temporal_attestation(
         attested_at: input.attested_at,
         accuracy_micros: input.accuracy_micros,
         source_reference: input.source_reference.clone(),
+        source_commitment_algorithm: input.source_commitment_algorithm.clone(),
         source_commitment: input.source_commitment.clone(),
     };
     let attestation_signature = sign(profile.authority_agent.clone(), attestation_payload)?;
@@ -474,6 +476,7 @@ pub fn create_machine_temporal_attestation(
         attested_at: input.attested_at,
         accuracy_micros: input.accuracy_micros,
         source_reference: input.source_reference,
+        source_commitment_algorithm: input.source_commitment_algorithm,
         source_commitment: input.source_commitment,
         authority_signature: attestation_signature,
     };
@@ -568,6 +571,7 @@ pub fn resolve_machine_temporal_attestations(
             attested_at: attestation.attested_at,
             accuracy_micros: attestation.accuracy_micros,
             source_reference: attestation.source_reference,
+            source_commitment_algorithm: attestation.source_commitment_algorithm,
             source_commitment: attestation.source_commitment,
         });
     }
