@@ -235,6 +235,7 @@ def main() -> None:
             ("--cpus 2", "--cpus 64", "policy.cpus"),
             ("CARGO_NET_OFFLINE=true", "CARGO_NET_OFFLINE=false", "policy.offline"),
             ("cargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "cargo test --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "policy.cargo-offline"),
+            ("cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "cargo fmt --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "policy.rustfmt"),
         ]
         for old, new, label in policy_cases:
             def mutate_policy(value, old=old, new=new):
