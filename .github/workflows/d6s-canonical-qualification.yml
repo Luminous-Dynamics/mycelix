@@ -271,6 +271,115 @@ jobs:
       - name: Run D6S-CANON-2 authority-boundary fixture verifier
         run: python3 scripts/integral/verify_d6s_canon_2_authority_boundary.py
 
+      - name: Verify executing workflow definition provenance
+        run: |
+          set -euo pipefail
+          test "$GITHUB_WORKFLOW_REF" = "$GITHUB_REPOSITORY/.github/workflows/d6s-canonical-qualification.yml@refs/heads/myc-int-demo-d6u-holochain-07-runtime"
+          printf '%s
+' "$GITHUB_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}          {
+            echo "D6S CANONICAL REFERENCE GATE"
+            echo "status=reference-gate-passed"
+            echo "commit=${QUALIFIED_SHA}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "workflow_ref=${GITHUB_WORKFLOW_REF}"
+            echo "workflow_file_commit_sha=${GITHUB_WORKFLOW_SHA}"
+            echo "workflow_file_blob_sha=$(git show "$GITHUB_WORKFLOW_SHA:.github/workflows/d6s-canonical-qualification.yml" | git hash-object --stdin)"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_image=${ImageOS:-unknown}"
+            echo "rust_action_sha=e97e2d8cc328f1b50210efc529dca0028893a2d9"
+            echo "rust_action_toolchain=1.96.0"
+            echo "rust_expected_version=rustc 1.96.0 (ac68faa20 2026-05-25)"
+            echo "checkout_action_sha=11bd71901bbe5b1630ceea73d27597364c9af683"
+            echo "upload_artifact_action_sha=ea165f8d65b6e75b540449e92b4886f43607fa02"
+            echo "rust=$(rustc --version)"
+            echo "rust_verbose_commit=$(rustc --version --verbose | sed -n 's/^commit-hash: //p')"
+            echo "cargo=$(cargo --version)"
+            echo "rustfmt=$(rustfmt --version)"
+            echo "python=$(python3 --version)"
+            echo "cargo_lock_sha256=$(sha256sum mycelix-manufacturing/Cargo.lock | cut -d' ' -f1)"
+            echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
+            echo "canon1_manifest_sha256=$(sha256sum docs/integral/d6s-canon-1-manifest.json | cut -d' ' -f1)"
+            echo "canon2_fixture_sha256=$(sha256sum docs/integral/d6s-canon-2-authority-boundary-fixture.json | cut -d' ' -f1)"
+            echo "canon2_fixture_git_blob_sha=$(git hash-object docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
+            echo "canon2_manifest_git_blob_sha=$(git hash-object docs/integral/d6s-canon-2-manifest.json)"
+            echo "canon1_manifest_git_blob_sha=$(git hash-object docs/integral/d6s-canon-1-manifest.json)"
+            echo "canon1_corpus_git_blob_sha=$(git hash-object docs/integral/d6s-canon-1-golden-vectors.json)"
+            echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
+            echo "d6s_authority_ledger_schema=v1"
+            echo "d6s_runtime_evidence_status=NotExecuted"
+            echo "canon2_runtime_binding_status=ReferenceMappingOnly"
+            echo "rust_corpus=PASSED"
+            echo "canon1_independent_verifier=PASSED"
+            echo "canon2_authority_boundary_fixture=PASSED"
+            echo "claim_ceiling=ReferenceModelOnly"
+          } | tee d6s-canonical-reference-qualification.txt
+
+      - name: Upload qualification record
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
+          path: d6s-canonical-reference-qualification.txt
+
+          test "$GITHUB_WORKFLOW_SHA" != "$QUALIFIED_SHA"
+          git -c credential.helper= -c protocol.version=2 fetch --no-tags --depth=1 origin "$GITHUB_WORKFLOW_SHA"
+          test "$(git rev-parse FETCH_HEAD)" = "$GITHUB_WORKFLOW_SHA"
+          workflow_blob_from_execution="$(
+            git show "$GITHUB_WORKFLOW_SHA:.github/workflows/d6s-canonical-qualification.yml" |
+              git hash-object --stdin
+          )"
+          printf '%s
+' "$workflow_blob_from_execution" | grep -Eq '^[0-9a-f]{40}          {
+            echo "D6S CANONICAL REFERENCE GATE"
+            echo "status=reference-gate-passed"
+            echo "commit=${QUALIFIED_SHA}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "workflow_ref=${GITHUB_WORKFLOW_REF}"
+            echo "workflow_file_commit_sha=${GITHUB_WORKFLOW_SHA}"
+            echo "workflow_file_blob_sha=$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_image=${ImageOS:-unknown}"
+            echo "rust_action_sha=e97e2d8cc328f1b50210efc529dca0028893a2d9"
+            echo "rust_action_toolchain=1.96.0"
+            echo "rust_expected_version=rustc 1.96.0 (ac68faa20 2026-05-25)"
+            echo "checkout_action_sha=11bd71901bbe5b1630ceea73d27597364c9af683"
+            echo "upload_artifact_action_sha=ea165f8d65b6e75b540449e92b4886f43607fa02"
+            echo "rust=$(rustc --version)"
+            echo "rust_verbose_commit=$(rustc --version --verbose | sed -n 's/^commit-hash: //p')"
+            echo "cargo=$(cargo --version)"
+            echo "rustfmt=$(rustfmt --version)"
+            echo "python=$(python3 --version)"
+            echo "cargo_lock_sha256=$(sha256sum mycelix-manufacturing/Cargo.lock | cut -d' ' -f1)"
+            echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
+            echo "canon1_manifest_sha256=$(sha256sum docs/integral/d6s-canon-1-manifest.json | cut -d' ' -f1)"
+            echo "canon2_fixture_sha256=$(sha256sum docs/integral/d6s-canon-2-authority-boundary-fixture.json | cut -d' ' -f1)"
+            echo "canon2_fixture_git_blob_sha=$(git hash-object docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
+            echo "canon2_manifest_git_blob_sha=$(git hash-object docs/integral/d6s-canon-2-manifest.json)"
+            echo "canon1_manifest_git_blob_sha=$(git hash-object docs/integral/d6s-canon-1-manifest.json)"
+            echo "canon1_corpus_git_blob_sha=$(git hash-object docs/integral/d6s-canon-1-golden-vectors.json)"
+            echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
+            echo "d6s_authority_ledger_schema=v1"
+            echo "d6s_runtime_evidence_status=NotExecuted"
+            echo "canon2_runtime_binding_status=ReferenceMappingOnly"
+            echo "rust_corpus=PASSED"
+            echo "canon1_independent_verifier=PASSED"
+            echo "canon2_authority_boundary_fixture=PASSED"
+            echo "claim_ceiling=ReferenceModelOnly"
+          } | tee d6s-canonical-reference-qualification.txt
+
+      - name: Upload qualification record
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
+          path: d6s-canonical-reference-qualification.txt
+
+          test "$workflow_blob_from_execution" = "$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
+          test "$workflow_blob_from_execution" = "bc4695fb156f50c003e114f7ce2f1714be15c8b0"
       - name: Emit qualification record
         run: |
           {
