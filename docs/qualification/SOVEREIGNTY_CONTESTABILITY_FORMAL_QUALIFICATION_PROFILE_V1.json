@@ -6,14 +6,14 @@
   "subject": {
     "repository": "Luminous-Dynamics/mycelix",
     "source_branch": "sov-ai-formal-v6-contestability-subject",
-    "head_sha": "f7e5366138ceff707ca2466bcae703a971bf5f5f",
-    "tree_sha": "c73a54d4abed35fa83b2dad5f1823aa442b4745d",
+    "head_sha": "42e0e4944554cae6b1acf2b3db69f5e9b19991e7",
+    "tree_sha": "eab0224b2388d985f7ecfffaeeff0d54e260c160",
     "tree_binding": "verified-exact-tree; independently resolved from the exact subject commit"
   },
   "models": {
     "tla": {
       "path": "mycelix-governance/specs/EffectiveContestabilityV1.tla",
-      "git_blob_sha": "453343f98c47ccbca341146a89ff08fb8d2720bb",
+      "git_blob_sha": "57e8ffa904908ef883e59479f2a44967cefdac38",
       "config_path": "mycelix-governance/specs/EffectiveContestabilityV1.cfg",
       "config_git_blob_sha": "deafbd5e4719e7439d63d7b505e539aba17fcb5d",
       "invariants": [
@@ -30,7 +30,7 @@
     },
     "negative_tla": {
       "path": "mycelix-governance/specs/EffectiveContestabilityV1NegativeControls.tla",
-      "git_blob_sha": "13df98360d8974ee0989921e404bd2f7c2a04aac",
+      "git_blob_sha": "2911968a6999d9d33309635efc699a50ab000176",
       "controls": {
         "nominal-effective": "EffectiveExitRequiresPortability",
         "shared-root": "SharedRootsCannotBecomeEffectiveExit",
@@ -78,7 +78,7 @@
     },
     "reference": {
       "path": "mycelix-governance/tools/formal/effective_contestability_reference_explorer.py",
-      "git_blob_sha": "9c053422b1aaeb274847a629839b93315de54cc3",
+      "git_blob_sha": "cf83c959fec2adda10c357aeaf659ade29a7eccd",
       "controls": {
         "nominal-effective": "EffectiveExitRequiresPortability",
         "shared-root": "SharedRootsCannotBecomeEffectiveExit:control",
@@ -95,7 +95,7 @@
     "pins_path": "mycelix-governance/tools/formal/effective_contestability_pins.json",
     "crosswalk_path": "docs/qualification/SOVEREIGNTY_CONTESTABILITY_FORMAL_CROSSWALK_V1.json",
     "tree_binding_required": true,
-    "crosswalk_git_blob_sha": "73fd5dd9d4e3f2e673c21c4da8d5d7ea710b656d",
+    "crosswalk_git_blob_sha": "4ac631bec551c9db87ad479c15a5daaadff0eaa6",
     "fixture_paths": {
       "tla": "docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.tla",
       "cfg": "docs/qualification/fixtures/effective-contestability/EffectiveContestabilityV1.cfg",
