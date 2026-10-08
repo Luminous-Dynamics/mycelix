@@ -275,6 +275,7 @@ export class ExecutionClient extends ZomeClient {
       Executed: 'Proposal actions have been executed',
       Cancelled: 'Timelock was cancelled (e.g., via veto)',
       Failed: 'Execution failed',
+      Vetoed: 'A guardian veto is active',
     };
     return descriptions[status];
   }
