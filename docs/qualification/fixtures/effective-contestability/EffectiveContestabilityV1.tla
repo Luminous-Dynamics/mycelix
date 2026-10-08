@@ -123,7 +123,8 @@ SwitchProvider(s, p) ==
   /\ switchObserved' = [switchObserved EXCEPT ![s] = TRUE]
   /\ authorityBeforeSwitch' = [authorityBeforeSwitch EXCEPT ![s] = @]
   /\ jurisdictionBeforeSwitch' = [jurisdictionBeforeSwitch EXCEPT ![s] = @]
-  /\ UNCHANGED <<viableProviders, nominalExit, effectiveExit, portable,
+  /\ effectiveExit' = [effectiveExit EXCEPT ![s] = {}]
+  /\ UNCHANGED <<viableProviders, nominalExit, portable,
                   obligationsPreserved, historyPreserved, authority, jurisdiction,
                   switchingCost, reviewRequired, providerFailed, failureObserved,
                   failureAuthority>>
