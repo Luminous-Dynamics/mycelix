@@ -10,6 +10,8 @@ pub mod productive_loop;
 pub mod source_refinement;
 pub mod seam_profile;
 pub mod seam_scenario;
+pub mod canonical_derivation_receipt;
+pub mod d6s_raw_json;
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
