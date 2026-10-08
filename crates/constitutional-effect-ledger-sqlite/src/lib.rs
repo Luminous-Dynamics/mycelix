@@ -481,6 +481,64 @@ impl DurableActionFenceStore for SqliteActionFenceStore {
         })
     }
 
+    fn atomically_recover_provider_entry_claim(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<String, ActionFenceMutationError> {
+        self.with_transaction(|tx| {
+            let current = load_attempt_tx(tx, attempt_identity.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::NotOwner)?;
+            verify_owner_and_key(&current, action_key, attempt_identity, owner_token_digest)?;
+            if current.state != AttemptRecordState::DispatchPending {
+                return Err(ActionFenceMutationError::InvalidTransition);
+            }
+            let claim = load_provider_entry_claim_tx(tx, attempt_identity.digest())
+                .map_err(storage_error)?
+                .ok_or(ActionFenceMutationError::ProviderEntryClaimMismatch)?;
+            if claim.action_key_digest != action_key.digest()
+                || claim.owner_token_digest != owner_token_digest
+                || claim.claim_token_digest != claim_token_digest
+            {
+                return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+            }
+
+            let mut updated = current.clone();
+            updated.state = AttemptRecordState::Indeterminate;
+            updated.reconciliation_token_digest = Some(updated.reconciliation_token_digest());
+            let reconciliation_token = updated
+                .reconciliation_token_digest
+                .clone()
+                .ok_or(ActionFenceMutationError::InvalidTransition)?;
+            update_attempt_tx(tx, &current, &updated)?;
+
+            let changed = tx
+                .execute(
+                    "DELETE FROM effect_provider_entry_claims
+                     WHERE attempt_identity = ?1
+                       AND action_key_digest = ?2
+                       AND owner_token_digest = ?3
+                       AND claim_token_digest = ?4
+                       AND record_digest = ?5",
+                    params![
+                        attempt_identity.digest(),
+                        action_key.digest(),
+                        owner_token_digest,
+                        claim_token_digest,
+                        claim.record_digest()
+                    ],
+                )
+                .map_err(storage_error)?;
+            if changed != 1 {
+                return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+            }
+            Ok(reconciliation_token)
+        })
+    }
+
     fn atomically_mark_indeterminate(
         &mut self,
         action_key: &ActionKeyV1,
