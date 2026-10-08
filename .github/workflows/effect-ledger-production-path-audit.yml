@@ -144,6 +144,16 @@ jobs:
             exit 1
           }
 
+          grep -Fq 'Prepared, TimelockStatus::Cancelled' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' && {
+            echo "NOT QUALIFIED: Prepared timelock cancellation transition remains permitted."
+            exit 1
+          }
+
+          grep -Fq 'find_failed_resolution_for_prepared_execution' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: prepared execution refunds lack a failed-resolution lookup."
+            exit 1
+          }
+
           grep -Fq 'Prepared' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' &&           grep -Fq 'test_prepared_timelock_cannot_be_cancelled_without_host_resolution' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
             echo "NOT QUALIFIED: Prepared timelock cancellation guard is missing."
             exit 1
