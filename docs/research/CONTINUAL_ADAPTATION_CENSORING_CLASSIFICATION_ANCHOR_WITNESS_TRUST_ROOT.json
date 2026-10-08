@@ -1,10 +1,11 @@
 {
-  "schema": "mycelix.continual-adaptation.censoring-classification-anchor-witness-trust-root.v1",
-  "status": "research-witness-trust-root-only",
-  "trust_root_id": "mycelix.research.anchor-witness-root.v1",
-  "registry_id": "mycelix.research.anchor-witness-registry.v1",
-  "registry_sha256": "sha256:68d0a09ead5edbf53e06153fecbb4cc2a1fbe894f5159e1b81f123c96c735a44",
-  "registry_version": 1,
-  "threshold": 2,
-  "attestation_schema": "mycelix.continual-adaptation.censoring-classification-anchor-witness-attestation.v1"
+  "schema":"mycelix.continual-adaptation.censoring-classification-anchor-witness-trust-root.v1",
+  "status":"research-witness-trust-root-only",
+  "trust_root_id":"mycelix.research.anchor-witness-root.v1",
+  "registry_id":"mycelix.research.anchor-witness-registry.v1",
+  "registry_sha256":"sha256:24444e583808a0188dc6b652c2416d57469f9da282b389cc0ee8d86ab0dcd979",
+  "registry_version":1,
+  "threshold":3,
+  "max_faulty":1,
+  "attestation_schema":"mycelix.continual-adaptation.censoring-classification-anchor-witness-attestation.v1"
 }
