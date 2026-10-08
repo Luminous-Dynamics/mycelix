@@ -53,6 +53,29 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     hash_entry(&EntryTypes::Anchor(anchor))
 }
 
+/// O(1) link-based lookup: find an execution record by its ID.
+fn find_execution_by_id(execution_id: &str) -> ExternResult<Record> {
+    let anchor_key = format!("execution:{}", execution_id);
+    let entry_hash = anchor_hash(&anchor_key)?;
+    let links = get_links(
+        LinkQuery::try_new(entry_hash, LinkTypes::ExecutionById)?,
+        GetStrategy::default(),
+    )?;
+
+    if let Some(link) = links.into_iter().max_by_key(|link| link.timestamp) {
+        if let Ok(action_hash) = ActionHash::try_from(link.target) {
+            if let Some(record) = get_latest_record(action_hash)? {
+                return Ok(record);
+            }
+        }
+    }
+
+    Err(wasm_error!(WasmErrorInner::Guest(format!(
+        "Execution '{}' not found",
+        execution_id
+    ))))
+}
+
 /// O(1) link-based lookup: find a timelock record by its string ID.
 /// Falls back to O(n) chain scan if the link is missing (backwards compat).
 fn find_timelock_by_id(timelock_id: &str) -> ExternResult<Record> {
@@ -279,7 +302,11 @@ pub struct MarkTimelockReadyInput {
     pub timelock_id: String,
 }
 
-/// Execute a ready timelock
+/// Prepare a ready timelock for host-side effect execution.
+///
+/// The historical function name is retained for API compatibility. This
+/// function authorizes and prepares the execution but MUST NOT perform any
+/// provider or cross-zome effect.
 #[hdk_extern]
 pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
     // Input validation
@@ -496,49 +523,59 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         }
     }
 
-    // Execute the actions via cross-zome dispatch
-    let execution_result = execute_actions(&current_timelock.actions)?;
+    // Validate the action payload, then stop at the host-side effect boundary.
+    // The coordinator MUST NOT perform provider or cross-zome effects itself.
+    validate_actions(&current_timelock.actions)?;
 
     let execution_id = format!("execution:{}:{}", input.timelock_id, now.as_micros());
-
     let execution = Execution {
-        id: execution_id,
+        id: execution_id.clone(),
         timelock_id: input.timelock_id.clone(),
         proposal_id: current_timelock.proposal_id.clone(),
         executor: input.executor_did,
-        status: if execution_result.success {
-            ExecutionStatus::Success
-        } else {
-            ExecutionStatus::Failed
-        },
-        result: execution_result.result,
-        error: execution_result.error,
+        status: ExecutionStatus::Prepared,
+        result: None,
+        error: None,
         executed_at: now,
     };
 
-    let action_hash = create_entry(&EntryTypes::Execution(execution))?;
+    let execution_hash = create_entry(&EntryTypes::Execution(execution))?;
 
-    // Update timelock status
-    let updated_timelock = Timelock {
+    // Bind the prepared execution to the exact source-chain timelock version.
+    create_link(
+        current_record.action_address().clone(),
+        execution_hash.clone(),
+        LinkTypes::TimelockToExecution,
+        (),
+    )?;
+
+    // Provide O(1) execution lookup for the host boundary.
+    let execution_anchor = format!("execution:{}", execution_id);
+    create_entry(&EntryTypes::Anchor(Anchor(execution_anchor.clone())))?;
+    create_link(
+        anchor_hash(&execution_anchor)?,
+        execution_hash.clone(),
+        LinkTypes::ExecutionById,
+        (),
+    )?;
+
+    let prepared_timelock = Timelock {
         id: current_timelock.id.clone(),
         proposal_id: current_timelock.proposal_id.clone(),
         actions: current_timelock.actions.clone(),
         started: current_timelock.started,
         expires: current_timelock.expires,
-        status: if execution_result.success {
-            TimelockStatus::Executed
-        } else {
-            TimelockStatus::Failed
-        },
+        status: TimelockStatus::Prepared,
         cancellation_reason: None,
     };
 
     update_entry(
         current_record.action_address().clone(),
-        &EntryTypes::Timelock(updated_timelock),
+        &EntryTypes::Timelock(prepared_timelock),
     )?;
 
-    // Clean up pending_timelocks link (timelock is no longer pending)
+    // The timelock has crossed authorization into the host-side prepared
+    // state, so remove it from the pending authorization collection.
     if let Ok(pending_links) = get_links(
         LinkQuery::try_new(
             anchor_hash("pending_timelocks")?,
@@ -559,26 +596,22 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         }
     }
 
-    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Could not find execution".into()
+    get(execution_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Could not find prepared execution".into()
     )))
 }
 
-/// Input for executing a timelock
+/// Input for preparing a timelock for host-side execution.
+///
+/// The historical function name `execute_timelock` is retained for API
+/// compatibility, but it now stops at the Prepared state.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ExecuteTimelockInput {
     pub timelock_id: String,
     pub executor_did: String,
 }
 
-/// Result of executing actions
-struct ActionExecutionResult {
-    success: bool,
-    result: Option<String>,
-    error: Option<String>,
-}
-
-/// Typed governance action — deserialized from the actions JSON string
+/// Typed governance action — deserialized from the actions JSON string.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 enum GovernanceAction {
@@ -599,15 +632,15 @@ enum GovernanceAction {
 }
 
 impl GovernanceAction {
-    /// Validate action parameters
+    /// Validate action parameters without performing an effect.
     fn validate(&self) -> Result<(), String> {
         match self {
             GovernanceAction::TransferCredits { from, to, amount } => {
                 if from.is_empty() {
-                    return Err("TransferCredits: 'from' is required".to_string());
+                    return Err("TransferCredits: 'from' is required".into());
                 }
                 if to.is_empty() {
-                    return Err("TransferCredits: 'to' is required".to_string());
+                    return Err("TransferCredits: 'to' is required".into());
                 }
                 if *amount <= 0.0 {
                     return Err(format!(
@@ -616,124 +649,158 @@ impl GovernanceAction {
                     ));
                 }
                 if !amount.is_finite() {
-                    return Err("TransferCredits: amount must be finite".to_string());
+                    return Err("TransferCredits: amount must be finite".into());
                 }
                 Ok(())
             }
             GovernanceAction::UpdateParameter { parameter, .. } => {
                 if parameter.is_empty() {
-                    return Err("UpdateParameter: 'parameter' name is required".to_string());
+                    return Err("UpdateParameter: 'parameter' name is required".into());
                 }
                 Ok(())
             }
             GovernanceAction::EmitEvent { .. } => Ok(()),
         }
     }
-
-    /// Execute the action via cross-zome dispatch
-    fn execute(&self) -> ExternResult<String> {
-        match self {
-            GovernanceAction::TransferCredits { from, to, amount } => {
-                // SECURITY: Fail-closed — credit transfers MUST execute or fail explicitly.
-                // Returning Ok without actual transfer creates phantom transactions.
-                let transfer_input = serde_json::json!({"from": from, "to": to, "amount": amount});
-                governance_utils::call_local(
-                    "governance_bridge",
-                    "transfer_credits",
-                    transfer_input,
-                ).map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
-                    "TransferCredits failed: governance bridge unavailable — {} -> {} ({} credits): {:?}",
-                    from, to, amount, e
-                ))))?;
-                Ok(format!(
-                    "TransferCredits: {} -> {} ({} credits) [executed]",
-                    from, to, amount
-                ))
-            }
-            GovernanceAction::UpdateParameter { parameter, value } => {
-                // SECURITY: Fail-closed — parameter updates MUST persist or fail explicitly.
-                // Returning Ok without actual update creates phantom governance changes.
-                let update_input = serde_json::json!({"parameter": parameter, "value": value});
-                governance_utils::call_local("constitution", "update_parameter", update_input)
-                    .map_err(|e| {
-                        wasm_error!(WasmErrorInner::Guest(format!(
-                            "UpdateParameter failed: constitution zome unavailable — {} = {}: {:?}",
-                            parameter, value, e
-                        )))
-                    })?;
-                Ok(format!(
-                    "UpdateParameter: {} = {} [executed]",
-                    parameter, value
-                ))
-            }
-            GovernanceAction::EmitEvent { event, payload } => {
-                // Emit as a governance signal to connected clients
-                let _ = emit_signal(serde_json::json!({
-                    "type": "GovernanceActionExecuted",
-                    "event": event,
-                    "payload": payload,
-                }));
-                Ok(format!("EmitEvent: {} [emitted]", event))
-            }
-        }
-    }
 }
 
-/// Execute actions parsed from JSON via cross-zome dispatch
-fn execute_actions(actions_json: &str) -> ExternResult<ActionExecutionResult> {
-    // Parse as typed enum array (or single action)
+/// Parse and validate actions without executing them.
+fn validate_actions(actions_json: &str) -> ExternResult<()> {
     let actions: Vec<GovernanceAction> = match serde_json::from_str(actions_json) {
-        Ok(a) => a,
+        Ok(actions) => actions,
         Err(_) => match serde_json::from_str::<GovernanceAction>(actions_json) {
-            Ok(v) => vec![v],
-            Err(e) => {
-                return Ok(ActionExecutionResult {
-                    success: false,
-                    result: None,
-                    error: Some(format!(
-                        "Failed to parse actions: {}. Expected GovernanceAction with type TransferCredits, UpdateParameter, or EmitEvent",
-                        e
-                    )),
-                });
+            Ok(action) => vec![action],
+            Err(error) => {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Invalid governance action payload: {}",
+                    error
+                ))));
             }
         },
     };
 
-    let mut results = Vec::new();
-
-    for (i, action) in actions.iter().enumerate() {
-        if let Err(msg) = action.validate() {
-            return Ok(ActionExecutionResult {
-                success: false,
-                result: Some(format!(
-                    "Executed {} of {} actions before failure",
-                    i,
-                    actions.len()
-                )),
-                error: Some(format!("Action {}: {}", i, msg)),
-            });
-        }
-        match action.execute() {
-            Ok(description) => results.push(description),
-            Err(e) => {
-                return Ok(ActionExecutionResult {
-                    success: false,
-                    result: Some(format!(
-                        "Executed {} of {} actions before failure",
-                        i,
-                        actions.len()
-                    )),
-                    error: Some(format!("Action {} execution failed: {}", i, e)),
-                });
-            }
+    for (index, action) in actions.iter().enumerate() {
+        if let Err(error) = action.validate() {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Action {} validation failed: {}",
+                index, error
+            ))));
         }
     }
 
-    Ok(ActionExecutionResult {
-        success: true,
-        result: Some(results.join("; ")),
-        error: None,
-    })
+    Ok(())
+}
+
+/// Record an immutable host-side resolution attestation.
+///
+/// This function records evidence references. It does not execute provider
+/// effects and does not independently authenticate the evidence; that remains
+/// the responsibility of the configured host-side outcome verifier.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CompletePreparedExecutionInput {
+    pub execution_id: String,
+    pub timelock_id: String,
+    pub executor_did: String,
+    pub attempt_identities: Vec<String>,
+    pub action_key_digests: Vec<String>,
+    pub terminal_evidence_digests: Vec<String>,
+    pub outcome: ExecutionResolutionOutcome,
+}
+
+#[hdk_extern]
+pub fn complete_prepared_execution(
+    input: CompletePreparedExecutionInput,
+) -> ExternResult<Record> {
+    if input.execution_id.is_empty()
+        || input.execution_id.len() > 256
+        || input.timelock_id.is_empty()
+        || input.timelock_id.len() > 256
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Execution and timelock IDs must be 1-256 characters".into()
+        )));
+    }
+
+    let agent = agent_info()?;
+    let expected_did = format!("did:mycelix:{}", agent.agent_initial_pubkey);
+    if input.executor_did != expected_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Executor DID must match the calling agent".into()
+        )));
+    }
+
+    let execution_record = find_execution_by_id(&input.execution_id)?;
+    let execution: Execution = execution_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid prepared execution entry".into()
+        )))?;
+
+    if execution.status != ExecutionStatus::Prepared {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Execution '{}' is not Prepared",
+            input.execution_id
+        ))));
+    }
+    if execution.timelock_id != input.timelock_id
+        || execution.executor != input.executor_did
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Execution resolution scope does not match prepared execution".into()
+        )));
+    }
+
+    let timelock_record = find_timelock_by_id(&input.timelock_id)?;
+    let timelock: Timelock = timelock_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid prepared timelock entry".into()
+        )))?;
+
+    if timelock.status != TimelockStatus::Prepared {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Timelock is no longer in Prepared state".into()
+        )));
+    }
+    if timelock.proposal_id != execution.proposal_id {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Prepared execution proposal scope mismatch".into()
+        )));
+    }
+
+    let resolution_id = format!(
+        "resolution:{}:{}",
+        input.execution_id,
+        sys_time()?.as_micros()
+    );
+    let resolution = ExecutionResolution {
+        id: resolution_id,
+        execution_id: input.execution_id,
+        timelock_id: input.timelock_id,
+        proposal_id: execution.proposal_id,
+        executor: input.executor_did,
+        attempt_identities: input.attempt_identities,
+        action_key_digests: input.action_key_digests,
+        terminal_evidence_digests: input.terminal_evidence_digests,
+        outcome: input.outcome,
+        resolved_at: sys_time()?,
+    };
+
+    let resolution_hash = create_entry(&EntryTypes::ExecutionResolution(resolution))?;
+    create_link(
+        execution_record.action_address().clone(),
+        resolution_hash.clone(),
+        LinkTypes::ExecutionToResolution,
+        (),
+    )?;
+
+    get(resolution_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Could not find execution resolution".into())
+    ))
 }
 
 /// Cancel a timelock (guardian veto)
