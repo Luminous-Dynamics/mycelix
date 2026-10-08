@@ -381,8 +381,17 @@ pub fn get_execution(hash: ActionHash) -> ExternResult<Option<Record>> {
 
 /// Get an inspection criterion by action hash.
 #[hdk_extern]
-pub fn get_inspection_criterion(hash: ActionHash) -> ExternResult<Option<Record>> {
-    get(hash, GetOptions::default())
+pub fn get_inspection_criterion(
+    hash: ActionHash,
+) -> ExternResult<Option<InspectionCriterionEntry>> {
+    let Some(record) = get(hash, GetOptions::default())? else {
+        return Ok(None);
+    };
+    let criterion: Option<InspectionCriterionEntry> = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    Ok(criterion)
 }
 
 /// Get a capability contract by action hash.
