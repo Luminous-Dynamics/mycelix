@@ -47,7 +47,10 @@
     "authoritative": false,
     "requires_protected_main_readback": true,
     "requires_rotation_recovery_path": true,
-    "requires_exact_adoption_of_component_bytes": true
+    "requires_exact_adoption_of_component_bytes": true,
+    "requires_durable_subject_publication": true,
+    "transient_actions_artifacts_are_insufficient": true,
+    "required_durability_profile": "CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1"
   },
   "nonclaims": [
     "GitHub platform compromise resistance",
