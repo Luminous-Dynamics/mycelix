@@ -1213,7 +1213,7 @@ fn load_attempt_txless(
 }
 
 fn map_attempt_row(row: &rusqlite::Row<'_>) -> Result<AttemptRecordV1, rusqlite::Error> {
-    let state_tag: i64 = row.get(14)?;
+    let state_tag: i64 = row.get(15)?;
     let state = AttemptRecordState::from_storage_tag(state_tag).ok_or_else(|| {
         rusqlite::Error::InvalidParameterName("invalid attempt state tag".to_owned())
     })?;
@@ -1232,12 +1232,13 @@ fn map_attempt_row(row: &rusqlite::Row<'_>) -> Result<AttemptRecordV1, rusqlite:
         provider_audience: row.get(10)?,
         adapter_identity: row.get(11)?,
         ownership_token_digest: row.get(12)?,
-        terminal_evidence_digest: row.get(13)?,
+        reconciliation_token_digest: row.get(13)?,
+        terminal_evidence_digest: row.get(14)?,
         state,
-        not_entered_marker: row.get(15)?,
+        not_entered_marker: row.get(16)?,
     };
 
-    let stored_digest: String = row.get(16)?;
+    let stored_digest: String = row.get(17)?;
     record.validate().map_err(|e| {
         rusqlite::Error::InvalidParameterName(format!("invalid persisted attempt: {e}"))
     })?;
