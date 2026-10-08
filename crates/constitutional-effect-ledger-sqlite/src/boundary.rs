@@ -1337,7 +1337,7 @@ mod tests {
         let authorization = ProviderEntryClaimRecoveryAuthorizationV1::new(
             &owner,
             "operation-claim-recovery",
-            "native-replay-claim-recovery",
+            "native-operation-claim-recovery",
             &action_key,
             claim.claim_token_digest.clone(),
             "authorized-claim-recovery-v1",
