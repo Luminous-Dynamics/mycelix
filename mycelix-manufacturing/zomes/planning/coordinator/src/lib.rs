@@ -270,8 +270,9 @@ pub fn select_live_capability(
         match resolution {
             MachineStateResolutionProjection::Resolved {
                 status: MachineStatus::Available,
+                ..
             } => {}
-            MachineStateResolutionProjection::Resolved { status } => {
+            MachineStateResolutionProjection::Resolved { status, .. } => {
                 rejected.push(CapabilityPlanDecision {
                     machine_hash: Some(machine_hash),
                     capability_contract_hash: contract_hash,
