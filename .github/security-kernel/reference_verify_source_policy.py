@@ -761,6 +761,12 @@ def verify_s1(raw: bytes, expected_s1_sha: str) -> None:
         fail("S1 candidate sandbox image digest pin mismatch")
     if exact_count(l, 'TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}') != 1:
         fail("S1 trusted workflow blob input binding mismatch")
+    if exact_count(l, "class NoRedirect(urllib.request.HTTPRedirectHandler):") != 4:
+        fail("S1 token-bearing GitHub API clients must each install a no-redirect handler")
+    if exact_count(l, "api_opener=urllib.request.build_opener(NoRedirect)") != 4:
+        fail("S1 GitHub API clients must use their no-redirect openers")
+    if "urllib.request.urlopen(" in joined:
+        fail("S1 token-bearing GitHub API client must not use urllib.request.urlopen directly")
     if exact_count(l, 'CANDIDATE_REPOSITORY_ID: ${{ inputs.candidate_repository_id }}') != 1:
         fail("S1 candidate repository ID binding mismatch")
     for key, expected in (
@@ -1226,6 +1232,14 @@ def main() -> None:
         "S0 GitHub API no-redirect handler removed",
     )
 
+    expect_rejection(
+        lambda: verify_s1(raw["s1"].replace(
+            b'class NoRedirect(urllib.request.HTTPRedirectHandler):',
+            b'class NoRedirectRemoved:',
+            1,
+        ), s1_sha),
+        "S1 token-bearing GitHub API no-redirect handler removed",
+    )
     expect_rejection(
         lambda: verify_s1(inject_extra_permission(raw["s1"]), s1_sha),
         "S1 security-events: write",
