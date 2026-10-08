@@ -215,6 +215,11 @@ jobs:
               "workflow",
               "workflow_file_commit_sha",
               "workflow_file_blob_sha",
+              "record_schema",
+              "provenance_mode",
+              "pull_request_number",
+              "qualified_subject_sha",
+              "qualified_subject_ref",
               "run_id",
               "run_attempt",
               "event",
@@ -224,7 +229,33 @@ jobs:
               f"D6S provenance fields missing: expected={sorted(required)!r}, observed={sorted(record)!r}"
           )
           assert record["status"] == "reference-gate-passed"
+          assert record["record_schema"] == "d6s-canonical-reference/v2"
+          assert record["provenance_mode"] == "pull_request_head"
+          assert re.fullmatch(r"[1-9][0-9]*", record["pull_request_number"])
+          pull_request_number = int(record["pull_request_number"])
+          assert record["qualified_subject_sha"] == head_sha
+          assert record["qualified_subject_ref"] == f"refs/heads/{head_branch}"
           assert record["commit"] == head_sha
+          assert record["workflow_ref"] == (
+              f"{repo}/.github/workflows/d6s-canonical-qualification.yml@refs/pull/"
+              f"{pull_request_number}/merge"
+          )
+
+          associated_prs = upstream.get("pull_requests", [])
+          matches = [
+              pr for pr in associated_prs
+              if int(pr.get("number", -1)) == pull_request_number
+          ]
+          assert len(matches) == 1, (
+              f"expected exactly one upstream PR association for {pull_request_number}, "
+              f"observed {len(matches)}"
+          )
+          associated_pr = matches[0]
+          assert associated_pr["head"]["sha"] == head_sha
+          assert associated_pr["head"]["ref"] == head_branch
+          assert associated_pr["head"]["repo"]["full_name"] == repo
+          assert int(associated_pr["head"]["repo"]["id"]) == int(os.environ["GITHUB_REPOSITORY_ID"])
+          assert record["workflow_ref"].endswith("/merge")
           assert record["workflow"] == "D6S Canonical Qualification"
           workflow_commit = record["workflow_file_commit_sha"]
           assert re.fullmatch(r"[0-9a-f]{40}", workflow_commit)
