@@ -178,6 +178,9 @@ jobs:
           assert "admin capability observation status changed during governance observation" in scanned_text
           assert "capability_status == 200" in scanned_text
           assert "base_sha" in scanned_text
+          assert "live_main_sha" in scanned_text
+          assert "actual_live_main_sha" in scanned_text
+          assert "needs.prepare.outputs.live_main_sha" in scanned_text
           assert "base_ref" in scanned_text
           assert 'test "${base_ref}" = "main"' in scanned_text
           assert "base_repository_id" in scanned_text
