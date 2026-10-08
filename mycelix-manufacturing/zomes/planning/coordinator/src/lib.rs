@@ -74,7 +74,6 @@ pub enum CapabilityPlanRejection {
     ContractMalformed,
     ContractLookupFailed,
     MachineNotFound,
-    MachineMalformed,
     MachineLookupFailed,
     MachineStateAmbiguous,
     MachineInvalidRecord,
@@ -143,12 +142,13 @@ fn capability_profile(contract: &CapabilityContractProjection) -> CapabilityProf
 }
 
 /// Resolve a manufacturing capability requirement against live capability contracts
-/// and current machine status.
+/// and the full machine update graph.
 ///
 /// This is intentionally a resolver, not an execution authorization mechanism:
 /// capability qualification is consumed exactly as recorded, machine availability
 /// is evaluated separately, lookup failures remain distinct from missing records,
-/// and ambiguous multiple contracts for one machine fail closed.
+/// unvalidated or conflicting machine state fails closed, and ambiguous multiple
+/// contracts for one machine fail closed.
 #[hdk_extern]
 pub fn select_live_capability(
     input: CapabilityPlanInput,
