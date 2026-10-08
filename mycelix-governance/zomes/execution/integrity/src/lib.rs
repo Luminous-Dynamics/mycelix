@@ -433,9 +433,12 @@ pub const EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX: &str = "constitutional
 pub const EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX: &str = "constitutional-final-provider-entry-proof-v1:";
 
 fn is_tagged_digest(value: &str, prefix: &str) -> bool {
-    value
-        .strip_prefix(prefix)
-        .is_some_and(|digest| digest.len() == 64 && digest.bytes().all(|b| b.is_ascii_hexdigit()))
+    value.strip_prefix(prefix).is_some_and(|digest| {
+        digest.len() == 64
+            && digest
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    })
 }
 
 pub fn check_execution_resolution_bindings(
@@ -1171,6 +1174,24 @@ mod tests {
         let mut bad_final_root = valid.clone();
         bad_final_root.final_provider_entry_proof_digests[0] = "not-a-canonical-root".into();
         assert!(check_create_execution_resolution(&bad_final_root).is_err());
+
+        let mut uppercase_digest = valid.clone();
+        uppercase_digest.action_key_digests[0] =
+            format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "A".repeat(64));
+        assert!(check_create_execution_resolution(&uppercase_digest).is_err());
+
+        let action_roots = vec![format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "a".repeat(64)); MAX_EXECUTION_RESOLUTION_BINDINGS + 1];
+        let attempt_roots = vec![format!("{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}", "b".repeat(64)); MAX_EXECUTION_RESOLUTION_BINDINGS + 1];
+        let terminal_roots = vec![format!("{EXECUTION_TERMINAL_EVIDENCE_PREFIX}{}", "c".repeat(64)); MAX_EXECUTION_RESOLUTION_BINDINGS + 1];
+        let authorization_roots = vec![format!("{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}", "d".repeat(64)); MAX_EXECUTION_RESOLUTION_BINDINGS + 1];
+        let final_entry_roots = vec![format!("{EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX}{}", "e".repeat(64)); MAX_EXECUTION_RESOLUTION_BINDINGS + 1];
+        assert!(check_execution_resolution_bindings(
+            &attempt_roots,
+            &action_roots,
+            &terminal_roots,
+            &authorization_roots,
+            &final_entry_roots,
+        ).is_err());
     }
 
     // ---- Veto override result tests ----
