@@ -68,6 +68,14 @@ fact EvidenceRecordedValid {
       e.grant.revoked = Off
 }
 
+fact NonExpiredGrantEffective {
+  all s: TemporalState, g: Grant |
+    g.active = On and
+    g.revoked = Off and
+    not TO/lt[g.capability.expiry, s.now] implies
+      g.capability in s.effectiveAuthority[g.grantee]
+}
+
 fact ExpiredGrantNotEffective {
   all s: TemporalState, g: Grant |
     g.active = On and
