@@ -63,7 +63,11 @@ pub enum EconomicIdentityNamespaceV1 {
     Demurrage,
     TreasuryAllocation,
     Burn,
-    Generic,
+    CollateralLock,
+    CollateralRelease,
+    StakingReturn,
+    StakingSlash,
+    ReconciliationCorrection,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -723,8 +727,8 @@ mod tests {
     fn same_economic_identity_is_rejected_even_when_physical_provenance_differs() {
         let mut effect = base_transfer();
         let seen = vec![EconomicIdentityV1 {
-            namespace: EconomicIdentityNamespaceV1::CollateralMint,
-            key: "mint-or-operation-1".into(),
+            namespace: EconomicIdentityNamespaceV1::Transfer,
+            key: "transfer-1".into(),
         }];
         effect.identity.predecessor_action_reference = "different-prev".into();
         effect.identity.cause_action_reference = "different-cause".into();
@@ -758,6 +762,16 @@ mod tests {
                 seen_economic_identities: &[],
             })
             .is_ok());
+    }
+
+    #[test]
+    fn namespace_must_match_mutation_class() {
+        let mut effect = base_transfer();
+        effect.identity.economic_identity.namespace = EconomicIdentityNamespaceV1::Fee;
+        assert_eq!(
+            validate(&effect),
+            Err(EconomicEffectError::IdentityNamespaceMismatch)
+        );
     }
 
     #[test]
@@ -976,7 +990,7 @@ mod tests {
                 effect_identity: base_transfer().identity.clone(),
             },
             EconomicEffectObservation {
-                predecessor_action_reference: "prev-1".into(),
+                successor_action_reference: "succ-a".into(),
                 successor_action_reference: "succ-a".into(),
                 effect_identity: EconomicEffectIdentityV1 {
                     namespace: EconomicIdentityNamespaceV1::Transfer,
