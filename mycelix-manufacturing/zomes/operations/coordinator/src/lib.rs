@@ -7,6 +7,7 @@
 
 use hdk::prelude::*;
 use operations_integrity::*;
+use manufacturing_common::PROCESS_RECIPE_SCHEMA_ID;
 
 // ============================================================================
 // Input types
@@ -88,7 +89,7 @@ pub fn create_process_recipe(input: CreateProcessRecipeInput) -> ExternResult<Ac
     }
 
     let hash = create_entry(EntryTypes::ProcessRecipe(ProcessRecipeEntry {
-        schema_id: "mycelix-manufacturing-process-recipe-v1".into(),
+        schema_id: PROCESS_RECIPE_SCHEMA_ID.into(),
         recipe_id: input.recipe_id,
         revision: input.revision,
         process_family: input.process_family,
