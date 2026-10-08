@@ -33,9 +33,14 @@ jobs:
           set -euo pipefail
           unset GITHUB_TOKEN GH_TOKEN ACTIONS_RUNTIME_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL ACTIONS_ID_TOKEN_REQUEST_TOKEN
           export GIT_TERMINAL_PROMPT=0
+          export GIT_CONFIG_GLOBAL=/dev/null
+          export GIT_CONFIG_SYSTEM=/dev/null
+          export GIT_CONFIG_NOSYSTEM=1
           git init .
           git config --local credential.helper ""
+          git config --local core.sshCommand ""
           git remote add origin https://github.com/Luminous-Dynamics/mycelix.git
+          test "$(git config --local --get remote.origin.url)" = "https://github.com/Luminous-Dynamics/mycelix.git"
           git -c credential.helper= -c protocol.version=2 fetch --no-tags --depth=1 origin "$QUALIFIED_SHA"
           git checkout --detach FETCH_HEAD
 
