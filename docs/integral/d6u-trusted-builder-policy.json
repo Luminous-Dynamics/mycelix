@@ -20,6 +20,8 @@
   ],
   "record_fields": [
     "status",
+    "workflow_run_id",
+    "workflow_run_attempt",
     "source_commit",
     "source_branch",
     "source_repository",
