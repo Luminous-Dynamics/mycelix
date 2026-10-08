@@ -123,6 +123,7 @@ jobs:
           assert contract["ruleset_source_identity_must_match_source_type"] is True
           assert contract["github_ref_pattern_pathname_semantics_must_be_bound"] is True
           assert contract["github_unsupported_ref_pattern_syntax_must_fail_closed"] is True
+          assert contract["github_unsupported_fnmatch_syntax_must_fail_closed"] is True
           assert contract["raw_json_must_reject_duplicate_keys_and_nonstandard_constants"] is True
           assert contract["github_special_targeting_token_semantics_must_be_bound"] is True
           assert contract["unobserved_repository_selector_properties_must_fail_closed"] is True
@@ -241,6 +242,7 @@ jobs:
           assert "live_main_sha = branch.get(\"commit\", {}).get(\"sha\")" in scanned_text
           assert "source_type == \"Enterprise\"" in scanned_text
           assert "no authoritative enterprise" in scanned_text
+          assert "_github_fnmatch_pattern_supported" in scanned_text
           assert 'head == "**" and tail' in scanned_text
           assert "object_pairs_hook=_reject_duplicate_json_keys" in scanned_text
           assert "parse_constant=_reject_nonstandard_json_constant" in scanned_text

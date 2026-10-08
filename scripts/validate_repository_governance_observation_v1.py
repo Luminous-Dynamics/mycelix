@@ -183,6 +183,10 @@ def validate_policy(policy: Any) -> None:
         "GitHub unsupported ref pattern syntax contract drift",
     )
     require(
+        observation_contract.get("github_unsupported_fnmatch_syntax_must_fail_closed") is True,
+        "GitHub unsupported fnmatch syntax contract drift",
+    )
+    require(
         observation_contract.get("raw_json_must_reject_duplicate_keys_and_nonstandard_constants") is True,
         "strict raw JSON contract drift",
     )
@@ -341,17 +345,19 @@ def validate_observation_shape(observation: Any) -> None:
         )
 
 
+def _github_fnmatch_pattern_supported(pattern: str) -> bool:
+    if not isinstance(pattern, str) or not pattern:
+        return False
+    if "\\" in pattern:
+        return False
+    return re.search(r"\[\^", pattern) is None
+
+
 def _github_ref_pattern_matches(value: str, pattern: str) -> bool:
     """Match GitHub ruleset ref patterns with pathname-aware fnmatch semantics."""
     if not isinstance(value, str) or not isinstance(pattern, str) or not pattern:
         return False
-    # GitHub does not support '\\' as a quoting character.
-    # Refuse any backslash-bearing pattern rather than inheriting Python/Ruby escaping.
-    if "\\" in pattern:
-        return False
-    # GitHub does not support '^' as a bracket-expression complement.
-    # Refuse that Python-only interpretation rather than risking a false match.
-    if re.search(r"\[\^", pattern):
+    if not _github_fnmatch_pattern_supported(pattern):
         return False
     value_parts = value.split("/")
     pattern_parts = pattern.split("/")
@@ -375,6 +381,10 @@ def _github_ref_pattern_matches(value: str, pattern: str) -> bool:
 
 
 def _validate_ref_pattern_lists(includes: list[str], excludes: list[str]) -> bool:
+    if any(not _github_fnmatch_pattern_supported(pattern)
+           for pattern in includes + excludes
+           if pattern not in {"~ALL", "~DEFAULT_BRANCH", "~EMUS"}):
+        return False
     if "~ALL" in excludes or "~DEFAULT_BRANCH" in excludes or "~EMUS" in excludes:
         return False
     if "~EMUS" in includes:
@@ -407,6 +417,10 @@ def _validate_special_selector_patterns(
     *,
     allow_emus: bool = False,
 ) -> bool:
+    if any(not _github_fnmatch_pattern_supported(pattern)
+           for pattern in includes + excludes
+           if pattern not in {"~ALL", "~DEFAULT_BRANCH", "~EMUS"}):
+        return False
     if "~ALL" in excludes or "~DEFAULT_BRANCH" in excludes:
         return False
     if allow_emus and "~EMUS" in excludes:
@@ -1182,6 +1196,7 @@ def fixture_policy() -> dict[str, Any]:
             "ruleset_source_identity_must_match_source_type": True,
             "github_ref_pattern_pathname_semantics_must_be_bound": True,
             "github_unsupported_ref_pattern_syntax_must_fail_closed": True,
+            "github_unsupported_fnmatch_syntax_must_fail_closed": True,
             "raw_json_must_reject_duplicate_keys_and_nonstandard_constants": True,
             "github_special_targeting_token_semantics_must_be_bound": True,
             "unobserved_repository_selector_properties_must_fail_closed": True,
@@ -1906,6 +1921,22 @@ def self_test(policy: dict[str, Any]) -> None:
     result = evaluate(policy, x)
     assert result["governance_state"] == "UNVERIFIED"
     assert result["grants_trusted_verifier_root"] is False
+
+    for unsupported_repository_pattern in (
+        "m" + chr(92) + "ycelix",
+        "[^m]ycelix",
+    ):
+        x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
+        x["rulesets"]["entries"][0]["source_type"] = "Organization"
+        x["rulesets"]["entries"][0]["source"] = ORGANIZATION_NAME
+        x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
+            "include": [unsupported_repository_pattern],
+            "exclude": [],
+        }
+        _refresh_bound_fixture_payloads(x)
+        result = evaluate(policy, x)
+        assert result["governance_state"] == "UNVERIFIED"
+        assert result["grants_trusted_verifier_root"] is False
 
     x = copy.deepcopy(fixture_observation(policy, protection_status=404, admin_status="unverified"))
     x["rulesets"]["entries"][0]["conditions"]["repository_name"] = {
