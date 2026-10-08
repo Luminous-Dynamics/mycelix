@@ -1,0 +1,305 @@
+name: COS Durable Publication Verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published immutable release tag containing the COS durable bundle
+        required: true
+        type: string
+      asset_name:
+        description: Exact durable COS bundle asset name
+        required: true
+        type: string
+      expected_main_sha:
+        description: Protected-main revision the durable publication claims to represent
+        required: true
+        type: string
+      expected_claim_id:
+        description: Exact qualification_claim_id expected in the durable subject
+        required: true
+        type: string
+      expected_manifest_sha256:
+        description: Exact qualification-manifest SHA-256
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify durable COS publication
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Validate inputs and repository identity
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_CLAIM_ID: ${{ inputs.expected_claim_id }}
+          EXPECTED_MANIFEST_SHA256: ${{ inputs.expected_manifest_sha256 }}
+          EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "${EXPECTED_MAIN_SHA}" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "${EXPECTED_CLAIM_ID}" | grep -Eq '^[0-9a-f]{64}$'
+          printf '%s\n' "${EXPECTED_MANIFEST_SHA256}" | grep -Eq '^[0-9a-f]{64}$'
+          test "${EXPECTED_REPOSITORY_ID}" = "1176351975"
+
+      - name: Read release metadata
+        id: release
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          ASSET_NAME: ${{ inputs.asset_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -n "${RELEASE_TAG}"
+          test -n "${ASSET_NAME}"
+          gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+            --json id,tagName,isDraft,isImmutable,isPrerelease,publishedAt,targetCommitish,assets \
+            > release.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          data = json.loads(Path("release.json").read_text())
+          assert set(data) == {
+              "id", "tagName", "isDraft", "isImmutable",
+              "isPrerelease", "publishedAt", "targetCommitish", "assets"
+          }
+          assert data["tagName"] == os.environ["RELEASE_TAG"]
+          assert data["isDraft"] is False
+          assert data["isImmutable"] is True
+          assert data["publishedAt"]
+          assert isinstance(data["assets"], list)
+          matches = [asset for asset in data["assets"] if asset.get("name") == os.environ["ASSET_NAME"]]
+          assert len(matches) == 1
+          asset = matches[0]
+          assert asset.get("state") == "uploaded"
+          assert asset.get("digest", "").startswith("sha256:")
+          Path("release-asset-metadata.json").write_text(
+              json.dumps(asset, indent=2, sort_keys=True) + "\n"
+          )
+          print(f"release_id={data['id']}")
+          print(f"asset_digest={asset['digest']}")
+          PY
+
+      - name: Resolve exact release tag target
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          annotated="$(git ls-remote origin "refs/tags/${RELEASE_TAG}^{}" | awk '{print $1}')"
+          lightweight="$(git ls-remote origin "refs/tags/${RELEASE_TAG}" | awk '{print $1}')"
+          tag_sha="${annotated:-${lightweight}}"
+          printf '%s\n' "${tag_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${tag_sha}" = "${EXPECTED_MAIN_SHA}" || {
+            echo "durable release tag target mismatch: expected ${EXPECTED_MAIN_SHA}, got ${tag_sha}" >&2
+            exit 1
+          }
+          printf '%s\n' "${tag_sha}" > release-tag-target-sha.txt
+
+      - name: Verify immutable release attestation
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release verify "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --format json > release-attestation-verification.json
+
+      - name: Download exact durable asset
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          ASSET_NAME: ${{ inputs.asset_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf durable-publication
+          mkdir -p durable-publication
+          gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+            --pattern "${ASSET_NAME}" --dir durable-publication --clobber
+          test "$(find durable-publication -maxdepth 1 -type f -printf '%f\n' | wc -l)" = 1
+
+      - name: Verify release asset digest
+        env:
+          ASSET_NAME: ${{ inputs.asset_name }}
+        run: |
+          set -euo pipefail
+          api_digest="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("release-asset-metadata.json").read_text())
+          print(data["digest"])
+          PY
+          )"
+          api_digest="${api_digest#sha256:}"
+          actual_digest="$(sha256sum "durable-publication/${ASSET_NAME}" | awk '{print $1}')"
+          printf '%s\n' "${api_digest}" | grep -Eq '^[0-9a-f]{64}$'
+          test "${api_digest}" = "${actual_digest}" || {
+            echo "durable asset digest mismatch" >&2
+            exit 1
+          }
+
+      - name: Verify immutable release asset attestation
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          ASSET_NAME: ${{ inputs.asset_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release verify-asset "${RELEASE_TAG}" "durable-publication/${ASSET_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" --format json > release-asset-attestation-verification.json
+
+      - name: Inspect durable bundle safely
+        env:
+          ASSET_NAME: ${{ inputs.asset_name }}
+        run: |
+          set -euo pipefail
+          case "${ASSET_NAME}" in *.tar.gz) ;; *) echo "durable asset must be .tar.gz" >&2; exit 1 ;; esac
+          tar -tzf "durable-publication/${ASSET_NAME}" > durable-members.txt
+          if grep -Eq '(^/|(^|/)\.\.?(/|$))' durable-members.txt; then
+            echo "durable archive contains unsafe path entries" >&2
+            exit 1
+          fi
+          expected=''
+          python - <<'PY'
+          from pathlib import Path
+          required={
+              "qualification-manifest-v1.json",
+              "qualification-attestation-predicate-v3.json",
+              "attestor-run-receipt.json",
+              "attestation-bundle-publication-verification.json",
+              "SHA256SUMS",
+          }
+          members={line.strip().rstrip('/') for line in Path("durable-members.txt").read_text().splitlines() if line.strip()}
+          assert members == required
+          PY
+          rm -rf durable-extracted
+          mkdir durable-extracted
+          tar -xzf "durable-publication/${ASSET_NAME}" -C durable-extracted
+          (cd durable-extracted && sha256sum --check --strict SHA256SUMS)
+
+      - name: Validate durable subject semantics
+        env:
+          EXPECTED_CLAIM_ID: ${{ inputs.expected_claim_id }}
+          EXPECTED_MANIFEST_SHA256: ${{ inputs.expected_manifest_sha256 }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}
+          EXPECTED_PREDICATE_TYPE: https://luminousdynamics.io/attestations/mycelix-cos-qualification/v1
+        run: |
+          set -euo pipefail
+          EXPECTED_CLAIM_ID="${EXPECTED_CLAIM_ID}" EXPECTED_MANIFEST_SHA256="${EXPECTED_MANIFEST_SHA256}" EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" EXPECTED_REPOSITORY_ID="${EXPECTED_REPOSITORY_ID}" EXPECTED_PREDICATE_TYPE="${EXPECTED_PREDICATE_TYPE}" python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          def strict(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=lambda pairs: duplicate_reject(pairs),
+                  parse_constant=lambda value: (_ for _ in ()).throw(ValueError(f'non-standard JSON constant: {value}'))
+              )
+
+          def duplicate_reject(pairs):
+              result={}
+              for key,value in pairs:
+                  if key in result:
+                      raise ValueError(f'duplicate JSON key: {key}')
+                  result[key]=value
+              return result
+
+          root=Path('durable-extracted')
+          manifest_path=root/'qualification-manifest-v1.json'
+          predicate_path=root/'qualification-attestation-predicate-v3.json'
+          receipt_path=root/'attestor-run-receipt.json'
+          publication_path=root/'attestation-bundle-publication-verification.json'
+          manifest_raw=manifest_path.read_bytes()
+          manifest=strict(manifest_raw.decode('utf-8'))
+          predicate=strict(predicate_path.read_text())
+          receipt=strict(receipt_path.read_text())
+          publication=strict(publication_path.read_text())
+
+          assert hashlib.sha256(manifest_raw).hexdigest() == os.environ['EXPECTED_MANIFEST_SHA256']
+          assert predicate['schema'] == 'MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3'
+          assert predicate['predicate_type'] == os.environ['EXPECTED_PREDICATE_TYPE']
+          assert predicate['expected_head_sha'] == os.environ['EXPECTED_MAIN_SHA']
+          assert predicate['qualification_manifest_sha256'] == os.environ['EXPECTED_MANIFEST_SHA256']
+          assert predicate['qualification_claim_id'] == os.environ['EXPECTED_CLAIM_ID']
+          assert predicate['publication'] == {
+              'profile': 'COS-TERMINAL-ATTESTATION-V1',
+              'state': 'preconditions_satisfied_terminal_side_effect',
+          }
+          assert receipt['schema'] == 'MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V3'
+          assert receipt['qualification_claim_id'] == os.environ['EXPECTED_CLAIM_ID']
+          assert receipt['qualification_manifest_sha256'] == os.environ['EXPECTED_MANIFEST_SHA256']
+          assert receipt['repository_id'] == int(os.environ['EXPECTED_REPOSITORY_ID'])
+          assert receipt['qualification_topology']['head_sha'] == os.environ['EXPECTED_MAIN_SHA']
+          assert publication['schema'] == 'MYCELIX-COS-ATTESTATION-BUNDLE-VERIFICATION-V1'
+          assert publication['repository_id'] == int(os.environ['EXPECTED_REPOSITORY_ID'])
+          assert publication['subject_digest'] == os.environ['EXPECTED_MANIFEST_SHA256']
+          assert publication['predicate_type'] == os.environ['EXPECTED_PREDICATE_TYPE']
+          assert publication['state'] == 'DiscoverableAndVerifiable'
+          PY
+
+      - name: Record durable verification state
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          ASSET_NAME: ${{ inputs.asset_name }}
+          EXPECTED_CLAIM_ID: ${{ inputs.expected_claim_id }}
+          EXPECTED_MANIFEST_SHA256: ${{ inputs.expected_manifest_sha256 }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          release=json.loads(Path('release.json').read_text())
+          asset=json.loads(Path('release-asset-metadata.json').read_text())
+          observation={
+              'schema':'MYCELIX-COS-DURABLE-PUBLICATION-VERIFICATION-V1',
+              'repository':os.environ['GITHUB_REPOSITORY'],
+              'repository_id':int(os.environ['GITHUB_REPOSITORY_ID']),
+              'release_tag':os.environ['RELEASE_TAG'],
+              'release_id':release['id'],
+              'immutable':release['isImmutable'],
+              'asset_name':os.environ['ASSET_NAME'],
+              'asset_digest':asset['digest'],
+              'expected_main_sha':os.environ['EXPECTED_MAIN_SHA'],
+              'qualification_claim_id':os.environ['EXPECTED_CLAIM_ID'],
+              'qualification_manifest_sha256':os.environ['EXPECTED_MANIFEST_SHA256'],
+              'state':'DurableAndVerifiable',
+          }
+          assert set(observation) == {
+              'schema','repository','repository_id','release_tag','release_id',
+              'immutable','asset_name','asset_digest','expected_main_sha',
+              'qualification_claim_id','qualification_manifest_sha256','state'
+          }
+          Path('durable-publication-verification.json').write_text(json.dumps(observation,indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Preserve verifier observation
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a0 # v7.0.1
+        with:
+          name: cos-durable-publication-verification-${{ inputs.expected_claim_id }}
+          path: |
+            durable-publication-verification.json
+            release.json
+            release-asset-metadata.json
+            release-attestation-verification.json
+            release-asset-attestation-verification.json
+            release-tag-target-sha.txt
+            durable-members.txt
+          if-no-files-found: error
+          retention-days: 30
