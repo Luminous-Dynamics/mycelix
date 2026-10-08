@@ -398,12 +398,17 @@ with the terminal evidence commitment.
 These values are canonical digest commitments, not Holochain `ActionHash` references.
 Resolution receipts also cap the number of parallel action/evidence tuples at 256, so a single DHT entry cannot amplify resource consumption through unbounded proof-root vectors. At creation time, the coordinator additionally parses and validates the prepared timelock's action payload and requires exactly one tuple per action; empty action batches and mismatched tuple counts are rejected.
 
-The integrity zome therefore validates canonical digest namespaces, digest shape, vector
-alignment, and the maximum count. The coordinator additionally enforces cardinality
-against the prepared action payload. These checks do **not** prove that each root
-semantically corresponds to its same-index action, nor do they authenticate the referenced
-host-side receipt. The host-side effect boundary remains responsible for dereferencing
-and verifying commitments against its durable admission/evidence receipts.
+The integrity zome validates canonical digest namespaces, digest shape, vector
+alignment, uniqueness, and the maximum count. The coordinator additionally enforces
+cardinality against the prepared action payload. Each resolution also names the exact
+source-chain ActionHash for the Prepared Execution and the Prepared Timelock update;
+integrity validation dereferences both records and checks their status, identity,
+proposal, executor, and source-chain-author scope.
+
+These source-action checks do **not** prove that each external proof digest semantically
+corresponds to its same-index action, nor do they authenticate the referenced host-side
+receipt. The host-side effect boundary remains responsible for dereferencing and
+verifying commitments against its durable admission/evidence receipts.
 
 This separation matters: a well-formed commitment and complete tuple count are necessary,
 but insufficient, evidence that the intended effect actually occurred. A future promotion
