@@ -453,6 +453,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+fn causative_debit_amount(
+    predecessor_balance: u64,
+    post_debit_balance: u64,
+    deterministic_demurrage: u64,
+) -> Option<u64> {
+    predecessor_balance
+        .checked_sub(deterministic_demurrage)?
+        .checked_sub(post_debit_balance)
+}
+
 fn validate_update_sap_balance(
     action: Update,
     bal: SapBalance,
@@ -631,12 +641,14 @@ fn validate_update_sap_balance(
             DEMURRAGE_RATE,
             elapsed,
         );
-        let cause_effective_balance = cause_predecessor.balance.saturating_sub(cause_deduction);
-        let debited = cause_effective_balance
-            .checked_sub(cause_balance.balance)
-            .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-                "SAP credit cause is not a balance decrease after deterministic demurrage".into()
-            )))?;
+        let debited = causative_debit_amount(
+            cause_predecessor.balance,
+            cause_balance.balance,
+            cause_deduction,
+        )
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "SAP credit cause is not a balance decrease after deterministic demurrage".into()
+        )))?;
         if debited < credited_amount {
             return Ok(ValidateCallbackResult::Invalid(format!(
                 "SAP credit {} exceeds causative debit {}",
@@ -1457,6 +1469,37 @@ mod tests {
     fn test_valid_sap_balance() {
         let result = validate_sap_balance(&valid_sap_balance()).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    // ---- 18a. SAP balance creation must be zero-only ----
+
+    #[test]
+    fn test_sap_balance_nonzero_creation_is_rejected() {
+        let result = validate_create_sap_balance(&valid_sap_balance()).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("created at zero")));
+    }
+
+    #[test]
+    fn test_sap_balance_zero_creation_is_accepted() {
+        let mut bal = valid_sap_balance();
+        bal.balance = 0;
+        bal.justified_by = None;
+        let result = validate_create_sap_balance(&bal).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    // ---- 18b. Cause amount excludes deterministic demurrage ----
+
+    #[test]
+    fn test_causative_debit_excludes_demurrage() {
+        // 100 raw -> 90 after demurrage -> 60 after the actual debit.
+        // Only 30 SAP is transferable; the 10 SAP demurrage must not be reused.
+        assert_eq!(causative_debit_amount(100, 60, 10), Some(30));
+    }
+
+    #[test]
+    fn test_causative_debit_rejects_non_decrease() {
+        assert_eq!(causative_debit_amount(100, 95, 10), None);
     }
 
     // ---- 19. SapBalance with invalid DID (must fail) ----
