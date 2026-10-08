@@ -104,6 +104,10 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "full_name": "Luminous-Dynamics/mycelix",
         "repository_id": 1176351975,
     }
+    assert policy["trigger_workflow"]["workflow_id"] == 371215723
+    assert policy["trigger_workflow"]["name"] == "D6S Canonical Qualification"
+    assert policy["trigger_workflow"]["path"] == ".github/workflows/d6s-canonical-qualification.yml"
+
     assert policy["attestation_integrity_revision"] == policy["policy_version"]
 
     assert policy["forbidden_cargo_config_paths"] == [
