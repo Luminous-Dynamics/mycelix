@@ -259,4 +259,39 @@ jobs:
             exit 1
           }
 
+          grep -Fq 'validate_timelock_proposal_binding' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: timelock/proposal authorization binding is missing."
+            exit 1
+          }
+
+          grep -Fq 'Canonical proposal lookup returned no proposal' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: canonical proposal lookup is not fail-closed."
+            exit 1
+          }
+
+          grep -Fq 'get_latest_record(ah)?' 'mycelix-governance/zomes/proposals/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: ProposalById lookup does not use the latest proposal version."
+            exit 1
+          }
+
+          grep -Fq 'Proposal ID' 'mycelix-governance/zomes/proposals/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: duplicate proposal-ID handling is absent."
+            exit 1
+          }
+
+          grep -Fq 'multiple distinct proposal sources' 'mycelix-governance/zomes/proposals/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: proposal source ambiguity is not fail-closed."
+            exit 1
+          }
+
+          grep -Fq 'Timelock actions must exactly match the approved proposal actions' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: timelock actions are not bound to proposal actions."
+            exit 1
+          }
+
+          grep -Fq 'Fund allocation timelock does not belong to the requested proposal' 'mycelix-governance/zomes/execution/coordinator/src/lib.rs' || {
+            echo "NOT QUALIFIED: fund allocation timelock scope is not checked."
+            exit 1
+          }
+
           echo "PASS: coordinator is prepare-only; provider effects are outside the WASM execution path."

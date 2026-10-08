@@ -9,6 +9,7 @@
 use hdk::prelude::*;
 use mycelix_bridge_proc::{mycelix_zome_fn, sovereign_gated};
 use mycelix_zome_helpers as _;
+use mycelix_zome_helpers::get_latest_record;
 use proposals_integrity::*;
 
 // ============================================================================
@@ -85,6 +86,13 @@ pub fn create_proposal(proposal: Proposal) -> ExternResult<Record> {
         }
     }
 
+    if get_proposal(proposal.id.clone())?.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Proposal ID '{}' already exists",
+            proposal.id
+        ))));
+    }
+
     let signal_id = proposal.id.clone();
     let signal_author = proposal.author.clone();
     let signal_title = proposal.title.clone();
@@ -155,11 +163,29 @@ pub fn get_proposal(proposal_id: String) -> ExternResult<Option<Record>> {
             LinkQuery::try_new(entry_hash, LinkTypes::ProposalById)?,
             GetStrategy::default(),
         ) {
-            if let Some(link) = links.into_iter().max_by_key(|l| l.timestamp) {
-                if let Ok(ah) = ActionHash::try_from(link.target) {
-                    if let Some(record) = get(ah, GetOptions::default())? {
-                        return Ok(Some(record));
+            let mut target: Option<ActionHash> = None;
+            for link in links {
+                let ah = ActionHash::try_from(link.target).map_err(|_| {
+                    wasm_error!(WasmErrorInner::Guest(
+                        "Invalid proposal ID link target".into()
+                    ))
+                })?;
+
+                if let Some(existing) = &target {
+                    if existing != &ah {
+                        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                            "Proposal ID '{}' resolves to multiple distinct proposal sources",
+                            proposal_id
+                        ))));
                     }
+                } else {
+                    target = Some(ah);
+                }
+            }
+
+            if let Some(ah) = target {
+                if let Some(record) = get_latest_record(ah)? {
+                    return Ok(Some(record));
                 }
             }
         }
