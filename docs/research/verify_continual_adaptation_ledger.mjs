@@ -20,12 +20,10 @@ function canonicalRecursive(value) {
   return "{" + keys.map(key => JSON.stringify(key) + ":" + canonicalRecursive(value[key])).join(",") + "}";
 }
 
-function graphDigest(graph) {
-  if (hasNumber(graph)) {
-    throw new Error("numeric scalar found; extend RFC 8785-compatible number handling first");
-  }
+function digest(value) {
+  if (hasNumber(value)) throw new Error("numeric scalar found");
   return "sha256:" + crypto.createHash("sha256")
-    .update(Buffer.from(canonicalRecursive(graph), "utf8"))
+    .update(Buffer.from(canonicalRecursive(value), "utf8"))
     .digest("hex");
 }
 
@@ -36,6 +34,35 @@ function nodeIndex(graph) {
     index.set(node.id, node);
   }
   return index;
+}
+
+function semanticNormalize(graph, policy) {
+  const nodes = nodeIndex(graph);
+  if (!nodes) return null;
+
+  const seenEdges = new Set();
+  for (const edge of graph.edges) {
+    if (!Array.isArray(edge) || edge.length !== 3 || !nodes.has(edge[0]) || !nodes.has(edge[1])) {
+      return null;
+    }
+    const key = edge.join("|");
+    if (policy.graph_canonicalization.reject_duplicate_edges && seenEdges.has(key)) return null;
+    seenEdges.add(key);
+  }
+
+  const normalized = structuredClone(graph);
+  if (policy.graph_canonicalization.node_collection === "unordered-by-id") {
+    normalized.nodes.sort((a,b) => a.id.localeCompare(b.id));
+  }
+  if (policy.graph_canonicalization.edge_collection === "unordered-by-tuple") {
+    normalized.edges.sort((a,b) => canonicalRecursive(a).localeCompare(canonicalRecursive(b)));
+  }
+  return normalized;
+}
+
+function semanticDigest(graph, policy) {
+  const normalized = semanticNormalize(graph, policy);
+  return normalized === null ? "invalid" : digest(normalized);
 }
 
 function edgeSet(graph) {
@@ -58,7 +85,7 @@ function applyMutations(base, mutations) {
     } else if (kind === "remove_edge") {
       const target = JSON.stringify(op[1]);
       const index = graph.edges.findIndex(edge => JSON.stringify(edge) === target);
-      if (index < 0) throw new Error("missing edge: " + target);
+      if (index < 0) throw new Error("missing edge");
       graph.edges.splice(index, 1);
     } else if (kind === "add_node") {
       const node = op[1];
@@ -66,11 +93,13 @@ function applyMutations(base, mutations) {
       graph.nodes.push(node);
     } else if (kind === "add_edge") {
       graph.edges.push(op[1]);
+    } else if (kind === "reverse_collection") {
+      if (op[1] !== "nodes" && op[1] !== "edges") throw new Error("unsupported collection");
+      graph[op[1]].reverse();
     } else {
       throw new Error("unknown mutation operation: " + kind);
     }
   }
-
   return graph;
 }
 
@@ -85,14 +114,15 @@ function verify(graph, policy) {
   }
 
   for (const edge of policy.required_edges) {
-    const key = edge.join("|");
-    if (!edges.has(key) || !nodes.has(edge[0]) || !nodes.has(edge[1])) return "unresolved";
+    if (!edges.has(edge.join("|")) || !nodes.has(edge[0]) || !nodes.has(edge[1])) {
+      return "unresolved";
+    }
   }
 
-  for (const constraint of policy.equality_constraints) {
-    const left = nodes.get(constraint.left[0])?.[constraint.left[1]];
-    const right = nodes.get(constraint.right[0])?.[constraint.right[1]];
-    if (JSON.stringify(left) !== JSON.stringify(right)) return constraint.failure_verdict;
+  for (const c of policy.equality_constraints) {
+    const left = nodes.get(c.left[0])?.[c.left[1]];
+    const right = nodes.get(c.right[0])?.[c.right[1]];
+    if (JSON.stringify(left) !== JSON.stringify(right)) return c.failure_verdict;
   }
 
   for (const rule of policy.fixed_fields) {
@@ -102,23 +132,17 @@ function verify(graph, policy) {
   }
 
   const conflict = policy.result_conflict;
-  const qualifyingResults = graph.nodes.filter(node =>
+  const qualifying = graph.nodes.filter(node =>
     node.type === conflict.node_type &&
-    (
-      node.id === "result" ||
-      edges.has(node.id + "|" + conflict.qualifies_edge_to + "|qualifies")
-    )
+    (node.id === "result" || edges.has(node.id + "|" + conflict.qualifies_edge_to + "|qualifies"))
   );
-  if (qualifyingResults.length > conflict.max_qualifying_results) {
-    return conflict.overflow_verdict;
-  }
+  if (qualifying.length > conflict.max_qualifying_results) return conflict.overflow_verdict;
 
   const dependence = policy.derived_dependence;
-  const hasDerivedCopy = graph.nodes.some(node =>
+  if (graph.nodes.some(node =>
     node.type === dependence.node_type &&
     node[dependence.derived_from_field] === dependence.source_node
-  );
-  if (hasDerivedCopy) return dependence.verdict;
+  )) return dependence.verdict;
 
   return "qualified";
 }
@@ -136,14 +160,18 @@ const failures = [];
 
 for (const testCase of corpus.cases) {
   const graph = applyMutations(corpus.base_graph, testCase.mutation);
-  const digest = graphDigest(graph);
+  const serialized = digest(graph);
+  const semantic = semanticDigest(graph, policy);
   const verdict = verify(graph, policy);
 
-  if (digest !== testCase.expected_graph_digest_sha256) {
-    failures.push([testCase.case_id, "digest", testCase.expected_graph_digest_sha256, digest]);
-  }
-  if (verdict !== testCase.expected_verdict) {
-    failures.push([testCase.case_id, "verdict", testCase.expected_verdict, verdict]);
+  for (const [field, actual] of [
+    ["expected_graph_digest_sha256", serialized],
+    ["expected_semantic_graph_digest_sha256", semantic],
+    ["expected_verdict", verdict]
+  ]) {
+    if (actual !== testCase[field]) {
+      failures.push([testCase.case_id, field, testCase[field], actual]);
+    }
   }
 }
 
