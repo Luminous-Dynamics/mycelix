@@ -36,9 +36,8 @@ ExpectedContributors ==
 
 Init ==
   /\ inputClaims = {Claim1, Claim2}
-  /\ composedAuthority = {}
-  /\ contributorClaims =
-       [cap \in {Capability1, Capability2} |-> {}]
+  /\ composedAuthority = ExpectedAuthority
+  /\ contributorClaims = ExpectedContributors
 
 ComposeClaims ==
   /\ inputClaims # {}
