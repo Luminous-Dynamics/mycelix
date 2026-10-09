@@ -30,7 +30,7 @@ Sweettest and packaging also need separate attention. Holochain 0.7 removes tx5/
 2. Migrate every active integrity zome's `validate` dispatcher and typed validation helpers to the 0.7 `ActionData`, `TypedAction`, and `FlatOp` forms.
 3. Migrate coordinator action/signal decoding and every `SignedActionHashed` consumer to the `header`/`data` model.
 4. Update the Nix/CLI lock to a release-pinned Holochain 0.7 toolchain; verify no conductor config still contains `signal_url`, `webrtc_config`, or WebRTC transport assumptions.
-5. Regenerate Cargo lockfiles with the actual 0.7 toolchain, then run format, workspace compile/tests, packed DNA checks, and multi-conductor Sweettests.
+5. Update Sweettest constructors to `SweetConductor::standard()` / `SweetConductorBatch::standard(n)`; regenerate Cargo lockfiles with the actual 0.7 toolchain, then run format, workspace compile/tests, packed DNA checks, and multi-conductor Sweettests.
 6. Run a fresh-conductor two-agent corpus covering capability grant/revocation and V2 qualification. Keep /chat promotion fail-closed until the protocol-level delivery-completeness witness is independently proved.
 
 ## Security invariants retained during migration
