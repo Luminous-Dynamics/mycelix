@@ -689,7 +689,7 @@
       "kind": "receipt_sequence_range_guard",
       "expected_outcome": "RejectBeforeStateMutation",
       "receipt_sequence": 9223372036854775808,
-      "sqlite_integer_max": 9223372036854776000,
+      "sqlite_integer_max": 9223372036854775807,
       "expected_error": "receipt sequence exceeds SQLite INTEGER range",
       "input_validation_before_recovery": true,
       "anchor_reads_after_attempt": 0,
