@@ -18,7 +18,8 @@ import compound_subsumption_counterexamples as oracle  # noqa: E402
 import delegation_chain_counterexamples as chain_checker  # noqa: E402
 
 CHAIN_SCHEMA = chain_checker.CHAIN_SCHEMA
-FROZEN_MAX_HOPS = 8
+FROZEN_MAX_DELEGATION_DEPTH = 8
+FROZEN_MAX_HOPS = FROZEN_MAX_DELEGATION_DEPTH + 1
 INDEPENDENT_FAILURE_STATUSES = {
     "AUTHORITY_EXPANSION", "POLICY_ATTENUATION_VIOLATION", "UNSUPPORTED_OR_UNDECIDABLE",
 }
@@ -308,8 +309,10 @@ def main() -> int:
         "baseline_cases": [], "mutations": [],
     }
     try:
+        require(chain_checker.MAX_DELEGATION_DEPTH == FROZEN_MAX_DELEGATION_DEPTH,
+                "maximum delegation depth differs from the independently frozen value")
         require(chain_checker.MAX_HOPS == FROZEN_MAX_HOPS,
-                "maximum chain depth differs from the independently frozen value")
+                "maximum token count differs from the independently frozen value")
         receipt["source_head"] = subprocess.run(
             ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
             check=True, timeout=15,
@@ -355,7 +358,8 @@ def main() -> int:
             duplicate_ids_rejected = False
         require(duplicate_ids_rejected, "duplicate delegation-hop IDs were accepted")
         receipt["input_guards"] = {
-            "maximum_hops": FROZEN_MAX_HOPS,
+            "maximum_delegation_depth": FROZEN_MAX_DELEGATION_DEPTH,
+            "maximum_tokens_including_root": FROZEN_MAX_HOPS,
             "over_depth_rejected": True,
             "duplicate_hop_ids_rejected": True,
         }
