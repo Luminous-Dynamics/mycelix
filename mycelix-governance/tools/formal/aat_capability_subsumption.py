@@ -17,6 +17,8 @@ MAX_CONSTRAINT_NODES = 512
 MAX_COMPOSITE_CLAUSES = 128
 MAX_TOOLS_PER_TOKEN = 256
 MAX_CONSTRAINTS_PER_TOOL = 64
+MAX_CONSTRAINT_VALUE_DEPTH = 32
+MAX_CONSTRAINT_VALUE_NODES = 512
 
 CORE_TYPES = {
     "exact", "range", "one_of", "not_one_of", "contains",
@@ -69,13 +71,67 @@ def strict_equal(left: Any, right: Any) -> bool:
 
 
 def _has_nonfinite_number(value: Any) -> bool:
-    if type(value) is float:
-        return not math.isfinite(value)
-    if isinstance(value, list):
-        return any(_has_nonfinite_number(item) for item in value)
-    if isinstance(value, dict):
-        return any(_has_nonfinite_number(item) for item in value.values())
+    """Iterative check so nested untrusted values cannot exhaust Python recursion."""
+    stack = [value]
+    while stack:
+        current = stack.pop()
+        if type(current) is float and not math.isfinite(current):
+            return True
+        if isinstance(current, list):
+            stack.extend(current)
+        elif isinstance(current, dict):
+            stack.extend(current.values())
     return False
+
+
+def _validate_constraint_value_tree(value: Any, *, path: str, constraint_type: str) -> None:
+    """Bound nested JSON values embedded in list-valued core constraints."""
+    stack: list[tuple[Any, int, str]] = [(value, 1, path)]
+    nodes = 0
+    while stack:
+        current, depth, current_path = stack.pop()
+        nodes += 1
+        if nodes > MAX_CONSTRAINT_VALUE_NODES:
+            raise CapabilityError(
+                "constraint-value-node-limit-exceeded",
+                f"constraint values exceed {MAX_CONSTRAINT_VALUE_NODES} JSON nodes",
+                current_path,
+            )
+        if depth > MAX_CONSTRAINT_VALUE_DEPTH:
+            raise CapabilityError(
+                "constraint-value-depth-exceeded",
+                f"constraint values exceed depth {MAX_CONSTRAINT_VALUE_DEPTH}",
+                current_path,
+            )
+        if current is None or type(current) in (bool, int, str):
+            continue
+        if type(current) is float:
+            if not math.isfinite(current):
+                raise CapabilityError(
+                    f"{constraint_type}-value-nonfinite",
+                    f"{constraint_type} values cannot contain non-finite numbers",
+                    current_path,
+                )
+            continue
+        if isinstance(current, list):
+            for index, child in enumerate(current):
+                stack.append((child, depth + 1, f"{current_path}[{index}]"))
+            continue
+        if isinstance(current, dict):
+            for key, child in current.items():
+                if not isinstance(key, str):
+                    raise CapabilityError(
+                        "constraint-value-object-key-invalid",
+                        "constraint JSON object keys must be strings",
+                        current_path,
+                    )
+                stack.append((child, depth + 1, f"{current_path}.{key}"))
+            continue
+        raise CapabilityError(
+            "constraint-value-invalid",
+            "constraint values must be JSON-compatible",
+            current_path,
+        )
 
 
 def _is_scalar(value: Any) -> bool:
@@ -179,12 +235,9 @@ def validate_constraint(constraint: Any, *, path: str = "$",
             _require_exact_members(node, {"constraint_type", member}, current_path)
             if not isinstance(node.get(member), list):
                 raise CapabilityError(f"{ctype}-array-invalid", f"{ctype}.{member} must be an array", current_path)
-            if any(_has_nonfinite_number(value) for value in node[member]):
-                raise CapabilityError(
-                    f"{ctype}-value-nonfinite",
-                    f"{ctype}.{member} cannot contain non-finite numbers",
-                    current_path,
-                )
+            _validate_constraint_value_tree(
+                node[member], path=f"{current_path}.{member}", constraint_type=ctype
+            )
             if ctype in {"one_of", "not_one_of"} and any(
                 not _is_scalar(value) for value in node[member]
             ):
