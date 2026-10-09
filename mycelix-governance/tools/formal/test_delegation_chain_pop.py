@@ -157,12 +157,14 @@ def make_pop(directory: Path, private_path: Path, leaf_jti: str, *,
 
 def invoke(raw: dict[str, Any], anchors: list[dict[str, Any]], pop_token: str,
            db_path: Path, *, tool: Any = TOOL, args: Any = ARGS,
-           expected_audience: str | None = AUDIENCE) -> dict[str, Any]:
-    leaf_jti = "aat-leaf-chain-2"
+           expected_audience: str | None = AUDIENCE,
+           trusted_now: int | None = None) -> dict[str, Any]:
+    enforcement_now = raw["now"] if trusted_now is None else trusted_now
     return pop_verifier.verify_chain_invocation(
         raw, anchors, tool, args, pop_token,
         replay_database=db_path, replay_scope="tools.example.test",
-        expected_audience=expected_audience, openssl_binary=shutil.which("openssl") or "openssl",
+        trusted_now=enforcement_now, expected_audience=expected_audience,
+        openssl_binary=shutil.which("openssl") or "openssl",
     )
 
 
@@ -394,6 +396,34 @@ def main() -> int:
                 "status": unavailable["status"],
                 "finding": expected_code(unavailable),
                 "fail_closed": True,
+            })
+
+            clock_raw, clock_anchors, clock_keys = make_chain(root / "untrusted-clock")
+            # The caller-supplied fixture clock is within the allowed future-iAT
+            # skew for this chain, but the trusted enforcement clock is after
+            # the intermediate and leaf tokens have expired.
+            clock_raw["now"] = NOW - 30
+            clock_proof = make_pop(
+                root / "untrusted-clock", clock_keys[3]["private_path"],
+                "aat-leaf-chain-2", jti="pop-forged-clock", iat=NOW - 30,
+            )
+            clock_result = invoke(
+                clock_raw, clock_anchors, clock_proof,
+                root / "untrusted-clock" / "clock-replay.sqlite3",
+                trusted_now=NOW + 3500,
+            )
+            require(clock_result.get("status") == "INVALID_CHAIN",
+                    "caller-supplied time bypassed the trusted enforcement clock: " +
+                    json.dumps(clock_result, sort_keys=True))
+            chain_findings = clock_result.get("chain_result", {}).get("findings", [])
+            require(any(item.get("code") == "token-expired" for item in chain_findings),
+                    "trusted-clock expiry rejection lacks the expected token-expired finding")
+            receipt["controls"].append({
+                "id": "caller-supplied-clock-cannot-resurrect-expired-chain",
+                "status": clock_result["status"],
+                "trusted_now": NOW + 3500,
+                "untrusted_bundle_now": NOW - 30,
+                "expired_chain_rejected": True,
             })
 
             # Optional-audience profile with neither expected nor presented aud.
