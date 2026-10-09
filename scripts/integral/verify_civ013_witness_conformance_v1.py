@@ -41,6 +41,9 @@ REQUIRED_IDS = {
     "V017-history-same-sequence-equivocation",
     "V018-transition-invalid-tail-shape",
     "V019-untrusted-bootstrap-anchor",
+    "V020-anchor-same-generation-digest-mismatch",
+    "V021-local-commit-awaiting-anchor",
+    "V022-anchor-wrong-log",
 }
 
 
@@ -216,10 +219,26 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         external_generation = vector.get("external_generation")
         if external_generation is None:
             return "REJECT_ANCHOR_UNAVAILABLE"
+        local_log_id = vector.get("local_log_id")
+        external_log_id = vector.get("external_log_id")
+        anchor = vector.get("external_anchor")
+        if external_log_id is not None and local_log_id is not None and external_log_id != local_log_id:
+            return "REJECT_EXTERNAL_ANCHOR_MISMATCH"
+        if isinstance(anchor, dict):
+            if (
+                anchor.get("generation") != external_generation
+                or anchor.get("log_id") != external_log_id
+                or anchor.get("record_digest") != vector.get("external_record_digest")
+            ):
+                return "REJECT_EXTERNAL_ANCHOR_MISMATCH"
         if external_generation > vector["local_generation"]:
             return "REJECT_ROLLBACK_DETECTED"
         if external_generation < vector["local_generation"]:
             return "PENDING_EXTERNAL_ANCHOR"
+        local_digest = vector.get("local_record_digest")
+        external_digest = vector.get("external_record_digest")
+        if local_digest is not None and external_digest is not None and local_digest != external_digest:
+            return "REJECT_EXTERNAL_ANCHOR_MISMATCH"
         return "ACCEPT_RECOVERY"
 
     if kind == "marker_negative":
@@ -311,6 +330,8 @@ def main() -> int:
     manifest_path = ROOT / "docs/integral/civ-013-witness-conformance-v1-manifest.json"
     with manifest_path.open("r", encoding="utf-8") as handle:
         manifest = json.load(handle)
+    if manifest.get("schema_version") != 1:
+        raise SystemExit("FAIL: unsupported manifest schema_version")
     if manifest.get("spec_version") != corpus.get("spec_version"):
         raise SystemExit("FAIL: manifest/fixture spec_version mismatch")
     if manifest.get("source_model_commit") != corpus.get("source_model_commit"):
