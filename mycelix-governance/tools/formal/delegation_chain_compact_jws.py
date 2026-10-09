@@ -137,7 +137,7 @@ def parse_and_validate_header(header_bytes: bytes) -> dict[str, Any]:
         raise VerificationError("unencoded-payload-not-supported", "RFC 7797 b64=false is not supported")
     crit = header.get("crit")
     if crit is not None:
-        if not isinstance(crit, list) or crit:
+        if not isinstance(crit, list) or not crit:
             raise VerificationError("critical-header-unsupported", "critical JWS headers are not supported")
     return header
 
@@ -207,6 +207,20 @@ def _validate_common_claims(claims: dict[str, Any], hop_index: int, now: int) ->
     if not isinstance(auth_details, list):
         raise VerificationError("authorization-details-invalid", f"token[{hop_index}] authorization_details must be an array")
     return iat, exp, depth, max_depth, jti, jwk
+
+
+def verify_issuer_thumbprint(issuer: Any, parent_jwk: dict[str, Any]) -> None:
+    expected = jwk_thumbprint_uri(parent_jwk)
+    if not isinstance(issuer, str) or issuer != expected:
+        raise VerificationError("issuer-thumbprint-mismatch",
+                                "derived iss does not identify the parent's holder key")
+
+
+def verify_parent_par_hash(claims: dict[str, Any], parent_token: str) -> None:
+    expected = b64url_encode(hashlib.sha256(_token_signing_input(parent_token)).digest())
+    if claims.get("par_hash") != expected:
+        raise VerificationError("par-hash-mismatch",
+                                "par_hash does not bind the exact parent JWS signing input")
 
 
 def _aat_entries(auth_details: list[Any]) -> list[dict[str, Any]]:
@@ -321,13 +335,8 @@ def evaluate_compact_chain(raw: dict[str, Any], openssl_binary: str = "openssl")
             if jti in jtis:
                 raise VerificationError("duplicate-jti", f"token[{index}] reuses jti from an earlier chain token")
             jtis.add(jti)
-            if not isinstance(claims.get("iss"), str) or claims["iss"] != jwk_thumbprint_uri(previous_holder_jwk):
-                raise VerificationError("issuer-thumbprint-mismatch",
-                                        f"token[{index}] iss does not identify the parent's holder key")
-            expected_par_hash = b64url_encode(hashlib.sha256(_token_signing_input(previous_token)).digest())
-            if claims.get("par_hash") != expected_par_hash:
-                raise VerificationError("par-hash-mismatch",
-                                        f"token[{index}] par_hash does not bind the exact parent JWS signing input")
+            verify_issuer_thumbprint(claims.get("iss"), previous_holder_jwk)
+            verify_parent_par_hash(claims, previous_token)
             if depth != previous_depth + 1:
                 raise VerificationError("delegation-depth-not-incremented-by-one",
                                         f"token[{index}] del_depth must equal parent depth plus one")
