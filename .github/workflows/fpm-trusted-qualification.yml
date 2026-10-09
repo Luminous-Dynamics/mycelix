@@ -156,11 +156,19 @@ jobs:
           test -z "$(git ls-files -s -- crates/fpm-wasm-artifact-identity | awk '$1 ~ /^120000$/ {print $4}')"
           root_config_hits="$(git ls-files --stage -- .cargo/config .cargo/config.toml || true)"
           test -z "$root_config_hits"
-          test ! -L .cargo
-          test ! -L ../.cargo
-          for config_path in .cargo/config .cargo/config.toml ../.cargo/config ../.cargo/config.toml; do
-            test ! -e "$config_path"
-            test ! -L "$config_path"
+          config_ancestor="$(pwd -P)"
+          while :; do
+            cargo_config_dir="${config_ancestor}/.cargo"
+            test ! -L "$cargo_config_dir"
+            for config_name in config config.toml; do
+              config_path="${cargo_config_dir}/${config_name}"
+              if [ -e "$config_path" ] || [ -L "$config_path" ]; then
+                echo "ambient Cargo config found in invocation ancestry: $config_path" >&2
+                exit 1
+              fi
+            done
+            [ "$config_ancestor" = "/" ] && break
+            config_ancestor="$(dirname -- "$config_ancestor")"
           done
           actual_manifest_sha="$(git hash-object crates/fpm-wasm-artifact-identity/Cargo.toml)"
           test "$actual_manifest_sha" = "$EXPECTED_MANIFEST_BLOB_SHA"
@@ -393,6 +401,9 @@ jobs:
               test ! -e /var/run/docker.sock
               test ! -d /github
               test ! -d /home/runner
+              test ! -L /.cargo
+              test ! -e /.cargo/config
+              test ! -e /.cargo/config.toml
               test -z "$(env | grep '^GITHUB_' || true)"
               cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
           FPM_SANDBOX_SCRIPT
@@ -427,6 +438,9 @@ jobs:
               test ! -e /var/run/docker.sock
               test ! -d /github
               test ! -d /home/runner
+              test ! -L /.cargo
+              test ! -e /.cargo/config
+              test ! -e /.cargo/config.toml
               test ! -d /opt/hostedtoolcache
               test -z "$(env | grep '^GITHUB_' || true)"
               test "$(uname -m)" = "x86_64"
@@ -533,6 +547,9 @@ jobs:
               test ! -e /var/run/docker.sock
               test ! -d /github
               test ! -d /home/runner
+              test ! -L /.cargo
+              test ! -e /.cargo/config
+              test ! -e /.cargo/config.toml
               test ! -d /opt/hostedtoolcache
               test -z "$(env | grep '^GITHUB_' || true)"
               cargo test --locked --offline --no-run --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
@@ -631,6 +648,9 @@ jobs:
               test ! -e /var/run/docker.sock
               test ! -d /github
               test ! -d /home/runner
+              test ! -L /.cargo
+              test ! -e /.cargo/config
+              test ! -e /.cargo/config.toml
               test ! -d /opt/hostedtoolcache
               test -z "$(env | grep '^GITHUB_' || true)"
               test -s /tmp/fpm-target-closure.tsv
