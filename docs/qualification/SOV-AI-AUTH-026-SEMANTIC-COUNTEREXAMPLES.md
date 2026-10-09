@@ -136,3 +136,6 @@ Normative cryptographic verification remains out of scope: the candidate does no
 - AAT draft -01, delegation authority and verification algorithm: https://datatracker.ietf.org/doc/draft-niyikiza-oauth-attenuating-agent-tokens/
 
 The exact-head workflow compiles and runs the key-link checker and uploads `delegation-chain-key-linkage.json`. Qualification remains NOT_CLAIMED until hosted runs finish and exact receipts are inspected.
+
+
+The JWK thumbprint checker also rejects non-canonical base64url encoding of the Ed25519 `x` coordinate: decoding to 32 bytes is not sufficient unless re-encoding without padding yields the exact supplied string. The independent corpus contains an otherwise length-correct but non-canonical coordinate to guard this boundary. Thumbprints use only the RFC 7638 required members, so optional metadata such as `kid` does not alter the thumbprint URI.
