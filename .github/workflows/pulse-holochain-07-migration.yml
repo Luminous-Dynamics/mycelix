@@ -56,3 +56,6 @@ jobs:
 
       - name: Run active zome unit tests
         run: cargo test --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml --workspace
+
+      - name: Compile standalone Sweettest harness (do not run conductor tests yet)
+        run: cargo test --manifest-path mycelix-workspace/mycelix-pulse/tests/Cargo.toml --no-run
