@@ -99,7 +99,7 @@ def independent_accepts(raw: dict[str, Any], value: Any) -> bool:
     if kind == "exact":
         return strict_equal(value, raw["value"])
     if kind == "range":
-        if type(value) not in (int, float) or not math.isfinite(value):
+        if type(value) not in (int, float) or (type(value) is float and not math.isfinite(value)):
             return False
         lo, hi = raw.get("min"), raw.get("max")
         if lo is not None and (value < lo or (value == lo and raw.get("min_inclusive", True) is False)):
@@ -210,8 +210,8 @@ def validation_cases() -> list[tuple[str, Any, str]]:
 
 def attenuation_cases() -> list[tuple[str, dict[str, Any], dict[str, Any], bool]]:
     return [
-        ("same-tool-narrow-constraint", tools_for(exact("a")), tools_for(one_of("a", "b")), True),
-        ("child-adds-tool", tools_for(wildcard()), {"read_file": {}, "delete_file": {}}, False),
+        ("same-tool-narrow-constraint", tools_for(one_of("a", "b")), tools_for(exact("a")), True),
+        ("child-adds-tool", {"read_file": {}}, {"read_file": {}, "delete_file": {}}, False),
         ("constrained-argument-key-added", {"read_file": {"path": exact("a")}},
          {"read_file": {"path": exact("a"), "secret": wildcard()}}, False),
         ("constrained-argument-key-dropped", {"read_file": {"path": exact("a"), "mode": exact("ro")}},
