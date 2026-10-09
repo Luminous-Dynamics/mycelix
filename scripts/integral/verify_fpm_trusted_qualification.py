@@ -223,6 +223,22 @@ def require_hex(value: Any, length: int, field: str) -> str:
         fail(f"{field} is not canonical lowercase hex{length}")
     return value
 
+def require_json_int(value: Any, field: str, minimum: int = 0) -> int:
+    """Require a genuine JSON integer; reject bool and floating-point lookalikes."""
+    if type(value) is not int:
+        fail(f"{field} must be a JSON integer")
+    if value < minimum:
+        fail(f"{field} is below its minimum {minimum}")
+    return value
+
+
+def require_positive_decimal_string(value: Any, field: str, max_digits: int = 20) -> int:
+    """Parse positive decimal IDs only when their wire representation is canonical."""
+    pattern = rf"[1-9][0-9]{{0,{max_digits - 1}}}"
+    if not isinstance(value, str) or not re.fullmatch(pattern, value):
+        fail(f"{field} must be a canonical positive decimal string")
+    return int(value)
+
 
 def require_sha256(value: Any, field: str) -> str:
     return require_hex(value, 64, field)
@@ -775,13 +791,11 @@ def verify_receipt(
         fail("unexpected qualification name")
     if receipt["repository"] != BASE_REPOSITORY:
         fail("receipt repository mismatch")
-    if receipt["repository_id"] != BASE_REPOSITORY_ID:
+    if require_json_int(receipt["repository_id"], "receipt.repository_id", minimum=1) != BASE_REPOSITORY_ID:
         fail("receipt repository_id mismatch")
 
-    pr_number = receipt["pr_number"]
-    if not isinstance(pr_number, str) or not re.fullmatch(r"[1-9][0-9]*", pr_number):
-        fail("invalid receipt pr_number")
-    if int(pr_number) != pr["number"]:
+    pr_number = require_positive_decimal_string(receipt["pr_number"], "receipt.pr_number", max_digits=10)
+    if pr_number != require_json_int(pr.get("number"), "PR number", minimum=1):
         fail("receipt PR number mismatch")
 
     subject_sha = require_hex(receipt["subject_sha"], 40, "subject_sha")
@@ -803,7 +817,7 @@ def verify_receipt(
         fail("receipt trusted policy SHA does not equal trusted workflow run head SHA")
     if trusted_run.get("head_branch") != "main":
         fail("trusted workflow run is not on the default branch")
-    if trusted_run.get("repository", {}).get("id") != BASE_REPOSITORY_ID:
+    if require_json_int(trusted_run.get("repository", {}).get("id"), "trusted workflow repository ID", minimum=1) != BASE_REPOSITORY_ID:
         fail("trusted workflow run repository ID mismatch")
     if receipt["trusted_policy_ref"] != "refs/heads/main":
         fail("receipt trusted policy ref mismatch")
@@ -816,40 +830,52 @@ def verify_receipt(
         "sha256:603634c53d477dd94dd224a3dd5c008e996dd3ec8ccc54ac6af9344d990339e5",
     )
 
-    trusted_run_id = int(receipt["trusted_workflow_run_id"])
-    if trusted_run_id != expected_trusted_run_id:
+    trusted_run_id = require_json_int(receipt["trusted_workflow_run_id"], "receipt.trusted_workflow_run_id", minimum=1)
+    trusted_run_attempt = require_json_int(receipt["trusted_workflow_run_attempt"], "receipt.trusted_workflow_run_attempt", minimum=1)
+    if trusted_run_id != require_json_int(expected_trusted_run_id, "expected trusted workflow run ID", minimum=1):
         fail("trusted workflow run ID mismatch")
-    if int(receipt["trusted_workflow_run_attempt"]) != expected_trusted_run_attempt:
+    if trusted_run_attempt != require_json_int(expected_trusted_run_attempt, "expected trusted workflow run attempt", minimum=1):
         fail("trusted workflow run attempt mismatch")
 
-    if int(receipt["upstream_workflow_run_id"]) != int(candidate_run["id"]):
+    upstream_run_id = require_positive_decimal_string(
+        receipt["upstream_workflow_run_id"], "receipt.upstream_workflow_run_id"
+    )
+    upstream_run_attempt = require_positive_decimal_string(
+        receipt["upstream_workflow_run_attempt"], "receipt.upstream_workflow_run_attempt", max_digits=6
+    )
+    upstream_workflow_id = require_json_int(
+        receipt["upstream_workflow_id"], "receipt.upstream_workflow_id", minimum=1
+    )
+    if upstream_run_id != require_json_int(candidate_run.get("id"), "candidate workflow run ID", minimum=1):
         fail("candidate trigger run ID mismatch")
-    if int(receipt["upstream_workflow_run_attempt"]) != int(candidate_run["run_attempt"]):
+    if upstream_run_attempt != require_json_int(candidate_run.get("run_attempt"), "candidate workflow run attempt", minimum=1):
         fail("candidate trigger run attempt mismatch")
-    if int(receipt["upstream_workflow_id"]) != CANDIDATE_WORKFLOW_ID:
+    if upstream_workflow_id != CANDIDATE_WORKFLOW_ID:
         fail("candidate workflow ID mismatch")
     if receipt["upstream_workflow_path"] != CANDIDATE_WORKFLOW_PATH:
         fail("candidate workflow path mismatch")
     if receipt["upstream_workflow_conclusion"] != candidate_run.get("conclusion", ""):
         fail("candidate workflow conclusion mismatch")
 
-    if candidate_run["id"] != int(receipt["upstream_workflow_run_id"]):
+    if candidate_run["id"] != upstream_run_id:
         fail("candidate trigger run object mismatch")
-    if candidate_run["workflow_id"] != CANDIDATE_WORKFLOW_ID:
+    if require_json_int(candidate_run.get("workflow_id"), "candidate workflow ID", minimum=1) != CANDIDATE_WORKFLOW_ID:
         fail("candidate trigger workflow ID mismatch")
     if candidate_run["path"] != CANDIDATE_WORKFLOW_PATH:
         fail("candidate trigger path mismatch")
     if candidate_run["event"] != "pull_request":
         fail("candidate trigger event mismatch")
-    if candidate_run["head_repository"]["id"] != BASE_REPOSITORY_ID:
+    if require_json_int(candidate_run["head_repository"].get("id"), "candidate head repository ID", minimum=1) != BASE_REPOSITORY_ID:
         fail("candidate trigger repository mismatch")
     if candidate_run["head_sha"] != subject_sha:
         fail("candidate trigger head differs from receipt subject")
-    if candidate_run["run_attempt"] < 1:
-        fail("candidate trigger attempt invalid")
+    # run_attempt was already type-checked and bounded above as part of the
+    # receipt-to-trigger join; do not accept bool/float aliases here.
 
-    if trusted_run["id"] != expected_trusted_run_id:
+    if require_json_int(trusted_run.get("id"), "trusted workflow run ID", minimum=1) != expected_trusted_run_id:
         fail("trusted workflow run object mismatch")
+    if require_json_int(trusted_run.get("run_attempt"), "trusted workflow run attempt", minimum=1) != expected_trusted_run_attempt:
+        fail("trusted workflow run attempt mismatch")
     if trusted_run["name"] != TRUSTED_WORKFLOW_NAME:
         fail("trusted workflow name mismatch")
     if trusted_run["path"] != TRUSTED_WORKFLOW_PATH:
@@ -865,9 +891,9 @@ def verify_receipt(
         fail("PR state is outside GitHub historical PR states")
     if pr["base"]["ref"] != BASE_BRANCH:
         fail("PR base ref mismatch")
-    if pr["base"]["repo"]["id"] != BASE_REPOSITORY_ID:
+    if require_json_int(pr["base"]["repo"].get("id"), "PR base repository ID", minimum=1) != BASE_REPOSITORY_ID:
         fail("PR base repository mismatch")
-    if pr["head"]["repo"]["id"] != BASE_REPOSITORY_ID:
+    if require_json_int(pr["head"]["repo"].get("id"), "PR head repository ID", minimum=1) != BASE_REPOSITORY_ID:
         fail("PR head repository mismatch")
     if pr["head"]["repo"]["full_name"] != BASE_REPOSITORY:
         fail("PR head repository name mismatch")
@@ -916,10 +942,8 @@ def verify_receipt(
         fail("cargo version mismatch")
     if receipt["candidate_execution_profile"] != "fpm-docker-offline-v1":
         fail("unexpected candidate execution profile")
-    if not isinstance(receipt["candidate_uid"], int) or receipt["candidate_uid"] <= 0:
-        fail("invalid candidate UID")
-    if not isinstance(receipt["candidate_gid"], int) or receipt["candidate_gid"] <= 0:
-        fail("invalid candidate GID")
+    require_json_int(receipt["candidate_uid"], "receipt.candidate_uid", minimum=1)
+    require_json_int(receipt["candidate_gid"], "receipt.candidate_gid", minimum=1)
     require_sha256_prefixed(receipt["sandbox_image_digest"], "sandbox_image_digest")
     if receipt["sandbox_image_digest"] != "sha256:603634c53d477dd94dd224a3dd5c008e996dd3ec8ccc54ac6af9344d990339e5":
         fail("unexpected sandbox image digest")
@@ -1067,9 +1091,7 @@ def verify_index(
     if not isinstance(artifact, dict) or set(artifact) != INDEX_ARTIFACT_KEYS:
         fail("index artifact schema mismatch")
 
-    artifact_id = artifact["id"]
-    if not isinstance(artifact_id, int) or artifact_id <= 0:
-        fail("invalid index artifact ID")
+    artifact_id = require_json_int(artifact["id"], "index artifact ID", minimum=1)
     if artifact_id != primary_artifact["id"]:
         fail("index artifact ID mismatch")
     artifact_digest = require_sha256(artifact["sha256_hex"], "index artifact sha256_hex")
@@ -1081,7 +1103,7 @@ def verify_index(
     )
     if artifact["url"] != expected_artifact_url:
         fail("index artifact URL mismatch")
-    if artifact["retention_days"] != 90:
+    if require_json_int(artifact["retention_days"], "index artifact retention_days", minimum=1) != 90:
         fail("unexpected retention policy")
     if artifact["immutable_after_upload"] is not True:
         fail("index does not record artifact immutability")
@@ -1098,7 +1120,7 @@ def verify_index(
         fail("index policy SHA mismatch")
     if index["trusted_policy_blob_sha"] != receipt["trusted_policy_blob_sha"]:
         fail("index policy blob mismatch")
-    if int(index["trusted_workflow_run_id"]) != trusted_run_id:
+    if require_json_int(index["trusted_workflow_run_id"], "index trusted_workflow_run_id", minimum=1) != trusted_run_id:
         fail("index trusted run ID mismatch")
 
 
