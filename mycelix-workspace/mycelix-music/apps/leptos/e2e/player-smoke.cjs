@@ -7,6 +7,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
 const { chromium } = require('playwright');
 
 const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:8121';
@@ -43,8 +44,9 @@ async function main() {
   const pageErrors = [];
   const browser = await chromium.launch({ headless: true });
 
+  let page;
   try {
-    const page = await browser.newPage();
+    page = await browser.newPage();
     page.on('pageerror', error => pageErrors.push(error.message));
 
     await page.route(`${MEDIA_ORIGIN}**`, async route => {
@@ -157,6 +159,28 @@ async function main() {
       mediaRequests: Object.fromEntries(requestCounts),
       pageErrors: pageErrors.length,
     }, null, 2) + '\n');
+  } catch (error) {
+    const evidenceDirectory = process.env.EVIDENCE_DIR || '/tmp/mycelix-player-smoke-evidence';
+    await fs.mkdir(evidenceDirectory, { recursive: true }).catch(() => undefined);
+    if (page && !page.isClosed()) {
+      await page.screenshot({
+        path: `${evidenceDirectory}/failure.png`,
+        fullPage: true,
+      }).catch(() => undefined);
+      const html = await page.content().catch(() => '');
+      await fs.writeFile(`${evidenceDirectory}/failure.html`, html).catch(() => undefined);
+    }
+    const failureReport = {
+      error: error instanceof Error ? `${error.name}: ${error.message}\n${error.stack || ''}` : String(error),
+      url: page ? page.url() : null,
+      mediaRequests: Object.fromEntries(requestCounts),
+      pageErrors,
+    };
+    await fs.writeFile(
+      `${evidenceDirectory}/failure.json`,
+      JSON.stringify(failureReport, null, 2),
+    ).catch(() => undefined);
+    throw error;
   } finally {
     await browser.close();
   }
