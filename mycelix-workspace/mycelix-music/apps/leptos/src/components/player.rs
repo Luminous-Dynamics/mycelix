@@ -32,27 +32,10 @@ fn request_playback(
     if !player.is_playing.get_untracked() {
         return;
     }
-    // Invalidate old play promises before changing/reloading the resource.
-    // Calling play immediately after load preserves the opportunity to begin
-    // playback from the initiating interaction instead of waiting for canplay.
-    let current_src = audio.current_src();
-    let declared_src = audio.src();
-    let (generation, needs_reload) = prepare_play_attempt(
-        attempt_generation.get_untracked(),
-        &current_src,
-        &declared_src,
-        &expected_audio_url,
-    );
+    // Each real play attempt supersedes older pending promises. Source
+    // assignment/loading is owned by the Player effect before calling play().
+    let generation = attempt_generation.get_untracked().wrapping_add(1);
     attempt_generation.set(generation);
-    if needs_reload {
-        if declared_src != expected_audio_url {
-            audio.set_src(&expected_audio_url);
-        }
-        // A non-empty currentSrc for the old URL can persist while the new
-        // src attribute is being selected. Explicit load makes that transition
-        // authoritative; the generation guard ignores AbortError from older plays.
-        audio.load();
-    }
     let expected_hash_for_result = expected_song_hash.clone();
     let expected_url_for_result = expected_audio_url.clone();
 
@@ -98,19 +81,11 @@ fn audio_matches_selected_source(audio: &web_sys::HtmlAudioElement, player: &Pla
     })
 }
 
-/// Advance request generation and decide whether the media element must be
-/// pointed at and reloaded from the selected source before playback is requested.
-fn prepare_play_attempt(
-    current_generation: u64,
-    current_src: &str,
-    declared_src: &str,
-    expected_url: &str,
-) -> (u64, bool) {
-    (
-        current_generation.wrapping_add(1),
-        !media_source_matches_expected(current_src, expected_url)
-            || declared_src != expected_url,
-    )
+/// The Player effect owns the src attribute; reload only when its declared
+/// URL differs from the selected track. This avoids double-load races with
+/// reactive attribute updates.
+fn media_source_needs_load(declared_src: &str, expected_url: &str) -> bool {
+    declared_src != expected_url
 }
 
 /// Return a bounded seek target only when the active resource has a known finite duration.
@@ -178,20 +153,28 @@ pub fn Player() -> impl IntoView {
             }
         }
         last_selected_identity.set(selected_identity);
-        let has_song = selected_song.is_some();
         let should_play = is_playing.get();
         if let Some(audio) = audio_ref.get() {
-            if has_song && should_play {
-                request_playback(audio, player_for_effect.clone(), play_attempt_generation);
-            } else {
-                // A cleared selection must stop playback and reset the real media
-                // playhead as well as the reactive progress signal. Without this,
-                // quickly re-selecting the same URL can resume from the old time.
-                // Preserve the playhead on an ordinary pause while a song remains selected.
-                let _ = audio.pause();
-                if !has_song {
-                    audio.set_current_time(0.0);
+            if let Some(song) = selected_song.as_ref() {
+                let expected_url = song.audio_url();
+                if media_source_needs_load(&audio.src(), &expected_url) {
+                    // Imperatively own source selection before requesting play.
+                    // This avoids depending on the order of two reactive effects.
+                    audio.set_src(&expected_url);
+                    audio.load();
                 }
+                if should_play {
+                    request_playback(audio, player_for_effect.clone(), play_attempt_generation);
+                } else {
+                    let _ = audio.pause();
+                }
+            } else {
+                // A cleared selection stops playback, releases the previous
+                // resource, and resets the physical and reactive playheads.
+                let _ = audio.pause();
+                let _ = audio.remove_attribute("src");
+                audio.load();
+                audio.set_current_time(0.0);
             }
         }
     });
@@ -445,9 +428,10 @@ pub fn Player() -> impl IntoView {
             // Keep one media element mounted across song and queue transitions.
             // Removing src when no song is selected avoids loading the page URL,
             // and gives clear-queue transitions a stable element to pause.
+            // Source selection is deliberately owned by the Player effect,
+            // so src updates and play() ordering cannot race each other.
             <audio
                 node_ref=audio_ref
-                src=move || current.get().map(|song| song.audio_url())
                 prop:volume=move || volume.get()
                 preload="metadata"
                 on:canplay=start_when_ready
@@ -488,53 +472,26 @@ mod media_source_guard_tests {
 }
 
 #[cfg(test)]
-mod play_attempt_admission_tests {
-    use super::prepare_play_attempt;
+mod media_source_reload_tests {
+    use super::media_source_needs_load;
 
     #[test]
-    fn waiting_for_empty_source_still_invalidates_older_attempts() {
-        let (generation, needs_reload) =
-            prepare_play_attempt(41, "", "", "https://ipfs.io/ipfs/QmSong");
-
-        assert_eq!(generation, 42);
-        assert!(needs_reload);
+    fn empty_declared_source_requires_load() {
+        assert!(media_source_needs_load("", "https://ipfs.io/ipfs/QmSong"));
     }
 
     #[test]
-    fn requested_source_can_start_before_current_src_is_populated() {
-        let expected = "https://ipfs.io/ipfs/QmSong";
-        let (generation, needs_reload) = prepare_play_attempt(8, "", expected, expected);
-
-        assert_eq!(generation, 9);
-        assert!(needs_reload);
-    }
-
-    #[test]
-    fn waiting_for_stale_source_still_invalidates_older_attempts() {
-        let (generation, needs_reload) = prepare_play_attempt(
-            41,
+    fn different_declared_source_requires_load() {
+        assert!(media_source_needs_load(
             "https://ipfs.io/ipfs/QmOld",
-            "https://ipfs.io/ipfs/QmNew",
-            "https://ipfs.io/ipfs/QmNew",
-        );
-
-        assert_eq!(generation, 42);
-        assert!(needs_reload);
+            "https://ipfs.io/ipfs/QmNew"
+        ));
     }
-}
-
-#[cfg(test)]
-mod play_attempt_reload_tests {
-    use super::prepare_play_attempt;
 
     #[test]
-    fn matching_active_and_declared_source_does_not_reload() {
+    fn matching_declared_source_does_not_reload() {
         let expected = "https://ipfs.io/ipfs/QmSong";
-        let (generation, needs_reload) =
-            prepare_play_attempt(8, expected, expected, expected);
-
-        assert_eq!(generation, 9);
-        assert!(!needs_reload);
+        assert!(!media_source_needs_load(expected, expected));
     }
 }
 
