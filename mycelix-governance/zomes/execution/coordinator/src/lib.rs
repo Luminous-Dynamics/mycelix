@@ -170,6 +170,7 @@ pub fn create_timelock(input: CreateTimelockInput) -> ExternResult<Record> {
         ),
         status: TimelockStatus::Pending,
         cancellation_reason: None,
+        prepared_from_action_hash: None,
     };
 
     let tl_id = timelock.id.clone();
@@ -370,6 +371,7 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         timelock_id: input.timelock_id.clone(),
         proposal_id: current_timelock.proposal_id.clone(),
         executor: input.executor_did,
+        authorized_timelock_action_hash: Some(current_record.action_address().clone()),
         status: ExecutionStatus::Prepared,
         result: None,
         error: None,
@@ -404,6 +406,7 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         expires: current_timelock.expires,
         status: TimelockStatus::Prepared,
         cancellation_reason: None,
+        prepared_from_action_hash: Some(current_record.action_address().clone()),
     };
 
     update_entry(
