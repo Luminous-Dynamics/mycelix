@@ -211,3 +211,23 @@ This aligns the candidate's explicit verification profile with the semantics of 
 - RFC 7638: optional JWK members are excluded from thumbprint computation: https://www.rfc-editor.org/rfc/rfc7638
 
 This remains a bounded candidate. The exact-head hosted run and aggregate receipt must pass before these controls are considered executed evidence; no production qualification is claimed.
+
+
+## Invocation-bound proof-of-possession candidate
+
+The new `delegation_chain_pop.py` entry point calls the compact-AAT chain verifier first and refuses to evaluate PoP if that chain does not pass. After successful chain verification it re-reads the authenticated leaf claims, validates the leaf capability against the requested invocation, verifies a separate Ed25519 compact PoP JWT under the leaf `cnf.jwk`, and checks the PoP's `aat_id`, exact `aat_tool`, canonical `hta` versus actual invocation arguments, timestamp window, and configured audience policy.
+
+The proof's `jti` is then consumed inside a SQLite `BEGIN IMMEDIATE` transaction with a unique key, so concurrent consumers of the same proof in that database/scope cannot both insert it. At rest, the replay key stores SHA-256 of the PoP `jti`, not the raw identifier. Consumed identifiers are not automatically purged by this candidate: deleting an expired row could allow the same `jti` to be reused later. Retention/compaction must therefore be managed without making identifiers reusable. Deployments that require fleet-wide replay protection must provide a durable transactional replay store shared by every enforcement point and configure a stable deployment-wide `replay_scope`; this candidate has only been designed and tested against a local SQLite file.
+
+The harness generates temporary Ed25519 keys, signed AAT chains and signed PoP JWTs via OpenSSL. It covers two positive profiles (audience required and audience omitted when not configured), 19 denial/replay controls, and four deliberate omissions (signature check, invocation binding, canonical-payload check, and replay consumption). The aggregate now requires this receipt, validates its checker/test/fixture source hashes, freezes all four mutation IDs and the expected control counts, and includes two additional aggregate-mutation tests for a missing PoP receipt and weakened PoP mutation count.
+
+### Explicit PoP and canonicalization boundaries
+
+The AAT Internet-Draft requires a separate signed PoP JWT bound to the leaf token's `jti`, exact tool identifier and invocation argument map; it requires the payload to be JCS-canonical, an optional-but-profile-enforceable audience, a clock window, and stateful `jti` tracking for side-effecting invocations (draft -01, §§5.2–5.3, 7). This candidate is intentionally stricter/narrower in several local-profile choices: it permits only EdDSA/Ed25519, accepts a PoP `typ` only when absent or one of the two documented local profile values, rejects unrecognized PoP claims, and limits canonicalizable JSON to BMP Unicode and safe integers with **no floating-point values**. It is not a full RFC 8785 JCS implementation; any invocation outside that subset fails closed rather than being claimed interoperable.
+
+The function returns `INVOCATION_POP_VERIFIED_CANDIDATE_PASS`, not a dispatch command or a production authorization certificate. It does not perform a tool side effect, roll back a side effect, prove multi-host database semantics, or establish that the enforcement point's replay scope is configured correctly. The implementation and its signed fixtures are research/specification evidence only:
+- AAT draft -01 PoP structure and verification: https://datatracker.ietf.org/doc/html/draft-niyikiza-oauth-attenuating-agent-tokens-01
+- RFC 8785, JSON Canonicalization Scheme: https://www.rfc-editor.org/rfc/rfc8785
+- RFC 7515, JSON Web Signature compact serialization/signing input: https://www.rfc-editor.org/rfc/rfc7515
+
+Hosted exact-head execution and receipt review are still required before reporting any test as passed; production qualification remains NOT_CLAIMED.
