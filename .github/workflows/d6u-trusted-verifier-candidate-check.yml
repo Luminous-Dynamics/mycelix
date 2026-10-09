@@ -165,7 +165,7 @@ jobs:
             printf 'run_id=%s\n' "$GITHUB_RUN_ID"
             printf 'run_attempt=%s\n' "$GITHUB_RUN_ATTEMPT"
             printf '%s\n' "claim_ceiling=ReferenceModelOnly"
-            printf '%s\n' "evaluation_scope=policy-fingerprint,workflow-and-five-program-closure,canonical-path-and-symlink-containment,alias-pin-consistency,provenance-binding,artifact-integrity,redirect-safety,optimized-mode-refusal"
+            printf '%s\n' "evaluation_scope=policy-fingerprint,workflow-and-five-program-closure,canonical-path-and-symlink-containment,candidate-root-identity-and-cli-path-preservation,alias-pin-consistency,provenance-binding,artifact-integrity,redirect-safety,optimized-mode-refusal"
             printf '%s\n' "container_image=python:3.12-slim-bookworm@sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4"
           } > d6u-independent-verifier-result.txt
           receipt_sha256="$(sha256sum d6u-independent-verifier-result.txt | cut -d ' ' -f 1)"
