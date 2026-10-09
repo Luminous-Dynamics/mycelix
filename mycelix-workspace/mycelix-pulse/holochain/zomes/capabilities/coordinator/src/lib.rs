@@ -84,9 +84,16 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
 
     // Holochain's host-generated 512-bit secret is the only supported source of
     // capability secrets. Never persist it in the application/DHT entry.
-    let id = format!("cap_{}_{}", my_agent, now.as_micros());
     let secret = generate_cap_secret()?;
     let secret_hash = Sha256::digest(secret.as_ref()).to_vec();
+    // The host-generated secret adds collision resistance even if two grant
+    // transactions share the same timestamp resolution.
+    let entropy_suffix = secret_hash
+        .iter()
+        .take(8)
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    let id = format!("cap_{}_{}_{}", my_agent, now.as_micros(), entropy_suffix);
     let functions = determine_granted_functions(
         &input.access_type,
         &input.permissions,
