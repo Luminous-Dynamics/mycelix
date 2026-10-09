@@ -395,6 +395,8 @@ def main() -> int:
                 "aggregate-guard-count-weakened",
                 "aggregate-guard-identity-substituted",
             )
+            require(tuple(mutations) == FROZEN_AGGREGATE_MUTATIONS,
+                    "executed aggregate mutations differ from independently frozen inventory")
             for name in mutations:
                 candidate_root = Path(temporary) / name
                 synthetic_receipts(candidate_root)
