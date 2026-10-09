@@ -38,5 +38,26 @@
     "F3 can score an earlier attempt but cannot rewrite F0/F1 decision bytes.",
     "Outcome observation does not establish causality.",
     "A reported successful attempt is not outcome evidence."
+  ],
+  "frontier_cutoff_utc": "2026-06-01T16:32:00Z",
+  "added_sources": [
+    {
+      "source_ref": "source:independent-arrival-audit",
+      "source_kind": "synthetic-arrival-audit",
+      "source_scope": "shipment-A-17 destination arrival",
+      "trust_status": "UnassessedUnderProfile",
+      "source_dependency_status": "DeclaredIndependentUnderSyntheticProfile"
+    }
+  ],
+  "added_artifacts": [
+    {
+      "artifact_ref": "artifact:arrival-audit-B-01-20260601T1630Z",
+      "source_ref": "source:independent-arrival-audit",
+      "captured_at_utc": "2026-06-01T16:32:00Z",
+      "media_type": "application/json",
+      "content_digest_ref": "digest:synthetic-arrival-audit-01",
+      "exact_selector": "$.arrival_audit.destination_observed",
+      "selector_profile": "jsonpath-subset-v1"
+    }
   ]
 }
