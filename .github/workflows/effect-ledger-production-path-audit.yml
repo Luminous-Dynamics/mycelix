@@ -209,6 +209,16 @@ jobs:
             echo "NOT QUALIFIED: exact timelock predecessor mismatch lacks a regression test."
             exit 1
           }
+
+          grep -Fq 'test_new_timelock_cannot_self_assert_preparation_predecessor' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: initial Timelock can self-assert a preparation predecessor."
+            exit 1
+          }
+
+          grep -Fq 'test_execution_requires_exact_authorized_timelock_hash' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: Execution can omit the exact Ready Timelock authorization root."
+            exit 1
+          }
           grep -Fq 'ExecutionResolutionBindingV1' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
             echo "NOT QUALIFIED: proof roots are not grouped into typed per-action bindings."
             exit 1
