@@ -300,7 +300,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::HybridKeyBundleV2(_) => Ok(ValidateCallbackResult::Invalid(
                     "Hybrid V2 bundles are immutable; publish a successor bundle".into(),
                 )),
-                _ => Ok(ValidateCallbackResult::Valid),
+                _ => Ok(ValidateCallbackResult::Invalid(
+                    "Only pre-key bundles have a supported update path".to_string(),
+                )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
