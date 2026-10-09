@@ -929,6 +929,77 @@ enum CapabilityProbeResult {
     FunctionNotGranted,
 }
 
+/// A send-only capability must not report Unauthorized merely because the
+/// inbox-read probe calls a function that was never granted.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain 0.7 conductor (nix develop)"]
+async fn test_capability_probe_reports_function_not_granted_for_send_only_capability() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
+
+    let (alice, bob) = conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    let mut permissions = MailboxPermissionsInput::default();
+    permissions.can_send = true;
+    let grant_input = GrantCapabilityInput {
+        grantee: bob.agent_pubkey().clone(),
+        access_type: MailboxAccessTypeInput::SendAs,
+        permissions,
+        restrictions: None,
+        expires_at: None,
+    };
+
+    let capability_hash: ActionHash = conductor
+        .call_fallible(
+            &alice.zome("mail_capabilities"),
+            "grant_capability",
+            grant_input,
+        )
+        .await
+        .expect("Alice should create a send-only assigned capability");
+
+    let mut delivered = false;
+    for attempt in 0..30 {
+        let result: Result<(), _> = conductor
+            .call_fallible(
+                &alice.zome("mail_capabilities"),
+                "deliver_capability_grant",
+                capability_hash.clone(),
+            )
+            .await;
+        match result {
+            Ok(()) => {
+                delivered = true;
+                break;
+            }
+            Err(error) if attempt == 29 => {
+                panic!("Send-only capability delivery was not acknowledged: {error:?}");
+            }
+            Err(_) => tokio::time::sleep(std::time::Duration::from_millis(100)).await,
+        }
+    }
+    assert!(delivered, "recipient must acknowledge the private CapClaim");
+
+    let probe: CapabilityProbeResult = conductor
+        .call_fallible(
+            &bob.zome("mail_capabilities"),
+            "probe_remote_capability",
+            capability_hash,
+        )
+        .await
+        .expect("an unsupported inbox probe should return a typed result");
+
+    assert_eq!(
+        probe,
+        CapabilityProbeResult::FunctionNotGranted,
+        "send-only authority is different from a revoked inbox-read grant"
+    );
+}
+
 /// Capability grant/revoke lifecycle: prove conductor authorization changes,
 /// not merely an application-level revoked flag.
 #[tokio::test(flavor = "multi_thread")]
