@@ -29,7 +29,7 @@ X_VALUES = [
     "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
     "rAl9xvTDAeUADPnIWlGpFHtGg4Y8OqcQE5N4XYNdLPs",
     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
 ]
 
 
@@ -44,6 +44,8 @@ def independent_uri(jwk: Any) -> str:
     decoded = base64.urlsafe_b64decode(x + "=")
     if len(decoded) != 32:
         raise ValueError("wrong Ed25519 public-key length")
+    if base64.urlsafe_b64encode(decoded).rstrip(b"=").decode("ascii") != x:
+        raise ValueError("noncanonical x encoding")
     required = {"crv": "Ed25519", "kty": "OKP", "x": x}
     canonical = json.dumps(required, sort_keys=True, separators=(",", ":"),
                            ensure_ascii=False, allow_nan=False).encode("utf-8")
@@ -156,6 +158,10 @@ def bad_cases() -> dict[str, dict[str, Any]]:
     raw = fixture()
     raw["hops"][2]["claims"]["cnf"]["jwk"]["crv"] = "P-256"
     cases["unsupported-key-profile"] = raw
+
+    raw = fixture()
+    raw["hops"][2]["claims"]["cnf"]["jwk"]["x"] = "B" * 43
+    cases["noncanonical-coordinate-encoding"] = raw
 
     raw = fixture()
     del raw["hops"][2]["claims"]["iss"]
