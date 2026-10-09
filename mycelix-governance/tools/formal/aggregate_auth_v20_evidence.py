@@ -185,7 +185,7 @@ def main() -> int:
             "lower-pair-request-count", "remove-compound-operator", "remove-required-invariant",
             "enable-randomized-generation", "duplicate-atom-identifier",
         )
-        require(tuple(matrix_guard.get("rejected_mutations", [])) == expected_matrix_mutations,
+        require(tuple(matrix_guard.get("mutations_rejected", [])) == expected_matrix_mutations,
                 "frozen manifest mutation guard rejected a different mutation inventory")
 
         expected_mutants = {
@@ -216,8 +216,18 @@ def main() -> int:
                     f"{relative_path}: at least one expected mutation lacks a positive detection marker")
 
         control_raw = json.loads((args.evidence_root / "auth-v20-evidence/receipt.json").read_text(encoding="utf-8"))
-        require(len(control_raw.get("controls", [])) == 11,
-                "bounded policy oracle did not execute all 11 frozen controls")
+        expected_policy_control_ids = (
+            "actual-authority-expansion", "structural-false-negative",
+            "clause-order-forward", "clause-order-reverse", "unsupported-extension",
+            "deny-deletion-expansion", "deny-addition-restriction",
+            "deny-removal-no-effective-expansion", "allow-expansion-masked-by-deny",
+            "conflict-rule-substitution", "unsupported-extension-in-deny",
+        )
+        observed_policy_control_ids = [
+            row.get("id") for row in control_raw.get("controls", []) if isinstance(row, dict)
+        ]
+        require(observed_policy_control_ids == list(expected_policy_control_ids),
+                "bounded policy oracle control identities/order differ from the frozen inventory")
         chain_policy = json.loads((args.evidence_root /
             "auth-v20-chain-evidence/delegation-chain-differential.json").read_text(encoding="utf-8"))
         chain_policy_summary = chain_policy.get("summary", {})
