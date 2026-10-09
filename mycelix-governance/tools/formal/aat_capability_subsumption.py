@@ -67,7 +67,9 @@ def strict_equal(left: Any, right: Any) -> bool:
 
 
 def _is_scalar(value: Any) -> bool:
-    return _kind(value) in {"null", "boolean", "string", "number"}
+    if _kind(value) == "number":
+        return type(value) is int or (type(value) is float and math.isfinite(value))
+    return _kind(value) in {"null", "boolean", "string"}
 
 
 def _is_finite_number(value: Any) -> bool:
