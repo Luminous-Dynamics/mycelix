@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import copy
 import hashlib
 import json
@@ -24,6 +26,18 @@ EXPECTED_INSTALL_LIFECYCLE_PACKAGES = {
     "node_modules/fsevents",
     "node_modules/unrs-resolver",
 }
+
+
+def valid_sha512_token(token: str) -> bool:
+    """Accept only canonical base64 SHA-512 SRI tokens (64 decoded bytes)."""
+    if not SRI_TOKEN.fullmatch(token):
+        return False
+    encoded_digest = token.split("-", 1)[1].split("?", 1)[0]
+    try:
+        decoded = base64.b64decode(encoded_digest, validate=True)
+    except (binascii.Error, ValueError):
+        return False
+    return len(decoded) == 64 and base64.b64encode(decoded).decode("ascii") == encoded_digest
 
 
 def parse_object(raw: str, label: str) -> dict:
@@ -100,8 +114,8 @@ def verify_contract(package_raw: str, lock_raw: str) -> dict:
         if not isinstance(integrity, str) or not integrity.strip():
             raise InputContractError(f"package entry lacks an integrity hash: {key}")
         tokens = integrity.split()
-        if not tokens or any(not SRI_TOKEN.fullmatch(token) for token in tokens):
-            raise InputContractError(f"package entry must have SHA-512 integrity metadata: {key}")
+        if not tokens or any(not valid_sha512_token(token) for token in tokens):
+            raise InputContractError(f"package entry must have canonical SHA-512 integrity metadata: {key}")
         sha512_integrity_count += 1
 
         if entry.get("hasInstallScript") is True:
@@ -142,6 +156,7 @@ def run_self_tests(package_raw: str, lock_raw: str) -> list[dict]:
     lock = parse_object(lock_raw, "package-lock.json")
     tests: list[tuple[str, str, str]] = []
 
+    tests.append(("malformed_package_json", "{", lock_raw))
     tests.append(("malformed_lock_json", package_raw, "{"))
 
     missing_integrity = copy.deepcopy(lock)
@@ -152,6 +167,30 @@ def run_self_tests(package_raw: str, lock_raw: str) -> list[dict]:
     weak_integrity = copy.deepcopy(lock)
     weak_integrity["packages"][resolved_key]["integrity"] = "sha1-AbCdEf=="
     tests.append(("weak_integrity_algorithm", package_raw, json.dumps(weak_integrity)))
+
+    malformed_digest = copy.deepcopy(lock)
+    malformed_digest["packages"][resolved_key]["integrity"] = "sha512-AAAA=="
+    tests.append(("invalid_sha512_digest_length", package_raw, json.dumps(malformed_digest)))
+
+    missing_resolved = copy.deepcopy(lock)
+    missing_resolved["packages"][resolved_key].pop("resolved", None)
+    tests.append(("missing_resolved_source", package_raw, json.dumps(missing_resolved)))
+
+    bad_scheme = copy.deepcopy(lock)
+    bad_scheme["packages"][resolved_key]["resolved"] = (
+        bad_scheme["packages"][resolved_key]["resolved"].replace(
+            "https://registry.npmjs.org/", "http://registry.npmjs.org/", 1
+        )
+    )
+    tests.append(("non_https_source", package_raw, json.dumps(bad_scheme)))
+
+    credential_url = copy.deepcopy(lock)
+    credential_url["packages"][resolved_key]["resolved"] = (
+        credential_url["packages"][resolved_key]["resolved"].replace(
+            "https://registry.npmjs.org/", "https://attacker@registry.npmjs.org/", 1
+        )
+    )
+    tests.append(("registry_url_credentials", package_raw, json.dumps(credential_url)))
 
     bad_registry = copy.deepcopy(lock)
     bad_registry["packages"][resolved_key]["resolved"] = (
@@ -177,6 +216,10 @@ def run_self_tests(package_raw: str, lock_raw: str) -> list[dict]:
     lifecycle_mutation = copy.deepcopy(lock)
     lifecycle_mutation["packages"]["node_modules/esbuild"].pop("hasInstallScript", None)
     tests.append(("install_lifecycle_metadata_drift", package_raw, json.dumps(lifecycle_mutation)))
+
+    unexpected_lifecycle = copy.deepcopy(lock)
+    unexpected_lifecycle["packages"]["node_modules/zod"]["hasInstallScript"] = True
+    tests.append(("unexpected_install_lifecycle_script", package_raw, json.dumps(unexpected_lifecycle)))
 
     results: list[dict] = []
     for label, package_input, lock_input in tests:
