@@ -207,12 +207,43 @@ def mismatch_for(raw: dict[str, Any], result: dict[str, Any] | None = None) -> d
     return None
 
 
+def control_signature(result: dict[str, Any]) -> dict[str, Any]:
+    counterexample = result.get("counterexample", {})
+    return {
+        "status": result.get("status"),
+        "denotational_containment": result.get("denotational_containment"),
+        "structural_pass": result.get("structural", {}).get("pass"),
+        "matching": result.get("structural", {}).get("matching", {}),
+        "request": counterexample.get("request"),
+    }
+
+
+def permutation_mismatch_for(raw: dict[str, Any]) -> dict[str, Any] | None:
+    permuted = copy.deepcopy(raw)
+    permuted["parent"]["clauses"].reverse()
+    permuted["child"]["clauses"].reverse()
+    original_result = oracle.evaluate_scenario(raw)
+    permuted_result = oracle.evaluate_scenario(permuted)
+    original_signature = control_signature(original_result)
+    permuted_signature = control_signature(permuted_result)
+    if original_signature != permuted_signature:
+        return {
+            "kind": "clause-order-permutation-changed-result",
+            "prior_signature": original_signature,
+            "permuted_signature": permuted_signature,
+        }
+    return None
+
+
 def minimize_counterexample(raw: dict[str, Any], failure_kind: str) -> dict[str, Any]:
     """Deterministic delta reduction; preserve the same mismatch category."""
     reduced = copy.deepcopy(raw)
 
     def retains(candidate: dict[str, Any]) -> bool:
-        mismatch = mismatch_for(candidate)
+        if failure_kind == "clause-order-permutation-changed-result":
+            mismatch = permutation_mismatch_for(candidate)
+        else:
+            mismatch = mismatch_for(candidate)
         return mismatch is not None and mismatch.get("kind") == failure_kind
 
     for side in ("parent", "child"):
@@ -332,7 +363,10 @@ def main() -> int:
                 if mismatch is not None:
                     first_mismatch = {"mismatch": mismatch, "scenario": raw, "observed_result": observed}
                     first_mismatch["minimized_scenario"] = minimize_counterexample(raw, mismatch["kind"])
-                    first_mismatch["minimized_mismatch"] = mismatch_for(first_mismatch["minimized_scenario"])
+                    first_mismatch["minimized_mismatch"] = (
+                        mismatch_for(first_mismatch["minimized_scenario"])
+                        or permutation_mismatch_for(first_mismatch["minimized_scenario"])
+                    )
                     break
                 counts[observed["status"]] += 1
                 if observed["status"] not in first_samples:
@@ -352,7 +386,10 @@ def main() -> int:
                         "observed_result": observed}
                     first_mismatch["minimized_scenario"] = minimize_counterexample(
                         raw, "clause-order-permutation-changed-result")
-                    first_mismatch["minimized_mismatch"] = mismatch_for(first_mismatch["minimized_scenario"])
+                    first_mismatch["minimized_mismatch"] = (
+                        mismatch_for(first_mismatch["minimized_scenario"])
+                        or permutation_mismatch_for(first_mismatch["minimized_scenario"])
+                    )
                     break
                 seen_permutation_signatures[pair_key] = encoded
             if first_mismatch is not None:
