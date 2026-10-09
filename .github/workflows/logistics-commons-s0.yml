@@ -27,7 +27,7 @@ jobs:
       QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout exact tested source
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.QUALIFIED_SHA }}
           persist-credentials: false
@@ -89,6 +89,7 @@ jobs:
           import hashlib
           import json
           import os
+          import re
           from pathlib import Path
 
           artifact_path = Path(os.environ["ARTIFACT_PATH"])
@@ -125,6 +126,12 @@ jobs:
           if outcome_total != summary["orders"]:
               raise SystemExit(f"FAIL: outcome total {outcome_total} != orders {summary['orders']}")
 
+          workflow_text = Path(".github/workflows/logistics-commons-s0.yml").read_text(encoding="utf-8")
+          action_refs = re.findall(r"uses:\s*(actions/(?:checkout|upload-artifact)@[0-9a-f]{40})", workflow_text)
+          checkout_refs = [reference for reference in action_refs if reference.startswith("actions/checkout@")]
+          upload_refs = [reference for reference in action_refs if reference.startswith("actions/upload-artifact@")]
+          if len(checkout_refs) != 1 or len(upload_refs) != 1:
+              raise SystemExit("FAIL: expected exactly one full-SHA checkout and artifact-upload action")
           receipt = {
               "schema": "logistics-commons-s0/qualification-receipt-v1",
               "source_commit": os.environ["QUALIFIED_SHA"],
@@ -144,6 +151,10 @@ jobs:
                   "host": os.environ["RUSTC_HOST"],
               },
               "git_blob_sha_workflow": os.environ["WORKFLOW_BLOB_SHA"],
+              "actions": {
+                  "checkout": checkout_refs[0],
+                  "upload_artifact": upload_refs[0],
+              },
               "sha256_cargo_lock": os.environ["CARGO_LOCK_SHA"],
               "sha256_scenario_manifest": os.environ["MANIFEST_SHA"],
               "sha256_scenario_artifact": os.environ["ARTIFACT_SHA"],
