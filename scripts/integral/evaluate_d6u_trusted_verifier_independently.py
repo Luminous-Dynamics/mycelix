@@ -26,6 +26,9 @@ import sys
 from unittest.mock import patch
 
 
+EXPECTED_TRUSTED_POLICY_BLOB = "f7c7581017cc5773243a2d25093e5de3cd522e2e"
+
+
 def load_module(path: pathlib.Path):
     spec = importlib.util.spec_from_file_location("candidate_d6u_verifier", path)
     if spec is None or spec.loader is None:
@@ -198,6 +201,15 @@ def valid_record() -> dict[str, str]:
 def git_blob_sha1(content: bytes) -> str:
     header = f"blob {len(content)}\0".encode("utf-8")
     return hashlib.sha1(header + content).hexdigest()
+
+
+def verify_candidate_policy_blob(content: bytes) -> str:
+    observed = git_blob_sha1(content)
+    assert observed == EXPECTED_TRUSTED_POLICY_BLOB, (
+        "candidate trusted policy blob mismatch: "
+        f"expected={EXPECTED_TRUSTED_POLICY_BLOB}, observed={observed}"
+    )
+    return observed
 
 
 def verify_candidate_policy(
@@ -1131,6 +1143,10 @@ def run(candidate_root: pathlib.Path) -> None:
     verifier_path = candidate_root / "scripts/integral/verify_d6u_trusted_artifacts.py"
     fetcher_path = candidate_root / "scripts/integral/fetch_d6u_trusted_artifact.py"
     workflow_path = candidate_root / ".github/workflows/d6u-trusted-evidence-attestation.yml"
+    policy_path = candidate_root / "docs/integral/d6u-trusted-builder-policy.json"
+    assert policy_path.is_file() and not policy_path.is_symlink(), (
+        f"candidate trusted policy missing or symlinked: {policy_path}"
+    )
     assert verifier_path.is_file() and not verifier_path.is_symlink(), (
         f"candidate verifier missing or symlinked: {verifier_path}"
     )
@@ -1145,8 +1161,14 @@ def run(candidate_root: pathlib.Path) -> None:
     fetcher = load_module(fetcher_path)
 
     p = policy()
-    policy_path = candidate_root / "docs/integral/d6u-trusted-builder-policy.json"
-    candidate_policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    policy_bytes = policy_path.read_bytes()
+    verify_candidate_policy_blob(policy_bytes)
+    assert_rejected(
+        lambda: verify_candidate_policy_blob(policy_bytes + b"\\n"),
+        "candidate trusted policy blob mismatch",
+        "candidate policy fingerprint accepted a byte-modified policy",
+    )
+    candidate_policy = json.loads(policy_bytes.decode("utf-8"))
     observed_verifier_blob = git_blob_sha1(verifier_path.read_bytes())
     observed_fetcher_blob = git_blob_sha1(fetcher_path.read_bytes())
     observed_workflow_blob = git_blob_sha1(workflow_path.read_bytes())
