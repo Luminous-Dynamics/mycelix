@@ -270,6 +270,7 @@ def exercise_candidate_path_guard() -> None:
         (candidate_root / "scripts").symlink_to(
             outside_root, target_is_directory=True
         )
+        (candidate_root / "leaf.py").symlink_to(outside_file)
 
         assert_rejected(
             lambda: candidate_regular_file(
@@ -277,6 +278,13 @@ def exercise_candidate_path_guard() -> None:
             ),
             "candidate path component is symlinked",
             "candidate path guard accepted a symlinked intermediate directory",
+        )
+        assert_rejected(
+            lambda: candidate_regular_file(
+                candidate_root, "leaf.py", "leaf-symlink fixture"
+            ),
+            "candidate path component is symlinked",
+            "candidate path guard accepted a symlinked final file",
         )
         assert_rejected(
             lambda: candidate_regular_file(
