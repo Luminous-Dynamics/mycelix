@@ -124,7 +124,13 @@ def independent_structural(parent: dict[str, Any], child: dict[str, Any]) -> tup
 
 
 def expression_key(expr: dict[str, Any]) -> str:
+    """Canonical identity, intentionally invariant under clause permutation."""
     return expr["kind"] + ":" + ",".join(sorted(atom["id"] for atom in expr["clauses"]))
+
+
+def expression_ordered_key(expr: dict[str, Any]) -> str:
+    """Identity used to ensure every ordered syntax form is actually generated."""
+    return expr["kind"] + ":" + ",".join(atom["id"] for atom in expr["clauses"])
 
 
 def scenario_for(parent: dict[str, Any], child: dict[str, Any], universe: dict[str, Any]) -> dict[str, Any]:
@@ -151,10 +157,11 @@ def first_expansion_witness(child_denotation: frozenset, parent_denotation: froz
     return by_tuple[ordered[0]]
 
 
-def mismatch_for(raw: dict[str, Any]) -> dict[str, Any] | None:
+def mismatch_for(raw: dict[str, Any], result: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """Return a bug/mismatch category, or None when independent relations agree."""
     parent, child = raw["parent"], raw["child"]
-    result = oracle.evaluate_scenario(raw)
+    if result is None:
+        result = oracle.evaluate_scenario(raw)
     if parent["kind"] != child["kind"]:
         if result.get("status") != "UNSUPPORTED_OR_UNDECIDABLE":
             return {"kind": "cross-type-fail-closed", "expected": "UNSUPPORTED_OR_UNDECIDABLE",
@@ -293,8 +300,8 @@ def main() -> int:
                 for selected in itertools.permutations(atoms, clause_count):
                     expressions.append({"kind": kind, "clauses": [copy.deepcopy(atom) for atom in selected]})
         require(len(expressions) == 128, f"generated {len(expressions)} expressions, expected 128")
-        require(len({expression_key(expr) for expr in expressions}) == 128,
-                "expression identifiers are not unique")
+        require(len({expression_ordered_key(expr) for expr in expressions}) == 128,
+                "ordered expression identifiers are not unique")
 
         receipt["source_head"] = subprocess.run(
             ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
@@ -321,7 +328,7 @@ def main() -> int:
                 observed = oracle.evaluate_scenario(raw)
                 evaluated_pairs += 1
                 type_pairs[f"{parent['kind']}->{child['kind']}"] += 1
-                mismatch = mismatch_for(raw)
+                mismatch = mismatch_for(raw, observed)
                 if mismatch is not None:
                     first_mismatch = {"mismatch": mismatch, "scenario": raw, "observed_result": observed}
                     first_mismatch["minimized_scenario"] = minimize_counterexample(raw, mismatch["kind"])
