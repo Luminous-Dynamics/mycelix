@@ -926,6 +926,7 @@ enum CapabilityProbeResult {
     Authorized,
     Unauthorized,
     ClaimMissing,
+    FunctionNotGranted,
 }
 
 /// Capability grant/revoke lifecycle: prove conductor authorization changes,
