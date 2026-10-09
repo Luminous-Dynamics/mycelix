@@ -51,8 +51,6 @@ jobs:
             mycelix-governance/tools/formal/aggregate_auth_v20_evidence.py \
             mycelix-governance/tools/formal/aat_capability_subsumption.py \
             mycelix-governance/tools/formal/test_aat_capability_subsumption.py \
-            mycelix-governance/tools/formal/aat_capability_subsumption.py \
-            mycelix-governance/tools/formal/test_aat_capability_subsumption.py \
             mycelix-governance/tools/formal/delegation_chain_compact_jws.py \
             mycelix-governance/tools/formal/test_delegation_chain_compact_jws.py \
             mycelix-governance/tools/formal/test_aggregate_auth_v20_evidence.py
@@ -97,9 +95,6 @@ jobs:
           mkdir -p "$RUNNER_TEMP/auth-v20-capability-evidence"
           python3 mycelix-governance/tools/formal/test_aat_capability_subsumption.py \
             --output "$RUNNER_TEMP/auth-v20-capability-evidence/aat-capability-subsumption.json"
-          mkdir -p "$RUNNER_TEMP/auth-v20-capability-evidence"
-          python3 mycelix-governance/tools/formal/test_aat_capability_subsumption.py \
-            --output "$RUNNER_TEMP/auth-v20-capability-evidence/aat-capability-subsumption.json"
           mkdir -p "$RUNNER_TEMP/auth-v20-compact-jws-evidence"
           python3 mycelix-governance/tools/formal/test_delegation_chain_compact_jws.py \
             --output "$RUNNER_TEMP/auth-v20-compact-jws-evidence/compact-jws-chain.json"
@@ -141,7 +136,6 @@ jobs:
             ${{ runner.temp }}/auth-v20-key-link-evidence
             ${{ runner.temp }}/auth-v20-par-hash-evidence
             ${{ runner.temp }}/auth-v20-compact-jws-evidence
-            ${{ runner.temp }}/auth-v20-capability-evidence
             ${{ runner.temp }}/auth-v20-capability-evidence
             ${{ runner.temp }}/auth-v20-final-evidence
           if-no-files-found: warn
