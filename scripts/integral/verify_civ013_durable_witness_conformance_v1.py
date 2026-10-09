@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "19b58d053073a121c8f2cd5378dcd4644cf036ec"
+SOURCE_COMMIT = "9ff9f23e11476cae15a12c3ae46cfacbe4e35cf9"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 
 REQUIRED_IDS = {
@@ -51,6 +51,7 @@ REQUIRED_IDS = {
     "DA024-recovery-equal-generation-missing-local-digest",
     "DA025-late-finalize-current-head-pointer-valid",
     "DA026-late-finalize-current-head-pointer-mismatch",
+    "DA027-late-finalize-current-head-record-tampered",
 }
 
 
@@ -296,6 +297,32 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
             return "CorruptCurrentHeadMetadata"
         if metadata_digest != stored_digest:
             return "CorruptCurrentHeadMetadata"
+        return "IdempotentAcceptedHistory"
+
+    if kind == "late_finalize_head_record":
+        exact_predecessor = (
+            vector["candidate_generation"] == vector["expected_predecessor_generation"] + 1
+            and vector["candidate_previous_digest"] == vector["expected_predecessor_digest"]
+        )
+        if (
+            not exact_predecessor
+            or vector["current_head_generation"] <= vector["candidate_generation"]
+            or vector["stored_candidate_status"] != "accepted"
+        ):
+            return "StalePredecessor"
+        if vector.get("stored_current_head_status") != "accepted":
+            return "CorruptCurrentHeadRecord"
+        try:
+            metadata_digest = parse_digest(vector["metadata_head_digest"], "metadata_head_digest")
+            stored_digest = parse_digest(vector["stored_record_digest"], "stored_record_digest")
+            calculated_digest = sha256(canonical_record(vector["current_head_record"]))
+            row_digest = parse_digest(vector["current_head_record"]["digest"], "current_head_record.digest")
+        except (KeyError, TypeError, ValueError):
+            return "CorruptCurrentHeadRecord"
+        if metadata_digest != stored_digest:
+            return "CorruptCurrentHeadMetadata"
+        if row_digest != stored_digest or calculated_digest != stored_digest:
+            return "CorruptCurrentHeadRecord"
         return "IdempotentAcceptedHistory"
 
     if kind == "sqlite_integer_range":
