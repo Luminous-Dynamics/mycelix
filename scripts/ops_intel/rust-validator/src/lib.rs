@@ -392,6 +392,17 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     check_record_refs(f0.get("observations"), "subject_ref", &subjects0, "F0 observations", &mut errors);
     let observations0 = array_field(f0, "observations", "F0 observations", &mut errors);
     let observation_ids = record_refs_from_slice(observations0, "observation_ref", "F0 observations", &mut errors);
+    let dependencies = array_field(f0, "source_dependency_assessments", "F0 source_dependency_assessments", &mut errors);
+    let dependency_ids = record_refs_from_slice(dependencies, "assessment_ref", "F0 source_dependency_assessments", &mut errors);
+    if dependency_ids.len() != dependencies.len() {
+        errors.push("F0: source dependency assessments require unique non-empty IDs".to_owned());
+    }
+    for (index, assessment) in dependencies.iter().enumerate() {
+        let members = string_array(assessment.get("member_refs"), &format!("F0 source dependency assessment[{index}] member_refs"), &mut errors);
+        if members.len() < 2 || members.iter().any(|reference| !sources0.contains(reference)) {
+            errors.push(format!("F0 source dependency assessment[{index}]: members must be at least two known sources"));
+        }
+    }
     let facility_refs = validate_facility_registry(f0, &subjects0, &mut errors);
 
     let inventory0 = find_record(observations0, "observation_ref", "observation:supplier-B-inventory-partial");
@@ -429,6 +440,9 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
 
     let protected_fields = array_field(f0, "protected_fields", "F0 protected_fields", &mut errors);
     let protected_ids0 = record_refs_from_slice(protected_fields, "field_ref", "F0 protected_fields", &mut errors);
+    if protected_ids0.is_empty() {
+        errors.push("F0: protected field identity ref is missing".to_owned());
+    }
     check_record_refs(Some(&Value::Array(protected_fields.to_vec())), "subject_ref", &subjects0, "F0 protected_fields", &mut errors);
     if protected_fields.is_empty() {
         errors.push("F0: protected field boundary must be represented".to_owned());
@@ -620,8 +634,6 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     if let Some(items) = f3.get("added_artifacts").and_then(Value::as_array) {
         validate_artifact_times(items, "F3 added_artifacts", cutoff3, &mut errors);
     }
-    validate_observation_times(outcomes, "F3 outcomes", cutoff3, &mut errors);
-
     let attempt = validate_attempt_and_authority(f2, &mut errors);
     if let Some(attempt) = &attempt {
         if !candidate_refs.contains(&attempt.candidate_ref) {
@@ -644,7 +656,11 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     check_record_refs(f3.get("added_artifacts"), "source_ref", &sources3, "F3 added_artifacts", &mut errors);
     let outcomes = array_field(f3, "outcome_observations", "F3 outcome_observations", &mut errors);
     let outcome_ids = record_refs_from_slice(outcomes, "outcome_ref", "F3 outcomes", &mut errors);
+    if outcome_ids.len() != outcomes.len() {
+        errors.push("F3: outcomes must have unique non-empty outcome refs".to_owned());
+    }
     let outcome_observation_ids = record_refs_from_slice(outcomes, "observation_ref", "F3 outcomes", &mut errors);
+    validate_observation_times(outcomes, "F3 outcomes", cutoff3, &mut errors);
     if outcomes.is_empty() {
         errors.push("F3: at least one outcome observation is required".to_owned());
     }
@@ -710,6 +726,9 @@ fn validate_attempt_and_authority(f2: &Value, errors: &mut Vec<String>) -> Optio
         }
     };
 
+    if !valid_utc_timestamp(&attempt.attempt_time_utc) {
+        errors.push("F2: attempt time must be a valid fixed-width UTC timestamp".to_owned());
+    }
     if attempt.execution_mode != "SimulationOnly" {
         errors.push("F2: attempt must be simulation-only".to_owned());
     }
@@ -1057,9 +1076,8 @@ fn reject_identity_reuse(
     label: &str,
     errors: &mut Vec<String>,
 ) {
-    for reference in additions.intersection(ancestors) {
+    if additions.intersection(ancestors).next().is_some() {
         errors.push(format!("{label}: added identity reuses an ancestor ref"));
-        let _ = reference;
     }
 }
 
@@ -1348,6 +1366,24 @@ mod tests {
         let case = cases.iter_mut().find(|v| v["case_ref"] == "authority-case:wrong-subject").unwrap();
         case["permit_subject_ref"] = case["expected_subject_ref"].clone();
         assert!(validate_documents(&docs).iter().any(|e| e.contains("wrong-subject control is not structurally mismatched")));
+    }
+
+    #[test]
+    fn rejects_semantically_validated_wrong_candidate_case_if_mismatch_is_removed() {
+        let mut docs = load_real_fixture();
+        let cases = docs.get_mut("f2").unwrap()["authority_effect_cases"].as_array_mut().unwrap();
+        let case = cases.iter_mut().find(|v| v["case_ref"] == "authority-case:wrong-candidate").unwrap();
+        case["permit_candidate_ref"] = case["expected_candidate_ref"].clone();
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("wrong-candidate control is not structurally mismatched")));
+    }
+
+    #[test]
+    fn rejects_semantically_validated_wrong_payload_case_if_mismatch_is_removed() {
+        let mut docs = load_real_fixture();
+        let cases = docs.get_mut("f2").unwrap()["authority_effect_cases"].as_array_mut().unwrap();
+        let case = cases.iter_mut().find(|v| v["case_ref"] == "authority-case:wrong-payload").unwrap();
+        case["permit_payload_commitment_ref"] = case["expected_payload_commitment_ref"].clone();
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("wrong-payload control is not structurally mismatched")));
     }
 
     #[test]
