@@ -32,8 +32,8 @@
     "generation": "all ordered permutations of distinct atoms with clause counts 1 and 2",
     "expression_count": 128,
     "ordered_parent_child_pairs": 16384,
-    "request_pair_evaluations": 524288,
-    "randomness": "none"
+    "randomness": "none",
+    "ordered_pair_request_combinations": 524288
   },
   "required_invariants": [
     "independent_denotation_matches_classifier",
