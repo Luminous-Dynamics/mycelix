@@ -185,7 +185,9 @@ def main() -> int:
             "mutant-detection-count-weakened", "mutation-identity-substituted",
             "duplicate-mutation-id", "compact-jws-mutant-count-weakened",
             "missing-capability-receipt", "capability-mutant-count-weakened",
-            "expected-head-malformed",
+            "expected-head-malformed", "missing-aggregate-mutation-guard",
+            "aggregate-guard-head-mismatch", "aggregate-guard-count-weakened",
+            "aggregate-guard-identity-substituted",
         )
         aggregate_guard_mutations = aggregate_guard.get("mutations")
         require(isinstance(aggregate_guard_mutations, list),
