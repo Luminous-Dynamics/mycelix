@@ -524,6 +524,30 @@ def main() -> int:
         raise SystemExit("FAIL: source repository mismatch")
     if manifest.get("claim_ceiling") != corpus.get("claim_ceiling"):
         raise SystemExit("FAIL: claim ceiling differs between fixture and manifest")
+    checker_commit = manifest.get("checker_commit_sha")
+    if not isinstance(checker_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", checker_commit):
+        raise SystemExit("FAIL: checker commit pin is missing or malformed")
+    if manifest.get("source_toolchain_path") != "rust-toolchain.toml":
+        raise SystemExit("FAIL: producer toolchain path mismatch")
+    if manifest.get("source_rust_version") != "1.96.0":
+        raise SystemExit("FAIL: producer Rust toolchain version mismatch")
+    source_toolchain_blob = manifest.get("source_toolchain_blob_sha")
+    if not isinstance(source_toolchain_blob, str) or not re.fullmatch(r"[0-9a-f]{40}", source_toolchain_blob):
+        raise SystemExit("FAIL: source toolchain blob pin is missing or malformed")
+    runtime = manifest.get("checker_runtime")
+    if not isinstance(runtime, dict):
+        raise SystemExit("FAIL: checker runtime policy is missing")
+    if (
+        runtime.get("implementation") != "CPython"
+        or runtime.get("minimum_version") != "3.10"
+        or runtime.get("runner") != "ubuntu-24.04"
+        or runtime.get("records_exact_version_in_artifact") is not True
+    ):
+        raise SystemExit("FAIL: unsupported checker runtime policy")
+    if sys.implementation.name != "cpython" or sys.version_info < (3, 10):
+        raise SystemExit(
+            f"FAIL: requires CPython >= 3.10, got {sys.implementation.name} {sys.version.split()[0]}"
+        )
     source_blob = manifest.get("source_adapter_blob_sha")
     if not isinstance(source_blob, str) or not re.fullmatch(r"[0-9a-f]{40}", source_blob):
         raise SystemExit("FAIL: source adapter blob pin is missing or malformed")
