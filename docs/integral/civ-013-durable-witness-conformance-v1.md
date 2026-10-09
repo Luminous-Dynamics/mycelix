@@ -93,6 +93,7 @@ The profile's transition vectors are an independent abstract reference for these
 | DA030 | RollbackDetected | A pre-prepare observation of an anchor ahead by more than one generation rejects without writing a candidate or false fork evidence |
 | DA031 | CorruptForkEvidence | A valid but truncated fork-evidence prefix is rejected when the persisted count/tail commitment identifies a longer history |
 | DA032 | CorruptForkEvidence | A modified per-log fork-evidence tail digest is rejected even when the row chain itself is valid |
+| DA033 | CorruptForkEvidence | An append attempted after tail corruption is rejected without changing the persisted evidence row count |
 
 ## Late-finalization metadata binding
 
@@ -102,7 +103,7 @@ The adapter permits idempotent success for both an exact same-generation retry a
 
 Fork evidence is append-only within the SQLite adapter, but validating only the rows that remain cannot detect deletion of the final row: the shortened prefix can still be a valid hash chain. The local schema therefore stores a per-log `witness_fork_meta` commitment with the evidence count and tail digest. Each append updates the evidence row and this commitment in the same `BEGIN IMMEDIATE` transaction. Reads fail closed if the row count or current chain tail disagrees with the commitment.
 
-DA031 deletes the last evidence row while leaving the count/tail commitment untouched; DA032 leaves all evidence rows in place but mutates the persisted tail digest. Both must return `CorruptForkEvidence`. Appending further evidence to a chain that already fails validation is also rejected before a new row is written.
+DA031 deletes the last evidence row while leaving the count/tail commitment untouched; DA032 leaves all evidence rows in place but mutates the persisted tail digest. Both must return `CorruptForkEvidence`. Appending further evidence to a chain that already fails validation is also rejected before a new row is written. DA033 models that no-write requirement explicitly.
 
 This is local truncation/corruption detection, not a tamper-proof external anchor. An actor who can rewrite or restore both the evidence rows and their local commitment can still roll them back together; anti-rollback for evidence history needs an independent trust domain.
 
