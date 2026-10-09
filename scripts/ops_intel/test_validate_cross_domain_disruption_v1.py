@@ -160,6 +160,31 @@ class FixturePreflightTests(unittest.TestCase):
         (self.fixture_dir / filename).write_text('{"duplicate": 1, "duplicate": 2}', encoding="utf-8")
         self.assertTrue(validate_fixture_dir(self.fixture_dir))
 
+    def test_non_object_f0_frontier_fails_without_crashing(self) -> None:
+        self.assert_invalid("f0", lambda value: value.update(frontier=[]))
+
+    def test_non_object_f0_coverage_fails_without_crashing(self) -> None:
+        self.assert_invalid(
+            "f0",
+            lambda value: value["observations"][2].update(coverage=[]),
+        )
+
+    def test_unhashable_f0_facility_ref_fails_without_crashing(self) -> None:
+        self.assert_invalid(
+            "f0",
+            lambda value: value["observations"][2]["coverage"].update(
+                facility_refs_observed=[["subject:malformed"]]
+            ),
+        )
+
+    def test_unhashable_f1_facility_ref_fails_without_crashing(self) -> None:
+        self.assert_invalid(
+            "f1",
+            lambda value: value["added_observations"][0]["coverage"].update(
+                facility_refs_observed=[["subject:malformed"]]
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
