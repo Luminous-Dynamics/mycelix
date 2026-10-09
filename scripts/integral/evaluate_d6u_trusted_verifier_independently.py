@@ -99,9 +99,8 @@ def exercise_module_snapshot_loading() -> None:
     """Prove candidate-module loading does not reopen a changed source path."""
     with tempfile.TemporaryDirectory(prefix="d6u-module-snapshot-") as scratch:
         path = pathlib.Path(scratch) / "candidate.py"
-        path.write_text("SNAPSHOT_MARKER = 'reopened-path'\\n", encoding="utf-8")
-        pinned_source = b"SNAPSHOT_MARKER = 'validated-bytes'\\n"
-        path.write_text("SNAPSHOT_MARKER = 'reopened-path'\\n", encoding="utf-8")
+        path.write_text("SNAPSHOT_MARKER = 'reopened-path'\n", encoding="utf-8")
+        pinned_source = b"SNAPSHOT_MARKER = 'validated-bytes'\n"
         module = load_module(path, pinned_source)
         assert module.SNAPSHOT_MARKER == "validated-bytes", (
             "candidate module loader executed bytes from the path instead of "
