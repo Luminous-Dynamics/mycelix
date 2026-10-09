@@ -188,7 +188,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
         FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(OpUpdate::Entry { app_entry, .. }) => match app_entry {
+            EntryTypes::AuditEntry(_) => Ok(ValidateCallbackResult::Invalid(
+                "Audit entries cannot be updated".to_string(),
+            )),
+            EntryTypes::AuditSummary(_) => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported audit update variant".to_string(),
+        )),
         FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
