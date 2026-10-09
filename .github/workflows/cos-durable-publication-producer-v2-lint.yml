@@ -67,6 +67,14 @@ jobs:
           tag_recheck=publish.index('Recheck release tag target immediately before immutable publication')
           irreversible_publish=publish.index('Publish immutable release')
           assert governance_recheck < tag_recheck < irreversible_publish
+          assert publish.count('- name: Publish immutable release') == 1
+          assert publish.count('- name: Prove immutable release and asset') == 1
+          assert publish.count('- name: Record durable publication observation') == 1
+          assert publish.count('- name: Preserve publication observation') == 1
+          tag_gate_tail=publish.split('Recheck release tag target immediately before immutable publication',1)[1]
+          next_step=tag_gate_tail.split('\\n      - name:',1)[1]
+          assert next_step.lstrip().startswith('Publish immutable release')
+          assert 'recheck-ruleset-pages.json' in publish and 'recheck-rulesets/' in publish
           assert 'recheck-ruleset-index-pages.json' in publish
           assert 'current_environment==frozen_environment' in publish
           assert 'current_effective==frozen_effective' in publish
