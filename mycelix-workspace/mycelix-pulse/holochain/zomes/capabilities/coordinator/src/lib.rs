@@ -930,14 +930,14 @@ pub fn receive_capability_grant(delivery: CapabilityGrantDelivery) -> ExternResu
 /// infer authorization from the public MailboxCapability.revoked projection.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CapabilityProbeResult {
-    /// The exact inbox call returned successfully under the conductor's grant.
+    /// The empty-response capability probe returned successfully under the conductor's grant.
     Authorized,
-    /// The exact inbox call was rejected by conductor-level authorization.
+    /// The capability probe call was rejected by conductor-level authorization.
     /// This alone does not distinguish revocation from another grant/secret mismatch.
     Unauthorized,
     /// No matching private claim has the secret fingerprint bound to the public grant.
     ClaimMissing,
-    /// This probe endpoint was not included in the requested capability permissions.
+    /// The empty-response probe endpoint was not included in the requested capability permissions.
     FunctionNotGranted,
 }
 
