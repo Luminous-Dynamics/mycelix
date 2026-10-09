@@ -139,3 +139,17 @@ The exact-head workflow compiles and runs the key-link checker and uploads `dele
 
 
 The JWK thumbprint checker also rejects non-canonical base64url encoding of the Ed25519 `x` coordinate: decoding to 32 bytes is not sufficient unless re-encoding without padding yields the exact supplied string. The independent corpus contains an otherwise length-correct but non-canonical coordinate to guard this boundary. Thumbprints use only the RFC 7638 required members, so optional metadata such as `kid` does not alter the thumbprint URI.
+
+
+## Parent JWS signing-input linkage (`par_hash`)
+
+A further separate checker, `delegation_chain_par_hash.py`, tests the AAT-style parent-token instance commitment. For each derived hop it validates the supplied exact signing-input fixture shape as canonical unpadded BASE64URL(protected-header).BASE64URL(payload), then checks that `par_hash` equals unpadded BASE64URL(SHA-256(parent signing-input ASCII bytes)). The root must omit `par_hash`, because it has no parent. The digest value itself must be canonical BASE64URL for exactly 32 bytes; a 43-character string alone is insufficient.
+
+The independent corpus implements its own segment canonicalization and digest calculation. It covers a valid four-token chain, wrong and missing hashes, a changed-parent-token re-association case, a root with an invalid parent hash, malformed/non-ASCII signing inputs, non-canonical digest encoding, a duplicate hop ID, excessive chain size, and an unknown schema. Three omitted-check mutations must be detected independently.
+
+This still does **not** parse a compact JWT/JWS or verify signatures. The fixture contains an explicit `signing_input` string; production must derive it from the exact protected-header and payload segments of the presented compact JWS, validate the signature under the appropriate key, and then compare the claim. This check does not replace the JWK thumbprint issuer relation or holder proof-of-possession. The AAT draft's Section 4.6 states that `par_hash` binds the child to the parent's JWS Signing Input, whereas RFC 7638 JWK thumbprints bind a key's public required members. That distinction prevents a chain from being silently re-associated with a different parent token held under a compatible key:
+- AAT Internet-Draft -01, section 4.6 and verifier algorithm: https://datatracker.ietf.org/doc/draft-niyikiza-oauth-attenuating-agent-tokens/
+- RFC 7515, JSON Web Signature signing input: https://www.rfc-editor.org/rfc/rfc7515
+- RFC 7638, JWK Thumbprint: https://www.rfc-editor.org/rfc/rfc7638
+
+The exact-head workflow compiles and runs this checker and uploads `delegation-chain-par-hash.json`. Qualification remains NOT_CLAIMED pending hosted execution and receipt inspection.
