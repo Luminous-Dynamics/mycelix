@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "37fdf714319a86d7539ee2ca7c80f641ee98ade2"
+SOURCE_COMMIT = "9a5b9498669af2af7c03f1f00351b707540b0bfe"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 
 REQUIRED_IDS = {
@@ -63,6 +63,8 @@ REQUIRED_IDS = {
     "DA036-startup-integrity-detects-fork-tail-truncation",
     "DA037-subprocess-crash-after-anchor-commit-recovers-exact-prepared",
     "DA038-unprovisioned-persistent-anchor-fails-closed",
+    "DA039-sqlite-runtime-minimum-accepted",
+    "DA040-sqlite-runtime-below-minimum-rejected",
 }
 
 
@@ -521,6 +523,25 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         ):
             return "SubprocessCrashStateMismatch"
         return "RecoverExactPreparedSuccessor"
+
+    if kind == "sqlite_runtime_minimum":
+        actual = vector.get("reported_version_number")
+        minimum = vector.get("minimum_version_number")
+        if (
+            type(actual) is not int or type(minimum) is not int
+            or actual < 0 or minimum <= 0
+            or vector.get("source_rusqlite_version") != "0.39.0"
+            or vector.get("source_libsqlite3_sys_version") != "0.37.0"
+            or vector.get("bundled") is not True
+        ):
+            return "InvalidInput"
+        version_text = vector.get("reported_version")
+        if not isinstance(version_text, str) or re.fullmatch(r"\d+\.\d+\.\d+", version_text) is None:
+            return "InvalidInput"
+        major, minor, patch = (int(part) for part in version_text.split("."))
+        if actual != major * 1_000_000 + minor * 1_000 + patch:
+            return "RuntimeVersionEncodingMismatch"
+        return "AcceptSqliteRuntimeVersion" if actual >= minimum else "UnsupportedSqliteVersion"
 
     if kind == "sqlite_integer_range":
         generation = vector["record_generation"]
