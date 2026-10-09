@@ -49,7 +49,8 @@ jobs:
             --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json \
             --evidence-dir "$RUNNER_TEMP/auth-v20-differential-evidence"
           python3 mycelix-governance/tools/formal/test_differential_matrix_freeze.py \
-            --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json
+            --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json \
+            --output "$RUNNER_TEMP/auth-v20-differential-evidence/matrix-mutation-guard.json"
       - name: Verify repository postflight
         if: always()
         run: |
