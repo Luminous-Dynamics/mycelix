@@ -277,11 +277,23 @@ def mutated_case(base: Path, target: str, mutator) -> Path:
     return td
 
 
-def expect_failure(base: Path, target: str, label: str, mutator) -> None:
+def expect_failure(
+    base: Path,
+    target: str,
+    label: str,
+    mutator,
+    expected_fragment: str | None = None,
+) -> None:
     root = mutated_case(base, target, mutator)
     try:
         result = run(root)
         assert result.returncode != 0, f"mutation unexpectedly verified: {label}"
+        if expected_fragment is not None:
+            output = result.stdout + result.stderr
+            assert expected_fragment in output, (
+                f"mutation failed for the wrong reason: {label}; "
+                f"expected {expected_fragment!r}, got {output!r}"
+            )
     finally:
         shutil.rmtree(root)
 
@@ -824,26 +836,32 @@ version = "1.0.0"
         expect_failure(
             root, "verifier-control.json", "control.repository-id",
             lambda x: x.__setitem__("repository_id", 1),
+            "independent verifier repository ID mismatch",
         )
         expect_failure(
             root, "verifier-control.json", "control.workflow-sha",
             lambda x: x.__setitem__("workflow_sha", "a" * 40),
+            "independent verifier workflow SHA does not match checkout",
         )
         expect_failure(
             root, "verifier-control.json", "control.workflow-blob",
             lambda x: x.__setitem__("workflow_blob_sha", "b" * 40),
+            "independent verifier workflow blob does not match checkout",
         )
         expect_failure(
             root, "verifier-control.json", "control.reference-verifier-blob",
             lambda x: x.__setitem__("reference_verifier_blob_sha", "a" * 40),
+            "reference verifier blob does not match checkout",
         )
         expect_failure(
             root, "verifier-control.json", "control.collector-blob",
             lambda x: x.__setitem__("artifact_collector_blob_sha", "b" * 40),
+            "artifact collector blob does not match checkout",
         )
         expect_failure(
             root, "verifier-control.json", "control.extra-field",
             lambda x: x.__setitem__("unexpected", True),
+            "verifier-control closed-world mismatch",
         )
 
         # JSON numbers must match the schema's integer type exactly.
@@ -851,18 +869,22 @@ version = "1.0.0"
         expect_failure(
             root, "artifact-enumeration.json", "enumeration.page-size-float",
             lambda x: x.__setitem__("page_size", 100.0),
+            "artifact enumeration page_size must be a JSON integer",
         )
         expect_failure(
             root, "artifact-enumeration.json", "enumeration.terminal-page-bool",
             lambda x: x.__setitem__("terminal_page", True),
+            "artifact enumeration terminal_page must be a JSON integer",
         )
         expect_failure(
             root, "artifact-enumeration.json", "enumeration.total-count-float",
             lambda x: x.__setitem__("total_count_reported", 2.0),
+            "artifact enumeration total_count_reported must be a JSON integer",
         )
         expect_failure(
             root, "artifact-enumeration.json", "enumeration.repeat-count-float",
             lambda x: x.__setitem__("repeat_total_count_reported", 2.0),
+            "artifact enumeration repeat_total_count_reported must be a JSON integer",
         )
 
         # Receipt and GitHub API run identities must use their documented
@@ -894,7 +916,21 @@ version = "1.0.0"
              lambda x: x["artifacts"][0]["workflow_run"].__setitem__("repository_id", True)),
         ]
         for file_name, label, mutator in strict_identity_mutations:
-            expect_failure(root, file_name, label, mutator)
+            expected = {
+                "receipt.trusted-run-id-float": "receipt.trusted_workflow_run_id must be a JSON integer",
+                "receipt.trusted-run-attempt-bool": "receipt.trusted_workflow_run_attempt must be a JSON integer",
+                "receipt.upstream-run-id-int": "receipt.upstream_workflow_run_id must be a canonical positive decimal string",
+                "receipt.upstream-run-attempt-float": "receipt.upstream_workflow_run_attempt must be a canonical positive decimal string",
+                "receipt.candidate-uid-bool": "receipt.candidate_uid must be a JSON integer",
+                "candidate.run-id-float": "candidate workflow run ID must be a JSON integer",
+                "candidate.run-attempt-bool": "candidate workflow run attempt must be a JSON integer",
+                "trusted.run-attempt-bool": "expected trusted workflow run attempt must be a JSON integer",
+                "artifact.id-float": "artifact enumeration item 0 ID must be a JSON integer",
+                "artifact.size-float": "receipt artifact size must be a JSON integer",
+                "artifact.run-id-float": "receipt artifact workflow run ID must be a JSON integer",
+                "artifact.repository-id-bool": "receipt artifact repository ID must be a JSON integer",
+            }[label]
+            expect_failure(root, file_name, label, mutator, expected)
 
         expect_failure(
             root, "artifacts.json", "artifact-set-extra",
