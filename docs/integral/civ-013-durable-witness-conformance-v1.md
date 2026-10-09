@@ -84,6 +84,7 @@ The profile's transition vectors are an independent abstract reference for these
 | DA018–DA020 | RejectCorruptForkEvidence / RejectRecordDigest / RejectForkDigest | Fork-order and tampering rejection |
 | DA021 | RejectCorruptForkEvidence | A single fork-evidence history cannot splice entries from different log IDs, even when each entry's digest is valid |
 | DA022–DA023 | RejectSqliteIntegerRange | Adapter rejection of generation or receipt sequence above SQLite's signed-integer maximum |
+| DA044 | RejectBeforeStateMutation | An oversized receipt sequence is rejected during input validation, before any anchor read, prepared/accepted row write, or external-anchor change; SQLite integrity remains `ok` |
 | DA024 | ExternalAnchorMismatch | Equal-generation recovery fails closed when the local accepted-head digest is absent |
 | DA025 | IdempotentAcceptedHistory | Late finalization confirms that the metadata pointer matches the accepted current-head row |
 | DA026 | CorruptCurrentHeadMetadata | Late finalization rejects a well-formed but incorrect metadata head digest |
@@ -188,3 +189,8 @@ The adapter makes fork-report append idempotent for an exact `(log_id, generatio
 ## Genesis recovery mismatch boundary
 
 DA043 covers generation zero specifically: if the external anchor claims genesis but carries a nonzero digest, recovery returns `ExternalAnchorMismatch` and fails closed without accepting a record, preparing a candidate, or inserting fork evidence at generation zero. The fork-evidence schema models conflicts between actual record generations only.
+
+
+## Receipt-sequence integer boundary
+
+DA044 is backed by a Rust regression that supplies `i64::MAX + 1` on an otherwise valid bootstrap request. It expects the explicit `InvalidInput("receipt sequence exceeds SQLite INTEGER range")` outcome, zero external-anchor reads, unchanged genesis anchor state, no accepted or prepared local records, and a successful physical/semantic integrity check. This is stronger than relying on SQLite's non-negative column constraint to reject a narrowed negative integer after the operation reaches persistence.
