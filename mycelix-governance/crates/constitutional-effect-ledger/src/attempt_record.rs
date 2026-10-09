@@ -1768,7 +1768,6 @@ mod tests {
 
     fn terminal_evidence(outcome: TerminalOutcomeV1, attempt_id: &str) -> TerminalEvidenceV1 {
         let action = key();
-        let owner = attempt(attempt_id);
         let record = record(
             attempt_id,
             "operation-1",
@@ -1787,7 +1786,6 @@ mod tests {
     #[test]
     fn terminal_evidence_digest_commits_to_provider_idempotency_key() {
         let action = key();
-        let owner = attempt("terminal-evidence-key");
         let record = record(
             "terminal-evidence-key",
             "operation-terminal-evidence-key",
