@@ -228,7 +228,24 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         },
         FlatOp::Link(OpLink::CreateLink { .. }) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::Contact(contact) => validate_create_contact(action.into(), contact),
+                EntryTypes::ContactGroup(group) => validate_create_contact_group(group),
+                EntryTypes::GroupMembership(membership) => validate_create_group_membership(membership),
+                EntryTypes::BlockedContact(_) => Ok(ValidateCallbackResult::Valid),
+            },
+            OpRecord::UpdateEntry { app_entry, action } => match app_entry {
+                EntryTypes::Contact(contact) => {
+                    let original_action_hash = action.original_action_address.clone();
+                    validate_update_contact(action, original_action_hash, contact)
+                }
+                _ => Ok(ValidateCallbackResult::Invalid(
+                    "Only contacts have a supported update path".to_string(),
+                )),
+            },
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Update(OpUpdate::Entry { app_entry, action }) => match app_entry {
             EntryTypes::Contact(contact) => {
