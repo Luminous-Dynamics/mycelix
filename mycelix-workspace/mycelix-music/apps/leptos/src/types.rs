@@ -293,6 +293,22 @@ pub fn mock_songs() -> Vec<Song> {
             released_at: Timestamp(0),
             metadata: "{}".into(),
         },
+        // Deliberately distinct song-record identity pointing to the same
+        // audio resource as mock-1. Browser qualification uses this to prove
+        // that switching records resets the physical playhead without
+        // invalidating still-valid media duration metadata.
+        Song {
+            song_hash: "mock-4".into(),
+            title: "Shared Source Encore".into(),
+            artist: fixture_agent(3),
+            ipfs_cid: "QmDemo1".into(),
+            cover_cid: None,
+            duration_seconds: 234,
+            genres: vec!["Electronic".into(), "Ambient".into()],
+            strategy_id: "gift".into(),
+            released_at: Timestamp(0),
+            metadata: "{}".into(),
+        },
     ]
 }
 
