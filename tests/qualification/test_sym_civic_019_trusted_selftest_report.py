@@ -243,6 +243,21 @@ class TrustedSelfTestReportCheckerTests(unittest.TestCase):
         report["positive_inclusion_matrix"]["cases"][0]["leaf_index"] = False
         self.rejected(report)
 
+    def test_boolean_does_not_count_as_integer_tree_size_profile(self):
+        report = copy.deepcopy(self.report)
+        report["positive_inclusion_matrix"]["tree_sizes_tested"][0] = True
+        self.rejected(report)
+
+    def test_boolean_does_not_count_as_trusted_integer_tree_size(self):
+        manifest = copy.deepcopy(self.manifest)
+        manifest["trusted_semantic_oracle"]["positive_inclusion_matrix"]["tree_sizes"][0] = True
+        self.rejected(manifest=manifest)
+
+    def test_boolean_does_not_count_as_trusted_semantic_tree_size(self):
+        manifest = copy.deepcopy(self.manifest)
+        manifest["semantic_expectations"]["tree_size"] = True
+        self.rejected(manifest=manifest)
+
     def test_wrong_negative_control_reason_is_rejected(self):
         report = copy.deepcopy(self.report)
         report["negative_controls"][0]["reason"] = "some other reason"
