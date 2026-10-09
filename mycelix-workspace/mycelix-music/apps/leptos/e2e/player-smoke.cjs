@@ -208,8 +208,19 @@ async function main() {
     await queueDialog.waitFor({ state: 'visible' });
     await page.waitForFunction(() => document.activeElement === document.querySelector('.queue-panel'));
 
+    // The modal must wrap keyboard navigation in both directions before Escape.
+    await page.keyboard.press('Shift+Tab');
+    await page.waitForFunction(() => {
+      const active = document.activeElement;
+      return active && active.getAttribute('aria-label') === 'Remove Mycelium Network';
+    });
+    await page.keyboard.press('Tab');
+    await page.waitForFunction(() => {
+      const active = document.activeElement;
+      return active && active.textContent.trim() === 'Clear';
+    });
+
     // Keyboard focus belongs to the opened dialog; Escape should close it.
-    await page.keyboard.press('Escape');
     await page.waitForFunction(() => {
       const active = document.activeElement;
       return !document.querySelector('.queue-panel')
@@ -280,7 +291,7 @@ async function main() {
         'queue Next handles deterministic media failure',
         'explicit Play retries the same failed resource',
         'mobile player controls stay within the viewport',
-        'queue dialog receives focus, Escape closes it, and focus returns',
+        'queue dialog traps Tab and Shift+Tab, Escape closes it, and focus returns',
         'queue selection and current-row removal preserve exact next source',
         'Clear releases src and resets actual currentTime',
       ],
