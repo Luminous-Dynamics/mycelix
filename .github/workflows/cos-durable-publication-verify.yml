@@ -185,6 +185,7 @@ jobs:
               "environment-policy-v1.json",
               "effective-main-rules-v1.json",
               "main-branch-policy-v1.json",
+              "main-ruleset-governance-v1.json",
               "SHA256SUMS",
           }
           members={line.strip().rstrip('/') for line in Path("durable-members.txt").read_text().splitlines() if line.strip()}
@@ -323,6 +324,7 @@ jobs:
         run: |
           set -euo pipefail
           EXPECTED_CLAIM_ID="${EXPECTED_CLAIM_ID}" EXPECTED_MANIFEST_SHA256="${EXPECTED_MANIFEST_SHA256}" EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" EXPECTED_REPOSITORY_ID="${EXPECTED_REPOSITORY_ID}" EXPECTED_PREDICATE_TYPE="${EXPECTED_PREDICATE_TYPE}" EXPECTED_ATTESTOR_WORKFLOW_SHA="${EXPECTED_ATTESTOR_WORKFLOW_SHA}" python - <<'PY'
+          import fnmatch
           import hashlib
           import json
           import os
@@ -361,9 +363,31 @@ jobs:
               assert digest==hashlib.sha256(canonical).hexdigest()
               return data,digest
 
+          def ruleset_applies_to_main(conditions):
+              if not isinstance(conditions,dict):
+                  return True
+              ref=conditions.get('ref_name')
+              if ref is None or not isinstance(ref,dict):
+                  return True
+              include,exclude=ref.get('include'),ref.get('exclude')
+              if not isinstance(include,list) or not isinstance(exclude,list) or not include:
+                  return True
+              patterns=include+exclude
+              if any(not isinstance(value,str) for value in patterns):
+                  return True
+              def recognized(value):
+                  return value in ('~ALL','~DEFAULT_BRANCH') or value.startswith('refs/heads/') or value.startswith('refs/tags/')
+              if any(not recognized(value) for value in patterns):
+                  return True
+              def matches(value):
+                  if value in ('~ALL','~DEFAULT_BRANCH'):
+                      return True
+                  return fnmatch.fnmatchcase('refs/heads/main',value) or fnmatch.fnmatchcase('main',value)
+              return any(matches(value) for value in include) and not any(matches(value) for value in exclude)
           environment_policy,environment_policy_sha=verify_self_hashed_projection(root/'environment-policy-v1.json','MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1')
           effective_rules,effective_rules_sha=verify_self_hashed_projection(root/'effective-main-rules-v1.json','MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1')
           main_branch_policy,main_branch_policy_sha=verify_self_hashed_projection(root/'main-branch-policy-v1.json','MYCELIX-COS-PROTECTED-MAIN-POLICY-V1')
+          main_ruleset_governance,main_ruleset_governance_sha=verify_self_hashed_projection(root/'main-ruleset-governance-v1.json','MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1')
           release=json.loads(Path('release.json').read_text())
           manifest_path=root/'qualification-manifest-v1.json'
           predicate_path=root/'qualification-attestation-predicate-v3.json'
@@ -382,6 +406,7 @@ jobs:
               'attestor_run_id','attestor_run_attempt','attestor_artifact_id','attestor_artifact_digest',
               'verifier_run_id','verifier_run_attempt','signing_input_artifact_id','signing_input_artifact_digest',
               'environment_policy_sha256','effective_main_rules_sha256','main_branch_policy_sha256',
+               'main_ruleset_governance_sha256',
               'attestor_workflow_path','attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256',
               'signed_attestation_bundle_sha256','publication_handoff_basis','files'
           }
@@ -389,6 +414,7 @@ jobs:
           assert durable_manifest['environment_policy_sha256']==environment_policy_sha
           assert durable_manifest['effective_main_rules_sha256']==effective_rules_sha
           assert durable_manifest['main_branch_policy_sha256']==main_branch_policy_sha
+          assert durable_manifest['main_ruleset_governance_sha256']==main_ruleset_governance_sha
           assert environment_policy['name']=='cos-durable-publication'
           assert environment_policy['prevent_self_review'] is True
           assert environment_policy['required_reviewers']
@@ -410,12 +436,50 @@ jobs:
           assert environment_policy['schema']=='MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1'
           assert effective_rules['schema']=='MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1'
           assert main_branch_policy['schema']=='MYCELIX-COS-PROTECTED-MAIN-POLICY-V1'
+          assert main_ruleset_governance['schema']=='MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1'
+          assert main_ruleset_governance['repository']==durable_manifest['repository']
+          assert main_ruleset_governance['repository_id']==durable_manifest['repository_id']
+          assert main_ruleset_governance['branch']=='refs/heads/main'
+          assert isinstance(main_ruleset_governance['rulesets'],list)
+          rulesets=main_ruleset_governance['rulesets']
+          rule_ids=[item.get('id') for item in rulesets]
+          assert all(type(value) is int and value>0 for value in rule_ids)
+          assert len(rule_ids)==len(set(rule_ids))
+          assert rulesets==sorted(rulesets,key=lambda item:(item['source_type'],item['source'],item['id']))
+          actor_types={'Integration','OrganizationAdmin','RepositoryRole','Team','DeployKey','User'}
+          bypass_modes={'always','pull_request','exempt'}
+          for ruleset in rulesets:
+              assert ruleset['target']=='branch'
+              assert ruleset['enforcement'] in ('active','evaluate','disabled')
+              assert isinstance(ruleset['name'],str) and isinstance(ruleset['source_type'],str) and isinstance(ruleset['source'],str)
+              assert isinstance(ruleset['rules'],list) and isinstance(ruleset['conditions'],dict)
+              assert isinstance(ruleset['created_at'],str) and isinstance(ruleset['updated_at'],str)
+              assert ruleset['applicable_to_main'] is ruleset_applies_to_main(ruleset['conditions'])
+              actors=ruleset['bypass_actors']
+              assert isinstance(actors,list)
+              for actor in actors:
+                  assert isinstance(actor,dict) and 'actor_id' in actor
+                  actor_type=actor.get('actor_type')
+                  bypass_mode=actor.get('bypass_mode')
+                  assert actor_type in actor_types and bypass_mode in bypass_modes
+                  actor_id=actor['actor_id']
+                  if actor_type=='DeployKey':
+                      assert actor_id is None and bypass_mode!='pull_request'
+                  elif actor_type=='OrganizationAdmin':
+                      assert actor_id is None or (type(actor_id) is int and actor_id>0)
+                  else:
+                      assert type(actor_id) is int and actor_id>0
+              assert actors==sorted(actors,key=lambda actor:(actor['actor_type'],-1 if actor['actor_id'] is None else actor['actor_id'],actor['bypass_mode']))
+              if ruleset['applicable_to_main'] and ruleset['enforcement']=='active':
+                  assert not actors, f"active main-applicable ruleset has bypass actors: {ruleset['id']}"
           assert durable_manifest['environment_policy_sha256']==environment_policy_sha
           assert durable_manifest['effective_main_rules_sha256']==effective_rules_sha
           assert durable_manifest['main_branch_policy_sha256']==main_branch_policy_sha
+          assert durable_manifest['main_ruleset_governance_sha256']==main_ruleset_governance_sha
           assert durable_manifest['files']['environment-policy-v1.json']==hashlib.sha256((root/'environment-policy-v1.json').read_bytes()).hexdigest()
           assert durable_manifest['files']['effective-main-rules-v1.json']==hashlib.sha256((root/'effective-main-rules-v1.json').read_bytes()).hexdigest()
           assert durable_manifest['files']['main-branch-policy-v1.json']==hashlib.sha256((root/'main-branch-policy-v1.json').read_bytes()).hexdigest()
+          assert durable_manifest['files']['main-ruleset-governance-v1.json']==hashlib.sha256((root/'main-ruleset-governance-v1.json').read_bytes()).hexdigest()
           assert durable_manifest['repository'] == os.environ['GITHUB_REPOSITORY']
           assert durable_manifest['repository_id'] == int(os.environ['EXPECTED_REPOSITORY_ID'])
           assert durable_manifest['release_tag'] == os.environ['RELEASE_TAG']
@@ -494,11 +558,13 @@ jobs:
               'environment-policy-v1.json': hashlib.sha256((root/'environment-policy-v1.json').read_bytes()).hexdigest(),
               'effective-main-rules-v1.json': hashlib.sha256((root/'effective-main-rules-v1.json').read_bytes()).hexdigest(),
               'main-branch-policy-v1.json': hashlib.sha256((root/'main-branch-policy-v1.json').read_bytes()).hexdigest(),
+              'main-ruleset-governance-v1.json': hashlib.sha256((root/'main-ruleset-governance-v1.json').read_bytes()).hexdigest(),
           }
           assert set(durable_manifest['files']) == {
               'qualification-manifest-v1.json','qualification-attestation-predicate-v3.json',
               'attestor-run-receipt.json','qualification-attestation-bundle.json',
               'environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json',
+              'main-ruleset-governance-v1.json',
           }
           assert durable_manifest['attestor_workflow_path'] == f"{os.environ['GITHUB_REPOSITORY']}/.github/workflows/cos-conformance-qualification-attestor.yml@refs/heads/main"
           assert durable_manifest['attestor_workflow_sha'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_SHA']
