@@ -62,7 +62,7 @@ def validate_receipt(receipt_path:Path,artifact_root:Path,event_path:Path):
     if src.get("repository")!=REPOSITORY or event.get("repository",{}).get("full_name")!=REPOSITORY:return None,"repository-binding"
     if wr.get("repository",{}).get("full_name")!=REPOSITORY:return None,"source-run-repository"
     if wr.get("head_repository",{}).get("full_name") not in (None,REPOSITORY):return None,"source-run-head-repository"
-    if wr.get("name")!=WORKFLOW_NAME or wr.get("path")!=WORKFLOW_PATH:return None,"source-workflow-binding"
+    if wr.get("name")!=WORKFLOW_NAME or str(wr.get("path","")).split("@")[0]!=WORKFLOW_PATH:return None,"source-workflow-binding"
     if wr.get("event")!="push" or src.get("event_name")!="push":return None,"source-event-not-push"
     if wr.get("head_branch")!="main" or src.get("ref")!="refs/heads/main":return None,"source-branch-not-main"
     if wr.get("conclusion")!="success":return None,"source-workflow-not-success"
@@ -111,6 +111,7 @@ def validate_receipt(receipt_path:Path,artifact_root:Path,event_path:Path):
     }
     for k,v in expected_src.items():
         if source.get(k)!=v:return None,"source-metadata-binding:"+k
+    if not str(source.get("workflow_ref","")).endswith(WORKFLOW_PATH+"@refs/heads/main"):return None,"source-workflow-ref-binding"
     if source.get("pull_request_head_sha") is not None:return None,"unexpected-pr-head"
     ceiling=receipt.get("claim_ceiling",{})
     if ceiling.get("hosted_qualification_pass_claimed") is not False or ceiling.get("qualification_authority") is not False:return None,"qualification-claim-injection"
