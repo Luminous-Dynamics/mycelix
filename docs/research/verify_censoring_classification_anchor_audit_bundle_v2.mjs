@@ -16,7 +16,7 @@ const COSE_REGISTRY_SHA="sha256:21772a0a1dbb88358c80e5297d4ec4dd82c2ba2bca474a33
 const LEGACY_TS_REGISTRY_SHA="sha256:efb549a023660010a07d70b7d78afbfd81664200fe4ecf1d0d542dc945f0bb54";
 const HEAD_KEYS=["size_4","size_7","fork_size_4","wrong_key","revoked_key","rollback_key","noncanonical"];
 const REQUIRED_VERIFIERS=[
-"audit_bundle_python","audit_bundle_node","witness_crypto_python","witness_crypto_node",
+"audit_bundle_python","audit_bundle_node","audit_bundle_v2_python","audit_bundle_v2_node","witness_crypto_python","witness_crypto_node",
 "vds_python","vds_node","rotation_python","rotation_node","tree_head_python","tree_head_node",
 "legacy_receipt_python","legacy_receipt_node","static_gossip_python","static_gossip_node",
 "cose_receipt_python","cose_receipt_node","gossip_simulation_python","gossip_simulation_node",
@@ -139,7 +139,7 @@ const args=process.argv.slice(2);
 if(args.length!==4){console.error("usage: verifier REPO_ROOT BUNDLE CAMPAIGN REPORT");process.exit(2);}
 const[root,bundlePath,campaignPath,reportPath]=args;
 const bundle=JSON.parse(fs.readFileSync(bundlePath,"utf8")),campaign=JSON.parse(fs.readFileSync(campaignPath,"utf8"));
-if(campaign.schema!==CAMPAIGN_SCHEMA||campaign.case_count!==30||campaign.cases.length!==30)process.exit(1);
+if(campaign.schema!==CAMPAIGN_SCHEMA||campaign.case_count!==32||campaign.cases.length!==32)process.exit(1);
 const ids=campaign.cases.map(c=>c.case_id);if(new Set(ids).size!==ids.length)process.exit(1);
 const rows=[],failures=[];
 for(const c of campaign.cases){
