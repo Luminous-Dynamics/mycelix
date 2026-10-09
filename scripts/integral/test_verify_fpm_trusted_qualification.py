@@ -813,6 +813,25 @@ version = "1.0.0"
             lambda x: x.__setitem__("unexpected", True),
         )
 
+        # JSON numbers must match the schema's integer type exactly.
+        # Python equality alone accepts 100.0 == 100 and True == 1.
+        expect_failure(
+            root, "artifact-enumeration.json", "enumeration.page-size-float",
+            lambda x: x.__setitem__("page_size", 100.0),
+        )
+        expect_failure(
+            root, "artifact-enumeration.json", "enumeration.terminal-page-bool",
+            lambda x: x.__setitem__("terminal_page", True),
+        )
+        expect_failure(
+            root, "artifact-enumeration.json", "enumeration.total-count-float",
+            lambda x: x.__setitem__("total_count_reported", 2.0),
+        )
+        expect_failure(
+            root, "artifact-enumeration.json", "enumeration.repeat-count-float",
+            lambda x: x.__setitem__("repeat_total_count_reported", 2.0),
+        )
+
         expect_failure(
             root, "artifacts.json", "artifact-set-extra",
             lambda x: x["artifacts"].append(copy.deepcopy(x["artifacts"][0])),
