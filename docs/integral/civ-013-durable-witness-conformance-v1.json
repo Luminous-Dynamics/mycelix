@@ -310,7 +310,7 @@
       "id": "DA022-generation-signed-range-overflow",
       "kind": "sqlite_integer_range",
       "expected_outcome": "RejectSqliteIntegerRange",
-      "record_generation": 9223372036854776000,
+      "record_generation": 9223372036854775808,
       "receipt_sequence": 0
     },
     {
@@ -318,7 +318,7 @@
       "kind": "sqlite_integer_range",
       "expected_outcome": "RejectSqliteIntegerRange",
       "record_generation": 1,
-      "receipt_sequence": 9223372036854776000
+      "receipt_sequence": 9223372036854775808
     },
     {
       "id": "DA024-recovery-equal-generation-missing-local-digest",
