@@ -137,6 +137,7 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
         f"expected exactly one trusted artifact, observed {len(artifacts)}"
     )
     artifact = artifacts[0]
+    positive_json_int(artifact["id"], "artifact ID")
     assert artifact["name"] == expected_name
     assert artifact["expired"] is False
     workflow_artifact_run = artifact["workflow_run"]
@@ -202,6 +203,7 @@ def expected_current_run_artifact(repo: str, policy: dict) -> dict:
         f"expected exactly one current-run auditor handoff artifact, observed {len(artifacts)}"
     )
     artifact = artifacts[0]
+    positive_json_int(artifact["id"], "handoff artifact ID")
     assert artifact["name"] == expected_name
     assert artifact["expired"] is False
     workflow_artifact_run = artifact["workflow_run"]
@@ -245,6 +247,13 @@ class NoAuthorizationRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 def download_archive(repo: str, artifact_id: int, expected_digest: str, destination: pathlib.Path, maximum: int) -> None:
+    positive_json_int(artifact_id, "artifact download ID")
+    assert isinstance(expected_digest, str) and re.fullmatch(
+        r"sha256:[0-9a-f]{64}", expected_digest
+    ), "expected artifact digest is not canonical SHA-256"
+    assert isinstance(maximum, int) and not isinstance(maximum, bool) and maximum > 0, (
+        "artifact download maximum is not a positive integer"
+    )
     request = urllib.request.Request(
         f"https://api.github.com/repos/{repo}/actions/artifacts/{artifact_id}/zip",
         headers={**API_HEADERS, "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}"},
