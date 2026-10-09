@@ -188,7 +188,7 @@ def run_self_tests(package_raw: str, lock_raw: str) -> list[dict]:
     tests.append(("malformed_lock_json", package_raw, "{"))
     duplicate_lock_raw = lock_raw.replace(
         '"lockfileVersion": 3,',
-        '"lockfileVersion": 2,\\n  "lockfileVersion": 3,',
+        '"lockfileVersion": 2,\n  "lockfileVersion": 3,',
         1,
     )
     if duplicate_lock_raw == lock_raw:
