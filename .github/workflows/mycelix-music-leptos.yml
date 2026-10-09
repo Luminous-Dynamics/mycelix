@@ -76,7 +76,7 @@ jobs:
           BASE_URL: http://127.0.0.1:8121
         run: |
           set -euo pipefail
-          trunk serve --features fixtures --address 127.0.0.1 --port 8121 > /tmp/mycelix-leptos-trunk.log 2>&1 &
+          trunk serve index-fixtures.html --address 127.0.0.1 --port 8121 > /tmp/mycelix-leptos-trunk.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
 
