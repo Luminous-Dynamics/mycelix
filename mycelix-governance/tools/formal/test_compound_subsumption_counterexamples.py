@@ -257,7 +257,7 @@ def main() -> int:
             result["input_sha256"] = hashlib.sha256(input_bytes).hexdigest()
             result["result_sha256"] = hashlib.sha256(canonical_json(result)).hexdigest()
             (args.evidence_dir / f"{name}.input.json").write_text(
-                json.dumps(raw, sort_keys=True, indent=2, ensure_ascii=False) + "\\n",
+                json.dumps(raw, sort_keys=True, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8")
             (args.evidence_dir / f"{name}.json").write_text(
                 json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")
