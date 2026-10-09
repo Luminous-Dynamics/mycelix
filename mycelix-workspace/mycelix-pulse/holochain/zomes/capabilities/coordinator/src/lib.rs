@@ -260,7 +260,10 @@ fn determine_granted_functions(
     };
 
     if read_allowed && permissions.can_read {
+        // This empty-response endpoint lets the grantee test actual conductor
+        // enforcement without transmitting every encrypted inbox item.
         for name in [
+            "capability_probe_v1",
             "get_inbox_v2",
             "get_inbox",
             "get_sent",
@@ -1043,10 +1046,10 @@ fn find_cap_claim(
     Ok(matching_claim)
 }
 
-/// Probe the actual Holochain grant by making a harmless, data-discarding remote
-/// call to get_inbox_v2. The app-entry revoked flag is intentionally not an early
-/// return here: this diagnostic must distinguish an application projection from
-/// actual conductor authorization. It returns no mailbox contents.
+/// Probe the actual Holochain grant with an empty-response remote call.
+/// The app-entry revoked flag is intentionally not an early return here: this
+/// diagnostic distinguishes the application projection from conductor authorization
+/// without transmitting mailbox contents.
 #[hdk_extern]
 pub fn probe_remote_capability(capability_hash: ActionHash) -> ExternResult<CapabilityProbeResult> {
     let local_agent = agent_info()?.agent_initial_pubkey;
@@ -1094,7 +1097,7 @@ pub fn probe_remote_capability(capability_hash: ActionHash) -> ExternResult<Capa
     let response = call_remote(
         capability.grantor,
         ZomeName::from("mail_messages"),
-        FunctionName::from("get_inbox_v2"),
+        FunctionName::from("capability_probe_v1"),
         Some(claim.secret),
         (),
     )?;
