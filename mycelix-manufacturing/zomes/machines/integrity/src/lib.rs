@@ -1705,14 +1705,8 @@ mod content_restriction_tests {
         let decoded: MachineTemporalEvidenceObservation =
             serde_json::from_slice(&encoded).unwrap();
         assert_eq!(decoded, observation);
-        assert_eq!(
-            decoded.profile_statement.payload,
-            decoded.profile_statement.payload.clone()
-        );
-        assert_eq!(
-            decoded.attestation_statement.signature,
-            Signature(vec![0; 64])
-        );
+        assert_eq!(decoded.profile_statement, observation.profile_statement);
+        assert_eq!(decoded.attestation_statement, observation.attestation_statement);
     }
 
     #[test]
