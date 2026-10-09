@@ -1,0 +1,168 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Deterministic browser smoke for the Leptos CSR app. It intercepts IPFS media
+// so playback, retry, queue, and clearing are exercised without public gateways.
+
+'use strict';
+
+const assert = require('node:assert/strict');
+const { chromium } = require('playwright');
+
+const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:8121';
+const MEDIA_ORIGIN = 'https://ipfs.io/ipfs/';
+
+function makeWave(seconds = 12, sampleRate = 8000) {
+  const frames = seconds * sampleRate;
+  const pcmBytes = frames * 2;
+  const wav = Buffer.alloc(44 + pcmBytes);
+  wav.write('RIFF', 0);
+  wav.writeUInt32LE(36 + pcmBytes, 4);
+  wav.write('WAVE', 8);
+  wav.write('fmt ', 12);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20); // PCM
+  wav.writeUInt16LE(1, 22); // mono
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(sampleRate * 2, 28);
+  wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write('data', 36);
+  wav.writeUInt32LE(pcmBytes, 40);
+
+  for (let frame = 0; frame < frames; frame += 1) {
+    const sample = Math.round(Math.sin((2 * Math.PI * 440 * frame) / sampleRate) * 5000);
+    wav.writeInt16LE(sample, 44 + frame * 2);
+  }
+  return wav;
+}
+
+async function main() {
+  const wave = makeWave();
+  const requestCounts = new Map();
+  const pageErrors = [];
+  const browser = await chromium.launch({ headless: true });
+
+  try {
+    const page = await browser.newPage();
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.route(`${MEDIA_ORIGIN}**`, async route => {
+      const url = route.request().url();
+      const cid = url.slice(MEDIA_ORIGIN.length).split(/[?#]/, 1)[0];
+      const count = (requestCounts.get(cid) || 0) + 1;
+      requestCounts.set(cid, count);
+
+      // One controlled network failure exercises the selected-source retry
+      // path; the same source succeeds on the explicit second Play action.
+      if (cid === 'QmDemo2' && count === 1) {
+        await route.fulfill({
+          status: 503,
+          contentType: 'audio/wav',
+          body: 'deterministic first-request failure',
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'audio/wav',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: wave,
+      });
+    });
+
+    await page.goto(`${BASE_URL}/discover`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: 'Decentralized Dreams' }).waitFor({ timeout: 30000 });
+
+    // Build a deterministic three-track queue using the user-facing controls.
+    await page.getByRole('button', { name: 'Add Decentralized Dreams to queue' }).click();
+    await page.getByRole('button', { name: 'Add Zero-Cost Serenade to queue' }).click();
+    await page.getByRole('button', { name: 'Add Mycelium Network to queue' }).click();
+
+    // A song-card Play action must select the same queue occurrence and start
+    // the source through the persistent audio element.
+    await page.getByRole('button', { name: 'Play Decentralized Dreams' }).click();
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      return audio
+        && audio.currentSrc === 'https://ipfs.io/ipfs/QmDemo1'
+        && !audio.paused
+        && audio.currentTime > 0;
+    }, null, { timeout: 20000 });
+
+    assert.equal(await page.locator('.player-title').innerText(), 'Decentralized Dreams');
+
+    // The first attempt for track two returns HTTP 503. The UI should settle
+    // into its stopped/error state with the seek duration invalidated.
+    await page.getByRole('button', { name: 'Next track' }).click();
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      const playButton = document.querySelector('.btn-player');
+      return audio
+        && audio.currentSrc === 'https://ipfs.io/ipfs/QmDemo2'
+        && audio.error !== null
+        && playButton
+        && playButton.getAttribute('aria-label') === 'Play';
+    }, null, { timeout: 20000 });
+
+    assert.equal(await page.locator('.player-title').innerText(), 'Zero-Cost Serenade');
+    assert.equal(requestCounts.get('QmDemo2'), 1);
+
+    // Explicit retry must clear the latched media error, fetch the same URL
+    // again, and actually resume playback.
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      return audio
+        && audio.currentSrc === 'https://ipfs.io/ipfs/QmDemo2'
+        && audio.error === null
+        && !audio.paused
+        && audio.currentTime > 0;
+    }, null, { timeout: 20000 });
+    assert.ok((requestCounts.get('QmDemo2') || 0) >= 2, 'retry should request the failed media URL again');
+
+    // Clear must release the source and zero the physical element playhead,
+    // not merely reset the displayed reactive progress signal.
+    await page.getByRole('button', { name: 'Toggle playback queue' }).click();
+    const queueDialog = page.getByRole('dialog', { name: 'Playback queue' });
+    await queueDialog.waitFor({ state: 'visible' });
+    await queueDialog.getByRole('button', { name: 'Clear' }).click();
+
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      return audio
+        && !audio.hasAttribute('src')
+        && audio.paused
+        && audio.currentTime === 0;
+    }, null, { timeout: 10000 });
+
+    assert.equal(await page.locator('.player-empty').count(), 1);
+    assert.equal(await page.getByRole('button', { name: 'Toggle playback queue' }).getAttribute('aria-expanded'), 'false');
+
+    if (pageErrors.length > 0) {
+      throw new Error(`Browser page errors:\n${pageErrors.join('\n')}`);
+    }
+
+    process.stdout.write(JSON.stringify({
+      result: 'PASS',
+      app: 'Leptos CSR',
+      baseURL: BASE_URL,
+      scenarios: [
+        'catalog play selects and starts exact media URL',
+        'queue Next handles deterministic media failure',
+        'explicit Play retries the same failed resource',
+        'Clear releases src and resets actual currentTime',
+      ],
+      mediaRequests: Object.fromEntries(requestCounts),
+      pageErrors: pageErrors.length,
+    }, null, 2) + '\n');
+  } finally {
+    await browser.close();
+  }
+}
+
+main().catch(error => {
+  process.stderr.write(`${error.stack || error}\n`);
+  process.exitCode = 1;
+});
