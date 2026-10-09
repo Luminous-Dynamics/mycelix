@@ -15,6 +15,7 @@ import importlib.util
 import os
 import pathlib
 import subprocess
+import traceback
 import tempfile
 import sys
 from unittest.mock import patch
@@ -34,10 +35,14 @@ def assert_rejected(fn, expected_fragment: str, message: str) -> None:
         fn()
     except AssertionError as exc:
         if expected_fragment not in str(exc):
-            raise AssertionError(
-                f"{message}: rejection came from the wrong check; "
-                f"expected={expected_fragment!r}, observed={str(exc)!r}"
-            ) from exc
+            frames = traceback.extract_tb(exc.__traceback__)
+            source_lines = [frame.line or "" for frame in frames]
+            if not any(expected_fragment in line for line in source_lines):
+                raise AssertionError(
+                    f"{message}: rejection came from the wrong check; "
+                    f"expected={expected_fragment!r}, "
+                    f"observed_message={str(exc)!r}, source_lines={source_lines!r}"
+                ) from exc
         return
     raise AssertionError(message)
 
@@ -435,7 +440,28 @@ def run(candidate_root: pathlib.Path) -> None:
         "id": 200,
         "run_attempt": 1,
     }
+    verifier.verify_executor_run_event(executor_run, p, repository)
     verifier.verify_executor_run_record(executor_run, record, p, repository)
+
+    tampered_event = dict(executor_run)
+    tampered_event["name"] = "Untrusted Workflow"
+    assert_rejected(
+        lambda: verifier.verify_executor_run_event(
+            tampered_event, p, repository
+        ),
+        "executor workflow name mismatch",
+        "candidate verifier accepted an unexpected executor workflow name",
+    )
+
+    tampered_event = dict(executor_run)
+    tampered_event["id"] = True
+    assert_rejected(
+        lambda: verifier.verify_executor_run_event(
+            tampered_event, p, repository
+        ),
+        "executor id is not a positive integer",
+        "candidate verifier accepted a boolean executor run ID",
+    )
 
     tampered_executor = dict(executor_run)
     tampered_executor["head_sha"] = "0" * 40
@@ -443,7 +469,7 @@ def run(candidate_root: pathlib.Path) -> None:
         lambda: verifier.verify_executor_run_record(
             tampered_executor, record, p, repository
         ),
-        'record["executor_workflow_commit_sha"] == head_sha',
+        "executor workflow commit does not match evidence record",
         "candidate verifier accepted an executor run with a different workflow commit",
     )
 
@@ -453,7 +479,7 @@ def run(candidate_root: pathlib.Path) -> None:
         lambda: verifier.verify_executor_run_record(
             tampered_executor, record, p, repository
         ),
-        'executor_run["run_attempt"] == int(record["executor_run_attempt"])',
+        "executor run attempt does not match evidence record",
         "candidate verifier accepted an executor run from a different attempt",
     )
 
