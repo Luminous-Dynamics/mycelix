@@ -23,8 +23,8 @@ pub const MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-time-authority-profile-v5";
 pub const MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-temporal-attestation-v4";
-pub const MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V1: &str =
-    "mycelix-manufacturing-machine-temporal-evidence-receipt-v1";
+pub const MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V2: &str =
+    "mycelix-manufacturing-machine-temporal-evidence-receipt-v2";
 /// Hard upper bound used to keep temporal uncertainty arithmetic bounded.
 pub const MAX_MACHINE_TEMPORAL_ACCURACY_MICROS: i64 = 86_400_000_000;
 /// Maximum encoded size for the opaque external evidence commitment.
@@ -41,6 +41,9 @@ pub const MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS: usize = 256;
 pub struct MachineTemporalEvidenceObservation {
     /// Versioned outer archive format; inner signed statements retain their own schema IDs.
     pub receipt_schema_id: String,
+    /// Author of the machine-root Create action that owns the selected profile.
+    /// The original root record/action is still required for durable action-hash verification.
+    pub machine_registrant: AgentPubKey,
     pub attestation_hash: ActionHash,
     pub authority_agent: AgentPubKey,
     pub profile_hash: ActionHash,
@@ -105,7 +108,8 @@ impl MachineTemporalEvidenceObservation {
     fn signed_statements_match_observation(&self) -> bool {
         let profile = &self.profile_statement;
         let attestation = &self.attestation_statement;
-        self.receipt_schema_id == MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V1
+        self.receipt_schema_id == MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V2
+            && profile.signer == self.machine_registrant
             && !profile.payload.profile_id.trim().is_empty()
             && profile.payload.profile_id.len() <= MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
             && !profile.payload.source_profile.trim().is_empty()
@@ -1570,8 +1574,10 @@ mod content_restriction_tests {
             source_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
             source_commitment: source_commitment.clone(),
         };
+        let machine_registrant = AgentPubKey::from_raw_32(vec![6; 32]);
         MachineTemporalEvidenceObservation {
-            receipt_schema_id: MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V1.to_string(),
+            receipt_schema_id: MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V2.to_string(),
+            machine_registrant: machine_registrant.clone(),
             attestation_hash: attestation_hash.clone(),
             authority_agent: authority_agent.clone(),
             profile_hash: profile_hash.clone(),
@@ -1587,7 +1593,7 @@ mod content_restriction_tests {
             source_commitment,
             profile_statement: MachineTemporalSignedProfileStatement {
                 action_hash: profile_hash,
-                signer: AgentPubKey::from_raw_32(vec![6; 32]),
+                signer: machine_registrant,
                 payload: profile_payload,
                 signature: Signature(vec![0; 64]),
             },
@@ -1828,6 +1834,16 @@ mod content_restriction_tests {
         observation.source_commitment.pop();
         observation.attestation_statement.payload.source_commitment =
             observation.source_commitment.clone();
+        assert_eq!(
+            resolve_temporal_evidence(vec![observation]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_receipt_rejects_profile_signer_not_machine_registrant() {
+        let mut observation = temporal_observation(1, 7, 100);
+        observation.profile_statement.signer = AgentPubKey::from_raw_32(vec![9; 32]);
         assert_eq!(
             resolve_temporal_evidence(vec![observation]),
             MachineTemporalEvidenceResolution::InvalidEvidence
