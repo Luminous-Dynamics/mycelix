@@ -2,7 +2,7 @@
 
 **Profile ID:** `civ-013-durable-adapter-v1`  
 **Status:** experimental reference profile; not production qualification.  
-**Source adapter revision:** [Symthaea commit `44252bba3fd550732cef424b5e8a59b6bcbbfc1c`](https://github.com/Luminous-Dynamics/symthaea/commit/44252bba3fd550732cef424b5e8a59b6bcbbfc1c)  
+**Source adapter revision:** [Symthaea commit `b5a93838272e37f856f78e0e415bcd52f557ba7a`](https://github.com/Luminous-Dynamics/symthaea/commit/b5a93838272e37f856f78e0e415bcd52f557ba7a)  
 **Golden vectors:** [civ-013-durable-witness-conformance-v1.json](civ-013-durable-witness-conformance-v1.json)  
 **Manifest:** [civ-013-durable-witness-conformance-v1-manifest.json](civ-013-durable-witness-conformance-v1-manifest.json)  
 **Independent checker:** [verify_civ013_durable_witness_conformance_v1.py](../../scripts/integral/verify_civ013_durable_witness_conformance_v1.py)  
@@ -148,12 +148,12 @@ DA037 describes the source-level integration test's decisive pre-recovery observ
 
 ## SQLite WAL-reset fix floor
 
-The producer workspace pins rusqlite 0.39.0 with `bundled` and `fallible_uint`, resolving libsqlite3-sys 0.37.0 and bundled SQLite 3.51.3. SQLite's official WAL documentation identifies the WAL-reset corruption bug through 3.51.2 and lists 3.51.3 as fixed; because this adapter deliberately uses WAL and concurrent connections, the source checks `rusqlite::version_number()` at connection-open time and fails closed below 3.51.3. It has separate unit tests for the actually linked runtime and for rejecting a simulated 3.51.2 runtime through the same extracted version-validation function used by connection opening.
+The producer workspace pins rusqlite 0.40.2 with `bundled` and `fallible_uint`, resolving libsqlite3-sys 0.38.2 and bundled SQLite 3.53.2. SQLite's official WAL documentation identifies the WAL-reset corruption bug through 3.51.2 and lists 3.51.3 as fixed; because this adapter deliberately uses WAL and concurrent connections, the source checks `rusqlite::version_number()` at connection-open time and fails closed below 3.51.3. It has separate unit tests for the actually linked runtime and for rejecting a simulated 3.51.2 runtime through the same extracted version-validation function used by connection opening.
 
 - DA039 models acceptance of SQLite version number 3051003 (3.51.3).
 - DA040 models rejection of version number 3051002 (3.51.2).
 
-Sources: [SQLite WAL documentation, §11](https://www.sqlite.org/wal.html#the_wal_reset_bug), [SQLite 3.51.3 release notes](https://www.sqlite.org/releaselog/3_51_3.html), [rusqlite 0.39.0 documentation](https://docs.rs/crate/rusqlite/0.39.0).
+Sources: [SQLite WAL documentation, §11](https://www.sqlite.org/wal.html#the_wal_reset_bug), [SQLite 3.51.3 release notes](https://www.sqlite.org/releaselog/3_51_3.html), [rusqlite 0.40.2 documentation](https://docs.rs/crate/rusqlite/0.39.0).
 
 These vectors express the adapter's version policy. Only the source crate's executed runtime-version test proves the linked library reports a version at or above the minimum; the profile itself remains reference-vector conformance, not proof that Actions or Rust tests ran.
 
@@ -170,7 +170,7 @@ DA038 specifies that absence of a persistent test-anchor row is not equivalent t
 
 The durable adapter now pins `rusqlite 0.40.2` and `libsqlite3-sys 0.38.2`, whose bundled SQLite version is 3.53.2 according to the [upstream rusqlite 0.40.2 README](https://github.com/rusqlite/rusqlite/blob/v0.40.2/README.md). SQLite's [WAL documentation](https://www.sqlite.org/wal.html) states that the WAL-reset corruption bug affects releases through 3.51.2 and is fixed in 3.51.3 and later; see also the [3.51.3 release notes](https://www.sqlite.org/releaselog/3_51_3.html).
 
-The adapter refuses to open a store unless `rusqlite::version_number()` is at least `3051003` (SQLite 3.51.3), and its runtime regression now checks that the linked engine is exactly the pinned bundled release 3.53.2 as well as above the fix floor. DA039 binds the current 3.53.2 bundle; DA040 injects 3.51.2 into the version gate and expects rejection. This separates the exact reproducible build input (3.53.2) from the minimum acceptable runtime floor (3.51.3). The Mycelix Actions workflow checks the exact pinned source's constant, runtime-gate call, and positive/negative regression names in addition to verifying the `rusqlite`/`libsqlite3-sys` versions in `Cargo.lock`. None of these static/reference checks substitutes for an exact-head Rust test PASS.
+The adapter refuses to open a store unless `rusqlite::version_number()` is at least `3051003` (SQLite 3.51.3), and its runtime regression checks that the linked engine is exactly the pinned bundled release 3.53.2 as well as above the fix floor. The public integrity check now requires an explicit `&Transaction<'_>` helper and uses one deferred read transaction for SQLite integrity, foreign-key, log-enumeration, and semantic-history checks. DA039 binds the current 3.53.2 bundle; DA040 injects 3.51.2 into the version gate and expects rejection. This separates the exact reproducible build input (3.53.2) from the minimum acceptable runtime floor (3.51.3). The Mycelix Actions workflow checks the exact pinned source's constant, runtime-gate call, and positive/negative regression names in addition to verifying the `rusqlite`/`libsqlite3-sys` versions in `Cargo.lock`. None of these static/reference checks substitutes for an exact-head Rust test PASS.
 
 
 | DA041 | UnanchoredForkEvidenceErasure | Coordinated deletion of local fork rows and same-database tail metadata is outside the current claim because the external anchor tracks accepted-head state only |
