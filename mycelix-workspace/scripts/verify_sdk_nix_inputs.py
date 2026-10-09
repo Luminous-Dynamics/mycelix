@@ -19,6 +19,11 @@ class InputContractError(ValueError):
 SRI_TOKEN = re.compile(r"^(?:sha512|sha384|sha256|sha1)-[A-Za-z0-9+/]+={0,2}(?:\?.*)?$")
 DEPENDENCY_SECTIONS = ("dependencies", "devDependencies", "optionalDependencies")
 EXPECTED_REGISTRY = "registry.npmjs.org"
+EXPECTED_INSTALL_LIFECYCLE_PACKAGES = {
+    "node_modules/esbuild",
+    "node_modules/fsevents",
+    "node_modules/unrs-resolver",
+}
 
 
 def parse_object(raw: str, label: str) -> dict:
@@ -104,6 +109,15 @@ def verify_contract(package_raw: str, lock_raw: str) -> dict:
 
     if resolved_count == 0:
         raise InputContractError("lockfile contains no resolved package entries")
+    if set(lifecycle_packages) != EXPECTED_INSTALL_LIFECYCLE_PACKAGES:
+        missing = sorted(EXPECTED_INSTALL_LIFECYCLE_PACKAGES - set(lifecycle_packages))
+        unexpected = sorted(set(lifecycle_packages) - EXPECTED_INSTALL_LIFECYCLE_PACKAGES)
+        raise InputContractError(
+            "install-lifecycle metadata changed; review explicitly "
+            f"(missing={missing}, unexpected={unexpected})"
+        )
+    if platform_packages == 0:
+        raise InputContractError("lockfile no longer records platform-constrained/native packages")
 
     return {
         "schema": "luminous.mycelix.sdk-nix-input-contract.v1",
@@ -120,34 +134,17 @@ def verify_contract(package_raw: str, lock_raw: str) -> dict:
     }
 
 
-def expect_rejected(label: str, package: dict, lock: dict, failure: list[str]) -> None:
-    try:
-        verify_contract(json.dumps(package), json.dumps(lock))
-    except InputContractError as exc:
-        failure.append("")
-        raise _FixtureAccepted(label, str(exc)) from exc
-    raise InputContractError(f"negative fixture was incorrectly accepted: {label}")
-
-
-class _FixtureAccepted(Exception):
-    def __init__(self, label: str, reason: str):
-        super().__init__(reason)
-        self.label = label
-        self.reason = reason
-
-
 def run_self_tests(package_raw: str, lock_raw: str) -> list[dict]:
     package = parse_object(package_raw, "package.json")
     lock = parse_object(lock_raw, "package-lock.json")
-    tests: list[tuple[str, str, dict, dict]] = []
+    tests: list[tuple[str, str, str]] = []
 
-    malformed_lock = copy.deepcopy(lock)
-    tests.append(("malformed_lock_json", "{", package, malformed_lock))
+    tests.append(("malformed_lock_json", package_raw, "{"))
 
     missing_integrity = copy.deepcopy(lock)
     resolved_key = next(k for k, v in missing_integrity["packages"].items() if k and v.get("resolved"))
     missing_integrity["packages"][resolved_key].pop("integrity", None)
-    tests.append(("missing_integrity", json.dumps(missing_integrity), package, missing_integrity))
+    tests.append(("missing_integrity", package_raw, json.dumps(missing_integrity)))
 
     bad_registry = copy.deepcopy(lock)
     bad_registry["packages"][resolved_key]["resolved"] = (
@@ -155,29 +152,29 @@ def run_self_tests(package_raw: str, lock_raw: str) -> list[dict]:
             "https://registry.npmjs.org/", "https://packages.example.invalid/", 1
         )
     )
-    tests.append(("unapproved_registry", json.dumps(bad_registry), package, bad_registry))
+    tests.append(("unapproved_registry", package_raw, json.dumps(bad_registry)))
 
     drifted_manifest = copy.deepcopy(package)
-    first_section = next(
-        section for section in DEPENDENCY_SECTIONS if drifted_manifest.get(section)
-    )
+    first_section = next(section for section in DEPENDENCY_SECTIONS if drifted_manifest.get(section))
     first_dep = next(iter(drifted_manifest[first_section]))
     drifted_manifest[first_section][first_dep] = "0.0.0-injected-drift"
-    tests.append(("manifest_lock_dependency_drift", json.dumps(drifted_manifest), lock, lock))
+    tests.append(("manifest_lock_dependency_drift", json.dumps(drifted_manifest), lock_raw))
 
     drifted_root = copy.deepcopy(lock)
     drifted_root["packages"][""]["version"] = "0.0.0-injected-drift"
-    tests.append(("manifest_lock_identity_drift", package_raw, drifted_root, drifted_root))
+    tests.append(("manifest_lock_identity_drift", package_raw, json.dumps(drifted_root)))
 
-    tests.append(("non_v3_lockfile", package_raw, {**lock, "lockfileVersion": 2}, lock))
+    tests.append(("non_v3_lockfile", package_raw, json.dumps({**lock, "lockfileVersion": 2})))
+
+    # A lifecycle metadata mutation must be reviewed, not silently accepted.
+    lifecycle_mutation = copy.deepcopy(lock)
+    lifecycle_mutation["packages"]["node_modules/esbuild"].pop("hasInstallScript", None)
+    tests.append(("install_lifecycle_metadata_drift", package_raw, json.dumps(lifecycle_mutation)))
 
     results: list[dict] = []
-    for label, lock_input, package_input, lock_obj in tests:
+    for label, package_input, lock_input in tests:
         try:
-            if label == "malformed_lock_json":
-                verify_contract(package_raw, lock_input)
-            else:
-                verify_contract(json.dumps(package_input), json.dumps(lock_obj))
+            verify_contract(package_input, lock_input)
         except InputContractError as exc:
             results.append({"fixture": label, "status": "PASS_REJECTED", "reason": str(exc)})
         else:
