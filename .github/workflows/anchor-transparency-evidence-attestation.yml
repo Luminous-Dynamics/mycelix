@@ -9,12 +9,8 @@ on:
     branches:
       - main
 
-permissions:
-  actions: read
-  contents: read
-  id-token: write
-  attestations: write
-  artifact-metadata: write
+# Default-deny at workflow scope; the sole job opts into only its required rights.
+permissions: {}
 
 jobs:
   attest-execution-evidence:
@@ -74,6 +70,18 @@ jobs:
           subject-path: execution-evidence/qualification-execution-receipt.json
           predicate-type: https://luminousdynamics.io/attestations/mycelix-anchor-research-execution/v1
           predicate-path: execution-evidence/attestation-predicate-python.json
+
+      - name: Verify signed receipt, predicate type, repository, and signer workflow
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREDICATE_TYPE: https://luminousdynamics.io/attestations/mycelix-anchor-research-execution/v1
+        run: |
+          set -euo pipefail
+          gh attestation verify execution-evidence/qualification-execution-receipt.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --predicate-type "$PREDICATE_TYPE" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/anchor-transparency-evidence-attestation.yml"
 
       - name: Preserve the verified predicate alongside the source evidence
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
