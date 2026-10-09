@@ -376,9 +376,17 @@ jobs:
         run: cd mycelix-workspace/sdk && cargo test --workspace
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+      - name: Install TypeScript SDK dependencies
+        run: cd mycelix-workspace/sdk-ts && npm ci
+      - name: Audit TypeScript SDK dependencies
+        run: cd mycelix-workspace/sdk-ts && npm audit --audit-level=high
+      - name: Typecheck TypeScript SDK
+        run: cd mycelix-workspace/sdk-ts && npm run typecheck
+      - name: Lint TypeScript SDK
+        run: cd mycelix-workspace/sdk-ts && npm run lint
       - name: Test TypeScript SDK
-        run: cd mycelix-workspace/sdk-ts && npm ci && npm test
+        run: cd mycelix-workspace/sdk-ts && npm test
 
   test-prism:
     needs: changes
