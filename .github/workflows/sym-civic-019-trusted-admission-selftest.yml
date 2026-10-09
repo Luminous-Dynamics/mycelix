@@ -57,6 +57,7 @@ jobs:
       - name: Test report checker against adversarial fixtures
         run: |
           set -euo pipefail
+          # Exercise deterministic rejection fixtures before validating the real oracle report.
           python3 -m unittest discover -s tests/qualification -p 'test_sym_civic_019_trusted_selftest_report.py'
 
       - name: Independently check self-test report contract
