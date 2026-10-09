@@ -223,6 +223,9 @@ def self_test():
         event_path.write_bytes(canonical(fork_event)+b"\n")
         _,err=validate_receipt(receipt_path,artifact,event_path);assert err=="source-run-head-repository"
         event_path.write_bytes(canonical(event)+b"\n")
+        spoof=copy.deepcopy(receipt);spoof["source"]["workflow_ref"]="attacker/repo/"+WORKFLOW_PATH+"@refs/heads/main";write_receipt(spoof)
+        _,err=validate_receipt(receipt_path,artifact,event_path);assert err=="source-workflow-ref-binding"
+        write_receipt(receipt)
         tampered=reports/"python-fixed.json";tampered.write_bytes(tampered.read_bytes()+b" ")
         _,err=validate_receipt(receipt_path,artifact,event_path);assert err=="report-sha:python-fixed.json"
         raw=canonical({"schema":"self-test.fixed-classification","status":"research-evidence-only","case_count":52,
