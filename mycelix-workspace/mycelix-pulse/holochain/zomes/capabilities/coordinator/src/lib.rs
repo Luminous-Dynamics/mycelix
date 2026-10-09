@@ -1127,8 +1127,9 @@ pub fn probe_remote_capability(capability_hash: ActionHash) -> ExternResult<Capa
         )));
     }
 
-    // This diagnostic probes exactly get_inbox_v2. A send-only grant must not
-    // report Unauthorized and thereby masquerade as a revoked read grant.
+    // This diagnostic probes the empty-response capability_probe_v1 endpoint.
+    // A send-only grant must not report Unauthorized and thereby masquerade as
+    // a revoked read grant; FunctionNotGranted is an application-scope result.
     if !capability.permissions.can_read
         || !matches!(
             capability.access_type,
