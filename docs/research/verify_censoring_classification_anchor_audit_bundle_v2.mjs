@@ -129,7 +129,7 @@ function mutate(bundle,mutation){
   else if(type==="verifier"&&b.verifiers[name])b.verifiers[name][1]="0".repeat(40);
   else if(type==="workflow"&&b.workflow_sources?.[name])b.workflow_sources[name][1]="0".repeat(40);
   else if(type==="binding"&&name==="vds_id")b.bindings.vds_id="attacker.vds";
-  else if(type==="topology"&&name==="4890")b.topology.find(x=>x.pr===4890).head="0".repeat(40);
+  else if(type==="topology"&&/^\d+$/.test(name)){const row=b.topology.find(x=>x.pr===Number(name));if(row)row.head="0".repeat(40);}
   else if(type==="disable_verifier"&&b.bindings.required_verifiers[name]!==undefined)b.bindings.required_verifiers[name]=false;
   else if(type==="claim"&&b.bindings.security_claims[name]!==undefined)b.bindings.security_claims[name]=true;
   else if(mutation==="hosted_status")b.hosted_status="success";
@@ -139,7 +139,7 @@ const args=process.argv.slice(2);
 if(args.length!==4){console.error("usage: verifier REPO_ROOT BUNDLE CAMPAIGN REPORT");process.exit(2);}
 const[root,bundlePath,campaignPath,reportPath]=args;
 const bundle=JSON.parse(fs.readFileSync(bundlePath,"utf8")),campaign=JSON.parse(fs.readFileSync(campaignPath,"utf8"));
-if(campaign.schema!==CAMPAIGN_SCHEMA||campaign.case_count!==32||campaign.cases.length!==32)process.exit(1);
+if(campaign.schema!==CAMPAIGN_SCHEMA||campaign.case_count!==34||campaign.cases.length!==34)process.exit(1);
 const ids=campaign.cases.map(c=>c.case_id);if(new Set(ids).size!==ids.length)process.exit(1);
 const rows=[],failures=[];
 for(const c of campaign.cases){
