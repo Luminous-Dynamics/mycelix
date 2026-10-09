@@ -19,7 +19,7 @@ class InputContractError(ValueError):
 
 
 SRI_TOKEN = re.compile(r"^sha512-[A-Za-z0-9+/]+={0,2}(?:\?.*)?$")
-DEPENDENCY_SECTIONS = ("dependencies", "devDependencies", "optionalDependencies")
+DEPENDENCY_SECTIONS = ("dependencies", "devDependencies", "optionalDependencies", "peerDependencies", "peerDependenciesMeta")
 EXPECTED_REGISTRY = "registry.npmjs.org"
 EXPECTED_INSTALL_LIFECYCLE_PACKAGES = {
     "node_modules/esbuild",
@@ -239,6 +239,14 @@ def run_self_tests(package_raw: str, lock_raw: str) -> list[dict]:
     drifted_root = copy.deepcopy(lock)
     drifted_root["packages"][""]["version"] = "0.0.0-injected-drift"
     tests.append(("manifest_lock_identity_drift", package_raw, json.dumps(drifted_root)))
+
+    drifted_peer_dependencies = copy.deepcopy(package)
+    drifted_peer_dependencies["peerDependencies"]["svelte"] = "^5.0.0 || ^6.0.0"
+    tests.append(("manifest_lock_peer_dependency_drift", json.dumps(drifted_peer_dependencies), lock_raw))
+
+    drifted_peer_metadata = copy.deepcopy(package)
+    drifted_peer_metadata["peerDependenciesMeta"]["svelte"]["optional"] = False
+    tests.append(("manifest_lock_peer_metadata_drift", json.dumps(drifted_peer_metadata), lock_raw))
 
     tests.append(("non_v3_lockfile", package_raw, json.dumps({**lock, "lockfileVersion": 2})))
 
