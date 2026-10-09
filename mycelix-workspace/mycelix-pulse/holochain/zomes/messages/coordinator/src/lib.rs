@@ -699,17 +699,70 @@ pub fn get_sent(query: EmailQuery) -> ExternResult<Vec<EmailListItem>> {
     Ok(items.into_iter().skip(offset).take(limit).collect())
 }
 
-/// Get full email by hash
+/// Get a full V1 email only when the message is addressed to or sent by this agent.
+///
+/// The encrypted DHT entry may be globally discoverable by hash, but this
+/// mailbox API must not become an arbitrary-message lookup oracle for delegated
+/// callers. Return None for missing, foreign, or non-V1 entries.
 #[hdk_extern]
 pub fn get_email(hash: ActionHash) -> ExternResult<Option<EncryptedEmail>> {
-    if let Some(record) = get(hash, GetOptions::default())? {
-        let email = record
-            .entry()
-            .to_app_option::<EncryptedEmail>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
-        return Ok(email);
+    let Some(record) = get(hash, GetOptions::default())? else {
+        return Ok(None);
+    };
+    let local_agent = agent_info()?.agent_initial_pubkey;
+    if !record_belongs_to_local_mailbox(&record, &local_agent)? {
+        return Ok(None);
     }
-    Ok(None)
+    let email = record
+        .entry()
+        .to_app_option::<EncryptedEmail>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    Ok(email)
+}
+
+/// Return true when a V1/V2 message's signed sender or recipient is this mailbox.
+///
+/// Sender/recipient identity is taken from the committed message entry, not
+/// from caller-supplied metadata or a client-side projection.
+fn is_mailbox_participant(
+    sender: &AgentPubKey,
+    recipient: &AgentPubKey,
+    local_agent: &AgentPubKey,
+) -> bool {
+    sender == local_agent || recipient == local_agent
+}
+
+/// Check the message boundary before serving message-specific data such as
+/// full encrypted envelopes or attachment chunks.
+fn record_belongs_to_local_mailbox(
+    record: &Record,
+    local_agent: &AgentPubKey,
+) -> ExternResult<bool> {
+    if let Some(email) = record
+        .entry()
+        .to_app_option::<EncryptedEmail>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+    {
+        return Ok(is_mailbox_participant(
+            &email.sender,
+            &email.recipient,
+            local_agent,
+        ));
+    }
+
+    if let Some(email) = record
+        .entry()
+        .to_app_option::<EncryptedEmailV2>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+    {
+        return Ok(is_mailbox_participant(
+            &email.sender,
+            &email.recipient,
+            local_agent,
+        ));
+    }
+
+    Ok(false)
 }
 
 // ==================== EMAIL STATE ====================
@@ -1149,9 +1202,20 @@ pub fn add_attachment(input: EncryptedAttachment) -> ExternResult<ActionHash> {
     Ok(attachment_hash)
 }
 
-/// Get attachments for email
+/// Get attachments for a message addressed to or sent by this mailbox.
+///
+/// Unknown and non-local messages return an empty collection so this read API
+/// does not reveal whether another agent's message has attachment links.
 #[hdk_extern]
 pub fn get_attachments(email_hash: ActionHash) -> ExternResult<Vec<EncryptedAttachment>> {
+    let Some(email_record) = get(email_hash.clone(), GetOptions::default())? else {
+        return Ok(Vec::new());
+    };
+    let local_agent = agent_info()?.agent_initial_pubkey;
+    if !record_belongs_to_local_mailbox(&email_record, &local_agent)? {
+        return Ok(Vec::new());
+    }
+
     let links = get_links(
         LinkQuery::try_new(email_hash, LinkTypes::EmailToAttachments)?,
         GetStrategy::default(),
