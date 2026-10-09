@@ -407,6 +407,7 @@ def main() -> int:
             "positive_controls": 2,
             "negative_controls": len(receipt["controls"]) - 2,
             "replay_reuse_rejected": True,
+            "replay_jti_consumed": True,
             "mutants_detected": len(receipt["mutations"]),
             "verified_pop_mutants_detected": len(receipt["mutations"]),
             "qualification": "NOT_CLAIMED",
