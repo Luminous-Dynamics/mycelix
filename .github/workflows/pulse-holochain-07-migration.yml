@@ -150,6 +150,14 @@ jobs:
           npm ci --prefix mycelix-workspace/mycelix-pulse/ui
           npm run build --prefix mycelix-workspace/mycelix-pulse/ui
 
+      - name: Typecheck typed capability adapter and wire types
+        run: |
+          npm exec --prefix mycelix-workspace/mycelix-pulse/ui -- tsc \
+            --noEmit --strict --target ES2022 --module ESNext \
+            --moduleResolution bundler --skipLibCheck \
+            mycelix-workspace/mycelix-pulse/holochain/client/src/zomes/capabilities.ts \
+            mycelix-workspace/mycelix-pulse/holochain/client/src/types/index.ts
+
   nix-07:
     name: Holochain 0.7 Nix and DNA packaging
     needs: [relock-and-push]
