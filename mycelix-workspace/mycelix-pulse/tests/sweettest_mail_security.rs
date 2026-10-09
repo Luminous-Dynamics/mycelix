@@ -1041,16 +1041,30 @@ async fn test_capability_grant_and_revocation_lifecycle() {
         "the identical remote call must be Unauthorized after conductor grant deletion"
     );
 
-    // Querying by the ORIGINAL action hash must also resolve the latest update.
-    let app_projection: bool = conductor
-        .call_fallible(
-            &bob.zome("mail_capabilities"),
-            "verify_capability",
-            (capability_hash.clone(), AuditActionInput::ReadEmail),
-        )
-        .await
-        .expect("latest application state should remain readable");
-    assert!(!app_projection, "application-level projection must also deny access");
+    // The conductor-level check above is synchronous; DHT projection convergence
+    // is not. Retry only the app-state assertion while the update integrates.
+    let mut projection_denies = false;
+    for attempt in 0..30 {
+        let app_projection: bool = conductor
+            .call_fallible(
+                &bob.zome("mail_capabilities"),
+                "verify_capability",
+                (capability_hash.clone(), AuditActionInput::ReadEmail),
+            )
+            .await
+            .expect("application capability projection should be readable");
+        if !app_projection {
+            projection_denies = true;
+            break;
+        }
+        if attempt < 29 {
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+    }
+    assert!(
+        projection_denies,
+        "application-level projection should converge to revoked even when queried by the original action hash"
+    );
 
     // Replaying revoke against the original hash must be idempotent. A second
     // system-grant deletion is neither attempted nor reported as a fresh success.
