@@ -923,9 +923,15 @@ pub fn receive_capability_grant(delivery: CapabilityGrantDelivery) -> ExternResu
 /// infer authorization from the public MailboxCapability.revoked projection.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CapabilityProbeResult {
+    /// The exact inbox call returned successfully under the conductor's grant.
     Authorized,
+    /// The exact inbox call was rejected by conductor-level authorization.
+    /// This alone does not distinguish revocation from another grant/secret mismatch.
     Unauthorized,
+    /// No matching private claim has the secret fingerprint bound to the public grant.
     ClaimMissing,
+    /// This probe endpoint was not included in the requested capability permissions.
+    FunctionNotGranted,
 }
 
 /// Find the private source-chain claim corresponding to one grantor + capability tag.
@@ -1003,7 +1009,11 @@ fn resolve_latest_capability(
     Ok((latest.1, latest.2))
 }
 
-fn find_cap_claim(grantor: &AgentPubKey, tag: &str) -> ExternResult<Option<CapClaim>> {
+fn find_cap_claim(
+    grantor: &AgentPubKey,
+    tag: &str,
+    expected_secret_hash: &[u8],
+) -> ExternResult<Option<CapClaim>> {
     let filter = ChainQueryFilter::new()
         .action_type(ActionType::Create)
         .entry_type(EntryType::CapClaim)
@@ -1012,7 +1022,11 @@ fn find_cap_claim(grantor: &AgentPubKey, tag: &str) -> ExternResult<Option<CapCl
     let matching_claim = query(filter)?.into_iter().find_map(|record| {
         let entry = record.entry().as_option()?;
         match entry {
-            Entry::CapClaim(claim) if claim.grantor == *grantor && claim.tag == tag => {
+            Entry::CapClaim(claim)
+                if claim.grantor == *grantor
+                    && claim.tag == tag
+                    && Sha256::digest(claim.secret.as_ref()).as_slice() == expected_secret_hash =>
+            {
                 Some(claim.clone())
             }
             _ => None,
@@ -1051,7 +1065,22 @@ pub fn probe_remote_capability(capability_hash: ActionHash) -> ExternResult<Capa
         )));
     }
 
-    let Some(claim) = find_cap_claim(&capability.grantor, &capability.id)? else {
+    // This diagnostic probes exactly get_inbox_v2. A send-only grant must not
+    // report Unauthorized and thereby masquerade as a revoked read grant.
+    if !capability.permissions.can_read
+        || !matches!(
+            capability.access_type,
+            MailboxAccessType::FullAccess | MailboxAccessType::ReadOnly
+        )
+    {
+        return Ok(CapabilityProbeResult::FunctionNotGranted);
+    }
+
+    let Some(claim) = find_cap_claim(
+        &capability.grantor,
+        &capability.id,
+        &capability.secret_hash,
+    )? else {
         return Ok(CapabilityProbeResult::ClaimMissing);
     };
 
