@@ -47,18 +47,23 @@ jobs:
           python3 -m json.tool docs/integral/civ-013-witness-conformance-v1-manifest.json >/dev/null
 
       - name: Run independent CIV-013 reference checker
+        id: vectors
         shell: bash
         run: |
           set -euo pipefail
           python3 scripts/integral/verify_civ013_witness_conformance_v1.py | tee civ013-witness-conformance.txt
 
       - name: Emit qualification record
+        if: always()
+        env:
+          VECTOR_OUTCOME: ${{ steps.vectors.outcome }}
         shell: bash
         run: |
           set -euo pipefail
           {
             echo "CIV-013 WITNESS CONFORMANCE"
-            echo "status=reference-conformance-passed"
+            echo "status=reference-conformance-${VECTOR_OUTCOME}"
+            echo "verification_step_outcome=${VECTOR_OUTCOME}"
             echo "commit=$QUALIFIED_SHA"
             echo "workflow=$GITHUB_WORKFLOW"
             echo "workflow_ref=$GITHUB_WORKFLOW_REF"
@@ -79,6 +84,7 @@ jobs:
           } | tee -a civ013-witness-conformance.txt
 
       - name: Upload qualification record
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: civ013-witness-conformance-${{ env.QUALIFIED_SHA }}
