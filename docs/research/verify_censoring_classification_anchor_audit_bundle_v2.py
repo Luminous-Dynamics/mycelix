@@ -28,7 +28,7 @@ EXPECTED_TOPOLOGY={
  (4890,STACK_HEAD),
 }
 REQUIRED_VERIFIERS={
- "audit_bundle_python","audit_bundle_node","witness_crypto_python","witness_crypto_node",
+ "audit_bundle_python","audit_bundle_node","audit_bundle_v2_python","audit_bundle_v2_node","witness_crypto_python","witness_crypto_node",
  "vds_python","vds_node","rotation_python","rotation_node","tree_head_python","tree_head_node",
  "legacy_receipt_python","legacy_receipt_node","static_gossip_python","static_gossip_node",
  "cose_receipt_python","cose_receipt_node","gossip_simulation_python","gossip_simulation_node",
@@ -153,7 +153,7 @@ def main():
         print("usage: verifier REPO_ROOT BUNDLE CAMPAIGN REPORT",file=sys.stderr);return 2
     repo_root,bundle_path,campaign_path,report_path=map(Path,sys.argv[1:])
     bundle=json.loads(bundle_path.read_text());campaign=json.loads(campaign_path.read_text())
-    if campaign.get("schema")!=CAMPAIGN_SCHEMA or campaign.get("case_count")!=30 or len(campaign.get("cases",[]))!=30:return 1
+    if campaign.get("schema")!=CAMPAIGN_SCHEMA or campaign.get("case_count")!=32 or len(campaign.get("cases",[]))!=32:return 1
     case_ids=[x.get("case_id") for x in campaign["cases"]]
     if len(case_ids)!=len(set(case_ids)):return 1
     rows=[];failures=[]
