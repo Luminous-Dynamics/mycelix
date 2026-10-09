@@ -37,9 +37,10 @@ def load_report(path:Path,expected:int|None):
     obj=json.loads(raw)
     cases=obj.get("cases")
     failures=obj.get("failures")
-    count=obj.get("case_count")
+    explicit_count="case_count" in obj
+    count=obj.get("case_count",len(cases) if isinstance(cases,list) else None)
     if not isinstance(cases,list) or not cases:return None,"empty-or-missing-cases"
-    if not isinstance(count,int) or count!=len(cases):return None,"case-count-mismatch"
+    if explicit_count and (not isinstance(count,int) or count!=len(cases)):return None,"case-count-mismatch"
     if expected is not None and count!=expected:return None,"unexpected-case-count"
     if not isinstance(failures,list) or failures:return None,"reported-failures"
     ids=[x.get("case_id",x.get("id")) if isinstance(x,dict) else None for x in cases]
@@ -129,6 +130,9 @@ def self_test():
         p=Path(td)/"r.json";p.write_bytes(canonical(valid))
         _,e=load_report(p,2)
         assert e is None
+        legacy={"schema":"test.v1","cases":[{"case_id":"a"},{"case_id":"b"}],"failures":[]}
+        p.write_bytes(canonical(legacy));meta,e=load_report(p,2);assert e is None and meta["case_count"]==2
+        legacy_bad=dict(legacy);legacy_bad["case_count"]=3;p.write_bytes(canonical(legacy_bad));_,e=load_report(p,2);assert e=="case-count-mismatch"
         invalid=dict(valid);invalid["failures"]=[{"case_id":"a"}];p.write_bytes(canonical(invalid))
         _,e=load_report(p,2);assert e=="reported-failures"
         invalid=dict(valid);invalid["cases"]=[{"case_id":"a"},{"case_id":"a"}];p.write_bytes(canonical(invalid))
