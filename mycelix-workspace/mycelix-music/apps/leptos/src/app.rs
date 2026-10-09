@@ -165,17 +165,33 @@ impl PlayerState {
         self.is_playing.set(true);
     }
 
-    /// Remove a queued track and keep the active selection/index coherent.
+    /// Select the exact queue occurrence chosen in the queue panel.
+    ///
+    /// A playlist may intentionally contain the same song more than once.
+    /// Content identity alone is not enough to identify a queue position.
+    pub fn play_queued_song_at(&self, index: usize) {
+        let q = self.queue.get_untracked();
+        let Some(song) = q.get(index).cloned() else {
+            return;
+        };
+        let same_source = self
+            .current_song
+            .get_untracked()
+            .map_or(false, |current| current.song_hash == song.song_hash);
+        self.queue_index.set(Some(index));
+        self.prepare_track_change(&song);
+        self.current_song.set(Some(song));
+        if !same_source {
+            self.progress.set(0.0);
+        }
+        self.is_playing.set(true);
+    }
+
+    /// Remove the exact queue occurrence chosen in the queue panel.
     ///
     /// Removing the active track selects the next item, or the previous item
     /// when the removed track was last. Removing the final queued item clears
-    /// playback state; removing an earlier unrelated item only shifts the
-    /// queue index.
-    /// Remove the exact queue occurrence selected by the UI.
-    ///
-    /// A playlist may intentionally contain the same song more than once, so
-    /// content identity alone is not enough to identify a queue row.
-    pub fn remove_queued_song_at(&self, removed_index: usize) {
+    /// playback state; removing an earlier item only adjusts the queue index.
         let mut updated = self.queue.get_untracked();
         if removed_index >= updated.len() {
             return;
