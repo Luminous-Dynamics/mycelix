@@ -377,7 +377,7 @@ def main() -> int:
             "auth-v20-par-hash-evidence/delegation-chain-par-hash.json": 3,
             "auth-v20-compact-jws-evidence/compact-jws-chain.json": 4,
             "auth-v20-capability-evidence/aat-capability-subsumption.json": 4,
-            "auth-v20-pop-evidence/delegation-chain-pop-differential.json": 4,
+            "auth-v20-pop-evidence/delegation-chain-pop-differential.json": 5,
         }
         for relative_path, count in expected_mutants.items():
             data = json.loads((args.evidence_root / relative_path).read_text(encoding="utf-8"))
@@ -501,7 +501,7 @@ def main() -> int:
                 "AAT PoP harness did not execute both positive invocation profiles")
         require(pop_summary.get("negative_controls") == 25,
                 "AAT PoP harness did not execute all 25 denial/replay controls")
-        require(pop_summary.get("mutants_detected") == 4,
+        require(pop_summary.get("mutants_detected") == 5,
                 "AAT PoP harness did not detect all five omitted-check mutants")
         require(pop_summary.get("replay_jti_consumed") is True,
                 "AAT PoP harness did not verify one-time replay consumption")
