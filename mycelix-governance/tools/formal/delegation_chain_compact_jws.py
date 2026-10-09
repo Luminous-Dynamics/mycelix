@@ -89,6 +89,27 @@ def parse_json_object(raw: bytes, code: str) -> dict[str, Any]:
     return value
 
 
+def validate_jwk_signature_usage(jwk: Any) -> None:
+    """Reject JWK metadata that conflicts with this Ed25519 signature profile."""
+    if not isinstance(jwk, dict):
+        raise VerificationError("public-key-invalid", "public JWK must be an object")
+    if "use" in jwk and jwk["use"] != "sig":
+        raise VerificationError("jwk-use-invalid", "JWK use, when present, must be sig")
+    if "alg" in jwk and jwk["alg"] != "EdDSA":
+        raise VerificationError("jwk-algorithm-mismatch",
+                                "JWK alg, when present, must match the EdDSA token profile")
+    if "key_ops" in jwk:
+        operations = jwk["key_ops"]
+        if (not isinstance(operations, list)
+                or any(not isinstance(operation, str) or not operation for operation in operations)
+                or len(operations) != len(set(operations))
+                or set(operations) != {"verify"}):
+            raise VerificationError(
+                "jwk-key-ops-invalid",
+                "Ed25519 public verification JWK key_ops, when present, must be exactly ['verify']",
+            )
+
+
 def public_ed25519_bytes(jwk: Any) -> bytes:
     if not isinstance(jwk, dict):
         raise VerificationError("public-key-invalid", "public JWK must be an object")
@@ -96,6 +117,7 @@ def public_ed25519_bytes(jwk: Any) -> bytes:
         raise VerificationError("algorithm-key-mismatch", "only public OKP/Ed25519 keys are supported")
     if _PRIVATE_JWK_FIELDS.intersection(jwk):
         raise VerificationError("private-key-material-present", "public JWK contains private key members")
+    validate_jwk_signature_usage(jwk)
     raw = b64url_decode_canonical(jwk.get("x"), "jwk-coordinate-invalid")
     if len(raw) != 32:
         raise VerificationError("jwk-coordinate-invalid", "Ed25519 x must encode exactly 32 bytes")
