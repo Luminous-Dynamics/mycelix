@@ -66,7 +66,7 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
         elif relative == "auth-v20-par-hash-evidence/delegation-chain-par-hash.json":
             data["summary"].update({"mutants_detected": 3, "negative_controls": 12})
         elif relative == "auth-v20-compact-jws-evidence/compact-jws-chain.json":
-            data["summary"].update({"mutants_detected": 3, "negative_controls": 26, "positive_controls": 2, "signatures_verified": 5})
+            data["summary"].update({"mutants_detected": 3, "negative_controls": 30, "positive_controls": 2, "signatures_verified": 5})
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, sort_keys=True, indent=2) + "\n", encoding="utf-8")
