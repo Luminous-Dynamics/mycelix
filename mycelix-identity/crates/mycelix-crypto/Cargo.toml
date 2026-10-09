@@ -9,12 +9,18 @@ description = "Crypto-agile types for Mycelix Identity (Ed25519, ML-DSA, hybrid,
 default = []
 # WASM zomes: types + validation only, no crypto operations
 wasm = []
+# Standalone RustCrypto FIPS 204 ML-DSA verification primitive. This is a
+# candidate provider seam, not a qualification claim. It deliberately avoids
+# activating the Ed25519, KEM, and AEAD dependencies used by `hybrid-rc`.
+mldsa-verify-rc = ["dep:ml-dsa"]
 # RustCrypto hybrid backend: real hybrid X25519+ML-KEM-768 KEM that builds for
 # wasm32 (browser clients), unlike `native` (pqcrypto C-FFI). Off by default.
 # EXPERIMENTAL — construction pending crypto audit (see PQC_ROADMAP_2026-07-07.md).
+# Reuses the standalone verifier feature so the high-level and provider paths
+# share a single ML-DSA verification implementation.
 hybrid-rc = [
     "dep:ml-kem",
-    "dep:ml-dsa",
+    "mldsa-verify-rc",
     "dep:ed25519-dalek",
     "dep:hkdf",
     "dep:sha2",
