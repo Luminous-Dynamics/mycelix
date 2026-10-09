@@ -154,6 +154,8 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain", count: in
             header["b64"] = True
         elif case == "critical-header-present" and index == 1:
             header["crit"] = ["unsupported-extension"]
+        elif case == "unhashable-header-typ" and index == 1:
+            header["typ"] = []
 
         if case == "parent-token-reassociation" and index == 0:
             header["kid"] = "different-token-instance"
@@ -220,6 +222,7 @@ def cases(directory: Path) -> dict[str, dict[str, Any]]:
         "none-algorithm",
         "b64-header-present",
         "critical-header-present",
+        "unhashable-header-typ",
         "malformed-compact-token",
         "oversized-token",
         "parent-token-reassociation",
@@ -300,6 +303,18 @@ def main() -> int:
                 "status": rejected_embedded_config["status"],
                 "finding": rejected_embedded_config.get("findings", [{}])[0].get("code"),
             })
+            non_object = verifier.evaluate_compact_chain(
+                ["not", "an", "object"], valid["trust_anchors"], openssl_binary=openssl
+            )
+            require(non_object.get("status") == "UNSUPPORTED_OR_UNDECIDABLE",
+                    "non-object chain request did not fail closed")
+            require(non_object.get("findings", [{}])[0].get("code") == "top-level-input-not-object",
+                    "non-object chain request failed for the wrong reason")
+            receipt["controls"].append({
+                "id": "non-object-chain-input-rejected",
+                "status": non_object["status"],
+                "finding": non_object.get("findings", [{}])[0].get("code"),
+            })
             bad_cases = cases(root)
             for name, raw in bad_cases.items():
                 observed = invoke_fixture(raw, openssl)
@@ -325,6 +340,7 @@ def main() -> int:
                     "none-algorithm": "algorithm-not-allowed",
                     "b64-header-present": "b64-header-not-allowed",
                     "critical-header-present": "critical-header-unsupported",
+                    "unhashable-header-typ": "token-type-invalid",
                     "malformed-compact-token": "compact-token-malformed",
                     "oversized-token": "token-size-exceeded",
                     "parent-token-reassociation": "par-hash-mismatch",
