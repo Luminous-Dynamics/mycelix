@@ -1419,10 +1419,11 @@ test-civic-unit:
     @echo "🧪 Running mycelix-civic unit tests..."
     @cd ../mycelix-civic && cargo test
 
-# Run all cluster tests (Rust unit + SDK TS)
+# Run Commons/Civic unit tests and the full SDK test suite through its Nix derivation.
+# The default Vitest suite already includes tests/cluster-integration.test.ts.
 test-clusters: test-commons-unit test-civic-unit
-    @echo "🧪 Running SDK cluster integration tests..."
-    @cd sdk-ts && npx vitest run tests/cluster-integration.test.ts
+    @echo "🧪 Running SDK cluster integration coverage through Nix..."
+    @nix build .#sdk-ts
     @echo "✅ All cluster tests passed!"
 
 # ============================================================
