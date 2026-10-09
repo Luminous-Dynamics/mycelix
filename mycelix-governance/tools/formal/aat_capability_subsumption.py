@@ -66,6 +66,16 @@ def strict_equal(left: Any, right: Any) -> bool:
     return left == right
 
 
+def _has_nonfinite_number(value: Any) -> bool:
+    if type(value) is float:
+        return not math.isfinite(value)
+    if isinstance(value, list):
+        return any(_has_nonfinite_number(item) for item in value)
+    if isinstance(value, dict):
+        return any(_has_nonfinite_number(item) for item in value.values())
+    return False
+
+
 def _is_scalar(value: Any) -> bool:
     if _kind(value) == "number":
         return type(value) is int or (type(value) is float and math.isfinite(value))
@@ -121,7 +131,8 @@ def validate_constraint(constraint: Any, *, path: str = "$",
 
         if ctype == "exact":
             _require_exact_members(node, {"constraint_type", "value"}, current_path)
-            if "value" not in node or not _is_scalar(node["value"]):
+            if ("value" not in node or not _is_scalar(node["value"])
+                    or _has_nonfinite_number(node.get("value"))):
                 raise CapabilityError("exact-value-invalid", "exact.value must be a JSON scalar", current_path)
             return
 
@@ -166,6 +177,12 @@ def validate_constraint(constraint: Any, *, path: str = "$",
             _require_exact_members(node, {"constraint_type", member}, current_path)
             if not isinstance(node.get(member), list):
                 raise CapabilityError(f"{ctype}-array-invalid", f"{ctype}.{member} must be an array", current_path)
+            if any(_has_nonfinite_number(value) for value in node[member]):
+                raise CapabilityError(
+                    f"{ctype}-value-nonfinite",
+                    f"{ctype}.{member} cannot contain non-finite numbers",
+                    current_path,
+                )
             if ctype in {"one_of", "not_one_of"} and any(
                 not _is_scalar(value) for value in node[member]
             ):
