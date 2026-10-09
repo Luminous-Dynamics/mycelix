@@ -483,7 +483,6 @@ h2 { font-size: 1.5rem; margin: 2rem 0 0.5rem; }
     .queue-toggle { font-size: 0; width: 30px; padding: 0; }
     .queue-toggle::before { content: "☷"; font-size: 0.9rem; }
     .btn-player { width: 36px; height: 36px; }
-    .queue-toggle { padding: 0 0.55rem; font-size: 0.72rem; }
     .queue-panel { right: 0.5rem; bottom: 5rem; width: calc(100vw - 1rem); max-height: 65vh; }
     .footer { bottom: 68px; font-size: 0.65rem; padding: 0.35rem 0.5rem; }
 }
