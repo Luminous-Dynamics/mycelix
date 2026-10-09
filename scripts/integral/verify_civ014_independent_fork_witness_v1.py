@@ -295,6 +295,14 @@ def main() -> int:
         raise SystemExit("FAIL: profile ID mismatch")
     if fixture.get("source_commit") != SOURCE_COMMIT or manifest.get("source_commit") != SOURCE_COMMIT:
         raise SystemExit("FAIL: pinned source commit mismatch")
+    if fixture.get("source_repository") != "Luminous-Dynamics/symthaea" or manifest.get("source_repository") != "Luminous-Dynamics/symthaea":
+        raise SystemExit("FAIL: source repository identity mismatch")
+    if fixture.get("event_schema_version") != EVENT_SCHEMA_VERSION or manifest.get("event_schema_version") != EVENT_SCHEMA_VERSION:
+        raise SystemExit("FAIL: event schema version mismatch")
+    if fixture.get("event_domain") != EVENT_DOMAIN.decode("ascii") or manifest.get("event_domain") != EVENT_DOMAIN.decode("ascii"):
+        raise SystemExit("FAIL: event domain separator mismatch")
+    if fixture.get("receipt_domain") != RECEIPT_DOMAIN.decode("ascii") or manifest.get("receipt_domain") != RECEIPT_DOMAIN.decode("ascii"):
+        raise SystemExit("FAIL: receipt domain separator mismatch")
     if manifest.get("source_event_module_blob_sha") != SOURCE_MODULE_BLOB:
         raise SystemExit("FAIL: pinned source event module blob mismatch")
     if manifest.get("source_lib_blob_sha") != SOURCE_LIB_BLOB:
