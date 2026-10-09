@@ -102,6 +102,25 @@ async function main() {
       audio.addEventListener('ended', () => { window.__naturalEndedCount += 1; });
     });
 
+    // Pause/resume must preserve the physical playhead, not merely leave the
+    // progress signal looking plausible.
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      return audio && audio.currentTime > 1.5 && !audio.paused;
+    }, null, { timeout: 20000 });
+    await page.getByRole('button', { name: 'Pause', exact: true }).click();
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      return audio && audio.paused;
+    }, null, { timeout: 5000 });
+    const pausedAt = await page.locator('audio').evaluate(audio => audio.currentTime);
+    assert.ok(pausedAt > 1.5, 'pause should retain a nonzero playhead');
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await page.waitForFunction(expectedTime => {
+      const audio = document.querySelector('audio');
+      return audio && !audio.paused && Math.abs(audio.currentTime - expectedTime) < 0.35;
+    }, pausedAt, { timeout: 5000 });
+
     // Exercise the real range input against finite media metadata. Dispatching
     // input through the DOM keeps the test deterministic while still invoking
     // the same handler as a user-driven slider interaction.
@@ -249,6 +268,7 @@ async function main() {
       baseURL: BASE_URL,
       scenarios: [
         'catalog play selects and starts exact media URL',
+        'pause and resume preserve the physical playhead',
         'seek applies a finite target to the real media element',
         'Repeat One restarts after natural end',
         'Repeat One does not block manual Next',
