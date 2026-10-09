@@ -1,0 +1,47 @@
+name: OPS-INTEL Rust Fixture Validator
+
+on:
+  push:
+    branches:
+      - ops-intel-rust-fixture-validator-v1
+    paths:
+      - "scripts/ops_intel/rust-validator/**"
+      - "mycelix-workspace/docs/ops-intel/fixtures/**"
+      - ".github/workflows/ops-intel-rust-fixture-validator.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ops-intel-rust-fixture-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-fixture:
+    name: Rust strict fixture preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact pushed subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact subject
+        run: test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # pinned action revision
+        with:
+          toolchain: 1.96.0
+
+      - name: Assert Rust compiler identity
+        run: test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+
+      - name: Run Rust unit and committed-fixture tests
+        run: cargo test --manifest-path scripts/ops_intel/rust-validator/Cargo.toml
+
+      - name: Run strict fixture preflight against exact checkout
+        run: cargo run --manifest-path scripts/ops_intel/rust-validator/Cargo.toml
