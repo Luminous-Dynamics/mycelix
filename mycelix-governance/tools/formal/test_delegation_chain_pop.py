@@ -398,8 +398,10 @@ def main() -> int:
             check=True, timeout=15,
         ).stdout.strip()
         checker_path = HERE / "delegation_chain_pop.py"
+        fixture_path = HERE / "test_delegation_chain_compact_jws.py"
         receipt["checker_sha256"] = hashlib.sha256(checker_path.read_bytes()).hexdigest()
         receipt["test_sha256"] = hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest()
+        receipt["aat_fixture_sha256"] = hashlib.sha256(fixture_path.read_bytes()).hexdigest()
         receipt["status"] = "PASS"
         receipt["summary"] = {
             "positive_controls": 2,
