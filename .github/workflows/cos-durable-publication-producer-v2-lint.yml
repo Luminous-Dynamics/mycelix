@@ -75,6 +75,12 @@ jobs:
           assert 'ReferenceModelOnly' in text
           assert 'sha256sum --check --strict SHA256SUMS' in publish
           assert 'isPrerelease' in publish
+          tag_gate=publish.index('Verify release tag resolves to exact main SHA before publishing')
+          archive_gate=publish.index('Build and prove deterministic durable archive')
+          upload_gate=publish.index('Upload exact durable asset to candidate draft')
+          assert tag_gate < archive_gate < upload_gate
+          assert 'git ls-remote origin "refs/tags/${RELEASE_TAG}^{}"' in publish
+          assert 'test "${tag_sha}" = "${EXPECTED_MAIN_SHA}"' in publish
           final_proof=publish.split('- name: Prove immutable release and asset',1)[1].split('\n      - name:',1)[0]
           assert "assert d['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']" in final_proof
           assert 'MYCELIX-COS-PROTECTED-MAIN-POLICY-V1' in text
