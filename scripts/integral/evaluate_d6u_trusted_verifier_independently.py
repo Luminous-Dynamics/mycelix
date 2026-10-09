@@ -536,6 +536,198 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
     )
 
 
+def exercise_fetcher_current_run_handoff(fetcher, candidate_policy: dict) -> None:
+    repository = candidate_policy["repository_identity"]["full_name"]
+    repository_id = int(candidate_policy["repository_identity"]["repository_id"])
+    run_id = 450
+    run_attempt = 3
+    head_branch = "main"
+    head_sha = "c" * 40
+    expected_name = candidate_policy["auditor_handoff"]["artifact_name_template"].format(
+        run_id=run_id, run_attempt=run_attempt
+    )
+    current_run = {
+        "id": run_id,
+        "run_attempt": run_attempt,
+        "repository": {"full_name": repository, "id": repository_id},
+        "head_repository": {"full_name": repository, "id": repository_id},
+        "head_branch": head_branch,
+        "head_sha": head_sha,
+    }
+    artifact = {
+        "name": expected_name,
+        "expired": False,
+        "workflow_run": {
+            "id": run_id,
+            "repository_id": repository_id,
+            "head_repository_id": repository_id,
+            "head_branch": head_branch,
+            "head_sha": head_sha,
+        },
+        "digest": "sha256:" + "e" * 64,
+        "size_in_bytes": 4096,
+    }
+    environment = {
+        "D6U_TRUSTED_REPOSITORY_ID": str(repository_id),
+        "GITHUB_RUN_ID": str(run_id),
+        "GITHUB_RUN_ATTEMPT": str(run_attempt),
+        "GITHUB_TOKEN": "fixture-token",
+        "GITHUB_REF": f"refs/heads/{head_branch}",
+        "GITHUB_SHA": head_sha,
+    }
+    artifact_response = {"artifacts": [artifact]}
+
+    with patch.dict(os.environ, environment, clear=True):
+        with patch.object(
+            fetcher, "github_get", side_effect=[current_run, artifact_response]
+        ) as api:
+            observed = fetcher.expected_current_run_artifact(repository, candidate_policy)
+        assert observed == artifact
+        assert api.call_count == 2
+        assert api.call_args_list[0].args[1] == f"/actions/runs/{run_id}"
+        assert api.call_args_list[1].args[1] == (
+            f"/actions/runs/{run_id}/artifacts?name={expected_name}"
+        )
+
+    def expect_rejection(
+        mutated_run: dict | None = None,
+        response: dict | None = None,
+        env_overrides: dict | None = None,
+        expected: str = "",
+        message: str = "",
+    ) -> None:
+        observed_run = current_run if mutated_run is None else mutated_run
+        observed_response = artifact_response if response is None else response
+        observed_env = {**environment, **(env_overrides or {})}
+        _expect_current_handoff_result(
+            fetcher,
+            repository,
+            candidate_policy,
+            observed_env,
+            [observed_run, observed_response],
+            expected,
+            message,
+        )
+
+    bad_run = copy.deepcopy(current_run)
+    bad_run["id"] = run_id + 1
+    expect_rejection(
+        mutated_run=bad_run,
+        expected='current_run["id"] == run_id',
+        message="candidate fetcher accepted a current-run ID mismatch",
+    )
+
+    bad_attempt = copy.deepcopy(current_run)
+    bad_attempt["run_attempt"] = run_attempt - 1
+    expect_rejection(
+        mutated_run=bad_attempt,
+        expected='current_run["run_attempt"] == run_attempt',
+        message="candidate fetcher accepted a current-run attempt mismatch",
+    )
+
+    bad_repository = copy.deepcopy(current_run)
+    bad_repository["repository"]["id"] = repository_id + 1
+    expect_rejection(
+        mutated_run=bad_repository,
+        expected='int(current_run["repository"]["id"]) == expected_repository_id',
+        message="candidate fetcher accepted a current-run repository ID mismatch",
+    )
+
+    expect_rejection(
+        env_overrides={"GITHUB_REF": "refs/heads/not-main"},
+        expected='os.environ["GITHUB_REF"] == expected_ref',
+        message="candidate fetcher accepted a mismatched current-run ref",
+    )
+
+    expect_rejection(
+        env_overrides={"GITHUB_SHA": "0" * 40},
+        expected='current_run["head_sha"] == os.environ["GITHUB_SHA"]',
+        message="candidate fetcher accepted a mismatched current-run SHA",
+    )
+
+    bad_artifact_sha = copy.deepcopy(artifact)
+    bad_artifact_sha["workflow_run"]["head_sha"] = "0" * 40
+    expect_rejection(
+        response={"artifacts": [bad_artifact_sha]},
+        expected='workflow_artifact_run["head_sha"] == current_run["head_sha"]',
+        message="candidate fetcher accepted a handoff artifact from another SHA",
+    )
+
+    bad_artifact_attempt_name = copy.deepcopy(artifact)
+    bad_artifact_attempt_name["name"] = candidate_policy["auditor_handoff"][
+        "artifact_name_template"
+    ].format(run_id=run_id, run_attempt=run_attempt - 1)
+    expect_rejection(
+        response={"artifacts": [bad_artifact_attempt_name]},
+        expected='artifact["name"] == expected_name',
+        message="candidate fetcher accepted a handoff artifact from another attempt",
+    )
+
+    expect_rejection(
+        response={"artifacts": []},
+        expected="expected exactly one current-run auditor handoff artifact",
+        message="candidate fetcher accepted a missing handoff artifact",
+    )
+
+    expect_rejection(
+        response={"artifacts": [artifact, copy.deepcopy(artifact)]},
+        expected="expected exactly one current-run auditor handoff artifact",
+        message="candidate fetcher accepted multiple current-run handoff artifacts",
+    )
+
+    expired = copy.deepcopy(artifact)
+    expired["expired"] = True
+    expect_rejection(
+        response={"artifacts": [expired]},
+        expected='artifact["expired"] is False',
+        message="candidate fetcher accepted an expired handoff artifact",
+    )
+
+    bad_digest = copy.deepcopy(artifact)
+    bad_digest["digest"] = "sha512:" + "e" * 128
+    expect_rejection(
+        response={"artifacts": [bad_digest]},
+        expected="missing or malformed GitHub artifact digest",
+        message="candidate fetcher accepted an invalid handoff digest prefix",
+    )
+
+    nonhex_digest = copy.deepcopy(artifact)
+    nonhex_digest["digest"] = "sha256:" + "g" * 64
+    expect_rejection(
+        response={"artifacts": [nonhex_digest]},
+        expected="missing or malformed GitHub artifact digest",
+        message="candidate fetcher accepted a non-hex handoff digest",
+    )
+
+    too_large = copy.deepcopy(artifact)
+    too_large["size_in_bytes"] = int(
+        candidate_policy["auditor_handoff"]["artifact_max_archive_bytes"]
+    ) + 1
+    expect_rejection(
+        response={"artifacts": [too_large]},
+        expected="auditor handoff archive exceeds trusted maximum",
+        message="candidate fetcher accepted an oversized handoff artifact",
+    )
+
+
+def _expect_current_handoff_result(
+    fetcher,
+    repository: str,
+    policy: dict,
+    environment: dict,
+    api_responses: list[dict],
+    expected: str,
+    message: str,
+) -> None:
+    with patch.dict(os.environ, environment, clear=True):
+        with patch.object(fetcher, "github_get", side_effect=api_responses):
+            assert_rejected(
+                lambda: fetcher.expected_current_run_artifact(repository, policy),
+                expected,
+                message,
+            )
+
+
 def _download_fixture_archive(
     fetcher,
     repository: str,
@@ -697,6 +889,8 @@ def run(candidate_root: pathlib.Path) -> None:
     )
 
     exercise_fetcher_api_binding(fetcher, candidate_policy)
+
+    exercise_fetcher_current_run_handoff(fetcher, candidate_policy)
 
     tampered_policy = dict(candidate_policy)
     tampered_policy["record_fields"] = list(candidate_policy["record_fields"]) + ["extra"]
