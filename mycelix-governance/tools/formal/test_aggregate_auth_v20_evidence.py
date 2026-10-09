@@ -249,7 +249,7 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
             "summary": {},
         }
         for field_name, source_relative_path in FROZEN_SOURCE_HASH_FIELDS.get(relative, ()):
-            source_path = HERE.parents[3] / source_relative_path
+            source_path = HERE.parents[2] / source_relative_path
             data[field_name] = hashlib.sha256(source_path.read_bytes()).hexdigest()
         if relative == "auth-v20-evidence/receipt.json":
             control_dir = root / "auth-v20-evidence"
