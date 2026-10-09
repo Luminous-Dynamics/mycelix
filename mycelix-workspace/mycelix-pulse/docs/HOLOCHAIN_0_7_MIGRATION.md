@@ -37,6 +37,7 @@ Sweettest and packaging also need separate attention. Holochain 0.7 removes tx5/
 
 - A successful 0.7 compile does not prove runtime authorization.
 - A deleted Holochain capability grant must cause the same remote capability call to fail as `Unauthorized`.
+- The authorization probe uses `mail_messages.capability_probe_v1`, an empty-response endpoint; it must not fetch or transmit inbox entries merely to test the grant.
 - No application-level `revoked` flag substitutes for conductor-level revocation.
 - No local inbox enumeration, ACK, receipt, or digest substitutes for an authoritative delivery frontier.
 - A missing frontier or unavailable entitled sender remains incomplete; it is never interpreted as an empty inbox.
