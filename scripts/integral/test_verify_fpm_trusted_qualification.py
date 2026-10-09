@@ -80,7 +80,10 @@ def snapshot(root: Path) -> None:
         "trusted_policy_sha": POLICY, "trusted_policy_blob_sha": policy_blob_sha,
         "trusted_policy_ref": "refs/heads/main",
         "trusted_workflow_run_id": TRUSTED_RUN, "trusted_workflow_run_attempt": 1,
-        "upstream_workflow_run_id": CANDIDATE_RUN, "upstream_workflow_run_attempt": 1,
+        # The production workflow passes these two upstream values through
+        # environment variables, so their receipt wire types are strings.
+        "upstream_workflow_run_id": str(CANDIDATE_RUN),
+        "upstream_workflow_run_attempt": "1",
         "upstream_workflow_id": CW_ID, "upstream_workflow_path": CW_PATH,
         "upstream_workflow_conclusion": "success", "manifest_blob_sha": MANIFEST_SHA,
         "lock_mode": "generated_for_run", "lock_sha256": LOCK_SHA,
@@ -831,6 +834,29 @@ version = "1.0.0"
             root, "artifact-enumeration.json", "enumeration.repeat-count-float",
             lambda x: x.__setitem__("repeat_total_count_reported", 2.0),
         )
+
+        # Receipt and GitHub API run identities must use their documented
+        # wire types; equality through int()/bool coercion is not sufficient.
+        strict_identity_mutations = [
+            ("qualification-receipt.json", "receipt.trusted-run-id-float",
+             lambda x: x.__setitem__("trusted_workflow_run_id", float(TRUSTED_RUN))),
+            ("qualification-receipt.json", "receipt.trusted-run-attempt-bool",
+             lambda x: x.__setitem__("trusted_workflow_run_attempt", True)),
+            ("qualification-receipt.json", "receipt.upstream-run-id-int",
+             lambda x: x.__setitem__("upstream_workflow_run_id", CANDIDATE_RUN)),
+            ("qualification-receipt.json", "receipt.upstream-run-attempt-float",
+             lambda x: x.__setitem__("upstream_workflow_run_attempt", 1.0)),
+            ("qualification-receipt.json", "receipt.candidate-uid-bool",
+             lambda x: x.__setitem__("candidate_uid", True)),
+            ("candidate-run.json", "candidate.run-id-float",
+             lambda x: x.__setitem__("id", float(CANDIDATE_RUN))),
+            ("candidate-run.json", "candidate.run-attempt-bool",
+             lambda x: x.__setitem__("run_attempt", True)),
+            ("trusted-run.json", "trusted.run-attempt-bool",
+             lambda x: x.__setitem__("run_attempt", True)),
+        ]
+        for file_name, label, mutator in strict_identity_mutations:
+            expect_failure(root, file_name, label, mutator)
 
         expect_failure(
             root, "artifacts.json", "artifact-set-extra",
