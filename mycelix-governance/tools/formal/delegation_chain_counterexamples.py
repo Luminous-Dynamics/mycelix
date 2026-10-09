@@ -54,7 +54,7 @@ def evaluate_chain(raw: dict[str, Any]) -> dict[str, Any]:
             "failure_count": 1,
             "failures": [{"status": "UNSUPPORTED_OR_UNDECIDABLE",
                           "reason": f"chain exceeds maximum delegation depth of {MAX_DELEGATION_DEPTH} edges ({MAX_HOPS} tokens including root)"}],
-            "reason": f"chain exceeds bounded maximum of {MAX_HOPS} hops",
+            "reason": f"chain exceeds maximum delegation depth of {MAX_DELEGATION_DEPTH} edges ({MAX_HOPS} tokens including root)",
             "qualification": "NOT_CLAIMED",
         }
     ids = [hop.get("id") if isinstance(hop, dict) else None for hop in hops]
