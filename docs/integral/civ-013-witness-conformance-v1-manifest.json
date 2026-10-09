@@ -29,5 +29,6 @@
     "V021-local-commit-awaiting-anchor",
     "V022-anchor-wrong-log"
   ],
-  "claim_ceiling": "Reference conformance only; not filesystem durability, genuine signatures, witness independence, quorum safety, or production anti-rollback."
+  "claim_ceiling": "Model-smoke reference conformance only; not byte-compatible with Symthaea's SQLite durable adapter profile, and not filesystem durability, genuine signatures, witness independence, quorum safety, or production anti-rollback.",
+  "profile_id": "civ-013-model-smoke-v1"
 }
