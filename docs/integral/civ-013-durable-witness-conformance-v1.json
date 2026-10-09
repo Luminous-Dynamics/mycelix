@@ -2,7 +2,7 @@
   "spec_version": "civ-013-durable-adapter-v1",
   "profile_id": "civ-013-durable-adapter-v1",
   "source_repository": "Luminous-Dynamics/symthaea",
-  "source_adapter_commit": "e259becc6cbb516b0750efd13464793f27f74f16",
+  "source_adapter_commit": "2b3ea63771fb9f24c131b05ee9d69b81c085d8dc",
   "encoding": {
     "digest": "SHA-256",
     "integer_encoding": "unsigned big-endian",
@@ -421,6 +421,20 @@
       "observed_anchor_generation": 3,
       "observed_anchor_digest": "cbd9f2e60a4c8f3f3c6d6e0e6d1d9f21c6b9b2efc6d1adf37d98d6a7b8c5a4e1",
       "stage": "after_prepare",
+      "expected_fork_evidence": false
+    },
+    {
+      "id": "DA030-anchor-advances-before-prepare",
+      "kind": "anchor_ahead_before_prepare",
+      "expected_outcome": "RollbackDetected",
+      "log_id": "durable-fixture-log-001",
+      "accepted_generation": 1,
+      "candidate_generation": 2,
+      "observed_anchor_log_id": "durable-fixture-log-001",
+      "observed_anchor_generation": 3,
+      "observed_anchor_digest": "cbd9f2e60a4c8f3f3c6d6e0e6d1d9f21c6b9b2efc6d1adf37d98d6a7b8c5a4e1",
+      "stage": "before_prepare",
+      "expected_candidate_persisted": false,
       "expected_fork_evidence": false
     }
   ],
