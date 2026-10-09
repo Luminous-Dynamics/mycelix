@@ -22,6 +22,7 @@ RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
 SOURCE_COMMIT = "26125caa5042da7b5694c90def12ebc8293421e1"
+SQLITE_INTEGER_MAX = (1 << 63) - 1
 
 REQUIRED_IDS = {
     "DA001-bootstrap-record",
@@ -44,6 +45,9 @@ REQUIRED_IDS = {
     "DA018-reordered-fork-evidence",
     "DA019-record-digest-tampered",
     "DA020-fork-digest-tampered",
+    "DA021-fork-chain-cross-log",
+    "DA022-generation-signed-range-overflow",
+    "DA023-receipt-sequence-signed-range-overflow",
 }
 
 
@@ -110,7 +114,15 @@ def canonical_fork(evidence: dict[str, Any]) -> bytes:
 
 def valid_fork_chain(chain: list[dict[str, Any]]) -> bool:
     previous: str | None = None
+    chain_log_id: str | None = None
     for item in chain:
+        log_id = item.get("log_id")
+        if not isinstance(log_id, str) or not log_id:
+            return False
+        if chain_log_id is None:
+            chain_log_id = log_id
+        elif log_id != chain_log_id:
+            return False
         if item.get("previous_evidence_digest") != previous:
             return False
         try:
@@ -249,6 +261,18 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
             return "RejectCorruptForkEvidence"
         reordered = [chain[index] for index in vector["order"]]
         return "RejectCorruptForkEvidence" if not valid_fork_chain(reordered) else "VALID_FORK_CHAIN"
+
+    if kind == "sqlite_integer_range":
+        generation = vector["record_generation"]
+        sequence = vector["receipt_sequence"]
+        if (
+            type(generation) is not int or generation < 0
+            or type(sequence) is not int or sequence < 0
+        ):
+            return "InvalidInput"
+        if generation > SQLITE_INTEGER_MAX or sequence > SQLITE_INTEGER_MAX:
+            return "RejectSqliteIntegerRange"
+        return "VALID_SQLITE_INTEGER_RANGE"
 
     raise ValueError(f"unknown vector kind: {kind!r}")
 
