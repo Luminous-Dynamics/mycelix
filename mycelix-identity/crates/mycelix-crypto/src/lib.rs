@@ -39,8 +39,8 @@ pub mod hybrid_kem;
 pub mod hybrid_sig;
 
 /// Standalone FIPS 204 ML-DSA-65 verification with RFC 9964's empty context.
-/// Feature `hybrid-rc`; validity only, with no key authorization or protocol policy.
-#[cfg(feature = "hybrid-rc")]
+/// Feature `mldsa-verify-rc`; validity only, with no key authorization or protocol policy.
+#[cfg(feature = "mldsa-verify-rc")]
 pub mod mldsa65_verify;
 
 /// Pulse V2 hybrid-PQC primitives with caller-supplied canonical AAD.
