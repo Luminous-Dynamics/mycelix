@@ -500,6 +500,11 @@ impl AttemptRecordV1 {
         }
 
         if let Some(evidence) = &self.terminal_evidence_digest {
+            require_tagged_hash(
+                "terminal_evidence_digest",
+                evidence,
+                "constitutional-terminal-evidence-v3:",
+            )?;
             require_opaque("terminal_evidence_digest", evidence, MAX_REF_LEN)?;
         }
 
@@ -1811,7 +1816,25 @@ mod tests {
         .unwrap();
 
         assert_eq!(first.provider_idempotency_key(), "provider-idempotency-key-a");
+        assert!(first.digest().starts_with("constitutional-terminal-evidence-v3:"));
         assert_ne!(first.digest(), second.digest());
+    }
+
+    #[test]
+    fn legacy_terminal_evidence_digest_fails_closed() {
+        let mut legacy = record(
+            "legacy-terminal-evidence",
+            "operation-legacy-terminal-evidence",
+            AttemptRecordState::Invoked,
+        );
+        legacy.state = AttemptRecordState::Executed;
+        legacy.terminal_evidence_digest =
+            Some("constitutional-terminal-evidence-v2:old-record".into());
+
+        assert!(legacy
+            .validate()
+            .unwrap_err()
+            .contains("terminal_evidence_digest"));
     }
 
     fn record(id: &str, operation: &str, state: AttemptRecordState) -> AttemptRecordV1 {
