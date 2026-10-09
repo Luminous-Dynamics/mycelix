@@ -238,6 +238,7 @@ def main() -> int:
         "status": "RUNNING",
         "finite_universe_size": UNIVERSE_SIZE,
         "controls": [],
+        "qualification": "NOT_CLAIMED",
     }
     try:
         head = subprocess.run(["git", "rev-parse", "HEAD"], text=True, capture_output=True,
