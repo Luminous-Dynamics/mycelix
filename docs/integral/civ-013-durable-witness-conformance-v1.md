@@ -2,7 +2,7 @@
 
 **Profile ID:** `civ-013-durable-adapter-v1`  
 **Status:** experimental reference profile; not production qualification.  
-**Source adapter revision:** [Symthaea commit `37fdf714319a86d7539ee2ca7c80f641ee98ade2`](https://github.com/Luminous-Dynamics/symthaea/commit/37fdf714319a86d7539ee2ca7c80f641ee98ade2)  
+**Source adapter revision:** [Symthaea commit `9a5b9498669af2af7c03f1f00351b707540b0bfe`](https://github.com/Luminous-Dynamics/symthaea/commit/9a5b9498669af2af7c03f1f00351b707540b0bfe)  
 **Golden vectors:** [civ-013-durable-witness-conformance-v1.json](civ-013-durable-witness-conformance-v1.json)  
 **Manifest:** [civ-013-durable-witness-conformance-v1-manifest.json](civ-013-durable-witness-conformance-v1-manifest.json)  
 **Independent checker:** [verify_civ013_durable_witness_conformance_v1.py](../../scripts/integral/verify_civ013_durable_witness_conformance_v1.py)  
@@ -143,6 +143,21 @@ SQLite documents that WAL with `synchronous=FULL` performs an additional WAL syn
 DA037 describes the source-level integration test's decisive pre-recovery observation, not hardware durability. After the first child exits with code 86, the independent test anchor must be at generation two while local metadata still accepts generation one and generation two remains prepared (status zero); no fork evidence is written. A distinct recovery process then succeeds at generation two with the exact externally anchored digest. The fixture uses a second SQLite file on the same host and must not be described as a production independent trust domain.
 
 
+## SQLite WAL-reset fix floor
+
+The producer workspace pins rusqlite 0.39.0 with `bundled` and `fallible_uint`, resolving libsqlite3-sys 0.37.0 and bundled SQLite 3.51.3. SQLite's official WAL documentation identifies the WAL-reset corruption bug through 3.51.2 and lists 3.51.3 as fixed; because this adapter deliberately uses WAL and concurrent connections, the source checks `rusqlite::version_number()` at connection-open time and fails closed below 3.51.3. It also has a unit test asserting the actually linked SQLite runtime meets that minimum.
+
+- DA039 models acceptance of SQLite version number 3051003 (3.51.3).
+- DA040 models rejection of version number 3051002 (3.51.2).
+
+Sources: [SQLite WAL documentation, §11](https://www.sqlite.org/wal.html#the_wal_reset_bug), [SQLite 3.51.3 release notes](https://www.sqlite.org/releaselog/3_51_3.html), [rusqlite 0.39.0 documentation](https://docs.rs/crate/rusqlite/0.39.0).
+
+These vectors express the adapter's version policy. Only the source crate's executed runtime-version test proves the linked library reports a version at or above the minimum; the profile itself remains reference-vector conformance, not proof that Actions or Rust tests ran.
+
 ## Missing persistent anchor state
 
 DA038 specifies that absence of a persistent test-anchor row is not equivalent to a provisioned generation-zero state. The test anchor now returns unavailable for a missing row and only returns genesis when a row was explicitly provisioned. This is a test-fixture invariant that prevents a missing anchor from silently resetting anti-rollback state; it does not qualify a production anchor.
+
+
+| DA039 | AcceptSqliteRuntimeVersion | A bundled SQLite 3.51.3 runtime meets the WAL-reset-fix minimum |
+| DA040 | UnsupportedSqliteVersion | A runtime at SQLite 3.51.2 is rejected before the adapter opens a store |
