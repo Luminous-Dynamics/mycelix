@@ -150,6 +150,10 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain") -> dict[s
             signer_index = 2
         if case == "none-algorithm" and index == 1:
             header["alg"] = "none"
+        elif case == "b64-header-present" and index == 1:
+            header["b64"] = True
+        elif case == "critical-header-present" and index == 1:
+            header["crit"] = ["unsupported-extension"]
 
         if case == "parent-token-reassociation" and index == 0:
             header["kid"] = "different-token-instance"
@@ -214,6 +218,8 @@ def cases(directory: Path) -> dict[str, dict[str, Any]]:
         "private-holder-key",
         "duplicate-payload-member",
         "none-algorithm",
+        "b64-header-present",
+        "critical-header-present",
         "malformed-compact-token",
         "oversized-token",
         "parent-token-reassociation",
@@ -307,6 +313,8 @@ def main() -> int:
                     "private-holder-key": "private-key-material-present",
                     "duplicate-payload-member": "json-duplicate-member",
                     "none-algorithm": "algorithm-not-allowed",
+                    "b64-header-present": "b64-header-not-allowed",
+                    "critical-header-present": "critical-header-unsupported",
                     "malformed-compact-token": "compact-token-malformed",
                     "oversized-token": "token-size-exceeded",
                     "parent-token-reassociation": "par-hash-mismatch",
