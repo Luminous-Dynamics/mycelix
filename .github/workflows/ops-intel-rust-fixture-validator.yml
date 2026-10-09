@@ -3,10 +3,19 @@ name: OPS-INTEL Rust Fixture Validator
 on:
   push:
     branches:
+      - main
       - ops-intel-rust-fixture-validator-v1
     paths:
       - "scripts/ops_intel/rust-validator/**"
       - "mycelix-workspace/docs/ops-intel/fixtures/**"
+      - "mycelix-workspace/docs/ops-intel/OPS_INTEL_TEST_001_CROSS_DOMAIN_DISRUPTION_V1.md"
+      - ".github/workflows/ops-intel-rust-fixture-validator.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "scripts/ops_intel/rust-validator/**"
+      - "mycelix-workspace/docs/ops-intel/fixtures/**"
+      - "mycelix-workspace/docs/ops-intel/OPS_INTEL_TEST_001_CROSS_DOMAIN_DISRUPTION_V1.md"
       - ".github/workflows/ops-intel-rust-fixture-validator.yml"
   workflow_dispatch:
 
@@ -14,7 +23,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ops-intel-rust-fixture-${{ github.ref }}
+  group: ops-intel-rust-fixture-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -23,14 +32,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - name: Checkout exact pushed subject
+      - name: Checkout exact qualification subject
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
-      - name: Assert exact subject
-        run: test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+      - name: Assert exact qualification subject
+        env:
+          QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
 
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # pinned action revision
