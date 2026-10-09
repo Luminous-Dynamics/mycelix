@@ -176,6 +176,16 @@ pub fn Player() -> impl IntoView {
         }
     };
 
+    let player_for_error = player.clone();
+    let on_media_error = move |_| {
+        if let Some(audio) = audio_ref.get() {
+            // Only the currently selected resource may change its playback state.
+            if audio_matches_selected_source(&audio, &player_for_error) {
+                player_for_error.is_playing.set(false);
+            }
+        }
+    };
+
     let player_for_ready = player.clone();
     let start_when_ready = move |_| {
         if player_for_ready.is_playing.get_untracked() {
@@ -390,6 +400,7 @@ pub fn Player() -> impl IntoView {
                 on:timeupdate=update_time
                 on:loadedmetadata=update_metadata
                 on:ended=on_ended
+                on:error=on_media_error
             />
             <QueuePanel />
         </>
