@@ -861,9 +861,56 @@ async fn test_delivery_receipt_signature_verified() {
 // Phase 1: Capability Revocation
 // =============================================================================
 
-/// Capability grant/revoke lifecycle: revoked capability denies access.
+/// Mirrors the capability coordinator types so Sweettest can exercise the wire contract.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+enum MailboxAccessTypeInput {
+    FullAccess,
+    ReadOnly,
+    SendAs,
+    FolderAccess { folder_hash: ActionHash },
+    ThreadAccess { thread_id: String },
+    OutOfOffice,
+    OrganizationAdmin,
+    Custom(String),
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
+struct MailboxPermissionsInput {
+    can_read: bool,
+    can_send: bool,
+    can_delete: bool,
+    can_move: bool,
+    can_create_folders: bool,
+    can_manage_labels: bool,
+    can_view_attachments: bool,
+    can_download_attachments: bool,
+    can_manage_rules: bool,
+    can_delegate: bool,
+    can_modify_settings: bool,
+    can_view_trust: bool,
+    can_modify_trust: bool,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct GrantCapabilityInput {
+    grantee: AgentPubKey,
+    access_type: MailboxAccessTypeInput,
+    permissions: MailboxPermissionsInput,
+    restrictions: Option<serde_json::Value>,
+    expires_at: Option<Timestamp>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+enum CapabilityProbeResult {
+    Authorized,
+    Unauthorized,
+    ClaimMissing,
+}
+
+/// Capability grant/revoke lifecycle: prove conductor authorization changes,
+/// not merely an application-level revoked flag.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires Holochain conductor (nix develop)"]
+#[ignore = "requires Holochain 0.7 conductor (nix develop)"]
 async fn test_capability_grant_and_revocation_lifecycle() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
@@ -874,75 +921,110 @@ async fn test_capability_grant_and_revocation_lifecycle() {
         .unwrap()
         .into_tuple();
 
-    // Step 1: Alice grants Bob capability to read her mailbox
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    struct GrantCapInput {
-        grantee: AgentPubKey,
-        functions: Vec<String>,
-    }
-
-    let grant_input = GrantCapInput {
+    let mut permissions = MailboxPermissionsInput::default();
+    permissions.can_read = true;
+    let grant_input = GrantCapabilityInput {
         grantee: bob.agent_pubkey().clone(),
-        functions: vec!["get_inbox".to_string()],
+        access_type: MailboxAccessTypeInput::ReadOnly,
+        permissions,
+        restrictions: None,
+        expires_at: None,
     };
 
-    let grant_result: Result<(), _> = conductor
+    let capability_hash: ActionHash = conductor
         .call_fallible(
             &alice.zome("mail_capabilities"),
             "grant_capability",
             grant_input,
         )
-        .await;
-    assert!(grant_result.is_ok(), "Grant should succeed");
+        .await
+        .expect("Alice should create an assigned capability grant");
 
-    // Step 2: Alice revokes the capability
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    struct RevokeCapInput {
-        grantee: AgentPubKey,
+    // Delivery is deliberately a second call: the grant's source-chain actions
+    // must commit before the recipient can verify the public metadata and claim.
+    let mut delivered = false;
+    for attempt in 0..30 {
+        let result: Result<(), _> = conductor
+            .call_fallible(
+                &alice.zome("mail_capabilities"),
+                "deliver_capability_grant",
+                capability_hash.clone(),
+            )
+            .await;
+        match result {
+            Ok(()) => {
+                delivered = true;
+                break;
+            }
+            Err(error) if attempt == 29 => {
+                panic!("Capability delivery never received an acknowledgement: {error:?}");
+            }
+            Err(_) => tokio::time::sleep(std::time::Duration::from_millis(100)).await,
+        }
     }
+    assert!(delivered, "recipient must acknowledge storing the private CapClaim");
 
-    let revoke_input = RevokeCapInput {
-        grantee: bob.agent_pubkey().clone(),
-    };
+    let before: CapabilityProbeResult = conductor
+        .call_fallible(
+            &bob.zome("mail_capabilities"),
+            "probe_remote_capability",
+            capability_hash.clone(),
+        )
+        .await
+        .expect("the grantee should be able to make the remote inbox call");
+    assert_eq!(
+        before,
+        CapabilityProbeResult::Authorized,
+        "same authenticated remote call should succeed before revocation"
+    );
 
-    let revoke_result: Result<(), _> = conductor
+    let revoked_hash: ActionHash = conductor
         .call_fallible(
             &alice.zome("mail_capabilities"),
             "revoke_capability",
-            revoke_input,
+            (capability_hash.clone(), Some("Sweettest revocation".to_string())),
         )
-        .await;
-    assert!(revoke_result.is_ok(), "Revoke should succeed");
+        .await
+        .expect("grantor should revoke the system CapGrant");
 
-    // Step 3: Verify Bob can no longer access
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    struct VerifyCapInput {
-        grantor: AgentPubKey,
-        function: String,
-    }
+    let after: CapabilityProbeResult = conductor
+        .call_fallible(
+            &bob.zome("mail_capabilities"),
+            "probe_remote_capability",
+            capability_hash.clone(),
+        )
+        .await
+        .expect("probe should return an authorization result");
+    assert_eq!(
+        after,
+        CapabilityProbeResult::Unauthorized,
+        "the identical remote call must be Unauthorized after conductor grant deletion"
+    );
 
-    let verify_input = VerifyCapInput {
-        grantor: alice.agent_pubkey().clone(),
-        function: "get_inbox".to_string(),
-    };
-
-    let verify_result: Result<bool, _> = conductor
+    let app_projection: bool = conductor
         .call_fallible(
             &bob.zome("mail_capabilities"),
             "verify_capability",
-            verify_input,
+            (revoked_hash, AuditActionInput::ReadEmail),
         )
-        .await;
+        .await
+        .expect("updated application record should remain readable");
+    assert!(!app_projection, "application-level projection must also deny access");
+}
 
-    match verify_result {
-        Ok(has_cap) => assert!(
-            !has_cap,
-            "Revoked capability must return false from verify_capability"
-        ),
-        Err(_) => {
-            // Error is also acceptable — access denied
-        }
-    }
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+enum AuditActionInput {
+    ReadEmail,
+    SendEmail,
+    DeleteEmail,
+    MoveEmail,
+    CreateFolder,
+    AccessAttachment,
+    ModifySettings,
+    GrantCapability,
+    RevokeCapability,
+    ModifyTrust,
+    Custom(String),
 }
 
 /// Shared mailbox update requires owner or admin role.
