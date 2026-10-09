@@ -47,6 +47,7 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
+          import ast, fnmatch, textwrap
           text=Path('.github/workflows/cos-durable-publication-producer-v2.yml').read_text()
           verifier=Path('.github/workflows/cos-durable-publication-verify.yml').read_text()
           top=text.split('\njobs:',1)[0]
@@ -163,4 +164,47 @@ jobs:
           assert 'build_asset asset-b.tar.gz' in publish
           assert 'sha256sum --check --strict SHA256SUMS' in publish
           assert "bytes([0])" in text
+          def extract_function(source, name):
+              source_lines=source.splitlines()
+              matches=[i for i,line in enumerate(source_lines) if line.lstrip().startswith(f"def {name}(")]
+              assert len(matches)==1, (name,matches)
+              start=matches[0]
+              base_indent=len(source_lines[start])-len(source_lines[start].lstrip())
+              end=start+1
+              while end<len(source_lines):
+                  line=source_lines[end]
+                  indent=len(line)-len(line.lstrip())
+                  if line.strip() and indent<=base_indent:
+                      break
+                  end+=1
+              function_source=textwrap.dedent("\n".join(source_lines[start:end]))
+              tree=ast.parse(function_source)
+              assert len(tree.body)==1 and isinstance(tree.body[0],ast.FunctionDef)
+              namespace={"fnmatch":fnmatch}
+              exec(compile(tree,f"<{name}>","exec"),namespace)
+              return namespace[name]
+
+          producer_applicability=extract_function(text,"applies_to_main")
+          verifier_applicability=extract_function(verifier,"ruleset_applies_to_main")
+          vectors=[
+              ("missing conditions",None,True),
+              ("empty conditions",{},True),
+              ("main explicitly included",{"ref_name":{"include":["refs/heads/main"],"exclude":[]}},True),
+              ("other branch only",{"ref_name":{"include":["refs/heads/release/*"],"exclude":[]}},False),
+              ("main explicitly excluded",{"ref_name":{"include":["refs/heads/*"],"exclude":["refs/heads/main"]}},False),
+              ("all branches included",{"ref_name":{"include":["~ALL"],"exclude":[]}},True),
+              ("unknown include pattern fails closed",{"ref_name":{"include":["unknown:main"],"exclude":[]}},True),
+              ("malformed include fails closed",{"ref_name":{"include":"refs/heads/main","exclude":[]}},True),
+              ("malformed exclude fails closed",{"ref_name":{"include":["refs/heads/main"],"exclude":None}},True),
+          ]
+          for label,conditions,expected in vectors:
+              producer_result=producer_applicability(conditions)
+              verifier_result=verifier_applicability(conditions)
+              assert producer_result is expected, (label,"producer",producer_result,expected)
+              assert verifier_result is expected, (label,"verifier",verifier_result,expected)
+              assert producer_result is verifier_result, (label,producer_result,verifier_result)
+          assert 'bypass_actors' in text and 'bypass_actors' in verifier
+          assert "active main-applicable ruleset has bypass actors" in text
+          assert "active main-applicable ruleset has bypass actors" in verifier
+
           PY
