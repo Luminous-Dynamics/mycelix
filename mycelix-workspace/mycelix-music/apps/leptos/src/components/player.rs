@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
-use crate::app::{format_time, PlayerState};
+use crate::app::{format_time, same_audio_source, PlayerState};
 use crate::types::RepeatMode;
 use leptos::prelude::*;
 use super::queue::QueuePanel;
@@ -211,18 +211,17 @@ pub fn Player() -> impl IntoView {
         if !audio.ended() || !audio_matches_selected_source(&audio, &player_for_end) {
             return;
         }
-        let before_hash = player_for_end
-            .current_song
-            .get_untracked()
-            .map(|song| song.song_hash);
+        let before_song = player_for_end.current_song.get_untracked();
         player_for_end.next_on_end();
-        let after_hash = player_for_end
-            .current_song
-            .get_untracked()
-            .map(|song| song.song_hash);
+        let after_song = player_for_end.current_song.get_untracked();
         // Repeat-one (or a one-track repeat-all queue) has the same source
         // on both sides. Rewind and explicitly restart the persistent element.
-        if player_for_end.is_playing.get_untracked() && before_hash == after_hash {
+        if player_for_end.is_playing.get_untracked()
+            && matches!(
+                (&before_song, &after_song),
+                (Some(before), Some(after)) if same_audio_source(before, after)
+            )
+        {
             audio.set_current_time(0.0);
             request_playback(
                 audio,
@@ -240,22 +239,19 @@ pub fn Player() -> impl IntoView {
                         let previous_player = player_for_previous.clone();
                         let previous_audio = audio_ref;
                         let play_previous = move |_| {
-                            let before_hash = previous_player
-                                .current_song
-                                .get_untracked()
-                                .map(|song| song.song_hash);
+                            let before_song = previous_player.current_song.get_untracked();
                             let restart_current =
                                 previous_player.progress.get_untracked() > 3.0;
                             let was_playing = previous_player.is_playing.get_untracked();
                             previous_player.previous();
-                            let after_hash = previous_player
-                                .current_song
-                                .get_untracked()
-                                .map(|song| song.song_hash);
+                            let after_song = previous_player.current_song.get_untracked();
                             // Previous at the start of the first track can resolve to
                             // the same source. Keep the real element in sync with the
                             // state transition, but preserve pause on the >3s restart gesture.
-                            if before_hash == after_hash {
+                            if matches!(
+                                (&before_song, &after_song),
+                                (Some(before), Some(after)) if same_audio_source(before, after)
+                            ) {
                                 if let Some(audio) = previous_audio.get() {
                                     audio.set_current_time(0.0);
                                     if !restart_current || was_playing {
@@ -271,19 +267,16 @@ pub fn Player() -> impl IntoView {
                         let next_player = player_for_next.clone();
                         let next_audio = audio_ref;
                         let play_next = move |_| {
-                            let before_hash = next_player
-                                .current_song
-                                .get_untracked()
-                                .map(|song| song.song_hash);
+                            let before_song = next_player.current_song.get_untracked();
                             next_player.next();
-                            let after_hash = next_player
-                                .current_song
-                                .get_untracked()
-                                .map(|song| song.song_hash);
+                            let after_song = next_player.current_song.get_untracked();
                             // Repeat-one and a one-track repeat-all queue select the
                             // same source. Rewind and start it even if it was paused.
                             if next_player.is_playing.get_untracked()
-                                && before_hash == after_hash
+                                && matches!(
+                                    (&before_song, &after_song),
+                                    (Some(before), Some(after)) if same_audio_source(before, after)
+                                )
                             {
                                 if let Some(audio) = next_audio.get() {
                                     audio.set_current_time(0.0);

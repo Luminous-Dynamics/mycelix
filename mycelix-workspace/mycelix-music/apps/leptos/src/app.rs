@@ -31,6 +31,11 @@ pub struct PlayerState {
     pub show_queue: RwSignal<bool>,
 }
 
+/// Source identity must bind the song record and the actual media resource.
+pub(crate) fn same_audio_source(left: &Song, right: &Song) -> bool {
+    left.song_hash == right.song_hash && left.audio_url() == right.audio_url()
+}
+
 impl PlayerState {
     pub fn new() -> Self {
         Self {
@@ -53,7 +58,7 @@ impl PlayerState {
         let source_changed = self
             .current_song
             .get_untracked()
-            .is_none_or(|current| current.song_hash != next_song.song_hash);
+            .is_none_or(|current| !same_audio_source(&current, next_song));
         if source_changed {
             self.duration.set(0.0);
         }
@@ -63,7 +68,7 @@ impl PlayerState {
         let same_source = self
             .current_song
             .get_untracked()
-            .is_some_and(|current| current.song_hash == song.song_hash);
+            .is_some_and(|current| same_audio_source(&current, &song));
         let mut q = self.queue.get_untracked();
         let idx = q
             .iter()
@@ -100,7 +105,7 @@ impl PlayerState {
         let same_source = self
             .current_song
             .get_untracked()
-            .is_some_and(|current| current.song_hash == first.song_hash);
+            .is_some_and(|current| same_audio_source(&current, &first));
         self.queue.set(songs);
         self.queue_index.set(Some(0));
         self.prepare_track_change(&first);
@@ -183,7 +188,7 @@ impl PlayerState {
         let same_source = self
             .current_song
             .get_untracked()
-            .is_some_and(|current| current.song_hash == song.song_hash);
+            .is_some_and(|current| same_audio_source(&current, &song));
         self.queue_index.set(Some(index));
         self.prepare_track_change(&song);
         self.current_song.set(Some(song));
@@ -216,7 +221,7 @@ impl PlayerState {
                 let same_source = self
                     .current_song
                     .get_untracked()
-                    .is_some_and(|current| current.song_hash == next_song.song_hash);
+                    .is_some_and(|current| same_audio_source(&current, &next_song));
                 self.prepare_track_change(&next_song);
                 self.current_song.set(Some(next_song));
                 // When another occurrence of the same song is selected, the
@@ -301,8 +306,132 @@ fn queue_next_index(
 
 #[cfg(test)]
 mod player_queue_tests {
-    use super::{QueueRemovalAction, queue_next_index, queue_removal_action};
-    use crate::types::RepeatMode;
+    use super::{
+        PlayerState, QueueRemovalAction, queue_next_index, queue_removal_action,
+        same_audio_source,
+    };
+    use crate::types::{AgentPubKey, RepeatMode, Song, Timestamp};
+    use leptos::prelude::Owner;
+
+    fn test_song(song_hash: &str, ipfs_cid: &str) -> Song {
+        Song {
+            song_hash: song_hash.to_string(),
+            title: format!("Test {ipfs_cid}"),
+            artist: AgentPubKey(vec![0; 39]),
+            ipfs_cid: ipfs_cid.to_string(),
+            cover_cid: None,
+            duration_seconds: 180,
+            genres: vec!["Test".to_string()],
+            strategy_id: "standard".to_string(),
+            released_at: Timestamp(0),
+            metadata: "{}".to_string(),
+        }
+    }
+
+    #[test]
+    fn source_identity_binds_song_record_and_audio_url() {
+        let same = test_song("record-a", "QmSame");
+        let same_again = test_song("record-a", "QmSame");
+        let changed_url = test_song("record-a", "QmDifferent");
+        let changed_record = test_song("record-b", "QmSame");
+
+        assert!(same_audio_source(&same, &same_again));
+        assert!(!same_audio_source(&same, &changed_url));
+        assert!(!same_audio_source(&same, &changed_record));
+    }
+
+    #[test]
+    fn selecting_same_source_queue_occurrence_preserves_playhead() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let player = PlayerState::new();
+            let duplicate = test_song("duplicate", "QmSame");
+            player.queue.set(vec![duplicate.clone(), duplicate.clone()]);
+            player.current_song.set(Some(duplicate));
+            player.queue_index.set(Some(0));
+            player.progress.set(42.5);
+            player.duration.set(180.0);
+
+            player.play_queued_song_at(1);
+
+            assert_eq!(player.queue_index.get_untracked(), Some(1));
+            assert_eq!(player.progress.get_untracked(), 42.5);
+            assert_eq!(player.duration.get_untracked(), 180.0);
+            assert!(player.is_playing.get_untracked());
+        });
+    }
+
+    #[test]
+    fn selecting_changed_url_resets_playhead_even_if_record_hash_matches() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let player = PlayerState::new();
+            let first = test_song("same-record", "QmOld");
+            let revised_resource = test_song("same-record", "QmNew");
+            player.queue.set(vec![first.clone(), revised_resource]);
+            player.current_song.set(Some(first));
+            player.queue_index.set(Some(0));
+            player.progress.set(42.5);
+            player.duration.set(180.0);
+
+            player.play_queued_song_at(1);
+
+            assert_eq!(player.queue_index.get_untracked(), Some(1));
+            assert_eq!(player.progress.get_untracked(), 0.0);
+            assert_eq!(player.duration.get_untracked(), 0.0);
+        });
+    }
+
+    #[test]
+    fn removing_current_occurrence_resets_playhead_when_next_source_changes() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let player = PlayerState::new();
+            let current = test_song("same-record", "QmOld");
+            let next = test_song("same-record", "QmNew");
+            player.queue.set(vec![current.clone(), next]);
+            player.current_song.set(Some(current));
+            player.queue_index.set(Some(0));
+            player.is_playing.set(true);
+            player.progress.set(42.5);
+            player.duration.set(180.0);
+
+            player.remove_queued_song_at(0);
+
+            assert_eq!(player.queue.get_untracked().len(), 1);
+            assert_eq!(player.queue_index.get_untracked(), Some(0));
+            assert_eq!(
+                player.current_song.get_untracked().map(|song| song.audio_url()),
+                Some("https://ipfs.io/ipfs/QmNew".to_string())
+            );
+            assert_eq!(player.progress.get_untracked(), 0.0);
+            assert_eq!(player.duration.get_untracked(), 0.0);
+        });
+    }
+
+    #[test]
+    fn removing_same_source_duplicate_preserves_playhead() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let player = PlayerState::new();
+            let duplicate = test_song("duplicate", "QmSame");
+            player.queue.set(vec![duplicate.clone(), duplicate.clone()]);
+            player.current_song.set(Some(duplicate));
+            player.queue_index.set(Some(1));
+            player.is_playing.set(true);
+            player.progress.set(42.5);
+            player.duration.set(180.0);
+
+            player.remove_queued_song_at(1);
+
+            assert_eq!(player.queue.get_untracked().len(), 1);
+            assert_eq!(player.queue_index.get_untracked(), Some(0));
+            assert_eq!(player.progress.get_untracked(), 42.5);
+            assert_eq!(player.duration.get_untracked(), 180.0);
+            assert!(player.is_playing.get_untracked());
+        });
+    }
+
 
     #[test]
     fn removing_track_before_current_shifts_index() {
