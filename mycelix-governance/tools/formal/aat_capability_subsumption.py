@@ -15,6 +15,8 @@ from typing import Any
 MAX_CONSTRAINT_DEPTH = 32
 MAX_CONSTRAINT_NODES = 512
 MAX_COMPOSITE_CLAUSES = 128
+MAX_TOOLS_PER_TOKEN = 256
+MAX_CONSTRAINTS_PER_TOOL = 64
 
 CORE_TYPES = {
     "exact", "range", "one_of", "not_one_of", "contains",
@@ -408,6 +410,11 @@ def validate_authorization_details(details: Any, *, require_one: bool,
     tools = aat_entries[0].get("tools")
     if not isinstance(tools, dict):
         raise CapabilityError("aat-tools-invalid", f"{label} AAT tools must be an object")
+    if len(tools) > MAX_TOOLS_PER_TOKEN:
+        raise CapabilityError(
+            "tool-count-limit-exceeded",
+            f"{label} contains more than {MAX_TOOLS_PER_TOKEN} tools",
+        )
     for tool_name, arg_constraints in tools.items():
         if not isinstance(tool_name, str) or not tool_name:
             raise CapabilityError("tool-name-invalid", f"{label} tool identifiers must be non-empty strings")
@@ -415,9 +422,9 @@ def validate_authorization_details(details: Any, *, require_one: bool,
             raise CapabilityError("tool-constraints-invalid",
                                   f"{label} tool {tool_name!r} constraint map must be an object",
                                   f"$.tools.{tool_name}")
-        if len(arg_constraints) > 256:
+        if len(arg_constraints) > MAX_CONSTRAINTS_PER_TOOL:
             raise CapabilityError("argument-key-limit-exceeded",
-                                  f"{label} tool {tool_name!r} exceeds 256 argument keys",
+                                  f"{label} tool {tool_name!r} exceeds {MAX_CONSTRAINTS_PER_TOOL} argument keys",
                                   f"$.tools.{tool_name}")
         for arg_name, constraint in arg_constraints.items():
             if not isinstance(arg_name, str) or not arg_name:
