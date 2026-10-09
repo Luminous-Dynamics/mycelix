@@ -80,7 +80,8 @@ jobs:
             echo "fixture_git_blob=$(git hash-object docs/integral/civ-013-witness-conformance-v1.json)"
             echo "verifier_git_blob=$(git hash-object scripts/integral/verify_civ013_witness_conformance_v1.py)"
             echo "source_model_commit=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-witness-conformance-v1-manifest.json"))["source_model_commit"])')"
-            echo "claim_ceiling=ReferenceModelOnly"
+            echo "profile_id=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-witness-conformance-v1-manifest.json"))["profile_id"])')"
+            echo "claim_ceiling=ModelSmokeReferenceConformanceOnly"
           } | tee -a civ013-witness-conformance.txt
 
       - name: Upload qualification record
