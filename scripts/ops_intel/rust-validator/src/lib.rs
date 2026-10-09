@@ -518,12 +518,18 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
         if members.len() < 2 || members.iter().any(|reference| !sources0.contains(reference)) {
             errors.push(format!("F0 source dependency assessment[{index}]: members must be at least two known sources"));
         }
-        let expected_members: &[&str] = match assessment.get("assessment_ref").and_then(Value::as_str) {
-            Some("dependency-assessment:shipment-A-17-sources") => &["source:carrier-A", "source:supplier-A-portal"],
-            Some("dependency-assessment:energy-sources") => &["source:energy-E1", "source:energy-E2"],
-            _ => &[],
+        let expected_members: Vec<String> = match assessment.get("assessment_ref").and_then(Value::as_str) {
+            Some("dependency-assessment:shipment-A-17-sources") => vec![
+                "source:carrier-A".to_owned(),
+                "source:supplier-A-portal".to_owned(),
+            ],
+            Some("dependency-assessment:energy-sources") => vec![
+                "source:energy-E1".to_owned(),
+                "source:energy-E2".to_owned(),
+            ],
+            _ => Vec::new(),
         };
-        require_set_eq(&members, expected_members, "F0: source dependency group membership mismatch", &mut errors);
+        require_set_eq(&members, &expected_members, "F0: source dependency group membership mismatch", &mut errors);
         if assessment.get("disposition").and_then(Value::as_str) != Some("Unknown") {
             errors.push(format!("F0 dependency assessment[{index}]: independence remains Unknown"));
         }
