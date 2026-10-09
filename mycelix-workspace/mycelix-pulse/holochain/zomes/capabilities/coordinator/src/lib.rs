@@ -1032,70 +1032,31 @@ pub fn probe_remote_capability(capability_hash: ActionHash) -> ExternResult<Capa
 
 #[hdk_extern]
 pub fn recv_remote_signal(signal: ExternIO) -> ExternResult<()> {
-    // Grant delivery is a separate wire type so the secret can be consumed into a
-    // private CapClaim without ever being forwarded to local UI listeners.
-    let cap_signal = match signal.decode::<CapabilityGrantDelivery>() {
-        Ok(delivery) => {
-            let caller = call_info()?.provenance;
-            let local_agent = agent_info()?.agent_initial_pubkey;
-            if caller != delivery.grantor {
+    // Secrets are never delivered through best-effort remote signals. The only
+    // accepted grant-delivery path is receive_capability_grant via call_remote,
+    // which returns an acknowledgement after the private CapClaim is stored.
+    let cap_signal: CapabilitySignal = signal.decode().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode capability signal: {}",
+            e
+        )))
+    })?;
+
+    match &cap_signal {
+        CapabilitySignal::CapabilityRevoked { grantor, .. } => {
+            if call_info()?.provenance != *grantor {
                 return Err(wasm_error!(WasmErrorInner::Guest(
-                    "Capability grant delivery source does not match grantor".to_string(),
+                    "Capability revocation source does not match grantor".to_string(),
                 )));
             }
-
-            let record = get(delivery.capability_hash.clone(), GetOptions::default())?
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Capability grant record unavailable to recipient".to_string(),
-                )))?;
-            let capability: MailboxCapability = record
-                .entry()
-                .to_app_option()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Capability grant record has an unexpected entry type".to_string(),
-                )))?;
-
-            if capability.grantor != caller
-                || capability.grantee != local_agent
-                || capability.id != delivery.capability_id
-                || capability.secret_hash != Sha256::digest(delivery.secret.as_ref()).to_vec()
-            {
-                return Err(wasm_error!(WasmErrorInner::Guest(
-                    "Capability secret does not match the authorized grant record".to_string(),
-                )));
-            }
-
-            create_cap_claim(CapClaimEntry {
-                tag: delivery.capability_id,
-                grantor: delivery.grantor.clone(),
-                secret: delivery.secret,
-            })?;
-
-            CapabilitySignal::CapabilityGranted {
-                capability_hash: delivery.capability_hash,
-                grantor: delivery.grantor,
-                access_type: delivery.access_type,
-            }
         }
-        Err(_) => {
-            let cap_signal: CapabilitySignal = signal.decode().map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "Failed to decode capability signal: {}",
-                    e
-                )))
-            })?;
-
-            if let CapabilitySignal::CapabilityRevoked { grantor, .. } = &cap_signal {
-                if call_info()?.provenance != *grantor {
-                    return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Capability revocation source does not match grantor".to_string(),
-                    )));
-                }
-            }
-            cap_signal
+        CapabilitySignal::CapabilityGranted { .. } => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "CapabilityGranted must arrive through the acknowledged private-claim handoff".to_string(),
+            )));
         }
-    };
+        _ => {}
+    }
 
     emit_signal(cap_signal)?;
     Ok(())
