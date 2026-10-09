@@ -184,6 +184,46 @@ def mismatch_for(raw: dict[str, Any], result: dict[str, Any] | None = None) -> d
             "observed_mapping": result.get("structural", {}).get("matching", {}),
         }
 
+    emitted_mapping = result.get("structural", {}).get("matching", {})
+    parent_by_id = {atom["id"]: atom for atom in parent["clauses"]}
+    child_by_id = {atom["id"]: atom for atom in child["clauses"]}
+    if parent["kind"] == "all":
+        valid_ids = all(pid in parent_by_id and cid in child_by_id
+                        for pid, cid in emitted_mapping.items())
+        injective = len(set(emitted_mapping.values())) == len(emitted_mapping)
+        valid_edges = all(
+            independent_atom_subsumes(child_by_id[cid], parent_by_id[pid])
+            for pid, cid in emitted_mapping.items()
+        )
+        complete_when_pass = not observed_structure_pass or set(emitted_mapping) == set(parent_by_id)
+        if not (valid_ids and injective and valid_edges and complete_when_pass):
+            return {
+                "kind": "structural-witness-map-invalid",
+                "operator": "all",
+                "valid_ids": valid_ids,
+                "injective": injective,
+                "valid_edges": valid_edges,
+                "complete_when_pass": complete_when_pass,
+                "observed_mapping": emitted_mapping,
+            }
+    else:
+        valid_ids = all(cid in child_by_id and pid in parent_by_id
+                        for cid, pid in emitted_mapping.items())
+        valid_edges = all(
+            independent_atom_subsumes(child_by_id[cid], parent_by_id[pid])
+            for cid, pid in emitted_mapping.items()
+        )
+        complete_when_pass = not observed_structure_pass or set(emitted_mapping) == set(child_by_id)
+        if not (valid_ids and valid_edges and complete_when_pass):
+            return {
+                "kind": "structural-witness-map-invalid",
+                "operator": "any",
+                "valid_ids": valid_ids,
+                "valid_edges": valid_edges,
+                "complete_when_pass": complete_when_pass,
+                "observed_mapping": emitted_mapping,
+            }
+
     expected_status = (
         "AUTHORITY_EXPANSION" if not independently_contained
         else "STRUCTURAL_SUBSUMPTION_PASS" if independent_structure_pass
