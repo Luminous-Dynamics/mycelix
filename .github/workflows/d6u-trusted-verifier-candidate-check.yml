@@ -41,7 +41,7 @@ jobs:
       - name: Assert trusted source and evaluator blob
         env:
           EXPECTED_TRUSTED_SHA: ${{ github.sha }}
-          EXPECTED_EVALUATOR_BLOB: 5a5ba85ff6243cd77529a10564d43f4f20f78695
+          EXPECTED_EVALUATOR_BLOB: e8c2fddfaff56f71ed713d219a27cdc9c4a531ae
         run: |
           set -euo pipefail
           observed_commit="$(git rev-parse HEAD)"
@@ -105,7 +105,7 @@ jobs:
         if: success()
         env:
           EXPECTED_CANDIDATE_SHA: ${{ steps.validate.outputs.sha }}
-          EXPECTED_EVALUATOR_BLOB: 5a5ba85ff6243cd77529a10564d43f4f20f78695
+          EXPECTED_EVALUATOR_BLOB: e8c2fddfaff56f71ed713d219a27cdc9c4a531ae
           EXPECTED_TRUSTED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
