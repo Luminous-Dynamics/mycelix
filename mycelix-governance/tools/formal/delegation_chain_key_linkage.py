@@ -41,6 +41,9 @@ def canonical_thumbprint_jwk(jwk: dict[str, Any]) -> bytes:
         raise UnsupportedKey("invalid Ed25519 x encoding") from error
     if len(decoded) != 32:
         raise UnsupportedKey("Ed25519 x must encode exactly 32 bytes")
+    canonical_x = base64.urlsafe_b64encode(decoded).rstrip(b"=").decode("ascii")
+    if canonical_x != x:
+        raise UnsupportedKey("Ed25519 x must use canonical unpadded base64url encoding")
     required_members = {"crv": "Ed25519", "kty": "OKP", "x": x}
     return json.dumps(required_members, sort_keys=True, separators=(",", ":"),
                       ensure_ascii=False, allow_nan=False).encode("utf-8")
