@@ -172,7 +172,11 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain") -> dict[s
         old_token = chain[1]
         parts = old_token.split(".")
         claims = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * ((4-len(parts[1])%4)%4)))
-        claims["par_hash"] = b64u(hashlib.sha256(b"the-original-parent-signing-input").digest())
+        original_root_header = {"alg": "EdDSA", "typ": "JWT", "kid": "fixture-0"}
+        original_parent_input = (
+            encode_segment(compact_json(original_root_header)) + "." + chain[0].split(".")[1]
+        )
+        claims["par_hash"] = b64u(hashlib.sha256(original_parent_input.encode("ascii")).digest())
         chain[1] = sign_token(keys[1]["private_path"], {"alg": "EdDSA", "typ": "JWT", "kid": "fixture-1"},
                               claims, directory, f"{case}-relinked-child")
 
@@ -302,6 +306,7 @@ def main() -> int:
                 "positive_controls": 1,
                 "negative_controls": len(receipt["controls"]) - 1,
                 "signatures_verified": 4,
+                "mutants_detected": len(receipt["mutations"]),
                 "signature_and_linkage_mutants_detected": len(receipt["mutations"]),
                 "root_anchor_checks": True,
                 "child_signature_checks": True,
