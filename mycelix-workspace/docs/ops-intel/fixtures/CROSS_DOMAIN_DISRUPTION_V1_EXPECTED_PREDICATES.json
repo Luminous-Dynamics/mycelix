@@ -111,6 +111,12 @@
       "frontier": "frontier:F0",
       "requirement": "Canonical identity/projection output does not use display labels as native subject identity.",
       "failure": "Two distinct native subjects merge because names match."
+    },
+    {
+      "id": "P19",
+      "frontier": "frontier:F2",
+      "requirement": "Synthetic authority validation distinguishes policy allow, absent permit, stale permit, wrong subject/candidate/payload and a matching mock permit accepted for simulation only.",
+      "failure": "Policy-decision evidence is treated as a permit, mismatched/stale mock permits are accepted, or structural acceptance grants real execution authority."
     }
   ],
   "nonclaims": [
