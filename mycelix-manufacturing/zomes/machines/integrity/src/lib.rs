@@ -1766,6 +1766,7 @@ mod content_restriction_tests {
                 let mut raw = vec![0u8; 36];
                 raw[..4].copy_from_slice(&(index as u32).to_le_bytes());
                 observation.attestation_hash = ActionHash::from_raw_36(raw);
+                observation.attestation_statement.action_hash = observation.attestation_hash.clone();
                 observation
             })
             .collect::<Vec<_>>();
