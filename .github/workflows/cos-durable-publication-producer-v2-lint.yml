@@ -1,0 +1,298 @@
+name: COS Durable Publication Producer V2 Lint
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/cos-durable-publication-producer-v2.yml
+      - .github/workflows/cos-durable-publication-producer-v2-lint.yml
+      - .github/workflows/cos-durable-publication-verify.yml
+
+permissions:
+  contents: read
+  attestations: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download exact actionlint release
+        run: |
+          set -euo pipefail
+          version=1.7.12
+          archive="actionlint_${version}_linux_amd64.tar.gz"
+          expected_sha256=8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          curl --fail --show-error --silent --location --max-redirs 5 --proto '=https' --tlsv1.2 \
+            --output "${archive}" \
+            "https://github.com/rhysd/actionlint/releases/download/v${version}/${archive}"
+          test "$(sha256sum "${archive}" | awk '{print $1}')" = "${expected_sha256}"
+          gh attestation verify -R rhysd/actionlint "${archive}" --format json > actionlint-attestation.json
+          test -s actionlint-attestation.json
+          tar -xzf "${archive}" actionlint
+          ./actionlint -version
+
+      - name: Lint V2 producer
+        run: |
+          set -euo pipefail
+          ./actionlint -oneline .github/workflows/cos-durable-publication-producer-v2.yml .github/workflows/cos-durable-publication-verify.yml
+
+      - name: Verify privilege and evidence invariants
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import ast, fnmatch, textwrap
+          text=Path('.github/workflows/cos-durable-publication-producer-v2.yml').read_text()
+          verifier=Path('.github/workflows/cos-durable-publication-verify.yml').read_text()
+          top=text.split('\njobs:',1)[0]
+          assert 'permissions:\n  actions: read\n  contents: read' in top
+          assert 'contents: write' not in top
+          assert 'prepare:\n    name: Read-only qualification handoff' in text
+          publish_at=text.index('\n  publish:')
+          prepare=text[:publish_at]
+          publish=text[publish_at:]
+          assert 'COS_RELEASE_ADMIN_TOKEN:' not in prepare
+          assert 'environment: cos-durable-publication' in publish
+          assert text.count('environment: cos-durable-publication') >= 1
+          first_secret=publish.index('COS_RELEASE_ADMIN_TOKEN:')
+          publisher_gate=publish.index('Require protected publisher ref')
+          assert publisher_gate < first_secret
+          governance_recheck=publish.index('Revalidate governance snapshots immediately before publication')
+          final_publish=publish.index('Publish immutable release after in-step exact tag recheck')
+          publication_transition=publish.index('Publish immutable release after in-step exact tag recheck')
+          assert governance_recheck < final_publish == publication_transition
+          assert publish.count('- name: Publish immutable release') == 1
+          assert publish.count('- name: Prove immutable release and asset') == 1
+          assert publish.count('- name: Record durable publication observation') == 1
+          assert publish.count('- name: Preserve publication observation') == 1
+          release_step=publish.split('- name: Publish immutable release after in-step exact tag recheck',1)[1].split('\n      - name:',1)[0]
+          tag_readback=release_step.index('git ls-remote origin "refs/tags/${RELEASE_TAG}^{}"')
+          release_publish=release_step.index('gh release edit "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false')
+          assert tag_readback < release_publish
+          assert 'unset COS_RELEASE_ADMIN_TOKEN' in release_step
+          assert 'EXPECTED_ASSET_SHA' in release_step
+          assert 'prepublish-release.json' in release_step
+          assert 'gh release view "${RELEASE_TAG}"' in release_step
+          assert "release['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']" in release_step
+          assert "assert release['isDraft'] is True and release['isImmutable'] is False" in release_step
+          assert "assert release['isLatest'] is False and release['isPrerelease'] is False" in release_step
+          assert 'assert isinstance(assets,list) and len(assets)==1' in release_step
+          assert "matches[0].get('digest')=='sha256:'+os.environ['EXPECTED_ASSET_SHA']" in release_step
+          assert 'recheck-ruleset-pages.json' in publish and 'recheck-rulesets/' in publish
+          observation_step=publish.split('- name: Record durable publication observation',1)[1].split('\n      - name:',1)[0]
+          preserve_step=publish.split('- name: Preserve publication observation',1)[1].split('\n      - name:',1)[0]
+          def observation_schema(source, step_name):
+              block=source.split(f'- name: {step_name}',1)[1].split('\n      - name:',1)[0]
+              script=block.split("python - <<'PY'\n",1)[1].split('\n          PY',1)[0]
+              tree=ast.parse(textwrap.dedent(script))
+              assignments=[node for node in ast.walk(tree) if isinstance(node,ast.Assign) and any(isinstance(target,ast.Name) and target.id=='observation' for target in node.targets)]
+              assert len(assignments)==1 and isinstance(assignments[0].value,ast.Dict)
+              payload=assignments[0].value
+              keys=[key.value for key in payload.keys]
+              assert all(isinstance(key,str) for key in keys) and len(keys)==len(set(keys))
+              schema_node=next(value for key,value in zip(payload.keys,payload.values) if key.value=='schema')
+              assert isinstance(schema_node,ast.Constant) and schema_node.value=='MYCELIX-COS-DURABLE-PUBLICATION-OBSERVATION-V2'
+              return set(keys)
+          producer_observation_keys=observation_schema(text,'Record durable publication observation')
+          verifier_observation_keys=observation_schema(verifier,'Record durable verification state')
+          assert producer_observation_keys==verifier_observation_keys
+          assert len(producer_observation_keys)==24
+          assert {'is_prerelease','publication_handoff_sha256','main_ruleset_governance_sha256','attestor_workflow_content_sha256'} <= producer_observation_keys
+          assert "'main_ruleset_governance_sha256':ruleset_policy['sha256']" in observation_step
+          for evidence_path in ('main-ruleset-governance-v1.json','ruleset-index-pages.json','ruleset-details/','ruleset-ids.txt','recheck-environment.json','recheck-effective-rules.json','recheck-main-protection.json','recheck-ruleset-pages.json','recheck-immutable-releases.json','recheck-rulesets/'):
+              assert evidence_path in preserve_step, evidence_path
+          assert 'recheck-ruleset-pages.json' in publish
+          assert 'current_environment==frozen_environment' in publish
+          assert 'current_effective==frozen_effective' in publish
+          assert 'current_main==frozen_main' in publish
+          assert 'current_ruleset==frozen_ruleset' in publish
+          assert 'test "${GITHUB_REF}" = "refs/heads/main"' in publish
+          assert 'COS_RELEASE_ADMIN_TOKEN:' in publish
+          assert 'gh release create' in publish
+          assert '--latest=false' in publish
+          assert 'isLatest' in publish
+          assert "assert d['isLatest'] is False" in publish
+          assert 'gh release edit' in publish
+          assert 'isImmutable' in publish
+          assert 'gh release verify-asset' in publish
+          assert 'candidate_not_authoritative_until_protected_adoption' in text
+          assert 'ReferenceModelOnly' in text
+          assert 'sha256sum --check --strict SHA256SUMS' in publish
+          assert 'isPrerelease' in publish
+          tag_gate=publish.index('Verify release tag resolves to exact main SHA before publishing')
+          archive_gate=publish.index('Build and prove deterministic durable archive')
+          upload_gate=publish.index('Upload exact durable asset to candidate draft')
+          assert tag_gate < archive_gate < upload_gate
+          assert 'git ls-remote origin "refs/tags/${RELEASE_TAG}^{}"' in publish
+          assert 'test "${tag_sha}" = "${EXPECTED_MAIN_SHA}"' in publish
+          assert publish.count('git ls-remote origin "refs/tags/${RELEASE_TAG}^{}"') == 2
+          draft_asset_gate=publish.index('Revalidate draft and asset digest')
+          assert draft_asset_gate < governance_recheck < final_publish
+          final_proof=publish.split('- name: Prove immutable release and asset',1)[1].split('\n      - name:',1)[0]
+          assert "assert d['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']" in final_proof
+          assert 'MYCELIX-COS-PROTECTED-MAIN-POLICY-V1' in text
+          assert 'MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1' in text
+          assert 'MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1' in text
+          assert 'requires_durable_subject_publication' in text
+          assert 'transient_actions_artifacts_are_insufficient' in text
+          assert 'required_durability_profile' in text
+          assert 'CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1' in text
+          assert 'activation_rule' in text
+          assert 'environments/cos-durable-publication' in text
+          assert 'custom_branch_policies' in text
+          assert 'protected_branches' in text
+          assert "required_conversation_resolution" in text
+          assert "required_linear_history" in text
+          assert "app_id':x.get('app_id')" in text
+          assert "checks is not None and (checks.get('contexts') or checks.get('checks'))" in text
+          assert "checks=data.get('required_status_checks')" in text
+          assert 'prevent_self_review' in text
+          assert 'required_reviewers' in text
+          assert 'environment_policy_sha256' in text
+          assert 'environment-policy-v1.json' in text
+          assert 'X-GitHub-Api-Version: 2026-03-10' in text
+          assert "reported=data.pop('sha256')" in text
+          assert "assert reported==hashlib.sha256(canonical).hexdigest()" in text
+          assert "assert m['main_branch_policy_sha256']==policy_digests['main-branch-policy-v1.json']" in text
+          assert "assert m['effective_main_rules_sha256']==policy_digests['effective-main-rules-v1.json']" in text
+          assert 'main-branch-policy-v1.json' in text
+          assert 'Snapshot full main ruleset bypass governance' in publish
+          assert 'rulesets?includes_parents=true&targets=branch&per_page=100' in publish
+          assert 'MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1' in text and 'MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1' in verifier
+          assert 'main-ruleset-governance-v1.json' in text and 'main-ruleset-governance-v1.json' in verifier
+          assert "'main_ruleset_governance_sha256'" in text and "'main_ruleset_governance_sha256'" in verifier
+          assert "'bypass_actors' in data and isinstance(data['bypass_actors'],list)" in text
+          assert "if applicable and item['enforcement']=='active':" in text
+          assert 'assert not actors, f"active main-applicable ruleset has bypass actors:' in text
+          assert "ruleset_applies_to_main(ruleset['conditions'])" in verifier
+          assert "if ruleset['applicable_to_main'] and ruleset['enforcement']=='active':" in verifier
+          assert 'assert not actors, f"active main-applicable ruleset has bypass actors:' in verifier
+          assert "durable_manifest['files']['main-ruleset-governance-v1.json']" in verifier
+          assert "m['files']==expected_files" in text
+          assert "'allow_fork_syncing'" in text
+          assert "'dismissal_restrictions'" in text
+          assert "'bypass_pull_request_allowances'" in text
+          assert "'required_signatures'" in text
+          assert "'additional_policy'" in text
+          assert 'effective-main-rules-v1.json' in text
+          assert 'expected_handoff' in text
+          assert 'verifier_run_attempt' in text
+          assert 'attestor_run_attempt' in text
+          assert 'publication_handoff_sha256' in text
+          assert "policy_digests={}" in text
+          assert "MYCELIX-COS-DURABLE-PUBLICATION-HANDOFF-BASIS-V1" in text
+          assert "handoff_basis=manifest['publication_handoff_basis']" in text
+          assert "handoff_basis=facts['publication_handoff_basis']" in text
+          assert 'publication_handoff_basis' in text
+          assert "handoff_basis['predicate_sha256']==durable_manifest['predicate_sha256']" in verifier
+          assert "expected_handoff==durable_manifest['publication_handoff_sha256']" in verifier
+          assert "'qualification_manifest_sha256','predicate_sha256','predicate_type'" in verifier
+          assert "'publication_handoff_basis','files'" in verifier
+          assert 'expected_basis_keys={' in verifier
+          assert "handoff_basis=durable_manifest['publication_handoff_basis']" in verifier
+          assert "predicate['attestor']['run_id']==receipt['attestor']['run_id']" in text
+          assert "receipt['verifier_run']['attempt']==signing_meta['workflow_run_attempt']" in text
+          assert "predicate['attestor']['workflow_sha']==receipt['attestor']['workflow_sha']" in text
+          assert "predicate['qualification_manifest_artifact']['id']" in text
+          assert "receipt['attestor']['run_attempt']" in text
+          assert "receipt['attestor']['run_id']" in text
+          assert "receipt['trust_root']['main_snapshot_sha']==os.environ['EXPECTED_MAIN_SHA']" in text
+          assert 'trust_root_main_snapshot_sha' in text
+          assert 'cancel-in-progress: false' in text
+          assert 'concurrency:' in text
+          assert 'Reconcile candidate trust root and signer workflow' in text
+          assert 'build_asset asset-a.tar.gz' in publish
+          assert 'build_asset asset-b.tar.gz' in publish
+          assert 'sha256sum --check --strict SHA256SUMS' in publish
+          assert "bytes([0])" in text
+          def extract_function(source, name):
+              source_lines=source.splitlines()
+              matches=[i for i,line in enumerate(source_lines) if line.lstrip().startswith(f"def {name}(")]
+              assert len(matches)==1, (name,matches)
+              start=matches[0]
+              base_indent=len(source_lines[start])-len(source_lines[start].lstrip())
+              end=start+1
+              while end<len(source_lines):
+                  line=source_lines[end]
+                  indent=len(line)-len(line.lstrip())
+                  if line.strip() and indent<=base_indent:
+                      break
+                  end+=1
+              function_source=textwrap.dedent("\n".join(source_lines[start:end]))
+              tree=ast.parse(function_source)
+              assert len(tree.body)==1 and isinstance(tree.body[0],ast.FunctionDef)
+              namespace={"fnmatch":fnmatch}
+              exec(compile(tree,f"<{name}>","exec"),namespace)
+              return namespace[name]
+
+          producer_applicability=extract_function(text,"applies_to_main")
+          verifier_applicability=extract_function(verifier,"ruleset_applies_to_main")
+          vectors=[
+              ("missing conditions",None,True),
+              ("empty conditions",{},True),
+              ("main explicitly included",{"ref_name":{"include":["refs/heads/main"],"exclude":[]}},True),
+              ("other branch only",{"ref_name":{"include":["refs/heads/release/*"],"exclude":[]}},False),
+              ("main explicitly excluded",{"ref_name":{"include":["refs/heads/*"],"exclude":["refs/heads/main"]}},False),
+              ("all branches included",{"ref_name":{"include":["~ALL"],"exclude":[]}},True),
+              ("unknown include pattern fails closed",{"ref_name":{"include":["unknown:main"],"exclude":[]}},True),
+              ("malformed include fails closed",{"ref_name":{"include":"refs/heads/main","exclude":[]}},True),
+              ("malformed exclude fails closed",{"ref_name":{"include":["refs/heads/main"],"exclude":None}},True),
+          ]
+          for label,conditions,expected in vectors:
+              producer_result=producer_applicability(conditions)
+              verifier_result=verifier_applicability(conditions)
+              assert producer_result is expected, (label,"producer",producer_result,expected)
+              assert verifier_result is expected, (label,"verifier",verifier_result,expected)
+              assert producer_result is verifier_result, (label,producer_result,verifier_result)
+          assert 'bypass_actors' in text and 'bypass_actors' in verifier
+          assert "active main-applicable ruleset has bypass actors" in text
+          assert "active main-applicable ruleset has bypass actors" in verifier
+
+          def extract_policy_gate(source, condition, signature):
+              source_lines=source.splitlines()
+              matches=[i for i,line in enumerate(source_lines) if line.strip()==condition]
+              assert len(matches)==1, (condition,matches)
+              start=matches[0]
+              indent=len(source_lines[start])-len(source_lines[start].lstrip())
+              end=start+1
+              while end<len(source_lines):
+                  line=source_lines[end]
+                  if line.strip() and len(line)-len(line.lstrip())<=indent:
+                      break
+                  end+=1
+              block=textwrap.dedent("\n".join(source_lines[start:end]))
+              function_source=signature+"\n"+textwrap.indent(block,"    ")
+              tree=ast.parse(function_source)
+              assert len(tree.body)==1 and isinstance(tree.body[0],ast.FunctionDef)
+              namespace={}
+              exec(compile(tree,"<policy-gate>","exec"),namespace)
+              return namespace["gate"]
+
+          producer_gate=extract_policy_gate(text,"if applicable and item['enforcement']=='active':","def gate(item, applicable, actors):")
+          verifier_gate=extract_policy_gate(verifier,"if ruleset['applicable_to_main'] and ruleset['enforcement']=='active':","def gate(ruleset, actors):")
+          for bypass_mode in ("always","pull_request","exempt"):
+              actor={"actor_type":"Team","actor_id":123,"bypass_mode":bypass_mode}
+              try:
+                  producer_gate({"id":17,"enforcement":"active"},True,[actor])
+                  raise AssertionError(("producer accepted active-main bypass",bypass_mode))
+              except AssertionError as error:
+                  assert "bypass actors" in str(error), (bypass_mode,str(error))
+              try:
+                  verifier_gate({"id":17,"enforcement":"active","applicable_to_main":True},[actor])
+                  raise AssertionError(("verifier accepted active-main bypass",bypass_mode))
+              except AssertionError as error:
+                  assert "bypass actors" in str(error), (bypass_mode,str(error))
+          producer_gate({"id":17,"enforcement":"active"},True,[])
+          verifier_gate({"id":17,"enforcement":"active","applicable_to_main":True},[])
+          producer_gate({"id":17,"enforcement":"active"},False,[{"bypass_mode":"always"}])
+          verifier_gate({"id":17,"enforcement":"active","applicable_to_main":False},[{"bypass_mode":"always"}])
+          producer_gate({"id":17,"enforcement":"disabled"},True,[{"bypass_mode":"always"}])
+          verifier_gate({"id":17,"enforcement":"disabled","applicable_to_main":True},[{"bypass_mode":"always"}])
+
+          PY

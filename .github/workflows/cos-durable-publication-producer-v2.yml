@@ -1,0 +1,1055 @@
+name: COS Durable Publication Producer V2
+
+on:
+  workflow_dispatch:
+    inputs:
+      attestor_run_id:
+        description: Exact successful COS attestor run
+        required: true
+        type: string
+      expected_main_sha:
+        description: Exact main revision represented by the attestor run
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: cos-durable-publication-${{ inputs.expected_main_sha }}-${{ inputs.attestor_run_id }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Read-only qualification handoff
+    runs-on: ubuntu-24.04
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    timeout-minutes: 20
+    outputs:
+      claim_id: ${{ steps.claim.outputs.claim_id }}
+      handoff_artifact_id: ${{ steps.transport.outputs.artifact-id }}
+    steps:
+      - name: Checkout producer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Validate inputs
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "${EXPECTED_MAIN_SHA}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${EXPECTED_REPOSITORY_ID}" = "1176351975"
+
+      - name: Read and freeze durable-publication environment policy
+        run: |
+          set -euo pipefail
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/environments/cos-durable-publication" > environment-policy-api.json
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          data=json.loads(Path('environment-policy-api.json').read_text())
+          assert data['name'].lower()=='cos-durable-publication'
+          required=[r for r in data.get('protection_rules',[]) if r.get('type')=='required_reviewers']
+          assert len(required)==1
+          reviewers=sorted([{'type':x['type'],'id':x['reviewer']['id']} for x in required[0].get('reviewers',[])],key=lambda x:(x['type'],x['id']))
+          assert reviewers and required[0].get('prevent_self_review') is True
+          branch_policy=data.get('deployment_branch_policy')
+          assert branch_policy=={'protected_branches':True,'custom_branch_policies':False}
+          projection={'schema':'MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1','name':'cos-durable-publication','required_reviewers':reviewers,'prevent_self_review':True,'deployment_branch_policy':branch_policy,'other_protection_rules':sorted([{'type':r.get('type'),'id':r.get('id'),'wait_timer':r.get('wait_timer')} for r in data.get('protection_rules',[]) if r.get('type')!='required_reviewers'],key=lambda x:(str(x.get('type','')),int(x.get('id',0))))}
+          raw=json.dumps(projection,sort_keys=True,separators=(',',':')).encode()
+          projection['sha256']=hashlib.sha256(raw).hexdigest()
+          Path('environment-policy-v1.json').write_text(json.dumps(projection,indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Snapshot effective active main rules
+        run: |
+          set -euo pipefail
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/rules/branches/main?per_page=100" > effective-main-rules.json
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          rules=json.loads(Path('effective-main-rules.json').read_text())
+          assert isinstance(rules,list)
+          canonical=[]
+          for rule in rules:
+              item={'type':rule.get('type'),'ruleset_id':rule.get('ruleset_id'),'ruleset_source_type':rule.get('ruleset_source_type'),'ruleset_source':rule.get('ruleset_source'),'parameters':rule.get('parameters',{})}
+              assert item['type']
+              canonical.append(item)
+          canonical=sorted(canonical,key=lambda x:(str(x['ruleset_source_type']),str(x['ruleset_source']),int(x['ruleset_id'] or 0),x['type'],json.dumps(x['parameters'],sort_keys=True,separators=(',',':'))))
+          projection={'schema':'MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1','branch':'refs/heads/main','rules':canonical}
+          raw=json.dumps(projection,sort_keys=True,separators=(',',':')).encode()
+          projection['sha256']=hashlib.sha256(raw).hexdigest()
+          Path('effective-main-rules-v1.json').write_text(json.dumps(projection,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Read exact attestor run
+        env:
+          RUN_ID: ${{ inputs.attestor_run_id }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "${RUN_ID}" | grep -Eq '^[0-9]+$'
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" > attestor-run.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" > attestor-artifacts.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          run=json.loads(Path('attestor-run.json').read_text())
+          assert run['status']=='completed' and run['conclusion']=='success'
+          assert run['path']=='.github/workflows/cos-conformance-qualification-attestor.yml'
+          assert run['head_sha']==os.environ['EXPECTED_MAIN_SHA']
+          name=f"cos-conformance-qualification-attestation-{run['head_sha']}"
+          rows=[a for a in json.loads(Path('attestor-artifacts.json').read_text())['artifacts'] if a.get('name')==name]
+          assert len(rows)==1
+          a=rows[0]
+          assert a['expired'] is False and a['size_in_bytes']>0
+          assert a['digest'].startswith('sha256:')
+          Path('attestor-source.json').write_text(json.dumps({'run_id':run['id'],'run_attempt':run['run_attempt'],'head_sha':run['head_sha'],'workflow_path':run['path'],'artifact_name':name,'artifact_id':a['id'],'artifact_digest':a['digest']},indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Download and hash attestor artifact
+        env:
+          RUN_ID: ${{ inputs.attestor_run_id }}
+        run: |
+          set -euo pipefail
+          artifact_name="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('attestor-source.json').read_text())['artifact_name'])
+          PY
+          )"
+          GH_TOKEN="${GITHUB_TOKEN}" gh run download "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" --name "${artifact_name}" --dir attestor-artifact
+          artifact_id="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('attestor-source.json').read_text())['artifact_id'])
+          PY
+          )"
+          expected="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('attestor-source.json').read_text())['artifact_digest'].removeprefix('sha256:'))
+          PY
+          )"
+          curl --fail --show-error --silent --location --max-redirs 5 --proto '=https' --tlsv1.2 -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" --output attestor-artifact.zip "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip"
+          test "$(sha256sum attestor-artifact.zip | awk '{print $1}')" = "${expected}"
+
+      - name: Resolve and verify exact signing-input artifact
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          receipt_path="$(find attestor-artifact -type f -name attestor-run-receipt.json -print -quit)"
+          test -n "${receipt_path}"
+          RECEIPT_PATH="${receipt_path}" EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" python - <<'PY'
+          import json,os
+          from pathlib import Path
+          def reject(pairs):
+              out={}
+              for k,v in pairs:
+                  if k in out: raise ValueError(f'duplicate JSON key: {k}')
+                  out[k]=v
+              return out
+          def reject_constant(v): raise ValueError(v)
+          receipt=json.loads(Path(os.environ['RECEIPT_PATH']).read_text(),object_pairs_hook=reject,parse_constant=reject_constant)
+          assert receipt['qualification_topology']['head_sha']==os.environ['EXPECTED_MAIN_SHA']
+          a=receipt['signing_input_artifact']
+          assert isinstance(a['id'],int) and a['id']>0 and a['digest'].startswith('sha256:')
+          vr=receipt['verifier_run']['id']
+          assert isinstance(vr,int) and vr>0
+          Path('signing-input-request.json').write_text(json.dumps({'artifact_id':a['id'],'artifact_digest':a['digest'],'verifier_run_id':vr},indent=2,sort_keys=True)+'\n')
+          PY
+          artifact_id="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('signing-input-request.json').read_text())['artifact_id'])
+          PY
+          )"
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}" > signing-input-artifact.json
+          verifier_id="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('signing-input-request.json').read_text())['verifier_run_id'])
+          PY
+          )"
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/actions/runs/${verifier_id}" > verifier-run.json
+          EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" python - <<'PY'
+          import json,os
+          from pathlib import Path
+          req=json.loads(Path('signing-input-request.json').read_text())
+          art=json.loads(Path('signing-input-artifact.json').read_text())
+          run=json.loads(Path('verifier-run.json').read_text())
+          assert art['id']==req['artifact_id'] and art['digest']==req['artifact_digest']
+          assert art['expired'] is False and art['size_in_bytes']>0
+          assert art['workflow_run']['id']==req['verifier_run_id']
+          assert run['id']==req['verifier_run_id'] and run['status']=='completed' and run['conclusion']=='success'
+          assert run['path']=='.github/workflows/cos-conformance-evidence.yml'
+          assert run['head_sha']==os.environ['EXPECTED_MAIN_SHA']
+          Path('signing-input-source.json').write_text(json.dumps({'artifact_id':art['id'],'artifact_name':art['name'],'artifact_digest':art['digest'],'workflow_run_id':run['id'],'workflow_run_attempt':run['run_attempt']},indent=2,sort_keys=True)+'\n')
+          PY
+          signing_name="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('signing-input-source.json').read_text())['artifact_name'])
+          PY
+          )"
+          GH_TOKEN="${GITHUB_TOKEN}" gh run download "${verifier_id}" --repo "${GITHUB_REPOSITORY}" --name "${signing_name}" --dir signing-input-artifact
+          expected_signing="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('signing-input-source.json').read_text())['artifact_digest'].removeprefix('sha256:'))
+          PY
+          )"
+          curl --fail --show-error --silent --location --max-redirs 5 --proto '=https' --tlsv1.2 -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" --output signing-input-artifact.zip "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip"
+          test "$(sha256sum signing-input-artifact.zip | awk '{print $1}')" = "${expected_signing}"
+
+      - name: Assemble and independently verify source
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          set -euo pipefail
+          rm -rf durable-source && mkdir durable-source
+          python - <<'PY'
+          import hashlib,json,os,shutil
+          from pathlib import Path
+          def one(root,name):
+              xs=list(root.rglob(name)); assert len(xs)==1,(name,xs); return xs[0]
+          s=Path('attestor-artifact'); i=Path('signing-input-artifact'); d=Path('durable-source')
+          for name,root in [('attestor-run-receipt.json',s),('qualification-attestation-bundle.json',s),('qualification-manifest-v1.json',i),('qualification-attestation-predicate-v3.json',i)]: shutil.copyfile(one(root,name),d/name)
+          def reject(pairs):
+              out={}
+              for k,v in pairs:
+                  if k in out: raise ValueError(f'duplicate JSON key: {k}')
+                  out[k]=v
+              return out
+          def reject_constant(v): raise ValueError(v)
+          def strict(path): return json.loads(path.read_text(),object_pairs_hook=reject,parse_constant=reject_constant)
+          receipt=strict(d/'attestor-run-receipt.json'); predicate=strict(d/'qualification-attestation-predicate-v3.json'); manifest=strict(d/'qualification-manifest-v1.json')
+          manifest_sha=hashlib.sha256((d/'qualification-manifest-v1.json').read_bytes()).hexdigest()
+          predicate_sha=hashlib.sha256((d/'qualification-attestation-predicate-v3.json').read_bytes()).hexdigest()
+          bundle_sha=hashlib.sha256((d/'qualification-attestation-bundle.json').read_bytes()).hexdigest()
+          assert manifest['schema']=='MYCELIX-COS-CONFORMANCE-QUALIFICATION-MANIFEST-V1' and manifest['qualification_result']=='passed' and manifest['claim_ceiling']=='ReferenceModelOnly' and manifest['expected_head_sha']==os.environ['EXPECTED_MAIN_SHA']
+          assert predicate['schema']=='MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3' and predicate['repository']==os.environ['GITHUB_REPOSITORY'] and predicate['repository_id']==int(os.environ['EXPECTED_REPOSITORY_ID'])
+          assert predicate['qualification_result']=='passed' and predicate['claim_ceiling']=='ReferenceModelOnly' and predicate['qualification_manifest_sha256']==manifest_sha
+          assert predicate['publication']=={'profile':'COS-TERMINAL-ATTESTATION-V1','state':'preconditions_satisfied_terminal_side_effect'}
+          assert receipt['schema']=='MYCELIX-COS-QUALIFICATION-ATTESTOR-RECEIPT-V3' and receipt['repository']==os.environ['GITHUB_REPOSITORY'] and receipt['repository_id']==int(os.environ['EXPECTED_REPOSITORY_ID'])
+          assert receipt['qualification_manifest_sha256']==manifest_sha and receipt['predicate_sha256']==predicate_sha and receipt['attestation']['bundle_sha256']==bundle_sha
+          assert receipt['qualification_topology']['head_sha']==os.environ['EXPECTED_MAIN_SHA'] and receipt['trust_root']['status']=='candidate_not_authoritative_until_protected_adoption'
+          separator=bytes([0])
+          canonical=hashlib.sha256(b'MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4'+separator+str(int(os.environ['EXPECTED_REPOSITORY_ID'])).encode('ascii')+separator+predicate['schema'].encode('utf-8')+separator+predicate['predicate_type'].encode('utf-8')+separator+predicate['publication']['profile'].encode('utf-8')+separator+predicate['claim_ceiling'].encode('utf-8')+separator+manifest_sha.encode('ascii')+separator+receipt['trust_root']['manifest_sha256'].encode('ascii')).hexdigest()
+          assert canonical==predicate['qualification_claim_id']==receipt['qualification_claim_id']
+          assert canonical==hashlib.sha256(b'MYCELIX-COS-QUALIFICATION-CLAIM-ID-V4'+separator+str(int(os.environ['EXPECTED_REPOSITORY_ID'])).encode('ascii')+separator+predicate['schema'].encode('utf-8')+separator+predicate['predicate_type'].encode('utf-8')+separator+predicate['publication']['profile'].encode('utf-8')+separator+predicate['claim_ceiling'].encode('utf-8')+separator+manifest_sha.encode('ascii')+separator+receipt['trust_root']['manifest_sha256'].encode('ascii')).hexdigest()
+          signing_meta=json.loads(Path('signing-input-source.json').read_text())
+          attestor_meta=json.loads(Path('attestor-source.json').read_text())
+          assert receipt['attestor']['run_id']==attestor_meta['run_id'] and receipt['attestor']['run_attempt']==attestor_meta['run_attempt']
+          assert receipt['signing_input_artifact']['id']==signing_meta['artifact_id'] and receipt['signing_input_artifact']['digest']==signing_meta['artifact_digest']
+          assert receipt['verifier_run']['id']==signing_meta['workflow_run_id'] and receipt['verifier_run']['attempt']==signing_meta['workflow_run_attempt']
+          assert receipt['trust_root']['main_snapshot_sha']==os.environ['EXPECTED_MAIN_SHA']
+          assert predicate['qualification_manifest_artifact']['id']==signing_meta['artifact_id'] and predicate['qualification_manifest_artifact']['digest']==signing_meta['artifact_digest']
+          assert predicate['attestor']['workflow_ref']==receipt['attestor']['workflow_ref'] and predicate['attestor']['workflow_sha']==receipt['attestor']['workflow_sha']
+          assert predicate['attestor']['run_id']==receipt['attestor']['run_id'] and predicate['attestor']['run_attempt']==receipt['attestor']['run_attempt']
+          env_policy=json.loads(Path('environment-policy-v1.json').read_text())
+          effective_rules=json.loads(Path('effective-main-rules-v1.json').read_text())
+          facts={
+              'claim_id':canonical,'expected_main_sha':os.environ['EXPECTED_MAIN_SHA'],'manifest_sha256':manifest_sha,'predicate_sha256':predicate_sha,'bundle_sha256':bundle_sha,
+              'predicate_type':predicate['predicate_type'],'publication_profile':predicate['publication']['profile'],'claim_ceiling':predicate['claim_ceiling'],
+              'attestor_run_id':attestor_meta['run_id'],'attestor_run_attempt':attestor_meta['run_attempt'],'attestor_artifact_id':attestor_meta['artifact_id'],'attestor_artifact_digest':attestor_meta['artifact_digest'],
+              'verifier_run_id':signing_meta['workflow_run_id'],'verifier_run_attempt':signing_meta['workflow_run_attempt'],'signing_input_artifact_id':signing_meta['artifact_id'],'signing_input_artifact_digest':signing_meta['artifact_digest'],
+              'attestor_workflow_sha':receipt['attestor']['workflow_sha'],'attestor_workflow_ref':receipt['attestor']['workflow_ref'],
+              'trust_root_manifest_sha256':receipt['trust_root']['manifest_sha256'],'trust_root_manifest_blob_sha1':receipt['trust_root']['manifest_blob_sha1'],'trust_root_main_snapshot_sha':receipt['trust_root']['main_snapshot_sha'],
+              'environment_policy_sha256':env_policy['sha256'],'effective_main_rules_sha256':effective_rules['sha256'],
+          }
+          claim=facts['claim_id']
+          handoff_basis={
+              'schema':'MYCELIX-COS-DURABLE-PUBLICATION-HANDOFF-BASIS-V1',
+              'repository':os.environ['GITHUB_REPOSITORY'],
+              'repository_id':int(os.environ['EXPECTED_REPOSITORY_ID']),
+              'release_tag':f'cos-qualification-{claim}',
+              'asset_name':f'cos-durable-{claim}.tar.gz',
+              **facts,
+          }
+          facts['publication_handoff_basis']=handoff_basis
+          facts['publication_handoff_sha256']=hashlib.sha256(json.dumps(handoff_basis,sort_keys=True,separators=(',',':')).encode('utf-8')).hexdigest()
+          Path('source-facts.json').write_text(json.dumps(facts,indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Reconcile candidate trust root and signer workflow
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          set -euo pipefail
+          signer_sha="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('source-facts.json').read_text())['attestor_workflow_sha'])
+          PY
+          )"
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/contents/.github/cos/qualification-trust-root-v2.json" -f "ref=${EXPECTED_MAIN_SHA}" > trust-root-api.json
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/cos-conformance-qualification-attestor.yml" -f "ref=${signer_sha}" > signer-workflow-api.json
+          python - <<'PY'
+          import base64,hashlib,json,subprocess
+          from pathlib import Path
+          def strict(path): return json.loads(Path(path).read_text())
+          root_api= strict('trust-root-api.json'); signer_api=strict('signer-workflow-api.json')
+          root_bytes=base64.b64decode(''.join(root_api['content'].splitlines()),validate=True)
+          signer_bytes=base64.b64decode(''.join(signer_api['content'].splitlines()),validate=True)
+          root=json.loads(root_bytes.decode('utf-8'))
+          assert root['schema']=='MYCELIX-COS-QUALIFICATION-TRUST-ROOT-V2'
+          assert root['repository']==os.environ['GITHUB_REPOSITORY']
+          assert root['repository_id']==int(os.environ['EXPECTED_REPOSITORY_ID'])
+          assert root['status']=='candidate_not_authoritative_until_protected_adoption'
+          assert root['claim_ceiling']=='ReferenceModelOnly'
+          assert root['activation_rule']=={'authoritative':False,'requires_protected_main_readback':True,'requires_exact_adoption_of_component_bytes':True,'requires_rotation_recovery_path':True,'requires_durable_subject_publication':True,'transient_actions_artifacts_are_insufficient':True,'required_durability_profile':'CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1'}
+          component=root['components']['qualification_attestor_workflow']
+          assert component['path']=='.github/workflows/cos-conformance-qualification-attestor.yml'
+          assert subprocess.check_output(['git','hash-object','--stdin'],input=signer_bytes).decode().strip()==component['git_blob_sha1']
+          assert hashlib.sha256(signer_bytes).hexdigest()==component['content_sha256']
+          facts=json.loads(Path('source-facts.json').read_text())
+          receipt=json.loads(Path('durable-source/attestor-run-receipt.json').read_text())
+          assert receipt['trust_root']['main_snapshot_sha']==os.environ['EXPECTED_MAIN_SHA']
+          assert hashlib.sha256(root_bytes).hexdigest()==facts['trust_root_manifest_sha256']
+          assert subprocess.check_output(['git','hash-object','--stdin'],input=root_bytes).decode().strip()==facts['trust_root_manifest_blob_sha1']
+          facts.update({'attestor_workflow_git_blob_sha1':component['git_blob_sha1'],'attestor_workflow_content_sha256':component['content_sha256']})
+          Path('source-facts.json').write_text(json.dumps(facts,indent=2,sort_keys=True)+'\n')
+          Path('expected-trust-root.json').write_bytes(root_bytes)
+          Path('reconciled-attestor-workflow.yml').write_bytes(signer_bytes)
+          PY
+
+      - name: Verify signed qualification attestation
+        run: |
+          set -euo pipefail
+          signer_sha="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('source-facts.json').read_text())['attestor_workflow_sha'])
+          PY
+          )"
+          predicate_type="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('source-facts.json').read_text())['predicate_type'])
+          PY
+          )"
+          gh attestation verify durable-source/qualification-manifest-v1.json --repo "${GITHUB_REPOSITORY}" --bundle durable-source/qualification-attestation-bundle.json --predicate-type "${predicate_type}" --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/cos-conformance-qualification-attestor.yml" --signer-digest "${signer_sha}" --deny-self-hosted-runners --format json > source-attestation-verification.json
+          test -s source-attestation-verification.json
+
+      - name: Derive handoff identity
+        id: claim
+        run: |
+          set -euo pipefail
+          claim_id="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('source-facts.json').read_text())['claim_id'])
+          PY
+          )"
+          echo "claim_id=${claim_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload read-only handoff
+        id: transport
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a0 # v7.0.1
+        with:
+          name: cos-durable-publication-handoff-${{ steps.claim.outputs.claim_id }}
+          path: |
+            durable-source/
+            source-facts.json
+            source-attestation-verification.json
+            expected-trust-root.json
+            reconciled-attestor-workflow.yml
+            environment-policy-v1.json
+            effective-main-rules-v1.json
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Protected durable publication
+    needs: prepare
+    if: needs.prepare.result == 'success'
+    runs-on: ubuntu-24.04
+    environment: cos-durable-publication
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    permissions:
+      actions: read
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - name: Require protected publisher ref
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          printf '%s\n' "${GITHUB_WORKFLOW_SHA}" | grep -Eq '^[0-9a-f]{40}$'
+
+      - name: Checkout publisher
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Download exact handoff
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.prepare.outputs.handoff_artifact_id }}
+          digest-mismatch: error
+          path: handoff
+
+      - name: Revalidate protected publication environment
+        run: |
+          set -euo pipefail
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/environments/cos-durable-publication" > environment-policy-live.json
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          live=json.loads(Path('environment-policy-live.json').read_text())
+          facts=json.loads(Path('handoff/source-facts.json').read_text())
+          required=[r for r in live.get('protection_rules',[]) if r.get('type')=='required_reviewers']
+          assert len(required)==1
+          reviewers=sorted([{'type':x['type'],'id':x['reviewer']['id']} for x in required[0].get('reviewers',[])],key=lambda x:(x['type'],x['id']))
+          assert reviewers and required[0].get('prevent_self_review') is True
+          branch_policy=live.get('deployment_branch_policy')
+          assert branch_policy=={'protected_branches':True,'custom_branch_policies':False}
+          projection={'schema':'MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1','name':'cos-durable-publication','required_reviewers':reviewers,'prevent_self_review':True,'deployment_branch_policy':branch_policy,'other_protection_rules':sorted([{'type':r.get('type'),'id':r.get('id'),'wait_timer':r.get('wait_timer')} for r in live.get('protection_rules',[]) if r.get('type')!='required_reviewers'],key=lambda x:(str(x.get('type','')),int(x.get('id',0))))}
+          raw=json.dumps(projection,sort_keys=True,separators=(',',':')).encode('utf-8')
+          assert hashlib.sha256(raw).hexdigest()==facts['environment_policy_sha256']
+          Path('environment-policy-v1.json').write_text(json.dumps({**projection,'sha256':facts['environment_policy_sha256']},indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Revalidate effective main rules
+        run: |
+          set -euo pipefail
+          GH_TOKEN="${GITHUB_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/rules/branches/main?per_page=100" > effective-main-rules-live.json
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          live=json.loads(Path('effective-main-rules-live.json').read_text())
+          facts=json.loads(Path('handoff/source-facts.json').read_text())
+          canonical=[]
+          for rule in live:
+              canonical.append({'type':rule.get('type'),'ruleset_id':rule.get('ruleset_id'),'ruleset_source_type':rule.get('ruleset_source_type'),'ruleset_source':rule.get('ruleset_source'),'parameters':rule.get('parameters',{})})
+          canonical=sorted(canonical,key=lambda x:(str(x['ruleset_source_type']),str(x['ruleset_source']),int(x['ruleset_id'] or 0),x['type'],json.dumps(x['parameters'],sort_keys=True,separators=(',',':'))))
+          projection={'schema':'MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1','branch':'refs/heads/main','rules':canonical}
+          raw=json.dumps(projection,sort_keys=True,separators=(',',':')).encode('utf-8')
+          assert hashlib.sha256(raw).hexdigest()==facts['effective_main_rules_sha256']
+          Path('effective-main-rules-v1.json').write_text(json.dumps({**projection,'sha256':facts['effective_main_rules_sha256']},indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Verify protected main branch policy
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${COS_RELEASE_ADMIN_TOKEN}"
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/branches/main/protection" > main-branch-protection.json
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          data=json.loads(Path('main-branch-protection.json').read_text())
+          assert data['enforce_admins']['enabled'] is True
+          reviews=data.get('required_pull_request_reviews')
+          assert reviews is not None and int(reviews.get('required_approving_review_count',0))>=1
+          checks=data.get('required_status_checks')
+          assert checks is not None and (checks.get('contexts') or checks.get('checks'))
+          required_checks=[{'context':x,'app_id':None} for x in checks.get('contexts',[])] + [{'context':x['context'],'app_id':x.get('app_id')} for x in checks.get('checks',[])]
+          assert data.get('required_linear_history',{}).get('enabled') is True
+          assert data.get('required_conversation_resolution',{}).get('enabled') is True
+          assert data.get('allow_force_pushes',{}).get('enabled') is False
+          assert data.get('allow_deletions',{}).get('enabled') is False
+          projection={'schema':'MYCELIX-COS-PROTECTED-MAIN-POLICY-V1','branch':'refs/heads/main','enforce_admins':True,'required_approving_review_count':int(reviews['required_approving_review_count']),'required_status_checks':{'strict':bool(checks.get('strict',False)),'checks':sorted(required_checks,key=lambda x:(x['context'],-1 if x['app_id'] is None else x['app_id']))},'required_linear_history':True,'required_conversation_resolution':True,'allow_force_pushes':False,'allow_deletions':False,'review_policy':{'dismiss_stale_reviews':bool(reviews.get('dismiss_stale_reviews',False)),'require_code_owner_reviews':bool(reviews.get('require_code_owner_reviews',False)),'require_last_push_approval':bool(reviews.get('require_last_push_approval',False)),'bypass_pull_request_allowances':reviews.get('bypass_pull_request_allowances',{}),'dismissal_restrictions':reviews.get('dismissal_restrictions',{})},'additional_policy':{'required_signatures':data.get('required_signatures',{}),'restrictions':data.get('restrictions',{}),'lock_branch':data.get('lock_branch',False),'block_creations':data.get('block_creations',False),'allow_fork_syncing':data.get('allow_fork_syncing',False)}}
+          raw=json.dumps(projection,sort_keys=True,separators=(',',':')).encode('utf-8')
+          projection['sha256']=hashlib.sha256(raw).hexdigest()
+          Path('main-branch-policy-v1.json').write_text(json.dumps(projection,indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Snapshot full main ruleset bypass governance
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$COS_RELEASE_ADMIN_TOKEN"
+          GH_TOKEN="$COS_RELEASE_ADMIN_TOKEN" gh api --paginate --slurp -H 'X-GitHub-Api-Version: 2026-03-10' "repos/$GITHUB_REPOSITORY/rulesets?includes_parents=true&targets=branch&per_page=100" > ruleset-index-pages.json
+          python - <<'PY'
+          import fnmatch,hashlib,json,os
+          from pathlib import Path
+          pages=json.loads(Path('ruleset-index-pages.json').read_text())
+          assert isinstance(pages,list) and all(isinstance(page,list) for page in pages)
+          listed=[item for page in pages for item in page]
+          ids=[item['id'] for item in listed]
+          assert all(type(value) is int and value>0 for value in ids)
+          assert len(ids)==len(set(ids))
+          Path('ruleset-ids.txt').write_text(''.join(f'{value}\n' for value in sorted(ids)))
+          PY
+          mkdir -p ruleset-details
+          while IFS= read -r id; do
+            test -n "$id"
+            printf '%s\n' "$id" | grep -Eq '^[0-9]+$'
+            GH_TOKEN="$COS_RELEASE_ADMIN_TOKEN" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/$GITHUB_REPOSITORY/rulesets/$id?includes_parents=true" > "ruleset-details/$id.json"
+          done < ruleset-ids.txt
+          python - <<'PY'
+          import fnmatch,hashlib,json,os
+          from pathlib import Path
+          pages=json.loads(Path('ruleset-index-pages.json').read_text())
+          listed=[item for page in pages for item in page]
+          listed_ids={item['id'] for item in listed}
+          actor_types={'Integration','OrganizationAdmin','RepositoryRole','Team','DeployKey','User','EnterpriseOwner','EnterpriseRole'}
+          bypass_modes={'always','pull_request','exempt'}
+          def applies_to_main(conditions):
+              if not isinstance(conditions,dict):
+                  return True
+              ref=conditions.get('ref_name')
+              if ref is None:
+                  return True
+              if not isinstance(ref,dict):
+                  return True
+              include,exclude=ref.get('include'),ref.get('exclude')
+              if not isinstance(include,list) or not isinstance(exclude,list) or not include:
+                  return True
+              patterns=include+exclude
+              if any(not isinstance(value,str) for value in patterns):
+                  return True
+              def recognized(value):
+                  return value in ('~ALL','~DEFAULT_BRANCH') or value.startswith('refs/heads/') or value.startswith('refs/tags/')
+              if any(not recognized(value) for value in patterns):
+                  return True
+              def matches(value):
+                  if value in ('~ALL','~DEFAULT_BRANCH'):
+                      return True
+                  return fnmatch.fnmatchcase('refs/heads/main',value) or fnmatch.fnmatchcase('main',value)
+              return any(matches(value) for value in include) and not any(matches(value) for value in exclude)
+          rulesets=[]
+          for path in sorted(Path('ruleset-details').glob('*.json'),key=lambda value:int(value.stem)):
+              data=json.loads(path.read_text())
+              assert type(data.get('id')) is int and data['id']==int(path.stem) and data['id'] in listed_ids
+              assert data.get('target')=='branch'
+              assert data.get('enforcement') in ('active','evaluate','disabled')
+              assert isinstance(data.get('name'),str) and isinstance(data.get('source_type'),str) and isinstance(data.get('source'),str)
+              assert isinstance(data.get('rules'),list)
+              # A readable response with no bypass_actors field is not a no-bypass proof.
+              assert 'bypass_actors' in data and isinstance(data['bypass_actors'],list)
+              conditions=data.get('conditions') or {}
+              assert isinstance(conditions,dict)
+              actors=[]
+              for actor in data['bypass_actors']:
+                  assert isinstance(actor,dict) and 'actor_id' in actor
+                  actor_type=actor.get('actor_type')
+                  bypass_mode=actor.get('bypass_mode')
+                  assert actor_type in actor_types and bypass_mode in bypass_modes
+                  actor_id=actor['actor_id']
+                  if actor_type=='DeployKey':
+                      assert actor_id is None and bypass_mode!='pull_request'
+                  elif actor_type in ('OrganizationAdmin','EnterpriseOwner'):
+                      assert actor_id is None or (type(actor_id) is int and actor_id>0)
+                  else:
+                      assert type(actor_id) is int and actor_id>0
+                  actors.append({'actor_id':actor_id,'actor_type':actor_type,'bypass_mode':bypass_mode})
+              actors.sort(key=lambda actor:(actor['actor_type'],-1 if actor['actor_id'] is None else actor['actor_id'],actor['bypass_mode']))
+              applicable=applies_to_main(conditions)
+              item={
+                  'id':data['id'],'name':data['name'],'target':data['target'],
+                  'source_type':data['source_type'],'source':data['source'],
+                  'enforcement':data['enforcement'],'bypass_actors':actors,
+                  'conditions':conditions,'rules':data['rules'],
+                  'created_at':data['created_at'],'updated_at':data['updated_at'],
+                  'applicable_to_main':applicable,
+              }
+              assert isinstance(item['created_at'],str) and isinstance(item['updated_at'],str)
+              if applicable and item['enforcement']=='active':
+                  assert not actors, f"active ruleset applicable to main has bypass actors: {item['id']}"
+              rulesets.append(item)
+          assert {item['id'] for item in rulesets}==listed_ids
+          rulesets.sort(key=lambda item:(item['source_type'],item['source'],item['id']))
+          projection={
+              'schema':'MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1',
+              'repository':os.environ['GITHUB_REPOSITORY'],
+              'repository_id':int(os.environ['GITHUB_REPOSITORY_ID']),
+              'branch':'refs/heads/main',
+              'rulesets':rulesets,
+          }
+          canonical=json.dumps(projection,sort_keys=True,separators=(',',':')).encode('utf-8')
+          projection['sha256']=hashlib.sha256(canonical).hexdigest()
+          Path('main-ruleset-governance-v1.json').write_text(json.dumps(projection,indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Verify immutable-release capability
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${COS_RELEASE_ADMIN_TOKEN}"
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/immutable-releases" > immutable-release-capability.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          assert json.loads(Path('immutable-release-capability.json').read_text()).get('enabled') is True
+          PY
+
+      - name: Validate handoff before release creation
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_CLAIM_ID: ${{ needs.prepare.outputs.claim_id }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          facts=json.loads(Path('handoff/source-facts.json').read_text())
+          receipt=json.loads(Path('handoff/durable-source/attestor-run-receipt.json').read_text())
+          basis=facts['publication_handoff_basis']
+          assert basis['schema']=='MYCELIX-COS-DURABLE-PUBLICATION-HANDOFF-BASIS-V1'
+          assert basis['repository']==os.environ['GITHUB_REPOSITORY']
+          assert basis['repository_id']==int(os.environ['GITHUB_REPOSITORY_ID'])
+          assert basis['claim_id']==facts['claim_id']==os.environ['EXPECTED_CLAIM_ID']
+          assert basis['expected_main_sha']==facts['expected_main_sha']==os.environ['EXPECTED_MAIN_SHA']
+          assert basis['manifest_sha256']==facts['manifest_sha256'] and basis['predicate_sha256']==facts['predicate_sha256']
+          assert basis['bundle_sha256']==facts['bundle_sha256']
+          assert basis['release_tag']=='cos-qualification-'+facts['claim_id']
+          assert basis['asset_name']=='cos-durable-'+facts['claim_id']+'.tar.gz'
+          assert basis['environment_policy_sha256']==facts['environment_policy_sha256']
+          assert basis['effective_main_rules_sha256']==facts['effective_main_rules_sha256']
+          assert basis['trust_root_main_snapshot_sha']==facts['trust_root_main_snapshot_sha']==os.environ['EXPECTED_MAIN_SHA']
+          assert facts['claim_id']==os.environ['EXPECTED_CLAIM_ID']
+          assert facts['expected_main_sha']==os.environ['EXPECTED_MAIN_SHA']
+          assert receipt['qualification_claim_id']==facts['claim_id']
+          assert receipt['qualification_topology']['head_sha']==os.environ['EXPECTED_MAIN_SHA']
+          assert receipt['trust_root']['main_snapshot_sha']==os.environ['EXPECTED_MAIN_SHA']
+          assert hashlib.sha256(Path('handoff/durable-source/qualification-attestation-bundle.json').read_bytes()).hexdigest()==receipt['attestation']['bundle_sha256']
+          handoff_basis=facts['publication_handoff_basis']
+          expected_handoff=hashlib.sha256(json.dumps(handoff_basis,sort_keys=True,separators=(',',':')).encode('utf-8')).hexdigest()
+          assert expected_handoff==facts['publication_handoff_sha256']
+          PY
+
+      - name: Create unique candidate draft release
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          claim_id="${{ needs.prepare.outputs.claim_id }}"
+          release_tag="cos-qualification-${claim_id}"
+          if GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" --json id,tagName,isDraft,isImmutable,isLatest,isPrerelease,targetCommitish,assets > existing-release.json 2>/dev/null; then
+            python - <<'PY'
+          import json,os
+          from pathlib import Path
+          d=json.loads(Path('existing-release.json').read_text())
+          if d['isImmutable'] is True: raise SystemExit('immutable release already exists; use verifier')
+          if d['isDraft'] is not True: raise SystemExit('existing mutable published release blocks publication')
+          if d['assets']: raise SystemExit('existing draft contains assets; refusing ambiguous resume')
+          assert d['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']
+          assert d['isLatest'] is False and d['isPrerelease'] is False
+          PY
+          else
+            GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release create "${release_tag}" --repo "${GITHUB_REPOSITORY}" --target "${EXPECTED_MAIN_SHA}" --title "COS Qualification ${claim_id}" --notes "Candidate-only content-addressed COS publication. Claim ceiling remains ReferenceModelOnly; publication alone grants no authority." --latest=false --draft
+          fi
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" --json id,tagName,isDraft,isImmutable,isLatest,isPrerelease,targetCommitish > draft-release.json
+          EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" python - <<'PY'
+          import json,os
+          from pathlib import Path
+          d=json.loads(Path('draft-release.json').read_text())
+          assert d['isDraft'] is True and d['isImmutable'] is False
+          assert d['isLatest'] is False and d['isPrerelease'] is False
+          assert d['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']
+          PY
+
+      - name: Verify release tag resolves to exact main SHA before publishing
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.claim_id }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          annotated="$(git ls-remote origin "refs/tags/${RELEASE_TAG}^{}" | awk 'NR==1 {print $1}')"
+          lightweight="$(git ls-remote origin "refs/tags/${RELEASE_TAG}" | awk 'NR==1 {print $1}')"
+          tag_sha="${annotated:-${lightweight}}"
+          printf '%s\n' "${tag_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${tag_sha}" = "${EXPECTED_MAIN_SHA}" || {
+            echo "release tag resolves to unexpected commit: expected ${EXPECTED_MAIN_SHA}, got ${tag_sha}" >&2
+            exit 1
+          }
+
+      - name: Build and prove deterministic durable archive
+        run: |
+          set -euo pipefail
+          claim_id="${{ needs.prepare.outputs.claim_id }}"
+          release_tag="cos-qualification-${claim_id}"
+          cp -a handoff/durable-source durable-source
+          cp environment-policy-v1.json durable-source/environment-policy-v1.json
+          cp effective-main-rules-v1.json durable-source/effective-main-rules-v1.json
+          cp main-branch-policy-v1.json durable-source/main-branch-policy-v1.json
+          cp main-ruleset-governance-v1.json durable-source/main-ruleset-governance-v1.json
+          asset_name="cos-durable-${claim_id}.tar.gz"
+          EXPECTED_MAIN_SHA="${{ inputs.expected_main_sha }}" CLAIM_ID="${claim_id}" RELEASE_TAG="${release_tag}" python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          facts=json.loads(Path('handoff/source-facts.json').read_text())
+          files={name:hashlib.sha256((Path('durable-source')/name).read_bytes()).hexdigest() for name in ('qualification-manifest-v1.json','qualification-attestation-predicate-v3.json','attestor-run-receipt.json','qualification-attestation-bundle.json','environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json','main-ruleset-governance-v1.json')}
+          manifest={
+              'schema':'MYCELIX-COS-DURABLE-PUBLICATION-MANIFEST-V1',
+              'repository':os.environ['GITHUB_REPOSITORY'],
+              'repository_id':int(os.environ['GITHUB_REPOSITORY_ID']),
+              'release_tag':os.environ['RELEASE_TAG'],
+              'asset_name':'cos-durable-'+os.environ['CLAIM_ID']+'.tar.gz',
+              'expected_main_sha':os.environ['EXPECTED_MAIN_SHA'],
+              'qualification_claim_id':facts['claim_id'],
+              'qualification_manifest_sha256':facts['manifest_sha256'],'predicate_sha256':facts['predicate_sha256'],
+              'predicate_type':facts['predicate_type'],
+              'publication_profile':facts['publication_profile'],
+              'claim_ceiling':facts['claim_ceiling'],
+              'trust_root_manifest_blob_sha1':facts['trust_root_manifest_blob_sha1'],
+              'trust_root_manifest_sha256':facts['trust_root_manifest_sha256'],
+              'trust_root_main_snapshot_sha':facts['trust_root_main_snapshot_sha'],
+              'attestor_run_id':facts['attestor_run_id'],
+              'attestor_run_attempt':facts['attestor_run_attempt'],
+              'attestor_artifact_id':facts['attestor_artifact_id'],
+              'attestor_artifact_digest':facts['attestor_artifact_digest'],
+              'verifier_run_id':facts['verifier_run_id'],
+              'verifier_run_attempt':facts['verifier_run_attempt'],
+              'signing_input_artifact_id':facts['signing_input_artifact_id'],
+              'signing_input_artifact_digest':facts['signing_input_artifact_digest'],
+              'environment_policy_sha256':facts['environment_policy_sha256'],
+              'effective_main_rules_sha256':facts['effective_main_rules_sha256'],
+              'main_branch_policy_sha256':json.loads(Path('main-branch-policy-v1.json').read_text())['sha256'],
+               'main_ruleset_governance_sha256':json.loads(Path('main-ruleset-governance-v1.json').read_text())['sha256'],
+              'attestor_workflow_path':facts['attestor_workflow_ref'],
+              'attestor_workflow_sha':facts['attestor_workflow_sha'],
+              'attestor_workflow_git_blob_sha1':facts['attestor_workflow_git_blob_sha1'],
+              'attestor_workflow_content_sha256':facts['attestor_workflow_content_sha256'],
+              'signed_attestation_bundle_sha256':facts['bundle_sha256'],
+              'publication_handoff_sha256':facts['publication_handoff_sha256'],'publication_handoff_basis':facts['publication_handoff_basis'],
+              'files':files,
+          }
+          expected={'schema','repository','repository_id','release_tag','asset_name','expected_main_sha','qualification_claim_id','qualification_manifest_sha256','predicate_sha256','predicate_type','publication_profile','claim_ceiling','trust_root_manifest_blob_sha1','trust_root_manifest_sha256','trust_root_main_snapshot_sha','attestor_run_id','attestor_run_attempt','attestor_artifact_id','attestor_artifact_digest','verifier_run_id','verifier_run_attempt','signing_input_artifact_id','signing_input_artifact_digest','environment_policy_sha256','effective_main_rules_sha256','main_branch_policy_sha256','main_ruleset_governance_sha256','attestor_workflow_path','attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256','signed_attestation_bundle_sha256','publication_handoff_sha256','publication_handoff_basis','files'}
+          assert set(manifest)==expected
+          handoff_basis=manifest['publication_handoff_basis']
+          assert hashlib.sha256(json.dumps(handoff_basis,sort_keys=True,separators=(',',':')).encode('utf-8')).hexdigest()==manifest['publication_handoff_sha256']
+          Path('durable-source/durable-publication-manifest-v1.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
+          PY
+          (cd durable-source && sha256sum qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json environment-policy-v1.json effective-main-rules-v1.json main-branch-policy-v1.json main-ruleset-governance-v1.json durable-publication-manifest-v1.json) > durable-source/SHA256SUMS
+          build_asset(){ tar -C durable-source --format=ustar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - durable-publication-manifest-v1.json qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json environment-policy-v1.json effective-main-rules-v1.json main-branch-policy-v1.json main-ruleset-governance-v1.json SHA256SUMS | gzip -n > "$1"; }
+          build_asset asset-a.tar.gz
+          build_asset asset-b.tar.gz
+          test "$(sha256sum asset-a.tar.gz | awk '{print $1}')" = "$(sha256sum asset-b.tar.gz | awk '{print $1}')"
+          mv asset-a.tar.gz "${asset_name}"
+          rm asset-b.tar.gz
+          gzip -t "${asset_name}"
+          rm -rf local-verify && mkdir local-verify
+          tar -xzf "${asset_name}" -C local-verify
+          (cd local-verify && sha256sum --check --strict SHA256SUMS)
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('local-verify')
+          expected={'durable-publication-manifest-v1.json','qualification-manifest-v1.json','qualification-attestation-predicate-v3.json','attestor-run-receipt.json','qualification-attestation-bundle.json','environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json','main-ruleset-governance-v1.json','SHA256SUMS'}
+          assert {p.name for p in root.iterdir() if p.is_file()}==expected
+          def strict(path):
+              def reject(pairs):
+                  out={}
+                  for k,v in pairs:
+                      if k in out: raise ValueError(f'duplicate JSON key: {k}')
+                      out[k]=v
+                  return out
+              def reject_constant(v): raise ValueError(v)
+              return json.loads(path.read_text(),object_pairs_hook=reject,parse_constant=reject_constant)
+          m=strict(root/'durable-publication-manifest-v1.json')
+          r=strict(root/'attestor-run-receipt.json')
+          p=strict(root/'qualification-attestation-predicate-v3.json')
+          b=hashlib.sha256((root/'qualification-attestation-bundle.json').read_bytes()).hexdigest()
+          assert m['release_tag']=='cos-qualification-'+m['qualification_claim_id']
+          assert m['asset_name']=='cos-durable-'+m['qualification_claim_id']+'.tar.gz'
+          assert m['claim_ceiling']=='ReferenceModelOnly'
+          assert m['qualification_claim_id']==r['qualification_claim_id']
+          assert m['signed_attestation_bundle_sha256']==b and r['attestation']['bundle_sha256']==b
+          assert m['qualification_manifest_sha256']==hashlib.sha256((root/'qualification-manifest-v1.json').read_bytes()).hexdigest()
+          assert m['predicate_type']==p['predicate_type']
+          expected_files={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in ('qualification-manifest-v1.json','qualification-attestation-predicate-v3.json','attestor-run-receipt.json','qualification-attestation-bundle.json','environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json','main-ruleset-governance-v1.json')}
+          assert m['files']==expected_files
+          policy_digests={}
+          for filename in ('environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json','main-ruleset-governance-v1.json'):
+              data=strict(root/filename)
+              reported=data.pop('sha256')
+              canonical=json.dumps(data,sort_keys=True,separators=(',',':')).encode('utf-8')
+              assert reported==hashlib.sha256(canonical).hexdigest()
+              policy_digests[filename]=reported
+          assert m['environment_policy_sha256']==policy_digests['environment-policy-v1.json']
+          assert m['effective_main_rules_sha256']==policy_digests['effective-main-rules-v1.json']
+          assert m['main_branch_policy_sha256']==policy_digests['main-branch-policy-v1.json']
+          assert m['main_ruleset_governance_sha256']==policy_digests['main-ruleset-governance-v1.json']
+          ruleset_policy=strict(root/'main-ruleset-governance-v1.json')
+          assert ruleset_policy['schema']=='MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1'
+          assert ruleset_policy['repository']==m['repository'] and ruleset_policy['repository_id']==m['repository_id']
+          assert ruleset_policy['branch']=='refs/heads/main'
+          assert isinstance(ruleset_policy['rulesets'],list)
+          assert all(isinstance(x['bypass_actors'],list) for x in ruleset_policy['rulesets'])
+          assert all(not x['bypass_actors'] for x in ruleset_policy['rulesets'] if x['applicable_to_main'] and x['enforcement']=='active')
+          handoff_basis=m['publication_handoff_basis']
+          assert hashlib.sha256(json.dumps(handoff_basis,sort_keys=True,separators=(',',':')).encode('utf-8')).hexdigest()==m['publication_handoff_sha256']
+          assert handoff_basis['schema']=='MYCELIX-COS-DURABLE-PUBLICATION-HANDOFF-BASIS-V1'
+          assert handoff_basis['repository']==m['repository'] and handoff_basis['repository_id']==m['repository_id']
+          assert handoff_basis['release_tag']==m['release_tag'] and handoff_basis['asset_name']==m['asset_name']
+          assert handoff_basis['expected_main_sha']==m['expected_main_sha']
+          assert handoff_basis['claim_id']==m['qualification_claim_id']
+          assert handoff_basis['manifest_sha256']==m['qualification_manifest_sha256']
+          assert handoff_basis['predicate_sha256']==m['predicate_sha256']==hashlib.sha256((root/'qualification-attestation-predicate-v3.json').read_bytes()).hexdigest()
+          assert handoff_basis['bundle_sha256']==m['signed_attestation_bundle_sha256']
+          assert handoff_basis['predicate_type']==m['predicate_type']
+          assert handoff_basis['publication_profile']==m['publication_profile'] and handoff_basis['claim_ceiling']==m['claim_ceiling']
+          assert handoff_basis['attestor_run_id']==m['attestor_run_id'] and handoff_basis['attestor_run_attempt']==m['attestor_run_attempt']
+          assert handoff_basis['attestor_artifact_id']==m['attestor_artifact_id'] and handoff_basis['attestor_artifact_digest']==m['attestor_artifact_digest']
+          assert handoff_basis['verifier_run_id']==m['verifier_run_id'] and handoff_basis['verifier_run_attempt']==m['verifier_run_attempt']
+          assert handoff_basis['signing_input_artifact_id']==m['signing_input_artifact_id'] and handoff_basis['signing_input_artifact_digest']==m['signing_input_artifact_digest']
+          assert handoff_basis['attestor_workflow_sha']==m['attestor_workflow_sha'] and handoff_basis['attestor_workflow_path']==m['attestor_workflow_path']
+          assert handoff_basis['trust_root_manifest_sha256']==m['trust_root_manifest_sha256'] and handoff_basis['trust_root_manifest_blob_sha1']==m['trust_root_manifest_blob_sha1']
+          assert handoff_basis['trust_root_main_snapshot_sha']==m['trust_root_main_snapshot_sha']
+          assert handoff_basis['environment_policy_sha256']==m['environment_policy_sha256'] and handoff_basis['effective_main_rules_sha256']==m['effective_main_rules_sha256']
+          PY
+
+      - name: Upload exact durable asset to candidate draft
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          claim_id="${{ needs.prepare.outputs.claim_id }}"
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release upload "cos-qualification-${claim_id}" "cos-durable-${claim_id}.tar.gz" --repo "${GITHUB_REPOSITORY}"
+
+      - name: Revalidate draft and asset digest
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          claim_id="${{ needs.prepare.outputs.claim_id }}"
+          release_tag="cos-qualification-${claim_id}"
+          asset_name="cos-durable-${claim_id}.tar.gz"
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" --json id,tagName,isDraft,isImmutable,isLatest,isPrerelease,targetCommitish,assets > draft-release-final-check.json
+          EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" RELEASE_TAG="${release_tag}" ASSET_NAME="${asset_name}" EXPECTED_SHA="$(sha256sum "${asset_name}" | awk '{print $1}')" python - <<'PY'
+          import json,os
+          from pathlib import Path
+          d=json.loads(Path('draft-release-final-check.json').read_text())
+          assert d['tagName']==os.environ['RELEASE_TAG']
+          assert d['isDraft'] is True and d['isImmutable'] is False
+          assert d['isLatest'] is False and d['isPrerelease'] is False
+          assert d['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']
+          a=[x for x in d['assets'] if x.get('name')==os.environ['ASSET_NAME'] and x.get('state')=='uploaded']
+          assert len(a)==1 and a[0].get('digest')=='sha256:'+os.environ['EXPECTED_SHA']
+          PY
+
+      - name: Revalidate governance snapshots immediately before publication
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${COS_RELEASE_ADMIN_TOKEN}"
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/environments/cos-durable-publication" > recheck-environment.json
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/rules/branches/main?per_page=100" > recheck-effective-rules.json
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/branches/main/protection" > recheck-main-protection.json
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api --paginate --slurp -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&targets=branch&per_page=100" > recheck-ruleset-pages.json
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/immutable-releases" > recheck-immutable-releases.json
+          rm -rf recheck-rulesets && mkdir -p recheck-rulesets
+          while IFS= read -r id; do
+            test -n "${id}"
+            printf '%s\n' "${id}" | grep -Eq '^[0-9]+$'
+            GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/${GITHUB_REPOSITORY}/rulesets/${id}?includes_parents=true" > "recheck-rulesets/${id}.json"
+          done < ruleset-ids.txt
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          def pairs(items):
+              out = {}
+              for key, value in items:
+                  if key in out: raise ValueError(f'duplicate JSON key: {key}')
+                  out[key] = value
+              return out
+          def read(path):
+              return json.loads(Path(path).read_text(), object_pairs_hook=pairs, parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)))
+          def canon(value): return json.dumps(value, sort_keys=True, separators=(',', ':'))
+          def frozen(path, schema):
+              data = read(path); digest = data.pop('sha256')
+              assert data.get('schema') == schema
+              assert hashlib.sha256(canon(data).encode()).hexdigest() == digest
+              return data
+          assert read('recheck-immutable-releases.json').get('enabled') is True
+          live = read('recheck-environment.json')
+          assert live['name'].lower() == 'cos-durable-publication'
+          required = [item for item in live.get('protection_rules', []) if item.get('type') == 'required_reviewers']
+          assert len(required) == 1
+          reviewers = sorted([{'type': item['type'], 'id': item['reviewer']['id']} for item in required[0].get('reviewers', [])], key=lambda item: (item['type'], item['id']))
+          assert reviewers and required[0].get('prevent_self_review') is True
+          branch_policy = live.get('deployment_branch_policy')
+          assert branch_policy == {'protected_branches': True, 'custom_branch_policies': False}
+          current_environment = {'schema': 'MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1', 'name': 'cos-durable-publication', 'required_reviewers': reviewers, 'prevent_self_review': True, 'deployment_branch_policy': branch_policy, 'other_protection_rules': sorted([{'type': item.get('type'), 'id': item.get('id'), 'wait_timer': item.get('wait_timer')} for item in live.get('protection_rules', []) if item.get('type') != 'required_reviewers'], key=lambda item: (str(item.get('type', '')), int(item.get('id', 0))))}
+          frozen_environment = frozen('durable-source/environment-policy-v1.json', 'MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1')
+          assert current_environment==frozen_environment, 'publication environment policy changed'
+          active = read('recheck-effective-rules.json'); assert isinstance(active, list)
+          normalized = [{'type': item.get('type'), 'ruleset_id': item.get('ruleset_id'), 'ruleset_source_type': item.get('ruleset_source_type'), 'ruleset_source': item.get('ruleset_source'), 'parameters': item.get('parameters', {})} for item in active]
+          assert all(item['type'] for item in normalized)
+          normalized.sort(key=lambda item: (str(item['ruleset_source_type']), str(item['ruleset_source']), int(item['ruleset_id'] or 0), item['type'], json.dumps(item['parameters'], sort_keys=True, separators=(',', ':'))))
+          current_effective = {'schema': 'MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1', 'branch': 'refs/heads/main', 'rules': normalized}
+          frozen_effective = frozen('durable-source/effective-main-rules-v1.json', 'MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1')
+          assert current_effective==frozen_effective, 'effective main rules changed'
+          protection = read('recheck-main-protection.json')
+          assert protection['enforce_admins']['enabled'] is True
+          reviews = protection.get('required_pull_request_reviews')
+          assert reviews is not None and int(reviews.get('required_approving_review_count', 0)) >= 1
+          checks = protection.get('required_status_checks')
+          assert checks is not None and (checks.get('contexts') or checks.get('checks'))
+          required_checks = [{'context': item, 'app_id': None} for item in checks.get('contexts', [])] + [{'context': item['context'], 'app_id': item.get('app_id')} for item in checks.get('checks', [])]
+          assert protection.get('required_linear_history', {}).get('enabled') is True
+          assert protection.get('required_conversation_resolution', {}).get('enabled') is True
+          assert protection.get('allow_force_pushes', {}).get('enabled') is False and protection.get('allow_deletions', {}).get('enabled') is False
+          current_main = {'schema': 'MYCELIX-COS-PROTECTED-MAIN-POLICY-V1', 'branch': 'refs/heads/main', 'enforce_admins': True, 'required_approving_review_count': int(reviews['required_approving_review_count']), 'required_status_checks': {'strict': bool(checks.get('strict', False)), 'checks': sorted(required_checks, key=lambda item: (item['context'], -1 if item['app_id'] is None else item['app_id']))}, 'required_linear_history': True, 'required_conversation_resolution': True, 'allow_force_pushes': False, 'allow_deletions': False, 'review_policy': {'dismiss_stale_reviews': bool(reviews.get('dismiss_stale_reviews', False)), 'require_code_owner_reviews': bool(reviews.get('require_code_owner_reviews', False)), 'require_last_push_approval': bool(reviews.get('require_last_push_approval', False)), 'bypass_pull_request_allowances': reviews.get('bypass_pull_request_allowances', {}), 'dismissal_restrictions': reviews.get('dismissal_restrictions', {})}, 'additional_policy': {'required_signatures': protection.get('required_signatures', {}), 'restrictions': protection.get('restrictions', {}), 'lock_branch': protection.get('lock_branch', False), 'block_creations': protection.get('block_creations', False), 'allow_fork_syncing': protection.get('allow_fork_syncing', False)}}
+          frozen_main = frozen('durable-source/main-branch-policy-v1.json', 'MYCELIX-COS-PROTECTED-MAIN-POLICY-V1')
+          assert current_main==frozen_main, 'classic main protection changed'
+          pages = read('recheck-ruleset-pages.json')
+          assert isinstance(pages, list) and all(isinstance(page, list) for page in pages)
+          listed_ids = [item['id'] for page in pages for item in page]
+          assert all(type(item) is int and item > 0 for item in listed_ids) and len(listed_ids) == len(set(listed_ids))
+          frozen_ruleset = frozen('durable-source/main-ruleset-governance-v1.json', 'MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1')
+          frozen_ids = {item['id'] for item in frozen_ruleset['rulesets']}
+          assert set(listed_ids) == frozen_ids, 'main ruleset inventory changed'
+          current_items = []
+          for old in frozen_ruleset['rulesets']:
+              item = read(f"recheck-rulesets/{old['id']}.json"); previous = read(f"ruleset-details/{old['id']}.json")
+              assert isinstance(item.get('bypass_actors'), list), 'ruleset bypass actors not visible'
+              assert canon(item) == canon(previous), f"ruleset {old['id']} or bypass actors changed"
+              actors = sorted([{'actor_id': actor['actor_id'], 'actor_type': actor['actor_type'], 'bypass_mode': actor['bypass_mode']} for actor in item['bypass_actors']], key=lambda actor: (actor['actor_type'], -1 if actor['actor_id'] is None else actor['actor_id'], actor['bypass_mode']))
+              current_items.append({'id': item['id'], 'name': item['name'], 'target': item['target'], 'source_type': item['source_type'], 'source': item['source'], 'enforcement': item['enforcement'], 'bypass_actors': actors, 'conditions': item.get('conditions') or {}, 'rules': item['rules'], 'created_at': item['created_at'], 'updated_at': item['updated_at'], 'applicable_to_main': old['applicable_to_main']})
+          current_items.sort(key=lambda item: (item['source_type'], item['source'], item['id']))
+          current_ruleset = {'schema': 'MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1', 'repository': frozen_ruleset['repository'], 'repository_id': frozen_ruleset['repository_id'], 'branch': 'refs/heads/main', 'rulesets': current_items}
+          assert current_ruleset==frozen_ruleset, 'ruleset governance changed'
+          PY
+      - name: Publish immutable release after in-step exact tag recheck
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+          RELEASE_TAG: cos-qualification-${{ needs.prepare.outputs.claim_id }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          release_token="${COS_RELEASE_ADMIN_TOKEN}"
+          unset COS_RELEASE_ADMIN_TOKEN
+          test -n "${release_token}"
+          claim_id="${{ needs.prepare.outputs.claim_id }}"
+          test "${RELEASE_TAG}" = "cos-qualification-${claim_id}"
+          annotated="$(git ls-remote origin "refs/tags/${RELEASE_TAG}^{}" | awk 'NR==1 {print $1}')"
+          lightweight="$(git ls-remote origin "refs/tags/${RELEASE_TAG}" | awk 'NR==1 {print $1}')"
+          tag_sha="${annotated:-${lightweight}}"
+          printf '%s\n' "${tag_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${tag_sha}" = "${EXPECTED_MAIN_SHA}" || {
+            echo "release tag changed or resolves incorrectly at publication boundary" >&2
+            exit 1
+          }
+          asset_name="cos-durable-${claim_id}.tar.gz"
+          expected_asset_sha="$(sha256sum "${asset_name}" | awk '{print $1}')"
+          GH_TOKEN="${release_token}" gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json id,tagName,isDraft,isImmutable,isLatest,isPrerelease,targetCommitish,assets > prepublish-release.json
+          EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" EXPECTED_ASSET_SHA="${expected_asset_sha}" RELEASE_TAG="${RELEASE_TAG}" ASSET_NAME="${asset_name}" python - <<'PY'
+          import json,os
+          from pathlib import Path
+          release=json.loads(Path('prepublish-release.json').read_text())
+          assert release['tagName']==os.environ['RELEASE_TAG']
+          assert release['isDraft'] is True and release['isImmutable'] is False
+          assert release['isLatest'] is False and release['isPrerelease'] is False
+          assert release['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']
+          assets=release['assets']
+          assert isinstance(assets,list) and len(assets)==1
+          matches=[asset for asset in assets if asset.get('name')==os.environ['ASSET_NAME'] and asset.get('state')=='uploaded']
+          assert len(matches)==1 and matches[0].get('digest')=='sha256:'+os.environ['EXPECTED_ASSET_SHA']
+          PY
+          GH_TOKEN="${release_token}" gh release edit "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false
+          unset release_token
+      - name: Prove immutable release and asset
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          claim_id="${{ needs.prepare.outputs.claim_id }}"
+          release_tag="cos-qualification-${claim_id}"
+          asset_name="cos-durable-${claim_id}.tar.gz"
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" --json id,tagName,isDraft,isImmutable,isLatest,isPrerelease,publishedAt,targetCommitish > published-release.json
+          EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" python - <<'PY'
+          import json,os
+          from pathlib import Path
+          d=json.loads(Path('published-release.json').read_text())
+          assert d['isDraft'] is False and d['isImmutable'] is True and d['isLatest'] is False and d['isPrerelease'] is False and d['publishedAt']
+          assert d['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']
+          PY
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release verify "${release_tag}" --repo "${GITHUB_REPOSITORY}" --format json > release-attestation-verification.json
+          rm -rf final-asset && mkdir final-asset
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release download "${release_tag}" --repo "${GITHUB_REPOSITORY}" --pattern "${asset_name}" --dir final-asset
+          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release verify-asset "${release_tag}" "final-asset/${asset_name}" --repo "${GITHUB_REPOSITORY}" --format json > release-asset-attestation-verification.json
+          test "$(sha256sum "final-asset/${asset_name}" | awk '{print $1}')" = "$(sha256sum "${asset_name}" | awk '{print $1}')"
+
+      - name: Record durable publication observation
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          facts=json.loads(Path('handoff/source-facts.json').read_text())
+          release=json.loads(Path('published-release.json').read_text())
+          policy=json.loads(Path('main-branch-policy-v1.json').read_text())
+          ruleset_policy=json.loads(Path('main-ruleset-governance-v1.json').read_text())
+          asset_name='cos-durable-'+facts['claim_id']+'.tar.gz'
+          observation={
+              'schema':'MYCELIX-COS-DURABLE-PUBLICATION-OBSERVATION-V2',
+              'repository':os.environ['GITHUB_REPOSITORY'],
+              'repository_id':1176351975,
+              'release_tag':release['tagName'],
+              'release_id':release['id'],
+              'immutable':release['isImmutable'],
+              'is_latest':release['isLatest'],
+              'is_prerelease':release['isPrerelease'],
+              'asset_name':asset_name,
+              'asset_digest':'sha256:'+hashlib.sha256(Path('final-asset/'+asset_name).read_bytes()).hexdigest(),
+              'expected_main_sha':facts['expected_main_sha'],
+              'qualification_claim_id':facts['claim_id'],
+              'qualification_manifest_sha256':facts['manifest_sha256'],
+              'durable_publication_manifest_sha256':hashlib.sha256(Path('local-verify/durable-publication-manifest-v1.json').read_bytes()).hexdigest(),
+              'signed_attestation_bundle_sha256':facts['bundle_sha256'],
+              'publication_handoff_sha256':facts['publication_handoff_sha256'],
+              'attestor_workflow_sha':facts['attestor_workflow_sha'],
+              'attestor_workflow_git_blob_sha1':facts['attestor_workflow_git_blob_sha1'],
+              'attestor_workflow_content_sha256':facts['attestor_workflow_content_sha256'],
+              'environment_policy_sha256':facts['environment_policy_sha256'],
+              'effective_main_rules_sha256':facts['effective_main_rules_sha256'],
+              'main_branch_policy_sha256':policy['sha256'],
+              'main_ruleset_governance_sha256':ruleset_policy['sha256'],
+              'state':'DurableAndVerifiable',
+          }
+          assert set(observation)=={
+              'schema','repository','repository_id','release_tag','release_id','immutable','is_latest','is_prerelease',
+              'asset_name','asset_digest','expected_main_sha','qualification_claim_id','qualification_manifest_sha256',
+              'durable_publication_manifest_sha256','signed_attestation_bundle_sha256','publication_handoff_sha256',
+              'attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256',
+              'environment_policy_sha256','effective_main_rules_sha256','main_branch_policy_sha256','main_ruleset_governance_sha256','state'
+          }
+          assert observation['immutable'] is True and observation['is_latest'] is False and observation['is_prerelease'] is False
+          Path('durable-publication-verification.json').write_text(json.dumps(observation,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Preserve publication observation
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a0 # v7.0.1
+        with:
+          name: cos-durable-publication-verification-${{ needs.prepare.outputs.claim_id }}
+          path: |
+            durable-publication-verification.json
+            published-release.json
+            release-attestation-verification.json
+            release-asset-attestation-verification.json
+            environment-policy-v1.json
+            effective-main-rules-v1.json
+            main-branch-policy-v1.json
+            main-ruleset-governance-v1.json
+            ruleset-index-pages.json
+            ruleset-details/
+            ruleset-ids.txt
+            recheck-environment.json
+            recheck-effective-rules.json
+            recheck-main-protection.json
+            recheck-ruleset-pages.json
+            recheck-immutable-releases.json
+            recheck-rulesets/
+          if-no-files-found: error
+          retention-days: 30
