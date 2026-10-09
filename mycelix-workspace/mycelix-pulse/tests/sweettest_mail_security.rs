@@ -309,7 +309,7 @@ fn make_email_input(
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_ed25519_signature_verification_rejects_forged_signature() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -352,7 +352,7 @@ async fn test_ed25519_signature_verification_rejects_forged_signature() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_ed25519_signature_verification_accepts_valid_signature() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -435,7 +435,7 @@ async fn test_ed25519_signature_verification_accepts_valid_signature() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_dilithium3_signature_length_check() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -488,7 +488,7 @@ async fn test_dilithium3_signature_length_check() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_dilithium2_signature_length_check() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -535,7 +535,7 @@ async fn test_dilithium2_signature_length_check() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_ephemeral_key_length_x25519_must_be_32_bytes() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -572,7 +572,7 @@ async fn test_ephemeral_key_length_x25519_must_be_32_bytes() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_ephemeral_key_length_kyber1024_must_be_1568_bytes() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -619,7 +619,7 @@ async fn test_ephemeral_key_length_kyber1024_must_be_1568_bytes() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_ephemeral_key_length_kyber768_must_be_1088_bytes() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -670,7 +670,7 @@ async fn test_ephemeral_key_length_kyber768_must_be_1088_bytes() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_attachment_chunk_size_limit_10mb() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -708,7 +708,7 @@ async fn test_attachment_chunk_size_limit_10mb() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_attachment_content_hash_must_be_32_bytes() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -744,7 +744,7 @@ async fn test_attachment_content_hash_must_be_32_bytes() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_attachment_total_chunks_capped_at_1000() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -784,7 +784,7 @@ async fn test_attachment_total_chunks_capped_at_1000() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_read_receipt_signature_verified() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -821,7 +821,7 @@ async fn test_read_receipt_signature_verified() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_delivery_receipt_signature_verified() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -934,7 +934,7 @@ enum CapabilityProbeResult {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain 0.7 conductor (nix develop)"]
 async fn test_capability_probe_reports_function_not_granted_for_send_only_capability() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1005,7 +1005,7 @@ async fn test_capability_probe_reports_function_not_granted_for_send_only_capabi
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain 0.7 conductor (nix develop)"]
 async fn test_capability_grant_and_revocation_lifecycle() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1181,7 +1181,7 @@ enum AuditActionInput {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_shared_mailbox_update_requires_owner_or_admin() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1246,7 +1246,7 @@ async fn test_shared_mailbox_update_requires_owner_or_admin() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_trust_level_must_be_finite() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1279,7 +1279,7 @@ async fn test_trust_level_must_be_finite() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_trust_level_infinity_rejected() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1312,7 +1312,7 @@ async fn test_trust_level_infinity_rejected() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_trust_score_range_0_to_1() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1347,7 +1347,7 @@ async fn test_trust_score_range_0_to_1() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_federation_network_id_uniqueness() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1391,7 +1391,7 @@ async fn test_federation_network_id_uniqueness() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_federation_route_requires_network_ownership() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     // Genuinely two different agents (not two cells of one agent's app) --
@@ -1445,7 +1445,7 @@ async fn test_federation_route_requires_network_ownership() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_federation_route_priority_capped_at_100() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1506,7 +1506,7 @@ async fn test_federation_route_priority_capped_at_100() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_federation_envelope_loop_detection() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1591,7 +1591,7 @@ async fn test_federation_envelope_loop_detection() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_federation_max_hop_count_enforced() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1673,7 +1673,7 @@ async fn test_federation_max_hop_count_enforced() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_search_sanitizes_control_characters() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1713,7 +1713,7 @@ async fn test_search_sanitizes_control_characters() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_search_query_sanitized() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1768,7 +1768,7 @@ async fn test_search_query_sanitized() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_agent_to_sent_link_requires_author_match() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1809,7 +1809,7 @@ async fn test_agent_to_sent_link_requires_author_match() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_link_deletion_restricted_to_creator() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1858,7 +1858,7 @@ async fn test_mail_bridge_resolves_identity_cross_cluster() {
     // This test requires the unified hApp with both mail and identity roles.
     // The mail-bridge zome calls CallTargetCell::OtherRole("identity") to
     // resolve DIDs to agent public keys.
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
 
     // Load unified hApp with mail + identity DNAs
     let mail_dna = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
@@ -1886,7 +1886,7 @@ async fn test_mail_bridge_resolves_identity_cross_cluster() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires unified hApp conductor"]
 async fn test_mail_bridge_health_check() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1918,7 +1918,7 @@ async fn test_mail_bridge_health_check() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_sent_emails_cannot_be_updated() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -1959,7 +1959,7 @@ async fn test_sent_emails_cannot_be_updated() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_read_receipts_cannot_be_updated() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -1992,7 +1992,7 @@ async fn test_read_receipts_cannot_be_updated() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_delivery_receipts_cannot_be_updated() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -2033,7 +2033,7 @@ async fn test_delivery_receipts_cannot_be_updated() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_trust_score_update_only_by_authorized_agent() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -2075,7 +2075,7 @@ async fn test_trust_score_update_only_by_authorized_agent() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_send_email_blocked_for_negative_trust() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -2131,7 +2131,7 @@ async fn test_send_email_blocked_for_negative_trust() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_send_email_allowed_for_unknown_sender() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -2173,7 +2173,7 @@ async fn test_send_email_allowed_for_unknown_sender() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_did_binding_empty_did_rejected() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
@@ -2197,7 +2197,7 @@ async fn test_did_binding_empty_did_rejected() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_did_binding_duplicate_registration_rejected() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice, bob) = conductor
@@ -2229,7 +2229,7 @@ async fn test_did_binding_duplicate_registration_rejected() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_contact_empty_name_rejected() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
     let (alice,) = conductor
