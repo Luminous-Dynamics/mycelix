@@ -721,6 +721,76 @@ mod capability_policy_tests {
     }
 
     #[test]
+    fn full_access_label_does_not_override_permission_bits() {
+        let read_only_flags = MailboxPermissions {
+            can_read: true,
+            ..MailboxPermissions::default()
+        };
+        let read_grant = determine_granted_functions(
+            &MailboxAccessType::FullAccess,
+            &read_only_flags,
+            None,
+        )
+        .expect("FullAccess profile with only can_read should remain read-only");
+        assert_exact_scope(
+            read_grant,
+            &[
+                "capability_probe_v1",
+                "get_inbox_v2",
+                "get_inbox",
+                "get_sent",
+                "get_email",
+                "get_delivery_receipts",
+                "get_drafts",
+                "get_folders",
+            ],
+        );
+
+        let send_only_flags = MailboxPermissions {
+            can_send: true,
+            ..MailboxPermissions::default()
+        };
+        let send_grant = determine_granted_functions(
+            &MailboxAccessType::FullAccess,
+            &send_only_flags,
+            None,
+        )
+        .expect("FullAccess profile with only can_send should remain send-only");
+        assert_exact_scope(send_grant, &["send_email_v2", "send_email"]);
+    }
+
+    #[test]
+    fn every_unimplemented_access_type_fails_closed() {
+        let folder_hash = ActionHash::from_raw_36(vec![0; 36]);
+        let cases: Vec<(&str, MailboxAccessType)> = vec![
+            (
+                "FolderAccess",
+                MailboxAccessType::FolderAccess { folder_hash },
+            ),
+            (
+                "ThreadAccess",
+                MailboxAccessType::ThreadAccess {
+                    thread_id: "thread-1".to_string(),
+                },
+            ),
+            ("OutOfOffice", MailboxAccessType::OutOfOffice),
+            ("OrganizationAdmin", MailboxAccessType::OrganizationAdmin),
+            ("Custom", MailboxAccessType::Custom("custom-scope".to_string())),
+        ];
+        let permissions = MailboxPermissions {
+            can_read: true,
+            ..MailboxPermissions::default()
+        };
+
+        for (case, access_type) in cases {
+            assert!(
+                determine_granted_functions(&access_type, &permissions, None).is_err(),
+                "unimplemented access type must fail closed: {case}"
+            );
+        }
+    }
+
+    #[test]
     fn future_actions_fail_closed() {
         let permissions = MailboxPermissions::default();
         assert!(!is_action_permitted(
