@@ -977,11 +977,42 @@ jobs:
           policy=json.loads(Path('main-branch-policy-v1.json').read_text())
           ruleset_policy=json.loads(Path('main-ruleset-governance-v1.json').read_text())
           asset_name='cos-durable-'+facts['claim_id']+'.tar.gz'
-          observation={'schema':'MYCELIX-COS-DURABLE-PUBLICATION-VERIFICATION-V1','repository':os.environ['GITHUB_REPOSITORY'],'repository_id':1176351975,'release_tag':release['tagName'],'release_id':release['id'],'immutable':release['isImmutable'],'is_latest':release['isLatest'],'is_prerelease':release['isPrerelease'],'asset_name':asset_name,'asset_digest':'sha256:'+hashlib.sha256(Path(asset_name).read_bytes()).hexdigest(),'expected_main_sha':facts['expected_main_sha'],'qualification_claim_id':facts['claim_id'],'qualification_manifest_sha256':facts['manifest_sha256'],'attestor_workflow_sha':facts['attestor_workflow_sha'],'signed_attestation_bundle_sha256':facts['bundle_sha256'],'publication_handoff_sha256':facts['publication_handoff_sha256'],'environment_policy_sha256':facts['environment_policy_sha256'],'effective_main_rules_sha256':facts['effective_main_rules_sha256'],'main_branch_policy_sha256':policy['sha256'],'main_ruleset_governance_sha256':ruleset_policy['sha256'],'state':'DurableAndVerifiable'}
+          observation={
+              'schema':'MYCELIX-COS-DURABLE-PUBLICATION-OBSERVATION-V2',
+              'repository':os.environ['GITHUB_REPOSITORY'],
+              'repository_id':1176351975,
+              'release_tag':release['tagName'],
+              'release_id':release['id'],
+              'immutable':release['isImmutable'],
+              'is_latest':release['isLatest'],
+              'is_prerelease':release['isPrerelease'],
+              'asset_name':asset_name,
+              'asset_digest':'sha256:'+hashlib.sha256(Path('final-asset/'+asset_name).read_bytes()).hexdigest(),
+              'expected_main_sha':facts['expected_main_sha'],
+              'qualification_claim_id':facts['claim_id'],
+              'qualification_manifest_sha256':facts['manifest_sha256'],
+              'durable_publication_manifest_sha256':hashlib.sha256(Path('local-verify/durable-publication-manifest-v1.json').read_bytes()).hexdigest(),
+              'signed_attestation_bundle_sha256':facts['bundle_sha256'],
+              'publication_handoff_sha256':facts['publication_handoff_sha256'],
+              'attestor_workflow_sha':facts['attestor_workflow_sha'],
+              'attestor_workflow_git_blob_sha1':facts['attestor_workflow_git_blob_sha1'],
+              'attestor_workflow_content_sha256':facts['attestor_workflow_content_sha256'],
+              'environment_policy_sha256':facts['environment_policy_sha256'],
+              'effective_main_rules_sha256':facts['effective_main_rules_sha256'],
+              'main_branch_policy_sha256':policy['sha256'],
+              'main_ruleset_governance_sha256':ruleset_policy['sha256'],
+              'state':'DurableAndVerifiable',
+          }
+          assert set(observation)=={
+              'schema','repository','repository_id','release_tag','release_id','immutable','is_latest','is_prerelease',
+              'asset_name','asset_digest','expected_main_sha','qualification_claim_id','qualification_manifest_sha256',
+              'durable_publication_manifest_sha256','signed_attestation_bundle_sha256','publication_handoff_sha256',
+              'attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256',
+              'environment_policy_sha256','effective_main_rules_sha256','main_branch_policy_sha256','main_ruleset_governance_sha256','state'
+          }
           assert observation['immutable'] is True and observation['is_latest'] is False and observation['is_prerelease'] is False
           Path('durable-publication-verification.json').write_text(json.dumps(observation,indent=2,sort_keys=True)+'\n')
           PY
-
       - name: Preserve publication observation
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a0 # v7.0.1
         with:
