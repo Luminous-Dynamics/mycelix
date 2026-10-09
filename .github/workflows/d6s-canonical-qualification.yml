@@ -6,6 +6,17 @@ on:
       - myc-int-demo-d6t-canonical-encoding
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    # This is a branch-local reference qualification, not a repository-wide CI
+    # check. Do not run it against unrelated PR heads that do not carry the
+    # D6S corpus, canonicalizer, fixtures, and independent verifiers.
+    paths:
+      - "mycelix-manufacturing/Cargo.toml"
+      - "mycelix-manufacturing/Cargo.lock"
+      - "mycelix-manufacturing/crates/cos_conformance/**"
+      - "scripts/integral/verify_d6s_canon_1.py"
+      - "scripts/integral/verify_d6s_canon_2_authority_boundary.py"
+      - "docs/integral/d6s-canon-1-*"
+      - "docs/integral/d6s-canon-2-*"
   workflow_dispatch:
 
 permissions:
