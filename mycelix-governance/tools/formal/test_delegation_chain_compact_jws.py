@@ -267,28 +267,28 @@ def main() -> int:
             mutations: list[tuple[str, str, str, Callable[..., Any]]] = [
                 ("signature-check-omitted", "tampered-signature", "verify_ed25519_signature",
                  lambda *args, **kwargs: None),
-                ("issuer-thumbprint-check-omitted", "wrong-derived-issuer", "jwk_thumbprint_uri",
-                 lambda jwk: thumbprint_uri(jwk)),
-                ("par-hash-check-omitted", "wrong-par-hash", "b64url_encode",
-                 lambda value: b64u(value) if value != b"not-the-parent-signing-input" else "ignored"),
+                ("issuer-thumbprint-check-omitted", "wrong-derived-issuer", "verify_issuer_thumbprint",
+                 lambda issuer, parent_jwk: None),
+                ("par-hash-check-omitted", "wrong-par-hash", "verify_parent_par_hash",
+                 lambda claims, parent_token: None),
             ]
-            # Exercise only the unambiguous signature mutant here; issuer and
-            # par_hash checks share thumbprint/encoding helpers and are covered
-            # by the independent negative fixtures above.
-            name, fixture_name, attribute, mutant = mutations[0]
-            original = getattr(verifier, attribute)
-            try:
-                setattr(verifier, attribute, mutant)
-                mutated_result = verifier.evaluate_compact_chain(bad_cases[fixture_name], openssl_binary=openssl)
-            finally:
-                setattr(verifier, attribute, original)
-            require(mutated_result.get("status") == "COMPACT_JWS_CHAIN_VERIFIED",
-                    "injected omitted-signature mutant did not demonstrate that the negative control is sensitive")
-            receipt["mutations"].append({
-                "id": name, "rejected_if_unmutated": True,
-                "mutant_acceptance_observed": True,
-                "expected_unmutated_finding": "signature-invalid",
-            })
+            for mutation_id, fixture_name, attribute, mutant in mutations:
+                original = getattr(verifier, attribute)
+                try:
+                    setattr(verifier, attribute, mutant)
+                    mutated_result = verifier.evaluate_compact_chain(
+                        bad_cases[fixture_name], openssl_binary=openssl
+                    )
+                finally:
+                    setattr(verifier, attribute, original)
+                require(mutated_result.get("status") == "COMPACT_JWS_CHAIN_VERIFIED",
+                        mutation_id + ": omitted-check mutant did not accept the known-bad fixture")
+                receipt["mutations"].append({
+                    "id": mutation_id,
+                    "rejected_if_unmutated": True,
+                    "mutant_acceptance_observed": True,
+                    "independent_expected_rejection": fixture_name,
+                })
 
             receipt["source_head"] = subprocess.run(
                 ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
@@ -302,7 +302,7 @@ def main() -> int:
                 "positive_controls": 1,
                 "negative_controls": len(receipt["controls"]) - 1,
                 "signatures_verified": 4,
-                "signature_mutants_detected": 1,
+                "signature_and_linkage_mutants_detected": len(receipt["mutations"]),
                 "root_anchor_checks": True,
                 "child_signature_checks": True,
                 "issuer_thumbprint_and_par_hash_controls": True,
@@ -310,7 +310,7 @@ def main() -> int:
             }
             args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
             print(f"COMPACT JWS CHAIN CHECK PASS: 1 signed positive + {len(receipt['controls']) - 1} negative controls")
-            print("SIGNATURE MUTATION SENSITIVITY PASS: disabled signature check accepted the known-bad chain")
+            print("COMPACT JWS MUTATION SENSITIVITY PASS: 3 of 3 omitted checks accepted known-bad fixtures")
             print("QUALIFICATION NOT CLAIMED: capability subsumption and leaf proof-of-possession are not implemented")
             return 0
     except Exception as error:
