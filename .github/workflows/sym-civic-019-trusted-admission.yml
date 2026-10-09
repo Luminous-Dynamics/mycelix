@@ -60,8 +60,8 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${{ github.workflow_sha }}"
           test "$(git rev-parse HEAD:.github/workflows/sym-civic-019-trusted-admission.yml)" != ""
-          test "$(git rev-parse HEAD:mycelix-workspace/docs/civic-resilience/sym_civic_019_trusted_admission_v1.json)" = "9b04824d6b00e0f5489117dc63cbbb286aec3930"
-          test "$(git rev-parse HEAD:scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py)" = "d81f3e424f078945b9fdf4453fdff04c52b38614"
+          test "$(git rev-parse HEAD:mycelix-workspace/docs/civic-resilience/sym_civic_019_trusted_admission_v1.json)" = "32e9f7d0d74a1820e31e817258c84d4f845d3674"
+          test "$(git rev-parse HEAD:scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py)" = "f5f686ccd41591b85fb97d0ace9d4a5da6685599"
 
       - name: Validate trusted workflow security invariants
         run: |

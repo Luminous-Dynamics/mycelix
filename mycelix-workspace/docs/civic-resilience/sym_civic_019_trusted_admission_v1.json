@@ -71,8 +71,43 @@
     "negative_control_count": 11,
     "tree_size_max_inclusive": 4611686018427387904,
     "positive_inclusion_matrix": {
-      "tree_sizes": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-      "expected_case_count": 136
+      "tree_sizes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "expected_case_count": 136,
+      "expected_root_sha256_by_tree_size": {
+        "1": "ac9faa9eae657b7adfbb3063a4064d180579ad28fd9923ee2a2ed547dc42befa",
+        "2": "eca44ab66bcea90e3ffcbfeeb4046821963bf1e92ca34a8fe1387b06083be19f",
+        "3": "f1c19c359af1534d74ed9b466f69a67a60f0af9d8c64a015aa752e4049b69172",
+        "4": "0f075aeef27eff3ad2503d41abe87e2a016ee7f3221e7772eb43a9e3d4ce1e90",
+        "5": "f3bcaf63d9f93aae240d5f4d85822fbd6253c836352b2a801c73d099aca4e007",
+        "6": "63d289c368527410d5cff01b82e9360a0c9e4b9bcd6c4b35393125750b456436",
+        "7": "6520d9503f9dd25d95b33b9103136ea9a2378bbbc3fc580bce1436589494bfbf",
+        "8": "a411d2033f6b55562e2035868d989612b23fc6f5b4b942ff8710af95a1805d16",
+        "9": "d4e45f4e42ffaddfb9e970aece0e2f4f171b022f8b7f13d81b9d4b7afd8a2134",
+        "10": "43b307e4a9e18dfb661a07ae36ca9f455b049c5f20792d412139ffc21772e60b",
+        "11": "9e41afe41e67fd7c406a03cbaeee4714cea4e7619ede843ef106d6826bf1b7a7",
+        "12": "83833ec40bc5d4442c53c70f2bf4f4557cc990964f3222fb34bb5caf02b609ec",
+        "13": "9ac9eb08dab62ed42687b793aaaa0b7450aecdb7cafe8a45e89043f03dbbb601",
+        "14": "ff7373e4514d4980d59468117abfed12b6990585f08dad7de3a01dcbc017e958",
+        "15": "5e03f29c199a910c5eec51d9c6cfa0b6f7869975f8acbbd004ca9dc60cba53ef",
+        "16": "293637cf0e7174799bb62e9206b9396d0fb11d2273c7288207f5ad8b1d342caa"
+      }
     }
   }
 }

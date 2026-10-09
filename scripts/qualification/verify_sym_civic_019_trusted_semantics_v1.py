@@ -356,26 +356,30 @@ def reference_inclusion_path(entries, leaf_index):
     ]
 
 
-def verify_positive_inclusion_matrix(tree_sizes, expected_case_count):
+def verify_positive_inclusion_matrix(tree_sizes, expected_case_count, trusted_roots):
     cases = []
     for tree_size in tree_sizes:
         entries = [
             f"SYM-CIVIC-019-INCLUSION-MATRIX-V1/tree={tree_size}/leaf={i}".encode("ascii")
             for i in range(tree_size)
         ]
-        expected_root = merkle_tree_hash(entries)
+        trusted_root = bytes.fromhex(trusted_roots[str(tree_size)])
+        reference_root = merkle_tree_hash(entries)
+        reference_root_matches = reference_root == trusted_root
         for leaf_index, entry in enumerate(entries):
             path = reference_inclusion_path(entries, leaf_index)
             try:
                 observed_root = inclusion_root(
                     sha256(b"\x00" + entry), leaf_index, tree_size, path
                 )
-                passed = observed_root == expected_root
+                passed = reference_root_matches and observed_root == trusted_root
                 cases.append({
                     "tree_size": tree_size,
                     "leaf_index": leaf_index,
                     "path_length": len(path),
-                    "expected_root_sha256": expected_root.hex(),
+                    "expected_root_sha256": trusted_root.hex(),
+                    "independently_computed_root_sha256": reference_root.hex(),
+                    "reference_root_matches_trusted": reference_root_matches,
                     "observed_root_sha256": observed_root.hex(),
                     "verdict": "PASS" if passed else "FAIL",
                 })
@@ -384,7 +388,9 @@ def verify_positive_inclusion_matrix(tree_sizes, expected_case_count):
                     "tree_size": tree_size,
                     "leaf_index": leaf_index,
                     "path_length": len(path),
-                    "expected_root_sha256": expected_root.hex(),
+                    "expected_root_sha256": trusted_root.hex(),
+                    "independently_computed_root_sha256": reference_root.hex(),
+                    "reference_root_matches_trusted": reference_root_matches,
                     "verdict": "FAIL",
                     "error": str(exc),
                 })
@@ -563,18 +569,49 @@ def main():
         raise Reject("trusted admission manifest schema mismatch")
 
     oracle_profile = trusted["trusted_semantic_oracle"]
-    if oracle_profile != {
-        "path": "scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py",
-        "claim_ceiling": "TRUSTED_SEMANTIC_ORACLE_RESEARCH_ONLY",
-        "candidate_code_executed": False,
-        "negative_control_count": 11,
-        "tree_size_max_inclusive": TREE_SIZE_MAX_INCLUSIVE,
-        "positive_inclusion_matrix": {
-            "tree_sizes": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-            "expected_case_count": 136,
-        },
+    if not isinstance(oracle_profile, dict) or set(oracle_profile) != {
+        "path", "claim_ceiling", "candidate_code_executed",
+        "negative_control_count", "tree_size_max_inclusive", "positive_inclusion_matrix",
     }:
+        raise Reject("trusted oracle profile schema mismatch")
+    if (
+        oracle_profile["path"] != "scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py"
+        or oracle_profile["claim_ceiling"] != "TRUSTED_SEMANTIC_ORACLE_RESEARCH_ONLY"
+        or oracle_profile["candidate_code_executed"] is not False
+        or type(oracle_profile["negative_control_count"]) is not int
+        or oracle_profile["negative_control_count"] != 11
+        or type(oracle_profile["tree_size_max_inclusive"]) is not int
+        or oracle_profile["tree_size_max_inclusive"] != TREE_SIZE_MAX_INCLUSIVE
+    ):
         raise Reject("trusted oracle profile mismatch")
+
+    matrix_profile = oracle_profile["positive_inclusion_matrix"]
+    if not isinstance(matrix_profile, dict) or set(matrix_profile) != {
+        "tree_sizes", "expected_case_count", "expected_root_sha256_by_tree_size",
+    }:
+        raise Reject("trusted positive inclusion matrix schema mismatch")
+    matrix_tree_sizes = matrix_profile["tree_sizes"]
+    if (
+        type(matrix_tree_sizes) is not list
+        or any(type(size) is not int for size in matrix_tree_sizes)
+        or matrix_tree_sizes != list(range(1, 17))
+    ):
+        raise Reject("trusted positive inclusion matrix tree-size list mismatch")
+    if type(matrix_profile["expected_case_count"]) is not int or matrix_profile["expected_case_count"] != 136:
+        raise Reject("trusted positive inclusion matrix case count mismatch")
+    trusted_roots = matrix_profile["expected_root_sha256_by_tree_size"]
+    if not isinstance(trusted_roots, dict) or set(trusted_roots) != {
+        str(size) for size in matrix_tree_sizes
+    }:
+        raise Reject("trusted positive inclusion root vector key set mismatch")
+    for tree_size in matrix_tree_sizes:
+        digest = trusted_roots[str(tree_size)]
+        if (
+            type(digest) is not str
+            or len(digest) != 64
+            or any(ch not in "0123456789abcdef" for ch in digest)
+        ):
+            raise Reject("trusted positive inclusion root digest malformed")
 
     common = trusted["semantic_expectations"]
     if set(common) != {
@@ -825,11 +862,13 @@ def main():
     failures = [x for x in negatives if x["verdict"] != "REJECT"]
     matrix_profile = oracle_profile["positive_inclusion_matrix"]
     inclusion_cases = verify_positive_inclusion_matrix(
-        matrix_profile["tree_sizes"], matrix_profile["expected_case_count"]
+        matrix_profile["tree_sizes"],
+        matrix_profile["expected_case_count"],
+        matrix_profile["expected_root_sha256_by_tree_size"],
     )
     inclusion_failures = [x for x in inclusion_cases if x["verdict"] != "PASS"]
     result = {
-        "schema": "MYCELIX-SYM-CIVIC-019-TRUSTED-SEMANTIC-ORACLE-V5",
+        "schema": "MYCELIX-SYM-CIVIC-019-TRUSTED-SEMANTIC-ORACLE-V6",
         "claim_ceiling": "TRUSTED_SEMANTIC_ORACLE_RESEARCH_ONLY",
         "candidate_input_only": True,
         "candidate_code_executed": False,
@@ -847,6 +886,10 @@ def main():
             "tree_sizes_tested": matrix_profile["tree_sizes"],
             "case_count": len(inclusion_cases),
             "all_pass": not inclusion_failures,
+            "trusted_expected_roots_sha256_by_tree_size": matrix_profile["expected_root_sha256_by_tree_size"],
+            "reference_roots_all_match_trusted": all(
+                case["reference_root_matches_trusted"] for case in inclusion_cases
+            ),
             "cases": inclusion_cases,
         },
         "negative_controls": negatives,
