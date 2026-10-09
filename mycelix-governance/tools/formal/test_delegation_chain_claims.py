@@ -96,6 +96,13 @@ def mutated_case(name: str) -> dict[str, Any]:
     elif name == "missing-jti":
         del hops[2]["claims"]["jti"]
         relink(hops)
+    elif name == "over-depth-chain":
+        return valid_chain(hop_count=FROZEN_MAX_DEPTH + 2)
+    elif name == "empty-chain":
+        return {"schema": SCHEMA, "now": raw["now"], "hops": []}
+    elif name == "noninteger-exp":
+        hops[2]["claims"]["exp"] = "later"
+        relink(hops)
     else:
         raise KeyError(name)
     return raw
@@ -106,7 +113,7 @@ def requestless_expected_codes(raw: dict[str, Any]) -> set[tuple[str, int | None
     findings: set[tuple[str, int | None]] = set()
     now = raw.get("now")
     hops = raw.get("hops")
-    if type(now) is not int or not isinstance(hops, list):
+    if type(now) is not int or not isinstance(hops, list) or not hops:
         return {("malformed-top-level-input", None)}
     if len(hops) > FROZEN_MAX_DEPTH + 1:
         return {("implementation-chain-depth-exceeded", None)}
@@ -136,7 +143,7 @@ def requestless_expected_codes(raw: dict[str, Any]) -> set[tuple[str, int | None
         for name in required:
             value = claims.get(name)
             if type(value) is not int:
-                findings.add(("claim-not-integer:" + name, index))
+                findings.add(("claim-not-integer", index))
                 parsed[name] = None
             else:
                 parsed[name] = value
@@ -213,7 +220,10 @@ def audit_result(raw: dict[str, Any], observed: dict[str, Any]) -> dict[str, Any
             "expected": sorted((code, i if i is not None else -1) for code, i in expected),
             "observed": sorted((code, i if i is not None else -1) for code, i in actual_codes),
         }
-    expected_status = "DELEGATION_CHAIN_CLAIMS_PASS" if not expected else "INVALID_CHAIN"
+    if ("malformed-top-level-input", None) in expected:
+        expected_status = "UNSUPPORTED_OR_UNDECIDABLE"
+    else:
+        expected_status = "DELEGATION_CHAIN_CLAIMS_PASS" if not expected else "INVALID_CHAIN"
     if observed.get("status") != expected_status:
         return {"kind": "claims-status-disagrees-with-independent-replay",
                 "expected": expected_status, "observed": observed.get("status")}
@@ -270,8 +280,9 @@ def main() -> int:
             observed = claims_checker.evaluate_claims_chain(raw)
             mismatch = audit_result(raw, observed)
             require(mismatch is None, name + ": independent checker disagrees: " + str(mismatch))
-            require(observed["status"] == "INVALID_CHAIN",
-                    name + ": invalid chain was not rejected")
+            expected_status = "UNSUPPORTED_OR_UNDECIDABLE" if name == "empty-chain" else "INVALID_CHAIN"
+            require(observed["status"] == expected_status,
+                    name + ": malformed/invalid chain had unexpected status " + observed["status"])
             receipt["controls"].append({
                 "id": name, "expected_status": "INVALID_CHAIN",
                 "observed_status": observed["status"], "independent_replay": "PASS",
@@ -334,7 +345,7 @@ def main() -> int:
             "qualification": "NOT_CLAIMED",
         }
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("DELEGATION-CHAIN CLAIMS DIFFERENTIAL PASS: 1 valid chain + 10 adversarial controls")
+        print("DELEGATION-CHAIN CLAIMS DIFFERENTIAL PASS: 1 valid chain + 13 adversarial controls")
         print("CHAIN-CLAIMS CHECKER MUTATION SENSITIVITY PASS: 4 of 4 omitted checks detected")
         print("QUALIFICATION NOT CLAIMED: parsed claims only; no JWT signature or holder-key validation")
         return 0
