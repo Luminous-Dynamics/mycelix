@@ -274,6 +274,8 @@ def main() -> int:
             )
             require(rejected_embedded_config.get("status") == "UNSUPPORTED_OR_UNDECIDABLE",
                     "chain input was allowed to carry its own trust-anchor configuration")
+            require(rejected_embedded_config.get("findings", [{}])[0].get("code") == "unexpected-chain-input-field",
+                    "embedded trust-anchor input rejected for the wrong reason")
             receipt["controls"].append({
                 "id": "embedded-trust-anchor-field-rejected",
                 "status": rejected_embedded_config["status"],
@@ -288,6 +290,31 @@ def main() -> int:
                 require(observed.get("status") == expected,
                         name + ": expected " + expected + ", observed " +
                         json.dumps(observed, sort_keys=True))
+                expected_findings = {
+                    "tampered-signature": "signature-invalid",
+                    "wrong-root-trust-anchor": "root-trust-anchor-signature-invalid",
+                    "wrong-child-signing-key": "signature-invalid",
+                    "wrong-par-hash": "par-hash-mismatch",
+                    "wrong-derived-issuer": "issuer-thumbprint-mismatch",
+                    "child-expiry-exceeds-parent": "child-expiry-exceeds-parent",
+                    "depth-skips-parent": "delegation-depth-not-incremented-by-one",
+                    "maximum-depth-expands": "maximum-depth-budget-expanded",
+                    "duplicate-jti": "duplicate-jti",
+                    "private-holder-key": "private-key-material-present",
+                    "duplicate-payload-member": "json-duplicate-member",
+                    "none-algorithm": "algorithm-not-allowed",
+                    "malformed-compact-token": "compact-token-malformed",
+                    "oversized-token": "token-size-exceeded",
+                    "parent-token-reassociation": "par-hash-mismatch",
+                    "duplicate-trust-anchor-issuer": "duplicate-trust-anchor-issuer",
+                    "oversized-stack": "stack-size-exceeded",
+                    "malformed-top-level": "malformed-top-level-input",
+                    "unknown-schema": "unsupported-schema",
+                }
+                observed_finding = observed.get("findings", [{}])[0].get("code")
+                require(observed_finding == expected_findings[name],
+                        name + ": expected finding " + expected_findings[name] +
+                        ", got " + str(observed_finding))
                 receipt["controls"].append({
                     "id": name, "status": observed["status"],
                     "finding": observed.get("findings", [{}])[0].get("code"),
