@@ -122,6 +122,11 @@ impl MachineTemporalEvidenceObservation {
     }
 }
 
+/// Deterministically reduce observations whose source records were already validated by the
+/// coordinator. This checks internal payload/observation consistency, but intentionally does
+/// not re-run cryptographic verification or prove that an ActionHash resolves to the payload;
+/// archive consumers should verify the included signatures and retain the original Holochain
+/// records/actions when they need that stronger binding.
 pub fn resolve_temporal_evidence(
     evidence: Vec<MachineTemporalEvidenceObservation>,
 ) -> MachineTemporalEvidenceResolution {
@@ -1500,7 +1505,7 @@ mod content_restriction_tests {
             commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
             valid_from: Timestamp::from_micros(0),
             valid_until: Timestamp::from_micros(1_000),
-            max_accuracy_micros: 5,
+            max_accuracy_micros: 10,
         };
         let attestation_payload = MachineTemporalAttestationPayload {
             schema_id: MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID.to_string(),
@@ -1745,6 +1750,8 @@ mod content_restriction_tests {
         let a = temporal_observation(1, 7, 100);
         let mut divergent = a.clone();
         divergent.source_reference = "tsa://different-reference".into();
+        divergent.attestation_statement.payload.source_reference =
+            "tsa://different-reference".into();
         assert_eq!(
             resolve_temporal_evidence(vec![a, divergent]),
             MachineTemporalEvidenceResolution::InvalidEvidence
