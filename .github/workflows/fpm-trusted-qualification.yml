@@ -143,11 +143,12 @@ jobs:
         working-directory: candidate
         env:
           EXPECTED_MANIFEST_BLOB_SHA: c94b53f61ed8a9bfb6249b1b339550dddd074d6c
+          EXPECTED_HEAD_SHA: ${{ steps.preflight.outputs.expected_head_sha }}
         run: |
           set -euo pipefail
           actual_head="$(git rev-parse HEAD)"
           subject_tree="$(git rev-parse HEAD^{tree})"
-          test "$actual_head" = "${{ steps.preflight.outputs.expected_head_sha }}"
+          test "$actual_head" = "$EXPECTED_HEAD_SHA"
           test -z "$(git ls-files -s -- crates/fpm-wasm-artifact-identity | awk '$1 ~ /^120000$/ {print $4}')"
           root_config_hits="$(git ls-files --stage -- .cargo/config .cargo/config.toml || true)"
           test -z "$root_config_hits"
@@ -338,12 +339,16 @@ jobs:
 
       - name: Assert frozen candidate source
         working-directory: candidate
+        env:
+          EXPECTED_CANDIDATE_HEAD_SHA: ${{ steps.source.outputs.candidate_head_sha }}
+          EXPECTED_CANDIDATE_TREE_SHA: ${{ steps.source.outputs.candidate_tree_sha }}
+          LOCK_MODE: ${{ steps.lock.outputs.lock_mode || '' }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${{ steps.source.outputs.candidate_head_sha }}"
-          test "$(git rev-parse HEAD^{tree})" = "${{ steps.source.outputs.candidate_tree_sha }}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_CANDIDATE_HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_CANDIDATE_TREE_SHA"
           status="$(git status --porcelain --untracked-files=all)"
-          if [ "${{ steps.lock.outputs.lock_mode || '' }}" = "generated_for_run" ]; then
+          if [ "$LOCK_MODE" = "generated_for_run" ]; then
             unexpected="$(printf '%s\n' "$status" | grep -v '^?? crates/fpm-wasm-artifact-identity/Cargo.lock$' || true)"
             test -z "$unexpected"
           else
@@ -719,21 +724,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_HEAD_SHA: ${{ steps.preflight.outputs.expected_head_sha }}
+          EXPECTED_TREE_SHA: ${{ steps.source.outputs.candidate_tree_sha }}
           EXPECTED_BASE_SHA: ${{ steps.preflight.outputs.expected_base_sha }}
           PR_NUMBER: ${{ steps.preflight.outputs.pr_number }}
+          LOCK_MODE: ${{ steps.lock.outputs.lock_mode || '' }}
+          LOCK_SHA256: ${{ steps.lock.outputs.lock_sha256 || '' }}
         run: |
           set -euo pipefail
 
           actual_head="$(git -C candidate rev-parse HEAD 2>/dev/null || true)"
           actual_tree="$(git -C candidate rev-parse HEAD^{tree} 2>/dev/null || true)"
-          test "$actual_head" = "${{ steps.source.outputs.candidate_head_sha }}"
-          test "$actual_tree" = "${{ steps.source.outputs.candidate_tree_sha }}"
+          test "$actual_head" = "$EXPECTED_HEAD_SHA"
+          test "$actual_tree" = "$EXPECTED_TREE_SHA"
 
           status="$(git -C candidate status --porcelain --untracked-files=all 2>/dev/null || true)"
-          if [ "${{ steps.lock.outputs.lock_mode || '' }}" = "generated_for_run" ]; then
+          if [ "$LOCK_MODE" = "generated_for_run" ]; then
             test -f candidate/crates/fpm-wasm-artifact-identity/Cargo.lock
             lock_sha="$(sha256sum candidate/crates/fpm-wasm-artifact-identity/Cargo.lock | awk '{print $1}')"
-            test "$lock_sha" = "${{ steps.lock.outputs.lock_sha256 }}"
+            test "$lock_sha" = "$LOCK_SHA256"
             unexpected="$(printf '%s\n' "$status" | grep -v '^?? crates/fpm-wasm-artifact-identity/Cargo.lock$' || true)"
             test -z "$unexpected"
             rm -f candidate/crates/fpm-wasm-artifact-identity/Cargo.lock
