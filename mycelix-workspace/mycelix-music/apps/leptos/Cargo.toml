@@ -29,7 +29,7 @@ web-sys = { version = "0.3", features = [
     "console", "HtmlAudioElement", "HtmlInputElement",
     "HtmlCanvasElement", "CanvasRenderingContext2d",
     "HtmlMediaElement", "HtmlElement", "MediaError",
-    "Event", "EventTarget", "Element", "CssStyleDeclaration",
+    "Event", "EventTarget", "Element", "Node", "NodeList", "CssStyleDeclaration",
     "Window", "Storage", "Document", "Performance",
     # WebGL2 consciousness visualization
     "WebGl2RenderingContext", "WebGlProgram", "WebGlShader",
