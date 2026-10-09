@@ -1166,6 +1166,65 @@ pub fn probe_remote_capability(capability_hash: ActionHash) -> ExternResult<Capa
     }
 }
 
+/// Diagnostic for qualification tests: exercise the actual inbox-read function
+/// under the assigned grant, but return only its authorization outcome to the
+/// local caller. The remote inbox payload still reaches this zome's WASM memory;
+/// do not use this instead of the normal no-data probe in routine UI polling.
+#[hdk_extern]
+pub fn probe_remote_inbox_read(capability_hash: ActionHash) -> ExternResult<CapabilityProbeResult> {
+    let local_agent = agent_info()?.agent_initial_pubkey;
+    let record = get(capability_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Capability record not found".to_string())
+    ))?;
+    let capability: MailboxCapability = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Unexpected entry type for capability record".to_string()
+        )))?;
+
+    if capability.grantee != local_agent {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the assigned grantee can probe this capability".to_string()
+        )));
+    }
+    if !capability.permissions.can_read
+        || !matches!(
+            capability.access_type,
+            MailboxAccessType::FullAccess | MailboxAccessType::ReadOnly
+        )
+    {
+        return Ok(CapabilityProbeResult::FunctionNotGranted);
+    }
+
+    let Some(claim) = find_cap_claim(
+        &capability.grantor,
+        &capability.id,
+        &capability.secret_hash,
+    )? else {
+        return Ok(CapabilityProbeResult::ClaimMissing);
+    };
+
+    let response = call_remote(
+        capability.grantor,
+        ZomeName::from("mail_messages"),
+        FunctionName::from("get_inbox_v2"),
+        Some(claim.secret),
+        (),
+    )?;
+    match response {
+        ZomeCallResponse::Ok(_) => Ok(CapabilityProbeResult::Authorized),
+        ZomeCallResponse::Unauthorized(_, _, _, _, _) => {
+            Ok(CapabilityProbeResult::Unauthorized)
+        }
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Remote inbox-read qualification call failed for a reason other than authorization"
+                .to_string()
+        ))),
+    }
+}
+
 // ==================== SIGNAL HANDLING ====================
 
 #[hdk_extern]
