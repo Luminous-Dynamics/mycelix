@@ -319,6 +319,18 @@
       "expected_outcome": "RejectSqliteIntegerRange",
       "record_generation": 1,
       "receipt_sequence": 9223372036854776000
+    },
+    {
+      "id": "DA024-recovery-equal-generation-missing-local-digest",
+      "kind": "recovery",
+      "expected_outcome": "ExternalAnchorMismatch",
+      "local_log_id": "durable-fixture-log-001",
+      "local_generation": 1,
+      "external_anchor": {
+        "log_id": "durable-fixture-log-001",
+        "generation": 1,
+        "record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520"
+      }
     }
   ],
   "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback."
