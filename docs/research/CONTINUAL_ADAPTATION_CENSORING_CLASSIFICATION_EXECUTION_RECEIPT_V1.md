@@ -34,7 +34,7 @@ It downloads the artifact by exact source run ID, verifies every receipt/report 
 
 The privileged consumer requires both the workflow-run repository and `head_repository.full_name` to equal `Luminous-Dynamics/mycelix`; branch name alone is not sufficient. The Python and Node self-tests include a fork-origin run whose branch is named `main` and require it to be rejected. This is defense in depth against the branch-origin confusion class described in [GHSL-2026-225](https://securitylab.github.com/advisories/GHSL-2026-225_actions_attest/).
 
-Only then does the separate workflow use GitHub's OIDC/Sigstore-backed artifact-attestation action to attest the aggregate receipt. Immediately afterward, `gh attestation verify` must verify the receipt against the expected predicate type, repository, and exact signing workflow; any failure blocks publication of the accompanying evidence artifact. Workflow-level token permissions are default-deny, with signing rights granted only to this single job. Signing authority is therefore not granted to the PR test workflow.
+Only then does the separate workflow use GitHub's OIDC/Sigstore-backed artifact-attestation action to attest the aggregate receipt. It preserves the action-emitted Sigstore bundle and runs `gh attestation verify` against that exact local bundle, requiring the receipt subject digest, expected predicate type, repository, and exact signing workflow; any failure blocks publication. The signed bundle and both independently generated, byte-identical predicate outputs are published alongside the receipt. A relying party can retain this self-contained signature bundle for later verification, obtaining a trusted root separately when offline verification is required. Workflow-level token permissions are default-deny, with signing rights granted only to this single job. Signing authority is therefore not granted to the PR test workflow.
 
 ## What the attestation says
 
@@ -62,7 +62,7 @@ Demonstrated by the intended flow:
 - exact report input hashing;
 - source-run metadata binding;
 - two independent receipt validators;
-- a separately permissioned GitHub/Sigstore attestation step with a post-signature identity and predicate verification gate.
+- a separately permissioned GitHub/Sigstore attestation step that preserves and verifies the exact emitted Sigstore bundle before publication.
 
 Not demonstrated until a real main-branch run emits and verifies an attestation:
 - that the attestation workflow actually completed;
