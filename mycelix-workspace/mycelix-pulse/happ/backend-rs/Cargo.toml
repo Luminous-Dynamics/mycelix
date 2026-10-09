@@ -108,3 +108,6 @@ hyper = { version = "1", features = ["full"] }
 lto = true
 codegen-units = 1
 opt-level = 3
+# This executable is a standalone application inside the repository's umbrella
+# tree. Keep its dependency graph independent of the umbrella workspace.
+[workspace]
