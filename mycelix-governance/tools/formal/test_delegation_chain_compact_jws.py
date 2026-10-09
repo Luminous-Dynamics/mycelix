@@ -177,6 +177,12 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain", count: in
             claims["cnf"]["jwk"]["alg"] = "ES256"
         elif case == "jwk-key-ops-missing-verify" and index == 0:
             claims["cnf"]["jwk"]["key_ops"] = ["sign"]
+        elif case == "jwk-key-ops-duplicate" and index == 0:
+            claims["cnf"]["jwk"]["key_ops"] = ["verify", "verify"]
+        elif case == "jwk-key-ops-wrong-type" and index == 0:
+            claims["cnf"]["jwk"]["key_ops"] = "verify"
+        elif case == "jwk-key-ops-unrelated-operation" and index == 0:
+            claims["cnf"]["jwk"]["key_ops"] = ["verify", "encrypt"]
         elif case == "valid-four-token-chain" and index == 0:
             raw_payload = compact_json(claims).replace(b'"jti":"token-0"', b'"jti":"token-0","unrecognized_extension":1e999')
         elif case == "duplicate-payload-member" and index == 0:
@@ -262,6 +268,9 @@ def cases(directory: Path) -> dict[str, dict[str, Any]]:
         "jwk-use-encryption",
         "jwk-algorithm-mismatch",
         "jwk-key-ops-missing-verify",
+        "jwk-key-ops-duplicate",
+        "jwk-key-ops-wrong-type",
+        "jwk-key-ops-unrelated-operation",
         "duplicate-payload-member",
         "none-algorithm",
         "b64-header-present",
@@ -400,6 +409,9 @@ def main() -> int:
                     "jwk-use-encryption": "jwk-use-invalid",
                     "jwk-algorithm-mismatch": "jwk-algorithm-mismatch",
                     "jwk-key-ops-missing-verify": "jwk-key-ops-invalid",
+                    "jwk-key-ops-duplicate": "jwk-key-ops-invalid",
+                    "jwk-key-ops-wrong-type": "jwk-key-ops-invalid",
+                    "jwk-key-ops-unrelated-operation": "jwk-key-ops-invalid",
                     "duplicate-payload-member": "json-duplicate-member",
                     "none-algorithm": "algorithm-not-allowed",
                     "b64-header-present": "b64-header-not-allowed",
@@ -462,6 +474,9 @@ def main() -> int:
                 "jwk-use-encryption",
                 "jwk-algorithm-mismatch",
                 "jwk-key-ops-missing-verify",
+                "jwk-key-ops-duplicate",
+                "jwk-key-ops-wrong-type",
+                "jwk-key-ops-unrelated-operation",
             )
             try:
                 verifier.validate_jwk_signature_usage = lambda jwk: None
