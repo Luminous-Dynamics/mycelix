@@ -63,15 +63,15 @@ jobs:
       - name: Checkout immutable independent evaluator candidate
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          ref: 8486729c5eb9f48af9291769f75cfec81b7b4785
+          ref: 40d01030ccce9daab08089569d276d8c9f7e5176
           path: _independent-evaluator
           persist-credentials: false
           fetch-depth: 1
 
       - name: Assert independent evaluator commit and blob
         env:
-          EXPECTED_EVALUATOR_COMMIT: 8486729c5eb9f48af9291769f75cfec81b7b4785
-          EXPECTED_EVALUATOR_BLOB: e5aa4f3e23362f4f7ce75fd4c9b634404b2d8eab
+          EXPECTED_EVALUATOR_COMMIT: 40d01030ccce9daab08089569d276d8c9f7e5176
+          EXPECTED_EVALUATOR_BLOB: 6e6ab3b8880ef324c03de6f175dcab2937b57a4e
         run: |
           observed_commit="$(git -C _independent-evaluator rev-parse HEAD)"
           test "$observed_commit" = "$EXPECTED_EVALUATOR_COMMIT"
