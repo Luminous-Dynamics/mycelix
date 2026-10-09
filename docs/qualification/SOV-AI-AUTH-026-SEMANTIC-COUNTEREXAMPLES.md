@@ -118,3 +118,21 @@ The independent harness repeats all numeric limits in its own frozen constants, 
 The published AAT draft -01 (dated 15 June 2026, expiring 17 December 2026) supplies useful independent design context: its depth invariant increments `del_depth` by exactly one at each link and bounds `del_max_depth`; its TTL invariant requires child expiry no later than the parent, issued-at no earlier than the parent, an unexpired token, and a bounded lifetime. It recommends finite maximum-depth enforcement and documents a 30-second maximum future-issued-at skew and 90-day maximum-token-lifetime upper bound. This candidate adopts those last two values as frozen *test-profile values*, not as a claim that the draft is an endorsed standard or that the entire AAT profile is implemented. See https://datatracker.ietf.org/doc/draft-niyikiza-oauth-attenuating-agent-tokens/ and RFC 8693's express distinction between token exchange and deployment-specific token validity/trust semantics: https://www.rfc-editor.org/rfc/rfc8693.
 
 All evidence remains research/specification only. The exact-head workflow must complete and its artifacts must be reviewed before any bounded-test PASS can be reported; cryptographic enforcement qualification remains explicitly outside this candidate.
+
+
+## Derived issuer and holder-key linkage (parsed claims)
+
+A standalone `delegation_chain_key_linkage.py` candidate now checks the AAT-style relation between each derived token's parsed `iss` claim and the preceding token's `cnf.jwk`. The implemented narrow profile is public OKP/Ed25519 only: it rejects private JWK members, malformed `x`, other key types/curves, a root issuer that uses a derived-token thumbprint URI, and any derived issuer that does not equal the preceding holder key's RFC 7638 SHA-256 thumbprint rendered as the RFC 9278 URI:
+
+`urn:ietf:params:oauth:jwk-thumbprint:sha-256:<base64url-thumbprint>`
+
+The independent test harness implements its own required-member canonicalization and SHA-256/base64url computation, covers a valid four-hop link plus seven negative controls, and injects three missing-finding regressions. Unsupported key profiles fail closed; this does not claim support for RSA, EC, or other OKP curves.
+
+The existing `parent_envelope_sha256` field remains a separate *test-fixture* consistency link. It is **not** the draft's `par_hash` (which commits to the parent's JWS signing input), and it is not a substitute for derived issuer linkage. The RFC 7638 thumbprint binds the issuer claim to the public JWK's required members; it does not authenticate any token.
+
+Normative cryptographic verification remains out of scope: the candidate does not parse compact JWS/JWT, validate signatures under the root trust anchor or parent holder key, verify `par_hash`, validate `cnf` public-key authenticity or holder proof-of-possession, enforce algorithm/key compatibility, or authorize the root issuer. Per the June 2026 AAT Internet-Draft -01, derived issuer linkage (I1), parent-signing-input linkage (`par_hash)), and leaf proof-of-possession are separate invariants and must all be verified before an invocation can be authorized. The draft is still an individual Internet-Draft and not an endorsed IETF standard; these checks are research/specification alignment only:
+- RFC 7638, JSON Web Key (JWK) Thumbprint: https://www.rfc-editor.org/rfc/rfc7638
+- RFC 9278, JWK Thumbprint URI: https://www.rfc-editor.org/rfc/rfc9278
+- AAT draft -01, delegation authority and verification algorithm: https://datatracker.ietf.org/doc/draft-niyikiza-oauth-attenuating-agent-tokens/
+
+The exact-head workflow compiles and runs the key-link checker and uploads `delegation-chain-key-linkage.json`. Qualification remains NOT_CLAIMED until hosted runs finish and exact receipts are inspected.
