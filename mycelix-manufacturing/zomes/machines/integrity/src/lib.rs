@@ -40,6 +40,11 @@ pub const MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS: usize = 256;
 /// the vector before this bound can be enforced.
 pub const MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS: usize = 1_024;
 
+/// Pure boundary predicate shared by the coordinator and its exact-limit regression tests.
+pub fn temporal_evidence_link_set_exceeds_limit(link_count: usize) -> bool {
+    link_count > MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct MachineTemporalEvidenceObservation {
     /// Versioned outer archive format; inner signed statements retain their own schema IDs.
@@ -1960,6 +1965,25 @@ mod content_restriction_tests {
     }
 
     #[test]
+    fn temporal_evidence_link_count_accepts_exact_limit() {
+        assert!(!temporal_evidence_link_set_exceeds_limit(0));
+        assert!(!temporal_evidence_link_set_exceeds_limit(
+            MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS - 1
+        ));
+        assert!(!temporal_evidence_link_set_exceeds_limit(
+            MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS
+        ));
+    }
+
+    #[test]
+    fn temporal_evidence_link_count_rejects_first_item_over_limit() {
+        assert!(temporal_evidence_link_set_exceeds_limit(
+            MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS + 1
+        ));
+        assert!(temporal_evidence_link_set_exceeds_limit(usize::MAX));
+    }
+
+    #[test]
     fn temporal_evidence_link_limit_outcome_round_trips() {
         let outcome = MachineTemporalEvidenceResolution::EvidenceLinkSetLimitExceeded {
             limit: MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS as u32,
@@ -1968,6 +1992,27 @@ mod content_restriction_tests {
         let decoded: MachineTemporalEvidenceResolution =
             serde_json::from_slice(&encoded).unwrap();
         assert_eq!(decoded, outcome);
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_accepts_exact_distinct_observation_limit() {
+        let evidence = (0..MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS)
+            .map(|index| {
+                let mut observation = temporal_observation((index % 250) as u8, 7, 100);
+                let mut raw = vec![0u8; 36];
+                raw[..4].copy_from_slice(&(index as u32).to_le_bytes());
+                observation.attestation_hash = ActionHash::from_raw_36(raw);
+                observation.attestation_statement.action_hash =
+                    observation.attestation_hash.clone();
+                observation
+            })
+            .collect::<Vec<_>>();
+        match resolve_temporal_evidence(evidence) {
+            MachineTemporalEvidenceResolution::UniqueObserved { evidence, .. } => {
+                assert_eq!(evidence.len(), MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS);
+            }
+            other => panic!("expected bounded complete set at exact limit, got {other:?}"),
+        }
     }
 
     #[test]
