@@ -32,21 +32,26 @@ fn request_playback(
     if !player.is_playing.get_untracked() {
         return;
     }
-    // Invalidates previous pending attempts even when this request must wait
-    // for a new media source to become active.
+    // Invalidate old play promises before changing/reloading the resource.
+    // Calling play immediately after load preserves the opportunity to begin
+    // playback from the initiating interaction instead of waiting for canplay.
     let current_src = audio.current_src();
     let declared_src = audio.src();
-    let (generation, source_ready) = prepare_play_attempt(
+    let (generation, needs_reload) = prepare_play_attempt(
         attempt_generation.get_untracked(),
         &current_src,
         &declared_src,
         &expected_audio_url,
     );
     attempt_generation.set(generation);
-    if !source_ready {
-        // Never call play against an empty or stale currentSrc. The matching
-        // canplay event will retry once the selected resource is actually active.
-        return;
+    if needs_reload {
+        if declared_src != expected_audio_url {
+            audio.set_src(&expected_audio_url);
+        }
+        // A non-empty currentSrc for the old URL can persist while the new
+        // src attribute is being selected. Explicit load makes that transition
+        // authoritative; the generation guard ignores AbortError from older plays.
+        audio.load();
     }
     let expected_hash_for_result = expected_song_hash.clone();
     let expected_url_for_result = expected_audio_url.clone();
@@ -93,21 +98,8 @@ fn audio_matches_selected_source(audio: &web_sys::HtmlAudioElement, player: &Pla
     })
 }
 
-/// A selected URL may be requested before the browser populates currentSrc,
-/// but a non-empty active currentSrc must never point at an older resource.
-fn media_source_can_start(
-    current_src: &str,
-    declared_src: &str,
-    expected_url: &str,
-) -> bool {
-    if current_src.is_empty() {
-        !declared_src.is_empty() && declared_src == expected_url
-    } else {
-        current_src == expected_url
-    }
-}
-
-/// Advance the request generation and report whether playback can safely be attempted.
+/// Advance request generation and decide whether the media element must be
+/// pointed at and reloaded from the selected source before playback is requested.
 fn prepare_play_attempt(
     current_generation: u64,
     current_src: &str,
@@ -116,7 +108,8 @@ fn prepare_play_attempt(
 ) -> (u64, bool) {
     (
         current_generation.wrapping_add(1),
-        media_source_can_start(current_src, declared_src, expected_url),
+        !media_source_matches_expected(current_src, expected_url)
+            || declared_src != expected_url,
     )
 }
 
@@ -500,25 +493,25 @@ mod play_attempt_admission_tests {
 
     #[test]
     fn waiting_for_empty_source_still_invalidates_older_attempts() {
-        let (generation, source_ready) =
+        let (generation, needs_reload) =
             prepare_play_attempt(41, "", "", "https://ipfs.io/ipfs/QmSong");
 
         assert_eq!(generation, 42);
-        assert!(!source_ready);
+        assert!(needs_reload);
     }
 
     #[test]
     fn requested_source_can_start_before_current_src_is_populated() {
         let expected = "https://ipfs.io/ipfs/QmSong";
-        let (generation, source_ready) = prepare_play_attempt(8, "", expected, expected);
+        let (generation, needs_reload) = prepare_play_attempt(8, "", expected, expected);
 
         assert_eq!(generation, 9);
-        assert!(source_ready);
+        assert!(needs_reload);
     }
 
     #[test]
     fn waiting_for_stale_source_still_invalidates_older_attempts() {
-        let (generation, source_ready) = prepare_play_attempt(
+        let (generation, needs_reload) = prepare_play_attempt(
             41,
             "https://ipfs.io/ipfs/QmOld",
             "https://ipfs.io/ipfs/QmNew",
@@ -526,7 +519,22 @@ mod play_attempt_admission_tests {
         );
 
         assert_eq!(generation, 42);
-        assert!(!source_ready);
+        assert!(needs_reload);
+    }
+}
+
+#[cfg(test)]
+mod play_attempt_reload_tests {
+    use super::prepare_play_attempt;
+
+    #[test]
+    fn matching_active_and_declared_source_does_not_reload() {
+        let expected = "https://ipfs.io/ipfs/QmSong";
+        let (generation, needs_reload) =
+            prepare_play_attempt(8, expected, expected, expected);
+
+        assert_eq!(generation, 9);
+        assert!(!needs_reload);
     }
 }
 
