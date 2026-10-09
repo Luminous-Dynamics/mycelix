@@ -166,3 +166,21 @@ The aggregate reports `PASS_BOUNDED_RESEARCH_EVIDENCE`, **not** a production or 
 
 
 The receipt aggregator now has its own mutation harness, `test_aggregate_auth_v20_evidence.py`. It freezes the complete nine-receipt inventory independently, accepts a synthetic valid all-pass fixture, and requires rejection of nine deliberate weakenings: missing receipt, mismatched source head, qualification laundering, failed receipt hidden as acceptable, schema substitution, reduced corpus count, reduced manifest-mutation count, reduced checker-mutant count, and malformed expected head. This tests evidence-gate sensitivity; it does not prove the specialist receipts are semantically sound.
+
+
+## Compact Ed25519 JWS chain verification candidate
+
+The dedicated `delegation_chain_compact_jws.py` layer verifies actual three-segment compact JWS values rather than trusting a caller-supplied `signing_input` fixture. Under a deliberately narrow `EdDSA` / OKP Ed25519 profile it:
+- verifies the root signature under exactly one configured root trust-anchor key and requires root `iss` to match that anchor's issuer URI;
+- verifies each child signature under the previous token's `cnf.jwk`, and parses that token's payload claims only after signature verification succeeds;
+- rejects malformed/duplicate JSON members, unsupported algorithms and critical headers, non-canonical BASE64URL segments, malformed/private holder JWKs, and wrong-size signatures;
+- verifies the derived issuer JWK thumbprint and `par_hash` over the exact prior compact-JWS signing input, unique `jti`, depth/expiry/`iat` monotonicity, and root/child/leaf AAT-entry cardinality;
+- applies 64 KiB per-token and 256 KiB chain limits and an eight-edge/nine-token depth ceiling.
+
+The integration harness generates temporary Ed25519 keypairs using OpenSSL, signs a four-token compact-JWS chain, and covers 19 adversarial inputs including tampered signatures, wrong trust anchors, child signatures under the wrong key, issuer/hash mismatches, re-association with a different parent token instance, duplicate `jti`, invalid JWKs, unsupported algorithms, malformed JSON, and size/depth violations. Three mutation tests disable one of the signature, issuer-thumbprint, or parent-hash checks and verify that the corresponding intentionally bad chain would then be accepted, demonstrating that each check is necessary for the exercised control.
+
+**Still not full AAT enforcement.** This candidate does not implement the full RFC 9396 `authorization_details` capability and constraint-subsumption lattice, tool/argument constraint evaluation, revocation or durable replay protection, or leaf invocation-time proof-of-possession JWT validation. The JWS verifier is a research integration layer and uses the system OpenSSL executable for Ed25519 signature checks; it is not production-qualified.
+
+The current AAT Internet-Draft specifies this verification ordering: check token/stack bounds, verify the root using a configured trust anchor, verify each child signature using the parent's holder key, then check issuer thumbprint, depth/TTL, capability monotonicity and exact-parent `par_hash`; the leaf invocation also requires proof-of-possession. This prototype implements a subset of those steps, not all of them. See Section 7 of the draft: https://datatracker.ietf.org/doc/draft-niyikiza-oauth-attenuating-agent-tokens/ and RFC 7515's definition of JWS signing input: https://www.rfc-editor.org/rfc/rfc7515.
+
+The exact-head workflow now compiles and executes this integration harness and archives `compact-jws-chain.json`. The aggregate gate requires its receipt and checks that all 19 negative controls and three signature/linkage mutation checks were exercised. Qualification remains `NOT_CLAIMED` pending hosted execution, artifact inspection, and implementation of the excluded enforcement requirements.
