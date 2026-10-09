@@ -32,6 +32,10 @@ pub struct Timelock {
     pub status: TimelockStatus,
     /// Cancellation reason if cancelled
     pub cancellation_reason: Option<String>,
+    /// Exact Ready Timelock action from which host-side preparation was derived.
+    /// None is legacy-only; new Prepared updates must set it.
+    #[serde(default)]
+    pub prepared_from_action_hash: Option<ActionHash>,
 }
 
 /// Status of a timelock
@@ -135,6 +139,10 @@ pub struct Execution {
     pub proposal_id: String,
     /// Executor's DID
     pub executor: String,
+    /// Exact Ready Timelock action that authorized this prepared execution.
+    /// None is legacy-only; new Execution entries must set it.
+    #[serde(default)]
+    pub authorized_timelock_action_hash: Option<ActionHash>,
     /// Execution status
     pub status: ExecutionStatus,
     /// Result data (JSON)
@@ -173,6 +181,14 @@ pub struct ExecutionResolution {
     pub timelock_id: String,
     pub proposal_id: String,
     pub executor: String,
+    /// Exact creation action of the prepared Execution record being resolved.
+    /// None is legacy-only; new receipts must set it.
+    #[serde(default)]
+    pub execution_action_hash: Option<ActionHash>,
+    /// Exact update action of the Prepared Timelock record.
+    /// None is legacy-only; new receipts must set it.
+    #[serde(default)]
+    pub timelock_action_hash: Option<ActionHash>,
     #[serde(default)]
     pub bindings: Vec<ExecutionResolutionBindingV1>,
     pub outcome: ExecutionResolutionOutcome,
@@ -361,6 +377,9 @@ pub fn check_create_timelock(timelock: &Timelock) -> Result<(), String> {
     if timelock.status != TimelockStatus::Pending {
         return Err("Initial timelock status must be Pending".into());
     }
+    if timelock.prepared_from_action_hash.is_some() {
+        return Err("Initial timelock cannot claim a prepared predecessor action".into());
+    }
     Ok(())
 }
 
@@ -381,6 +400,15 @@ pub fn check_update_timelock(original: &Timelock, updated: &Timelock) -> Result<
     }
     if updated.expires != original.expires {
         return Err("Cannot change timelock expiry".into());
+    }
+    let is_preparation_transition =
+        original.status == TimelockStatus::Ready && updated.status == TimelockStatus::Prepared;
+    if is_preparation_transition {
+        if updated.prepared_from_action_hash.is_none() {
+            return Err("Prepared timelock must bind its exact Ready predecessor action".into());
+        }
+    } else if updated.prepared_from_action_hash != original.prepared_from_action_hash {
+        return Err("Cannot change the prepared predecessor action outside preparation".into());
     }
     match (&original.status, &updated.status) {
         (TimelockStatus::Pending, TimelockStatus::Ready)
@@ -415,6 +443,9 @@ pub fn check_create_execution(execution: &Execution) -> Result<(), String> {
             "New execution records must begin in Prepared state; terminal state requires resolution"
                 .into(),
         );
+    }
+    if execution.authorized_timelock_action_hash.is_none() {
+        return Err("Prepared execution must bind the exact Ready timelock action".into());
     }
     if execution.status == ExecutionStatus::Prepared
         && (execution.result.is_some() || execution.error.is_some())
@@ -463,7 +494,7 @@ pub fn check_execution_resolution_bindings(
         ));
     }
 
-    for binding in bindings {
+    for (index, binding) in bindings.iter().enumerate() {
         if !is_tagged_digest(
             &binding.attempt_identity,
             EXECUTION_ATTEMPT_IDENTITY_PREFIX,
@@ -481,6 +512,17 @@ pub fn check_execution_resolution_bindings(
             EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX,
         ) {
             return Err("Resolution binding fields must use canonical digest namespaces".into());
+        }
+        if bindings[..index].iter().any(|prior| {
+            prior.attempt_identity == binding.attempt_identity
+                || prior.action_key_digest == binding.action_key_digest
+                || prior.terminal_evidence_digest == binding.terminal_evidence_digest
+                || prior.authorization_admission_proof_digest
+                    == binding.authorization_admission_proof_digest
+                || prior.final_provider_entry_proof_digest
+                    == binding.final_provider_entry_proof_digest
+        }) {
+            return Err("Resolution bindings must not reuse attempt/action/proof roots".into());
         }
     }
     Ok(())
@@ -503,6 +545,14 @@ pub fn check_create_execution_resolution(
         || resolution.proposal_id.is_empty()
     {
         return Err("Resolution identifiers are required".into());
+    }
+    if resolution.execution_action_hash.is_none()
+        || resolution.timelock_action_hash.is_none()
+    {
+        return Err(
+            "New execution resolutions must anchor the prepared execution and timelock ActionHash"
+                .into(),
+        );
     }
     check_execution_resolution_bindings(&resolution.bindings)?;
     Ok(())
@@ -712,6 +762,20 @@ fn validate_create_timelock(
 }
 
 /// Validate timelock update
+pub fn check_prepared_timelock_predecessor(
+    updated: &Timelock,
+    original_action_hash: &ActionHash,
+) -> Result<(), String> {
+    if updated.status == TimelockStatus::Prepared
+        && updated.prepared_from_action_hash.as_ref() != Some(original_action_hash)
+    {
+        return Err(
+            "Prepared Timelock predecessor must equal the exact original action hash".into(),
+        );
+    }
+    Ok(())
+}
+
 fn validate_update_timelock(
     action: Update,
     timelock: Timelock,
@@ -732,6 +796,9 @@ fn validate_update_timelock(
             "Only the timelock creator can update the timelock".into(),
         ));
     }
+    if let Err(reason) = check_prepared_timelock_predecessor(&timelock, &original_action_hash) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
 
     match check_update_timelock(&original_timelock, &timelock) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
@@ -740,14 +807,138 @@ fn validate_update_timelock(
 }
 
 /// Validate execution creation
+pub fn check_execution_authorized_timelock_scope(
+    execution: &Execution,
+    authorized_timelock: &Timelock,
+) -> Result<(), String> {
+    if authorized_timelock.status != TimelockStatus::Ready
+        || authorized_timelock.id != execution.timelock_id
+        || authorized_timelock.proposal_id != execution.proposal_id
+    {
+        return Err(
+            "Execution authorized-timelock action does not match Ready timelock/proposal scope"
+                .into(),
+        );
+    }
+    if execution.authorized_timelock_action_hash.is_none() {
+        return Err("Execution is missing its authorized Ready timelock action hash".into());
+    }
+    Ok(())
+}
+
+pub fn check_resolution_source_action_linkage(
+    execution: &Execution,
+    prepared_timelock: &Timelock,
+) -> Result<(), String> {
+    let execution_predecessor = execution
+        .authorized_timelock_action_hash
+        .as_ref()
+        .ok_or_else(|| {
+            "Execution is missing its authorized Ready timelock action hash".to_string()
+        })?;
+    let prepared_predecessor = prepared_timelock
+        .prepared_from_action_hash
+        .as_ref()
+        .ok_or_else(|| {
+            "Prepared timelock is missing its exact Ready predecessor action".to_string()
+        })?;
+    if execution_predecessor != prepared_predecessor {
+        return Err(
+            "Execution and Prepared Timelock do not share the exact Ready predecessor action"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+pub fn check_resolution_execution_scope(
+    resolution: &ExecutionResolution,
+    execution: &Execution,
+) -> Result<(), String> {
+    if execution.status != ExecutionStatus::Prepared
+        || execution.id != resolution.execution_id
+        || execution.timelock_id != resolution.timelock_id
+        || execution.proposal_id != resolution.proposal_id
+        || execution.executor != resolution.executor
+    {
+        return Err(
+            "Resolution prepared-execution action does not match execution/timelock/proposal/executor scope"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+pub fn check_resolution_timelock_scope(
+    resolution: &ExecutionResolution,
+    timelock: &Timelock,
+) -> Result<(), String> {
+    if timelock.status != TimelockStatus::Prepared
+        || timelock.id != resolution.timelock_id
+        || timelock.proposal_id != resolution.proposal_id
+    {
+        return Err(
+            "Resolution prepared-timelock action does not match timelock/proposal scope".into(),
+        );
+    }
+    Ok(())
+}
+
 fn validate_create_execution_resolution(
     action: Create,
     resolution: ExecutionResolution,
 ) -> ExternResult<ValidateCallbackResult> {
-    match check_create_execution_resolution(&action, &resolution) {
-        Ok(()) => Ok(ValidateCallbackResult::Valid),
-        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
+    if let Err(reason) = check_create_execution_resolution(&action, &resolution) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
     }
+
+    let Some(execution_hash) = resolution.execution_action_hash.clone() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New execution resolutions must anchor the prepared Execution ActionHash".into(),
+        ));
+    };
+    let execution_record = must_get_valid_record(execution_hash)?;
+    if execution_record.action().author() != &action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution and prepared Execution must share the executor source-chain author".into(),
+        ));
+    }
+    let execution: Execution = execution_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Execution ActionHash does not reference an Execution entry".into()
+        )))?;
+    if let Err(reason) = check_resolution_execution_scope(&resolution, &execution) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+
+    let Some(timelock_hash) = resolution.timelock_action_hash.clone() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New execution resolutions must anchor the prepared Timelock ActionHash".into(),
+        ));
+    };
+    let timelock_record = must_get_valid_record(timelock_hash)?;
+    if timelock_record.action().author() != &action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution and prepared Timelock must share the executor source-chain author".into(),
+        ));
+    }
+    let timelock: Timelock = timelock_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Timelock ActionHash does not reference a Timelock entry".into()
+        )))?;
+    if let Err(reason) = check_resolution_timelock_scope(&resolution, &timelock) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+    if let Err(reason) = check_resolution_source_action_linkage(&prepared_execution, &timelock) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_execution(
@@ -764,7 +955,28 @@ fn validate_create_execution(
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
-    match check_create_execution(&execution) {
+    if let Err(reason) = check_create_execution(&execution) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+    let Some(authorized_timelock_hash) = execution.authorized_timelock_action_hash.clone() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Prepared Execution must bind its exact Ready Timelock action".into(),
+        ));
+    };
+    let authorized_record = must_get_valid_record(authorized_timelock_hash)?;
+    if authorized_record.action().author() != &action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Execution and authorized Timelock must share the source-chain author".into(),
+        ));
+    }
+    let authorized_timelock: Timelock = authorized_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Execution authorized ActionHash does not reference a Timelock entry".into()
+        )))?;
+    match check_execution_authorized_timelock_scope(&execution, &authorized_timelock) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
     }
@@ -881,6 +1093,7 @@ mod tests {
             expires: ts(2_000_000),
             status: TimelockStatus::Pending,
             cancellation_reason: None,
+            prepared_from_action_hash: None,
         }
     }
 
@@ -908,6 +1121,7 @@ mod tests {
             timelock_id: "tl-1".into(),
             proposal_id: "prop-1".into(),
             executor: "did:key:z6Mk".into(),
+            authorized_timelock_action_hash: Some(ActionHash::from_raw_36(vec![2; 36])),
             status: ExecutionStatus::Prepared,
             result: None,
             error: None,
@@ -1109,6 +1323,16 @@ mod tests {
     }
 
     #[test]
+    fn test_new_timelock_cannot_self_assert_preparation_predecessor() {
+        let mut forged = make_timelock();
+        forged.prepared_from_action_hash = Some(ActionHash::from_raw_36(vec![4; 36]));
+        assert_eq!(
+            check_create_timelock(&forged).unwrap_err(),
+            "Initial timelock cannot claim a prepared predecessor action"
+        );
+    }
+
+    #[test]
     fn test_timelock_material_is_immutable() {
         let original = make_timelock();
 
@@ -1134,11 +1358,32 @@ mod tests {
 
         let mut prepared = ready.clone();
         prepared.status = TimelockStatus::Prepared;
+        prepared.prepared_from_action_hash = Some(ActionHash::from_raw_36(vec![2; 36]));
         assert!(check_update_timelock(&ready, &prepared).is_ok());
+        assert!(check_prepared_timelock_predecessor(
+            &prepared,
+            &ActionHash::from_raw_36(vec![2; 36]),
+        )
+        .is_ok());
+        assert!(check_prepared_timelock_predecessor(
+            &prepared,
+            &ActionHash::from_raw_36(vec![3; 36]),
+        )
+        .is_err());
 
         let mut executed = ready.clone();
         executed.status = TimelockStatus::Executed;
         assert!(check_update_timelock(&ready, &executed).is_err());
+    }
+
+    #[test]
+    fn test_execution_requires_exact_authorized_timelock_hash() {
+        let mut execution = make_execution();
+        execution.authorized_timelock_action_hash = None;
+        assert_eq!(
+            check_create_execution(&execution).unwrap_err(),
+            "Prepared execution must bind the exact Ready timelock action"
+        );
     }
 
     #[test]
@@ -1160,16 +1405,12 @@ mod tests {
             execution_id: "ex-1".into(),
             timelock_id: "tl-1".into(),
             proposal_id: "prop-1".into(),
-            executor: "did:key:z6Mk".into(),
+            executor: test_author_did(),
+            execution_action_hash: Some(ActionHash::from_raw_36(vec![0; 36])),
+            timelock_action_hash: Some(ActionHash::from_raw_36(vec![1; 36])),
             bindings: vec![ExecutionResolutionBindingV1 {
-                attempt_identity: format!(
-                    "{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}",
-                    "e".repeat(64)
-                ),
-                action_key_digest: format!(
-                    "{EXECUTION_ACTION_KEY_PREFIX}{}",
-                    "a".repeat(64)
-                ),
+                attempt_identity: format!("{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}", "e".repeat(64)),
+                action_key_digest: format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "a".repeat(64)),
                 terminal_evidence_digest: format!(
                     "{EXECUTION_TERMINAL_EVIDENCE_PREFIX}{}",
                     "b".repeat(64)
@@ -1186,26 +1427,85 @@ mod tests {
             outcome: ExecutionResolutionOutcome::Executed,
             resolved_at: ts(4_000_000),
         };
-        assert!(check_create_execution_resolution(&valid).is_ok());
+        let create = make_create();
+        assert!(check_create_execution_resolution(&create, &valid).is_ok());
 
         let mut missing_bindings = valid.clone();
         missing_bindings.bindings.clear();
-        assert!(check_create_execution_resolution(&missing_bindings).is_err());
+        assert!(check_create_execution_resolution(&create, &missing_bindings).is_err());
 
         let mut bad_auth_root = valid.clone();
         bad_auth_root.bindings[0].authorization_admission_proof_digest =
             "not-a-canonical-root".into();
-        assert!(check_create_execution_resolution(&bad_auth_root).is_err());
+        assert!(check_create_execution_resolution(&create, &bad_auth_root).is_err());
 
         let mut bad_final_root = valid.clone();
         bad_final_root.bindings[0].final_provider_entry_proof_digest =
             "not-a-canonical-root".into();
-        assert!(check_create_execution_resolution(&bad_final_root).is_err());
+        assert!(check_create_execution_resolution(&create, &bad_final_root).is_err());
 
         let mut uppercase_digest = valid.clone();
         uppercase_digest.bindings[0].action_key_digest =
             format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "A".repeat(64));
-        assert!(check_create_execution_resolution(&uppercase_digest).is_err());
+        assert!(check_create_execution_resolution(&create, &uppercase_digest).is_err());
+
+        let mut missing_execution_anchor = valid.clone();
+        missing_execution_anchor.execution_action_hash = None;
+        assert!(check_create_execution_resolution(&create, &missing_execution_anchor).is_err());
+
+        let mut missing_timelock_anchor = valid.clone();
+        missing_timelock_anchor.timelock_action_hash = None;
+        assert!(check_create_execution_resolution(&create, &missing_timelock_anchor).is_err());
+
+        let mut execution = make_execution();
+        execution.executor = valid.executor.clone();
+        assert!(check_resolution_execution_scope(&valid, &execution).is_ok());
+
+        let mut authorized_timelock = make_timelock();
+        authorized_timelock.status = TimelockStatus::Ready;
+        assert!(
+            check_execution_authorized_timelock_scope(&execution, &authorized_timelock).is_ok()
+        );
+        let mut unavailable_authorization = authorized_timelock.clone();
+        unavailable_authorization.status = TimelockStatus::Cancelled;
+        assert!(
+            check_execution_authorized_timelock_scope(&execution, &unavailable_authorization)
+                .is_err()
+        );
+        let mut wrong_authorization_proposal = authorized_timelock.clone();
+        wrong_authorization_proposal.proposal_id = "other-proposal".into();
+        assert!(
+            check_execution_authorized_timelock_scope(&execution, &wrong_authorization_proposal)
+                .is_err()
+        );
+        let mut wrong_execution_status = execution.clone();
+        wrong_execution_status.status = ExecutionStatus::Failed;
+        assert!(check_resolution_execution_scope(&valid, &wrong_execution_status).is_err());
+        let mut wrong_execution_id = execution.clone();
+        wrong_execution_id.id = "other-execution".into();
+        assert!(check_resolution_execution_scope(&valid, &wrong_execution_id).is_err());
+
+        let mut timelock = make_timelock();
+        timelock.status = TimelockStatus::Prepared;
+        timelock.prepared_from_action_hash = Some(ActionHash::from_raw_36(vec![2; 36]));
+        assert!(check_resolution_timelock_scope(&valid, &timelock).is_ok());
+        assert!(check_resolution_source_action_linkage(&execution, &timelock).is_ok());
+        let mut mismatched_predecessor = timelock.clone();
+        mismatched_predecessor.prepared_from_action_hash =
+            Some(ActionHash::from_raw_36(vec![3; 36]));
+        assert!(
+            check_resolution_source_action_linkage(&execution, &mismatched_predecessor).is_err()
+        );
+        let mut wrong_timelock_status = timelock.clone();
+        wrong_timelock_status.status = TimelockStatus::Cancelled;
+        assert!(check_resolution_timelock_scope(&valid, &wrong_timelock_status).is_err());
+        let mut wrong_timelock_proposal = timelock.clone();
+        wrong_timelock_proposal.proposal_id = "other-proposal".into();
+        assert!(check_resolution_timelock_scope(&valid, &wrong_timelock_proposal).is_err());
+
+        let mut duplicate_binding = valid.clone();
+        duplicate_binding.bindings.push(duplicate_binding.bindings[0].clone());
+        assert!(check_execution_resolution_bindings(&duplicate_binding.bindings).is_err());
 
         let too_many_bindings = vec![
             valid.bindings[0].clone();
@@ -1213,7 +1513,6 @@ mod tests {
         ];
         assert!(check_execution_resolution_bindings(&too_many_bindings).is_err());
     }
-
     // ---- Veto override result tests ----
 
     #[test]

@@ -170,6 +170,7 @@ pub fn create_timelock(input: CreateTimelockInput) -> ExternResult<Record> {
         ),
         status: TimelockStatus::Pending,
         cancellation_reason: None,
+        prepared_from_action_hash: None,
     };
 
     let tl_id = timelock.id.clone();
@@ -370,6 +371,7 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         timelock_id: input.timelock_id.clone(),
         proposal_id: current_timelock.proposal_id.clone(),
         executor: input.executor_did,
+        authorized_timelock_action_hash: Some(current_record.action_address().clone()),
         status: ExecutionStatus::Prepared,
         result: None,
         error: None,
@@ -404,6 +406,7 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
         expires: current_timelock.expires,
         status: TimelockStatus::Prepared,
         cancellation_reason: None,
+        prepared_from_action_hash: Some(current_record.action_address().clone()),
     };
 
     update_entry(
@@ -642,7 +645,7 @@ pub fn record_prepared_execution_resolution(
     .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
 
     check_execution_resolution_bindings(&input.bindings)
-    .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
 
     // Resolution is source-chain scoped to the single executor identity.
     // Re-submit of the same resolution returns the existing record; a different
@@ -668,6 +671,10 @@ pub fn record_prepared_execution_resolution(
                         && existing.timelock_id == input.timelock_id
                         && existing.proposal_id == execution.proposal_id
                         && existing.executor == input.executor_did
+                        && existing.execution_action_hash.as_ref()
+                            == Some(execution_record.action_address())
+                        && existing.timelock_action_hash.as_ref()
+                            == Some(timelock_record.action_address())
                         && existing.bindings == input.bindings
                         && existing.outcome == input.outcome;
 
@@ -691,6 +698,8 @@ pub fn record_prepared_execution_resolution(
         timelock_id: input.timelock_id,
         proposal_id: execution.proposal_id,
         executor: input.executor_did,
+        execution_action_hash: Some(execution_record.action_address().clone()),
+        timelock_action_hash: Some(timelock_record.action_address().clone()),
         bindings: input.bindings,
         outcome: input.outcome,
         resolved_at: sys_time()?,
