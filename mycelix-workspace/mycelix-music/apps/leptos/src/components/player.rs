@@ -174,9 +174,14 @@ pub fn Player() -> impl IntoView {
             if has_song && should_play {
                 request_playback(audio, player_for_effect.clone(), play_attempt_generation);
             } else {
-                // A cleared queue must stop the media element, not merely hide
-                // its controls or clear the reactive playing flag.
+                // A cleared selection must stop playback and reset the real media
+                // playhead as well as the reactive progress signal. Without this,
+                // quickly re-selecting the same URL can resume from the old time.
+                // Preserve the playhead on an ordinary pause while a song remains selected.
                 let _ = audio.pause();
+                if !has_song {
+                    audio.set_current_time(0.0);
+                }
             }
         }
     });
