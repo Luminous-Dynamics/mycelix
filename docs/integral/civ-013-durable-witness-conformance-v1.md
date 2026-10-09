@@ -2,7 +2,7 @@
 
 **Profile ID:** `civ-013-durable-adapter-v1`  
 **Status:** experimental reference profile; not production qualification.  
-**Source adapter revision:** [Symthaea commit `78e6087a4513e876c074f661ffd803b1e05bb49e`](https://github.com/Luminous-Dynamics/symthaea/commit/78e6087a4513e876c074f661ffd803b1e05bb49e)  
+**Source adapter revision:** [Symthaea commit `5a73c08b5a9e6f2bec036c29cbd6c3e071b4ea9a`](https://github.com/Luminous-Dynamics/symthaea/commit/5a73c08b5a9e6f2bec036c29cbd6c3e071b4ea9a)  
 **Golden vectors:** [civ-013-durable-witness-conformance-v1.json](civ-013-durable-witness-conformance-v1.json)  
 **Manifest:** [civ-013-durable-witness-conformance-v1-manifest.json](civ-013-durable-witness-conformance-v1-manifest.json)  
 **Independent checker:** [verify_civ013_durable_witness_conformance_v1.py](../../scripts/integral/verify_civ013_durable_witness_conformance_v1.py)  
@@ -85,6 +85,7 @@ The profile's transition vectors are an independent abstract reference for these
 | DA021 | RejectCorruptForkEvidence | A single fork-evidence history cannot splice entries from different log IDs, even when each entry's digest is valid |
 | DA022–DA023 | RejectSqliteIntegerRange | Adapter rejection of generation or receipt sequence above SQLite's signed-integer maximum |
 | DA044 | RejectBeforeStateMutation | An oversized receipt sequence is rejected during input validation, before any anchor read, prepared/accepted row write, or external-anchor change; SQLite integrity remains `ok` |
+| DA045 | RejectBeforeStateMutation | An unrepresentable successor generation is rejected before recovery performs any anchor read or local state mutation; SQLite integrity remains `ok` |
 | DA024 | ExternalAnchorMismatch | Equal-generation recovery fails closed when the local accepted-head digest is absent |
 | DA025 | IdempotentAcceptedHistory | Late finalization confirms that the metadata pointer matches the accepted current-head row |
 | DA026 | CorruptCurrentHeadMetadata | Late finalization rejects a well-formed but incorrect metadata head digest |
@@ -194,3 +195,7 @@ DA043 covers generation zero specifically: if the external anchor claims genesis
 ## Receipt-sequence integer boundary
 
 DA044 is backed by a Rust regression that supplies `i64::MAX + 1` on an otherwise valid bootstrap request. It expects the explicit `InvalidInput("receipt sequence exceeds SQLite INTEGER range")` outcome, zero external-anchor reads, unchanged genesis anchor state, no accepted or prepared local records, and a successful physical/semantic integrity check. This is stronger than relying on SQLite's non-negative column constraint to reject a narrowed negative integer after the operation reaches persistence.
+
+## Generation integer boundary
+
+DA045 is backed by a Rust regression that supplies `i64::MAX` as the expected generation. Its successor would exceed SQLite's signed-integer range, so the adapter returns `GenerationOverflow` before calling recovery or reading the independent anchor. The regression asserts zero anchor reads, unchanged genesis anchor state, zero accepted/prepared records, and successful physical/semantic integrity checking.
