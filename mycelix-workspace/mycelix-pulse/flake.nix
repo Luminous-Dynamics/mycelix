@@ -53,6 +53,8 @@
         buildInputs = with pkgs; [
           # Rust
           rustToolchain
+          # Holochain 0.7 Sweettest build dependencies invoke Perl.
+          perl
           cargo-watch
           cargo-edit
           cargo-tauri
