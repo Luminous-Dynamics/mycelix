@@ -395,7 +395,7 @@ jobs:
             # Make the exact Nix-provided binaries/env available to following
             # steps (including rust-cache) without selecting a second toolchain.
             printf "%s\n" "$PATH" | tr ":" "\n" | grep -E "^/nix/store/[^/]+/bin$" | sort -u >> "$GITHUB_PATH"
-            for name in LIBCLANG_PATH BINDGEN_EXTRA_CLANG_ARGS OPENSSL_DIR OPENSSL_LIB_DIR OPENSSL_INCLUDE_DIR; do
+            for name in LIBCLANG_PATH BINDGEN_EXTRA_CLANG_ARGS OPENSSL_DIR OPENSSL_LIB_DIR OPENSSL_INCLUDE_DIR PKG_CONFIG_PATH; do
               printf "%s=%s\n" "$name" "${!name}" >> "$GITHUB_ENV"
             done
           '
