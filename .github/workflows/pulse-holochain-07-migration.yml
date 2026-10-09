@@ -3,16 +3,12 @@ name: Pulse Holochain 0.7 Migration
 on:
   pull_request:
     paths:
-      - "mycelix-workspace/mycelix-pulse/holochain/**"
-      - "mycelix-workspace/mycelix-pulse/tests/**"
-      - "mycelix-workspace/mycelix-pulse/docs/HOLOCHAIN_0_7_MIGRATION.md"
+      - "mycelix-workspace/mycelix-pulse/**"
       - ".github/workflows/pulse-holochain-07-migration.yml"
   push:
     branches: ["**"]
     paths:
-      - "mycelix-workspace/mycelix-pulse/holochain/**"
-      - "mycelix-workspace/mycelix-pulse/tests/**"
-      - "mycelix-workspace/mycelix-pulse/docs/HOLOCHAIN_0_7_MIGRATION.md"
+      - "mycelix-workspace/mycelix-pulse/**"
       - ".github/workflows/pulse-holochain-07-migration.yml"
 
 permissions:
@@ -23,12 +19,74 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
-  holochain-07:
-    name: Holochain 0.7 workspace compile and tests
+  relock-and-push:
+    name: Resolve and commit 0.7 lockfiles
+    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'upgrade/pulse-holochain-0.7' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'push' && github.ref_name == 'upgrade/pulse-holochain-0.7') }}
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          persist-credentials: true
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+
+      - name: Lock Nix inputs to the declared Holonix 0.7 graph
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: nix flake lock --update-input nixpkgs --update-input holochain-flake
+
+      - name: Regenerate active zome workspace lock
+        run: cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
+
+      - name: Regenerate Sweettest lock
+        run: cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/tests/Cargo.toml
+
+      - name: Regenerate backend and CLI locks
+        run: |
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml
+
+      - name: Regenerate SMTP gateway lock
+        run: cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/crates/pulse-smtp-gateway/Cargo.toml
+
+      - name: Regenerate standalone DNA locks
+        run: |
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/happ/dna/integrity/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/happ/dna/zomes/mail_messages/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/happ/dna/zomes/trust_filter/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.toml
+
+      - name: Commit generated lockfiles to this migration branch
+        run: |
+          git add -A -- mycelix-workspace/mycelix-pulse
+          if git diff --cached --quiet; then
+            echo "Lockfiles are already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build(pulse): regenerate Holochain 0.7 lockfiles"
+          git push origin "HEAD:${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+
+  holochain-07:
+    name: Holochain 0.7 compile, tests, and clients
+    needs: [relock-and-push]
+    if: ${{ always() && (needs.relock-and-push.result == 'success' || needs.relock-and-push.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - uses: dtolnay/rust-toolchain@1.96.0
         with:
@@ -36,35 +94,81 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: mycelix-workspace/mycelix-pulse/holochain
+          workspaces: |
+            mycelix-workspace/mycelix-pulse/holochain
+            mycelix-workspace/mycelix-pulse/tests
 
       - name: Assert coherent version pins
         run: |
           grep -F 'hdk = "=0.7.0"' mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
           grep -F 'hdi = "=0.8.0"' mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
           grep -F 'holochain = { version = "=0.7.0"' mycelix-workspace/mycelix-pulse/tests/Cargo.toml
-          if grep -R -nE 'hdk[[:space:]]*=[[:space:]]*"0\.6|hdi[[:space:]]*=[[:space:]]*"0\.7' mycelix-workspace/mycelix-pulse/holochain/zomes; then
-            echo "Found a zome-local Holochain 0.6 dependency pin"
+          grep -F 'holochain_client = "=0.9.0"' mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml
+          grep -F 'holochain_client = "=0.9.0"' mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml
+          if grep -R -nE 'hdk[[:space:]]*=[[:space:]]*"0\.6|hdi[[:space:]]*=[[:space:]]*"0\.7' mycelix-workspace/mycelix-pulse/holochain/zomes mycelix-workspace/mycelix-pulse/happ/dna; then
+            echo "Found an old Holochain dependency pin"
             exit 1
           fi
 
-      - name: Format
+      - name: Format active zome workspace
         run: cargo fmt --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml --all -- --check
 
-      - name: Compile all active zomes and test targets
-        run: cargo check --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml --workspace --all-targets
+      - name: Check active zome workspace
+        run: cargo check --locked --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml --workspace --all-targets
 
-      - name: Run active zome unit tests
-        run: cargo test --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml --workspace
+      - name: Test active zome workspace
+        run: cargo test --locked --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml --workspace
+
+      - name: Format standalone Sweettest harness
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-pulse/tests/Cargo.toml -- --check
 
       - name: Compile standalone Sweettest harness (do not run conductor tests yet)
-        run: cargo test --manifest-path mycelix-workspace/mycelix-pulse/tests/Cargo.toml --no-run
+        run: cargo test --locked --manifest-path mycelix-workspace/mycelix-pulse/tests/Cargo.toml --no-run
 
       - name: Compile backend against Holochain 0.7 client
-        run: cargo check --manifest-path mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml --all-targets
+        run: cargo check --locked --manifest-path mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml --all-targets
 
       - name: Compile CLI against Holochain 0.7 client
-        run: cargo check --manifest-path mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml --all-targets
+        run: cargo check --locked --manifest-path mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml --all-targets
 
       - name: Compile SMTP gateway with real Holochain bridge
-        run: cargo check --manifest-path mycelix-workspace/mycelix-pulse/crates/pulse-smtp-gateway/Cargo.toml --all-targets --features holochain-bridge
+        run: cargo check --locked --manifest-path mycelix-workspace/mycelix-pulse/crates/pulse-smtp-gateway/Cargo.toml --all-targets --features holochain-bridge
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            mycelix-workspace/mycelix-pulse/holochain/client/package-lock.json
+            mycelix-workspace/mycelix-pulse/ui/package-lock.json
+
+      - name: Install and validate standalone Holochain client package
+        run: npm ci --prefix mycelix-workspace/mycelix-pulse/holochain/client
+
+      - name: Install and build UI workspace against Holochain 0.7 client
+        run: |
+          npm ci --prefix mycelix-workspace/mycelix-pulse/ui
+          npm run build --prefix mycelix-workspace/mycelix-pulse/ui
+
+  nix-07:
+    name: Holochain 0.7 Nix and DNA packaging
+    needs: [relock-and-push]
+    if: ${{ always() && (needs.relock-and-push.result == 'success' || needs.relock-and-push.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify conductor, hc CLI, Lair, and Node versions
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: nix develop --command bash -lc 'holochain --version && hc --version && lair-keystore --version && node --version'
+
+      - name: Build standalone DNA with Holochain 0.7 hc
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: nix build .#dna --no-link
