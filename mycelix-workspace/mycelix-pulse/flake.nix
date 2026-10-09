@@ -64,7 +64,7 @@
           lairPkg
 
           # Node.js for frontend
-          nodejs_22
+          nodejs_24
           nodePackages.npm
           nodePackages.typescript
           nodePackages.typescript-language-server
