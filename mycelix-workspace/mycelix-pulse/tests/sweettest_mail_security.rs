@@ -29,7 +29,6 @@
 use holochain::conductor::api::error::ConductorApiResult;
 use holochain::sweettest::*;
 use holochain_types::prelude::*;
-use holochain_keystore::AgentPubKeyExt;
 use mail_leptos_types::protocol::{
     AuthenticatedMetadataV1, EncryptedEnvelopeV2HybridPqc, EncryptionKeyId, MessageId,
     SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65,
