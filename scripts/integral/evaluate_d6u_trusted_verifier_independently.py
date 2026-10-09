@@ -17,6 +17,8 @@ import pathlib
 import subprocess
 import traceback
 import tempfile
+import stat
+import zipfile
 import sys
 from unittest.mock import patch
 
@@ -195,6 +197,7 @@ def verify_candidate_policy(
     candidate_policy: dict,
     expected_record_fields: list[str],
     observed_verifier_blob: str,
+    observed_fetcher_blob: str,
 ) -> None:
     assert isinstance(candidate_policy, dict), "candidate trusted policy is not an object"
     assert candidate_policy.get("record_fields") == expected_record_fields, (
@@ -224,6 +227,24 @@ def verify_candidate_policy(
     )
     assert verifier_entry.get("blob_sha") == observed_verifier_blob, (
         "candidate verifier blob pin mismatch"
+    )
+
+    fetcher_path = "scripts/integral/fetch_d6u_trusted_artifact.py"
+    fetcher_cfg = candidate_policy.get("trusted_artifact_fetcher")
+    assert isinstance(fetcher_cfg, dict), "candidate trusted policy fetcher pin is missing"
+    assert fetcher_cfg.get("path") == fetcher_path, (
+        "candidate trusted policy fetcher path mismatch"
+    )
+    assert fetcher_cfg.get("blob_sha") == observed_fetcher_blob, (
+        "candidate fetcher blob pin mismatch"
+    )
+    fetcher_entry = trusted_programs.get(fetcher_path)
+    assert isinstance(fetcher_entry, dict), (
+        "candidate trusted policy programs omit the artifact fetcher"
+    )
+    assert fetcher_entry.get("path") == fetcher_path
+    assert fetcher_entry.get("blob_sha") == observed_fetcher_blob, (
+        "candidate trusted program fetcher pin mismatch"
     )
 
 
@@ -339,21 +360,27 @@ def exercise_main_record_guards(
 
 def run(candidate_root: pathlib.Path) -> None:
     verifier_path = candidate_root / "scripts/integral/verify_d6u_trusted_artifacts.py"
+    fetcher_path = candidate_root / "scripts/integral/fetch_d6u_trusted_artifact.py"
     assert verifier_path.is_file(), f"candidate verifier missing: {verifier_path}"
+    assert fetcher_path.is_file(), f"candidate artifact fetcher missing: {fetcher_path}"
 
     verifier = load_module(verifier_path)
+    fetcher = load_module(fetcher_path)
 
     p = policy()
     policy_path = candidate_root / "docs/integral/d6u-trusted-builder-policy.json"
     candidate_policy = json.loads(policy_path.read_text(encoding="utf-8"))
     observed_verifier_blob = git_blob_sha1(verifier_path.read_bytes())
-    verify_candidate_policy(candidate_policy, p["record_fields"], observed_verifier_blob)
+    observed_fetcher_blob = git_blob_sha1(fetcher_path.read_bytes())
+    verify_candidate_policy(
+        candidate_policy, p["record_fields"], observed_verifier_blob, observed_fetcher_blob
+    )
 
     tampered_policy = dict(candidate_policy)
     tampered_policy["record_fields"] = list(candidate_policy["record_fields"]) + ["extra"]
     assert_rejected(
         lambda: verify_candidate_policy(
-            tampered_policy, p["record_fields"], observed_verifier_blob
+            tampered_policy, p["record_fields"], observed_verifier_blob, observed_fetcher_blob
         ),
         "candidate trusted policy record schema mismatch",
         "candidate policy accepted an extra runtime record field",
@@ -363,7 +390,7 @@ def run(candidate_root: pathlib.Path) -> None:
     tampered_policy["claim_ceiling"] = "OperationallyQualified"
     assert_rejected(
         lambda: verify_candidate_policy(
-            tampered_policy, p["record_fields"], observed_verifier_blob
+            tampered_policy, p["record_fields"], observed_verifier_blob, observed_fetcher_blob
         ),
         "candidate trusted policy widened claim ceiling",
         "candidate policy accepted a widened claim ceiling",
@@ -381,10 +408,22 @@ def run(candidate_root: pathlib.Path) -> None:
     tampered_policy["trusted_programs"] = tampered_programs
     assert_rejected(
         lambda: verify_candidate_policy(
-            tampered_policy, p["record_fields"], observed_verifier_blob
+            tampered_policy, p["record_fields"], observed_verifier_blob, observed_fetcher_blob
         ),
         "candidate verifier blob pin mismatch",
         "candidate policy accepted a verifier blob pin mismatch",
+    )
+
+    tampered_policy = dict(candidate_policy)
+    tampered_fetcher = dict(candidate_policy["trusted_artifact_fetcher"])
+    tampered_fetcher["blob_sha"] = "0" * 40
+    tampered_policy["trusted_artifact_fetcher"] = tampered_fetcher
+    assert_rejected(
+        lambda: verify_candidate_policy(
+            tampered_policy, p["record_fields"], observed_verifier_blob, observed_fetcher_blob
+        ),
+        "candidate fetcher blob pin mismatch",
+        "candidate policy accepted a fetcher blob pin mismatch",
     )
 
     record = valid_record()
