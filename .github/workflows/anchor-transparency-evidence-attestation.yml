@@ -83,7 +83,7 @@ jobs:
           cp -- "$ATTESTATION_BUNDLE_SOURCE" execution-evidence/qualification-execution-receipt.sigstore.json
           test -s execution-evidence/qualification-execution-receipt.sigstore.json
 
-      - name: Verify emitted bundle, subject digest, predicate type, repository, and signer workflow
+      - name: Verify signed bundle identity and capture verified statement
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -94,7 +94,63 @@ jobs:
             --bundle execution-evidence/qualification-execution-receipt.sigstore.json \
             --repo "$GITHUB_REPOSITORY" \
             --predicate-type "$PREDICATE_TYPE" \
-            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/anchor-transparency-evidence-attestation.yml"
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/anchor-transparency-evidence-attestation.yml" \
+            --format json > execution-evidence/attestation-verification-result.json
+          test -s execution-evidence/attestation-verification-result.json
+
+      - name: Bind verified signed statement to exact receipt and dual-verifier predicate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { createHash } from 'node:crypto';
+          import { readFileSync } from 'node:fs';
+
+          const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
+          const stable = (value) => {
+            if (Array.isArray(value)) return value.map(stable);
+            if (value && typeof value === 'object') {
+              return Object.fromEntries(
+                Object.keys(value).sort().map((key) => [key, stable(value[key])]),
+              );
+            }
+            return value;
+          };
+          const equal = (left, right) =>
+            JSON.stringify(stable(left)) === JSON.stringify(stable(right));
+
+          const receiptPath = 'execution-evidence/qualification-execution-receipt.json';
+          const receiptBytes = readFileSync(receiptPath);
+          const expectedDigest = createHash('sha256').update(receiptBytes).digest('hex');
+          const expectedPredicate = readJson('execution-evidence/attestation-predicate-python.json');
+          const secondPredicate = readJson('execution-evidence/attestation-predicate-node.json');
+          const verification = readJson('execution-evidence/attestation-verification-result.json');
+
+          if (!equal(expectedPredicate, secondPredicate)) {
+            throw new Error('dual-verifier-predicate-mismatch');
+          }
+          if (!Array.isArray(verification) || verification.length !== 1) {
+            throw new Error('verified-attestation-count-not-one');
+          }
+
+          const statement = verification[0]?.verificationResult?.statement;
+          if (!statement || typeof statement !== 'object') {
+            throw new Error('verified-statement-missing');
+          }
+          if (statement.predicateType !== 'https://luminousdynamics.io/attestations/mycelix-anchor-research-execution/v1') {
+            throw new Error('signed-predicate-type-mismatch');
+          }
+          if (!equal(statement.predicate, expectedPredicate)) {
+            throw new Error('signed-predicate-does-not-match-dual-verifier-output');
+          }
+          if (!Array.isArray(statement.subject) || statement.subject.length !== 1) {
+            throw new Error('signed-subject-count-not-one');
+          }
+          if (statement.subject[0]?.digest?.sha256 !== expectedDigest) {
+            throw new Error('signed-subject-digest-mismatch');
+          }
+          console.log('attestation-policy=verified; signed-predicate=dual-verifier-identical; subject=exact-receipt');
+          NODE
 
       - name: Preserve the verified predicate alongside the source evidence
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -105,5 +161,6 @@ jobs:
             execution-evidence/attestation-predicate-python.json
             execution-evidence/attestation-predicate-node.json
             execution-evidence/qualification-execution-receipt.sigstore.json
+            execution-evidence/attestation-verification-result.json
           if-no-files-found: error
           retention-days: 90
