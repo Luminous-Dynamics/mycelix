@@ -142,6 +142,10 @@ def self_test():
         _,e=load_report(p,2);assert e=="reported-failures"
         invalid=dict(valid);invalid["cases"]=[{"case_id":"a"},{"case_id":"a"}];p.write_bytes(canonical(invalid))
         _,e=load_report(p,2);assert e=="duplicate-case-id"
+        invalid=dict(valid);invalid["cases"]=[{"case_id":"a","expected_verdict":"qualified","actual_verdict":"unresolved"},{"case_id":"b"}];p.write_bytes(canonical(invalid))
+        _,e=load_report(p,2);assert e=="verdict-mismatch"
+        invalid=dict(valid);invalid["cases"]=[{"case_id":"a","expected_verdict":"qualified"},{"case_id":"b"}];p.write_bytes(canonical(invalid))
+        _,e=load_report(p,2);assert e=="actual-verdict-missing"
         invalid=dict(valid);invalid["case_count"]=3;p.write_bytes(canonical(invalid))
         _,e=load_report(p,2);assert e=="case-count-mismatch"
     print("execution-receipt-builder-self-test=pass")
