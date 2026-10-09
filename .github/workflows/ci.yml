@@ -455,6 +455,7 @@ jobs:
             echo "sdk_package_sha256=$(sha256sum mycelix-workspace/sdk-ts/package.json | cut -d ' ' -f1)"
             echo "sdk_package_lock_sha256=$(sha256sum mycelix-workspace/sdk-ts/package-lock.json | cut -d ' ' -f1)"
             echo "nix_sdk_status=INCOMPLETE"
+            echo "sdk_ts_nix_build_status=INCOMPLETE"
             echo "scope_status=INCOMPLETE"
           } > security-nix-sdk/receipt.txt
       - name: Determine whether the Nix SDK inputs changed
@@ -479,7 +480,7 @@ jobs:
             git diff --name-only "$BASE_SHA...$SUBJECT_SHA" > security-nix-sdk/changed-paths.txt
           fi
 
-          if grep -Eq '^(mycelix-workspace/flake[.]nix|mycelix-workspace/flake[.]lock|mycelix-workspace/rust-toolchain[.]toml|mycelix-workspace/sdk-ts/(package[.]json|package-lock[.]json)|[.]github/workflows/ci[.]yml)$' security-nix-sdk/changed-paths.txt; then
+          if grep -Eq '^(mycelix-workspace/flake[.]nix|mycelix-workspace/flake[.]lock|mycelix-workspace/rust-toolchain[.]toml|mycelix-workspace/justfile|mycelix-workspace/sdk-ts/.*|[.]github/workflows/ci[.]yml)$' security-nix-sdk/changed-paths.txt; then
             relevant=true
           fi
           if [[ "$EVENT_NAME" == "workflow_dispatch" || ( "$EVENT_NAME" == "push" && ( -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ) ) ]]; then
@@ -545,6 +546,54 @@ jobs:
           else
             sed -i 's/^nix_sdk_status=.*/nix_sdk_status=FAIL/' security-nix-sdk/receipt.txt
             echo "failure_reason=Pure flake shell evaluation, tool version, or lock immutability check failed" >> security-nix-sdk/receipt.txt
+          fi
+          exit "$status"
+      - name: Build and test SDK with Nix-materialized dependencies
+        if: steps.scope.outputs.relevant == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock_before="$(sha256sum mycelix-workspace/flake.lock | cut -d ' ' -f1)"
+          set +e
+          nix build --no-link --print-out-paths --no-write-lock-file ./mycelix-workspace#sdk-ts > security-nix-sdk/sdk-build.stdout.txt 2> security-nix-sdk/sdk-build.stderr.txt
+          status=$?
+          set -e
+          cat security-nix-sdk/sdk-build.stdout.txt
+          cat security-nix-sdk/sdk-build.stderr.txt >&2
+          lock_after="$(sha256sum mycelix-workspace/flake.lock | cut -d ' ' -f1)"
+          if [[ "$lock_before" != "$lock_after" ]]; then
+            echo "FAIL: flake.lock changed while building the SDK" >&2
+            status=22
+          fi
+          {
+            echo "sdk_ts_nix_build_exit_code=$status"
+            echo "sdk_ts_nix_build_flake_lock_sha256_before=$lock_before"
+            echo "sdk_ts_nix_build_flake_lock_sha256_after=$lock_after"
+          } >> security-nix-sdk/receipt.txt
+          if [[ "$status" -eq 0 ]]; then
+            output_path="$(tail -n 1 security-nix-sdk/sdk-build.stdout.txt)"
+            case "$output_path" in
+              /nix/store/*) ;;
+              *)
+                echo "FAIL: Nix build did not return an exact store output path: $output_path" >&2
+                status=23
+                ;;
+            esac
+            if [[ "$status" -eq 0 ]]; then
+              printf '%s\n' "$output_path" > security-nix-sdk/sdk-output-path.txt
+              nix path-info --json "$output_path" > security-nix-sdk/sdk-output-path-info.json
+              nix path-info --recursive "$output_path" > security-nix-sdk/sdk-closure-paths.txt
+              {
+                echo "sdk_ts_nix_build_status=PASS"
+                echo "sdk_ts_output_path=$output_path"
+                echo "sdk_ts_output_path_info_sha256=$(sha256sum security-nix-sdk/sdk-output-path-info.json | cut -d ' ' -f1)"
+                echo "sdk_ts_closure_manifest_sha256=$(sha256sum security-nix-sdk/sdk-closure-paths.txt | cut -d ' ' -f1)"
+              } >> security-nix-sdk/receipt.txt
+            fi
+          fi
+          if [[ "$status" -ne 0 ]]; then
+            sed -i 's/^sdk_ts_nix_build_status=.*/sdk_ts_nix_build_status=FAIL/' security-nix-sdk/receipt.txt
+            echo "sdk_ts_nix_build_failure=The Nix SDK derivation, check commands, lock immutability, or output identity failed" >> security-nix-sdk/receipt.txt
           fi
           exit "$status"
       - name: Upload Nix SDK shell evidence
