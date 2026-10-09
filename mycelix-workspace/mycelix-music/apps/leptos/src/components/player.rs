@@ -16,6 +16,15 @@ fn media_source_matches_expected(current_src: &str, expected_url: &str) -> bool 
     !current_src.is_empty() && current_src == expected_url
 }
 
+/// A queued error is relevant only while the selected resource still reports an error.
+fn media_error_matches_source(
+    current_src: &str,
+    expected_url: &str,
+    error_present: bool,
+) -> bool {
+    error_present && media_source_matches_expected(current_src, expected_url)
+}
+
 
 fn request_playback(
     audio: web_sys::HtmlAudioElement,
@@ -36,6 +45,12 @@ fn request_playback(
     // assignment/loading is owned by the Player effect before calling play().
     let generation = attempt_generation.get_untracked().wrapping_add(1);
     attempt_generation.set(generation);
+    // A prior media error may leave the element in an unrecoverable error state.
+    // Reload the already-selected URL before retrying; the new generation makes
+    // any rejection from the previous load unable to stop this attempt.
+    if audio.error().is_some() {
+        audio.load();
+    }
     let expected_hash_for_result = expected_song_hash.clone();
     let expected_url_for_result = expected_audio_url.clone();
 
@@ -223,8 +238,15 @@ pub fn Player() -> impl IntoView {
     let player_for_error = player.clone();
     let on_media_error = move |_| {
         if let Some(audio) = audio_ref.get() {
-            // Only the currently selected resource may change its playback state.
-            if audio_matches_selected_source(&audio, &player_for_error) {
+            let current_src = audio.current_src();
+            let error_present = audio.error().is_some();
+            let selected_url = player_for_error
+                .current_song
+                .get_untracked()
+                .map(|song| song.audio_url());
+            if selected_url.as_deref().is_some_and(|expected_url| {
+                media_error_matches_source(&current_src, expected_url, error_present)
+            }) {
                 player_for_error.is_playing.set(false);
             }
         }
@@ -468,6 +490,32 @@ mod media_source_guard_tests {
             "https://ipfs.io/ipfs/QmSong",
             "https://ipfs.io/ipfs/QmSong"
         ));
+    }
+}
+
+#[cfg(test)]
+mod media_error_guard_tests {
+    use super::media_error_matches_source;
+
+    #[test]
+    fn matching_source_with_current_error_is_reported() {
+        let source = "https://ipfs.io/ipfs/QmSong";
+        assert!(media_error_matches_source(source, source, true));
+    }
+
+    #[test]
+    fn error_from_superseded_source_is_ignored() {
+        assert!(!media_error_matches_source(
+            "https://ipfs.io/ipfs/QmOld",
+            "https://ipfs.io/ipfs/QmNew",
+            true
+        ));
+    }
+
+    #[test]
+    fn late_error_event_after_resource_reset_is_ignored() {
+        let source = "https://ipfs.io/ipfs/QmSong";
+        assert!(!media_error_matches_source(source, source, false));
     }
 }
 
