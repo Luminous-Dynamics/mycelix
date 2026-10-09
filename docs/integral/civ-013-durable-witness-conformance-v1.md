@@ -32,6 +32,8 @@ A record encodes, in order:
 
 The computed SHA-256 is the record identity. The record's `digest` field itself is not included in its preimage. Protocol version 1 is the only version accepted by these vectors.
 
+The encoding uses u64 fields, but the current SQLite adapter persists generation and receipt sequence in SQLite's signed 64-bit `INTEGER` columns. Consequently the adapter rejects values above `i64::MAX` (2^63 - 1), even when those values fit the canonical u64 encoding. DA022 and DA023 qualify that adapter-specific boundary; they do not change the canonical encoding.
+
 ## Canonical durable fork-evidence encoding
 
 Fork evidence encodes, in order:
@@ -80,6 +82,12 @@ The profile's transition vectors are an independent abstract reference for these
 | DA014–DA015 | RollbackDetected / RecoverPreparedSuccessor | Anchor is ahead by multiple generations versus exact prepared successor recovery |
 | DA016–DA017 | PreparedCandidateConflict / IdempotentAcceptedHistory | Competing prepared candidate and late finalization after a later successor |
 | DA018–DA020 | RejectCorruptForkEvidence / RejectRecordDigest / RejectForkDigest | Fork-order and tampering rejection |
+| DA021 | RejectCorruptForkEvidence | A single fork-evidence history cannot splice entries from different log IDs, even when each entry's digest is valid |
+| DA022–DA023 | RejectSqliteIntegerRange | Adapter rejection of generation or receipt sequence above SQLite's signed-integer maximum |
+
+## Per-log fork chain boundary
+
+Each SQLite fork-evidence chain is queried and validated for one exact `log_id`. The hash preimage binds the log ID, but hash validity alone does not prove that a sequence of individually valid records belongs to one chain. DA021 checks a cross-log splice and requires rejection.
 
 ## Bootstrap authorization boundary
 
