@@ -16,10 +16,11 @@ const COSE_REGISTRY_SHA="sha256:21772a0a1dbb88358c80e5297d4ec4dd82c2ba2bca474a33
 const LEGACY_TS_REGISTRY_SHA="sha256:efb549a023660010a07d70b7d78afbfd81664200fe4ecf1d0d542dc945f0bb54";
 const HEAD_KEYS=["size_4","size_7","fork_size_4","wrong_key","revoked_key","rollback_key","noncanonical"];
 const REQUIRED_VERIFIERS=[
-"audit_bundle_python","audit_bundle_node","witness_crypto_python","witness_crypto_node",
+"audit_bundle_python","audit_bundle_node","audit_bundle_v2_python","audit_bundle_v2_node","witness_crypto_python","witness_crypto_node",
 "vds_python","vds_node","rotation_python","rotation_node","tree_head_python","tree_head_node",
 "legacy_receipt_python","legacy_receipt_node","static_gossip_python","static_gossip_node",
-"cose_receipt_python","cose_receipt_node","gossip_simulation_python","gossip_simulation_node"
+"cose_receipt_python","cose_receipt_node","gossip_simulation_python","gossip_simulation_node",
+"execution_receipt_builder","execution_receipt_python","execution_receipt_node"
 ];
 const EXPECTED_TOPOLOGY=[
 [4848,"5af2d8a2a4e42ccdcabc70160ad639d810642c86"],
@@ -29,8 +30,8 @@ const EXPECTED_TOPOLOGY=[
 [4875,"7648801649b30bde5233ac380924a539b0cdbf35"],
 [4876,"1e352f442a4bc7bc537d0223cb39c5fe37944c56"],
 [4877,"61c46f16d32ee4d0bc42ffae76743caf19a76dd1"],
-[4879,"1c8f5a167c12ebed1e0bb4c09f1f7f8ee5a7e2c8"],
-[4889,"c6e69d0c9969b7b6d7feece65c60ae7c913e980d"],
+[4879,"955866acac79594ed85e236293b6ec36305e02ba"],
+[4889,"c0edcf4bf0e3d177edb2a691c9c55fcc662a0b38"],
 [4890,STACK_HEAD]
 ];
 const PROHIBITED=new Set(["private_key","private_keys","secret_key","seed","private_seed","secret"]);
@@ -63,7 +64,14 @@ function validate(bundle,root){
   const claims=bundle.bindings?.security_claims;
   const claimKeys=["complete_scitt_interoperability","live_network_convergence","organizational_independence","private_key_custody_proven","hosted_pass"].sort();
   if(!claims||Object.keys(claims).sort().join("|")!==claimKeys.join("|")||claimKeys.some(k=>claims[k]!==false))return"claim-ceiling-injection";
-  const arts=bundle.artifacts||{},vers=bundle.verifiers||{};
+  const arts=bundle.artifacts||{},vers=bundle.verifiers||{},workflowSources=bundle.workflow_sources||{};
+  if(Object.keys(workflowSources).sort().join("|")!==["execution_attestation","source_regression"].join("|"))return"workflow-source-inventory";
+  for(const[name,pair]of Object.entries(workflowSources)){
+    if(!Array.isArray(pair)||pair.length!==2)return"workflow-source-record:"+name;
+    const[rel,expected]=pair,file=path.resolve(root,rel);
+    if(!fs.existsSync(file))return"workflow-source-missing:"+name;
+    if(gitBlob(file,root)!==expected)return"workflow-source-sha:"+name;
+  }
   for(const[group,items]of [["artifact",arts],["verifier",vers]]){
     for(const[name,pair]of Object.entries(items)){
       if(!Array.isArray(pair)||pair.length!==2)return group+"-record:"+name;
@@ -119,8 +127,9 @@ function mutate(bundle,mutation){
   const b=structuredClone(bundle),[type,name]=mutation.split(":",2);
   if(type==="artifact"&&b.artifacts[name])b.artifacts[name][1]="0".repeat(40);
   else if(type==="verifier"&&b.verifiers[name])b.verifiers[name][1]="0".repeat(40);
+  else if(type==="workflow"&&b.workflow_sources?.[name])b.workflow_sources[name][1]="0".repeat(40);
   else if(type==="binding"&&name==="vds_id")b.bindings.vds_id="attacker.vds";
-  else if(type==="topology"&&name==="4890")b.topology.find(x=>x.pr===4890).head="0".repeat(40);
+  else if(type==="topology"&&/^\d+$/.test(name)){const row=b.topology.find(x=>x.pr===Number(name));if(row)row.head="0".repeat(40);}
   else if(type==="disable_verifier"&&b.bindings.required_verifiers[name]!==undefined)b.bindings.required_verifiers[name]=false;
   else if(type==="claim"&&b.bindings.security_claims[name]!==undefined)b.bindings.security_claims[name]=true;
   else if(mutation==="hosted_status")b.hosted_status="success";
@@ -130,7 +139,7 @@ const args=process.argv.slice(2);
 if(args.length!==4){console.error("usage: verifier REPO_ROOT BUNDLE CAMPAIGN REPORT");process.exit(2);}
 const[root,bundlePath,campaignPath,reportPath]=args;
 const bundle=JSON.parse(fs.readFileSync(bundlePath,"utf8")),campaign=JSON.parse(fs.readFileSync(campaignPath,"utf8"));
-if(campaign.schema!==CAMPAIGN_SCHEMA||campaign.case_count!==25||campaign.cases.length!==25)process.exit(1);
+if(campaign.schema!==CAMPAIGN_SCHEMA||campaign.case_count!==34||campaign.cases.length!==34)process.exit(1);
 const ids=campaign.cases.map(c=>c.case_id);if(new Set(ids).size!==ids.length)process.exit(1);
 const rows=[],failures=[];
 for(const c of campaign.cases){

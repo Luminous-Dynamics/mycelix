@@ -1,0 +1,183 @@
+name: anchor-transparency-execution-attestation
+
+on:
+  workflow_run:
+    workflows:
+      - continual-adaptation-censoring-classification-provenance
+    types:
+      - completed
+    branches:
+      - main
+
+# Default-deny at workflow scope; the sole job opts into only its required rights.
+permissions: {}
+
+jobs:
+  attest-execution-evidence:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.repository.full_name == github.repository &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Check out trusted policy code from the attestation workflow commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Assert exact trusted policy checkout
+        shell: bash
+        env:
+          EXPECTED_POLICY_SHA: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          actual_policy_sha="$(git rev-parse HEAD)"
+          test "$actual_policy_sha" = "$EXPECTED_POLICY_SHA"
+          git cat-file -e "$actual_policy_sha:docs/research/verify_censoring_classification_execution_receipt.py"
+          git cat-file -e "$actual_policy_sha:docs/research/verify_censoring_classification_execution_receipt.mjs"
+
+      - name: Download the exact source-run evidence artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: anchor-transparency-execution-evidence-${{ github.event.workflow_run.run_attempt || 1 }}
+          path: execution-evidence
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify execution receipt and source-run metadata in Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/research/verify_censoring_classification_execution_receipt.py verify \
+            --artifact-root execution-evidence \
+            --receipt execution-evidence/qualification-execution-receipt.json \
+            --event "$GITHUB_EVENT_PATH" \
+            --predicate execution-evidence/attestation-predicate-python.json
+
+      - name: Independently verify execution receipt in Node.js
+        shell: bash
+        run: |
+          set -euo pipefail
+          node docs/research/verify_censoring_classification_execution_receipt.mjs verify \
+            --artifact-root execution-evidence \
+            --receipt execution-evidence/qualification-execution-receipt.json \
+            --event "$GITHUB_EVENT_PATH" \
+            --predicate execution-evidence/attestation-predicate-node.json
+          diff -u execution-evidence/attestation-predicate-python.json execution-evidence/attestation-predicate-node.json
+
+      - name: Create GitHub Sigstore-backed attestation for the evidence receipt
+        id: attest_receipt
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: execution-evidence/qualification-execution-receipt.json
+          predicate-type: https://luminousdynamics.io/attestations/mycelix-anchor-research-execution/v1
+          predicate-path: execution-evidence/attestation-predicate-python.json
+
+      - name: Preserve the exact Sigstore bundle emitted by the signing action
+        shell: bash
+        env:
+          ATTESTATION_BUNDLE_SOURCE: ${{ steps.attest_receipt.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -n "$ATTESTATION_BUNDLE_SOURCE"
+          test -s "$ATTESTATION_BUNDLE_SOURCE"
+          cp -- "$ATTESTATION_BUNDLE_SOURCE" execution-evidence/qualification-execution-receipt.sigstore.json
+          test -s execution-evidence/qualification-execution-receipt.sigstore.json
+
+      - name: Verify signed bundle identity and capture verified statement
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREDICATE_TYPE: https://luminousdynamics.io/attestations/mycelix-anchor-research-execution/v1
+        run: |
+          set -euo pipefail
+          gh attestation verify execution-evidence/qualification-execution-receipt.json \
+            --bundle execution-evidence/qualification-execution-receipt.sigstore.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --predicate-type "$PREDICATE_TYPE" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/anchor-transparency-evidence-attestation.yml" \
+            --cert-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --source-ref "refs/heads/main" \
+            --deny-self-hosted-runners \
+            --format json > execution-evidence/attestation-verification-result.json
+          test -s execution-evidence/attestation-verification-result.json
+
+      - name: Bind verified signed statement to exact receipt and dual-verifier predicate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { createHash } from 'node:crypto';
+          import { readFileSync } from 'node:fs';
+
+          const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
+          const stable = (value) => {
+            if (Array.isArray(value)) return value.map(stable);
+            if (value && typeof value === 'object') {
+              return Object.fromEntries(
+                Object.keys(value).sort().map((key) => [key, stable(value[key])]),
+              );
+            }
+            return value;
+          };
+          const equal = (left, right) =>
+            JSON.stringify(stable(left)) === JSON.stringify(stable(right));
+
+          const receiptPath = 'execution-evidence/qualification-execution-receipt.json';
+          const receiptBytes = readFileSync(receiptPath);
+          const expectedDigest = createHash('sha256').update(receiptBytes).digest('hex');
+          const expectedPredicate = readJson('execution-evidence/attestation-predicate-python.json');
+          const secondPredicate = readJson('execution-evidence/attestation-predicate-node.json');
+          const verification = readJson('execution-evidence/attestation-verification-result.json');
+
+          if (!equal(expectedPredicate, secondPredicate)) {
+            throw new Error('dual-verifier-predicate-mismatch');
+          }
+          if (!Array.isArray(verification) || verification.length !== 1) {
+            throw new Error('verified-attestation-count-not-one');
+          }
+
+          const statement = verification[0]?.verificationResult?.statement;
+          if (!statement || typeof statement !== 'object') {
+            throw new Error('verified-statement-missing');
+          }
+          if (statement._type !== 'https://in-toto.io/Statement/v1') {
+            throw new Error('signed-statement-type-mismatch');
+          }
+          if (statement.predicateType !== 'https://luminousdynamics.io/attestations/mycelix-anchor-research-execution/v1') {
+            throw new Error('signed-predicate-type-mismatch');
+          }
+          if (!equal(statement.predicate, expectedPredicate)) {
+            throw new Error('signed-predicate-does-not-match-dual-verifier-output');
+          }
+          if (!Array.isArray(statement.subject) || statement.subject.length !== 1) {
+            throw new Error('signed-subject-count-not-one');
+          }
+          if (statement.subject[0]?.digest?.sha256 !== expectedDigest) {
+            throw new Error('signed-subject-digest-mismatch');
+          }
+          console.log('attestation-policy=verified; signed-predicate=dual-verifier-identical; subject=exact-receipt');
+          NODE
+
+      - name: Preserve the verified predicate alongside the source evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: anchor-transparency-signed-execution-evidence-${{ github.run_attempt }}
+          path: |
+            execution-evidence/qualification-execution-receipt.json
+            execution-evidence/attestation-predicate-python.json
+            execution-evidence/attestation-predicate-node.json
+            execution-evidence/qualification-execution-receipt.sigstore.json
+            execution-evidence/attestation-verification-result.json
+          if-no-files-found: error
+          retention-days: 90

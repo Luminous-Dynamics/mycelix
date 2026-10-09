@@ -12,6 +12,8 @@ Version 2 therefore pins both artifact inputs and verifier source files by Git b
 ## Exact inventory
 
 The manifest pins:
+- the deterministic execution-receipt builder and independent Python/Node receipt verifiers, including checks that reported expected verdicts match actual verdicts;
+- the read-only report workflow and the separately permissioned main-branch attestation workflow;
 - the full prior research fixture set;
 - COSE receipt registry, signed receipt bytes, and adversarial corpus;
 - partitioned-gossip event traces and expected outcomes;
@@ -38,10 +40,11 @@ An item is not considered replayable because a filename exists or a verifier sou
 
 ## Campaign
 
-The 25-case campaign covers:
+The 34-case campaign covers:
 - positive exact-input bundle;
 - artifact substitutions for every major layer;
-- verifier-source substitutions across the stack;
+- verifier-source substitutions across the stack, including the two v2 audit verifiers and execution-receipt tools;
+- source-workflow and attestation-workflow substitutions;
 - VDS and topology identity mutations;
 - verifier prerequisite weakening;
 - false SCITT interoperability claim;

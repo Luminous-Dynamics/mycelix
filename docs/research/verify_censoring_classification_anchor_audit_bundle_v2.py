@@ -23,15 +23,16 @@ EXPECTED_TOPOLOGY={
  (4875,"7648801649b30bde5233ac380924a539b0cdbf35"),
  (4876,"1e352f442a4bc7bc537d0223cb39c5fe37944c56"),
  (4877,"61c46f16d32ee4d0bc42ffae76743caf19a76dd1"),
- (4879,"1c8f5a167c12ebed1e0bb4c09f1f7f8ee5a7e2c8"),
- (4889,"c6e69d0c9969b7b6d7feece65c60ae7c913e980d"),
+ (4879,"955866acac79594ed85e236293b6ec36305e02ba"),
+ (4889,"c0edcf4bf0e3d177edb2a691c9c55fcc662a0b38"),
  (4890,STACK_HEAD),
 }
 REQUIRED_VERIFIERS={
- "audit_bundle_python","audit_bundle_node","witness_crypto_python","witness_crypto_node",
+ "audit_bundle_python","audit_bundle_node","audit_bundle_v2_python","audit_bundle_v2_node","witness_crypto_python","witness_crypto_node",
  "vds_python","vds_node","rotation_python","rotation_node","tree_head_python","tree_head_node",
  "legacy_receipt_python","legacy_receipt_node","static_gossip_python","static_gossip_node",
  "cose_receipt_python","cose_receipt_node","gossip_simulation_python","gossip_simulation_node",
+ "execution_receipt_builder","execution_receipt_python","execution_receipt_node",
 }
 
 def canonical(v):
@@ -74,6 +75,14 @@ def validate(bundle,repo_root:Path):
     if set(claims)!=expected_claims or any(claims[k] is not False for k in expected_claims):return "claim-ceiling-injection"
     arts=bundle.get("artifacts",{})
     verifiers=bundle.get("verifiers",{})
+    workflow_sources=bundle.get("workflow_sources",{})
+    if set(workflow_sources)!={"source_regression","execution_attestation"}:return "workflow-source-inventory"
+    for name,pair in workflow_sources.items():
+        if not isinstance(pair,list) or len(pair)!=2:return f"workflow-source-record:{name}"
+        rel,expected_sha=pair
+        file=repo_root/rel
+        if not file.is_file():return f"workflow-source-missing:{name}"
+        if git_blob_sha(file,repo_root)!=expected_sha:return f"workflow-source-sha:{name}"
     for group,items in (("artifact",arts),("verifier",verifiers)):
         for name,pair in items.items():
             if not isinstance(pair,list) or len(pair)!=2:return f"{group}-record:{name}"
@@ -130,9 +139,11 @@ def mutate(bundle,mutation):
     typ,_,name=mutation.partition(":")
     if typ=="artifact" and name in b["artifacts"]:b["artifacts"][name][1]="0"*40
     elif typ=="verifier" and name in b["verifiers"]:b["verifiers"][name][1]="0"*40
+    elif typ=="workflow" and name in b.get("workflow_sources",{}):b["workflow_sources"][name][1]="0"*40
     elif typ=="binding" and name=="vds_id":b["bindings"]["vds_id"]="attacker.vds"
-    elif typ=="topology" and name=="4890":
-        next(x for x in b["topology"] if x["pr"]==4890)["head"]="0"*40
+    elif typ=="topology" and name.isdigit():
+        row=next((x for x in b["topology"] if x["pr"]==int(name)),None)
+        if row is not None: row["head"]="0"*40
     elif typ=="disable_verifier" and name in b["bindings"]["required_verifiers"]:b["bindings"]["required_verifiers"][name]=False
     elif typ=="claim" and name in b["bindings"]["security_claims"]:b["bindings"]["security_claims"][name]=True
     elif mutation=="hosted_status":b["hosted_status"]="success"
@@ -143,7 +154,7 @@ def main():
         print("usage: verifier REPO_ROOT BUNDLE CAMPAIGN REPORT",file=sys.stderr);return 2
     repo_root,bundle_path,campaign_path,report_path=map(Path,sys.argv[1:])
     bundle=json.loads(bundle_path.read_text());campaign=json.loads(campaign_path.read_text())
-    if campaign.get("schema")!=CAMPAIGN_SCHEMA or campaign.get("case_count")!=25 or len(campaign.get("cases",[]))!=25:return 1
+    if campaign.get("schema")!=CAMPAIGN_SCHEMA or campaign.get("case_count")!=34 or len(campaign.get("cases",[]))!=34:return 1
     case_ids=[x.get("case_id") for x in campaign["cases"]]
     if len(case_ids)!=len(set(case_ids)):return 1
     rows=[];failures=[]
