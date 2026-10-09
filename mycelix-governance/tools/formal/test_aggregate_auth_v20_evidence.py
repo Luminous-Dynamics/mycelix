@@ -302,7 +302,7 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
         elif relative == "auth-v20-par-hash-evidence/delegation-chain-par-hash.json":
             data["summary"].update({"mutants_detected": 3, "negative_controls": 12})
         elif relative == "auth-v20-compact-jws-evidence/compact-jws-chain.json":
-            data["summary"].update({"mutants_detected": 4, "negative_controls": 38, "positive_controls": 3, "signatures_verified": 9})
+            data["summary"].update({"mutants_detected": 4, "negative_controls": 39, "positive_controls": 3, "signatures_verified": 9})
         elif relative == "auth-v20-capability-evidence/aat-capability-subsumption.json":
             data["summary"].update({
                 "constraint_subsumption_controls": 34,
@@ -647,7 +647,7 @@ def main() -> int:
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 30 weakening mutations rejected")
+        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 35 weakening mutations rejected")
         print("QUALIFICATION NOT CLAIMED: synthetic receipt checks do not establish semantic correctness")
         return 0
     except Exception as error:
