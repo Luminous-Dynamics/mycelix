@@ -72,6 +72,14 @@ EXPECTED_MUTATION_IDS = {
             "jwk-usage-metadata-checks-omitted",
         ),
     ),
+    "auth-v20-pop-evidence/delegation-chain-pop-differential.json": (
+        "mutations", "mutant_acceptance_observed", (
+            "pop-signature-check-omitted",
+            "pop-binding-check-omitted",
+            "pop-canonical-payload-check-omitted",
+            "pop-replay-consumption-omitted",
+        ),
+    ),
     "auth-v20-capability-evidence/aat-capability-subsumption.json": (
         "mutations", "mutant_was_observable", (
             "constraint-subsumption-bypassed",
@@ -106,6 +114,8 @@ REQUIRED_RECEIPTS = (
      "mycelix.compact-jws-aat-chain-differential-receipt.v1"),
     ("auth-v20-capability-evidence/aat-capability-subsumption.json",
      "mycelix.aat-capability-subsumption-differential-receipt.v1"),
+    ("auth-v20-pop-evidence/delegation-chain-pop-differential.json",
+     "mycelix.aat-invocation-pop-differential-receipt.v1"),
 )
 
 EXPECTED_SOURCE_HASH_FIELDS = {
@@ -155,6 +165,11 @@ EXPECTED_SOURCE_HASH_FIELDS = {
     "auth-v20-capability-evidence/aat-capability-subsumption.json": (
         ("module_sha256", "mycelix-governance/tools/formal/aat_capability_subsumption.py"),
         ("test_sha256", "mycelix-governance/tools/formal/test_aat_capability_subsumption.py"),
+    ),
+    "auth-v20-pop-evidence/delegation-chain-pop-differential.json": (
+        ("checker_sha256", "mycelix-governance/tools/formal/delegation_chain_pop.py"),
+        ("test_sha256", "mycelix-governance/tools/formal/test_delegation_chain_pop.py"),
+        ("aat_fixture_sha256", "mycelix-governance/tools/formal/test_delegation_chain_compact_jws.py"),
     ),
 }
 
@@ -328,6 +343,7 @@ def main() -> int:
             "auth-v20-par-hash-evidence/delegation-chain-par-hash.json": 3,
             "auth-v20-compact-jws-evidence/compact-jws-chain.json": 4,
             "auth-v20-capability-evidence/aat-capability-subsumption.json": 4,
+            "auth-v20-pop-evidence/delegation-chain-pop-differential.json": 4,
         }
         for relative_path, count in expected_mutants.items():
             data = json.loads((args.evidence_root / relative_path).read_text(encoding="utf-8"))
@@ -444,6 +460,18 @@ def main() -> int:
         require(capability_summary.get("runtime_and_invocation_controls") == 21,
                 "AAT capability harness did not execute all 21 runtime/invocation controls")
 
+        pop_result = json.loads((args.evidence_root /
+            "auth-v20-pop-evidence/delegation-chain-pop-differential.json").read_text(encoding="utf-8"))
+        pop_summary = pop_result.get("summary", {})
+        require(pop_summary.get("positive_controls") == 2,
+                "AAT PoP harness did not execute both positive invocation profiles")
+        require(pop_summary.get("negative_controls") == 19,
+                "AAT PoP harness did not execute all 19 denial/replay controls")
+        require(pop_summary.get("mutants_detected") == 4,
+                "AAT PoP harness did not detect all four omitted-check mutants")
+        require(pop_summary.get("replay_jti_consumed") is True,
+                "AAT PoP harness did not verify one-time replay consumption")
+
         receipt["status"] = "PASS_BOUNDED_RESEARCH_EVIDENCE"
         receipt["summary"] = {
             "required_specialist_receipts": len(REQUIRED_RECEIPTS),
@@ -469,11 +497,13 @@ def main() -> int:
             "aat_capability_mutants_detected": 4,
             "aat_capability_subsumption_controls": 34,
             "aat_capability_runtime_invocation_controls": 21,
+            "aat_invocation_pop_mutants_detected": 4,
+            "aat_invocation_pop_negative_controls": 19,
             "qualification": "NOT_CLAIMED",
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("EXACT-HEAD RECEIPT AGGREGATE PASS: 12 receipts (11 specialist + aggregator self-test), one source head")
+        print("EXACT-HEAD RECEIPT AGGREGATE PASS: 13 receipts (12 specialist + aggregator self-test), one source head")
         print("BOUNDED EVIDENCE ONLY: production qualification remains NOT_CLAIMED")
         return 0
     except Exception as error:
