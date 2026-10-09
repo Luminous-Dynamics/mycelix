@@ -19,6 +19,7 @@ MAX_TOOLS_PER_TOKEN = 256
 MAX_CONSTRAINTS_PER_TOOL = 64
 MAX_CONSTRAINT_VALUE_DEPTH = 32
 MAX_CONSTRAINT_VALUE_NODES = 512
+MAX_TOOL_NAME_BYTES = 256
 
 CORE_TYPES = {
     "exact", "range", "one_of", "not_one_of", "contains",
@@ -471,6 +472,14 @@ def validate_authorization_details(details: Any, *, require_one: bool,
     for tool_name, arg_constraints in tools.items():
         if not isinstance(tool_name, str) or not tool_name:
             raise CapabilityError("tool-name-invalid", f"{label} tool identifiers must be non-empty strings")
+        try:
+            tool_name_bytes = tool_name.encode("utf-8")
+        except UnicodeEncodeError as error:
+            raise CapabilityError("tool-name-invalid",
+                                  f"{label} tool identifiers must be valid UTF-8") from error
+        if len(tool_name_bytes) > MAX_TOOL_NAME_BYTES:
+            raise CapabilityError("tool-name-limit-exceeded",
+                                  f"{label} tool identifier exceeds {MAX_TOOL_NAME_BYTES} UTF-8 bytes")
         if not isinstance(arg_constraints, dict):
             raise CapabilityError("tool-constraints-invalid",
                                   f"{label} tool {tool_name!r} constraint map must be an object",
