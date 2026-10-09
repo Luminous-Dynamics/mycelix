@@ -302,7 +302,7 @@ def validate_matrix(matrix: dict[str, Any]) -> None:
     require(corpus.get("max_clauses_per_compound") == 2, "max clause count is not 2")
     require(corpus.get("expression_count") == 128, "expected 128 generated expressions")
     require(corpus.get("ordered_parent_child_pairs") == 16384, "expected 16,384 ordered pairs")
-    require(corpus.get("request_pair_evaluations") == 524288, "expected 524,288 membership evaluations")
+    require(corpus.get("ordered_pair_request_combinations") == 524288, "expected 524,288 pair-request combinations")
     atoms = matrix.get("atoms", [])
     require(len(atoms) == 8 and len({atom.get("id") for atom in atoms}) == 8,
             "frozen atom catalogue is incomplete or has duplicate IDs")
@@ -421,7 +421,7 @@ def main() -> int:
         receipt["summary"] = {
             "ordered_parent_child_pairs": evaluated_pairs,
             "bounded_requests": 32,
-            "request_membership_upper_bound": evaluated_pairs * 32,
+            "ordered_pair_request_combinations": evaluated_pairs * 32,
             "cross_type_pairs_fail_closed": counts["UNSUPPORTED_OR_UNDECIDABLE"],
             "independent_denotation": "PASS",
             "brute_force_structural_reference": "PASS",
