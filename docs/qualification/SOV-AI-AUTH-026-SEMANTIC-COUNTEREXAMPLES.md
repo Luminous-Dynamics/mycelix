@@ -104,7 +104,7 @@ The chain evaluator is a semantic-policy model only. It does not validate token 
 The workflow now compiles and runs this separate checker and uploads `delegation-chain-differential.json`. Qualification remains NOT_CLAIMED until exact-head runs complete and their receipts are inspected. The chain corpus is finite and does not prove arbitrary-policy completeness or cryptographic chain validity.
 
 
-The chain evaluator has an explicit eight-hop ceiling (root included), independently frozen by the test harness. Over-depth chains fail closed as unsupported, and duplicate hop IDs are rejected before relations are evaluated. These bounds constrain candidate work; they are not a negotiated protocol limit and must not be presented as one.
+The policy-chain evaluator has an explicit maximum delegation depth of eight edges, allowing at most nine tokens including the root; this is independently frozen by the test harness. The separate claims, key-link, and `par_hash` checkers use the same nine-token chain-size ceiling. Over-depth chains fail closed as unsupported, and duplicate hop IDs are rejected before relations are evaluated. These bounds constrain candidate work; they are not a negotiated protocol limit and must not be presented as one.
 
 
 ## Delegation-chain claims: depth, lifetime, and fixture linkage
