@@ -653,6 +653,30 @@ def exercise_fetcher_current_run_handoff(fetcher, candidate_policy: dict) -> Non
         message="candidate fetcher accepted a handoff artifact from another SHA",
     )
 
+    bad_artifact_run_id = copy.deepcopy(artifact)
+    bad_artifact_run_id["workflow_run"]["id"] = run_id + 1
+    expect_rejection(
+        response={"artifacts": [bad_artifact_run_id]},
+        expected='workflow_artifact_run["id"] == run_id',
+        message="candidate fetcher accepted a handoff artifact from another run ID",
+    )
+
+    bad_artifact_repo_id = copy.deepcopy(artifact)
+    bad_artifact_repo_id["workflow_run"]["repository_id"] = repository_id + 1
+    expect_rejection(
+        response={"artifacts": [bad_artifact_repo_id]},
+        expected='workflow_artifact_run["repository_id"] == current_run["repository"]["id"]',
+        message="candidate fetcher accepted a handoff artifact from another repository",
+    )
+
+    bad_artifact_branch = copy.deepcopy(artifact)
+    bad_artifact_branch["workflow_run"]["head_branch"] = "other-branch"
+    expect_rejection(
+        response={"artifacts": [bad_artifact_branch]},
+        expected='workflow_artifact_run["head_branch"] == current_run["head_branch"]',
+        message="candidate fetcher accepted a handoff artifact from another branch",
+    )
+
     bad_artifact_attempt_name = copy.deepcopy(artifact)
     bad_artifact_attempt_name["name"] = candidate_policy["auditor_handoff"][
         "artifact_name_template"
