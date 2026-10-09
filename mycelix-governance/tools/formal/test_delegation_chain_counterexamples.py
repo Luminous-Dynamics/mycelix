@@ -18,6 +18,10 @@ import compound_subsumption_counterexamples as oracle  # noqa: E402
 import delegation_chain_counterexamples as chain_checker  # noqa: E402
 
 CHAIN_SCHEMA = chain_checker.CHAIN_SCHEMA
+FROZEN_MAX_HOPS = 8
+INDEPENDENT_FAILURE_STATUSES = {
+    "AUTHORITY_EXPANSION", "POLICY_ATTENUATION_VIOLATION", "UNSUPPORTED_OR_UNDECIDABLE",
+}
 TARGETS = ["alice", "bob"]
 PURPOSES = ["business", "refund"]
 CONTEXTS = ["trusted", "untrusted"]
@@ -271,7 +275,7 @@ def audit_chain(raw: dict[str, Any], observed: dict[str, Any]) -> dict[str, Any]
     if observed.get("status") != expected_status:
         return {"kind": "chain-status-disagrees-with-independent-replay",
                 "expected": expected_status, "observed": observed.get("status")}
-    expected_failures = sum(status in chain_checker.FAILURE_STATUSES for status in statuses)
+    expected_failures = sum(status in INDEPENDENT_FAILURE_STATUSES for status in statuses)
     if observed.get("failure_count") != expected_failures:
         return {"kind": "chain-failure-count-disagrees-with-independent-replay",
                 "expected": expected_failures, "observed": observed.get("failure_count")}
@@ -327,6 +331,32 @@ def main() -> int:
                 "independent_replay": "PASS",
                 "request_tuples_per_relation": len(request_tuples(raw["universe"])),
             })
+
+        # The chain input is explicitly bounded; oversized input must fail closed.
+        oversized = {
+            "schema": CHAIN_SCHEMA, "universe": UNIVERSE,
+            "hops": [hop(f"hop-{index}", policy(BROAD)) for index in range(FROZEN_MAX_HOPS + 1)],
+        }
+        oversized_result = chain_checker.evaluate_chain(oversized)
+        require(oversized_result.get("status") == "UNSUPPORTED_OR_UNDECIDABLE",
+                "over-depth chain was not rejected fail-closed")
+        require("maximum" in oversized_result.get("reason", ""),
+                "over-depth rejection lacks an explicit boundedness reason")
+        duplicate_ids = copy.deepcopy(book["monotonic-four-edge-chain"])
+        duplicate_ids["hops"][2]["id"] = duplicate_ids["hops"][1]["id"]
+        try:
+            chain_checker.evaluate_chain(duplicate_ids)
+        except ValueError as error:
+            require("unique" in str(error), "duplicate-id chain rejected for an unexpected reason")
+            duplicate_ids_rejected = True
+        else:
+            duplicate_ids_rejected = False
+        require(duplicate_ids_rejected, "duplicate delegation-hop IDs were accepted")
+        receipt["input_guards"] = {
+            "maximum_hops": FROZEN_MAX_HOPS,
+            "over_depth_rejected": True,
+            "duplicate_hop_ids_rejected": True,
+        }
 
         # Mutant 1: check only root-to-descendant containment and omit immediate edges.
         raw = book["allow-expansion-masked-at-hop-two"]
