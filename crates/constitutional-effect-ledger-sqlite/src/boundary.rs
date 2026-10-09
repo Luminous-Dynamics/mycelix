@@ -570,6 +570,7 @@ impl EffectBoundaryHostV1 {
         let evidence = TerminalEvidenceV1::from_attempt(
             action_key,
             attempt,
+            &verified.provider_idempotency_key,
             verified.outcome,
             verified.evidence_commitment,
             verified.verifier_identity,
