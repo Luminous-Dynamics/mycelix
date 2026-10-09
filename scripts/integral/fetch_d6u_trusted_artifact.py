@@ -48,6 +48,21 @@ MAX_ZIP_EOCD_SEARCH_BYTES = 22 + 65535
 ALLOWED_ZIP_COMPRESSION_METHODS = {0, 8}  # stored, deflate (Zlib)
 
 
+def positive_json_int(value, label: str) -> int:
+    assert isinstance(value, int) and not isinstance(value, bool) and value > 0, (
+        f"{label} must be a positive integer"
+    )
+    return value
+
+
+def positive_decimal_environment(name: str) -> int:
+    value = os.environ[name]
+    assert re.fullmatch(r"[1-9][0-9]*", value), (
+        f"{name} is not a canonical positive decimal integer"
+    )
+    return int(value)
+
+
 def github_get(repo: str, api_path: str, token: str) -> dict:
     request = urllib.request.Request(
         f"https://api.github.com/repos/{repo}{api_path}",
@@ -70,15 +85,17 @@ def github_get(repo: str, api_path: str, token: str) -> dict:
 
 def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
     trusted_repository = policy["repository_identity"]
-    expected_repository_id = int(os.environ["D6U_TRUSTED_REPOSITORY_ID"])
+    expected_repository_id = positive_decimal_environment("D6U_TRUSTED_REPOSITORY_ID")
     assert repo == trusted_repository["full_name"]
     assert expected_repository_id == int(trusted_repository["repository_id"])
     workflow_run = event["workflow_run"]
     event_repo = event["repository"]
     assert event_repo["full_name"] == repo
-    assert int(event_repo["id"]) == expected_repository_id
+    assert positive_json_int(event_repo["id"], "trigger repository ID") == expected_repository_id
     assert workflow_run["repository"]["full_name"] == repo
     assert workflow_run["head_repository"]["full_name"] == repo
+    assert positive_json_int(workflow_run["repository"]["id"], "trigger run repository ID") == expected_repository_id
+    assert positive_json_int(workflow_run["head_repository"]["id"], "trigger run head repository ID") == expected_repository_id
     assert event_repo["id"] == workflow_run["repository"]["id"] == workflow_run["head_repository"]["id"]
     assert workflow_run["event"] == "workflow_run"
     assert workflow_run["name"] == policy["workflow_name"]
@@ -90,8 +107,8 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
     assert workflow_run["head_branch"] == os.environ["D6U_TRIGGER_HEAD_BRANCH"]
     assert workflow_run["head_sha"] == os.environ["D6U_TRIGGER_HEAD_SHA"]
 
-    run_id = workflow_run["id"]
-    run_attempt = workflow_run["run_attempt"]
+    run_id = positive_json_int(workflow_run["id"], "trigger workflow run ID")
+    run_attempt = positive_json_int(workflow_run["run_attempt"], "trigger workflow run attempt")
     expected_name = (
         f"d6u-runtime-evidence-run-{run_id}-attempt-{run_attempt}"
     )
@@ -102,12 +119,12 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
         f"/actions/runs/{run_id}",
         token,
     )
-    assert current_run["id"] == run_id
-    assert current_run["run_attempt"] == run_attempt
+    assert positive_json_int(current_run["id"], "current workflow run ID") == run_id
+    assert positive_json_int(current_run["run_attempt"], "current workflow run attempt") == run_attempt
     assert current_run["repository"]["full_name"] == repo
-    assert int(current_run["repository"]["id"]) == expected_repository_id
+    assert positive_json_int(current_run["repository"]["id"], "current repository ID") == expected_repository_id
     assert current_run["head_repository"]["full_name"] == repo
-    assert int(current_run["head_repository"]["id"]) == expected_repository_id
+    assert positive_json_int(current_run["head_repository"]["id"], "current head repository ID") == expected_repository_id
     assert current_run["head_branch"] == os.environ["D6U_TRIGGER_HEAD_BRANCH"]
     assert current_run["head_sha"] == os.environ["D6U_TRIGGER_HEAD_SHA"]
     payload = github_get(
@@ -123,9 +140,9 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
     assert artifact["name"] == expected_name
     assert artifact["expired"] is False
     workflow_artifact_run = artifact["workflow_run"]
-    assert workflow_artifact_run["id"] == run_id
-    assert int(workflow_artifact_run["repository_id"]) == expected_repository_id
-    assert int(workflow_artifact_run["head_repository_id"]) == expected_repository_id
+    assert positive_json_int(workflow_artifact_run["id"], "artifact workflow run ID") == run_id
+    assert positive_json_int(workflow_artifact_run["repository_id"], "artifact repository ID") == expected_repository_id
+    assert positive_json_int(workflow_artifact_run["head_repository_id"], "artifact head repository ID") == expected_repository_id
     assert workflow_artifact_run["repository_id"] == workflow_artifact_run["head_repository_id"]
     assert workflow_artifact_run["head_branch"] == workflow_run["head_branch"]
     assert workflow_artifact_run["head_sha"] == workflow_run["head_sha"]
@@ -135,7 +152,11 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
         f"missing or malformed GitHub artifact digest: {digest!r}"
     )
     maximum = int(policy["artifact_max_total_bytes"])
-    assert artifact["size_in_bytes"] <= maximum, (
+    artifact_size = artifact["size_in_bytes"]
+    assert isinstance(artifact_size, int) and not isinstance(artifact_size, bool) and artifact_size >= 0, (
+        "artifact archive size is not a nonnegative integer"
+    )
+    assert artifact_size <= maximum, (
         f"artifact archive exceeds trusted maximum: "
         f"{artifact['size_in_bytes']} > {maximum}"
     )
@@ -144,11 +165,11 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
 
 def expected_current_run_artifact(repo: str, policy: dict) -> dict:
     trusted_repository = policy["repository_identity"]
-    expected_repository_id = int(os.environ["D6U_TRUSTED_REPOSITORY_ID"])
+    expected_repository_id = positive_decimal_environment("D6U_TRUSTED_REPOSITORY_ID")
     assert repo == trusted_repository["full_name"]
     assert expected_repository_id == int(trusted_repository["repository_id"])
-    run_id = int(os.environ["GITHUB_RUN_ID"])
-    run_attempt = int(os.environ["GITHUB_RUN_ATTEMPT"])
+    run_id = positive_decimal_environment("GITHUB_RUN_ID")
+    run_attempt = positive_decimal_environment("GITHUB_RUN_ATTEMPT")
     token = os.environ["GITHUB_TOKEN"]
     expected_name = policy["auditor_handoff"]["artifact_name_template"].format(
         run_id=run_id,
@@ -160,12 +181,12 @@ def expected_current_run_artifact(repo: str, policy: dict) -> dict:
         f"/actions/runs/{run_id}",
         token,
     )
-    assert current_run["id"] == run_id
-    assert current_run["run_attempt"] == run_attempt
+    assert positive_json_int(current_run["id"], "current workflow run ID") == run_id
+    assert positive_json_int(current_run["run_attempt"], "current workflow run attempt") == run_attempt
     assert current_run["repository"]["full_name"] == repo
     assert current_run["head_repository"]["full_name"] == repo
-    assert int(current_run["repository"]["id"]) == expected_repository_id
-    assert int(current_run["head_repository"]["id"]) == expected_repository_id
+    assert positive_json_int(current_run["repository"]["id"], "current repository ID") == expected_repository_id
+    assert positive_json_int(current_run["head_repository"]["id"], "current head repository ID") == expected_repository_id
     expected_ref = f"refs/heads/{current_run['head_branch']}"
     assert os.environ["GITHUB_REF"] == expected_ref
     assert current_run["head_sha"] == os.environ["GITHUB_SHA"]
@@ -184,9 +205,9 @@ def expected_current_run_artifact(repo: str, policy: dict) -> dict:
     assert artifact["name"] == expected_name
     assert artifact["expired"] is False
     workflow_artifact_run = artifact["workflow_run"]
-    assert workflow_artifact_run["id"] == run_id
-    assert workflow_artifact_run["repository_id"] == current_run["repository"]["id"]
-    assert workflow_artifact_run["head_repository_id"] == current_run["head_repository"]["id"]
+    assert positive_json_int(workflow_artifact_run["id"], "handoff artifact run ID") == run_id
+    assert positive_json_int(workflow_artifact_run["repository_id"], "handoff artifact repository ID") == expected_repository_id
+    assert positive_json_int(workflow_artifact_run["head_repository_id"], "handoff artifact head repository ID") == expected_repository_id
     assert workflow_artifact_run["repository_id"] == workflow_artifact_run["head_repository_id"]
     assert workflow_artifact_run["head_branch"] == current_run["head_branch"]
     assert workflow_artifact_run["head_sha"] == current_run["head_sha"]
