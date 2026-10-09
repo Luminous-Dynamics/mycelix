@@ -149,6 +149,49 @@
           };
         };
 
+        # Optional outputs use the same lockfile-derived dependency sources and
+        # offline lifecycle hook as the main SDK package. These are deliberately
+        # separate from checks.sdk-ts so normal CI does not pay for coverage/docs.
+        sdkTsCoverage = sdkTs.overrideAttrs (oldAttrs: {
+          pname = "mycelix-sdk-ts-coverage";
+          name = "mycelix-sdk-ts-coverage-${sdkTsPackage.version}";
+          npmBuildScript = "test:coverage";
+          preBuild = ''
+            npm run typecheck
+            npm run lint
+          '';
+          installPhase = ''
+            runHook preInstall
+            test -d coverage
+            mkdir -p "$out"
+            cp -r coverage "$out/coverage"
+            runHook postInstall
+          '';
+          meta = oldAttrs.meta // {
+            description = "Coverage report for the Mycelix TypeScript SDK, built with Nix";
+          };
+        });
+
+        sdkTsDocs = sdkTs.overrideAttrs (oldAttrs: {
+          pname = "mycelix-sdk-ts-docs";
+          name = "mycelix-sdk-ts-docs-${sdkTsPackage.version}";
+          npmBuildScript = "docs";
+          preBuild = ''
+            npm run typecheck
+            npm run lint
+          '';
+          installPhase = ''
+            runHook preInstall
+            test -d docs
+            mkdir -p "$out"
+            cp -r docs "$out/docs"
+            runHook postInstall
+          '';
+          meta = oldAttrs.meta // {
+            description = "Typedoc documentation for the Mycelix TypeScript SDK, built with Nix";
+          };
+        });
+
       in {
         devShells = {
           # Full development environment (all tools)
@@ -292,6 +335,8 @@
           # Build, typecheck, lint, and test the TypeScript SDK entirely from
           # the flake-pinned Node toolchain and Nix-materialized lockfile.
           sdk-ts = sdkTs;
+          sdk-ts-coverage = sdkTsCoverage;
+          sdk-ts-docs = sdkTsDocs;
 
           # Build all core zomes from workspace
           all-zomes = pkgs.stdenv.mkDerivation {
