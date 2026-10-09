@@ -533,7 +533,78 @@ pub fn verify_reconciliation(
                     }
                 }
             }
-            ReconciliationDisposition::Rejected { .. } => {}
+            ReconciliationDisposition::Rejected { reason } => {
+                // Rejection is a claim too: the independent verifier must justify it from
+                // original inputs, rather than accepting any planner-supplied reason string.
+                // Idempotency payload collisions override earlier identity/validity outcomes,
+                // matching the input grouping semantics while remaining independently derived.
+                let scoped_key = (request.participant_id.clone(), request.idempotency_key.clone());
+                let expected_reason = if conflicting_idempotency_keys.contains(&scoped_key) {
+                    Some("idempotency-key-payload-conflict")
+                } else if reservation_id_counts.get(&request.reservation_id).copied().unwrap_or_default() > 1 {
+                    Some("duplicate-reservation-id")
+                } else if request.participant_id.trim().is_empty() {
+                    Some("empty-participant-id")
+                } else if request.node_id.trim().is_empty() {
+                    Some("empty-node-id")
+                } else if request.reservation_id.trim().is_empty() {
+                    Some("empty-reservation-id")
+                } else if request.idempotency_key.trim().is_empty() {
+                    Some("empty-idempotency-key")
+                } else if request.hub_id.trim().is_empty() || request.sku_id.trim().is_empty() {
+                    Some("empty-resource-id")
+                } else if request.quantity == 0 {
+                    Some("zero-quantity")
+                } else if request.snapshot_observed_at_ms > request.snapshot_valid_until_ms
+                    || request.snapshot_observed_at_ms > now_ms
+                    || now_ms > request.snapshot_valid_until_ms
+                    || request.observed_at_ms < request.snapshot_observed_at_ms
+                    || request.observed_at_ms > now_ms
+                {
+                    Some("stale-or-invalid-snapshot-window")
+                } else if now_ms > request.lease_until_ms {
+                    Some("offline-reservation-lease-expired")
+                } else if request.quantity > request.snapshot_available_units {
+                    // The single-request capacity rejection is only justified when this is
+                    // the sole non-alias eligible logical contender for this resource. If
+                    // several eligible requests compete, the correct result is an explicit
+                    // conflict, not independent rejections that conceal oversubscription.
+                    let resource_key = (request.hub_id.clone(), request.sku_id.clone());
+                    let active_contenders = requests_by_resource.get(&resource_key)
+                        .map(|resource_requests| resource_requests.iter().filter(|candidate| {
+                            if !eligible_from_inputs(candidate) {
+                                return false;
+                            }
+                            let candidate_identity = (
+                                candidate.participant_id.clone(),
+                                candidate.node_id.clone(),
+                                candidate.reservation_id.clone(),
+                            );
+                            !decision_by_id.get(&candidate_identity).is_some_and(|candidate_decision| {
+                                matches!(
+                                    &candidate_decision.disposition,
+                                    ReconciliationDisposition::DuplicateOf { .. }
+                                )
+                            })
+                        }).count())
+                        .unwrap_or_default();
+                    if active_contenders == 1 {
+                        Some("insufficient-snapshot-availability")
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                if expected_reason != Some(*reason) {
+                    violations.insert(format!(
+                        "unjustified-rejection:{}:{}",
+                        request.reservation_id,
+                        escape_field(reason)
+                    ));
+                }
+            }
         }
     }
 
@@ -894,4 +965,41 @@ mod tests {
         assert!(verify_reconciliation(&requests, 120, &injected)
             .iter().any(|violation| violation == "pending-overcommits-snapshot:coop-hub-01:rice-25kg"));
     }
+
+    #[test]
+    fn independent_verifier_rejects_unjustified_rejection_of_eligible_request() {
+        let requests = vec![offline("coop-a", "edge-a", "reserve-a", "op-a", 1, 4)];
+        let injected = vec![ReconciliationDecision {
+            participant_id: "coop-a".into(),
+            node_id: "edge-a".into(),
+            reservation_id: "reserve-a".into(),
+            disposition: ReconciliationDisposition::Rejected {
+                reason: "injected-false-rejection",
+            },
+        }];
+
+        let violations = verify_reconciliation(&requests, 120, &injected);
+        assert!(violations.iter().any(|violation|
+            violation == "unjustified-rejection:reserve-a:injected-false-rejection"
+        ));
+    }
+
+    #[test]
+    fn independent_verifier_rejects_false_insufficient_snapshot_rejection() {
+        let requests = vec![offline("coop-a", "edge-a", "reserve-a", "op-a", 1, 4)];
+        let injected = vec![ReconciliationDecision {
+            participant_id: "coop-a".into(),
+            node_id: "edge-a".into(),
+            reservation_id: "reserve-a".into(),
+            disposition: ReconciliationDisposition::Rejected {
+                reason: "insufficient-snapshot-availability",
+            },
+        }];
+
+        let violations = verify_reconciliation(&requests, 120, &injected);
+        assert!(violations.iter().any(|violation|
+            violation == "unjustified-rejection:reserve-a:insufficient-snapshot-availability"
+        ));
+    }
+
 }
