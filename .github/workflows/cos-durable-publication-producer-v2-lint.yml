@@ -75,6 +75,8 @@ jobs:
           assert 'ReferenceModelOnly' in text
           assert 'sha256sum --check --strict SHA256SUMS' in publish
           assert 'isPrerelease' in publish
+          final_proof=publish.split('- name: Prove immutable release and asset',1)[1].split('\\n      - name:',1)[0]
+          assert "assert d['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']" in final_proof
           assert 'MYCELIX-COS-PROTECTED-MAIN-POLICY-V1' in text
           assert 'MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1' in text
           assert 'MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1' in text
