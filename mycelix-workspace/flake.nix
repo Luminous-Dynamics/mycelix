@@ -173,6 +173,9 @@
             inherit (holochainBase.envVars)
               LIBCLANG_PATH BINDGEN_EXTRA_CLANG_ARGS
               OPENSSL_DIR OPENSSL_LIB_DIR OPENSSL_INCLUDE_DIR;
+            # Keep this focused shell's pkg-config search limited to OpenSSL;
+            # the shared Holochain shell's PKG_CONFIG_PATH includes GUI/ML deps.
+            PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
           };
 
           # Holochain-only environment (focused zome development)
