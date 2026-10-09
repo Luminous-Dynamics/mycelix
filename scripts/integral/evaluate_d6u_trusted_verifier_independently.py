@@ -284,6 +284,7 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
         "head_sha": subject_sha,
     }
     artifact = {
+        "id": 17,
         "name": expected_name,
         "expired": False,
         "workflow_run": {
@@ -499,6 +500,36 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
             "candidate fetcher accepted multiple matching artifacts",
         )
 
+        boolean_artifact_id = copy.deepcopy(artifact)
+        boolean_artifact_id["id"] = True
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [current_run, {"artifacts": [boolean_artifact_id]}],
+            ),
+            "artifact ID must be a positive integer",
+            "candidate fetcher accepted a boolean runtime artifact ID",
+        )
+
+        string_artifact_id = copy.deepcopy(artifact)
+        string_artifact_id["id"] = "17"
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [current_run, {"artifacts": [string_artifact_id]}],
+            ),
+            "artifact ID must be a positive integer",
+            "candidate fetcher accepted a string runtime artifact ID",
+        )
+
         bad_digest = copy.deepcopy(artifact)
         bad_digest["digest"] = "sha512:" + "d" * 128
         assert_rejected(
@@ -583,6 +614,22 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
         assert destination.read_bytes() == payload
 
         assert_rejected(
+            lambda: fetcher.download_archive(
+                repository, True, correct_digest, destination, len(payload)
+            ),
+            "artifact download ID must be a positive integer",
+            "candidate fetcher attempted to download using a boolean artifact ID",
+        )
+
+        assert_rejected(
+            lambda: fetcher.download_archive(
+                repository, 17, "sha512:" + "0" * 128, destination, len(payload)
+            ),
+            "expected artifact digest is not canonical SHA-256",
+            "candidate fetcher downloaded with a noncanonical expected digest",
+        )
+
+        assert_rejected(
             lambda: _download_fixture_archive(
                 fetcher,
                 repository,
@@ -665,6 +712,7 @@ def exercise_fetcher_current_run_handoff(fetcher, candidate_policy: dict) -> Non
         "head_sha": head_sha,
     }
     artifact = {
+        "id": 451,
         "name": expected_name,
         "expired": False,
         "workflow_run": {
@@ -851,6 +899,22 @@ def exercise_fetcher_current_run_handoff(fetcher, candidate_policy: dict) -> Non
         response={"artifacts": [expired]},
         expected='artifact["expired"] is False',
         message="candidate fetcher accepted an expired handoff artifact",
+    )
+
+    bool_handoff_id = copy.deepcopy(artifact)
+    bool_handoff_id["id"] = True
+    expect_rejection(
+        response={"artifacts": [bool_handoff_id]},
+        expected="handoff artifact ID must be a positive integer",
+        message="candidate fetcher accepted a boolean handoff artifact ID",
+    )
+
+    noninteger_handoff_id = copy.deepcopy(artifact)
+    noninteger_handoff_id["id"] = "451"
+    expect_rejection(
+        response={"artifacts": [noninteger_handoff_id]},
+        expected="handoff artifact ID must be a positive integer",
+        message="candidate fetcher accepted a string handoff artifact ID",
     )
 
     bad_digest = copy.deepcopy(artifact)
