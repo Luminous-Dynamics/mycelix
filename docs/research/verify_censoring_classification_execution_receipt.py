@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verify a downloaded research execution receipt against GitHub workflow_run metadata."""
 from __future__ import annotations
-import argparse, hashlib, json, sys
+import argparse, copy, hashlib, json, sys
 from pathlib import Path
 
 RECEIPT_SCHEMA="mycelix.continual-adaptation.censoring-classification-execution-receipt.v1"
