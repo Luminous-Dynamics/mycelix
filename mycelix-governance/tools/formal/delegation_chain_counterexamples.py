@@ -15,6 +15,8 @@ import compound_subsumption_counterexamples as oracle
 
 CHAIN_SCHEMA = "mycelix.effective-policy-delegation-chain.v1"
 RESULT_SCHEMA = "mycelix.effective-policy-delegation-chain-result.v1"
+MAX_HOPS = 8
+
 FAILURE_STATUSES = {
     "AUTHORITY_EXPANSION",
     "POLICY_ATTENUATION_VIOLATION",
@@ -43,6 +45,17 @@ def evaluate_chain(raw: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("chain requires a finite universe object")
     if not isinstance(hops, list) or len(hops) < 2:
         raise ValueError("chain requires a root and at least one delegated hop")
+    if len(hops) > MAX_HOPS:
+        return {
+            "schema": RESULT_SCHEMA,
+            "status": "UNSUPPORTED_OR_UNDECIDABLE",
+            "hop_count": len(hops),
+            "failure_count": 1,
+            "failures": [{"status": "UNSUPPORTED_OR_UNDECIDABLE",
+                          "reason": f"chain exceeds bounded maximum of {MAX_HOPS} hops"}],
+            "reason": f"chain exceeds bounded maximum of {MAX_HOPS} hops",
+            "qualification": "NOT_CLAIMED",
+        }
     ids = [hop.get("id") if isinstance(hop, dict) else None for hop in hops]
     if any(not isinstance(item, str) or not item for item in ids):
         raise ValueError("each chain hop requires a non-empty id")
