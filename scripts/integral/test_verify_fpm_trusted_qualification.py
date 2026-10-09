@@ -24,6 +24,7 @@ TW_NAME = "FPM trusted qualification policy"
 TW_PATH = ".github/workflows/fpm-trusted-qualification.yml"
 IW_PATH = ".github/workflows/fpm-trusted-qualification-independent-verify.yml"
 WORKFLOW_PATH = Path(__file__).parents[2] / ".github/workflows/fpm-trusted-qualification-independent-verify.yml"
+TRUSTED_WORKFLOW_PATH = Path(__file__).parents[2] / ".github/workflows/fpm-trusted-qualification.yml"
 TRUSTED_POLICY_WORKFLOW_PATH = Path(__file__).parents[2] / ".github/workflows/fpm-trusted-qualification.yml"
 COLLECTOR = Path(__file__).with_name("collect_fpm_trusted_artifacts.py")
 COLLECTOR_MODULE = "collect_fpm_trusted_artifacts"
@@ -263,6 +264,7 @@ def expect_failure(base: Path, target: str, label: str, mutator) -> None:
 
 def assert_evidence_archive_contract() -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+    trusted_workflow = TRUSTED_WORKFLOW_PATH.read_text(encoding="utf-8")
     marker = "      - name: Normalize downloaded raw evidence archives\n"
     next_marker = "      - name: Extract evidence targets with strict JSON parser\n"
     assert workflow.count(next_marker) == 1
@@ -287,52 +289,52 @@ def assert_evidence_archive_contract() -> None:
     assert block.index("verify_raw_artifact_archive") < block.index("Path(\"snapshot/qualification-receipt.json\")")
     assert "find snapshot/download" not in workflow
     assert "-print -quit" not in workflow
-    assert "sandbox-system-closure.tsv" in workflow
-    assert "FPM_SYSTEM_CLOSURE_PROFILE" in workflow
-    assert "FPM_SANDBOX_IMAGE: gcc@sha256:603634c53d477dd94dd224a3dd5c008e996dd3ec8ccc54ac6af9344d990339e5" in workflow
-    assert "FPM_SYSTEM_CLOSURE_PROFILE: fpm-debian12-bookworm-gcc13.4-amd64-rust-1.96.1-v1" in workflow
-    assert "rustc --crate-name fpm_toolchain_probe --edition 2024 -C linker=cc" in workflow
+    assert "sandbox-system-closure.tsv" in trusted_workflow
+    assert "FPM_SYSTEM_CLOSURE_PROFILE" in trusted_workflow
+    assert "FPM_SANDBOX_IMAGE: gcc@sha256:603634c53d477dd94dd224a3dd5c008e996dd3ec8ccc54ac6af9344d990339e5" in trusted_workflow
+    assert "FPM_SYSTEM_CLOSURE_PROFILE: fpm-debian12-bookworm-gcc13.4-amd64-rust-1.96.1-v1" in trusted_workflow
+    assert "rustc --crate-name fpm_toolchain_probe --edition 2024 -C linker=cc" in trusted_workflow
     assert "FPM_SANDBOX_IMAGE: gcc@{expected_image_digest}" in verifier
     assert "/usr/local/lib64/" in verifier
-    assert "required_commands=(bash env grep tr timeout cargo rustc rustfmt cc ld as ldd realpath readelf sha256sum sed uname cat find sort mkdir chmod rm ln)" in workflow
-    assert "/usr/local/bin/*|/usr/local/sbin/*|/usr/bin/*" in workflow
-    assert "FPM_SANDBOX_IMAGE: gcc@sha256:603634c53d477dd94dd224a3dd5c008e996dd3ec8ccc54ac6af9344d990339e5" in workflow
-    assert "queue=()" in workflow
+    assert "required_commands=(bash env grep tr timeout cargo rustc rustfmt cc ld as ldd realpath readelf sha256sum sed uname cat find sort mkdir chmod rm ln)" in trusted_workflow
+    assert "/usr/local/bin/*|/usr/local/sbin/*|/usr/bin/*" in trusted_workflow
+    assert "FPM_SANDBOX_IMAGE: gcc@sha256:603634c53d477dd94dd224a3dd5c008e996dd3ec8ccc54ac6af9344d990339e5" in trusted_workflow
+    assert "queue=()" in trusted_workflow
     assert 'while [ "$queue_index" -lt "${#queue[@]}" ]; do' in workflow
-    assert "native library closure exceeds 256 unique libraries" in workflow
-    assert "done < /tmp/fpm-ldd-queue" not in workflow
+    assert "native library closure exceeds 256 unique libraries" in trusted_workflow
+    assert "done < /tmp/fpm-ldd-queue" not in trusted_workflow
     assert "sandbox_system_closure" in verifier
     assert "def require_canonical_absolute_path" in verifier
     assert "posixpath.normpath(value) != value" in verifier
     assert '[A-Za-z0-9._/+:-]+' in verifier
     assert "sandbox_system_closure.command-path-traversal" in Path(__file__).read_text(encoding="utf-8")
     assert "sandbox_target_closure.executable-control-char" in Path(__file__).read_text(encoding="utf-8")
-    assert "noncanonical system closure line: {line!r}" in workflow
-    assert "noncanonical target closure line: {line!r}" in workflow
-    assert "compiled test executable is absent from closure" in workflow
-    assert "native dependency is absent from closure" in workflow
+    assert "noncanonical system closure line: {line!r}" in trusted_workflow
+    assert "noncanonical target closure line: {line!r}" in trusted_workflow
+    assert "compiled test executable is absent from closure" in trusted_workflow
+    assert "native dependency is absent from closure" in trusted_workflow
     assert '[[ "$path" =~ ^/[A-Za-z0-9._/+:-]+$ ]]' in workflow
-    assert 'test "$actual_executable_count" -eq "$declared_executable_count"' in workflow
+    assert 'test "$actual_executable_count" -eq "$declared_executable_count"' in trusted_workflow
     assert "rustc --crate-name fpm_toolchain_probe --edition 2024 -C linker=cc" in verifier
     assert "/target/.fpm-toolchain-probe" in verifier
     assert "if len(invocations) != len(expected_steps) or actual_steps != expected_steps:" in verifier
-    assert "cargo test --locked --offline --no-run --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml" in workflow
+    assert "cargo test --locked --offline --no-run --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml" in trusted_workflow
     assert "readelf -l \"$resolved\"" in workflow
-    assert "test native library closure exceeds 512 unique libraries" in workflow
-    assert 'target_closure_path = os.environ["TARGET_CLOSURE_FILE"]' in workflow
-    assert "if os.path.isfile(target_closure_path)" in workflow
-    assert "chmod -R a-w /target" not in workflow
-    assert "--mount type=bind,src=\"${TARGET_CLOSURE_FILE}\",dst=/tmp/fpm-target-closure.tsv,readonly" in workflow
+    assert "test native library closure exceeds 512 unique libraries" in trusted_workflow
+    assert 'target_closure_path = os.environ["TARGET_CLOSURE_FILE"]' in trusted_workflow
+    assert "if os.path.isfile(target_closure_path)" in trusted_workflow
+    assert "chmod -R a-w /target" not in trusted_workflow
+    assert "--mount type=bind,src=\"${TARGET_CLOSURE_FILE}\",dst=/tmp/fpm-target-closure.tsv,readonly" in trusted_workflow
     assert workflow.count("- name: Extract evidence targets with strict JSON parser") == 1
     assert "root_config_hits=\"$(git ls-files --stage -- .cargo/config .cargo/config.toml || true)\"" in workflow
-    assert "test ! -L .cargo" in workflow
-    assert "test ! -L ../.cargo" in workflow
-    assert "for config_path in .cargo/config .cargo/config.toml ../.cargo/config ../.cargo/config.toml; do" in workflow
-    assert 'test ! -e "$config_path"' in workflow
-    assert 'test ! -L "$config_path"' in workflow
-    assert 'if "patch" in lock or "replace" in lock:' in workflow
-    assert 'test ! -e "$CARGO_HOME/config"' in workflow
-    assert 'test ! -L "$CARGO_HOME/config.toml"' in workflow
+    assert "test ! -L .cargo" in trusted_workflow
+    assert "test ! -L ../.cargo" in trusted_workflow
+    assert "for config_path in .cargo/config .cargo/config.toml ../.cargo/config ../.cargo/config.toml; do" in trusted_workflow
+    assert 'test ! -e "$config_path"' in trusted_workflow
+    assert 'test ! -L "$config_path"' in trusted_workflow
+    assert 'if "patch" in lock or "replace" in lock:' in trusted_workflow
+    assert 'test ! -e "$CARGO_HOME/config"' in trusted_workflow
+    assert 'test ! -L "$CARGO_HOME/config.toml"' in trusted_workflow
     assert "config_hit=\"$(git ls-files | grep -E" not in workflow
     
 
