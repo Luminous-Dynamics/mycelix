@@ -23,6 +23,8 @@ pub const MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-time-authority-profile-v5";
 pub const MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-temporal-attestation-v4";
+pub const MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V1: &str =
+    "mycelix-manufacturing-machine-temporal-evidence-receipt-v1";
 /// Hard upper bound used to keep temporal uncertainty arithmetic bounded.
 pub const MAX_MACHINE_TEMPORAL_ACCURACY_MICROS: i64 = 86_400_000_000;
 /// Maximum encoded size for the opaque external evidence commitment.
@@ -37,6 +39,8 @@ pub const MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS: usize = 256;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct MachineTemporalEvidenceObservation {
+    /// Versioned outer archive format; inner signed statements retain their own schema IDs.
+    pub receipt_schema_id: String,
     pub attestation_hash: ActionHash,
     pub authority_agent: AgentPubKey,
     pub profile_hash: ActionHash,
@@ -98,7 +102,8 @@ impl MachineTemporalEvidenceObservation {
     fn signed_statements_match_observation(&self) -> bool {
         let profile = &self.profile_statement;
         let attestation = &self.attestation_statement;
-        profile.action_hash == self.profile_hash
+        self.receipt_schema_id == MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V1
+            && profile.action_hash == self.profile_hash
             && attestation.action_hash == self.attestation_hash
             && profile.payload.schema_id == MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID
             && attestation.payload.schema_id == MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID
@@ -1520,6 +1525,7 @@ mod content_restriction_tests {
             source_commitment: source_commitment.clone(),
         };
         MachineTemporalEvidenceObservation {
+            receipt_schema_id: MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V1.to_string(),
             attestation_hash: attestation_hash.clone(),
             authority_agent: authority_agent.clone(),
             profile_hash: profile_hash.clone(),
@@ -1743,6 +1749,16 @@ mod content_restriction_tests {
                 time: Timestamp::from_micros(100),
                 evidence: vec![a],
             }
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_rejects_unknown_receipt_schema() {
+        let mut observation = temporal_observation(1, 7, 100);
+        observation.receipt_schema_id = "unknown-receipt-v99".into();
+        assert_eq!(
+            resolve_temporal_evidence(vec![observation]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
         );
     }
 
