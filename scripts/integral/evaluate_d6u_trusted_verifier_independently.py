@@ -43,12 +43,14 @@ EXPECTED_TRUSTED_PROGRAM_PATHS = (
 )
 
 
-def load_module(path: pathlib.Path):
+def load_module(path: pathlib.Path, source_bytes: bytes):
+    """Execute exactly the source snapshot whose digest was verified."""
     spec = importlib.util.spec_from_file_location("candidate_d6u_verifier", path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"unable to load candidate verifier: {path}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    code = compile(source_bytes, str(path), "exec")
+    exec(code, module.__dict__)
     return module
 
 
@@ -91,6 +93,20 @@ def exercise_evaluator_optimized_mode_guard() -> None:
         "independent evaluator did not fail at its optimized-mode guard: "
         f"returncode={completed.returncode}, stderr={completed.stderr!r}"
     )
+
+
+def exercise_module_snapshot_loading() -> None:
+    """Prove candidate-module loading does not reopen a changed source path."""
+    with tempfile.TemporaryDirectory(prefix="d6u-module-snapshot-") as scratch:
+        path = pathlib.Path(scratch) / "candidate.py"
+        path.write_text("SNAPSHOT_MARKER = 'reopened-path'\\n", encoding="utf-8")
+        pinned_source = b"SNAPSHOT_MARKER = 'validated-bytes'\\n"
+        path.write_text("SNAPSHOT_MARKER = 'reopened-path'\\n", encoding="utf-8")
+        module = load_module(path, pinned_source)
+        assert module.SNAPSHOT_MARKER == "validated-bytes", (
+            "candidate module loader executed bytes from the path instead of "
+            "the validated source snapshot"
+        )
 
 
 def policy() -> dict:
@@ -420,6 +436,7 @@ def exercise_candidate_path_guard() -> None:
 def verify_candidate_trusted_program_blobs(
     candidate_root: pathlib.Path,
     candidate_policy: dict,
+    source_snapshots: dict[str, bytes] | None = None,
 ) -> dict[str, str]:
     trusted_programs = candidate_policy.get("trusted_programs")
     assert isinstance(trusted_programs, dict), (
@@ -441,7 +458,10 @@ def verify_candidate_trusted_program_blobs(
         source_path = candidate_regular_file(
             candidate_root, path, "trusted program"
         )
-        observed_blob = git_blob_sha1(source_path.read_bytes())
+        source_bytes = source_path.read_bytes()
+        observed_blob = git_blob_sha1(source_bytes)
+        if source_snapshots is not None:
+            source_snapshots[path] = source_bytes
         expected_blob = entry.get("blob_sha")
         assert expected_blob == observed_blob, (
             f"candidate trusted program blob mismatch: {path}; "
@@ -1397,6 +1417,7 @@ def exercise_main_record_guards(
 def run(candidate_root: pathlib.Path) -> None:
     exercise_candidate_path_guard()
     exercise_evaluator_optimized_mode_guard()
+    exercise_module_snapshot_loading()
     policy_path = candidate_regular_file(
         candidate_root, "docs/integral/d6u-trusted-builder-policy.json", "policy"
     )
@@ -1421,9 +1442,18 @@ def run(candidate_root: pathlib.Path) -> None:
         "candidate policy fingerprint accepted a byte-modified policy",
     )
     candidate_policy = json.loads(policy_bytes.decode("utf-8"))
-    observed_verifier_blob = git_blob_sha1(verifier_path.read_bytes())
-    observed_fetcher_blob = git_blob_sha1(fetcher_path.read_bytes())
-    observed_workflow_blob = git_blob_sha1(workflow_path.read_bytes())
+    workflow_bytes = workflow_path.read_bytes()
+    candidate_program_bytes: dict[str, bytes] = {}
+    observed_program_blobs = verify_candidate_trusted_program_blobs(
+        candidate_root, candidate_policy, source_snapshots=candidate_program_bytes
+    )
+    observed_verifier_blob = observed_program_blobs[
+        "scripts/integral/verify_d6u_trusted_artifacts.py"
+    ]
+    observed_fetcher_blob = observed_program_blobs[
+        "scripts/integral/fetch_d6u_trusted_artifact.py"
+    ]
+    observed_workflow_blob = git_blob_sha1(workflow_bytes)
     verify_candidate_policy(
         candidate_policy,
         p["record_fields"],
@@ -1431,14 +1461,16 @@ def run(candidate_root: pathlib.Path) -> None:
         observed_fetcher_blob,
         observed_workflow_blob,
     )
-    observed_program_blobs = verify_candidate_trusted_program_blobs(
-        candidate_root, candidate_policy
-    )
 
-    # Treat candidate code as inert bytes until the immutable policy, workflow,
-    # and complete trusted-program closure have all passed their blob checks.
-    verifier = load_module(verifier_path)
-    fetcher = load_module(fetcher_path)
+    # Import the same immutable byte snapshots whose blob identities passed.
+    verifier = load_module(
+        verifier_path,
+        candidate_program_bytes["scripts/integral/verify_d6u_trusted_artifacts.py"],
+    )
+    fetcher = load_module(
+        fetcher_path,
+        candidate_program_bytes["scripts/integral/fetch_d6u_trusted_artifact.py"],
+    )
 
     altered_program_policy = copy.deepcopy(candidate_policy)
     altered_program_policy["trusted_programs"][
@@ -1912,11 +1944,14 @@ def run(candidate_root: pathlib.Path) -> None:
         "candidate verifier accepted a missing record field",
     )
 
-    probe = "import runpy, sys; runpy.run_path(sys.argv[1], run_name='__independent_opt_probe__')"
+    probe = (
+        "import sys; exec(compile(sys.stdin.buffer.read(), sys.argv[1], 'exec'), "
+        "{'__name__': '__independent_opt_probe__', '__file__': sys.argv[1]})"
+    )
     for trusted_program_path in EXPECTED_TRUSTED_PROGRAM_PATHS:
         trusted_path = candidate_root / trusted_program_path
         label = trusted_program_path
-        source = trusted_path.read_text(encoding="utf-8")
+        source = candidate_program_bytes[trusted_program_path].decode("utf-8")
         assert "if not __debug__:" in source, (
             f"candidate trusted program lacks optimized-mode guard: {label}"
         )
@@ -1926,17 +1961,21 @@ def run(candidate_root: pathlib.Path) -> None:
         ), f"candidate trusted program lacks the required guard message: {label}"
         completed = subprocess.run(
             [sys.executable, "-O", "-c", probe, str(trusted_path)],
+            input=candidate_program_bytes[trusted_program_path],
             capture_output=True,
-            text=True,
             check=False,
         )
         assert completed.returncode != 0, (
             f"candidate trusted program executed under optimized Python: {label}"
         )
+        stderr = completed.stderr.decode("utf-8", errors="replace")
         assert (
             "trusted D6U program must not run with Python optimization enabled"
-            in completed.stderr
-        ), f"candidate trusted program did not fail at its optimized-mode guard: {label}"
+            in stderr
+        ), (
+            f"candidate trusted program did not fail at its optimized-mode guard: "
+            f"{label}; stderr={stderr!r}"
+        )
 
     print("independent D6U five-program closure and optimized-mode evaluator: PASS")
 
