@@ -378,6 +378,24 @@ def main() -> int:
                 "independent_connections": True,
             })
 
+            unavailable_proof = make_pop(
+                root / "valid-positive", keys[3]["private_path"],
+                "aat-leaf-chain-2", jti="pop-store-unavailable",
+            )
+            unavailable_database = root / "replay-database-is-directory"
+            unavailable_database.mkdir()
+            unavailable = invoke(raw, anchors, unavailable_proof, unavailable_database)
+            require(unavailable.get("status") == "INVOCATION_DENIED"
+                    and expected_code(unavailable) == "pop-replay-store-unavailable",
+                    "an unavailable replay store must fail closed: " +
+                    json.dumps(unavailable, sort_keys=True))
+            receipt["controls"].append({
+                "id": "replay-store-unavailable-fails-closed",
+                "status": unavailable["status"],
+                "finding": expected_code(unavailable),
+                "fail_closed": True,
+            })
+
             # Optional-audience profile with neither expected nor presented aud.
             raw, anchors, keys = make_chain(root / "optional-audience")
             token = make_pop(root / "optional-audience", keys[3]["private_path"],
