@@ -515,6 +515,212 @@ mod capability_policy_tests {
     }
 
     #[test]
+    fn every_unimplemented_permission_fails_closed() {
+        let cases: Vec<(&str, MailboxPermissions)> = vec![
+            (
+                "can_manage_labels",
+                MailboxPermissions {
+                    can_manage_labels: true,
+                    ..MailboxPermissions::default()
+                },
+            ),
+            (
+                "can_manage_rules",
+                MailboxPermissions {
+                    can_manage_rules: true,
+                    ..MailboxPermissions::default()
+                },
+            ),
+            (
+                "can_delegate",
+                MailboxPermissions {
+                    can_delegate: true,
+                    ..MailboxPermissions::default()
+                },
+            ),
+            (
+                "can_modify_settings",
+                MailboxPermissions {
+                    can_modify_settings: true,
+                    ..MailboxPermissions::default()
+                },
+            ),
+            (
+                "can_view_trust",
+                MailboxPermissions {
+                    can_view_trust: true,
+                    ..MailboxPermissions::default()
+                },
+            ),
+            (
+                "can_modify_trust",
+                MailboxPermissions {
+                    can_modify_trust: true,
+                    ..MailboxPermissions::default()
+                },
+            ),
+            (
+                "can_delete",
+                MailboxPermissions {
+                    can_delete: true,
+                    ..MailboxPermissions::default()
+                },
+            ),
+            (
+                "read-only cannot send",
+                MailboxPermissions {
+                    can_read: true,
+                    can_send: true,
+                    ..MailboxPermissions::default()
+                },
+            ),
+            (
+                "read-only cannot move",
+                MailboxPermissions {
+                    can_read: true,
+                    can_move: true,
+                    ..MailboxPermissions::default()
+                },
+            ),
+            (
+                "read-only cannot create folders",
+                MailboxPermissions {
+                    can_read: true,
+                    can_create_folders: true,
+                    ..MailboxPermissions::default()
+                },
+            ),
+            (
+                "attachments require read access",
+                MailboxPermissions {
+                    can_view_attachments: true,
+                    can_download_attachments: true,
+                    ..MailboxPermissions::default()
+                },
+            ),
+            (
+                "attachment view/download permissions must agree",
+                MailboxPermissions {
+                    can_read: true,
+                    can_view_attachments: true,
+                    ..MailboxPermissions::default()
+                },
+            ),
+        ];
+
+        for (case, permissions) in cases {
+            assert!(
+                determine_granted_functions(
+                    &MailboxAccessType::ReadOnly,
+                    &permissions,
+                    None,
+                )
+                .is_err(),
+                "unsupported permission profile must fail closed: {case}"
+            );
+        }
+    }
+
+    #[test]
+    fn every_unenforced_resource_restriction_fails_closed() {
+        let base = AccessRestrictions {
+            folder_whitelist: None,
+            folder_blacklist: None,
+            sender_whitelist: None,
+            max_emails: None,
+            date_from: None,
+            date_to: None,
+            network_restrictions: None,
+            require_2fa: false,
+            audit_required: false,
+        };
+        let folder = ActionHash::from_raw_36(vec![0; 36]);
+        let first_date = Timestamp::from_micros(1);
+        let last_date = Timestamp::from_micros(2);
+        let cases: Vec<(&str, AccessRestrictions)> = vec![
+            (
+                "folder_whitelist",
+                AccessRestrictions {
+                    folder_whitelist: Some(vec![folder.clone()]),
+                    ..base.clone()
+                },
+            ),
+            (
+                "folder_blacklist",
+                AccessRestrictions {
+                    folder_blacklist: Some(vec![folder]),
+                    ..base.clone()
+                },
+            ),
+            (
+                "sender_whitelist",
+                AccessRestrictions {
+                    sender_whitelist: Some(vec!["sender@example.test".to_string()]),
+                    ..base.clone()
+                },
+            ),
+            (
+                "max_emails",
+                AccessRestrictions {
+                    max_emails: Some(1),
+                    ..base.clone()
+                },
+            ),
+            (
+                "date_from",
+                AccessRestrictions {
+                    date_from: Some(first_date),
+                    ..base.clone()
+                },
+            ),
+            (
+                "date_to",
+                AccessRestrictions {
+                    date_to: Some(last_date),
+                    ..base.clone()
+                },
+            ),
+            (
+                "network_restrictions",
+                AccessRestrictions {
+                    network_restrictions: Some(vec!["10.0.0.0/8".to_string()]),
+                    ..base.clone()
+                },
+            ),
+            (
+                "require_2fa",
+                AccessRestrictions {
+                    require_2fa: true,
+                    ..base.clone()
+                },
+            ),
+            (
+                "audit_required",
+                AccessRestrictions {
+                    audit_required: true,
+                    ..base
+                },
+            ),
+        ];
+        let permissions = MailboxPermissions {
+            can_read: true,
+            ..MailboxPermissions::default()
+        };
+
+        for (case, restrictions) in cases {
+            assert!(
+                determine_granted_functions(
+                    &MailboxAccessType::ReadOnly,
+                    &permissions,
+                    Some(&restrictions),
+                )
+                .is_err(),
+                "unenforced resource restriction must fail closed: {case}"
+            );
+        }
+    }
+
+    #[test]
     fn future_actions_fail_closed() {
         let permissions = MailboxPermissions::default();
         assert!(!is_action_permitted(
