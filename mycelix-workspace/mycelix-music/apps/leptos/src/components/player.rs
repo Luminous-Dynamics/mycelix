@@ -10,6 +10,13 @@ use super::queue::QueuePanel;
 /// Attempt playback and observe the media promise instead of treating the
 /// synchronous JS call as proof that playback actually started. A stale reject
 /// from an older track/play attempt must not pause a newer selection.
+/// Require an actual selected media resource before calling play or accepting events.
+/// An empty currentSrc is a loading state, not proof that the selected URL is active.
+fn media_source_matches_expected(current_src: &str, expected_url: &str) -> bool {
+    !current_src.is_empty() && current_src == expected_url
+}
+
+
 fn request_playback(
     audio: web_sys::HtmlAudioElement,
     player: PlayerState,
@@ -29,7 +36,7 @@ fn request_playback(
     // resource. Wait for that resource to match, rather than replaying the old
     // track while the new source is loading.
     let current_src = audio.current_src();
-    if !current_src.is_empty() && current_src != expected_audio_url {
+    if !media_source_matches_expected(&current_src, &expected_audio_url) {
         return;
     }
 
@@ -75,13 +82,9 @@ fn request_playback(
 /// True only when media events belong to the song currently selected in PlayerState.
 fn audio_matches_selected_source(audio: &web_sys::HtmlAudioElement, player: &PlayerState) -> bool {
     let current_src = audio.current_src();
-    if current_src.is_empty() {
-        return false;
-    }
-    player
-        .current_song
-        .get_untracked()
-        .is_some_and(|song| current_src == song.audio_url())
+    player.current_song.get_untracked().is_some_and(|song| {
+        media_source_matches_expected(&current_src, &song.audio_url())
+    })
 }
 
 /// Persistent audio player bar at the bottom of the screen.
@@ -418,5 +421,31 @@ pub fn Player() -> impl IntoView {
             />
             <QueuePanel />
         </>
+    }
+}
+
+#[cfg(test)]
+mod media_source_guard_tests {
+    use super::media_source_matches_expected;
+
+    #[test]
+    fn empty_current_source_is_not_playable_yet() {
+        assert!(!media_source_matches_expected("", "https://ipfs.io/ipfs/QmSong"));
+    }
+
+    #[test]
+    fn stale_current_source_cannot_satisfy_new_selection() {
+        assert!(!media_source_matches_expected(
+            "https://ipfs.io/ipfs/QmOld",
+            "https://ipfs.io/ipfs/QmNew"
+        ));
+    }
+
+    #[test]
+    fn exact_selected_source_is_accepted() {
+        assert!(media_source_matches_expected(
+            "https://ipfs.io/ipfs/QmSong",
+            "https://ipfs.io/ipfs/QmSong"
+        ));
     }
 }
