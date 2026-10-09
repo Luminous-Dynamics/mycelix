@@ -897,6 +897,35 @@ version = "1.0.0"
             root, "artifacts.json", "artifact-run-branch",
             lambda x: x["artifacts"][0]["workflow_run"].__setitem__("head_branch", "feature"),
         )
+        def expect_duplicate_snapshot_key(file_name: str, marker: bytes, duplicate: bytes) -> None:
+            original = (root / file_name).read_bytes()
+            assert marker in original, f"duplicate-key fixture marker absent in {file_name}"
+            mutated = original.replace(marker, duplicate, 1)
+            fresh_root = Path(tempfile.mkdtemp(prefix="fpm-ref-snapshot-duplicate-"))
+            try:
+                for src in root.iterdir():
+                    if src.is_file():
+                        (fresh_root / src.name).write_bytes(src.read_bytes())
+                (fresh_root / file_name).write_bytes(mutated)
+                result = run(fresh_root)
+                assert result.returncode != 0, f"duplicate key accepted in {file_name}"
+                assert "duplicate JSON key" in result.stderr, (
+                    f"duplicate key in {file_name} failed for an unrelated reason: {result.stderr}"
+                )
+            finally:
+                shutil.rmtree(fresh_root)
+
+        expect_duplicate_snapshot_key(
+            "trusted-run.json", b'"id":2002', b'"id":2002,"id":2002'
+        )
+        expect_duplicate_snapshot_key(
+            "candidate-run.json", b'"run_attempt":1',
+            b'"run_attempt":1,"run_attempt":1'
+        )
+        expect_duplicate_snapshot_key(
+            "artifacts.json", b'"id":3003', b'"id":3003,"id":3003'
+        )
+
         raw = (root / "qualification-receipt.json").read_bytes()
         duplicate = raw[:-1].replace(
             b',"subject_sha":"' + SUBJECT.encode() + b'"',
