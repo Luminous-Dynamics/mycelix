@@ -612,12 +612,13 @@ def verify_sandbox_policy(policy_file: dict[str, Any], expected_image_digest: st
         "docker.sock",
         'sudo -n -u fpm-untrusted env -i             HOME="/home/fpm-untrusted"',
     )
+    verify_sandbox_invocations(policy_text)
+    verify_sandbox_programs(policy_text)
+
     for token in forbidden:
         if token in policy_text:
             fail(f"trusted sandbox policy contains forbidden broadening: {token}")
 
-    verify_sandbox_invocations(policy_text)
-    verify_sandbox_programs(policy_text)
     return policy_text
 
 def require_canonical_absolute_path(value: Any, field: str) -> str:
