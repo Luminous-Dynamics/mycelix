@@ -2,7 +2,7 @@
 
 **Profile ID:** `civ-013-durable-adapter-v1`  
 **Status:** experimental reference profile; not production qualification.  
-**Source adapter revision:** [Symthaea commit `42cb87e89167f0e9617e7052b118ef70bdfbc8b4`](https://github.com/Luminous-Dynamics/symthaea/commit/42cb87e89167f0e9617e7052b118ef70bdfbc8b4)  
+**Source adapter revision:** [Symthaea commit `a8e16a7877043114d4fe98fbc47df91c448d9665`](https://github.com/Luminous-Dynamics/symthaea/commit/a8e16a7877043114d4fe98fbc47df91c448d9665)  
 **Golden vectors:** [civ-013-durable-witness-conformance-v1.json](civ-013-durable-witness-conformance-v1.json)  
 **Manifest:** [civ-013-durable-witness-conformance-v1-manifest.json](civ-013-durable-witness-conformance-v1-manifest.json)  
 **Independent checker:** [verify_civ013_durable_witness_conformance_v1.py](../../scripts/integral/verify_civ013_durable_witness_conformance_v1.py)  
@@ -171,6 +171,8 @@ The adapter refuses to open a store unless `rusqlite::version_number()` is at le
 
 
 | DA041 | UnanchoredForkEvidenceErasure | Coordinated deletion of local fork rows and same-database tail metadata is outside the current claim because the external anchor tracks accepted-head state only |
+
+| DA042 | ExternalAnchorMismatchAndForkEvidenceRecorded | Recovery seeing a same-generation, different external-anchor digest records the competing pair locally, leaves accepted head unchanged, creates no prepared candidate, and still fails closed |
 
 ## Fork-evidence trust boundary and follow-on
 
