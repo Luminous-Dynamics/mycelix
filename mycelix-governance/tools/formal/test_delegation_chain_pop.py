@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 import json
 import shutil
 import sqlite3
+import stat
 import subprocess
 import sys
 import tempfile
@@ -317,6 +318,8 @@ def main() -> int:
             require("pop-valid-0001" not in repr(stored_rows),
                     "replay store exposed the raw PoP jti")
 
+            require(stat.S_IMODE(database.stat().st_mode) == 0o600,
+                    "replay database must be owner-only (mode 0600)")
             # Replay the exact same proof in the same store: second use MUST deny.
             replay = invoke(raw, anchors, token, database)
             require(replay.get("status") == "INVOCATION_DENIED"
