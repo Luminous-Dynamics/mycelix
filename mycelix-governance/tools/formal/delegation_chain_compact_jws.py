@@ -241,13 +241,17 @@ def _token_signing_input(token: str) -> bytes:
     return (parts[0] + "." + parts[1]).encode("ascii")
 
 
-def evaluate_compact_chain(raw: dict[str, Any], openssl_binary: str = "openssl") -> dict[str, Any]:
+def evaluate_compact_chain(raw: dict[str, Any], trusted_anchors: list[dict[str, Any]],
+                           openssl_binary: str = "openssl") -> dict[str, Any]:
     if raw.get("schema") != SCHEMA:
         return {"schema": RESULT_SCHEMA, "status": "UNSUPPORTED_OR_UNDECIDABLE",
                 "findings": [{"code": "unsupported-schema"}], "qualification": "NOT_CLAIMED"}
+    if set(raw) != {"schema", "now", "chain"}:
+        return {"schema": RESULT_SCHEMA, "status": "UNSUPPORTED_OR_UNDECIDABLE",
+                "findings": [{"code": "unexpected-chain-input-field"}], "qualification": "NOT_CLAIMED"}
     now = raw.get("now")
     chain = raw.get("chain")
-    anchors = raw.get("trust_anchors")
+    anchors = trusted_anchors
     if type(now) is not int or not isinstance(chain, list) or not chain or not isinstance(anchors, list) or not anchors:
         return {"schema": RESULT_SCHEMA, "status": "UNSUPPORTED_OR_UNDECIDABLE",
                 "findings": [{"code": "malformed-top-level-input"}], "qualification": "NOT_CLAIMED"}
