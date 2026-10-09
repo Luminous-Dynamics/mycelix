@@ -331,6 +331,62 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
             "candidate fetcher accepted mismatched current-run identity",
         )
 
+        boolean_run = copy.deepcopy(current_run)
+        boolean_run["id"] = True
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [boolean_run, artifact_response],
+            ),
+            "current workflow run ID must be a positive integer",
+            "candidate fetcher accepted a boolean current-run ID",
+        )
+
+        boolean_attempt = copy.deepcopy(current_run)
+        boolean_attempt["run_attempt"] = True
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [boolean_attempt, artifact_response],
+            ),
+            "current workflow run attempt must be a positive integer",
+            "candidate fetcher accepted a boolean current-run attempt",
+        )
+
+        boolean_event = copy.deepcopy(event)
+        boolean_event["workflow_run"]["id"] = True
+        with patch.dict(os.environ, environment, clear=True):
+            assert_rejected(
+                lambda: fetcher.expected_artifact(
+                    repository, boolean_event, candidate_policy
+                ),
+                "trigger workflow run ID must be a positive integer",
+                "candidate fetcher accepted a boolean trigger run ID",
+            )
+
+        boolean_repo = copy.deepcopy(current_run)
+        boolean_repo["repository"]["id"] = True
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [boolean_repo, artifact_response],
+            ),
+            "current repository ID must be a positive integer",
+            "candidate fetcher accepted a boolean repository ID",
+        )
+
         bad_attempt_run = copy.deepcopy(current_run)
         bad_attempt_run["run_attempt"] = run_attempt - 1
         assert_rejected(
@@ -344,6 +400,21 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
             ),
             'current_run["run_attempt"] == run_attempt',
             "candidate fetcher accepted a different current-run attempt",
+        )
+
+        boolean_artifact_id = copy.deepcopy(artifact)
+        boolean_artifact_id["workflow_run"]["id"] = True
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [current_run, {"artifacts": [boolean_artifact_id]}],
+            ),
+            "artifact workflow run ID must be a positive integer",
+            "candidate fetcher accepted a boolean artifact run ID",
         )
 
         bad_artifact = copy.deepcopy(artifact)
@@ -617,6 +688,20 @@ def exercise_fetcher_current_run_handoff(fetcher, candidate_policy: dict) -> Non
         message="candidate fetcher accepted a current-run ID mismatch",
     )
 
+    bool_run = copy.deepcopy(current_run)
+    bool_run["id"] = True
+    expect_rejection(
+        mutated_run=bool_run,
+        expected="current workflow run ID must be a positive integer",
+        message="candidate fetcher accepted a boolean current-run ID",
+    )
+
+    expect_rejection(
+        env_overrides={"GITHUB_RUN_ID": "0450"},
+        expected="GITHUB_RUN_ID is not a canonical positive decimal integer",
+        message="candidate fetcher accepted a noncanonical run ID environment value",
+    )
+
     bad_attempt = copy.deepcopy(current_run)
     bad_attempt["run_attempt"] = run_attempt - 1
     expect_rejection(
@@ -643,6 +728,22 @@ def exercise_fetcher_current_run_handoff(fetcher, candidate_policy: dict) -> Non
         env_overrides={"GITHUB_SHA": "0" * 40},
         expected='current_run["head_sha"] == os.environ["GITHUB_SHA"]',
         message="candidate fetcher accepted a mismatched current-run SHA",
+    )
+
+    bool_artifact_id = copy.deepcopy(artifact)
+    bool_artifact_id["workflow_run"]["id"] = True
+    expect_rejection(
+        response={"artifacts": [bool_artifact_id]},
+        expected="handoff artifact run ID must be a positive integer",
+        message="candidate fetcher accepted a boolean handoff artifact ID",
+    )
+
+    bad_artifact_size = copy.deepcopy(artifact)
+    bad_artifact_size["size_in_bytes"] = True
+    expect_rejection(
+        response={"artifacts": [bad_artifact_size]},
+        expected="auditor handoff archive size is not a nonnegative integer",
+        message="candidate fetcher accepted a boolean handoff size",
     )
 
     bad_artifact_sha = copy.deepcopy(artifact)
