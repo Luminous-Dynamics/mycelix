@@ -358,6 +358,19 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
             "candidate fetcher accepted a missing attempt-bound artifact",
         )
 
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [current_run, {"artifacts": [artifact, copy.deepcopy(artifact)]}],
+            ),
+            "expected exactly one trusted artifact",
+            "candidate fetcher accepted multiple matching artifacts",
+        )
+
         bad_digest = copy.deepcopy(artifact)
         bad_digest["digest"] = "sha512:" + "d" * 128
         assert_rejected(
