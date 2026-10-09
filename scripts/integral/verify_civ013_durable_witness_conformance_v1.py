@@ -61,6 +61,7 @@ REQUIRED_IDS = {
     "DA034-legacy-fork-meta-migration-valid",
     "DA035-legacy-fork-meta-migration-rejects-corruption",
     "DA036-startup-integrity-detects-fork-tail-truncation",
+    "DA037-subprocess-crash-after-anchor-commit-recovers-exact-prepared",
 }
 
 
@@ -469,6 +470,46 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
                 else "ExternalAnchorMismatch"
             )
         return "AnchorNotAhead"
+
+    if kind == "subprocess_crash_recovery":
+        accepted = vector.get("accepted_generation")
+        candidate = vector.get("candidate_generation")
+        try:
+            accepted_digest = parse_digest(vector.get("accepted_digest"), "accepted_digest")
+            candidate_digest = parse_digest(vector.get("candidate_digest"), "candidate_digest")
+            anchor_digest = parse_digest(
+                vector.get("external_anchor_digest_after_child"), "external_anchor_digest_after_child"
+            )
+            local_digest = parse_digest(
+                vector.get("local_head_digest_after_child"), "local_head_digest_after_child"
+            )
+            prepared_digest = parse_digest(
+                vector.get("prepared_digest_after_child"), "prepared_digest_after_child"
+            )
+            recovered_digest = parse_digest(vector.get("recovered_digest"), "recovered_digest")
+        except (TypeError, ValueError):
+            return "InvalidInput"
+        if (
+            type(accepted) is not int or type(candidate) is not int
+            or candidate != accepted + 1
+            or vector.get("child_exit_code") != 86
+            or vector.get("external_anchor_generation_after_child") != candidate
+            or anchor_digest != candidate_digest
+            or vector.get("local_head_generation_after_child") != accepted
+            or local_digest != accepted_digest
+            or vector.get("prepared_generation_after_child") != candidate
+            or prepared_digest != candidate_digest
+            or vector.get("prepared_status_after_child") != 0
+            or vector.get("recovered_in_distinct_process") is not True
+            or vector.get("recovery_exit_code") != 0
+            or vector.get("recovered_generation") != candidate
+            or recovered_digest != candidate_digest
+            or vector.get("fork_evidence_count_after_crash") != 0
+            or vector.get("pre_recovery_split_state_asserted") is not True
+            or vector.get("test_anchor_is_same_host_fixture") is not True
+        ):
+            return "SubprocessCrashStateMismatch"
+        return "RecoverExactPreparedSuccessor"
 
     if kind == "sqlite_integer_range":
         generation = vector["record_generation"]
