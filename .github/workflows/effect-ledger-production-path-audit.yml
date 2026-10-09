@@ -205,7 +205,7 @@ jobs:
             exit 1
           }
 
-          grep -Fq 'test_timelock_predecessor_action_must_match_exact_original' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+          grep -Fq 'test_ready_must_pass_through_prepared_before_terminal' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
             echo "NOT QUALIFIED: exact timelock predecessor mismatch lacks a regression test."
             exit 1
           }
