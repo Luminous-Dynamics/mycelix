@@ -421,7 +421,26 @@ def main() -> int:
             })
             bad_cases = cases(root)
             for name, raw in bad_cases.items():
-                observed = invoke_fixture(raw, openssl)
+                if name == "duplicate-jti":
+                    # The verifier must reject a repeated untrusted token ID
+                    # before doing any expensive public-key signature operation.
+                    original_verify = verifier.verify_ed25519_signature
+                    signature_calls = 0
+
+                    def forbidden_signature_call(*args: Any, **kwargs: Any) -> None:
+                        nonlocal signature_calls
+                        signature_calls += 1
+                        raise AssertionError("signature verification ran before duplicate-jti rejection")
+
+                    try:
+                        verifier.verify_ed25519_signature = forbidden_signature_call
+                        observed = invoke_fixture(raw, openssl)
+                    finally:
+                        verifier.verify_ed25519_signature = original_verify
+                    require(signature_calls == 0,
+                            "duplicate-jti was not rejected during the pre-signature cycle scan")
+                else:
+                    observed = invoke_fixture(raw, openssl)
                 expected = "UNSUPPORTED_OR_UNDECIDABLE" if name in {
                     "duplicate-trust-anchor-issuer", "malformed-top-level", "unknown-schema"
                 } else "INVALID_CHAIN"
