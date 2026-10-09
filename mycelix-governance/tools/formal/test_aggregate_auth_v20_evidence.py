@@ -97,7 +97,7 @@ def apply_mutation(root: Path, name: str) -> None:
     matrix = root / FROZEN_REQUIRED_RECEIPTS[2][0]
     policy = root / FROZEN_REQUIRED_RECEIPTS[4][0]
     keylink = root / FROZEN_REQUIRED_RECEIPTS[7][0]
-    compact_jws = root / FROZEN_REQUIRED_RECEIPTS[8][0]
+    compact_jws = root / FROZEN_REQUIRED_RECEIPTS[9][0]
     if name == "missing-required-receipt":
         (root / FROZEN_REQUIRED_RECEIPTS[5][0]).unlink()
     elif name == "wrong-source-head":
