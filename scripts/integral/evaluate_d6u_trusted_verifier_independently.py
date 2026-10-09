@@ -867,7 +867,13 @@ def exercise_main_record_guards(
                     "verify_trigger_run",
                     return_value={"head_sha": observed_record["source_commit"]},
                 ),
-                patch.object(verifier, "sha256", return_value="b" * 64),
+                patch.object(
+                    verifier,
+                    "sha256",
+                    side_effect=lambda path: (
+                        "b" * 64 if path.name == "d6u-runtime-test.log" else "e" * 64
+                    ),
+                ),
                 patch.object(verifier, "verify_cases"),
                 patch.object(verifier, "contents_bytes_from_api", return_value=manifest_bytes),
                 patch.object(verifier, "_git_blob_sha1", return_value=expected_manifest_blob),
