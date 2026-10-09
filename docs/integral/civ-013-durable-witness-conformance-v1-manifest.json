@@ -14,7 +14,7 @@
     "DA004-fork-log-scope",
     "DA005-fork-evidence-successor",
     "DA006-stale-predecessor",
-    "DA007-generation-gap",
+    "DA007-stale-expected-generation",
     "DA008-receipt-rollback",
     "DA009-receipt-equivocation",
     "DA010-invalid-tail-shape",
