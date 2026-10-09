@@ -71,7 +71,9 @@ def _is_scalar(value: Any) -> bool:
 
 
 def _is_finite_number(value: Any) -> bool:
-    return type(value) in (int, float) and math.isfinite(value)
+    if type(value) is int:
+        return True
+    return type(value) is float and math.isfinite(value)
 
 
 def _require_exact_members(raw: dict[str, Any], permitted: set[str], path: str) -> None:
