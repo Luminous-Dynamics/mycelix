@@ -976,8 +976,9 @@ jobs:
           facts=json.loads(Path('handoff/source-facts.json').read_text())
           release=json.loads(Path('published-release.json').read_text())
           policy=json.loads(Path('main-branch-policy-v1.json').read_text())
+          ruleset_policy=json.loads(Path('main-ruleset-governance-v1.json').read_text())
           asset_name='cos-durable-'+facts['claim_id']+'.tar.gz'
-          observation={'schema':'MYCELIX-COS-DURABLE-PUBLICATION-VERIFICATION-V1','repository':os.environ['GITHUB_REPOSITORY'],'repository_id':1176351975,'release_tag':release['tagName'],'release_id':release['id'],'immutable':release['isImmutable'],'is_latest':release['isLatest'],'is_prerelease':release['isPrerelease'],'asset_name':asset_name,'asset_digest':'sha256:'+hashlib.sha256(Path(asset_name).read_bytes()).hexdigest(),'expected_main_sha':facts['expected_main_sha'],'qualification_claim_id':facts['claim_id'],'qualification_manifest_sha256':facts['manifest_sha256'],'attestor_workflow_sha':facts['attestor_workflow_sha'],'signed_attestation_bundle_sha256':facts['bundle_sha256'],'publication_handoff_sha256':facts['publication_handoff_sha256'],'environment_policy_sha256':facts['environment_policy_sha256'],'effective_main_rules_sha256':facts['effective_main_rules_sha256'],'main_branch_policy_sha256':policy['sha256'],'state':'DurableAndVerifiable'}
+          observation={'schema':'MYCELIX-COS-DURABLE-PUBLICATION-VERIFICATION-V1','repository':os.environ['GITHUB_REPOSITORY'],'repository_id':1176351975,'release_tag':release['tagName'],'release_id':release['id'],'immutable':release['isImmutable'],'is_latest':release['isLatest'],'is_prerelease':release['isPrerelease'],'asset_name':asset_name,'asset_digest':'sha256:'+hashlib.sha256(Path(asset_name).read_bytes()).hexdigest(),'expected_main_sha':facts['expected_main_sha'],'qualification_claim_id':facts['claim_id'],'qualification_manifest_sha256':facts['manifest_sha256'],'attestor_workflow_sha':facts['attestor_workflow_sha'],'signed_attestation_bundle_sha256':facts['bundle_sha256'],'publication_handoff_sha256':facts['publication_handoff_sha256'],'environment_policy_sha256':facts['environment_policy_sha256'],'effective_main_rules_sha256':facts['effective_main_rules_sha256'],'main_branch_policy_sha256':policy['sha256'],'main_ruleset_governance_sha256':ruleset_policy['sha256'],'state':'DurableAndVerifiable'}
           assert observation['immutable'] is True and observation['is_latest'] is False and observation['is_prerelease'] is False
           Path('durable-publication-verification.json').write_text(json.dumps(observation,indent=2,sort_keys=True)+'\n')
           PY
@@ -994,5 +995,15 @@ jobs:
             environment-policy-v1.json
             effective-main-rules-v1.json
             main-branch-policy-v1.json
+            main-ruleset-governance-v1.json
+            ruleset-index-pages.json
+            ruleset-details/
+            ruleset-ids.txt
+            recheck-environment.json
+            recheck-effective-rules.json
+            recheck-main-protection.json
+            recheck-ruleset-pages.json
+            recheck-immutable-releases.json
+            recheck-rulesets/
           if-no-files-found: error
           retention-days: 30
