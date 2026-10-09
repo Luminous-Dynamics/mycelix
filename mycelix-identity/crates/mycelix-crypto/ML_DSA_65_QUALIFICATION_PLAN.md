@@ -26,9 +26,11 @@ Run the complete pinned ML-DSA-65 Wycheproof verification corpus (210 cases at t
 - `acceptable`: report separately. Do not silently count it as valid or invalid; the harness must implement and record an explicit, reviewed policy for each such flag.
 - RustCrypto and Libcrux disagreement on a `valid` or `invalid` case is a hard failure and must preserve the case input and both outcomes in the evidence packet.
 
-Two essential sentinel vectors identified by the public community analysis are ML-DSA-65 Wycheproof tcId 19 (repeated hint index; reject) and tcId 61 (valid signature with the largest z coefficient below the limit; accept). The latter prevents a suite containing only negative tests from passing a verifier that rejects valid boundary signatures too aggressively.
+Two essential sentinel vectors identified by the public community analysis are ML-DSA-65 Wycheproof tcId 19 (repeated hint index; reject) and tcId 61 (valid signature with the largest z coefficient below the limit; accept). The latter prevents a suite containing only negative tests from passing a verifier that rejects valid boundary signatures too aggressively. tcId 61 does **not** establish that verification exercised the distinct Algorithm 40 `UseHint` branch where the decomposed low bits equal `r0 = 0`; that branch is a separate mandatory regression target below.
 
 Source: [ACVP-Server issue #470](https://github.com/usnistgov/ACVP-Server/issues/470). That is community research about the published vector coverage—not an official NIST validation result.
+
+Implementation regression references: RustCrypto's [UseHint `r0 == 0` advisory](https://github.com/RustCrypto/signatures/security/advisories/GHSA-h37v-hp6w-2pp8) documents a valid-signature rejection bug fixed in the `0.1.0-rc.5` line; RustCrypto's [repeated-hint-index advisory](https://github.com/RustCrypto/signatures/security/advisories/GHSA-5x2r-hc65-25f9) documents invalid-signature acceptance fixed in the `0.1.0-rc.4` line. The current candidate `ml-dsa 0.1.1` is above both listed fix floors; these are regression targets, not a claim that `0.1.1` is affected. The crate's [0.1.1 documentation](https://docs.rs/crate/ml-dsa/0.1.1) says the implementation has not been independently audited.
 
 ## 3. Dedicated adversarial cases
 
@@ -40,6 +42,7 @@ The pinned general corpus is necessary but not sufficient. Add focused cases wit
 4. z infinity norm at or above the forbidden `gamma_1 - beta` bound: reject.
 5. A valid near-boundary signature whose z coefficients remain below the bound: accept.
 6. Correctly sized but malformed signature encodings; wrong key/signature lengths; modified message; modified signature: reject.
+7. A frozen, valid signature whose verification demonstrably exercises Algorithm 40 `UseHint` with `r0 == 0`: accept. Record the exact source vector (or deterministic derivation), message/context/signature/key digests, and branch-coverage evidence. A generic valid signature is not evidence of this edge unless the branch is shown to execute.
 
 For any generated or transformed fixture, preserve its source vector ID (if derived from one), the exact transformation, expected verdict, raw input file SHA-256, and a deterministic case identifier. Never mutate an input during the test without recording the mutation.
 
