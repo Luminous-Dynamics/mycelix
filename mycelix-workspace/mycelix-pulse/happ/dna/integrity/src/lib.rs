@@ -1,7 +1,7 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-// Holochain 0.6 - Integrity zomes use hdi
+// Holochain 0.7 - Integrity zomes use hdi 0.8
 use hdi::prelude::*;
 
 /// Core mail message entry type
@@ -92,25 +92,26 @@ pub enum LinkTypes {
 }
 
 /// Basic validation to guard against malformed data
+fn validate_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
+    match entry {
+        EntryTypes::TrustScore(score) => validate_trust_score(score),
+        EntryTypes::MailMessage(message) => validate_mail_message(message),
+        EntryTypes::DidBinding(binding) => validate_did_binding(binding),
+        EntryTypes::SpamReport(report) => validate_spam_report(report),
+        EntryTypes::Contact(contact) => validate_contact(contact),
+    }
+}
+
+/// Basic validation against the Holochain 0.7 flattened-op model.
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
-    match op {
-        Op::StoreEntry(store_entry) => match store_entry.action.hashed.content.entry_type() {
-            EntryType::App(app_entry_def) => {
-                let entry = store_entry.entry;
-                match EntryTypes::deserialize_from_type(
-                    app_entry_def.zome_index,
-                    app_entry_def.entry_index,
-                    &entry,
-                )? {
-                    Some(EntryTypes::TrustScore(score)) => validate_trust_score(score),
-                    Some(EntryTypes::MailMessage(message)) => validate_mail_message(message),
-                    Some(EntryTypes::DidBinding(binding)) => validate_did_binding(binding),
-                    Some(EntryTypes::SpamReport(report)) => validate_spam_report(report),
-                    Some(EntryTypes::Contact(contact)) => validate_contact(contact),
-                    None => Ok(ValidateCallbackResult::Valid),
-                }
-            }
+    match op.flattened::<EntryTypes, LinkTypes>()? {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
+            OpEntry::CreateEntry { app_entry, .. } => validate_entry(app_entry),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::CreateRecord(store_record) => match store_record {
+            OpRecord::CreateEntry { app_entry, .. } => validate_entry(app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         _ => Ok(ValidateCallbackResult::Valid),

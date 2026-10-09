@@ -123,7 +123,7 @@ pub enum LinkTypes {
 
 /// Validate audit entry - entries are append-only
 fn validate_create_audit_entry(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     entry: AuditEntry,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate required fields
@@ -154,7 +154,7 @@ fn validate_create_audit_entry(
     // role exists anywhere in this hApp that would need to log an entry on another
     // agent's behalf.
     if let Some(agent) = &entry.actor.agent_pub_key {
-        if agent != &action.author {
+        if agent != &action.author() {
             return Ok(ValidateCallbackResult::Invalid(
                 "AuditEntry actor.agent_pub_key must match action author".to_string(),
             ));
@@ -171,32 +171,55 @@ fn validate_create_audit_entry(
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::AuditEntry(entry) => validate_create_audit_entry(action, entry),
+                EntryTypes::AuditEntry(entry) => validate_create_audit_entry(action.into(), entry),
                 EntryTypes::AuditSummary(_) => Ok(ValidateCallbackResult::Valid),
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::AuditEntry(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Audit entries cannot be updated".to_string(),
-                )),
-                EntryTypes::AuditSummary(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::AuditEntry(_) | EntryTypes::AuditSummary(_) => {
+                    Ok(ValidateCallbackResult::Invalid(
+                        "Audit records are immutable".to_string(),
+                    ))
+                }
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::AuditEntry(entry) => validate_create_audit_entry(action.into(), entry),
+                EntryTypes::AuditSummary(_) => Ok(ValidateCallbackResult::Valid),
+            },
+            OpRecord::UpdateEntry { app_entry, .. } => match app_entry {
+                EntryTypes::AuditEntry(_) | EntryTypes::AuditSummary(_) => {
+                    Ok(ValidateCallbackResult::Invalid(
+                        "Audit records are immutable".to_string(),
+                    ))
+                }
+            },
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(OpUpdate::Entry { app_entry, .. }) => match app_entry {
+            EntryTypes::AuditEntry(_) | EntryTypes::AuditSummary(_) => {
+                Ok(ValidateCallbackResult::Invalid(
+                    "Audit records are immutable".to_string(),
+                ))
+            }
+        },
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported audit update variant".to_string(),
+        )),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
 
 /// Proves `validate_create_audit_entry`'s P0 author-binding fix: an AuditEntry claiming a
 /// different agent as `actor.agent_pub_key` than the entry's real committer is rejected
 /// (previously any agent could forge an entry blaming another agent). Host-independent --
-/// no HDI mocking needed, this check only compares against `action.author`.
+/// no HDI mocking needed, this check only compares against `action.author()`.
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,19 +259,22 @@ mod tests {
         }
     }
 
-    fn test_action(author: AgentPubKey) -> Create {
-        Create {
-            author,
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
-            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
-            weight: Default::default(),
+    fn test_action(author: AgentPubKey) -> TypedAction<EntryCreationData> {
+        TypedAction {
+            header: ActionHeader {
+                author,
+                timestamp: Timestamp::from_micros(0),
+                action_seq: 3,
+                prev_action: Some(ActionHash::from_raw_36(vec![0; 36])),
+            },
+            data: EntryCreationData::Create(CreateData {
+                entry_type: EntryType::App(AppEntryDef::new(
+                    EntryDefIndex(0),
+                    ZomeIndex(0),
+                    EntryVisibility::Public,
+                )),
+                entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            }),
         }
     }
 

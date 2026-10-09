@@ -32,7 +32,13 @@ pub struct MailboxCapability {
     pub revoked: bool,
     /// Revocation reason if revoked
     pub revocation_reason: Option<String>,
-    /// Secret for capability verification
+    /// Action hash of the local Holochain capability grant that authorizes remote calls.
+    /// Absent only on records created before this binding existed; those cannot be
+    /// declared conductor-revoked without a separate audited migration.
+    #[serde(default)]
+    pub system_grant_action_hash: Option<ActionHash>,
+    /// SHA-256 fingerprint of the grant secret. The secret itself must never be stored
+    /// in this public application entry; it belongs in the recipient's private CapClaim.
     pub secret_hash: Vec<u8>,
 }
 
@@ -300,20 +306,36 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+        FlatOp::CreateEntry(store_entry) => match store_entry {
+            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action.into()),
             OpEntry::UpdateEntry {
                 app_entry, action, ..
             } => validate_update_entry(app_entry, action),
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
+            OpRecord::UpdateEntry { app_entry, action } => validate_update_entry(app_entry, action),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::Update(OpUpdate::Entry { app_entry, action }) => {
+            validate_update_entry(app_entry, action)
+        }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported capability update variant".to_string(),
+        )),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
+            "Capability entries cannot be deleted".to_string(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
 
 fn validate_create_entry(
     entry: EntryTypes,
-    action: Create,
+    action: TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::MailboxCapability(cap) => validate_capability(&cap, &action),
@@ -325,24 +347,65 @@ fn validate_create_entry(
 
 fn validate_update_entry(
     entry: EntryTypes,
-    action: Update,
+    action: TypedAction<UpdateData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         // Capabilities can only be updated by grantor (to revoke)
         EntryTypes::MailboxCapability(cap) => {
-            if cap.grantor != action.author {
+            if cap.grantor != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only grantor can update capability".to_string(),
+                ));
+            }
+
+            // Resolve the source entry and permit exactly one monotonic transition:
+            // active -> revoked. The grant binding, grantee, permissions, restrictions,
+            // timestamps, and secret fingerprint are immutable; a revoked capability
+            // can never be reactivated or edited.
+            let original_record = must_get_valid_record(action.original_action_address.clone())?;
+            let original: MailboxCapability = original_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Original capability update points to another entry type".to_string()
+                )))?;
+
+            if original.grantor != action.author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Original capability must belong to the updating grantor".to_string(),
+                ));
+            }
+
+            if cap.id != original.id
+                || cap.grantor != original.grantor
+                || cap.grantee != original.grantee
+                || cap.access_type != original.access_type
+                || cap.permissions != original.permissions
+                || cap.restrictions != original.restrictions
+                || cap.granted_at != original.granted_at
+                || cap.expires_at != original.expires_at
+                || cap.system_grant_action_hash != original.system_grant_action_hash
+                || cap.secret_hash != original.secret_hash
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Capability authority fields are immutable".to_string(),
+                ));
+            }
+
+            if original.revoked || !cap.revoked {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Capability updates may only transition active -> revoked once".to_string(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
         // Shared mailboxes can be updated by owner or admin
         EntryTypes::SharedMailbox(mailbox) => {
-            if mailbox.owner != action.author {
+            if mailbox.owner != action.author() {
                 // Check if the author is an admin member
                 let is_admin = mailbox.members.iter().any(|m| {
-                    m.agent == action.author && matches!(m.role, SharedMailboxRole::Admin)
+                    m.agent == action.author() && matches!(m.role, SharedMailboxRole::Admin)
                 });
                 if !is_admin {
                     return Ok(ValidateCallbackResult::Invalid(
@@ -356,16 +419,18 @@ fn validate_update_entry(
         EntryTypes::CapabilityAuditLog(_) => Ok(ValidateCallbackResult::Invalid(
             "Audit logs cannot be modified".to_string(),
         )),
-        _ => Ok(ValidateCallbackResult::Valid),
+        _ => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported capability entry update".to_string(),
+        )),
     }
 }
 
 fn validate_capability(
     cap: &MailboxCapability,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Grantor must be author
-    if cap.grantor != action.author {
+    if cap.grantor != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Grantor must match author".to_string(),
         ));
@@ -378,10 +443,11 @@ fn validate_capability(
         ));
     }
 
-    // Must have secret hash
-    if cap.secret_hash.is_empty() {
+    // The public field is specifically a SHA-256 fingerprint, not an arbitrary
+    // non-empty byte string. Enforce the digest width at the integrity boundary.
+    if !is_sha256_fingerprint(&cap.secret_hash) {
         return Ok(ValidateCallbackResult::Invalid(
-            "Capability must have secret hash".to_string(),
+            "Capability secret fingerprint must be exactly 32 bytes (SHA-256)".to_string(),
         ));
     }
 
@@ -399,10 +465,10 @@ fn validate_capability(
 
 fn validate_shared_mailbox(
     mailbox: &SharedMailbox,
-    action: &Create,
+    action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
-    if mailbox.owner != action.author {
+    if mailbox.owner != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Owner must match author".to_string(),
         ));
@@ -427,7 +493,7 @@ fn validate_shared_mailbox(
 
 fn validate_audit_log(
     _log: &CapabilityAuditLog,
-    _action: &Create,
+    _action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Audit logs have minimal validation - they're append-only
     Ok(ValidateCallbackResult::Valid)
@@ -435,7 +501,7 @@ fn validate_audit_log(
 
 fn validate_delegation_chain(
     chain: &DelegationChain,
-    _action: &Create,
+    _action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Chain must not exceed max depth
     if chain.chain.len() > chain.max_depth as usize {
@@ -445,4 +511,23 @@ fn validate_delegation_chain(
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+const SHA256_FINGERPRINT_LEN: usize = 32;
+
+fn is_sha256_fingerprint(secret_hash: &[u8]) -> bool {
+    secret_hash.len() == SHA256_FINGERPRINT_LEN
+}
+
+#[cfg(test)]
+mod capability_fingerprint_tests {
+    use super::is_sha256_fingerprint;
+
+    #[test]
+    fn capability_secret_fingerprint_must_be_exactly_sha256_width() {
+        assert!(!is_sha256_fingerprint(&[]));
+        assert!(!is_sha256_fingerprint(&[7; 31]));
+        assert!(is_sha256_fingerprint(&[7; 32]));
+        assert!(!is_sha256_fingerprint(&[7; 33]));
+    }
 }

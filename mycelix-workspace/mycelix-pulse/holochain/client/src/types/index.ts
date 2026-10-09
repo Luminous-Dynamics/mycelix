@@ -272,6 +272,40 @@ export interface MailboxCapability {
   expires_at: Timestamp | null;
   revoked: boolean;
   revocation_reason: string | null;
+  /** Public action-hash binding to the grantor's private Holochain CapGrant. */
+  system_grant_action_hash: ActionHash | null;
+  /** SHA-256 fingerprint only. The raw capability secret never crosses the client API. */
+  secret_hash: Uint8Array;
+}
+
+export type AuditAction =
+  | 'ReadEmail'
+  | 'SendEmail'
+  | 'DeleteEmail'
+  | 'MoveEmail'
+  | 'CreateFolder'
+  | 'DeleteFolder'
+  | 'AccessAttachment'
+  | 'ModifySettings'
+  | 'GrantCapability'
+  | 'RevokeCapability'
+  | 'ModifyTrust'
+  | 'ExportData'
+  | 'Login'
+  | 'Logout'
+  | { Custom: string };
+
+export type CapabilityProbeResult =
+  | 'Authorized'
+  | 'Unauthorized'
+  | 'ClaimMissing'
+  | 'FunctionNotGranted';
+
+export interface CapabilityGrantDeliveryOutcome {
+  capability_hash: ActionHash;
+  delivery_acknowledged: boolean;
+  /** A sanitized error, never including a capability secret. */
+  delivery_error?: string;
 }
 
 export type SharedMailboxRole = 'Owner' | 'Admin' | 'Editor' | 'Contributor' | 'Viewer';
@@ -298,8 +332,12 @@ export interface GrantCapabilityInput {
   grantee: AgentPubKey;
   access_type: MailboxAccessType;
   permissions: MailboxPermissions;
-  restrictions?: AccessRestrictions;
-  expires_in_days?: number;
+  restrictions?: AccessRestrictions | null;
+  /**
+   * Expiration is deliberately unsupported: the coordinator fails closed because
+   * Holochain CapGrant has no native expiry and timed revocation is not qualified.
+   */
+  expires_at?: null;
 }
 
 // ==================== SYNC ZOME (CRDT) ====================

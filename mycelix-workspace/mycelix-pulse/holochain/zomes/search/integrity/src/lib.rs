@@ -220,8 +220,8 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+        FlatOp::CreateEntry(store_entry) => match store_entry {
+            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action.into()),
             // No entry type in this zome has a real update_entry call anywhere in the
             // coordinator (confirmed via direct grep) -- reject outright rather than leave
             // the previous unbound dead-code path (P0 wide-open RegisterUpdate gap,
@@ -231,7 +231,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
+            OpRecord::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
+                "Search entries cannot be updated".to_string(),
+            )),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
             "Search entries cannot be updated".to_string(),
         )),
         _ => Ok(ValidateCallbackResult::Valid),
@@ -240,11 +249,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 fn validate_create_entry(
     entry: EntryTypes,
-    action: Create,
+    action: TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::SearchIndex(index) => {
-            if index.agent != action.author {
+            if index.agent != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Index owner must match author".to_string(),
                 ));
@@ -252,7 +261,7 @@ fn validate_create_entry(
             Ok(ValidateCallbackResult::Valid)
         }
         EntryTypes::SavedSearch(search) => {
-            if search.owner != action.author {
+            if search.owner != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Search owner must match author".to_string(),
                 ));
