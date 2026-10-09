@@ -53,6 +53,24 @@ jobs:
           assert "types: [opened, synchronize, reopened, ready_for_review]" in text
           PY
 
+      - name: Validate FPM workflows with checksum-pinned actionlint
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/actionlint_1.7.12_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz" \
+            --output "$archive"
+          printf '%s  %s\n' \
+            "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8" \
+            "$archive" | sha256sum --check --status
+          tar -xzf "$archive" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -version
+          "$RUNNER_TEMP/actionlint" \
+            .github/workflows/fpm-wasm-artifact-identity.yml \
+            .github/workflows/fpm-trusted-qualification.yml \
+            .github/workflows/fpm-trusted-qualification-independent-verify.yml \
+            .github/workflows/fpm-reference-verifier-selftest.yml
+
       - name: Python syntax check
         run: |
           set -euo pipefail
