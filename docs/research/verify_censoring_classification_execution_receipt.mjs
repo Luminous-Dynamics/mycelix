@@ -44,24 +44,32 @@ function validateReceipt(receiptPath,root,eventPath){
   let receipt,event;try{receipt=readJson(receiptPath);event=readJson(eventPath);}catch(e){return[null,"input-json:"+e.message];}
   const wr=event.workflow_run;
   if(!wr||typeof wr!=="object")return[null,"workflow-run-event-missing"];
+  if(!receipt||typeof receipt!=="object"||Object.keys(receipt).sort().join("|")!==["claim_ceiling","evidence","schema","source","status"].sort().join("|"))return[null,"receipt-envelope"];
   if(receipt.schema!==RECEIPT_SCHEMA)return[null,"receipt-schema"];
   if(receipt.status!=="research-evidence-only")return[null,"receipt-status"];
-  const src=receipt.source||{};
-  if(src.repository!==REPOSITORY||event.repository?.full_name!==REPOSITORY)return[null,"repository-binding"];
-  if(wr.repository?.full_name!==REPOSITORY)return[null,"source-run-repository"];
-  if(wr.head_repository?.full_name!==undefined&&wr.head_repository.full_name!==REPOSITORY)return[null,"source-run-head-repository"];
+  const src=receipt.source,evidence=receipt.evidence,ceiling=receipt.claim_ceiling;
+  if(!src||typeof src!=="object"||Object.keys(src).sort().join("|")!==["repository","workflow","workflow_ref","event_name","ref","checked_out_commit_sha","event_sha","pull_request_head_sha","pull_request_number","run_id","run_number","run_attempt"].sort().join("|"))return[null,"source-schema"];
+  if(!evidence||typeof evidence!=="object"||Object.keys(evidence).sort().join("|")!==["report_pair_count","report_file_count","report_pairs","supporting_inputs","generated_corpus_a_equals_b"].sort().join("|"))return[null,"evidence-schema"];
+  if(!ceiling||typeof ceiling!=="object"||Object.keys(ceiling).sort().join("|")!==["prior_verifier_steps_succeeded_at_receipt_creation","overall_workflow_conclusion","hosted_qualification_pass_claimed","qualification_authority","scitt_interoperability_claimed","live_network_convergence_claimed"].sort().join("|"))return[null,"claim-ceiling-schema"];
+  if(!event.repository||event.repository.full_name!==REPOSITORY||src.repository!==REPOSITORY)return[null,"repository-binding"];
+  if(!wr.repository||wr.repository.full_name!==REPOSITORY)return[null,"source-run-repository"];
+  if(!wr.head_repository||wr.head_repository.full_name!==REPOSITORY)return[null,"source-run-head-repository"];
   if(wr.name!==WORKFLOW_NAME||String(wr.path||"").split("@")[0]!==WORKFLOW_PATH)return[null,"source-workflow-binding"];
   if(wr.event!=="push"||src.event_name!=="push")return[null,"source-event-not-push"];
   if(wr.head_branch!=="main"||src.ref!=="refs/heads/main")return[null,"source-branch-not-main"];
   if(wr.conclusion!=="success")return[null,"source-workflow-not-success"];
-  const items=receipt.evidence?.report_pairs;
-  if(!Array.isArray(items)||items.length!==PAIRS.length)return[null,"report-pair-inventory"];
-  if(receipt.evidence?.report_file_count!==2*PAIRS.length)return[null,"report-file-count"];
-  if(receipt.evidence?.generated_corpus_a_equals_b!==true)return[null,"generated-corpus-identity-claim"];
+  const items=evidence.report_pairs;
+  if(!Array.isArray(items)||items.length!==PAIRS.length||evidence.report_pair_count!==PAIRS.length)return[null,"report-pair-inventory"];
+  if(evidence.report_file_count!==2*PAIRS.length)return[null,"report-file-count"];
+  if(evidence.generated_corpus_a_equals_b!==true)return[null,"generated-corpus-identity-claim"];
+  const support=evidence.supporting_inputs;
+  if(!Array.isArray(support)||support.length!==SUPPORTING.length||new Set(support.map(x=>x?.name)).size!==SUPPORTING.length||SUPPORTING.some(([name])=>!support.some(x=>x?.name===name)))return[null,"supporting-input-inventory"];
   const expectedNames=new Set(PAIRS.flatMap(([,p,n])=>[p,n])),seen=new Set();
   const expectedByLayer=new Map(PAIRS.map(([name,p,n,count])=>[name,{p,n,count}]));
   const summary=[];
+  const itemKeys=["name","python_file","node_file","sha256","schema","case_count","case_ids_sha256","failure_count","python_node_byte_identical"].sort().join("|");
   for(const item of items){
+    if(!item||typeof item!=="object"||Object.keys(item).sort().join("|")!==itemKeys)return[null,"report-item-schema"];
     const layer=item.name,exp=expectedByLayer.get(layer);
     if(!exp)return[null,"unknown-report-layer"];
     if(item.python_file!=="reports/"+exp.p||item.node_file!=="reports/"+exp.n)return[null,"report-path-substitution:"+layer];
@@ -82,19 +90,21 @@ function validateReceipt(receiptPath,root,eventPath){
     const file=path.join(root,rel);if(!fs.existsSync(file))return[null,"supporting-input-missing:"+name];
     const raw=fs.readFileSync(file);let obj;try{obj=JSON.parse(raw.toString("utf8"));}catch{return[null,"supporting-input-json:"+name];}
     if(!Array.isArray(obj.cases)||obj.cases.length!==count)return[null,"supporting-input-case-count:"+name];
-    const pin=receipt.evidence?.supporting_inputs?.find(x=>x.name===name);
+    const pin=support.find(x=>x.name===name);
     if(!pin||pin.file!==rel||pin.sha256!==sha(raw)||pin.case_count!==count)return[null,"supporting-input-pin:"+name];
   }
   if(!fs.readFileSync(path.join(root,"supporting/generated-a.json")).equals(fs.readFileSync(path.join(root,"supporting/generated-b.json"))))return[null,"generated-corpus-not-deterministic"];
+  if(src.workflow!==WORKFLOW_NAME)return[null,"source-workflow-name-binding"];
   const expectedSource={
     repository:REPOSITORY,workflow:WORKFLOW_NAME,event_name:"push",ref:"refs/heads/main",
     checked_out_commit_sha:wr.head_sha,event_sha:wr.head_sha,
     run_id:wr.id,run_number:wr.run_number,run_attempt:wr.run_attempt??1
   };
   for(const[k,v]of Object.entries(expectedSource))if(src[k]!==v)return[null,"source-metadata-binding:"+k];
-  if(src.pull_request_head_sha!==null)return[null,"unexpected-pr-head"];
-  const ceiling=receipt.claim_ceiling||{};
-  if(ceiling.hosted_qualification_pass_claimed!==false||ceiling.qualification_authority!==false)return[null,"qualification-claim-injection"];
+  if(src.pull_request_head_sha!==null||src.pull_request_number!==null)return[null,"unexpected-pr-head"];
+  if(typeof src.workflow_ref!=="string"||!src.workflow_ref.endsWith(WORKFLOW_PATH+"@refs/heads/main"))return[null,"source-workflow-ref-binding"];
+  if(ceiling.prior_verifier_steps_succeeded_at_receipt_creation!==true||ceiling.overall_workflow_conclusion!=="pending-downstream-observation")return[null,"claim-ceiling-context"];
+  for(const key of ["hosted_qualification_pass_claimed","qualification_authority","scitt_interoperability_claimed","live_network_convergence_claimed"])if(ceiling[key]!==false)return[null,"qualification-claim-injection"];
   const predicate={
     schema:PREDICATE_SCHEMA,
     evidence_type:"mycelix-anchor-transparency-execution-receipt",
