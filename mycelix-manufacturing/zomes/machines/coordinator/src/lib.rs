@@ -524,6 +524,12 @@ pub fn resolve_machine_temporal_attestations(
         )?
         .build(),
     )?;
+    if links.len() > MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS {
+        return Ok(MachineTemporalEvidenceResolution::EvidenceLinkSetLimitExceeded {
+            limit: MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS as u32,
+        });
+    }
+
     let mut seen_attestations = std::collections::HashSet::new();
     let mut evidence = Vec::with_capacity(links.len().min(MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS));
     for link in links {
