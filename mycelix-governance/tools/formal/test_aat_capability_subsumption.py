@@ -19,6 +19,8 @@ import aat_capability_subsumption as aat  # noqa: E402
 FROZEN_MAX_DEPTH = 32
 FROZEN_MAX_NODES = 512
 FROZEN_MAX_CLAUSES = 128
+FROZEN_MAX_TOOLS = 256
+FROZEN_MAX_ARGUMENT_KEYS = 64
 
 
 def exact(value: Any) -> dict[str, Any]:
@@ -244,6 +246,9 @@ def main() -> int:
         require(aat.MAX_CONSTRAINT_DEPTH == FROZEN_MAX_DEPTH, "constraint-depth limit drifted")
         require(aat.MAX_CONSTRAINT_NODES == FROZEN_MAX_NODES, "constraint-node limit drifted")
         require(aat.MAX_COMPOSITE_CLAUSES == FROZEN_MAX_CLAUSES, "composite-clause limit drifted")
+        require(aat.MAX_TOOLS_PER_TOKEN == FROZEN_MAX_TOOLS, "per-token tool-count limit drifted")
+        require(aat.MAX_CONSTRAINTS_PER_TOOL == FROZEN_MAX_ARGUMENT_KEYS,
+                "per-tool argument-constraint limit drifted")
         receipt["source_head"] = subprocess.run(
             ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
             check=True, timeout=15,
@@ -275,6 +280,39 @@ def main() -> int:
                 })
             else:
                 raise AssertionError(f"{name}: malformed or over-limit constraint was accepted")
+
+        # Protocol resource limits are checked at the authorization_details boundary,
+        # not only on individual recursive constraint trees.
+        too_many_tools = {f"tool-{index}": {} for index in range(FROZEN_MAX_TOOLS + 1)}
+        try:
+            aat.validate_authorization_details(aat_details(too_many_tools), require_one=True,
+                                               label="tool-count-bound")
+        except aat.CapabilityError as error:
+            require(error.code == "tool-count-limit-exceeded",
+                    "tool-count bound returned an unexpected finding: " + error.code)
+            receipt["validation_controls"].append({
+                "id": "tool-count-limit-exceeded", "rejected": True, "finding": error.code,
+            })
+        else:
+            raise AssertionError("tool-count-limit-exceeded: oversized tools map was accepted")
+
+        too_many_arguments = {
+            f"arg-{index}": wildcard() for index in range(FROZEN_MAX_ARGUMENT_KEYS + 1)
+        }
+        try:
+            aat.validate_authorization_details(
+                aat_details({"read_file": too_many_arguments}),
+                require_one=True,
+                label="argument-count-bound",
+            )
+        except aat.CapabilityError as error:
+            require(error.code == "argument-key-limit-exceeded",
+                    "argument-count bound returned an unexpected finding: " + error.code)
+            receipt["validation_controls"].append({
+                "id": "argument-key-limit-exceeded", "rejected": True, "finding": error.code,
+            })
+        else:
+            raise AssertionError("argument-key-limit-exceeded: oversized argument map was accepted")
 
         for name, parent_tools, child_tools, expected in attenuation_cases():
             try:
