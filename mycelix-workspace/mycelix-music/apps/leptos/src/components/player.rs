@@ -90,6 +90,14 @@ fn audio_matches_selected_source(audio: &web_sys::HtmlAudioElement, player: &Pla
     })
 }
 
+/// Return a bounded seek target only when the active resource has a known finite duration.
+fn bounded_seek_target(requested_seconds: f64, media_duration: f64) -> Option<f64> {
+    if !requested_seconds.is_finite() || !media_duration.is_finite() || media_duration <= 0.0 {
+        return None;
+    }
+    Some(requested_seconds.clamp(0.0, media_duration))
+}
+
 /// Persistent audio player bar at the bottom of the screen.
 /// Plays audio from IPFS gateway URLs and records plays via zome calls.
 #[component]
@@ -171,21 +179,19 @@ pub fn Player() -> impl IntoView {
 
     let seek_progress = player.progress;
     let seek_audio = audio_ref;
+    let player_for_seek = player.clone();
     // NodeRef and RwSignal are copyable handles; keeping this handler outside
     // the per-song render closure avoids moving a non-Copy closure on rerender.
     let seek_to = move |ev| {
         if let Ok(seconds) = event_target_value(&ev).parse::<f64>() {
-            if seconds.is_finite() {
-                if let Some(audio) = seek_audio.get() {
-                    let media_duration = audio.duration();
-                    let max_time = if media_duration.is_finite() {
-                        media_duration.max(0.0)
-                    } else {
-                        seconds.max(0.0)
-                    };
-                    let target = seconds.clamp(0.0, max_time);
-                    audio.set_current_time(target);
-                    seek_progress.set(target);
+            if let Some(audio) = seek_audio.get() {
+                // A stale slider interaction must not seek a different track
+                // while the persistent element is loading a new source.
+                if audio_matches_selected_source(&audio, &player_for_seek) {
+                    if let Some(target) = bounded_seek_target(seconds, audio.duration()) {
+                        audio.set_current_time(target);
+                        seek_progress.set(target);
+                    }
                 }
             }
         }
@@ -450,5 +456,29 @@ mod media_source_guard_tests {
             "https://ipfs.io/ipfs/QmSong",
             "https://ipfs.io/ipfs/QmSong"
         ));
+    }
+}
+
+#[cfg(test)]
+mod seek_target_tests {
+    use super::bounded_seek_target;
+
+    #[test]
+    fn seek_target_clamps_to_media_bounds() {
+        assert_eq!(bounded_seek_target(-5.0, 120.0), Some(0.0));
+        assert_eq!(bounded_seek_target(121.0, 120.0), Some(120.0));
+    }
+
+    #[test]
+    fn seek_target_rejects_unknown_or_non_finite_duration() {
+        assert_eq!(bounded_seek_target(10.0, f64::NAN), None);
+        assert_eq!(bounded_seek_target(10.0, f64::INFINITY), None);
+        assert_eq!(bounded_seek_target(10.0, 0.0), None);
+    }
+
+    #[test]
+    fn seek_target_rejects_non_finite_requested_position() {
+        assert_eq!(bounded_seek_target(f64::NAN, 120.0), None);
+        assert_eq!(bounded_seek_target(f64::INFINITY, 120.0), None);
     }
 }
