@@ -24,6 +24,19 @@ def b64u(value: bytes) -> str:
     return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
 
 
+def independently_valid_digest(value: Any) -> bool:
+    if not isinstance(value, str) or len(value) != 43:
+        return False
+    if any(ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
+           for ch in value):
+        return False
+    try:
+        decoded = base64.urlsafe_b64decode(value + "=")
+    except (ValueError, base64.binascii.Error):
+        return False
+    return len(decoded) == 32 and b64u(decoded) == value
+
+
 def independently_valid_signing_input(value: Any) -> bool:
     if not isinstance(value, str):
         return False
@@ -79,8 +92,12 @@ def cases() -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
 
     raw = valid_chain()
-    raw["hops"][2]["claims"]["par_hash"] = "B" * 43
+    raw["hops"][2]["claims"]["par_hash"] = "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE"
     out["wrong-par-hash"] = raw
+
+    raw = valid_chain()
+    raw["hops"][2]["claims"]["par_hash"] = "B" * 43
+    out["noncanonical-par-hash"] = raw
 
     raw = valid_chain()
     del raw["hops"][2]["claims"]["par_hash"]
@@ -157,6 +174,8 @@ def independently_expected(raw: dict[str, Any]) -> set[tuple[str, int | None]]:
                 ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
                 for ch in observed
             ):
+                findings.add(("par-hash-malformed", index))
+            elif not independently_valid_digest(observed):
                 findings.add(("par-hash-malformed", index))
             elif expected is not None and observed != expected:
                 findings.add(("par-hash-mismatch", index))
@@ -257,7 +276,7 @@ def main() -> int:
                             "independent_hash":"SHA256_OVER_EXACT_ASCII_JWS_SIGNING_INPUT",
                             "qualification":"NOT_CLAIMED"}
         args.output.write_text(json.dumps(receipt,sort_keys=True,indent=2)+"\n",encoding="utf-8")
-        print("PAR_HASH DIFFERENTIAL PASS: 1 positive + 9 negative controls")
+        print("PAR_HASH DIFFERENTIAL PASS: 1 positive + 10 negative controls")
         print("PAR_HASH MUTATION SENSITIVITY PASS: 3 of 3 omitted checks detected")
         print("QUALIFICATION NOT CLAIMED: no compact JWS parsing or signature verification")
         return 0
