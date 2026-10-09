@@ -9,6 +9,7 @@ import hashlib
 import json
 import posixpath
 import re
+import shlex
 import stat
 import sys
 import tomllib
@@ -416,76 +417,147 @@ def verify_sandbox_invocations(policy_text: str) -> None:
         while cursor < len(lines):
             part = lines[cursor].rstrip()
             command_parts.append(part.rstrip("\\").strip())
-            if "${SANDBOX_IMAGE}" in part:
+            if '"${SANDBOX_IMAGE}"' in part:
                 break
             cursor += 1
         else:
             fail(f"sandbox docker invocation in {step} has no pinned image terminator")
         invocations.append((step, " ".join(command_parts)))
 
-    expected_steps = {
+    common = [
+        "docker", "run", "--rm", "--pull=never", "--network", "none",
+        "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+    ]
+    candidate_mount = "type=bind,src=${GITHUB_WORKSPACE}/candidate,dst=/candidate,readonly"
+    toolchain_mount = "type=bind,src=${FPM_TOOLCHAIN_ROOT},dst=/opt/fpm-rust,readonly"
+    cargo_mount = "type=bind,src=${FPM_CARGO_HOME},dst=/cargo-ro,readonly"
+    target_mount = "type=bind,src=${FPM_TARGET_DIR},dst=/target"
+    target_readonly_mount = "type=bind,src=${FPM_TARGET_DIR},dst=/target,readonly"
+    closure_mount = "type=bind,src=${TARGET_CLOSURE_FILE},dst=/tmp/fpm-target-closure.tsv,readonly"
+    user_and_workdir = ["--user", "${CANDIDATE_UID}:${CANDIDATE_GID}", "--workdir", "/candidate"]
+
+    expected_argv_by_step = {
+        "Cargo fmt inside immutable sandbox": common + [
+            "--pids-limit", "256", "--memory", "2g", "--memory-swap", "2g", "--cpus", "1",
+            "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=128m",
+            "--mount", candidate_mount, "--mount", toolchain_mount,
+        ] + user_and_workdir,
+        "Probe hostile-code sandbox boundary": common + [
+            "--pids-limit", "256", "--memory", "6g", "--memory-swap", "6g", "--cpus", "2",
+            "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=512m",
+            "--mount", candidate_mount, "--mount", toolchain_mount, "--mount", cargo_mount, "--mount", target_mount,
+        ] + user_and_workdir,
+        "Compile test artifacts inside immutable offline sandbox": common + [
+            "--pids-limit", "512", "--memory", "6g", "--memory-swap", "6g", "--cpus", "2",
+            "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=512m",
+            "--mount", candidate_mount, "--mount", toolchain_mount, "--mount", cargo_mount, "--mount", target_mount,
+        ] + user_and_workdir,
+        "Execute precompiled test harness inside immutable sandbox": common + [
+            "--pids-limit", "512", "--memory", "6g", "--memory-swap", "6g", "--cpus", "2",
+            "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=512m",
+            "--mount", candidate_mount, "--mount", toolchain_mount, "--mount", target_readonly_mount, "--mount", closure_mount,
+        ] + user_and_workdir,
+    }
+    actual_steps = {step for step, _ in invocations}
+    if len(invocations) != len(expected_argv_by_step) or actual_steps != set(expected_argv_by_step):
+        fail(f"unexpected sandbox invocation set: {sorted(actual_steps)!r}")
+
+    for step, command in invocations:
+        prefix, marker, _ = command.partition('"${SANDBOX_IMAGE}"')
+        if not marker:
+            fail(f"sandbox docker invocation in {step} does not terminate at the pinned image")
+        try:
+            actual_argv = shlex.split(prefix, posix=True)
+        except ValueError as exc:
+            fail(f"sandbox Docker argv in {step} is not shell-parseable: {exc}")
+        if actual_argv != expected_argv_by_step[step]:
+            fail(
+                f"{step} sandbox Docker argv is not the exact allowlisted profile: "
+                f"actual={actual_argv!r}"
+            )
+
+
+def verify_sandbox_programs(policy_text: str) -> None:
+    lines = policy_text.splitlines()
+    starts = [
+        index for index, line in enumerate(lines)
+        if "-ceu \"$(cat <<" in line and "FPM_SANDBOX_SCRIPT" in line
+    ]
+    if len(starts) != 4:
+        fail(f"expected four embedded sandbox programs, found {len(starts)}")
+
+    expected_steps = [
         "Cargo fmt inside immutable sandbox",
         "Probe hostile-code sandbox boundary",
         "Compile test artifacts inside immutable offline sandbox",
         "Execute precompiled test harness inside immutable sandbox",
-    }
-    actual_steps = {step for step, _ in invocations}
-    if len(invocations) != len(expected_steps) or actual_steps != expected_steps:
-        fail(f"unexpected sandbox invocation set: {sorted(actual_steps)!r}")
-
-    common = (
-        "--pull=never",
-        "--network none",
-        "--read-only",
-        "--cap-drop ALL",
-        "--security-opt no-new-privileges",
-        '--mount type=bind,src="${GITHUB_WORKSPACE}/candidate",dst=/candidate,readonly',
-        '--mount type=bind,src="${FPM_TOOLCHAIN_ROOT}",dst=/opt/fpm-rust,readonly',
-        '--user "${CANDIDATE_UID}:${CANDIDATE_GID}"',
+    ]
+    shared_required = (
+        "umask 077",
+        "export HOME=/tmp/home",
+        "export PATH=/opt/fpm-rust/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin",
+        "export TMPDIR=/tmp",
+        "export CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse",
+        "export RUSTC_WRAPPER=",
+        "test ! -e /var/run/docker.sock",
+        "test ! -d /github",
+        "test ! -d /home/runner",
+        "test ! -L /.cargo",
+        "test ! -e /.cargo/config",
+        "test ! -e /.cargo/config.toml",
+        "test -z \"$(env | grep '^GITHUB_' || true)\"",
     )
-    expected_by_step = {
-        "Cargo fmt inside immutable sandbox": (
-            "--pids-limit 256",
-            "--memory 2g",
-            "--memory-swap 2g",
-            "--cpus 1",
-        ),
-        "Probe hostile-code sandbox boundary": (
-            "--pids-limit 256",
-            "--memory 6g",
-            "--memory-swap 6g",
-            "--cpus 2",
-            '--mount type=bind,src="${FPM_CARGO_HOME}",dst=/cargo-ro,readonly',
-            '--mount type=bind,src="${FPM_TARGET_DIR}",dst=/target',
-        ),
-        "Compile test artifacts inside immutable offline sandbox": (
-            "--pids-limit 512",
-            "--memory 6g",
-            "--memory-swap 6g",
-            "--cpus 2",
-            '--mount type=bind,src="${FPM_CARGO_HOME}",dst=/cargo-ro,readonly',
-            '--mount type=bind,src="${FPM_TARGET_DIR}",dst=/target',
-        ),
-        "Execute precompiled test harness inside immutable sandbox": (
-            "--pids-limit 512",
-            "--memory 6g",
-            "--memory-swap 6g",
-            "--cpus 2",
-            '--mount type=bind,src="${FPM_TARGET_DIR}",dst=/target,readonly',
-            '--mount type=bind,src="${TARGET_CLOSURE_FILE}",dst=/tmp/fpm-target-closure.tsv,readonly',
-        ),
-    }
-    for step, command in invocations:
-        for token in common:
-            if token not in command:
-                fail(f"{step} sandbox invocation is missing required control: {token}")
-        for token in expected_by_step[step]:
-            if token not in command:
-                fail(f"{step} sandbox invocation is missing exact profile control: {token}")
-        if "--privileged" in command or "--pid=host" in command or "--network host" in command:
-            fail(f"{step} sandbox invocation contains forbidden namespace broadening")
-        if "--cap-add" in command or "docker.sock" in command:
-            fail(f"{step} sandbox invocation contains forbidden privilege broadening")
+
+    for index, start in enumerate(starts):
+        step = next(
+            (
+                line.removeprefix("      - name: ").strip()
+                for line in reversed(lines[:start])
+                if line.startswith("      - name: ")
+            ),
+            "unknown",
+        )
+        if step != expected_steps[index]:
+            fail(f"embedded sandbox program order mismatch at index {index}: {step!r}")
+        try:
+            end = next(
+                i for i in range(start + 1, len(lines))
+                if lines[i] == "          FPM_SANDBOX_SCRIPT"
+            )
+        except StopIteration:
+            fail(f"embedded sandbox program in {step} has no terminator")
+        body = "\n".join(lines[start + 1:end])
+        if not body.strip():
+            fail(f"embedded sandbox program in {step} is empty")
+        for token in shared_required:
+            if token not in body:
+                fail(f"embedded sandbox program in {step} is missing invariant: {token}")
+        if "export CARGO_NET_OFFLINE=false" in body:
+            fail(f"embedded sandbox program in {step} enables Cargo network access")
+        if index < 3 and body.count("export CARGO_NET_OFFLINE=true") != 1:
+            fail(f"embedded sandbox program in {step} must force Cargo offline mode exactly once")
+
+        phase_required = {
+            "Cargo fmt inside immutable sandbox": (
+                "cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml",
+            ),
+            "Probe hostile-code sandbox boundary": (
+                "rustc --crate-name fpm_toolchain_probe --edition 2024 -C linker=cc",
+                "/target/.fpm-toolchain-probe",
+            ),
+            "Compile test artifacts inside immutable offline sandbox": (
+                "cargo test --locked --offline --no-run --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml",
+                "find /target/debug/deps",
+            ),
+            "Execute precompiled test harness inside immutable sandbox": (
+                "/tmp/fpm-target-closure.tsv",
+                "/target/debug/deps/",
+            ),
+        }[step]
+        for token in phase_required:
+            if token not in body:
+                fail(f"embedded sandbox program in {step} is missing phase command: {token}")
+
 
 
 def verify_sandbox_policy(policy_file: dict[str, Any], expected_image_digest: str) -> None:
@@ -545,6 +617,7 @@ def verify_sandbox_policy(policy_file: dict[str, Any], expected_image_digest: st
             fail(f"trusted sandbox policy contains forbidden broadening: {token}")
 
     verify_sandbox_invocations(policy_text)
+    verify_sandbox_programs(policy_text)
     return policy_text
 
 def require_canonical_absolute_path(value: Any, field: str) -> str:

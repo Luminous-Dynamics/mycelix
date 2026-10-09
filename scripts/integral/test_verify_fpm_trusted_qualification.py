@@ -6,6 +6,7 @@ from __future__ import annotations
 import base64
 import copy
 import hashlib
+import importlib.util
 import json
 import shutil
 import subprocess
@@ -262,6 +263,39 @@ def expect_failure(base: Path, target: str, label: str, mutator) -> None:
         assert result.returncode != 0, f"mutation unexpectedly verified: {label}"
     finally:
         shutil.rmtree(root)
+
+
+def load_reference_verifier():
+    spec = importlib.util.spec_from_file_location("fpm_reference_verifier_under_test", SCRIPT)
+    if spec is None or spec.loader is None:
+        raise AssertionError("unable to load reference verifier module")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def assert_policy_mutation_rejected(verifier, base: Path, label: str, mutator, expected_fragment=None) -> None:
+    policy = json.loads((base / "policy-file.json").read_text(encoding="utf-8"))
+    original = base64.b64decode(policy["content"], validate=True).decode("utf-8")
+    changed = mutator(original)
+    raw = changed.encode("utf-8")
+    policy["content"] = base64.b64encode(raw).decode("ascii")
+    policy["sha"] = hashlib.sha1(
+        f"blob {len(raw)}".encode("ascii") + bytes([0]) + raw
+    ).hexdigest()
+    try:
+        verifier.verify_sandbox_policy(policy, "sha256:603634c53d477dd94dd224a3dd5c008e996dd3ec8ccc54ac6af9344d990339e5")
+    except SystemExit as exc:
+        message = str(exc)
+        assert "trusted policy content does not match its Git blob SHA" not in message, (
+            f"policy mutation did not reach semantic validation: {label}: {message}"
+        )
+        if expected_fragment is not None:
+            assert expected_fragment in message, (
+                f"policy mutation failed for the wrong reason: {label}: {message}"
+            )
+    else:
+        raise AssertionError(f"policy mutation unexpectedly passed semantic validation: {label}")
 
 
 def assert_evidence_archive_contract() -> None:
@@ -707,17 +741,19 @@ version = "1.0.0"
         for file_name, label, fn in external:
             expect_failure(root, file_name, label, fn)
 
-        def mutate_only_fmt_network(value):
-            decoded = base64.b64decode(value["content"]).decode("utf-8")
-            start = decoded.index("      - name: Cargo fmt inside immutable sandbox")
-            end = decoded.index("      - name: Probe hostile-code sandbox boundary", start)
-            block = decoded[start:end]
-            assert "--network none" in block
-            block = block.replace("--network none", "--network host", 1)
-            decoded = decoded[:start] + block + decoded[end:]
-            value["content"] = base64.b64encode(decoded.encode("utf-8")).decode("ascii")
+        verifier_module = load_reference_verifier()
 
-        expect_failure(root, "policy-file.json", "policy.fmt-network-only", mutate_only_fmt_network)
+        def mutate_only_fmt_network(text: str) -> str:
+            start = text.index("      - name: Cargo fmt inside immutable sandbox")
+            end = text.index("      - name: Probe hostile-code sandbox boundary", start)
+            block = text[start:end]
+            assert "--network none" in block
+            return text[:start] + block.replace("--network none", "--network host", 1) + text[end:]
+
+        assert_policy_mutation_rejected(
+            verifier_module, root, "policy.fmt-network-only", mutate_only_fmt_network,
+            "exact allowlisted profile",
+        )
 
         def mutate_policy_content_without_sha(value):
             decoded = base64.b64decode(value["content"], validate=True)
@@ -730,25 +766,39 @@ version = "1.0.0"
             mutate_policy_content_without_sha,
         )
 
-
         policy_cases = [
-            ("--network none", "--network host", "policy.network"),
-            ("--read-only", "--security-opt no-new-privileges", "policy.read-only"),
-            ("--cap-drop ALL", "--cap-drop NET_RAW", "policy.cap-drop"),
-            ("--security-opt no-new-privileges", "--privileged", "policy.no-new-privileges"),
-            ("--pids-limit 512", "--pids-limit 4096", "policy.pids-limit"),
-            ("--memory 6g", "--memory 64g", "policy.memory"),
-            ("--cpus 2", "--cpus 64", "policy.cpus"),
-            ("CARGO_NET_OFFLINE=true", "CARGO_NET_OFFLINE=false", "policy.offline"),
-            ("cargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "cargo test --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "policy.cargo-offline"),
-            ("cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "cargo fmt --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "policy.rustfmt"),
+            ("--network none", "--network host", "policy.network", "exact allowlisted profile"),
+            ("--read-only", "--security-opt no-new-privileges", "policy.read-only", "exact allowlisted profile"),
+            ("--cap-drop ALL", "--cap-drop NET_RAW", "policy.cap-drop", "exact allowlisted profile"),
+            ("--security-opt no-new-privileges", "--privileged", "policy.no-new-privileges", "exact allowlisted profile"),
+            ("--pids-limit 512", "--pids-limit 4096", "policy.pids-limit", "exact allowlisted profile"),
+            ("--memory 6g", "--memory 64g", "policy.memory", "exact allowlisted profile"),
+            ("--cpus 2", "--cpus 64", "policy.cpus", "exact allowlisted profile"),
+            ("CARGO_NET_OFFLINE=true", "CARGO_NET_OFFLINE=false", "policy.offline", "enables Cargo network access"),
+            ("cargo test --locked --offline --no-run --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "cargo test --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "policy.cargo-offline", "missing required invariant"),
+            ("cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "cargo fmt --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml", "policy.rustfmt", "missing required invariant"),
         ]
-        for old, new, label in policy_cases:
-            def mutate_policy(value, old=old, new=new):
-                decoded = base64.b64decode(value["content"], validate=True).decode()
-                assert old in decoded
-                value["content"] = base64.b64encode(decoded.replace(old, new, 1).encode()).decode()
-            expect_failure(root, "policy-file.json", label, mutate_policy)
+        for old, new, label, expected_fragment in policy_cases:
+            def mutate_policy(text: str, old=old, new=new) -> str:
+                assert old in text
+                return text.replace(old, new, 1)
+            assert_policy_mutation_rejected(
+                verifier_module, root, label, mutate_policy, expected_fragment
+            )
+
+        def mutate_extra_host_mount(text: str) -> str:
+            lines = text.splitlines()
+            for index, line in enumerate(lines):
+                if 'src="${FPM_TOOLCHAIN_ROOT}"' in line and "dst=/opt/fpm-rust,readonly" in line:
+                    assert line.rstrip().endswith(chr(92))
+                    lines.insert(index + 1, '            --mount type=bind,src="/",dst=/host,readonly ' + chr(92))
+                    return "\n".join(lines) + "\n"
+            raise AssertionError("could not locate trusted toolchain mount")
+
+        assert_policy_mutation_rejected(
+            verifier_module, root, "policy.extra-host-mount", mutate_extra_host_mount,
+            "exact allowlisted profile",
+        )
 
         expect_failure(
             root, "verifier-control.json", "control.reference-verifier-blob",
