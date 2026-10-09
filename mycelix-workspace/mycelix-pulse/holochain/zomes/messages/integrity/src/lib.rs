@@ -481,6 +481,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             } => validate_update_entry(app_entry, action),
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::Update(OpUpdate::Entry { app_entry, action }) => {
+            validate_update_entry(app_entry, action)
+        }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported message update variant".to_string(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
