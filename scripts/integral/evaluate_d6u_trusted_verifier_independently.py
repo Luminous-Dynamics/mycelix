@@ -1215,9 +1215,6 @@ def run(candidate_root: pathlib.Path) -> None:
         f"candidate trusted workflow missing or symlinked: {workflow_path}"
     )
 
-    verifier = load_module(verifier_path)
-    fetcher = load_module(fetcher_path)
-
     p = policy()
     policy_bytes = policy_path.read_bytes()
     verify_candidate_policy_blob(policy_bytes)
@@ -1240,6 +1237,11 @@ def run(candidate_root: pathlib.Path) -> None:
     observed_program_blobs = verify_candidate_trusted_program_blobs(
         candidate_root, candidate_policy
     )
+
+    # Treat candidate code as inert bytes until the immutable policy, workflow,
+    # and complete trusted-program closure have all passed their blob checks.
+    verifier = load_module(verifier_path)
+    fetcher = load_module(fetcher_path)
 
     altered_program_policy = copy.deepcopy(candidate_policy)
     altered_program_policy["trusted_programs"][
