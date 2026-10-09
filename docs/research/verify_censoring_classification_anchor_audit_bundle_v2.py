@@ -32,6 +32,7 @@ REQUIRED_VERIFIERS={
  "vds_python","vds_node","rotation_python","rotation_node","tree_head_python","tree_head_node",
  "legacy_receipt_python","legacy_receipt_node","static_gossip_python","static_gossip_node",
  "cose_receipt_python","cose_receipt_node","gossip_simulation_python","gossip_simulation_node",
+ "execution_receipt_builder","execution_receipt_python","execution_receipt_node",
 }
 
 def canonical(v):
@@ -74,6 +75,14 @@ def validate(bundle,repo_root:Path):
     if set(claims)!=expected_claims or any(claims[k] is not False for k in expected_claims):return "claim-ceiling-injection"
     arts=bundle.get("artifacts",{})
     verifiers=bundle.get("verifiers",{})
+    workflow_sources=bundle.get("workflow_sources",{})
+    if set(workflow_sources)!={"source_regression","execution_attestation"}:return "workflow-source-inventory"
+    for name,pair in workflow_sources.items():
+        if not isinstance(pair,list) or len(pair)!=2:return f"workflow-source-record:{name}"
+        rel,expected_sha=pair
+        file=repo_root/rel
+        if not file.is_file():return f"workflow-source-missing:{name}"
+        if git_blob_sha(file,repo_root)!=expected_sha:return f"workflow-source-sha:{name}"
     for group,items in (("artifact",arts),("verifier",verifiers)):
         for name,pair in items.items():
             if not isinstance(pair,list) or len(pair)!=2:return f"{group}-record:{name}"
@@ -130,6 +139,7 @@ def mutate(bundle,mutation):
     typ,_,name=mutation.partition(":")
     if typ=="artifact" and name in b["artifacts"]:b["artifacts"][name][1]="0"*40
     elif typ=="verifier" and name in b["verifiers"]:b["verifiers"][name][1]="0"*40
+    elif typ=="workflow" and name in b.get("workflow_sources",{}):b["workflow_sources"][name][1]="0"*40
     elif typ=="binding" and name=="vds_id":b["bindings"]["vds_id"]="attacker.vds"
     elif typ=="topology" and name=="4890":
         next(x for x in b["topology"] if x["pr"]==4890)["head"]="0"*40
@@ -143,7 +153,7 @@ def main():
         print("usage: verifier REPO_ROOT BUNDLE CAMPAIGN REPORT",file=sys.stderr);return 2
     repo_root,bundle_path,campaign_path,report_path=map(Path,sys.argv[1:])
     bundle=json.loads(bundle_path.read_text());campaign=json.loads(campaign_path.read_text())
-    if campaign.get("schema")!=CAMPAIGN_SCHEMA or campaign.get("case_count")!=25 or len(campaign.get("cases",[]))!=25:return 1
+    if campaign.get("schema")!=CAMPAIGN_SCHEMA or campaign.get("case_count")!=30 or len(campaign.get("cases",[]))!=30:return 1
     case_ids=[x.get("case_id") for x in campaign["cases"]]
     if len(case_ids)!=len(set(case_ids)):return 1
     rows=[];failures=[]
