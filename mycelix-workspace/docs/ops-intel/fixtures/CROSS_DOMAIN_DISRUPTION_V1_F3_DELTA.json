@@ -1,0 +1,42 @@
+{
+  "fixture_profile": "OPS-INTEL-TEST-001",
+  "fixture_version": "CrossDomainDisruptionV1",
+  "frontier_ref": "frontier:F3",
+  "parent_frontier_ref": "frontier:F2",
+  "data_class": "synthetic",
+  "visibility": "solver-visible-only-when-F3-is-the-requested-frontier",
+  "immutable": true,
+  "phase": "outcome-reconciliation",
+  "outcome_observations": [
+    {
+      "outcome_ref": "outcome:reroute-B-window-01",
+      "attempt_ref": "attempt:reroute-B-01",
+      "observation_ref": "observation:arrival-audit-B-01",
+      "source_ref": "source:independent-arrival-audit",
+      "observation_time_utc": "2026-06-01T16:30:00Z",
+      "observed_effect": "ShipmentNotObservedAtDestinationByDeclaredDeadline",
+      "evaluation_window_ref": "window:reroute-B-deadline-01",
+      "outcome_disposition": "NotSuccessfulWithinWindow",
+      "independence_assessment": "DeclaredIndependentUnderSyntheticProfile",
+      "causal_attribution": "NotEstablished",
+      "limitations": [
+        "The observation supports the bounded statement that arrival was not observed by the specified deadline.",
+        "It does not establish why the shipment failed to arrive.",
+        "It does not establish malicious intent or responsibility."
+      ]
+    }
+  ],
+  "reconciliation_expectations": [
+    {
+      "subject_ref": "attempt:reroute-B-01",
+      "attempted_disposition": "DispatchAccepted",
+      "independent_outcome_disposition": "NotSuccessfulWithinWindow",
+      "required_result": "PreserveAttemptOutcomeConflict;DoNotPromoteAttemptToEffectSuccess"
+    }
+  ],
+  "nonclaims": [
+    "F3 can score an earlier attempt but cannot rewrite F0/F1 decision bytes.",
+    "Outcome observation does not establish causality.",
+    "A reported successful attempt is not outcome evidence."
+  ]
+}
