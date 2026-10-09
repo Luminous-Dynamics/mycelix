@@ -185,6 +185,13 @@ def main() -> int:
                 f"{aggregate_guard_path}: receipt must be a JSON object")
         validate_receipt(aggregate_guard, "mycelix.auth-v20-aggregate-mutation-test.v1",
                          args.expected_head, aggregate_guard_path)
+        expected_aggregator_sha256 = hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest()
+        aggregate_test_path = Path(__file__).resolve().with_name("test_aggregate_auth_v20_evidence.py")
+        expected_aggregate_test_sha256 = hashlib.sha256(aggregate_test_path.read_bytes()).hexdigest()
+        require(aggregate_guard.get("aggregator_sha256") == expected_aggregator_sha256,
+                "aggregator self-test receipt is not bound to the checked-out aggregator source")
+        require(aggregate_guard.get("test_sha256") == expected_aggregate_test_sha256,
+                "aggregator self-test receipt is not bound to the checked-out test source")
         expected_aggregate_guard_mutations = (
             "missing-required-receipt", "wrong-source-head", "qualification-laundered",
             "failed-receipt-hidden", "schema-downgraded", "corpus-count-weakened",
@@ -217,6 +224,8 @@ def main() -> int:
             "status": aggregate_guard["status"],
             "source_head": aggregate_guard["source_head"],
             "qualification": aggregate_guard["qualification"],
+            "aggregator_sha256": aggregate_guard["aggregator_sha256"],
+            "test_sha256": aggregate_guard["test_sha256"],
             "sha256": hashlib.sha256(aggregate_guard_bytes).hexdigest(),
         })
 
@@ -372,6 +381,7 @@ def main() -> int:
         receipt["summary"] = {
             "required_specialist_receipts": len(REQUIRED_RECEIPTS),
             "aggregate_self_test_receipt_included": True,
+            "aggregate_self_test_source_hashes_match_checkout": True,
             "total_receipts_hashed": len(receipt["receipts"]),
             "raw_control_artifacts_verified": len(receipt["artifacts"]),
             "all_receipts_status_pass": True,
