@@ -37,7 +37,7 @@ REPO_ROOT = SCRIPT.resolve().parents[2]
 def git_blob_sha1(path: Path) -> str:
     raw = path.read_bytes()
     return hashlib.sha1(
-        b"blob " + str(len(raw)).encode("ascii") + b"\\0" + raw
+        b"blob " + str(len(raw)).encode("ascii") + b"\0" + raw
     ).hexdigest()
 
 
