@@ -126,7 +126,7 @@ A standalone `delegation_chain_key_linkage.py` candidate now checks the AAT-styl
 
 `urn:ietf:params:oauth:jwk-thumbprint:sha-256:<base64url-thumbprint>`
 
-The independent test harness implements its own required-member canonicalization and SHA-256/base64url computation, covers a valid four-hop link plus seven negative controls, and injects three missing-finding regressions. Unsupported key profiles fail closed; this does not claim support for RSA, EC, or other OKP curves.
+The independent test harness implements its own required-member canonicalization and SHA-256/base64url computation, covers a valid four-hop link plus eight negative controls, and injects three missing-finding regressions. Unsupported key profiles fail closed; this does not claim support for RSA, EC, or other OKP curves.
 
 The existing `parent_envelope_sha256` field remains a separate *test-fixture* consistency link. It is **not** the draft's `par_hash` (which commits to the parent's JWS signing input), and it is not a substitute for derived issuer linkage. The RFC 7638 thumbprint binds the issuer claim to the public JWK's required members; it does not authenticate any token.
 
