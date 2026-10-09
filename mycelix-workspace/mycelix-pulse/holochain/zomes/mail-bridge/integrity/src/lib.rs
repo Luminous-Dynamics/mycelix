@@ -1148,8 +1148,38 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => {
-                let action: TypedAction<EntryCreationData> = action.into();
-                match app_entry {
+                validate_create_entry(app_entry, action.into())
+            },
+            OpEntry::UpdateEntry { app_entry, .. } => validate_update_entry(app_entry),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
+            OpRecord::UpdateEntry { app_entry, .. } => validate_update_entry(app_entry),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::Update(OpUpdate::Entry { app_entry, .. }) => validate_update_entry(app_entry),
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Mail bridge records are immutable".to_string(),
+        )),
+        // Mail-bridge entries are audit records and are never deleted.
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
+            "mail-bridge audit records cannot be deleted".to_string(),
+        )),
+        _ => Ok(ValidateCallbackResult::Valid),
+    }
+}
+
+
+// Shared validation functions keep the HDI 0.8 StoreEntry, StoreRecord, and Update
+// operations on the same policy path.
+fn validate_create_entry(
+    entry: EntryTypes,
+    action: TypedAction<EntryCreationData>,
+) -> ExternResult<ValidateCallbackResult> {
+    match entry {
                 EntryTypes::MailBridgeQuery(query) => {
                     if query.requester != action.author() {
                         return Ok(ValidateCallbackResult::Invalid(
@@ -1312,9 +1342,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     validate_sender_proof_activation_audit_event(&event, &action)
                 }
                 EntryTypes::MailBridgeEvent(_) => Ok(ValidateCallbackResult::Valid),
-                }
-            },
-            OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
+    }
+}
+
+fn validate_update_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
+    match entry {
                 EntryTypes::SenderProofConsumption(_) => Ok(ValidateCallbackResult::Invalid(
                     "sender-proof consumption records are append-only".to_string(),
                 )),
@@ -1391,29 +1423,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         "sender-proof activation audit events are append-only".to_string(),
                     ))
                 }
-                _ => Ok(ValidateCallbackResult::Valid),
-            },
-            // Neither entry type has a real update_entry call anywhere in the coordinator
-            // (confirmed via direct grep) -- reject outright rather than leave the previous
-            // unbound dead-code path (P0 wide-open RegisterUpdate gap, confirmed 50+ times
-            // elsewhere in this pass).
-            OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
-                "Mail bridge entries cannot be updated".to_string(),
-            )),
-            _ => Ok(ValidateCallbackResult::Valid),
-        },
-        // Mail-bridge entries are audit records and are never deleted. This
-        // also makes sender-proof consumption durable once observed.
-        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
-            "mail-bridge audit records cannot be deleted".to_string(),
+        _ => Ok(ValidateCallbackResult::Invalid(
+            "Mail bridge entries are append-only".to_string(),
         )),
-        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
-            "Mail bridge entries cannot be updated".to_string(),
-        )),
-        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
-            "Mail bridge records are immutable".to_string(),
-        )),
-        _ => Ok(ValidateCallbackResult::Valid),
     }
 }
 
