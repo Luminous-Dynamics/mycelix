@@ -69,7 +69,7 @@
     "claim_ceiling": "TRUSTED_SEMANTIC_ORACLE_RESEARCH_ONLY",
     "candidate_code_executed": false,
     "negative_control_count": 11,
-    "tree_size_max_inclusive": 4611686018427388000,
+    "tree_size_max_inclusive": 4611686018427387904,
     "positive_inclusion_matrix": {
       "tree_sizes": [
         1,
