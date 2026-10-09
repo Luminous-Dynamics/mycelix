@@ -99,6 +99,15 @@ def sign_token(private_path: Path, header: dict[str, Any], claims: dict[str, Any
 def build_chain(directory: Path, case: str = "valid-four-token-chain", count: int = 4) -> dict[str, Any]:
     keys = [generate_keypair(directory, i) for i in range(count + 1)]
     holder_jwks = [key["public_jwk"] for key in keys]
+    if case == "valid-compatible-key-metadata-chain":
+        for index, jwk in enumerate(holder_jwks):
+            jwk.update({
+                "use": "sig",
+                "alg": "EdDSA",
+                "key_ops": ["verify"],
+                "kid": f"holder-{index}",
+                "x-deployment-note": "unknown JWK metadata must be ignored",
+            })
     chain: list[str] = []
     parent_signing_input: str | None = None
     root_iat = NOW - 200
@@ -162,6 +171,12 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain", count: in
             claims["jti"] = "token-0"
         elif case == "private-holder-key" and index == 0:
             claims["cnf"]["jwk"]["d"] = "private-material-must-not-appear"
+        elif case == "jwk-use-encryption" and index == 0:
+            claims["cnf"]["jwk"]["use"] = "enc"
+        elif case == "jwk-algorithm-mismatch" and index == 0:
+            claims["cnf"]["jwk"]["alg"] = "ES256"
+        elif case == "jwk-key-ops-missing-verify" and index == 0:
+            claims["cnf"]["jwk"]["key_ops"] = ["sign"]
         elif case == "valid-four-token-chain" and index == 0:
             raw_payload = compact_json(claims).replace(b'"jti":"token-0"', b'"jti":"token-0","unrecognized_extension":1e999')
         elif case == "duplicate-payload-member" and index == 0:
@@ -244,6 +259,9 @@ def cases(directory: Path) -> dict[str, dict[str, Any]]:
         "maximum-depth-expands",
         "duplicate-jti",
         "private-holder-key",
+        "jwk-use-encryption",
+        "jwk-algorithm-mismatch",
+        "jwk-key-ops-missing-verify",
         "duplicate-payload-member",
         "none-algorithm",
         "b64-header-present",
@@ -313,6 +331,18 @@ def main() -> int:
                 "independent_fixture": "OpenSSL root signature verified; root also treated as leaf",
                 "token_count": len(valid_single["chain"]),
             })
+
+            valid_metadata = build_chain(root, "valid-compatible-key-metadata-chain")
+            observed_metadata = invoke_fixture(valid_metadata, openssl)
+            require(observed_metadata.get("status") == "COMPACT_JWS_CRYPTO_LINKAGE_PASS",
+                    "consistent JWK usage metadata or unknown optional JWK member rejected: " +
+                    json.dumps(observed_metadata, sort_keys=True))
+            receipt["controls"].append({
+                "id": "valid-compatible-key-metadata-chain",
+                "status": observed_metadata["status"],
+                "independent_fixture": "OpenSSL Ed25519; use=sig, alg=EdDSA, key_ops=verify",
+                "token_count": len(valid_metadata["chain"]),
+            })
             # Reject attempts to smuggle trust roots in the same object as
             # untrusted token-chain data. Real trust configuration stays outside.
             wrong_anchor = generate_keypair(root, 30)
@@ -367,6 +397,9 @@ def main() -> int:
                     "maximum-depth-expands": "maximum-depth-budget-expanded",
                     "duplicate-jti": "duplicate-jti",
                     "private-holder-key": "private-key-material-present",
+                    "jwk-use-encryption": "jwk-use-invalid",
+                    "jwk-algorithm-mismatch": "jwk-algorithm-mismatch",
+                    "jwk-key-ops-missing-verify": "jwk-key-ops-invalid",
                     "duplicate-payload-member": "json-duplicate-member",
                     "none-algorithm": "algorithm-not-allowed",
                     "b64-header-present": "b64-header-not-allowed",
@@ -421,6 +454,31 @@ def main() -> int:
                     "independent_expected_rejection": fixture_name,
                 })
 
+            # Omitting all three JWK usage-metadata checks must accept each
+            # known-invalid key profile, proving those checks are independently
+            # observable rather than merely decorative metadata parsing.
+            original_usage_check = verifier.validate_jwk_signature_usage
+            bad_metadata_fixtures = (
+                "jwk-use-encryption",
+                "jwk-algorithm-mismatch",
+                "jwk-key-ops-missing-verify",
+            )
+            try:
+                verifier.validate_jwk_signature_usage = lambda jwk: None
+                for fixture_name in bad_metadata_fixtures:
+                    mutated_result = invoke_fixture(bad_cases[fixture_name], openssl)
+                    require(mutated_result.get("status") == "COMPACT_JWS_CRYPTO_LINKAGE_PASS",
+                            "omitted JWK metadata mutant did not accept known-bad fixture " +
+                            fixture_name + ": " + json.dumps(mutated_result, sort_keys=True))
+            finally:
+                verifier.validate_jwk_signature_usage = original_usage_check
+            receipt["mutations"].append({
+                "id": "jwk-usage-metadata-checks-omitted",
+                "rejected_if_unmutated": True,
+                "mutant_acceptance_observed": True,
+                "independent_expected_rejections": list(bad_metadata_fixtures),
+            })
+
             receipt["source_head"] = subprocess.run(
                 ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
                 check=True, timeout=15,
@@ -430,9 +488,9 @@ def main() -> int:
             receipt["test_sha256"] = hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest()
             receipt["status"] = "PASS"
             receipt["summary"] = {
-                "positive_controls": 2,
-                "negative_controls": sum(row["id"] not in {"valid-four-token-chain", "valid-single-token-chain"} for row in receipt["controls"]),
-                "signatures_verified": sum(row["token_count"] for row in receipt["controls"] if row["id"] in {"valid-four-token-chain", "valid-single-token-chain"}),
+                "positive_controls": 3,
+                "negative_controls": sum(row["id"] not in {"valid-four-token-chain", "valid-single-token-chain", "valid-compatible-key-metadata-chain"} for row in receipt["controls"]),
+                "signatures_verified": sum(row["token_count"] for row in receipt["controls"] if row["id"] in {"valid-four-token-chain", "valid-single-token-chain", "valid-compatible-key-metadata-chain"}),
                 "mutants_detected": len(receipt["mutations"]),
                 "signature_and_linkage_mutants_detected": len(receipt["mutations"]),
                 "root_anchor_checks": True,
@@ -441,8 +499,8 @@ def main() -> int:
                 "qualification": "NOT_CLAIMED",
             }
             args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-            print(f"COMPACT JWS CRYPTO-LINK CHECK PASS: 2 signed positives + {receipt['summary']['negative_controls']} negative controls")
-            print("COMPACT JWS MUTATION SENSITIVITY PASS: 3 of 3 omitted checks accepted known-bad fixtures")
+            print(f"COMPACT JWS CRYPTO-LINK CHECK PASS: 3 signed positives + {receipt['summary']['negative_controls']} negative controls")
+            print("COMPACT JWS MUTATION SENSITIVITY PASS: 4 of 4 omitted checks accepted known-bad fixtures")
             print("QUALIFICATION NOT CLAIMED: capability subsumption and leaf proof-of-possession are not implemented")
             return 0
     except Exception as error:
