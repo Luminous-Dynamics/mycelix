@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - ops-intel-rust-fixture-validator-v1
     paths:
       - "scripts/ops_intel/rust-validator/**"
       - "mycelix-workspace/docs/ops-intel/fixtures/**"
@@ -24,7 +23,9 @@ permissions:
 
 concurrency:
   group: ops-intel-rust-fixture-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Keep an already queued exact-head qualification from being cancelled by a
+  # follow-up metadata push; review each PR head once it reaches a runner.
+  cancel-in-progress: false
 
 jobs:
   validate-fixture:

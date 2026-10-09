@@ -25,7 +25,10 @@ protected-field omission, and predicate/mutation identifiers.
 
 Closed Serde records using deny_unknown_fields currently cover the F0 frontier,
 candidate records, protected-field records, F2 attempt, and F2 mock-authority
-cases. The remaining fixture record families use explicit structural/reference
+cases. The validator also pins the expected identity sets for the fixture's
+domains, subjects, sources, artifacts, observations, coverage records, candidate
+inventory, F1/F3 deltas, 20 predicates, and 23 mutation descriptors; a same-count
+substitution no longer passes as an unchanged fixture. The remaining fixture record families use explicit structural/reference
 checks over the parsed JSON tree; this is a structural preflight, not yet a
 complete typed domain schema.
 

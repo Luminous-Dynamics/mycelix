@@ -67,6 +67,78 @@ const EXPECTED_AUTHORITY_CASE_REFS: [&str; 6] = [
     "authority-case:wrong-payload",
     "authority-case:matching-mock-permit",
 ];
+const EXPECTED_DOMAIN_REFS: [&str; 4] = [
+    "domain:SupplyChain",
+    "domain:Energy",
+    "domain:ServiceOperations",
+    "domain:OrganizationPolicy",
+];
+const EXPECTED_SUBJECT_REFS: [&str; 11] = [
+    "subject:shipment-A-17",
+    "subject:supplier-A",
+    "subject:supplier-B",
+    "subject:energy-zone-1",
+    "subject:service-region-R1",
+    "subject:service-region-R2",
+    "subject:supplier-B-facility-A",
+    "subject:supplier-B-facility-B",
+    "subject:supplier-B-facility-C",
+    "subject:supplier-B-facility-D",
+    "subject:supplier-B-facility-E",
+];
+const EXPECTED_F0_SOURCE_REFS: [&str; 6] = [
+    "source:carrier-A",
+    "source:supplier-A-portal",
+    "source:warehouse-B-snapshot",
+    "source:energy-E1",
+    "source:energy-E2",
+    "source:demand-R1",
+];
+const EXPECTED_F0_ARTIFACT_REFS: [&str; 6] = [
+    "artifact:carrier-A-shipment-17-20260601T1030Z",
+    "artifact:supplier-A-portal-shipment-17-20260601T0950Z",
+    "artifact:warehouse-B-inventory-20260601T0900Z",
+    "artifact:energy-E1-20260601T1100Z",
+    "artifact:energy-E2-20260601T1115Z",
+    "artifact:demand-R1-20260601T1120Z",
+];
+const EXPECTED_F0_OBSERVATION_REFS: [&str; 6] = [
+    "observation:shipment-A-17-carrier",
+    "observation:shipment-A-17-portal",
+    "observation:supplier-B-inventory-partial",
+    "observation:energy-E1-capacity",
+    "observation:energy-E2-capacity",
+    "observation:demand-R1-current",
+];
+const EXPECTED_F0_COVERAGE_REFS: [&str; 2] = [
+    "coverage:service-demand-R2",
+    "coverage:supplier-B-unobserved-facilities",
+];
+const EXPECTED_F1_SOURCE_REFS: [&str; 1] = ["source:warehouse-inspection-B-refresh"];
+const EXPECTED_F1_ARTIFACT_REFS: [&str; 3] = [
+    "artifact:warehouse-inspection-B-refresh-20260601T1210Z",
+    "artifact:energy-E1-calibration-refresh-20260601T1215Z",
+    "artifact:energy-E2-refresh-20260601T1218Z",
+];
+const EXPECTED_F1_OBSERVATION_REFS: [&str; 3] = [
+    "observation:supplier-B-inventory-refresh",
+    "observation:energy-E1-recalibrated-capacity",
+    "observation:energy-E2-refreshed-capacity",
+];
+const EXPECTED_F1_COVERAGE_REFS: [&str; 1] = ["coverage:supplier-B-facilities-D-E-at-F1"];
+const EXPECTED_F3_SOURCE_REFS: [&str; 1] = ["source:independent-arrival-audit"];
+const EXPECTED_F3_ARTIFACT_REFS: [&str; 1] = ["artifact:arrival-audit-B-01-20260601T1630Z"];
+const EXPECTED_F3_OUTCOME_REFS: [&str; 1] = ["outcome:reroute-B-window-01"];
+const EXPECTED_F3_OBSERVATION_REFS: [&str; 1] = ["observation:arrival-audit-B-01"];
+const EXPECTED_PREDICATE_IDS: [&str; 20] = [
+    "P01", "P02", "P03", "P04", "P05", "P06", "P07", "P08", "P09", "P10",
+    "P11", "P12", "P13", "P14", "P15", "P16", "P17", "P18", "P19", "P20",
+];
+const EXPECTED_MUTATION_IDS: [&str; 23] = [
+    "M01", "M02", "M03", "M04", "M05", "M06", "M07", "M08", "M09", "M10",
+    "M11", "M12", "M13", "M14", "M15", "M16", "M17", "M18", "M19", "M20",
+    "M21", "M22", "M23",
+];
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -365,6 +437,33 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
             errors.push(format!("{label}: data_class must be synthetic"));
         }
     }
+    if f0.get("schema_version").and_then(Value::as_str) != Some("0.1") {
+        errors.push("F0: unexpected schema_version".to_owned());
+    }
+    for (label, value, expected_visibility) in [
+        ("F1", f1, "solver-visible-only-when-F1-is-the-requested-frontier"),
+        ("F2", f2, "solver-visible-only-when-F2-is-the-requested-frontier"),
+        ("F3", f3, "solver-visible-only-when-F3-is-the-requested-frontier"),
+    ] {
+        if value.get("immutable").and_then(Value::as_bool) != Some(true) {
+            errors.push(format!("{label}: immutable must be explicitly true"));
+        }
+        if value.get("visibility").and_then(Value::as_str) != Some(expected_visibility) {
+            errors.push(format!("{label}: solver-visible frontier boundary mismatch"));
+        }
+    }
+    if predicates.get("profile").and_then(Value::as_str) != Some("OPS-INTEL-TEST-001")
+        || predicates.get("version").and_then(Value::as_str) != Some("0.1")
+        || predicates.get("authority_ceiling").and_then(Value::as_str) != Some("StructuralConformanceOnly")
+        || predicates.get("recommendation_policy").and_then(Value::as_str) != Some("NoSingleCanonicalWinner")
+    {
+        errors.push("Expected-predicate package metadata or authority ceiling mismatch".to_owned());
+    }
+    if mutations.get("profile").and_then(Value::as_str) != Some("OPS-INTEL-TEST-001")
+        || mutations.get("version").and_then(Value::as_str) != Some("0.1")
+    {
+        errors.push("Mutation package metadata mismatch".to_owned());
+    }
 
     for (key, value) in docs {
         scan_forbidden_keys(value, key, &mut errors);
@@ -385,6 +484,10 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     let sources0 = unique_record_refs(f0.get("source_registry"), "source_ref", "F0 source_registry", &mut errors);
     let artifacts0 = unique_record_refs(f0.get("artifacts"), "artifact_ref", "F0 artifacts", &mut errors);
     let subjects0 = unique_record_refs(f0.get("subjects"), "subject_ref", "F0 subjects", &mut errors);
+    require_exact_refs(&domains0, f0.get("domains").and_then(Value::as_array).map_or(0, Vec::len), &EXPECTED_DOMAIN_REFS, "F0 domains", &mut errors);
+    require_exact_refs(&sources0, f0.get("source_registry").and_then(Value::as_array).map_or(0, Vec::len), &EXPECTED_F0_SOURCE_REFS, "F0 source_registry", &mut errors);
+    require_exact_refs(&artifacts0, f0.get("artifacts").and_then(Value::as_array).map_or(0, Vec::len), &EXPECTED_F0_ARTIFACT_REFS, "F0 artifacts", &mut errors);
+    require_exact_refs(&subjects0, f0.get("subjects").and_then(Value::as_array).map_or(0, Vec::len), &EXPECTED_SUBJECT_REFS, "F0 subjects", &mut errors);
     check_record_refs(f0.get("subjects"), "domain_ref", &domains0, "F0 subjects", &mut errors);
     check_record_refs(f0.get("artifacts"), "source_ref", &sources0, "F0 artifacts", &mut errors);
     check_record_refs(f0.get("observations"), "source_ref", &sources0, "F0 observations", &mut errors);
@@ -392,6 +495,7 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     check_record_refs(f0.get("observations"), "subject_ref", &subjects0, "F0 observations", &mut errors);
     let observations0 = array_field(f0, "observations", "F0 observations", &mut errors);
     let observation_ids = record_refs_from_slice(observations0, "observation_ref", "F0 observations", &mut errors);
+    require_exact_refs(&observation_ids, observations0.len(), &EXPECTED_F0_OBSERVATION_REFS, "F0 observations", &mut errors);
     let dependencies = array_field(f0, "source_dependency_assessments", "F0 source_dependency_assessments", &mut errors);
     let dependency_ids = record_refs_from_slice(dependencies, "assessment_ref", "F0 source_dependency_assessments", &mut errors);
     if dependency_ids.len() != dependencies.len() {
@@ -427,6 +531,7 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
 
     let coverage_assertions = array_field(f0, "coverage_assertions", "F0 coverage_assertions", &mut errors);
     let coverage_ids0 = record_refs_from_slice(coverage_assertions, "coverage_ref", "F0 coverage_assertions", &mut errors);
+    require_exact_refs(&coverage_ids0, coverage_assertions.len(), &EXPECTED_F0_COVERAGE_REFS, "F0 coverage_assertions", &mut errors);
     check_record_refs(Some(&Value::Array(coverage_assertions.to_vec())), "subject_ref", &subjects0, "F0 coverage_assertions", &mut errors);
     match find_record(coverage_assertions, "coverage_ref", "coverage:supplier-B-unobserved-facilities") {
         Some(assertion) => {
@@ -545,6 +650,8 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
 
     let sources1_new = unique_record_refs(f1.get("added_sources"), "source_ref", "F1 added_sources", &mut errors);
     let artifacts1_new = unique_record_refs(f1.get("added_artifacts"), "artifact_ref", "F1 added_artifacts", &mut errors);
+    require_exact_refs(&sources1_new, f1.get("added_sources").and_then(Value::as_array).map_or(0, Vec::len), &EXPECTED_F1_SOURCE_REFS, "F1 added_sources", &mut errors);
+    require_exact_refs(&artifacts1_new, f1.get("added_artifacts").and_then(Value::as_array).map_or(0, Vec::len), &EXPECTED_F1_ARTIFACT_REFS, "F1 added_artifacts", &mut errors);
     reject_identity_reuse(&sources1_new, &sources0, "F1 added_sources", &mut errors);
     reject_identity_reuse(&artifacts1_new, &artifacts0, "F1 added_artifacts", &mut errors);
     let sources1: BTreeSet<String> = sources0.union(&sources1_new).cloned().collect();
@@ -562,6 +669,7 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
 
     let observations1 = array_field(f1, "added_observations", "F1 added_observations", &mut errors);
     let observation_ids1 = record_refs_from_slice(observations1, "observation_ref", "F1 added_observations", &mut errors);
+    require_exact_refs(&observation_ids1, observations1.len(), &EXPECTED_F1_OBSERVATION_REFS, "F1 added_observations", &mut errors);
     reject_identity_reuse(&observation_ids1, &observation_ids, "F1 added_observations", &mut errors);
     match find_record(observations1, "observation_ref", "observation:supplier-B-inventory-refresh") {
         Some(inventory1) => {
@@ -590,6 +698,7 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
 
     let assessments = array_field(f1, "added_coverage_assessments", "F1 added_coverage_assessments", &mut errors);
     let coverage_ids1 = record_refs_from_slice(assessments, "coverage_ref", "F1 added_coverage_assessments", &mut errors);
+    require_exact_refs(&coverage_ids1, assessments.len(), &EXPECTED_F1_COVERAGE_REFS, "F1 added_coverage_assessments", &mut errors);
     reject_identity_reuse(&coverage_ids1, &coverage_ids0, "F1 added_coverage_assessments", &mut errors);
     if !assessments.iter().any(|item| item.get("aggregate_inference").and_then(Value::as_str)
         == Some("NotPermittedWithoutTemporalReconciliation"))
@@ -672,6 +781,7 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     }
 
     let sources3_new = unique_record_refs(f3.get("added_sources"), "source_ref", "F3 added_sources", &mut errors);
+    require_exact_refs(&sources3_new, f3.get("added_sources").and_then(Value::as_array).map_or(0, Vec::len), &EXPECTED_F3_SOURCE_REFS, "F3 added_sources", &mut errors);
     for (index, source) in f3.get("added_sources").and_then(Value::as_array).into_iter().flatten().enumerate() {
         if source.get("trust_status").and_then(Value::as_str) != Some("UnassessedUnderProfile")
             || source.get("source_dependency_status").and_then(Value::as_str) != Some("DeclaredIndependentUnderSyntheticProfile")
@@ -680,6 +790,7 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
         }
     }
     let artifacts3_new = unique_record_refs(f3.get("added_artifacts"), "artifact_ref", "F3 added_artifacts", &mut errors);
+    require_exact_refs(&artifacts3_new, f3.get("added_artifacts").and_then(Value::as_array).map_or(0, Vec::len), &EXPECTED_F3_ARTIFACT_REFS, "F3 added_artifacts", &mut errors);
     reject_identity_reuse(&sources3_new, &sources1, "F3 added_sources", &mut errors);
     reject_identity_reuse(&artifacts3_new, &artifacts1, "F3 added_artifacts", &mut errors);
     let sources3: BTreeSet<String> = sources1.union(&sources3_new).cloned().collect();
@@ -691,6 +802,8 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
         errors.push("F3: outcomes must have unique non-empty outcome refs".to_owned());
     }
     let outcome_observation_ids = record_refs_from_slice(outcomes, "observation_ref", "F3 outcomes", &mut errors);
+    require_exact_refs(&outcome_ids, outcomes.len(), &EXPECTED_F3_OUTCOME_REFS, "F3 outcomes", &mut errors);
+    require_exact_refs(&outcome_observation_ids, outcomes.len(), &EXPECTED_F3_OBSERVATION_REFS, "F3 outcome observation refs", &mut errors);
     validate_observation_times(outcomes, "F3 outcomes", cutoff3, &mut errors);
     if outcomes.is_empty() {
         errors.push("F3: at least one outcome observation is required".to_owned());
@@ -735,11 +848,24 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
 
     let predicate_ids = unique_record_refs(predicates.get("predicates"), "id", "expected predicates", &mut errors);
     let mutation_ids = unique_record_refs(mutations.get("mutations"), "id", "mutations", &mut errors);
-    if predicate_ids.len() != EXPECTED_PREDICATES {
-        errors.push(format!("Expected exactly {EXPECTED_PREDICATES} frozen predicates"));
+    require_exact_refs(&predicate_ids, predicates.get("predicates").and_then(Value::as_array).map_or(0, Vec::len), &EXPECTED_PREDICATE_IDS, "expected predicates", &mut errors);
+    require_exact_refs(&mutation_ids, mutations.get("mutations").and_then(Value::as_array).map_or(0, Vec::len), &EXPECTED_MUTATION_IDS, "mutations", &mut errors);
+    for (index, predicate) in predicates.get("predicates").and_then(Value::as_array).into_iter().flatten().enumerate() {
+        if predicate.get("frontier").and_then(Value::as_str).is_none()
+            || predicate.get("requirement").and_then(Value::as_str).is_none_or(str::is_empty)
+            || predicate.get("failure").and_then(Value::as_str).is_none_or(str::is_empty)
+        {
+            errors.push(format!("predicate[{index}]: frontier/requirement/failure fields must be present"));
+        }
     }
-    if mutation_ids.len() != EXPECTED_MUTATIONS {
-        errors.push(format!("Expected exactly {EXPECTED_MUTATIONS} frozen mutations"));
+    for (index, mutation) in mutations.get("mutations").and_then(Value::as_array).into_iter().flatten().enumerate() {
+        if mutation.get("target").and_then(Value::as_str).is_none_or(str::is_empty)
+            || mutation.get("mutation").and_then(Value::as_str).is_none_or(str::is_empty)
+            || mutation.get("expected").and_then(Value::as_str).is_none_or(str::is_empty)
+            || mutation.get("reason").and_then(Value::as_str).is_none_or(str::is_empty)
+        {
+            errors.push(format!("mutation[{index}]: target/mutation/expected/reason fields must be present"));
+        }
     }
     if !observation_ids.contains("observation:supplier-B-inventory-partial") {
         errors.push("F0: supplier-B partial inventory observation id is missing".to_owned());
@@ -991,6 +1117,19 @@ fn record_refs_from_slice(
         }
     }
     result
+}
+
+fn require_exact_refs(
+    actual: &BTreeSet<String>,
+    raw_len: usize,
+    expected: &[&str],
+    label: &str,
+    errors: &mut Vec<String>,
+) {
+    let expected_set: BTreeSet<String> = expected.iter().map(|value| (*value).to_owned()).collect();
+    if raw_len != expected.len() || actual != &expected_set {
+        errors.push(format!("{label}: identity inventory differs from the frozen expected set"));
+    }
 }
 
 fn check_record_refs(
@@ -1332,6 +1471,41 @@ mod tests {
         assert!(validate_documents(&docs).iter().any(|e|
             e.contains("F1: inventory refresh coverage must be an object")
         ));
+    }
+
+    #[test]
+    fn rejects_swapped_f0_observation_id_even_when_count_is_unchanged() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f0").unwrap()["observations"][5]["observation_ref"] =
+            Value::String("observation:unrecognized".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("F0 observations: identity inventory differs")));
+    }
+
+    #[test]
+    fn rejects_swapped_mutation_id_even_when_count_is_unchanged() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("mutations").unwrap()["mutations"][22]["id"] =
+            Value::String("M99".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("mutations: identity inventory differs")));
+    }
+
+    #[test]
+    fn rejects_unimmutable_or_wrongly_visible_delta_frontier() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f2").unwrap()["immutable"] = Value::Bool(false);
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("F2: immutable must be explicitly true")));
+        docs.get_mut("f2").unwrap()["immutable"] = Value::Bool(true);
+        docs.get_mut("f3").unwrap()["visibility"] = Value::String("solver-visible-only".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("F3: solver-visible frontier boundary mismatch")));
+    }
+
+    #[test]
+    fn rejects_missing_f1_energy_observation_even_if_remaining_refs_resolve() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f1").unwrap()["added_observations"].as_array_mut().unwrap().retain(|v| {
+            v["observation_ref"] != "observation:energy-E1-recalibrated-capacity"
+        });
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("F1 added_observations: identity inventory differs")));
     }
 
     #[test]
