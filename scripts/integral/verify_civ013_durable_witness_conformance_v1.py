@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "5a73c08b5a9e6f2bec036c29cbd6c3e071b4ea9a"
+SOURCE_COMMIT = "44252bba3fd550732cef424b5e8a59b6bcbbfc1c"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 SQLITE_MINIMUM_VERSION_NUMBER = 3_051_003
 
