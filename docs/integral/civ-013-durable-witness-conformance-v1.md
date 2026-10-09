@@ -84,6 +84,7 @@ The profile's transition vectors are an independent abstract reference for these
 | DA018–DA020 | RejectCorruptForkEvidence / RejectRecordDigest / RejectForkDigest | Fork-order and tampering rejection |
 | DA021 | RejectCorruptForkEvidence | A single fork-evidence history cannot splice entries from different log IDs, even when each entry's digest is valid |
 | DA022–DA023 | RejectSqliteIntegerRange | Adapter rejection of generation or receipt sequence above SQLite's signed-integer maximum |
+| DA024 | ExternalAnchorMismatch | Equal-generation recovery fails closed when the local accepted-head digest is absent |
 
 ## Per-log fork chain boundary
 
