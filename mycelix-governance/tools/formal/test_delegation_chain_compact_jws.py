@@ -192,6 +192,14 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain", count: in
             raw_payload = compact_json(claims).replace(
                 b'"jti":"token-0"', b'"jti":"token-0","iat":' + duplicate_iat
             )
+        elif case == "escaped-jti-key-chain" and index == 0:
+            raw_payload = compact_json(claims).replace(
+                b'"jti":"token-0"', b'"\\u006ati":"token-0"'
+            )
+        elif case == "escaped-duplicate-jti-member" and index == 0:
+            raw_payload = compact_json(claims).replace(
+                b'"jti":"token-0"', b'"jti":"token-0","\\u006ati":"token-0"'
+            )
         else:
             raw_payload = None
 
@@ -278,6 +286,7 @@ def cases(directory: Path) -> dict[str, dict[str, Any]]:
         "jwk-key-ops-unrelated-operation",
         "duplicate-payload-member",
         "duplicate-nonjti-payload-member",
+        "escaped-duplicate-jti-member",
         "none-algorithm",
         "b64-header-present",
         "critical-header-present",
@@ -425,9 +434,21 @@ def main() -> int:
                 "status": non_object["status"],
                 "finding": non_object.get("findings", [{}])[0].get("code"),
             })
+            escaped_jti = build_chain(root / "escaped-jti-key-positive", "escaped-jti-key-chain")
+            escaped_result = invoke_fixture(escaped_jti, openssl)
+            require(escaped_result.get("status") == "COMPACT_JWS_CRYPTO_LINKAGE_PASS",
+                    "JSON-escaped top-level jti key was not interpreted consistently: " +
+                    json.dumps(escaped_result, sort_keys=True))
+            receipt["controls"].append({
+                "id": "escaped-jti-key-chain",
+                "status": escaped_result["status"],
+                "token_count": escaped_result["token_count"],
+                "independent_fixture": "OpenSSL Ed25519 signatures verified; escaped key decodes to jti",
+            })
+
             bad_cases = cases(root)
             for name, raw in bad_cases.items():
-                if name in {"duplicate-jti", "duplicate-payload-member"}:
+                if name in {"duplicate-jti", "duplicate-payload-member", "escaped-duplicate-jti-member"}:
                     # The verifier must reject a repeated untrusted token ID
                     # before doing any expensive public-key signature operation.
                     original_verify = verifier.verify_ed25519_signature
@@ -473,6 +494,7 @@ def main() -> int:
                     "jwk-key-ops-unrelated-operation": "jwk-key-ops-invalid",
                     "duplicate-payload-member": "jti-preparse-duplicate",
                     "duplicate-nonjti-payload-member": "json-duplicate-member",
+                    "escaped-duplicate-jti-member": "jti-preparse-duplicate",
                     "none-algorithm": "algorithm-not-allowed",
                     "b64-header-present": "b64-header-not-allowed",
                     "critical-header-present": "critical-header-unsupported",
@@ -563,9 +585,9 @@ def main() -> int:
             receipt["test_sha256"] = hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest()
             receipt["status"] = "PASS"
             receipt["summary"] = {
-                "positive_controls": 3,
-                "negative_controls": sum(row["id"] not in {"valid-four-token-chain", "valid-single-token-chain", "valid-compatible-key-metadata-chain"} for row in receipt["controls"]),
-                "signatures_verified": sum(row["token_count"] for row in receipt["controls"] if row["id"] in {"valid-four-token-chain", "valid-single-token-chain", "valid-compatible-key-metadata-chain"}),
+                "positive_controls": 4,
+                "negative_controls": sum(row["id"] not in {"valid-four-token-chain", "valid-single-token-chain", "valid-compatible-key-metadata-chain", "escaped-jti-key-chain"} for row in receipt["controls"]),
+                "signatures_verified": sum(row["token_count"] for row in receipt["controls"] if row["id"] in {"valid-four-token-chain", "valid-single-token-chain", "valid-compatible-key-metadata-chain", "escaped-jti-key-chain"}),
                 "mutants_detected": len(receipt["mutations"]),
                 "signature_and_linkage_mutants_detected": len(receipt["mutations"]),
                 "root_anchor_checks": True,
@@ -574,7 +596,7 @@ def main() -> int:
                 "qualification": "NOT_CLAIMED",
             }
             args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-            print(f"COMPACT JWS CRYPTO-LINK CHECK PASS: 3 signed positives + {receipt['summary']['negative_controls']} negative controls")
+            print(f"COMPACT JWS CRYPTO-LINK CHECK PASS: 4 signed positives + {receipt['summary']['negative_controls']} negative controls")
             print("COMPACT JWS MUTATION SENSITIVITY PASS: 4 of 4 omitted checks accepted known-bad fixtures")
             print("QUALIFICATION NOT CLAIMED: capability subsumption and leaf proof-of-possession are not implemented")
             return 0
