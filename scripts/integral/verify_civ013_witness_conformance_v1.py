@@ -332,6 +332,8 @@ def main() -> int:
         manifest = json.load(handle)
     if manifest.get("schema_version") != 1:
         raise SystemExit("FAIL: unsupported manifest schema_version")
+    if manifest.get("profile_id") != "civ-013-model-smoke-v1":
+        raise SystemExit("FAIL: unsupported or missing manifest profile_id")
     if manifest.get("spec_version") != corpus.get("spec_version"):
         raise SystemExit("FAIL: manifest/fixture spec_version mismatch")
     if manifest.get("source_model_commit") != corpus.get("source_model_commit"):
