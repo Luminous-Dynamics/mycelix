@@ -52,7 +52,7 @@ jobs:
         run: test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
 
       - name: Run Rust unit and committed-fixture tests
-        run: cargo test --manifest-path scripts/ops_intel/rust-validator/Cargo.toml
+        run: cargo test --locked --manifest-path scripts/ops_intel/rust-validator/Cargo.toml
 
       - name: Run strict fixture preflight against exact checkout
-        run: cargo run --manifest-path scripts/ops_intel/rust-validator/Cargo.toml
+        run: cargo run --locked --manifest-path scripts/ops_intel/rust-validator/Cargo.toml
