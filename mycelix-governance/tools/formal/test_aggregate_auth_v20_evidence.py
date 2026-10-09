@@ -97,7 +97,8 @@ FROZEN_AGGREGATE_MUTATIONS = (
     "missing-capability-receipt", "capability-mutant-count-weakened",
     "expected-head-malformed", "missing-aggregate-mutation-guard",
     "aggregate-guard-head-mismatch", "aggregate-guard-count-weakened",
-    "aggregate-guard-identity-substituted",
+    "aggregate-guard-identity-substituted", "missing-control-artifact",
+    "tampered-control-result", "tampered-control-input", "unexpected-control-artifact",
 )
 HEAD = "a" * 40
 
@@ -234,6 +235,9 @@ def apply_mutation(root: Path, name: str) -> None:
     compact_jws = root / FROZEN_REQUIRED_RECEIPTS[9][0]
     capability_receipt = root / FROZEN_REQUIRED_RECEIPTS[10][0]
     aggregate_guard = root / "auth-v20-final-evidence/aggregate-mutation-guard.json"
+    control_dir = root / "auth-v20-evidence"
+    control_input = control_dir / "actual-authority-expansion.input.json"
+    control_result = control_dir / "actual-authority-expansion.json"
     if name == "missing-required-receipt":
         (root / FROZEN_REQUIRED_RECEIPTS[5][0]).unlink()
     elif name == "wrong-source-head":
@@ -300,6 +304,18 @@ def apply_mutation(root: Path, name: str) -> None:
         data = json.loads(aggregate_guard.read_text(encoding="utf-8"))
         data["mutations"][0]["id"] = "fabricated-aggregate-mutant"
         aggregate_guard.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "missing-control-artifact":
+        control_input.unlink()
+    elif name == "tampered-control-result":
+        data = json.loads(control_result.read_text(encoding="utf-8"))
+        data["status"] = "FAKE_PASS"
+        control_result.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "tampered-control-input":
+        data = json.loads(control_input.read_text(encoding="utf-8"))
+        data["bounded"] = False
+        control_input.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "unexpected-control-artifact":
+        (control_dir / "unexpected-artifact.txt").write_text("extra\n", encoding="utf-8")
     elif name == "expected-head-malformed":
         # Applied via run_aggregate rather than altering any synthetic receipt.
         return
@@ -387,7 +403,7 @@ def main() -> int:
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 19 weakening mutations rejected")
+        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 23 weakening mutations rejected")
         print("QUALIFICATION NOT CLAIMED: synthetic receipt checks do not establish semantic correctness")
         return 0
     except Exception as error:
