@@ -138,18 +138,9 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
         LinkTag::new(format!("from:{}", my_agent)),
     )?;
 
-    // Deliver the secret only to the assigned grantee. The receiver validates the
-    // source agent + capability entry, then stores it as a private CapClaim.
-    let delivery = CapabilityGrantDelivery {
-        capability_hash: cap_hash.clone(),
-        capability_id: id,
-        grantor: my_agent,
-        access_type: input.access_type,
-        secret,
-    };
-    let encoded =
-        ExternIO::encode(delivery).map_err(|e| wasm_error!(WasmErrorInner::Serialize(e)))?;
-    let _ = send_remote_signal(encoded, vec![input.grantee]);
+    // Do not send the secret from this transaction: its local grant/entry actions
+    // have not committed yet. The caller must invoke deliver_capability_grant after
+    // this call succeeds; that second call performs an acknowledged remote handoff.
 
     // Audit log
     log_capability_action(&cap_hash, AuditAction::GrantCapability, true, None)?;
@@ -794,6 +785,171 @@ pub fn get_received_capabilities(_: ()) -> ExternResult<Vec<(ActionHash, Mailbox
     Ok(capabilities)
 }
 
+// ==================== CAPABILITY SECRET HANDOFF ====================
+
+/// Deliver a committed capability to its assigned recipient. This must be a
+/// separate invocation from grant_capability so both the public record and private
+/// system grant have committed before the receiver validates and claims them.
+#[hdk_extern]
+pub fn deliver_capability_grant(capability_hash: ActionHash) -> ExternResult<()> {
+    let local_agent = agent_info()?.agent_initial_pubkey;
+    let record = get(capability_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Capability record not found".to_string())
+    ))?;
+    let capability: MailboxCapability = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Unexpected entry type for capability delivery".to_string()
+        )))?;
+
+    if capability.grantor != local_agent {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the grantor can deliver this capability".to_string()
+        )));
+    }
+    if capability.revoked {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot deliver a revoked capability".to_string()
+        )));
+    }
+
+    let grant_hash = capability.system_grant_action_hash.clone().ok_or(
+        wasm_error!(WasmErrorInner::Guest(
+            "Capability has no bound Holochain grant hash".to_string()
+        )),
+    )?;
+    let grant_record = get(grant_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Private system grant not found on the grantor chain".to_string())
+    ))?;
+    let grant = match grant_record.entry().as_option() {
+        Some(Entry::CapGrant(grant)) => grant.clone(),
+        _ => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Bound action is not a Holochain capability grant".to_string()
+            )));
+        }
+    };
+
+    if grant.tag != capability.id {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "System grant tag does not match the application capability".to_string()
+        )));
+    }
+    let secret = match grant.access {
+        CapAccess::Assigned { secret, assignees }
+            if assignees.contains(&capability.grantee) => secret,
+        _ => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "System grant is not assigned to the recorded grantee".to_string()
+            )));
+        }
+    };
+    if Sha256::digest(secret.as_ref()).to_vec() != capability.secret_hash {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "System grant secret fingerprint does not match the application record".to_string()
+        )));
+    }
+
+    let delivery = CapabilityGrantDelivery {
+        capability_hash: capability_hash.clone(),
+        capability_id: capability.id.clone(),
+        grantor: local_agent,
+        access_type: capability.access_type.clone(),
+        secret,
+    };
+
+    let response = call_remote(
+        capability.grantee.clone(),
+        zome_info()?.name,
+        FunctionName::from("receive_capability_grant"),
+        None,
+        delivery,
+    )?;
+    match response {
+        ZomeCallResponse::Ok(_) => {}
+        ZomeCallResponse::Unauthorized(_, _, _, _, _) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Recipient rejected capability delivery as Unauthorized".to_string()
+            )));
+        }
+        _ => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Capability delivery failed without an acknowledgement".to_string()
+            )));
+        }
+    }
+
+    // The secret never appears in a UI signal.
+    emit_signal(CapabilitySignal::CapabilityGranted {
+        capability_hash,
+        grantor: local_agent,
+        access_type: capability.access_type,
+    })?;
+    Ok(())
+}
+
+/// Receive a capability from the authenticated grantor and persist it as a private
+/// local CapClaim. The grantor must use the separate post-commit delivery call.
+#[hdk_extern]
+pub fn receive_capability_grant(delivery: CapabilityGrantDelivery) -> ExternResult<()> {
+    let caller = call_info()?.provenance;
+    let local_agent = agent_info()?.agent_initial_pubkey;
+
+    if caller != delivery.grantor {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Capability delivery source does not match grantor".to_string()
+        )));
+    }
+
+    let record = get(delivery.capability_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Capability metadata is not yet available; retry delivery after DHT publication".to_string()
+        )))?;
+    let capability: MailboxCapability = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Capability record has an unexpected entry type".to_string()
+        )))?;
+
+    if capability.grantor != caller
+        || capability.grantee != local_agent
+        || capability.id != delivery.capability_id
+        || capability.revoked
+        || capability.secret_hash != Sha256::digest(delivery.secret.as_ref()).to_vec()
+        || capability.access_type != delivery.access_type
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Capability delivery does not match the authenticated public grant record".to_string()
+        )));
+    }
+
+    if let Some(existing) = find_cap_claim(&delivery.grantor, &delivery.capability_id)? {
+        if existing.secret.as_ref() != delivery.secret.as_ref() {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Conflicting claim already exists for this grantor and capability ID".to_string()
+            )));
+        }
+    } else {
+        create_cap_claim(CapClaimEntry {
+            tag: delivery.capability_id,
+            grantor: delivery.grantor.clone(),
+            secret: delivery.secret,
+        })?;
+    }
+
+    // This local-only signal contains no capability secret.
+    emit_signal(CapabilitySignal::CapabilityGranted {
+        capability_hash: delivery.capability_hash,
+        grantor: delivery.grantor,
+        access_type: delivery.access_type,
+    })?;
+    Ok(())
+}
+
 // ==================== REMOTE CAPABILITY QUALIFICATION ====================
 
 /// Result of a real conductor-authorized remote call. This deliberately does not
@@ -950,10 +1106,11 @@ pub fn recv_remote_signal(signal: ExternIO) -> ExternResult<()> {
 #[hdk_extern]
 pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
     // Grant capability for receiving signals
-    let functions = GrantedFunctions::Listed(HashSet::from([(
-        zome_info()?.name,
-        "recv_remote_signal".into(),
-    )]));
+    let zome = zome_info()?.name;
+    let functions = GrantedFunctions::Listed(HashSet::from([
+        (zome.clone(), FunctionName::from("recv_remote_signal")),
+        (zome, FunctionName::from("receive_capability_grant")),
+    ]));
 
     create_cap_grant(CapGrantEntry {
         tag: "recv_cap_signals".to_string(),
