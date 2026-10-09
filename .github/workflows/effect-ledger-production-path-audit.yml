@@ -179,6 +179,36 @@ jobs:
             echo "NOT QUALIFIED: duplicate binding roots are not rejected."
             exit 1
           }
+
+          grep -Fq 'authorized_timelock_action_hash: Some(current_record.action_address().clone())' "$executor" || {
+            echo "NOT QUALIFIED: Execution does not bind the exact Ready Timelock action that authorized preparation."
+            exit 1
+          }
+
+          grep -Fq 'prepared_from_action_hash: Some(current_record.action_address().clone())' "$executor" || {
+            echo "NOT QUALIFIED: Prepared Timelock update does not bind its exact Ready predecessor action."
+            exit 1
+          }
+
+          grep -Fq 'check_prepared_timelock_predecessor' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: Timelock preparation does not verify its exact predecessor action."
+            exit 1
+          }
+
+          grep -Fq 'check_execution_authorized_timelock_scope' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: Execution's Ready Timelock root is not scope-validated."
+            exit 1
+          }
+
+          grep -Fq 'check_resolution_source_action_linkage' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: resolution does not cross-check Execution authorization and Prepared Timelock predecessor roots."
+            exit 1
+          }
+
+          grep -Fq 'test_timelock_predecessor_action_must_match_exact_original' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: exact timelock predecessor mismatch lacks a regression test."
+            exit 1
+          }
           grep -Fq 'ExecutionResolutionBindingV1' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
             echo "NOT QUALIFIED: proof roots are not grouped into typed per-action bindings."
             exit 1
