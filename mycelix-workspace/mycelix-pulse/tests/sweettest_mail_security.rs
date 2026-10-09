@@ -1090,6 +1090,22 @@ async fn test_capability_grant_and_revocation_lifecycle() {
         "same authenticated no-data probe call should succeed before revocation"
     );
 
+    // Also exercise the actual data-bearing read function in this empty-inbox
+    // fixture. The diagnostic returns only the authorization result to the test.
+    let inbox_before: CapabilityProbeResult = conductor
+        .call_fallible(
+            &bob.zome("mail_capabilities"),
+            "probe_remote_inbox_read",
+            capability_hash.clone(),
+        )
+        .await
+        .expect("the actual inbox-read function should be callable before revocation");
+    assert_eq!(
+        inbox_before,
+        CapabilityProbeResult::Authorized,
+        "get_inbox_v2 itself must be granted before revocation"
+    );
+
     let revoked_hash: ActionHash = conductor
         .call_fallible(
             &alice.zome("mail_capabilities"),
@@ -1111,6 +1127,22 @@ async fn test_capability_grant_and_revocation_lifecycle() {
         after,
         CapabilityProbeResult::Unauthorized,
         "the identical no-data probe call must be Unauthorized after conductor grant deletion"
+    );
+
+    // The real inbox-read endpoint must be denied too; a working empty-response
+    // probe alone is not sufficient evidence that data-bearing reads are revoked.
+    let inbox_after: CapabilityProbeResult = conductor
+        .call_fallible(
+            &bob.zome("mail_capabilities"),
+            "probe_remote_inbox_read",
+            capability_hash.clone(),
+        )
+        .await
+        .expect("inbox-read probe should return an authorization result");
+    assert_eq!(
+        inbox_after,
+        CapabilityProbeResult::Unauthorized,
+        "get_inbox_v2 itself must be denied after conductor grant deletion"
     );
 
     // The conductor-level check above is synchronous; DHT projection convergence
