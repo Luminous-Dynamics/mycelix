@@ -413,8 +413,7 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
         errors.push("F1: temporal reconciliation limit must be machine-readable".to_owned());
     }
 
-    let f1_time = timestamp_field(f1, "frontier_cutoff_utc", "F1 cutoff", &mut errors);
-    if !timestamp_field(f2, "frontier_cutoff_utc", "F2 cutoff", &mut errors) { /* errors were recorded */ }
+    let f1_time = field_owned_text(f1, "frontier_cutoff_utc", "F1 cutoff", &mut errors);
     let f2_time = field_owned_text(f2, "frontier_cutoff_utc", "F2 cutoff", &mut errors);
     let f3_time = field_owned_text(f3, "frontier_cutoff_utc", "F3 cutoff", &mut errors);
     for (label, actual, expected, parent) in [
@@ -682,17 +681,6 @@ fn field_owned_text(value: &Value, field: &str, label: &str, errors: &mut Vec<St
             None
         }
     }
-}
-
-fn timestamp_field(value: &Value, field: &str, label: &str, errors: &mut Vec<String>) -> bool {
-    let Some(text) = field_owned_text(value, field, label, errors) else {
-        return false;
-    };
-    if !valid_utc_timestamp(&text) {
-        errors.push(format!("{label}: expected a valid fixed-width UTC timestamp"));
-        return false;
-    }
-    true
 }
 
 fn valid_utc_timestamp(text: &str) -> bool {
