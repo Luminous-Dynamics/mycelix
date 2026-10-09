@@ -170,6 +170,8 @@ The durable adapter now pins `rusqlite 0.39.0` and `libsqlite3-sys 0.37.0`, whos
 The adapter refuses to open a store unless `rusqlite::version_number()` is at least `3051003` (SQLite 3.51.3), and tests both the linked bundled runtime and rejection of a version just below the floor. DA039/DA040 are reference vectors for accepting the stated floor and rejecting a runtime below it. The Mycelix Actions workflow checks the exact pinned source's constant, runtime-gate call, and positive/negative regression names in addition to verifying the `rusqlite`/`libsqlite3-sys` versions in `Cargo.lock`. None of these static/reference checks substitutes for an exact-head Rust test PASS.
 
 
+| DA041 | UnanchoredForkEvidenceErasure | Coordinated deletion of local fork rows and same-database tail metadata is outside the current claim because the external anchor tracks accepted-head state only |
+
 ## Fork-evidence trust boundary and follow-on
 
 The current count/tail commitment is in the same SQLite database as the fork-evidence rows. It detects suffix truncation, interior/order/digest inconsistency, and metadata mismatch when some part of the committed state survives. It **cannot** prove that no fork was ever recorded if an actor coherently deletes both `witness_fork_evidence` and `witness_fork_meta`, because the current `IndependentAnchor` commits only accepted-record generation/digest and does not retain the fork-evidence frontier.
