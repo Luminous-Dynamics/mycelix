@@ -393,7 +393,7 @@ jobs:
             "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu "$(cat <<'FPM_SANDBOX_SCRIPT'
               umask 077
               export HOME=/tmp/home
-              export PATH=/opt/fpm-rust/bin:/usr/bin:/bin
+              export PATH=/opt/fpm-rust/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
               export TMPDIR=/tmp
               export CARGO_NET_OFFLINE=true
               export CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
@@ -430,7 +430,7 @@ jobs:
             "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu "$(cat <<'FPM_SANDBOX_SCRIPT'
               umask 077
               export HOME=/tmp/home
-              export PATH=/opt/fpm-rust/bin:/usr/bin:/bin
+              export PATH=/opt/fpm-rust/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
               export TMPDIR=/tmp
               export CARGO_NET_OFFLINE=true
               export CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
@@ -537,7 +537,7 @@ jobs:
               ln -s /cargo-ro/registry /tmp/cargo/registry
               if [ -d /cargo-ro/git ]; then ln -s /cargo-ro/git /tmp/cargo/git; fi
               export HOME=/tmp/home
-              export PATH=/opt/fpm-rust/bin:/usr/bin:/bin
+              export PATH=/opt/fpm-rust/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
               export CARGO_HOME=/tmp/cargo
               export CARGO_TARGET_DIR=/target
               export TMPDIR=/tmp
