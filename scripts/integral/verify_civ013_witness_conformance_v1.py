@@ -39,6 +39,8 @@ REQUIRED_IDS = {
     "V015-cross-log-successor",
     "V016-history-receipt-regression",
     "V017-history-same-sequence-equivocation",
+    "V018-transition-invalid-tail-shape",
+    "V019-untrusted-bootstrap-anchor",
 }
 
 
@@ -142,6 +144,9 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         if predecessor_id is None:
             if record["generation"] != 1 or record["previous_record_digest"] is not None:
                 return "REJECT_BAD_BOOTSTRAP"
+            trusted_anchor = vector.get("trusted_bootstrap_anchor_digest")
+            if trusted_anchor is None or digest(trusted_anchor, "trusted_bootstrap_anchor_digest") != digest(record["anchor_digest"], "anchor_digest"):
+                return "REJECT_UNTRUSTED_BOOTSTRAP"
         else:
             previous = accepted.get(predecessor_id)
             if previous is None:
@@ -191,6 +196,14 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
             current_sequence = vector["current_receipt_sequence"]
             candidate_tail = vector["candidate_receipt_digest"]
             current_tail = vector["current_receipt_digest"]
+            if (candidate_sequence == 0) != (candidate_tail is None):
+                return "REJECT_BAD_RECEIPT_TAIL"
+            if candidate_tail is not None:
+                digest(candidate_tail, "candidate_receipt_digest")
+            if (current_sequence == 0) != (current_tail is None):
+                return "REJECT_BAD_CURRENT_RECEIPT_TAIL"
+            if current_tail is not None:
+                digest(current_tail, "current_receipt_digest")
             if candidate_sequence < current_sequence:
                 return "REJECT_RECEIPT_ROLLBACK"
             if candidate_sequence == current_sequence and candidate_tail != current_tail:
@@ -216,6 +229,24 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
     if kind == "record_negative":
         expected = sha256(canonical_record(vector["record"])).hex()
         return "REJECT_BAD_RECORD_DIGEST" if expected != vector["record"]["digest"] else "ACCEPT_RECORD"
+
+    if kind == "bootstrap_negative":
+        record = vector["record"]
+        if sha256(canonical_record(record)).hex() != record.get("digest"):
+            return "REJECT_BAD_RECORD_DIGEST"
+        marker = vector["commit_marker"]
+        if (
+            marker.get("generation") != record["generation"]
+            or marker.get("record_digest") != record["digest"]
+            or sha256(canonical_marker(marker["generation"], marker["record_digest"])).hex()
+            != marker.get("digest")
+        ):
+            return "REJECT_BAD_MARKER"
+        if record["generation"] != 1 or record["previous_record_digest"] is not None:
+            return "REJECT_BAD_BOOTSTRAP"
+        if digest(vector["trusted_bootstrap_anchor_digest"], "trusted_bootstrap_anchor_digest") != digest(record["anchor_digest"], "anchor_digest"):
+            return "REJECT_UNTRUSTED_BOOTSTRAP"
+        return "ACCEPT_BOOTSTRAP"
 
     if kind == "fork_evidence":
         evidence = vector["evidence"]
