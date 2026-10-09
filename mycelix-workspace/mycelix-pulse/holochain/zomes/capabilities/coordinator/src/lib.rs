@@ -414,56 +414,104 @@ pub fn verify_capability(input: (ActionHash, AuditAction)) -> ExternResult<bool>
 mod capability_policy_tests {
     use super::*;
 
-    #[test]
-    fn no_data_probe_is_included_only_for_read_capabilities() {
-        let probe = (
-            ZomeName::from("mail_messages"),
-            FunctionName::from("capability_probe_v1"),
-        );
+    /// Compare the complete remote-call allowlist, not a handful of forbidden
+    /// functions. This makes adding a new exported function fail closed until
+    /// capability policy explicitly qualifies it.
+    fn assert_exact_scope(grant: GrantedFunctions, expected_names: &[&str]) {
+        let expected: HashSet<(ZomeName, FunctionName)> = expected_names
+            .iter()
+            .map(|name| {
+                (
+                    ZomeName::from("mail_messages"),
+                    FunctionName::from(*name),
+                )
+            })
+            .collect();
 
-        let read_permissions = MailboxPermissions {
+        match grant {
+            GrantedFunctions::Listed(functions) => assert_eq!(
+                functions, expected,
+                "capability must expose exactly the explicitly qualified function set"
+            ),
+            GrantedFunctions::All => {
+                panic!("capability must never receive an unrestricted function grant");
+            }
+        }
+    }
+
+    #[test]
+    fn read_only_grant_has_exact_read_scope() {
+        let permissions = MailboxPermissions {
             can_read: true,
             ..MailboxPermissions::default()
         };
-        let read_grant = determine_granted_functions(
+        let grant = determine_granted_functions(
             &MailboxAccessType::ReadOnly,
-            &read_permissions,
+            &permissions,
             None,
         )
         .expect("read-only grant should be supported");
-        match read_grant {
-            GrantedFunctions::Listed(functions) => {
-                assert!(
-                    functions.contains(&probe),
-                    "read grant must include the no-data authorization probe"
-                );
-            }
-            GrantedFunctions::All => {
-                panic!("capability must not receive an unrestricted function grant");
-            }
-        }
 
-        let send_permissions = MailboxPermissions {
+        assert_exact_scope(
+            grant,
+            &[
+                "capability_probe_v1",
+                "get_inbox_v2",
+                "get_inbox",
+                "get_sent",
+                "get_email",
+                "get_delivery_receipts",
+                "get_drafts",
+                "get_folders",
+            ],
+        );
+    }
+
+    #[test]
+    fn send_as_grant_has_exact_send_scope() {
+        let permissions = MailboxPermissions {
             can_send: true,
             ..MailboxPermissions::default()
         };
-        let send_grant = determine_granted_functions(
+        let grant = determine_granted_functions(
             &MailboxAccessType::SendAs,
-            &send_permissions,
+            &permissions,
             None,
         )
         .expect("send-only grant should be supported");
-        match send_grant {
-            GrantedFunctions::Listed(functions) => {
-                assert!(
-                    !functions.contains(&probe),
-                    "send-only grant must not include the read capability probe"
-                );
-            }
-            GrantedFunctions::All => {
-                panic!("capability must not receive an unrestricted function grant");
-            }
-        }
+
+        assert_exact_scope(grant, &["send_email_v2", "send_email"]);
+    }
+
+    #[test]
+    fn attachment_permission_adds_only_the_attachment_read_endpoint() {
+        let permissions = MailboxPermissions {
+            can_read: true,
+            can_view_attachments: true,
+            can_download_attachments: true,
+            ..MailboxPermissions::default()
+        };
+        let grant = determine_granted_functions(
+            &MailboxAccessType::ReadOnly,
+            &permissions,
+            None,
+        )
+        .expect("attachment read grant should be supported");
+
+        assert_exact_scope(
+            grant,
+            &[
+                "capability_probe_v1",
+                "get_inbox_v2",
+                "get_inbox",
+                "get_sent",
+                "get_email",
+                "get_delivery_receipts",
+                "get_drafts",
+                "get_folders",
+                "get_attachments",
+            ],
+        );
     }
 
     #[test]
