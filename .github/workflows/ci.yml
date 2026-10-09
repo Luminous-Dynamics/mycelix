@@ -378,7 +378,6 @@ jobs:
         with:
           node-version: 20
       - name: Test TypeScript SDK
-        continue-on-error: true
         run: cd mycelix-workspace/sdk-ts && npm ci && npm test
 
   test-prism:
