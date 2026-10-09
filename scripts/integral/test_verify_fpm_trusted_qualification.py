@@ -354,6 +354,19 @@ def assert_trusted_workflow_context_scope() -> None:
     assert "${{ runner." not in top_env
     assert "printf 'FPM_CARGO_HOME=%s/fpm-cargo\\n' \"$RUNNER_TEMP\" >> \"$GITHUB_ENV\"" in workflow
     assert "printf 'FPM_EVIDENCE_DIR=%s/fpm-trusted-evidence-%s\\n' \"$RUNNER_TEMP\" \"$GITHUB_RUN_ID\" >> \"$GITHUB_ENV\"" in workflow
+    lock_start = workflow.index("      - name: Generate run-local locked dependency snapshot\n")
+    dependency_start = workflow.index("      - name: Materialize dependency cache before hostile execution\n", lock_start)
+    lock_step = workflow[lock_start:dependency_start]
+    assert 'export HOME="$RUNNER_TEMP/fpm-lock-home"' in lock_step
+    assert "export GIT_CONFIG_GLOBAL=/dev/null" in lock_step
+    assert "export GIT_CONFIG_NOSYSTEM=true" in lock_step
+    assert "export GIT_TERMINAL_PROMPT=0" in lock_step
+    assert "export CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse" in lock_step
+    assert "export CARGO_NET_OFFLINE=false" in lock_step
+    assert "export CARGO_NET_GIT_FETCH_WITH_CLI=false" in lock_step
+    assert lock_step.index('export GIT_CONFIG_GLOBAL=/dev/null') < lock_step.index("cargo generate-lockfile")
+    assert 'test ! -e "$HOME/.gitconfig"' in lock_step
+    assert 'test ! -e "${CARGO_HOME}/config.toml"' in lock_step
 def assert_workflow_target_extractor_dependencies() -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
     marker = "      - name: Extract evidence targets with strict JSON parser\n"
