@@ -46,9 +46,9 @@
     "minimum_version": "3.10",
     "platform": "ubuntu-24.04"
   },
-  "checker_commit_sha": "c3c845f2a975c0352cc7ab8d8b60541276df3bd6",
+  "checker_commit_sha": "b3e4a41f08e34c282a0ce974cdafa20f81213aa0",
   "fixture_git_blob_sha": "9f0c623ff7a063e63b8a2e3849e30e68c822878b",
-  "checker_git_blob_sha": "44ca8400a9e5c44dc66effea536f96bfb8c0d0e3",
+  "checker_git_blob_sha": "8be368118830a0f96405812fec6a5114e1cde416",
   "spec_git_blob_sha": "4be6a129cffd2c477d008ab928b3483e2d7ffaba",
   "workflow_git_blob_sha": "52cfb88afe03d0eec167e3df92e7bcae1b9b97b3"
 }
