@@ -140,6 +140,8 @@ def parse_and_validate_header(header_bytes: bytes) -> dict[str, Any]:
         crit = header.get("crit")
         if not isinstance(crit, list) or not crit:
             raise VerificationError("critical-header-unsupported", "critical JWS headers must be a non-empty array")
+        raise VerificationError("critical-header-unsupported",
+                                "this profile does not implement any critical JWS header extensions")
     return header
 
 
