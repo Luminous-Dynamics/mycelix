@@ -145,7 +145,7 @@ DA037 describes the source-level integration test's decisive pre-recovery observ
 
 ## SQLite WAL-reset fix floor
 
-The producer workspace pins rusqlite 0.39.0 with `bundled` and `fallible_uint`, resolving libsqlite3-sys 0.37.0 and bundled SQLite 3.51.3. SQLite's official WAL documentation identifies the WAL-reset corruption bug through 3.51.2 and lists 3.51.3 as fixed; because this adapter deliberately uses WAL and concurrent connections, the source checks `rusqlite::version_number()` at connection-open time and fails closed below 3.51.3. It also has a unit test asserting the actually linked SQLite runtime meets that minimum.
+The producer workspace pins rusqlite 0.39.0 with `bundled` and `fallible_uint`, resolving libsqlite3-sys 0.37.0 and bundled SQLite 3.51.3. SQLite's official WAL documentation identifies the WAL-reset corruption bug through 3.51.2 and lists 3.51.3 as fixed; because this adapter deliberately uses WAL and concurrent connections, the source checks `rusqlite::version_number()` at connection-open time and fails closed below 3.51.3. It has separate unit tests for the actually linked runtime and for rejecting a simulated 3.51.2 runtime through the same extracted version-validation function used by connection opening.
 
 - DA039 models acceptance of SQLite version number 3051003 (3.51.3).
 - DA040 models rejection of version number 3051002 (3.51.2).
