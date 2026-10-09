@@ -1410,6 +1410,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
             "Mail bridge entries cannot be updated".to_string(),
         )),
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Mail bridge records are immutable".to_string(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
