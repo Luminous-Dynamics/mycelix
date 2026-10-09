@@ -24,6 +24,8 @@ FROZEN_MAX_ARGUMENT_KEYS = 64
 FROZEN_MAX_CONSTRAINT_VALUE_DEPTH = 32
 FROZEN_MAX_CONSTRAINT_VALUE_NODES = 512
 FROZEN_MAX_TOOL_NAME_BYTES = 256
+FROZEN_MAX_INVOCATION_VALUE_DEPTH = 32
+FROZEN_MAX_INVOCATION_VALUE_NODES = 4096
 
 
 def exact(value: Any) -> dict[str, Any]:
@@ -138,7 +140,38 @@ def independently_sound_subsumption(derived: dict[str, Any], parent: dict[str, A
     return denotation(derived).issubset(denotation(parent))
 
 
+def independently_bounded_json_value(value: Any, *, max_depth: int, max_nodes: int) -> bool:
+    pending: list[tuple[Any, int]] = [(value, 1)]
+    nodes = 0
+    while pending:
+        current, depth = pending.pop()
+        nodes += 1
+        if nodes > max_nodes or depth > max_depth:
+            return False
+        if current is None or type(current) in (bool, int, str):
+            continue
+        if type(current) is float:
+            if not math.isfinite(current):
+                return False
+            continue
+        if isinstance(current, list):
+            pending.extend((item, depth + 1) for item in current)
+            continue
+        if isinstance(current, dict):
+            if any(not isinstance(key, str) for key in current):
+                return False
+            pending.extend((item, depth + 1) for item in current.values())
+            continue
+        return False
+    return True
+
+
 def independently_invocation_check(tools: dict[str, Any], tool: str, args: dict[str, Any]) -> bool:
+    if not independently_bounded_json_value(
+        args, max_depth=FROZEN_MAX_INVOCATION_VALUE_DEPTH,
+        max_nodes=FROZEN_MAX_INVOCATION_VALUE_NODES,
+    ):
+        return False
     if tool not in tools:
         return False
     constraints = tools[tool]
@@ -264,6 +297,10 @@ def main() -> int:
                 "nested constraint-value node limit drifted")
         require(aat.MAX_TOOL_NAME_BYTES == FROZEN_MAX_TOOL_NAME_BYTES,
                 "tool-name byte limit drifted")
+        require(aat.MAX_INVOCATION_VALUE_DEPTH == FROZEN_MAX_INVOCATION_VALUE_DEPTH,
+                "invocation JSON-value depth limit drifted")
+        require(aat.MAX_INVOCATION_VALUE_NODES == FROZEN_MAX_INVOCATION_VALUE_NODES,
+                "invocation JSON-value node limit drifted")
         receipt["source_head"] = subprocess.run(
             ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
             check=True, timeout=15,
@@ -396,6 +433,16 @@ def main() -> int:
             ("unknown-tool-rejected", tools, "delete_file", {}, False),
             ("open-world-tool-allows-args", {"search": {}}, "search", {"any": "value"}, True),
         ]
+        deep_invocation_value: Any = "leaf"
+        for _ in range(FROZEN_MAX_INVOCATION_VALUE_DEPTH):
+            deep_invocation_value = [deep_invocation_value]
+        invocation_value_nodes = [f"value-{index}" for index in range(FROZEN_MAX_INVOCATION_VALUE_NODES)]
+        invocation_cases.extend([
+            ("invocation-value-depth-overflow",
+             {"search": {}}, "search", {"query": deep_invocation_value}, False),
+            ("invocation-value-node-overflow",
+             {"search": {}}, "search", {"query": invocation_value_nodes}, False),
+        ])
         for name, candidate_tools, tool, values, expected in invocation_cases:
             try:
                 aat.validate_invocation(candidate_tools, tool, values)
@@ -468,6 +515,8 @@ def main() -> int:
                 "max_constraint_value_depth": FROZEN_MAX_CONSTRAINT_VALUE_DEPTH,
                 "max_constraint_value_nodes": FROZEN_MAX_CONSTRAINT_VALUE_NODES,
                 "max_tool_name_bytes": FROZEN_MAX_TOOL_NAME_BYTES,
+                "max_invocation_value_depth": FROZEN_MAX_INVOCATION_VALUE_DEPTH,
+                "max_invocation_value_nodes": FROZEN_MAX_INVOCATION_VALUE_NODES,
             },
             "bounded_denotation_soundness": "PASS_FOR_RETURNED_SUBSUMPTION_PASSES",
             "qualification": "NOT_CLAIMED",
