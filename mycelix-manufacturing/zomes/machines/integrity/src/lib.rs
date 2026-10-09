@@ -195,6 +195,7 @@ pub fn resolve_temporal_evidence(
 
         let scope = (
             observation.attestation_statement.payload.machine_hash.clone(),
+            observation.machine_registrant.clone(),
             observation.subject_hash.clone(),
             observation.evidence_kind.clone(),
         );
@@ -1885,6 +1886,18 @@ mod content_restriction_tests {
         let mut b = temporal_observation(2, 8, 100);
         b.profile_statement.payload.machine_hash = ActionHash::from_raw_36(vec![9; 36]);
         b.attestation_statement.payload.machine_hash = ActionHash::from_raw_36(vec![9; 36]);
+        assert_eq!(
+            resolve_temporal_evidence(vec![a, b]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_rejects_mixed_machine_registrants() {
+        let a = temporal_observation(1, 7, 100);
+        let mut b = temporal_observation(2, 8, 100);
+        b.machine_registrant = AgentPubKey::from_raw_32(vec![9; 32]);
+        b.profile_statement.signer = b.machine_registrant.clone();
         assert_eq!(
             resolve_temporal_evidence(vec![a, b]),
             MachineTemporalEvidenceResolution::InvalidEvidence
