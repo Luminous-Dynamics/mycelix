@@ -443,10 +443,11 @@ fn validate_capability(
         ));
     }
 
-    // Must have secret hash
-    if cap.secret_hash.is_empty() {
+    // The public field is specifically a SHA-256 fingerprint, not an arbitrary
+    // non-empty byte string. Enforce the digest width at the integrity boundary.
+    if !is_sha256_fingerprint(&cap.secret_hash) {
         return Ok(ValidateCallbackResult::Invalid(
-            "Capability must have secret hash".to_string(),
+            "Capability secret fingerprint must be exactly 32 bytes (SHA-256)".to_string(),
         ));
     }
 
@@ -510,4 +511,23 @@ fn validate_delegation_chain(
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+const SHA256_FINGERPRINT_LEN: usize = 32;
+
+fn is_sha256_fingerprint(secret_hash: &[u8]) -> bool {
+    secret_hash.len() == SHA256_FINGERPRINT_LEN
+}
+
+#[cfg(test)]
+mod capability_fingerprint_tests {
+    use super::is_sha256_fingerprint;
+
+    #[test]
+    fn capability_secret_fingerprint_must_be_exactly_sha256_width() {
+        assert!(!is_sha256_fingerprint(&[]));
+        assert!(!is_sha256_fingerprint(&[7; 31]));
+        assert!(is_sha256_fingerprint(&[7; 32]));
+        assert!(!is_sha256_fingerprint(&[7; 33]));
+    }
 }
