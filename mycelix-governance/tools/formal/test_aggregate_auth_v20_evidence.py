@@ -117,6 +117,7 @@ FROZEN_MUTATIONS = {
         "mutations", "mutant_acceptance_observed", (
             "pop-signature-check-omitted", "pop-binding-check-omitted",
             "pop-canonical-payload-check-omitted", "pop-replay-consumption-omitted",
+            "pop-trusted-clock-check-omitted",
         )),
 }
 
@@ -280,7 +281,7 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
             data["summary"].update({
                 "positive_controls": 2,
                 "negative_controls": 23,
-                "mutants_detected": 4,
+                "mutants_detected": 5,
                 "replay_jti_consumed": True,
             })
             data["controls"] = [{"id": name} for name in FROZEN_POP_CONTROL_IDS]
@@ -401,7 +402,7 @@ def apply_mutation(root: Path, name: str) -> None:
         capability_receipt.unlink()
     elif name == "capability-mutant-count-weakened":
         data = json.loads(capability_receipt.read_text(encoding="utf-8"))
-        data["summary"]["mutants_detected"] = 3
+        data["summary"]["mutants_detected"] = 4
         capability_receipt.write_text(json.dumps(data), encoding="utf-8")
     elif name == "missing-pop-receipt":
         pop_receipt.unlink()
