@@ -2,7 +2,7 @@
 
 **Profile ID:** `civ-013-durable-adapter-v1`  
 **Status:** experimental reference profile; not production qualification.  
-**Source adapter revision:** [Symthaea commit `9ff9f23e11476cae15a12c3ae46cfacbe4e35cf9`](https://github.com/Luminous-Dynamics/symthaea/commit/9ff9f23e11476cae15a12c3ae46cfacbe4e35cf9)  
+**Source adapter revision:** [Symthaea commit `f3def874aa868c5cb1e0997f601096bc33b0df45`](https://github.com/Luminous-Dynamics/symthaea/commit/f3def874aa868c5cb1e0997f601096bc33b0df45)  
 **Golden vectors:** [civ-013-durable-witness-conformance-v1.json](civ-013-durable-witness-conformance-v1.json)  
 **Manifest:** [civ-013-durable-witness-conformance-v1-manifest.json](civ-013-durable-witness-conformance-v1-manifest.json)  
 **Independent checker:** [verify_civ013_durable_witness_conformance_v1.py](../../scripts/integral/verify_civ013_durable_witness_conformance_v1.py)  
@@ -88,10 +88,11 @@ The profile's transition vectors are an independent abstract reference for these
 | DA025 | IdempotentAcceptedHistory | Late finalization confirms that the metadata pointer matches the accepted current-head row |
 | DA026 | CorruptCurrentHeadMetadata | Late finalization rejects a well-formed but incorrect metadata head digest |
 | DA027 | CorruptCurrentHeadRecord | Late finalization rejects field tampering in the accepted head row even when the metadata pointer still matches its stored digest |
+| DA028 | CorruptCurrentHeadRecord | Same-generation retry rejects current-head field tampering when the metadata pointer still matches its stored digest |
 
 ## Late-finalization metadata binding
 
-The adapter permits idempotent success when a caller resumes after another process recovered its exact prepared candidate and advanced to a later generation. That exception must not treat a correctly sized digest as proof of a correct head pointer or a well-shaped stored row as a self-consistent record. Before returning success for a historical candidate, the adapter checks that the metadata head row exists, is accepted, and its digest matches the record row at the metadata generation; it then validates the accepted history and recomputes record digests in the same transaction snapshot. DA025–DA027 capture valid pointer matching, pointer mismatch, and field tampering under an unchanged digest column. Any mismatch is corruption, not idempotent success.
+The adapter permits idempotent success for both an exact same-generation retry and a historical candidate after another process recovered its prepared candidate and advanced to a later generation. That exception must not treat a correctly sized digest as proof of a correct head pointer or a well-shaped stored row as a self-consistent record. Before returning success for a historical candidate, the adapter checks that the metadata head row exists, is accepted, and its digest matches the record row at the metadata generation; it then validates the accepted history and recomputes record digests in the same transaction snapshot. DA025–DA027 capture valid pointer matching, pointer mismatch, and field tampering under an unchanged digest column. Any mismatch is corruption, not idempotent success.
 
 ## Per-log fork chain boundary
 
