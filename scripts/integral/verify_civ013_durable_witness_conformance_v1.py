@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "78e6087a4513e876c074f661ffd803b1e05bb49e"
+SOURCE_COMMIT = "e0050a60679aac7b737a7eb4d92c263fabd7aad7"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 SQLITE_MINIMUM_VERSION_NUMBER = 3_051_003
 
@@ -608,8 +608,9 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         if (
             type(actual) is not int or type(minimum) is not int
             or actual < 0 or minimum <= 0
-            or vector.get("source_rusqlite_version") != "0.39.0"
-            or vector.get("source_libsqlite3_sys_version") != "0.37.0"
+            or vector.get("source_rusqlite_version") != "0.40.2"
+            or vector.get("source_libsqlite3_sys_version") != "0.38.2"
+            or vector.get("pinned_bundled_sqlite_version") != "3.53.2"
             or vector.get("bundled") is not True
         ):
             return "InvalidInput"
