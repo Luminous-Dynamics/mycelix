@@ -280,6 +280,7 @@ def main() -> int:
             "mutant-detection-count-weakened", "mutation-identity-substituted",
             "duplicate-mutation-id", "compact-jws-mutant-count-weakened",
             "missing-capability-receipt", "capability-mutant-count-weakened",
+            "missing-pop-receipt", "pop-mutant-count-weakened",
             "expected-head-malformed", "missing-aggregate-mutation-guard",
             "aggregate-guard-head-mismatch", "aggregate-guard-count-weakened",
             "aggregate-guard-identity-substituted", "missing-control-artifact",
