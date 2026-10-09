@@ -387,14 +387,14 @@ jobs:
         run: |
           set -euo pipefail
           nix develop ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c '
-            rustc --version
+            rustc --version | grep -Eq "^rustc 1[.]96[.]0([[:space:]]|$)"
             cargo --version
             node --version | grep -Eq "^v24[.]"
             npm --version
 
             # Make the exact Nix-provided binaries/env available to following
             # steps (including rust-cache) without selecting a second toolchain.
-            printf "%s\n" "$PATH" | tr ":" "\n" >> "$GITHUB_PATH"
+            printf "%s\n" "$PATH" | tr ":" "\n" | grep -E "^/nix/store/[^/]+/bin$" | sort -u >> "$GITHUB_PATH"
             for name in LIBCLANG_PATH BINDGEN_EXTRA_CLANG_ARGS OPENSSL_DIR OPENSSL_LIB_DIR OPENSSL_INCLUDE_DIR; do
               printf "%s=%s\n" "$name" "${!name}" >> "$GITHUB_ENV"
             done
