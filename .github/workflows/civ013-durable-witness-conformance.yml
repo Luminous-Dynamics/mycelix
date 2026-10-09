@@ -46,20 +46,32 @@ jobs:
           python3 -m json.tool docs/integral/civ-013-durable-witness-conformance-v1.json >/dev/null
           python3 -m json.tool docs/integral/civ-013-durable-witness-conformance-v1-manifest.json >/dev/null
 
-      - name: Fetch and verify exact source-adapter revision
+      - name: Verify pinned checker commit and producer toolchain
         shell: bash
         run: |
           set -euo pipefail
+          checker_commit="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["checker_commit_sha"])')"
+          expected_checker_blob="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["checker_git_blob_sha"])')"
+          git merge-base --is-ancestor "$checker_commit" "$QUALIFIED_SHA"
+          actual_checker_blob="$(git hash-object scripts/integral/verify_civ013_durable_witness_conformance_v1.py)"
+          test "$actual_checker_blob" = "$expected_checker_blob"
+
           source_commit="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_adapter_commit"])')"
-          expected_blob="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_adapter_blob_sha"])')"
+          expected_source_blob="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_adapter_blob_sha"])')"
+          expected_toolchain_blob="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_toolchain_blob_sha"])')"
+          expected_rust_version="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_rust_version"])')"
           git init symthaea-source
           git -C symthaea-source fetch --depth=1 https://github.com/Luminous-Dynamics/symthaea.git "$source_commit"
           git -C symthaea-source checkout --detach FETCH_HEAD
-          actual_commit="$(git -C symthaea-source rev-parse HEAD)"
-          test "$actual_commit" = "$source_commit"
-          actual_blob="$(git -C symthaea-source hash-object crates/domains/symthaea-civ-witness/src/lib.rs)"
-          test "$actual_blob" = "$expected_blob"
-          printf 'source_adapter_commit=%s\nsource_adapter_blob_sha=%s\n' "$actual_commit" "$actual_blob"
+          actual_source_commit="$(git -C symthaea-source rev-parse HEAD)"
+          test "$actual_source_commit" = "$source_commit"
+          actual_source_blob="$(git -C symthaea-source hash-object crates/domains/symthaea-civ-witness/src/lib.rs)"
+          test "$actual_source_blob" = "$expected_source_blob"
+          actual_toolchain_blob="$(git -C symthaea-source hash-object rust-toolchain.toml)"
+          test "$actual_toolchain_blob" = "$expected_toolchain_blob"
+          actual_rust_version="$(sed -nE 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' symthaea-source/rust-toolchain.toml)"
+          test "$actual_rust_version" = "$expected_rust_version"
+          printf 'checker_commit_sha=%s\nchecker_blob_sha=%s\nsource_adapter_commit=%s\nsource_adapter_blob_sha=%s\nsource_toolchain_blob_sha=%s\nsource_rust_version=%s\n' "$checker_commit" "$actual_checker_blob" "$actual_source_commit" "$actual_source_blob" "$actual_toolchain_blob" "$actual_rust_version"
 
       - name: Run independent durable-profile checker
         id: vectors
@@ -95,12 +107,18 @@ jobs:
             echo "manifest_git_blob=$(git hash-object docs/integral/civ-013-durable-witness-conformance-v1-manifest.json)"
             echo "fixture_git_blob=$(git hash-object docs/integral/civ-013-durable-witness-conformance-v1.json)"
             echo "verifier_git_blob=$(git hash-object scripts/integral/verify_civ013_durable_witness_conformance_v1.py)"
+            echo "checker_commit_sha=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["checker_commit_sha"])')"
+            echo "checker_runtime_policy=$(python3 -c 'import json; m=json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json")); print(m["checker_runtime"]["implementation"] + ">=" + m["checker_runtime"]["minimum_version"])')"
             echo "source_adapter_commit=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_adapter_commit"])')"
             echo "source_adapter_blob_sha=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_adapter_blob_sha"])')"
+            echo "source_toolchain_blob_sha=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_toolchain_blob_sha"])')"
+            echo "source_rust_version=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_rust_version"])')"
             if test -f symthaea-source/crates/domains/symthaea-civ-witness/src/lib.rs; then
               echo "fetched_source_adapter_git_blob=$(git -C symthaea-source hash-object crates/domains/symthaea-civ-witness/src/lib.rs)"
+              echo "fetched_source_toolchain_git_blob=$(git -C symthaea-source hash-object rust-toolchain.toml)"
             else
               echo "fetched_source_adapter_git_blob=unavailable"
+              echo "fetched_source_toolchain_git_blob=unavailable"
             fi
             echo "claim_ceiling=DurableAdapterReferenceConformanceOnly"
           } | tee -a civ013-durable-witness-conformance.txt
