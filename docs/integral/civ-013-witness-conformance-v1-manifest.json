@@ -4,7 +4,7 @@
   "source_model_commit": "5c4b0c8b2c8ea2f66b97e9741c32b01c7a294ce7",
   "fixture_path": "docs/integral/civ-013-witness-conformance-v1.json",
   "verifier_path": "scripts/integral/verify_civ013_witness_conformance_v1.py",
-  "expected_vector_count": 17,
+  "expected_vector_count": 19,
   "required_vector_ids": [
     "V001-bootstrap-valid",
     "V002-successor-valid",
@@ -22,7 +22,9 @@
     "V014-transition-same-sequence-equivocation",
     "V015-cross-log-successor",
     "V016-history-receipt-regression",
-    "V017-history-same-sequence-equivocation"
+    "V017-history-same-sequence-equivocation",
+    "V018-transition-invalid-tail-shape",
+    "V019-untrusted-bootstrap-anchor"
   ],
   "claim_ceiling": "Reference conformance only; not filesystem durability, genuine signatures, witness independence, quorum safety, or production anti-rollback."
 }
