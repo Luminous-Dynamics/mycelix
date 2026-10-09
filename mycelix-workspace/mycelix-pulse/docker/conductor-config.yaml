@@ -18,7 +18,7 @@ admin_interfaces:
 network:
   # Verify the deployed endpoint supports the 0.7 Kitsune2/Iroh transport.
   bootstrap_url: "https://bootstrap.holo.host"
-  relay_url: "https://bootstrap.holo.host"
+  relay_url: "https://bootstrap.holo.host/relay"
   base64_auth_material_bootstrap: ~
   base64_auth_material_relay: ~
   request_timeout_s: 60
