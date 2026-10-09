@@ -80,7 +80,10 @@ pub enum MachineTemporalEvidenceResolution {
     /// This is observational agreement only, not a complete network census,
     /// trust score, quorum, or assertion of witness independence.
     UniqueObserved {
+        /// Authority-reported central timestamp, not an exact physical-event time.
         time: Timestamp,
+        /// Declared uncertainty radius around the timestamp; consumers must preserve it.
+        accuracy_micros: i64,
         evidence: Vec<MachineTemporalEvidenceObservation>,
     },
 
@@ -103,6 +106,48 @@ impl MachineTemporalEvidenceObservation {
         let profile = &self.profile_statement;
         let attestation = &self.attestation_statement;
         self.receipt_schema_id == MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V1
+            && !profile.payload.profile_id.trim().is_empty()
+            && profile.payload.profile_id.len() <= MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+            && !profile.payload.source_profile.trim().is_empty()
+            && profile.payload.source_profile.len() <= MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+            && !profile.payload.source_authority_commitment.is_empty()
+            && profile.payload.source_authority_commitment.len()
+                <= MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
+            && !profile.payload.source_authority_commitment_algorithm.is_empty()
+            && profile.payload.source_authority_commitment_algorithm.text_len()
+                <= MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+            && digest_length_matches(
+                &profile.payload.source_authority_commitment_algorithm,
+                profile.payload.source_authority_commitment.len(),
+            )
+            && !profile.payload.source_authority_commitment_target.is_empty()
+            && profile.payload.source_authority_commitment_target.text_len()
+                <= MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+            && !profile.payload.commitment_algorithm.is_empty()
+            && profile.payload.commitment_algorithm.text_len()
+                <= MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+            && profile.payload.valid_until >= profile.payload.valid_from
+            && profile.payload.max_accuracy_micros >= 0
+            && profile.payload.max_accuracy_micros <= MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
+            && self.accuracy_micros >= 0
+            && self.accuracy_micros <= MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
+            && self.accuracy_micros <= profile.payload.max_accuracy_micros
+            && temporal_interval_contains_interval(
+                profile.payload.valid_from,
+                profile.payload.valid_until,
+                self.attested_at,
+                self.accuracy_micros,
+            )
+            && !self.source_reference.trim().is_empty()
+            && self.source_reference.len() <= MAX_MACHINE_TEMPORAL_SOURCE_REFERENCE_BYTES
+            && !self.source_commitment_algorithm.is_empty()
+            && self.source_commitment_algorithm.text_len() <= MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+            && !self.source_commitment.is_empty()
+            && self.source_commitment.len() <= MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
+            && digest_length_matches(
+                &self.source_commitment_algorithm,
+                self.source_commitment.len(),
+            )
             && profile.action_hash == self.profile_hash
             && attestation.action_hash == self.attestation_hash
             && profile.payload.schema_id == MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID
@@ -174,6 +219,7 @@ pub fn resolve_temporal_evidence(
         {
             MachineTemporalEvidenceResolution::UniqueObserved {
                 time: first.attested_at,
+                accuracy_micros: first.accuracy_micros,
                 evidence,
             }
         }
@@ -1723,6 +1769,7 @@ mod content_restriction_tests {
             resolve_temporal_evidence(vec![b.clone(), a.clone()]),
             MachineTemporalEvidenceResolution::UniqueObserved {
                 time: Timestamp::from_micros(100),
+                accuracy_micros: 5,
                 evidence: vec![a, b],
             }
         );
@@ -1747,6 +1794,7 @@ mod content_restriction_tests {
             resolve_temporal_evidence(vec![a.clone(), a.clone()]),
             MachineTemporalEvidenceResolution::UniqueObserved {
                 time: Timestamp::from_micros(100),
+                accuracy_micros: 5,
                 evidence: vec![a],
             }
         );
