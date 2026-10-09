@@ -63,6 +63,7 @@ def run_openssl(args: list[str], timeout: int = 5) -> bytes:
 
 def make_signed_token(private_path: Path, header: dict[str, Any], payload: bytes,
                       directory: Path, label: str) -> str:
+    directory.mkdir(parents=True, exist_ok=True)
     header_segment = b64u(compact_json(header))
     payload_segment = b64u(payload)
     signing_input = (header_segment + "." + payload_segment).encode("ascii")
@@ -70,13 +71,14 @@ def make_signed_token(private_path: Path, header: dict[str, Any], payload: bytes
     signature_path = directory / (label + ".signature")
     input_path.write_bytes(signing_input)
     run_openssl([
-        "pkeyutl", "-sign", "-rawin", "-inkey", str(private_path),
+        "openssl", "pkeyutl", "-sign", "-rawin", "-inkey", str(private_path),
         "-in", str(input_path), "-out", str(signature_path),
     ])
     return header_segment + "." + payload_segment + "." + b64u(signature_path.read_bytes())
 
 
 def make_chain(directory: Path, empty_constraint_map: bool = False) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    directory.mkdir(parents=True, exist_ok=True)
     openssl = shutil.which("openssl")
     if openssl is None:
         raise RuntimeError("OpenSSL executable is required for Ed25519 proof fixtures")
@@ -178,7 +180,7 @@ def cases(directory: Path) -> dict[str, tuple[dict[str, Any], list[dict[str, Any
     last = "A" if parts[2][0] != "A" else "B"
     out["tampered-pop-signature"] = (
         raw, anchors, parts[0] + "." + parts[1] + "." + last + parts[2][1:],
-        {}, TOOL, ARGS, AUDIENCE, "INVOCATION_DENIED",
+        {}, TOOL, ARGS, AUDIENCE, "pop-signature-invalid",
     )
 
     builders: list[tuple[str, dict[str, Any]]] = [
@@ -262,7 +264,7 @@ def cases(directory: Path) -> dict[str, tuple[dict[str, Any], list[dict[str, Any
     raw, anchors, keys = make_chain(directory / "unsupported-float", empty_constraint_map=True)
     float_args = {"measure": 1.5}
     token = make_pop(directory / "unsupported-float", keys[3]["private_path"], leaf_jti,
-                     jti="pop-float", hta=float_args)
+                     jti="pop-float", hta=float_args, canonical=False)
     out["restricted-jcs-float"] = (
         raw, anchors, token, {}, TOOL, float_args, AUDIENCE, "jcs-float-outside-profile",
     )
@@ -401,7 +403,7 @@ def main() -> int:
         receipt["status"] = "PASS"
         receipt["summary"] = {
             "positive_controls": 2,
-            "negative_controls": len(receipt["controls"]) - 3,
+            "negative_controls": len(receipt["controls"]) - 2,
             "replay_reuse_rejected": True,
             "mutants_detected": len(receipt["mutations"]),
             "verified_pop_mutants_detected": len(receipt["mutations"]),
