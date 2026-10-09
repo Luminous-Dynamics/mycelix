@@ -148,8 +148,10 @@ def main() -> int:
             "auth-v20-compact-jws-evidence/compact-jws-chain.json").read_text(encoding="utf-8"))
         require(compact_jws.get("summary", {}).get("negative_controls") == 23,
                 "compact-JWS harness did not execute all 19 negative controls")
-        require(compact_jws.get("summary", {}).get("signatures_verified") == 4,
-                "compact-JWS harness did not verify all four positive-chain signatures")
+        require(compact_jws.get("summary", {}).get("positive_controls") == 2,
+                "compact-JWS harness did not verify both four-token and single-token positive chains")
+        require(compact_jws.get("summary", {}).get("signatures_verified") == 5,
+                "compact-JWS harness did not verify all five positive-chain signatures")
 
         receipt["status"] = "PASS_BOUNDED_RESEARCH_EVIDENCE"
         receipt["summary"] = {
