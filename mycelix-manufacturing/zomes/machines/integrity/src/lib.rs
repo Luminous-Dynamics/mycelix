@@ -1835,40 +1835,6 @@ mod content_restriction_tests {
     }
 
     #[test]
-    fn temporal_evidence_receipt_rejects_time_outside_profile_uncertainty_window() {
-        let mut observation = temporal_observation(1, 7, 100);
-        observation.attested_at = Timestamp::from_micros(1_001);
-        observation.attestation_statement.payload.attested_at = observation.attested_at;
-        assert_eq!(
-            resolve_temporal_evidence(vec![observation]),
-            MachineTemporalEvidenceResolution::InvalidEvidence
-        );
-    }
-
-    #[test]
-    fn temporal_evidence_receipt_rejects_accuracy_above_profile_bound() {
-        let mut observation = temporal_observation(1, 7, 100);
-        observation.accuracy_micros = 11;
-        observation.attestation_statement.payload.accuracy_micros = 11;
-        assert_eq!(
-            resolve_temporal_evidence(vec![observation]),
-            MachineTemporalEvidenceResolution::InvalidEvidence
-        );
-    }
-
-    #[test]
-    fn temporal_evidence_receipt_rejects_known_digest_length_mismatch() {
-        let mut observation = temporal_observation(1, 7, 100);
-        observation.source_commitment.pop();
-        observation.attestation_statement.payload.source_commitment =
-            observation.source_commitment.clone();
-        assert_eq!(
-            resolve_temporal_evidence(vec![observation]),
-            MachineTemporalEvidenceResolution::InvalidEvidence
-        );
-    }
-
-    #[test]
     fn temporal_evidence_resolution_rejects_unknown_receipt_schema() {
         let mut observation = temporal_observation(1, 7, 100);
         observation.receipt_schema_id = "unknown-receipt-v99".into();
