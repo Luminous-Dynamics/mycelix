@@ -307,6 +307,22 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             } => validate_update_entry(app_entry, action),
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
+            OpRecord::UpdateEntry { app_entry, action } => validate_update_entry(app_entry, action),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::Update(OpUpdate::Entry { app_entry, action }) => {
+            validate_update_entry(app_entry, action)
+        }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported capability update variant".to_string(),
+        )),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
+            "Capability entries cannot be deleted".to_string(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
