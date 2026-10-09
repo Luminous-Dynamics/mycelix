@@ -90,7 +90,7 @@ FROZEN_MUTATIONS = {
 
 FROZEN_AGGREGATE_MUTATIONS = (
     "missing-required-receipt", "wrong-source-head", "qualification-laundered",
-    "failed-receipt-hidden", "schema-downgraded", "corpus-count-weakened",
+    "failed-receipt-hidden", "receipt-source-hash-forged", "receipt-source-hash-missing",\n    "schema-downgraded", "corpus-count-weakened",
     "matrix-mutation-count-weakened", "matrix-mutation-inventory-substituted",
     "mutant-detection-count-weakened", "mutation-identity-substituted",
     "duplicate-mutation-id", "compact-jws-mutant-count-weakened",
@@ -101,6 +101,55 @@ FROZEN_AGGREGATE_MUTATIONS = (
     "tampered-control-result", "tampered-control-input", "unexpected-control-artifact",
     "aggregate-guard-aggregator-hash-forged", "aggregate-guard-test-hash-forged",
 )
+FROZEN_SOURCE_HASH_FIELDS = {
+    "auth-v20-evidence/receipt.json": (
+        ("oracle_source_sha256", "mycelix-governance/tools/formal/compound_subsumption_counterexamples.py"),
+        ("control_matrix_sha256", "docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_CONTROL_MATRIX_V1.json"),
+    ),
+    "auth-v20-differential-evidence/receipt.json": (
+        ("matrix_sha256", "docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json"),
+        ("oracle_sha256", "mycelix-governance/tools/formal/compound_subsumption_counterexamples.py"),
+        ("checker_sha256", "mycelix-governance/tools/formal/differential_compound_subsumption.py"),
+    ),
+    "auth-v20-differential-evidence/matrix-mutation-guard.json": (
+        ("matrix_sha256", "docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json"),
+        ("checker_sha256", "mycelix-governance/tools/formal/test_differential_matrix_freeze.py"),
+    ),
+    "auth-v20-mutation-evidence/oracle-mutation-sensitivity.json": (
+        ("oracle_sha256", "mycelix-governance/tools/formal/compound_subsumption_counterexamples.py"),
+        ("differential_checker_sha256", "mycelix-governance/tools/formal/differential_compound_subsumption.py"),
+        ("mutation_guard_sha256", "mycelix-governance/tools/formal/test_oracle_mutation_sensitivity.py"),
+    ),
+    "auth-v20-policy-mutation-evidence/effective-policy-mutation-sensitivity.json": (
+        ("oracle_sha256", "mycelix-governance/tools/formal/compound_subsumption_counterexamples.py"),
+        ("mutation_guard_sha256", "mycelix-governance/tools/formal/test_effective_policy_mutation_sensitivity.py"),
+    ),
+    "auth-v20-chain-evidence/delegation-chain-differential.json": (
+        ("chain_evaluator_sha256", "mycelix-governance/tools/formal/delegation_chain_counterexamples.py"),
+        ("policy_oracle_sha256", "mycelix-governance/tools/formal/compound_subsumption_counterexamples.py"),
+        ("test_harness_sha256", "mycelix-governance/tools/formal/test_delegation_chain_counterexamples.py"),
+    ),
+    "auth-v20-chain-claims-evidence/delegation-chain-claims-differential.json": (
+        ("checker_sha256", "mycelix-governance/tools/formal/delegation_chain_claims.py"),
+        ("test_sha256", "mycelix-governance/tools/formal/test_delegation_chain_claims.py"),
+    ),
+    "auth-v20-key-link-evidence/delegation-chain-key-linkage.json": (
+        ("checker_sha256", "mycelix-governance/tools/formal/delegation_chain_key_linkage.py"),
+        ("test_sha256", "mycelix-governance/tools/formal/test_delegation_chain_key_linkage.py"),
+    ),
+    "auth-v20-par-hash-evidence/delegation-chain-par-hash.json": (
+        ("checker_sha256", "mycelix-governance/tools/formal/delegation_chain_par_hash.py"),
+        ("test_sha256", "mycelix-governance/tools/formal/test_delegation_chain_par_hash.py"),
+    ),
+    "auth-v20-compact-jws-evidence/compact-jws-chain.json": (
+        ("checker_sha256", "mycelix-governance/tools/formal/delegation_chain_compact_jws.py"),
+        ("test_sha256", "mycelix-governance/tools/formal/test_delegation_chain_compact_jws.py"),
+    ),
+    "auth-v20-capability-evidence/aat-capability-subsumption.json": (
+        ("module_sha256", "mycelix-governance/tools/formal/aat_capability_subsumption.py"),
+        ("test_sha256", "mycelix-governance/tools/formal/test_aat_capability_subsumption.py"),
+    ),
+}
 HEAD = "a" * 40
 
 
@@ -124,6 +173,9 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
             "qualification": "NOT_CLAIMED",
             "summary": {},
         }
+        for field_name, source_relative_path in FROZEN_SOURCE_HASH_FIELDS.get(relative, ()):
+            source_path = HERE.parents[3] / source_relative_path
+            data[field_name] = hashlib.sha256(source_path.read_bytes()).hexdigest()
         if relative == "auth-v20-evidence/receipt.json":
             control_dir = root / "auth-v20-evidence"
             control_dir.mkdir(parents=True, exist_ok=True)
@@ -256,6 +308,14 @@ def apply_mutation(root: Path, name: str) -> None:
         data = json.loads(target.read_text(encoding="utf-8"))
         data["status"] = "FAIL"
         target.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "receipt-source-hash-forged":
+        data = json.loads(policy.read_text(encoding="utf-8"))
+        data["oracle_sha256"] = "0" * 64
+        policy.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "receipt-source-hash-missing":
+        data = json.loads(policy.read_text(encoding="utf-8"))
+        del data["oracle_sha256"]
+        policy.write_text(json.dumps(data), encoding="utf-8")
     elif name == "schema-downgraded":
         data = json.loads(keylink.read_text(encoding="utf-8"))
         data["schema"] = "future-unknown-schema"
@@ -356,6 +416,8 @@ def main() -> int:
         receipt["test_sha256"] = hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest()
         require(tuple(aggregator.REQUIRED_RECEIPTS) == FROZEN_REQUIRED_RECEIPTS,
                 "aggregator required receipt inventory differs from independently frozen inventory")
+        require(aggregator.EXPECTED_SOURCE_HASH_FIELDS == FROZEN_SOURCE_HASH_FIELDS,
+                "aggregator source-hash field/path inventory differs from independent frozen inventory")
         with tempfile.TemporaryDirectory(prefix="mycelix-auth-v20-aggregate-") as temporary:
             root = Path(temporary) / "valid"
             objects = synthetic_receipts(root)
@@ -438,7 +500,7 @@ def main() -> int:
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 25 weakening mutations rejected")
+        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 27 weakening mutations rejected")
         print("QUALIFICATION NOT CLAIMED: synthetic receipt checks do not establish semantic correctness")
         return 0
     except Exception as error:
