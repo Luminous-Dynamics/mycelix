@@ -285,6 +285,15 @@ pub struct EmailV2Wire {
     pub envelope: EncryptedEmailV2,
 }
 
+/// Empty-response endpoint used only to probe conductor-enforced read capability.
+///
+/// A successful call proves that this remote call is authorized by Holochain's
+/// CapGrant. It deliberately returns no mailbox data, unlike get_inbox_v2.
+#[hdk_extern]
+pub fn capability_probe_v1(_: ()) -> ExternResult<()> {
+    Ok(())
+}
+
 #[hdk_extern]
 pub fn get_inbox_v2(_: ()) -> ExternResult<Vec<EmailV2Wire>> {
     let me = agent_info()?.agent_initial_pubkey;
