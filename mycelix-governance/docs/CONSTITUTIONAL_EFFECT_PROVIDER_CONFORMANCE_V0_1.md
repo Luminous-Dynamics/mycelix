@@ -410,6 +410,14 @@ presence of these roots. A promotion gate must independently reconcile host rece
 and establish exact-action correspondence before treating a resolution as fully
 evidenced.
 
+## Execution-resolution source-action lineage
+
+Each new ExecutionResolution carries both the exact source-chain ActionHash of the Prepared Execution record and the exact ActionHash of the Prepared Timelock update that authorized its preparation. The integrity zome dereferences both dependencies through the Holochain validation path, checks the record types, and validates status, execution/timelock/proposal identifiers, executor identity, and source-chain authorship. Missing dependencies remain subject to Holochain's dependency-validation semantics rather than being treated as valid.
+
+The typed per-action `ExecutionResolutionBindingV1` vector continues to require canonical roots, an exact count matching the prepared action payload, and no reused attempt/action/proof roots. These checks close source-record substitution and tuple-reuse gaps, but they do not authenticate external provider effects. The roots remain commitments supplied by the host; the host-side reconciliation boundary must compare them against its durable ledger receipts before a resolution is treated as fully evidenced.
+
+This is not a provider qualification claim. TransferCredits remains Incompatible, UpdateParameter remains Incompatible, and EmitEvent remains ProjectionOnly until independent provider-lane qualification and live host wiring are demonstrated.
+
 ## Adapter contract added by D1D0
 
 Every future provider adapter must establish all of the following before it is eligible for live D1C execution wiring:
