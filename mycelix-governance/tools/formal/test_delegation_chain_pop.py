@@ -12,6 +12,7 @@ import argparse
 import base64
 import copy
 import hashlib
+from concurrent.futures import ThreadPoolExecutor
 import json
 import shutil
 import sqlite3
@@ -344,6 +345,37 @@ def main() -> int:
                 "finding": expected_code(later_replay),
                 "fresh_iat": NOW + 1000,
                 "same_jti_rejected": True,
+            })
+
+            concurrent_proof = make_pop(
+                root / "valid-positive", keys[3]["private_path"],
+                "aat-leaf-chain-2", jti="pop-concurrent-0001",
+            )
+            concurrent_db = root / "concurrent-replay.sqlite3"
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                concurrent_results = list(executor.map(
+                    lambda _: invoke(raw, anchors, concurrent_proof, concurrent_db),
+                    (0, 1),
+                ))
+            pass_count = sum(
+                item.get("status") == "INVOCATION_POP_VERIFIED_CANDIDATE_PASS"
+                for item in concurrent_results
+            )
+            replay_denial_count = sum(
+                item.get("status") == "INVOCATION_DENIED"
+                and expected_code(item) == "pop-jti-replay"
+                for item in concurrent_results
+            )
+            require(pass_count == 1 and replay_denial_count == 1,
+                    "concurrent same-jti submission must yield exactly one pass and one replay denial: " +
+                    json.dumps(concurrent_results, sort_keys=True))
+            receipt["controls"].append({
+                "id": "concurrent-pop-jti-race",
+                "status": "ONE_PASS_ONE_REPLAY_DENIED",
+                "pass_count": pass_count,
+                "replay_denial_count": replay_denial_count,
+                "same_database": True,
+                "independent_connections": True,
             })
 
             # Optional-audience profile with neither expected nor presented aud.
