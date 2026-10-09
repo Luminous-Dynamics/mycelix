@@ -15,6 +15,73 @@ import sys
 from pathlib import Path
 from typing import Any
 
+EXPECTED_MUTATION_IDS = {
+    "auth-v20-mutation-evidence/oracle-mutation-sensitivity.json": (
+        "mutations", "mutant_detected", (
+            "atom-subsumption-opened",
+            "denotation-forced-empty",
+            "injective-matcher-reuses-child",
+            "witness-core-keeps-redundant-clause",
+        ),
+    ),
+    "auth-v20-policy-mutation-evidence/effective-policy-mutation-sensitivity.json": (
+        "mutations", "mutant_detected", (
+            "deny-set-erased",
+            "deny-overrides-skipped",
+            "allow-overrides-misread",
+            "masked-allow-expansion-accepted",
+            "deny-removal-gate-bypassed",
+            "conflict-rule-flag-forged",
+        ),
+    ),
+    "auth-v20-chain-evidence/delegation-chain-differential.json": (
+        "mutations", "detected", (
+            "adjacent-edge-validation-skipped",
+            "root-anchor-validation-skipped",
+            "masked-attenuation-violation-accepted",
+            "chain-expansion-status-downgraded",
+        ),
+    ),
+    "auth-v20-chain-claims-evidence/delegation-chain-claims-differential.json": (
+        "checker_mutations", "independent_detection", (
+            "expiry-check-omitted",
+            "depth-check-omitted",
+            "jti-uniqueness-check-omitted",
+            "parent-link-check-omitted",
+        ),
+    ),
+    "auth-v20-key-link-evidence/delegation-chain-key-linkage.json": (
+        "mutations", "detected", (
+            "issuer-link-check-omitted",
+            "private-jwk-rejection-omitted",
+            "root-issuer-shape-check-omitted",
+        ),
+    ),
+    "auth-v20-par-hash-evidence/delegation-chain-par-hash.json": (
+        "mutations", "detected", (
+            "par-hash-comparison-omitted",
+            "root-par-hash-rejection-omitted",
+            "canonical-signing-input-rejection-omitted",
+        ),
+    ),
+    "auth-v20-compact-jws-evidence/compact-jws-chain.json": (
+        "mutations", "mutant_acceptance_observed", (
+            "signature-check-omitted",
+            "issuer-thumbprint-check-omitted",
+            "par-hash-check-omitted",
+        ),
+    ),
+    "auth-v20-capability-evidence/aat-capability-subsumption.json": (
+        "mutations", "mutant_was_observable", (
+            "constraint-subsumption-bypassed",
+            "tool-set-attenuation-bypassed",
+            "runtime-constraint-bypassed",
+            "invocation-shape-bypassed",
+        ),
+    ),
+}
+
+
 REQUIRED_RECEIPTS = (
     ("auth-v20-evidence/receipt.json",
      "mycelix.compound-subsumption-counterexample-controls.v1"),
@@ -111,6 +178,15 @@ def main() -> int:
             "auth-v20-differential-evidence/matrix-mutation-guard.json").read_text(encoding="utf-8"))
         require(matrix_guard.get("mutation_count") == 14,
                 "frozen manifest mutation guard did not reject its 14 required weakening mutations")
+        expected_matrix_mutations = (
+            "remove-request-value", "reorder-request-values", "widen-amount-domain",
+            "weaken-atom-target", "widen-atom-numeric-bound", "remove-atom",
+            "change-generation-rule", "lower-expression-count", "lower-pair-count",
+            "lower-pair-request-count", "remove-compound-operator", "remove-required-invariant",
+            "enable-randomized-generation", "duplicate-atom-identifier",
+        )
+        require(tuple(matrix_guard.get("rejected_mutations", [])) == expected_matrix_mutations,
+                "frozen manifest mutation guard rejected a different mutation inventory")
 
         expected_mutants = {
             "auth-v20-mutation-evidence/oracle-mutation-sensitivity.json": 4,
@@ -129,10 +205,27 @@ def main() -> int:
                                    summary.get("checker_mutants_detected"))
             require(observed == count,
                     f"{relative_path}: expected {count} detected mutants, got {observed!r}")
+            rows_key, detected_key, expected_ids = EXPECTED_MUTATION_IDS[relative_path]
+            rows = data.get(rows_key)
+            require(isinstance(rows, list),
+                    f"{relative_path}: missing mutation records under {rows_key!r}")
+            observed_ids = [row.get("id") for row in rows if isinstance(row, dict)]
+            require(observed_ids == list(expected_ids),
+                    f"{relative_path}: mutation identities/order differ from the frozen inventory")
+            require(all(row.get(detected_key) is True for row in rows),
+                    f"{relative_path}: at least one expected mutation lacks a positive detection marker")
 
         control_raw = json.loads((args.evidence_root / "auth-v20-evidence/receipt.json").read_text(encoding="utf-8"))
         require(len(control_raw.get("controls", [])) == 11,
                 "bounded policy oracle did not execute all 11 frozen controls")
+        chain_policy = json.loads((args.evidence_root /
+            "auth-v20-chain-evidence/delegation-chain-differential.json").read_text(encoding="utf-8"))
+        chain_policy_summary = chain_policy.get("summary", {})
+        require(chain_policy_summary.get("baseline_chains") == 5,
+                "delegation-policy harness did not evaluate all five chain fixtures")
+        require(chain_policy_summary.get("baseline_relations") == 24,
+                "delegation-policy harness did not evaluate all 24 adjacent/root-anchored relations")
+
         chain_claims = json.loads((args.evidence_root /
             "auth-v20-chain-claims-evidence/delegation-chain-claims-differential.json").read_text(encoding="utf-8"))
         require(chain_claims.get("summary", {}).get("invalid_claim_controls") == 13,
