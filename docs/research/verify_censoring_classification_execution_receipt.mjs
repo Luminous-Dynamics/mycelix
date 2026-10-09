@@ -38,6 +38,11 @@ function validateReport(file,expected){
   const ids=cases.map(x=>x&&typeof x==="object"?(x.case_id??x.id):null);
   if(ids.some(x=>typeof x!=="string"||!x))return[null,"case-identity-missing"];
   if(new Set(ids).size!==ids.length)return[null,"duplicate-case-id"];
+  for(const row of cases)if(row&&typeof row==="object"&&Object.hasOwn(row,"expected_verdict")){
+    const actual=Object.hasOwn(row,"actual_verdict")?row.actual_verdict:row.verdict;
+    if(actual===undefined||actual===null)return[null,"actual-verdict-missing"];
+    if(actual!==row.expected_verdict)return[null,"verdict-mismatch"];
+  }
   if(typeof obj.schema!=="string"||!obj.schema)return[null,"report-schema-missing"];
   return[{sha256:sha(raw),case_count:n,schema:obj.schema,case_ids_sha256:sha(Buffer.from(canonical(ids),"utf8"))},null];
 }
