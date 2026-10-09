@@ -431,7 +431,7 @@ def apply_mutation(root: Path, name: str) -> None:
         capability_receipt.unlink()
     elif name == "capability-mutant-count-weakened":
         data = json.loads(capability_receipt.read_text(encoding="utf-8"))
-        data["summary"]["mutants_detected"] = 4
+        data["summary"]["mutants_detected"] = 3
         capability_receipt.write_text(json.dumps(data), encoding="utf-8")
     elif name == "missing-pop-receipt":
         pop_receipt.unlink()
