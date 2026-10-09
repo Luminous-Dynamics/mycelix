@@ -49,7 +49,7 @@
   "fixture_git_blob_sha": "97eae57760cf2036bc3ef0edb46c08074d9f55e2",
   "checker_git_blob_sha": "93ad09078777acdf5bf8342ba78e919f2c84bb40",
   "spec_git_blob_sha": "d75ef3bb0ebe3612f013f8a1dc4dd29fd9a973ac",
-  "workflow_git_blob_sha": "5101200105b8036213c9b3e5b23ccad07623fa13",
+  "workflow_git_blob_sha": "f1454412875ea1984edae04814edaa4b84d4a255",
   "source_adapter_blob_sha": "b16593bf74b52947376e7b6257ca423a1c7003fb",
   "source_toolchain_path": "rust-toolchain.toml",
   "source_toolchain_blob_sha": "4f0430eac96d545bcfaa0df23ce475faf4aee96a",
