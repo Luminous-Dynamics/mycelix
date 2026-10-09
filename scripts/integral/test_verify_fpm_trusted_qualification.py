@@ -293,6 +293,11 @@ def assert_evidence_archive_contract() -> None:
     assert "-print -quit" not in workflow
     assert "sandbox-system-closure.tsv" in trusted_workflow
     assert "FPM_SYSTEM_CLOSURE_PROFILE" in trusted_workflow
+    selftest_workflow = (Path(__file__).parents[2] / ".github/workflows/fpm-reference-verifier-selftest.yml").read_text(encoding="utf-8")
+    assert "Parse every embedded sandbox program" in selftest_workflow
+    assert "expected exactly four embedded sandbox programs" in selftest_workflow
+    assert 'bash -n "$script"' in selftest_workflow
+    assert 'shellcheck --severity=error "$script"' in selftest_workflow
     assert "FPM_SANDBOX_IMAGE: gcc@sha256:603634c53d477dd94dd224a3dd5c008e996dd3ec8ccc54ac6af9344d990339e5" in trusted_workflow
     assert trusted_workflow.count('-ceu "$(cat <<\'FPM_SANDBOX_SCRIPT\'') == 4
     assert trusted_workflow.count("\n          FPM_SANDBOX_SCRIPT\n") == 4
