@@ -48,7 +48,7 @@ pub enum CapabilitySignal {
 /// the intended grantee. The secret is deliberately excluded from CapabilitySignal,
 /// which is emitted to local UI listeners.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct CapabilityGrantDelivery {
+pub struct CapabilityGrantDelivery {
     capability_hash: ActionHash,
     capability_id: String,
     grantor: AgentPubKey,
