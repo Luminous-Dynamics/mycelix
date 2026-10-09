@@ -222,7 +222,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     let original_action_hash = action.original_action_address.clone();
                     validate_update_contact(action, original_action_hash, contact)
                 }
-                _ => Ok(ValidateCallbackResult::Valid),
+                _ => Ok(ValidateCallbackResult::Invalid(
+                    "Only contacts have a supported update path".to_string(),
+                )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
