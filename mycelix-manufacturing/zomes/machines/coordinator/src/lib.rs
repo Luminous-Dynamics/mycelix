@@ -542,7 +542,9 @@ pub fn resolve_machine_temporal_attestations(
         let Some(Details::Record(record_details)) = get_details(hash.clone(), GetOptions::default())? else {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         };
-        if record_details.validation_status != ValidationStatus::Valid {
+        if record_details.validation_status != ValidationStatus::Valid
+            || !matches!(record_details.record.action(), Action::Create(_))
+        {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         }
 
@@ -563,7 +565,9 @@ pub fn resolve_machine_temporal_attestations(
         else {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         };
-        if profile_details.validation_status != ValidationStatus::Valid {
+        if profile_details.validation_status != ValidationStatus::Valid
+            || !matches!(profile_details.record.action(), Action::Create(_))
+        {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         }
         let Some(profile_record) = profile_details.record.entry().to_app_option::<MachineTimeAuthorityProfileEntry>()
