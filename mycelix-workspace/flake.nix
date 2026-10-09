@@ -87,7 +87,7 @@
 
         # Node.js packages
         nodeEnv = with pkgs; [
-          nodejs_20
+          nodejs_24
           nodePackages.pnpm
           nodePackages.typescript
           nodePackages.typescript-language-server
@@ -144,7 +144,7 @@
               holochainPackages.holochain
               holochainPackages.hc
               holochainBase.rustToolchain
-              nodejs_20
+              nodejs_24
               nodePackages.pnpm
               pythonEnv
               just
@@ -191,7 +191,7 @@
           docs = pkgs.mkShell {
             name = "mycelix-docs";
             buildInputs = with pkgs; [
-              nodejs_20
+              nodejs_24
               nodePackages.pnpm
               mdbook
               graphviz
