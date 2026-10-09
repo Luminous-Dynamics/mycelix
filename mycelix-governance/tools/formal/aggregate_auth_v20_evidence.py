@@ -116,7 +116,7 @@ def require(condition: bool, message: str) -> None:
 def canonical_json_bytes(value: Any) -> bytes:
     """Match the control runner's canonical_json serialization exactly."""
     return (json.dumps(value, sort_keys=True, separators=(",", ":"),
-                       ensure_ascii=False) + "\\n").encode("utf-8")
+                       ensure_ascii=False) + "\n").encode("utf-8")
 
 
 def validate_receipt(data: dict[str, Any], expected_schema: str,
