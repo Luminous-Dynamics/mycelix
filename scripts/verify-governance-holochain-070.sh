@@ -31,12 +31,12 @@ for legacy_token in \
   'FlatOp::RegisterUpdate' 'FlatOp::RegisterDelete' \
   'FlatOp::RegisterCreateLink' 'FlatOp::RegisterDeleteLink' \
   'FlatOp::RegisterAgentActivity'; do
-  if ! printf '%s\\n' "$legacy_token" | grep -Eq "$legacy_pattern"; then
+  if ! printf '%s\n' "$legacy_token" | grep -Eq "$legacy_pattern"; then
     fail "legacy-action guard regression: did not detect $legacy_token"
   fi
 done
 for domain_token in 'GovernanceAction::UpdateParameter' 'GovernanceAction::CreateProposal'; do
-  if printf '%s\\n' "$domain_token" | grep -Eq "$legacy_pattern"; then
+  if printf '%s\n' "$domain_token" | grep -Eq "$legacy_pattern"; then
     fail "legacy-action guard regression: false-positive matched $domain_token"
   fi
 done
