@@ -599,6 +599,7 @@ def verify_sandbox_system_closure(closure: Any) -> None:
     if not isinstance(libraries, list) or not libraries or len(libraries) > 256:
         fail("sandbox system closure library set is invalid")
     library_paths: set[str] = set()
+    library_path_order: list[str] = []
     for item in libraries:
         if not isinstance(item, dict) or set(item) != {"path", "sha256"}:
             fail("sandbox system closure library entry schema mismatch")
@@ -611,6 +612,9 @@ def verify_sandbox_system_closure(closure: Any) -> None:
         if path in library_paths:
             fail(f"sandbox system closure duplicates library path: {path}")
         library_paths.add(path)
+        library_path_order.append(path)
+    if library_path_order != sorted(library_path_order):
+        fail("sandbox system closure libraries are not in canonical path order")
     if not any(path.endswith("/libc.so.6") for path in library_paths):
         fail("sandbox system closure does not record glibc libc.so.6")
     if not any("/ld-linux-" in path and path.endswith(".so.2") for path in library_paths):
@@ -628,6 +632,7 @@ def verify_sandbox_target_closure(closure: Any) -> None:
     if not isinstance(libraries, list) or len(libraries) > 512:
         fail("sandbox_target_closure library set is invalid")
     seen_exec: set[str] = set()
+    executable_path_order: list[str] = []
     for item in executables:
         if not isinstance(item, dict) or set(item) != {"path", "sha256"}:
             fail("sandbox_target_closure executable schema mismatch")
@@ -638,9 +643,13 @@ def verify_sandbox_target_closure(closure: Any) -> None:
         if path in seen_exec:
             fail(f"sandbox_target_closure duplicate executable path: {path}")
         seen_exec.add(path)
+        executable_path_order.append(path)
         if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
             fail(f"sandbox_target_closure executable digest is malformed: {path}")
+    if executable_path_order != sorted(executable_path_order):
+        fail("sandbox_target_closure executables are not in canonical path order")
     seen_lib: set[str] = set()
+    library_path_order: list[str] = []
     for item in libraries:
         if not isinstance(item, dict) or set(item) != {"path", "sha256"}:
             fail("sandbox_target_closure library schema mismatch")
@@ -651,8 +660,11 @@ def verify_sandbox_target_closure(closure: Any) -> None:
         if path in seen_lib:
             fail(f"sandbox_target_closure duplicate library path: {path}")
         seen_lib.add(path)
+        library_path_order.append(path)
         if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
             fail(f"sandbox_target_closure library digest is malformed: {path}")
+    if library_path_order != sorted(library_path_order):
+        fail("sandbox_target_closure libraries are not in canonical path order")
     if not any(path.endswith("/libc.so.6") for path in seen_lib):
         fail("sandbox_target_closure does not record glibc libc.so.6")
     if not any("/ld-linux-" in path and path.endswith(".so.2") for path in seen_lib):
