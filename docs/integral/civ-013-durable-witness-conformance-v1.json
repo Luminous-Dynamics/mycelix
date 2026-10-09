@@ -1,0 +1,739 @@
+{
+  "spec_version": "civ-013-durable-adapter-v1",
+  "profile_id": "civ-013-durable-adapter-v1",
+  "source_repository": "Luminous-Dynamics/symthaea",
+  "source_adapter_commit": "d76ddc77f4ac325b75450241f705d548c7835e77",
+  "encoding": {
+    "digest": "SHA-256",
+    "integer_encoding": "unsigned big-endian",
+    "integer_widths": {
+      "protocol_version_bits": 16,
+      "generation_bits": 64,
+      "receipt_sequence_bits": 64
+    },
+    "byte_string_encoding": "u64 byte length, big-endian, followed by raw UTF-8 bytes",
+    "option_digest_encoding": "0x00 for None; 0x01 followed by exactly 32 digest bytes for Some",
+    "record_domain_utf8": "mycelix-civ013-durable-record-v1\u0000",
+    "fork_domain_utf8": "mycelix-civ013-durable-fork-v1\u0000",
+    "durable_commit_boundary": "SQLite transaction commits record status and accepted-head metadata; no separate model commit-marker digest in this profile"
+  },
+  "vectors": [
+    {
+      "id": "DA001-bootstrap-record",
+      "kind": "record",
+      "expected_outcome": "VALID_RECORD_DIGEST",
+      "record": {
+        "protocol_version": 1,
+        "generation": 1,
+        "log_id": "durable-fixture-log-001",
+        "policy_version": "policy-v1",
+        "anchor_digest": "9bcfcaee7492cab11ed23c19451e550c2602980dd6ea9fb9f29846aefacb310b",
+        "receipt_sequence": 0,
+        "receipt_digest": null,
+        "previous_record_digest": null,
+        "digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4"
+      }
+    },
+    {
+      "id": "DA002-successor-record",
+      "kind": "record",
+      "expected_outcome": "VALID_RECORD_DIGEST",
+      "record": {
+        "protocol_version": 1,
+        "generation": 2,
+        "log_id": "durable-fixture-log-001",
+        "policy_version": "policy-v1",
+        "anchor_digest": "a024398b9672844d656025705196d8b8fd3067c8edcc87c5362a7a15e90b8b35",
+        "receipt_sequence": 1,
+        "receipt_digest": "fea5396a7f4325c408b1b65b33a4d77ba5486ceba941804d8889a8546cfbab96",
+        "previous_record_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+        "digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520"
+      },
+      "requires_predecessor": "DA001-bootstrap-record"
+    },
+    {
+      "id": "DA003-fork-evidence",
+      "kind": "fork",
+      "expected_outcome": "VALID_FORK_DIGEST",
+      "evidence": {
+        "log_id": "durable-fixture-log-001",
+        "generation": 2,
+        "first_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+        "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+        "previous_evidence_digest": null,
+        "digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035"
+      }
+    },
+    {
+      "id": "DA004-fork-log-scope",
+      "kind": "fork",
+      "expected_outcome": "VALID_FORK_DIGEST",
+      "evidence": {
+        "log_id": "durable-fixture-log-002",
+        "generation": 2,
+        "first_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+        "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+        "previous_evidence_digest": null,
+        "digest": "62aa34b15b8eff6af3dca41d36445509a29350e40524098e60fadefb7d7775ac"
+      }
+    },
+    {
+      "id": "DA005-fork-evidence-successor",
+      "kind": "fork",
+      "expected_outcome": "VALID_FORK_DIGEST",
+      "evidence": {
+        "log_id": "durable-fixture-log-001",
+        "generation": 3,
+        "first_record_digest": "932ba4de57b32f8a1419205617f14678b166681039c5d2b0bc3523163889d5a7",
+        "conflicting_record_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+        "previous_evidence_digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035",
+        "digest": "e0a8d34a9b3f5459899a7f27ffec322aedf9bc15403a1085148f758539135df9"
+      }
+    },
+    {
+      "id": "DA006-stale-predecessor",
+      "kind": "transition",
+      "expected_outcome": "StalePredecessor",
+      "accepted_generation": 1,
+      "accepted_record_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "expected_generation": 1,
+      "expected_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "candidate_generation": 2,
+      "candidate_previous_record_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "id": "DA007-stale-expected-generation",
+      "kind": "transition",
+      "expected_outcome": "StalePredecessor",
+      "accepted_generation": 1,
+      "accepted_record_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "expected_generation": 1,
+      "expected_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "candidate_generation": 3,
+      "candidate_previous_record_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4"
+    },
+    {
+      "id": "DA008-receipt-rollback",
+      "kind": "receipt_tail",
+      "expected_outcome": "ReceiptRollback",
+      "previous_sequence": 4,
+      "previous_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "candidate_sequence": 3,
+      "candidate_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "id": "DA009-receipt-equivocation",
+      "kind": "receipt_tail",
+      "expected_outcome": "ReceiptTailEquivocation",
+      "previous_sequence": 4,
+      "previous_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "candidate_sequence": 4,
+      "candidate_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "id": "DA010-invalid-tail-shape",
+      "kind": "receipt_tail",
+      "expected_outcome": "InvalidInput",
+      "previous_sequence": 0,
+      "previous_digest": null,
+      "candidate_sequence": 0,
+      "candidate_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "id": "DA011-anchor-unavailable",
+      "kind": "recovery",
+      "expected_outcome": "AnchorUnavailable",
+      "local_generation": 1,
+      "external_anchor": null
+    },
+    {
+      "id": "DA012-anchor-wrong-log",
+      "kind": "recovery",
+      "expected_outcome": "ExternalAnchorMismatch",
+      "local_log_id": "durable-fixture-log-001",
+      "local_generation": 1,
+      "external_anchor": {
+        "log_id": "durable-fixture-log-002",
+        "generation": 1,
+        "record_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4"
+      }
+    },
+    {
+      "id": "DA013-anchor-same-generation-mismatch",
+      "kind": "recovery",
+      "expected_outcome": "ExternalAnchorMismatch",
+      "local_log_id": "durable-fixture-log-001",
+      "local_generation": 2,
+      "local_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+      "external_anchor": {
+        "log_id": "durable-fixture-log-001",
+        "generation": 2,
+        "record_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4"
+      }
+    },
+    {
+      "id": "DA014-anchor-ahead-multiple",
+      "kind": "recovery",
+      "expected_outcome": "RollbackDetected",
+      "local_log_id": "durable-fixture-log-001",
+      "local_generation": 1,
+      "local_record_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "prepared_generation": 2,
+      "prepared_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+      "external_anchor": {
+        "log_id": "durable-fixture-log-001",
+        "generation": 3,
+        "record_digest": "9999999999999999999999999999999999999999999999999999999999999999"
+      }
+    },
+    {
+      "id": "DA015-recover-exact-prepared-successor",
+      "kind": "recovery",
+      "expected_outcome": "RecoverPreparedSuccessor",
+      "local_log_id": "durable-fixture-log-001",
+      "local_generation": 1,
+      "local_record_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "prepared_generation": 2,
+      "prepared_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+      "prepared_previous_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "external_anchor": {
+        "log_id": "durable-fixture-log-001",
+        "generation": 2,
+        "record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520"
+      }
+    },
+    {
+      "id": "DA016-conflicting-prepared-candidate",
+      "kind": "prepared_conflict",
+      "expected_outcome": "PreparedCandidateConflict",
+      "existing_prepared_generation": 2,
+      "existing_prepared_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+      "proposed_generation": 2,
+      "proposed_digest": "d5ef2c0f2805aefaa0ca733dc6406446bde9b81e6b092540f232deb64d73435e"
+    },
+    {
+      "id": "DA017-late-finalize-idempotence",
+      "kind": "late_finalize",
+      "expected_outcome": "IdempotentAcceptedHistory",
+      "candidate_generation": 2,
+      "candidate_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+      "candidate_previous_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "expected_predecessor_generation": 1,
+      "expected_predecessor_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "current_head_generation": 3,
+      "stored_candidate_status": "accepted"
+    },
+    {
+      "id": "DA018-reordered-fork-evidence",
+      "kind": "fork_chain",
+      "expected_outcome": "RejectCorruptForkEvidence",
+      "chain": [
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 2,
+          "first_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+          "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+          "previous_evidence_digest": null,
+          "digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035"
+        },
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 3,
+          "first_record_digest": "932ba4de57b32f8a1419205617f14678b166681039c5d2b0bc3523163889d5a7",
+          "conflicting_record_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+          "previous_evidence_digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035",
+          "digest": "e0a8d34a9b3f5459899a7f27ffec322aedf9bc15403a1085148f758539135df9"
+        }
+      ],
+      "order": [
+        1,
+        0
+      ]
+    },
+    {
+      "id": "DA019-record-digest-tampered",
+      "kind": "record_negative",
+      "expected_outcome": "RejectRecordDigest",
+      "record": {
+        "protocol_version": 1,
+        "generation": 1,
+        "log_id": "durable-fixture-log-001",
+        "policy_version": "policy-v1",
+        "anchor_digest": "9bcfcaee7492cab11ed23c19451e550c2602980dd6ea9fb9f29846aefacb310b",
+        "receipt_sequence": 0,
+        "receipt_digest": null,
+        "previous_record_digest": null,
+        "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    },
+    {
+      "id": "DA020-fork-digest-tampered",
+      "kind": "fork_negative",
+      "expected_outcome": "RejectForkDigest",
+      "evidence": {
+        "log_id": "durable-fixture-log-001",
+        "generation": 2,
+        "first_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+        "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+        "previous_evidence_digest": null,
+        "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    },
+    {
+      "id": "DA021-fork-chain-cross-log",
+      "kind": "fork_chain",
+      "expected_outcome": "RejectCorruptForkEvidence",
+      "chain": [
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 2,
+          "first_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+          "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+          "previous_evidence_digest": null,
+          "digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035"
+        },
+        {
+          "log_id": "durable-fixture-log-002",
+          "generation": 3,
+          "first_record_digest": "932ba4de57b32f8a1419205617f14678b166681039c5d2b0bc3523163889d5a7",
+          "conflicting_record_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+          "previous_evidence_digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035",
+          "digest": "d236bf930057b56bc9246db1e16f8aea52fd2242a3177a21df1dbca0871f28ad"
+        }
+      ],
+      "order": [
+        0,
+        1
+      ]
+    },
+    {
+      "id": "DA022-generation-signed-range-overflow",
+      "kind": "sqlite_integer_range",
+      "expected_outcome": "RejectSqliteIntegerRange",
+      "record_generation": 9223372036854776000,
+      "receipt_sequence": 0
+    },
+    {
+      "id": "DA023-receipt-sequence-signed-range-overflow",
+      "kind": "sqlite_integer_range",
+      "expected_outcome": "RejectSqliteIntegerRange",
+      "record_generation": 1,
+      "receipt_sequence": 9223372036854776000
+    },
+    {
+      "id": "DA024-recovery-equal-generation-missing-local-digest",
+      "kind": "recovery",
+      "expected_outcome": "ExternalAnchorMismatch",
+      "local_log_id": "durable-fixture-log-001",
+      "local_generation": 1,
+      "external_anchor": {
+        "log_id": "durable-fixture-log-001",
+        "generation": 1,
+        "record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520"
+      }
+    },
+    {
+      "id": "DA025-late-finalize-current-head-pointer-valid",
+      "kind": "late_finalize_head_pointer",
+      "expected_outcome": "IdempotentAcceptedHistory",
+      "candidate_generation": 2,
+      "candidate_previous_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "expected_predecessor_generation": 1,
+      "expected_predecessor_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "current_head_generation": 3,
+      "stored_candidate_status": "accepted",
+      "metadata_head_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+      "stored_current_head_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+      "stored_current_head_status": "accepted"
+    },
+    {
+      "id": "DA026-late-finalize-current-head-pointer-mismatch",
+      "kind": "late_finalize_head_pointer",
+      "expected_outcome": "CorruptCurrentHeadMetadata",
+      "candidate_generation": 2,
+      "candidate_previous_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "expected_predecessor_generation": 1,
+      "expected_predecessor_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "current_head_generation": 3,
+      "stored_candidate_status": "accepted",
+      "metadata_head_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+      "stored_current_head_digest": "d5ef2c0f2805aefaa0ca733dc6406446bde9b81e6b092540f232deb64d73435",
+      "stored_current_head_status": "accepted"
+    },
+    {
+      "id": "DA027-late-finalize-current-head-record-tampered",
+      "kind": "late_finalize_head_record",
+      "expected_outcome": "CorruptCurrentHeadRecord",
+      "candidate_generation": 2,
+      "candidate_previous_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "expected_predecessor_generation": 1,
+      "expected_predecessor_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "current_head_generation": 3,
+      "stored_candidate_status": "accepted",
+      "metadata_head_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+      "stored_record_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+      "stored_current_head_status": "accepted",
+      "current_head_record": {
+        "protocol_version": 1,
+        "generation": 3,
+        "log_id": "durable-fixture-log-001",
+        "policy_version": "policy-v1",
+        "anchor_digest": "5252525252525252525252525252525252525252525252525252525252525252",
+        "receipt_sequence": 2,
+        "receipt_digest": "6161616161616161616161616161616161616161616161616161616161616161",
+        "previous_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+        "digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea"
+      }
+    },
+    {
+      "id": "DA028-same-generation-finalize-tampered-current-head",
+      "kind": "same_generation_finalize_head_record",
+      "expected_outcome": "CorruptCurrentHeadRecord",
+      "candidate_generation": 1,
+      "candidate_previous_digest": null,
+      "expected_predecessor_generation": 0,
+      "expected_predecessor_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "current_head_generation": 1,
+      "stored_candidate_status": "accepted",
+      "stored_current_head_status": "accepted",
+      "metadata_head_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "stored_record_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "current_head_record": {
+        "protocol_version": 1,
+        "generation": 1,
+        "log_id": "durable-fixture-log-001",
+        "policy_version": "policy-v1",
+        "anchor_digest": "5252525252525252525252525252525252525252525252525252525252525252",
+        "receipt_sequence": 0,
+        "receipt_digest": null,
+        "previous_record_digest": null,
+        "digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4"
+      }
+    },
+    {
+      "id": "DA029-anchor-advances-past-candidate",
+      "kind": "anchor_ahead_after_prepare",
+      "expected_outcome": "RollbackDetected",
+      "log_id": "durable-fixture-log-001",
+      "accepted_generation": 1,
+      "candidate_generation": 2,
+      "observed_anchor_log_id": "durable-fixture-log-001",
+      "observed_anchor_generation": 3,
+      "observed_anchor_digest": "cbd9f2e60a4c8f3f3c6d6e0e6d1d9f21c6b9b2efc6d1adf37d98d6a7b8c5a4e1",
+      "stage": "after_prepare",
+      "expected_fork_evidence": false
+    },
+    {
+      "id": "DA030-anchor-advances-before-prepare",
+      "kind": "anchor_ahead_before_prepare",
+      "expected_outcome": "RollbackDetected",
+      "log_id": "durable-fixture-log-001",
+      "accepted_generation": 1,
+      "candidate_generation": 2,
+      "observed_anchor_log_id": "durable-fixture-log-001",
+      "observed_anchor_generation": 3,
+      "observed_anchor_digest": "cbd9f2e60a4c8f3f3c6d6e0e6d1d9f21c6b9b2efc6d1adf37d98d6a7b8c5a4e1",
+      "stage": "before_prepare",
+      "expected_candidate_persisted": false,
+      "expected_fork_evidence": false
+    },
+    {
+      "id": "DA031-fork-evidence-tail-truncated",
+      "kind": "fork_evidence_tail_integrity",
+      "expected_outcome": "CorruptForkEvidence",
+      "stored_chain": [
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 2,
+          "first_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+          "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+          "previous_evidence_digest": null,
+          "digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035"
+        }
+      ],
+      "stored_count": 1,
+      "metadata_count": 2,
+      "metadata_tail_digest": "e0a8d34a9b3f5459899a7f27ffec322aedf9bc15403a1085148f758539135df9"
+    },
+    {
+      "id": "DA032-fork-evidence-tail-pointer-tampered",
+      "kind": "fork_evidence_tail_integrity",
+      "expected_outcome": "CorruptForkEvidence",
+      "stored_chain": [
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 2,
+          "first_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+          "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+          "previous_evidence_digest": null,
+          "digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035"
+        },
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 3,
+          "first_record_digest": "932ba4de57b32f8a1419205617f14678b166681039c5d2b0bc3523163889d5a7",
+          "conflicting_record_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+          "previous_evidence_digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035",
+          "digest": "e0a8d34a9b3f5459899a7f27ffec322aedf9bc15403a1085148f758539135df9"
+        }
+      ],
+      "stored_count": 2,
+      "metadata_count": 2,
+      "metadata_tail_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "id": "DA033-fork-evidence-append-refuses-corrupt-tail",
+      "kind": "fork_evidence_append_after_corruption",
+      "expected_outcome": "CorruptForkEvidence",
+      "stored_chain": [
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 2,
+          "first_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+          "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+          "previous_evidence_digest": null,
+          "digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035"
+        },
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 3,
+          "first_record_digest": "932ba4de57b32f8a1419205617f14678b166681039c5d2b0bc3523163889d5a7",
+          "conflicting_record_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+          "previous_evidence_digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035",
+          "digest": "e0a8d34a9b3f5459899a7f27ffec322aedf9bc15403a1085148f758539135df9"
+        }
+      ],
+      "stored_count": 2,
+      "metadata_count": 2,
+      "metadata_tail_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "rows_before_append": 2,
+      "rows_after_attempt": 2
+    },
+    {
+      "id": "DA034-legacy-fork-meta-migration-valid",
+      "kind": "legacy_fork_meta_migration",
+      "expected_outcome": "MigrateLegacyForkMetadata",
+      "schema_user_version": 0,
+      "has_existing_adapter_schema": true,
+      "stored_chain": [
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 2,
+          "first_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+          "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+          "previous_evidence_digest": null,
+          "digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035"
+        },
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 3,
+          "first_record_digest": "932ba4de57b32f8a1419205617f14678b166681039c5d2b0bc3523163889d5a7",
+          "conflicting_record_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+          "previous_evidence_digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035",
+          "digest": "e0a8d34a9b3f5459899a7f27ffec322aedf9bc15403a1085148f758539135df9"
+        }
+      ],
+      "stored_count": 2,
+      "metadata_present": false,
+      "expected_schema_user_version_after": 2
+    },
+    {
+      "id": "DA035-legacy-fork-meta-migration-rejects-corruption",
+      "kind": "legacy_fork_meta_migration",
+      "expected_outcome": "CorruptForkEvidence",
+      "schema_user_version": 0,
+      "has_existing_adapter_schema": true,
+      "stored_chain": [
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 2,
+          "first_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+          "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+          "previous_evidence_digest": null,
+          "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        }
+      ],
+      "stored_count": 1,
+      "metadata_present": false,
+      "expected_schema_user_version_after": 0
+    },
+    {
+      "id": "DA036-startup-integrity-detects-fork-tail-truncation",
+      "kind": "semantic_integrity_check_fork_tail",
+      "expected_outcome": "CorruptForkEvidence",
+      "stored_chain": [
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 2,
+          "first_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+          "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+          "previous_evidence_digest": null,
+          "digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035"
+        }
+      ],
+      "stored_count": 1,
+      "metadata_count": 2,
+      "metadata_tail_digest": "e0a8d34a9b3f5459899a7f27ffec322aedf9bc15403a1085148f758539135df9",
+      "checks_all_log_tables": true
+    },
+    {
+      "id": "DA037-subprocess-crash-after-anchor-commit-recovers-exact-prepared",
+      "kind": "subprocess_crash_recovery",
+      "expected_outcome": "RecoverExactPreparedSuccessor",
+      "log_id": "durable-fixture-log-001",
+      "accepted_generation": 1,
+      "accepted_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "candidate_generation": 2,
+      "candidate_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+      "child_exit_code": 86,
+      "external_anchor_generation_after_child": 2,
+      "external_anchor_digest_after_child": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+      "local_head_generation_after_child": 1,
+      "local_head_digest_after_child": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "prepared_generation_after_child": 2,
+      "prepared_digest_after_child": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+      "prepared_status_after_child": 0,
+      "recovered_in_distinct_process": true,
+      "recovery_exit_code": 0,
+      "recovered_generation": 2,
+      "recovered_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+      "fork_evidence_count_after_crash": 0,
+      "pre_recovery_split_state_asserted": true,
+      "test_anchor_is_same_host_fixture": true
+    },
+    {
+      "id": "DA038-unprovisioned-persistent-anchor-fails-closed",
+      "kind": "unprovisioned_test_anchor",
+      "expected_outcome": "AnchorUnavailable",
+      "log_id": "durable-fixture-log-missing-anchor",
+      "row_present": false,
+      "missing_row_means_genesis": false,
+      "adapter_fallback_generation": null,
+      "adapter_fallback_digest": null,
+      "required_behavior": "AnchorError::Unavailable"
+    },
+    {
+      "id": "DA039-sqlite-runtime-minimum-accepted",
+      "kind": "sqlite_runtime_minimum",
+      "expected_outcome": "AcceptSqliteRuntimeVersion",
+      "reported_version": "3.53.2",
+      "reported_version_number": 3053002,
+      "minimum_version_number": 3051003,
+      "bundled": true,
+      "source_rusqlite_version": "0.40.2",
+      "source_libsqlite3_sys_version": "0.38.2",
+      "claim": "Pinned bundled SQLite 3.53.2 exceeds the WAL-reset fix floor",
+      "pinned_bundled_sqlite_version": "3.53.2"
+    },
+    {
+      "id": "DA040-sqlite-runtime-below-minimum-rejected",
+      "kind": "sqlite_runtime_minimum",
+      "expected_outcome": "UnsupportedSqliteVersion",
+      "reported_version": "3.51.2",
+      "reported_version_number": 3051002,
+      "minimum_version_number": 3051003,
+      "bundled": true,
+      "source_rusqlite_version": "0.40.2",
+      "source_libsqlite3_sys_version": "0.38.2",
+      "claim": "Adapter must refuse a runtime below the WAL-reset fix floor",
+      "pinned_bundled_sqlite_version": "3.53.2"
+    },
+    {
+      "id": "DA041-coordinated-local-fork-erasure-outside-claim",
+      "kind": "fork_evidence_full_erasure_boundary",
+      "expected_outcome": "UnanchoredForkEvidenceErasure",
+      "log_id": "durable-fixture-log-001",
+      "local_fork_evidence_rows_present": false,
+      "local_fork_meta_present": false,
+      "external_anchor_has_fork_frontier": false,
+      "external_anchor_tracks_accepted_head_only": true,
+      "claim_includes_hostile_full_database_rewrite": false,
+      "required_behavior": "Do not claim fork-audit continuity; require independent fork witness or fail closed."
+    },
+    {
+      "id": "DA042-recovery-records-same-generation-divergence",
+      "kind": "recovery_same_generation_fork",
+      "expected_outcome": "ExternalAnchorMismatchAndForkEvidenceRecorded",
+      "log_id": "durable-fixture-log-001",
+      "local_accepted_generation": 1,
+      "local_accepted_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "external_anchor_generation": 1,
+      "external_anchor_digest": "6161616161616161616161616161616161616161616161616161616161616161",
+      "external_anchor_log_id": "durable-fixture-log-001",
+      "expected_first_fork_digest": "6161616161616161616161616161616161616161616161616161616161616161",
+      "expected_conflicting_fork_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "expected_fork_evidence_count_after": 1,
+      "accepted_head_unchanged": true,
+      "prepared_candidate_created": false,
+      "expected_identical_retry_count": 2,
+      "expected_recovery_error": "ExternalAnchorMismatch"
+    },
+    {
+      "id": "DA043-recovery-genesis-mismatch-not-a-record",
+      "kind": "recovery_genesis_mismatch",
+      "expected_outcome": "ExternalAnchorMismatchWithoutForkEvidence",
+      "log_id": "durable-fixture-log-genesis-mismatch",
+      "local_accepted_generation": 0,
+      "local_accepted_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "external_anchor_generation": 0,
+      "external_anchor_digest": "6161616161616161616161616161616161616161616161616161616161616161",
+      "external_anchor_log_id": "durable-fixture-log-genesis-mismatch",
+      "expected_fork_evidence_count_after": 0,
+      "expected_recovery_error": "ExternalAnchorMismatch",
+      "accepted_head_unchanged": true,
+      "prepared_candidate_created": false,
+      "expected_fork_row_inserted": false
+    },
+    {
+      "id": "DA044-receipt-sequence-overflow-is-state-mutation-free",
+      "kind": "receipt_sequence_range_guard",
+      "expected_outcome": "RejectBeforeStateMutation",
+      "receipt_sequence": 9223372036854776000,
+      "sqlite_integer_max": 9223372036854776000,
+      "expected_error": "receipt sequence exceeds SQLite INTEGER range",
+      "input_validation_before_recovery": true,
+      "anchor_reads_after_attempt": 0,
+      "external_anchor_unchanged": true,
+      "local_accepted_records_after": 0,
+      "local_prepared_records_after": 0,
+      "integrity_check_after": "ok"
+    },
+    {
+      "id": "DA045-generation-overflow-before-anchor-read",
+      "kind": "generation_range_guard",
+      "expected_outcome": "RejectBeforeStateMutation",
+      "expected_generation": 9223372036854776000,
+      "sqlite_integer_max": 9223372036854776000,
+      "expected_error": "GenerationOverflow",
+      "input_validation_before_recovery": true,
+      "anchor_reads_after_attempt": 0,
+      "external_anchor_unchanged": true,
+      "local_accepted_records_after": 0,
+      "local_prepared_records_after": 0,
+      "integrity_check_after": "ok"
+    },
+    {
+      "id": "DA046-integrity-check-uses-one-snapshot-during-concurrent-advance",
+      "kind": "integrity_check_snapshot_consistency",
+      "expected_outcome": "ConsistentSnapshotMaintained",
+      "sqlite_journal_mode": "wal",
+      "snapshot_generation": 1,
+      "snapshot_established_before_writer": true,
+      "concurrent_writer_commit": true,
+      "committed_generation": 2,
+      "snapshot_integrity_result": "ok",
+      "snapshot_visible_record_generations": [
+        1
+      ],
+      "same_snapshot_for_integrity_fk_logs_and_semantic_checks": true,
+      "fresh_integrity_result": "ok",
+      "fresh_snapshot_visible_record_generations": [
+        1,
+        2
+      ],
+      "integrity_check_uses_deferred_read_transaction": true,
+      "claim_is_power_loss_durability": false
+    }
+  ],
+  "claim_ceiling": "Durable-adapter golden-reference and abstract-transition conformance only. Local fork-evidence count/tail metadata detects inconsistent surviving state but is not independently anchored; coordinated erasure or rollback of both fork-evidence rows and local metadata is outside this claim. Does not establish actual SQLite tests passed, filesystem crash/power-loss durability, a genuine independent external anchor, bootstrap caller authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback."
+}
