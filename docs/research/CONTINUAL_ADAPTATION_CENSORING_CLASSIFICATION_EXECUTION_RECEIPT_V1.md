@@ -28,7 +28,7 @@ The receipt is uploaded only on source-workflow success. Each uploaded evidence 
 
 ## Separate attestation workflow
 
-A separate `workflow_run` workflow is restricted to successful **push** runs for `main` from the same repository. It rejects pull-request runs, other branches, failed/cancelled runs, mismatched commit/run identifiers, malformed or substituted reports, mismatched Python/Node outputs, and claim-ceiling weakening.
+A separate `workflow_run` workflow is restricted to successful **push** runs for `main` from the same repository. Crucially, privileged validation code is checked out from `github.workflow_sha`—the exact commit that defines the attestation workflow—not from the source run's commit. An explicit `git rev-parse HEAD` equality check and tracked-file existence checks fail closed if that trusted policy checkout is not exact. The source run's commit is treated as evidence metadata only; its tree is not executed by the privileged consumer. The consumer rejects pull-request runs, other branches, failed/cancelled runs, mismatched commit/run identifiers, malformed or substituted reports, mismatched Python/Node outputs, and claim-ceiling weakening.
 
 It downloads the artifact by exact source run ID, verifies every receipt/report hash, checks the source workflow-run event metadata, and independently emits an in-toto-style custom predicate in Python and Node. The two predicate outputs must be byte-identical.
 
@@ -60,9 +60,10 @@ Research-only.
 
 Demonstrated by the intended flow:
 - exact report input hashing;
-- source-run metadata binding;
+- source-run metadata binding using validator code from the attestation workflow's own exact commit, not the source-run commit;
 - two independent receipt validators;
-- a separately permissioned GitHub/Sigstore attestation step that preserves and verifies the exact emitted Sigstore bundle, then matches its signed predicate to both independent verifier outputs and its subject digest to the exact receipt bytes before publication.
+- a separately permissioned GitHub/Sigstore attestation step that preserves and verifies the exact emitted Sigstore bundle, then matches its signed predicate to both independent verifier outputs and its subject digest to the exact receipt bytes before publication;
+- separation of the privileged validator code revision from the source run's commit.
 
 Not demonstrated until a real main-branch run emits and verifies an attestation:
 - that the attestation workflow actually completed;
