@@ -405,12 +405,12 @@ def main() -> int:
                 "aggregate-guard-head-mismatch",
                 "aggregate-guard-count-weakened",
                 "aggregate-guard-identity-substituted",
-                "aggregate-guard-aggregator-hash-forged",
-                "aggregate-guard-test-hash-forged",
                 "missing-control-artifact",
                 "tampered-control-result",
                 "tampered-control-input",
                 "unexpected-control-artifact",
+                "aggregate-guard-aggregator-hash-forged",
+                "aggregate-guard-test-hash-forged",
             )
             require(tuple(mutations) == FROZEN_AGGREGATE_MUTATIONS,
                     "executed aggregate mutations differ from independently frozen inventory")
