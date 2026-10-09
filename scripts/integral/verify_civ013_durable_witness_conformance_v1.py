@@ -66,6 +66,7 @@ REQUIRED_IDS = {
     "DA038-unprovisioned-persistent-anchor-fails-closed",
     "DA039-sqlite-runtime-minimum-accepted",
     "DA040-sqlite-runtime-below-minimum-rejected",
+    "DA041-coordinated-local-fork-erasure-outside-claim",
 }
 
 
@@ -524,6 +525,17 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         ):
             return "SubprocessCrashStateMismatch"
         return "RecoverExactPreparedSuccessor"
+
+    if kind == "fork_evidence_full_erasure_boundary":
+        if (
+            vector.get("local_fork_evidence_rows_present") is not False
+            or vector.get("local_fork_meta_present") is not False
+            or vector.get("external_anchor_has_fork_frontier") is not False
+            or vector.get("external_anchor_tracks_accepted_head_only") is not True
+            or vector.get("claim_includes_hostile_full_database_rewrite") is not False
+        ):
+            return "ForkErasureClaimBoundaryMismatch"
+        return "UnanchoredForkEvidenceErasure"
 
     if kind == "sqlite_runtime_minimum":
         actual = vector.get("reported_version_number")
