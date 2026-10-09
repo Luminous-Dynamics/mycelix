@@ -2,7 +2,7 @@
 
 **Profile ID:** `civ-013-durable-adapter-v1`  
 **Status:** experimental reference profile; not production qualification.  
-**Source adapter revision:** [Symthaea commit `9d1ebc6fca584f5a9e2f2c641c87d062c2f35f77`](https://github.com/Luminous-Dynamics/symthaea/commit/9d1ebc6fca584f5a9e2f2c641c87d062c2f35f77)  
+**Source adapter revision:** [Symthaea commit `f1f0b474f2e5dcf45b1d14948bca85c02cd0e6ef`](https://github.com/Luminous-Dynamics/symthaea/commit/f1f0b474f2e5dcf45b1d14948bca85c02cd0e6ef)  
 **Golden vectors:** [civ-013-durable-witness-conformance-v1.json](civ-013-durable-witness-conformance-v1.json)  
 **Manifest:** [civ-013-durable-witness-conformance-v1-manifest.json](civ-013-durable-witness-conformance-v1-manifest.json)  
 **Independent checker:** [verify_civ013_durable_witness_conformance_v1.py](../../scripts/integral/verify_civ013_durable_witness_conformance_v1.py)  
@@ -94,10 +94,19 @@ The profile's transition vectors are an independent abstract reference for these
 | DA031 | CorruptForkEvidence | A valid but truncated fork-evidence prefix is rejected when the persisted count/tail commitment identifies a longer history |
 | DA032 | CorruptForkEvidence | A modified per-log fork-evidence tail digest is rejected even when the row chain itself is valid |
 | DA033 | CorruptForkEvidence | An append attempted after tail corruption is rejected without changing the persisted evidence row count |
+| DA034 | MigrateLegacyForkMetadata | A valid legacy fork chain is validated and atomically seeded with its count/tail commitment; schema version advances only after success |
+| DA035 | CorruptForkEvidence | A corrupted legacy fork chain blocks migration and leaves schema version unchanged |
+| DA036 | CorruptForkEvidence | Startup-style semantic integrity validation detects a truncated fork tail before the store can be used |
 
 ## Late-finalization metadata binding
 
 The adapter permits idempotent success for both an exact same-generation retry and a historical candidate after another process recovered its prepared candidate and advanced to a later generation. That exception must not treat a correctly sized digest as proof of a correct head pointer or a well-shaped stored row as a self-consistent record. Before returning success for a historical candidate, the adapter checks that the metadata head row exists, is accepted, and its digest matches the record row at the metadata generation; it then validates the accepted history and recomputes record digests in the same transaction snapshot. DA025–DA027 capture valid pointer matching, pointer mismatch, and field tampering under an unchanged digest column. Any mismatch is corruption, not idempotent success.
+
+## Fork-evidence schema migration and startup validation
+
+The database now uses `PRAGMA user_version=2` to distinguish new databases from earlier schemas without the fork-tail commitment. Opening a legacy database validates each pre-existing fork chain before atomically backfilling its count/tail commitment. A malformed legacy chain fails migration, and the new schema version is not published. DA034 and DA035 cover valid migration and corrupted legacy history.
+
+Normal `integrity_check()` validates per-log semantic histories as well as SQLite's physical structure; DA036 covers the startup-style path that must reject a truncated fork tail.
 
 ## Fork-evidence tail commitment
 
