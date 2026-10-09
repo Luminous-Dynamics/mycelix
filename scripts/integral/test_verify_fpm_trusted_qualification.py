@@ -822,6 +822,18 @@ version = "1.0.0"
         )
 
         expect_failure(
+            root, "verifier-control.json", "control.repository-id",
+            lambda x: x.__setitem__("repository_id", 1),
+        )
+        expect_failure(
+            root, "verifier-control.json", "control.workflow-sha",
+            lambda x: x.__setitem__("workflow_sha", "a" * 40),
+        )
+        expect_failure(
+            root, "verifier-control.json", "control.workflow-blob",
+            lambda x: x.__setitem__("workflow_blob_sha", "b" * 40),
+        )
+        expect_failure(
             root, "verifier-control.json", "control.reference-verifier-blob",
             lambda x: x.__setitem__("reference_verifier_blob_sha", "a" * 40),
         )
