@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import importlib.util
 import os
@@ -330,6 +331,21 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
             "candidate fetcher accepted mismatched current-run identity",
         )
 
+        bad_attempt_run = copy.deepcopy(current_run)
+        bad_attempt_run["run_attempt"] = run_attempt - 1
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [bad_attempt_run, artifact_response],
+            ),
+            'current_run["run_attempt"] == run_attempt',
+            "candidate fetcher accepted a different current-run attempt",
+        )
+
         bad_artifact = copy.deepcopy(artifact)
         bad_artifact["workflow_run"]["head_sha"] = "0" * 40
         assert_rejected(
@@ -343,6 +359,23 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
             ),
             'workflow_artifact_run["head_sha"] == workflow_run["head_sha"]',
             "candidate fetcher accepted an artifact from a different head SHA",
+        )
+
+        wrong_attempt_artifact = copy.deepcopy(artifact)
+        wrong_attempt_artifact["name"] = (
+            f"d6u-runtime-evidence-run-{run_id}-attempt-{run_attempt - 1}"
+        )
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [current_run, {"artifacts": [wrong_attempt_artifact]}],
+            ),
+            'artifact["name"] == expected_name',
+            "candidate fetcher accepted an artifact from a different run attempt",
         )
 
         assert_rejected(
@@ -401,6 +434,54 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
             "candidate fetcher accepted an oversized artifact archive",
         )
 
+    payload = b"bounded artifact archive"
+    correct_digest = "sha256:" + hashlib.sha256(payload).hexdigest()
+
+    class FixtureOpener:
+        def open(self, request, timeout=120):
+            assert request.full_url == (
+                f"https://api.github.com/repos/{repository}/actions/artifacts/17/zip"
+            )
+            assert request.get_header("Authorization") == "Bearer fixture-token"
+            assert timeout == 120
+            return io.BytesIO(payload)
+
+    with tempfile.TemporaryDirectory() as scratch:
+        destination = pathlib.Path(scratch) / "download.zip"
+        with patch.dict(os.environ, {"GITHUB_TOKEN": "fixture-token"}, clear=True):
+            with patch.object(
+                fetcher.urllib.request, "build_opener", return_value=FixtureOpener()
+            ):
+                fetcher.download_archive(
+                    repository, 17, correct_digest, destination, len(payload)
+                )
+        assert destination.read_bytes() == payload
+
+        assert_rejected(
+            lambda: _download_fixture_archive(
+                fetcher,
+                repository,
+                destination,
+                payload,
+                "sha256:" + "0" * 64,
+                len(payload) + 1,
+            ),
+            "artifact archive digest mismatch",
+            "candidate fetcher accepted bytes with the wrong SHA-256 digest",
+        )
+        assert_rejected(
+            lambda: _download_fixture_archive(
+                fetcher,
+                repository,
+                destination,
+                payload,
+                correct_digest,
+                len(payload) - 1,
+            ),
+            "downloaded artifact archive exceeds trusted maximum",
+            "candidate fetcher accepted an archive over its download bound",
+        )
+
     handler = fetcher.NoAuthorizationRedirectHandler()
     request = urllib.request.Request(
         "https://api.github.com/repos/Luminous-Dynamics/mycelix/actions/artifacts/1/zip",
@@ -438,6 +519,25 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
         "trusted artifact redirect must not introduce URL credentials",
         "candidate fetcher accepted a credentialed redirect URL",
     )
+
+
+def _download_fixture_archive(
+    fetcher,
+    repository: str,
+    destination: pathlib.Path,
+    payload: bytes,
+    digest: str,
+    maximum: int,
+) -> None:
+    class FixtureOpener:
+        def open(self, request, timeout=120):
+            return io.BytesIO(payload)
+
+    with patch.dict(os.environ, {"GITHUB_TOKEN": "fixture-token"}, clear=True):
+        with patch.object(
+            fetcher.urllib.request, "build_opener", return_value=FixtureOpener()
+        ):
+            fetcher.download_archive(repository, 17, digest, destination, maximum)
 
 
 def _expect_fetcher_result(
