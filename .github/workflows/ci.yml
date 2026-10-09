@@ -495,14 +495,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 mycelix-workspace/scripts/verify_sdk_nix_inputs.py --workspace mycelix-workspace --self-test > security-nix-sdk/sdk-input-contract.json
+          set +e
+          python3 -m py_compile mycelix-workspace/scripts/verify_sdk_nix_inputs.py
+          compile_status=$?
+          if [[ "$compile_status" -eq 0 ]]; then
+            python3 mycelix-workspace/scripts/verify_sdk_nix_inputs.py --workspace mycelix-workspace --self-test > security-nix-sdk/sdk-input-contract.json 2> security-nix-sdk/sdk-input-contract.stderr.txt
+            status=$?
+          else
+            status="$compile_status"
+            : > security-nix-sdk/sdk-input-contract.json
+            echo "Python compilation failed for verify_sdk_nix_inputs.py" > security-nix-sdk/sdk-input-contract.stderr.txt
+          fi
+          set -e
           cat security-nix-sdk/sdk-input-contract.json
-          grep -q '"negative_fixtures_all_rejected": true' security-nix-sdk/sdk-input-contract.json
-          {
-            echo "sdk_input_contract_status=PASS"
-            echo "sdk_input_contract_sha256=$(sha256sum security-nix-sdk/sdk-input-contract.json | cut -d ' ' -f1)"
-            echo "sdk_negative_fixture_count=$(python3 -c 'import json; print(json.load(open("security-nix-sdk/sdk-input-contract.json"))["negative_fixture_count"])')"
-          } >> security-nix-sdk/receipt.txt
+          cat security-nix-sdk/sdk-input-contract.stderr.txt >&2
+          echo "sdk_input_contract_exit_code=$status" >> security-nix-sdk/receipt.txt
+          if [[ "$status" -eq 0 ]] && grep -q '"negative_fixtures_all_rejected": true' security-nix-sdk/sdk-input-contract.json; then
+            {
+              echo "sdk_input_contract_status=PASS"
+              echo "sdk_input_contract_sha256=$(sha256sum security-nix-sdk/sdk-input-contract.json | cut -d ' ' -f1)"
+              echo "sdk_input_contract_stderr_sha256=$(sha256sum security-nix-sdk/sdk-input-contract.stderr.txt | cut -d ' ' -f1)"
+              echo "sdk_negative_fixture_count=$(python3 -c 'import json; print(json.load(open("security-nix-sdk/sdk-input-contract.json"))["negative_fixture_count"])')"
+            } >> security-nix-sdk/receipt.txt
+          else
+            echo "sdk_input_contract_status=FAIL" >> security-nix-sdk/receipt.txt
+            echo "sdk_input_contract_failure=The SDK package/lock contract or a negative fixture did not behave as required" >> security-nix-sdk/receipt.txt
+            if [[ "$status" -eq 0 ]]; then status=25; fi
+          fi
+          exit "$status"
       - name: Install Nix
         if: steps.scope.outputs.relevant == 'true'
         uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
