@@ -114,6 +114,19 @@ jobs:
           assert "assert m['main_branch_policy_sha256']==policy_digests['main-branch-policy-v1.json']" in text
           assert "assert m['effective_main_rules_sha256']==policy_digests['effective-main-rules-v1.json']" in text
           assert 'main-branch-policy-v1.json' in text
+          assert 'Snapshot full main ruleset bypass governance' in publish
+          assert 'rulesets?includes_parents=true&targets=branch&per_page=100' in publish
+          assert 'MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1' in text and 'MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1' in verifier
+          assert 'main-ruleset-governance-v1.json' in text and 'main-ruleset-governance-v1.json' in verifier
+          assert "'main_ruleset_governance_sha256'" in text and "'main_ruleset_governance_sha256'" in verifier
+          assert "'bypass_actors' in data and isinstance(data['bypass_actors'],list)" in text
+          assert "if applicable and item['enforcement']=='active':" in text
+          assert "assert not actors, f"active main-applicable ruleset has bypass actors:" in text
+          assert "ruleset_applies_to_main(ruleset['conditions'])" in verifier
+          assert "if ruleset['applicable_to_main'] and ruleset['enforcement']=='active':" in verifier
+          assert "assert not actors, f"active main-applicable ruleset has bypass actors:" in verifier
+          assert "durable_manifest['files']['main-ruleset-governance-v1.json']" in verifier
+          assert "m['files']==expected_files" in text
           assert "'allow_fork_syncing'" in text
           assert "'dismissal_restrictions'" in text
           assert "'bypass_pull_request_allowances'" in text
