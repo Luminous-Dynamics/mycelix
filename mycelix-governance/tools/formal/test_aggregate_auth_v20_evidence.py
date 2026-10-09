@@ -252,7 +252,7 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
         elif relative == "auth-v20-pop-evidence/delegation-chain-pop-differential.json":
             data["summary"].update({
                 "positive_controls": 2,
-                "negative_controls": 22,
+                "negative_controls": 23,
                 "mutants_detected": 4,
                 "replay_jti_consumed": True,
             })
