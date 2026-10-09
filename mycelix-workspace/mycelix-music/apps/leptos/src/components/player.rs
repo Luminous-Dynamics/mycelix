@@ -15,20 +15,28 @@ fn request_playback(
     player: PlayerState,
     attempt_generation: RwSignal<u64>,
 ) {
-    let Some(expected_song_hash) = player
+    let Some((expected_song_hash, expected_audio_url)) = player
         .current_song
         .get_untracked()
-        .map(|song| song.song_hash)
+        .map(|song| (song.song_hash.clone(), song.audio_url()))
     else {
         return;
     };
     if !player.is_playing.get_untracked() {
         return;
     }
+    // A source change can briefly leave the persistent element on its previous
+    // resource. Wait for that resource to match, rather than replaying the old
+    // track while the new source is loading.
+    let current_src = audio.current_src();
+    if !current_src.is_empty() && current_src != expected_audio_url {
+        return;
+    }
 
     let generation = attempt_generation.get_untracked().wrapping_add(1);
     attempt_generation.set(generation);
     let expected_hash_for_result = expected_song_hash.clone();
+    let expected_url_for_result = expected_audio_url.clone();
 
     match audio.play() {
         Ok(promise) => {
@@ -42,8 +50,8 @@ fn request_playback(
                     && player_for_result
                         .current_song
                         .get_untracked()
-                        .map(|song| song.song_hash)
-                        == Some(expected_hash_for_result)
+                        .map(|song| (song.song_hash.clone(), song.audio_url()))
+                        == Some((expected_hash_for_result, expected_url_for_result))
                 {
                     player_for_result.is_playing.set(false);
                 }
@@ -55,13 +63,25 @@ fn request_playback(
                 && player
                     .current_song
                     .get_untracked()
-                    .map(|song| song.song_hash)
-                    == Some(expected_song_hash)
+                    .map(|song| (song.song_hash.clone(), song.audio_url()))
+                    == Some((expected_song_hash, expected_audio_url))
             {
                 player.is_playing.set(false);
             }
         }
     }
+}
+
+/// True only when media events belong to the song currently selected in PlayerState.
+fn audio_matches_selected_source(audio: &web_sys::HtmlAudioElement, player: &PlayerState) -> bool {
+    let current_src = audio.current_src();
+    if current_src.is_empty() {
+        return false;
+    }
+    player
+        .current_song
+        .get_untracked()
+        .is_some_and(|song| current_src == song.audio_url())
 }
 
 /// Persistent audio player bar at the bottom of the screen.
@@ -116,7 +136,9 @@ pub fn Player() -> impl IntoView {
     let player_for_time = player.clone();
     let update_time = move |_| {
         if let Some(audio) = audio_ref.get() {
-            player_for_time.progress.set(audio.current_time());
+            if audio_matches_selected_source(&audio, &player_for_time) {
+                player_for_time.progress.set(audio.current_time());
+            }
         }
     };
 
@@ -145,9 +167,11 @@ pub fn Player() -> impl IntoView {
     let player_for_metadata = player.clone();
     let update_metadata = move |_| {
         if let Some(audio) = audio_ref.get() {
-            let duration = audio.duration();
-            if duration.is_finite() {
-                player_for_metadata.duration.set(duration);
+            if audio_matches_selected_source(&audio, &player_for_metadata) {
+                let duration = audio.duration();
+                if duration.is_finite() {
+                    player_for_metadata.duration.set(duration);
+                }
             }
         }
     };
@@ -156,11 +180,13 @@ pub fn Player() -> impl IntoView {
     let start_when_ready = move |_| {
         if player_for_ready.is_playing.get_untracked() {
             if let Some(audio) = audio_ref.get() {
-                request_playback(
-                    audio,
-                    player_for_ready.clone(),
-                    play_attempt_generation,
-                );
+                if audio_matches_selected_source(&audio, &player_for_ready) {
+                    request_playback(
+                        audio,
+                        player_for_ready.clone(),
+                        play_attempt_generation,
+                    );
+                }
             }
         }
     };
@@ -168,6 +194,13 @@ pub fn Player() -> impl IntoView {
     let player_for_end = player.clone();
     let audio_for_end = audio_ref;
     let on_ended = move |_| {
+        let Some(audio) = audio_for_end.get() else {
+            return;
+        };
+        // A late event for a superseded source must not advance the new song.
+        if !audio.ended() || !audio_matches_selected_source(&audio, &player_for_end) {
+            return;
+        }
         let before_hash = player_for_end
             .current_song
             .get_untracked()
@@ -180,14 +213,12 @@ pub fn Player() -> impl IntoView {
         // Repeat-one (or a one-track repeat-all queue) has the same source
         // on both sides. Rewind and explicitly restart the persistent element.
         if player_for_end.is_playing.get_untracked() && before_hash == after_hash {
-            if let Some(audio) = audio_for_end.get() {
-                audio.set_current_time(0.0);
-                request_playback(
-                    audio,
-                    player_for_end.clone(),
-                    play_attempt_generation,
-                );
-            }
+            audio.set_current_time(0.0);
+            request_playback(
+                audio,
+                player_for_end.clone(),
+                play_attempt_generation,
+            );
         }
     };
 

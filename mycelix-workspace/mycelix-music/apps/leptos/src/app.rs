@@ -48,7 +48,7 @@ impl PlayerState {
     }
 
     /// Reset duration only when the selected audio source actually changes.
-    /// Re-selecting the same track should keep seeking available while it restarts.
+    /// The persistent audio element retains metadata when the source is unchanged.
     fn prepare_track_change(&self, next_song: &Song) {
         let source_changed = self
             .current_song
