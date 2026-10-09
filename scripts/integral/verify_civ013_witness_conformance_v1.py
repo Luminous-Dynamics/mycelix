@@ -251,6 +251,13 @@ def main() -> int:
     if set(ids) != REQUIRED_IDS:
         raise SystemExit(f"FAIL: vector ID set mismatch; got={sorted(ids)}")
 
+    if manifest.get("expected_vector_count") != len(vectors):
+        raise SystemExit("FAIL: manifest expected_vector_count mismatch")
+    if set(manifest.get("required_vector_ids", [])) != REQUIRED_IDS:
+        raise SystemExit("FAIL: manifest required vector IDs mismatch")
+    if set(ids) != set(manifest.get("required_vector_ids", [])):
+        raise SystemExit("FAIL: fixture IDs differ from manifest")
+
     accepted: dict[str, dict[str, Any]] = {}
     failures: list[str] = []
     for vector in vectors:
