@@ -3,10 +3,10 @@
   "profile_id": "civ-013-durable-adapter-v1",
   "spec_version": "civ-013-durable-adapter-v1",
   "source_repository": "Luminous-Dynamics/symthaea",
-  "source_adapter_commit": "19b58d053073a121c8f2cd5378dcd4644cf036ec",
+  "source_adapter_commit": "9ff9f23e11476cae15a12c3ae46cfacbe4e35cf9",
   "fixture_path": "docs/integral/civ-013-durable-witness-conformance-v1.json",
   "verifier_path": "scripts/integral/verify_civ013_durable_witness_conformance_v1.py",
-  "expected_vector_count": 26,
+  "expected_vector_count": 27,
   "required_vector_ids": [
     "DA001-bootstrap-record",
     "DA002-successor-record",
@@ -33,7 +33,8 @@
     "DA023-receipt-sequence-signed-range-overflow",
     "DA024-recovery-equal-generation-missing-local-digest",
     "DA025-late-finalize-current-head-pointer-valid",
-    "DA026-late-finalize-current-head-pointer-mismatch"
+    "DA026-late-finalize-current-head-pointer-mismatch",
+    "DA027-late-finalize-current-head-record-tampered"
   ],
   "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback."
 }
