@@ -209,6 +209,9 @@ class FixturePreflightTests(unittest.TestCase):
             ),
         )
 
+    def test_non_array_candidate_inventory_hits_fail_closed_guard(self) -> None:
+        self.assert_invalid("f0", lambda value: value.update(candidate_interventions=None))
+
 
 if __name__ == "__main__":
     unittest.main()
