@@ -124,7 +124,9 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain") -> dict[s
 
         # Negative cases alter one invariant while keeping the affected token's
         # signature valid whenever the point of the test is a claim-level check.
-        if case == "wrong-par-hash" and index == 1:
+        if case == "wrong-root-issuer" and index == 0:
+            claims["iss"] = "https://attacker.example.test"
+        elif case == "wrong-par-hash" and index == 1:
             claims["par_hash"] = b64u(hashlib.sha256(b"not-the-parent-signing-input").digest())
         elif case == "wrong-derived-issuer" and index == 1:
             claims["iss"] = ISSUER
@@ -201,6 +203,7 @@ def cases(directory: Path) -> dict[str, dict[str, Any]]:
     names = (
         "tampered-signature",
         "wrong-root-trust-anchor",
+        "wrong-root-issuer",
         "wrong-child-signing-key",
         "wrong-par-hash",
         "wrong-derived-issuer",
@@ -293,6 +296,7 @@ def main() -> int:
                 expected_findings = {
                     "tampered-signature": "signature-invalid",
                     "wrong-root-trust-anchor": "root-trust-anchor-signature-invalid",
+                    "wrong-root-issuer": "root-issuer-trust-anchor-mismatch",
                     "wrong-child-signing-key": "signature-invalid",
                     "wrong-par-hash": "par-hash-mismatch",
                     "wrong-derived-issuer": "issuer-thumbprint-mismatch",
