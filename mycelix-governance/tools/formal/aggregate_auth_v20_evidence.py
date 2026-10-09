@@ -426,7 +426,7 @@ def main() -> int:
 
         compact_jws = json.loads((args.evidence_root /
             "auth-v20-compact-jws-evidence/compact-jws-chain.json").read_text(encoding="utf-8"))
-        require(compact_jws.get("summary", {}).get("negative_controls") == 33,
+        require(compact_jws.get("summary", {}).get("negative_controls") == 36,
                 "compact-JWS harness did not execute all 30 negative controls")
         require(compact_jws.get("summary", {}).get("positive_controls") == 3,
                 "compact-JWS harness did not verify both four-token and single-token positive chains")
