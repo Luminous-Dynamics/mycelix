@@ -96,15 +96,15 @@ def sign_token(private_path: Path, header: dict[str, Any], claims: dict[str, Any
     return header_segment + "." + payload_segment + "." + encode_segment(sig_path.read_bytes())
 
 
-def build_chain(directory: Path, case: str = "valid-four-token-chain") -> dict[str, Any]:
-    keys = [generate_keypair(directory, i) for i in range(5)]
+def build_chain(directory: Path, case: str = "valid-four-token-chain", count: int = 4) -> dict[str, Any]:
+    keys = [generate_keypair(directory, i) for i in range(count + 1)]
     holder_jwks = [key["public_jwk"] for key in keys]
     chain: list[str] = []
     parent_signing_input: str | None = None
     root_iat = NOW - 200
     root_exp = NOW + 10_000
 
-    for index in range(4):
+    for index in range(count):
         header: dict[str, Any] = {"alg": "EdDSA", "typ": "JWT", "kid": f"fixture-{index}"}
         claims: dict[str, Any] = {
             "jti": f"token-{index}",
@@ -269,6 +269,16 @@ def main() -> int:
                 "independent_fixture": "OpenSSL Ed25519 signatures verified",
                 "token_count": len(valid["chain"]),
             })
+            valid_single = build_chain(root, "valid-single-token-chain", count=1)
+            observed_single = invoke_fixture(valid_single, openssl)
+            require(observed_single.get("status") == "COMPACT_JWS_CHAIN_VERIFIED",
+                    "valid root-as-leaf single-token chain rejected: " +
+                    json.dumps(observed_single, sort_keys=True))
+            receipt["controls"].append({
+                "id": "valid-single-token-chain", "status": observed_single["status"],
+                "independent_fixture": "OpenSSL root signature verified; root also treated as leaf",
+                "token_count": len(valid_single["chain"]),
+            })
             # Reject attempts to smuggle trust roots in the same object as
             # untrusted token-chain data. Real trust configuration stays outside.
             wrong_anchor = generate_keypair(root, 30)
@@ -368,9 +378,9 @@ def main() -> int:
             receipt["test_sha256"] = hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest()
             receipt["status"] = "PASS"
             receipt["summary"] = {
-                "positive_controls": 1,
-                "negative_controls": len(receipt["controls"]) - 1,
-                "signatures_verified": 4,
+                "positive_controls": 2,
+                "negative_controls": sum(row["id"] not in {"valid-four-token-chain", "valid-single-token-chain"} for row in receipt["controls"]),
+                "signatures_verified": sum(row["token_count"] for row in receipt["controls"] if row["id"] in {"valid-four-token-chain", "valid-single-token-chain"}),
                 "mutants_detected": len(receipt["mutations"]),
                 "signature_and_linkage_mutants_detected": len(receipt["mutations"]),
                 "root_anchor_checks": True,
@@ -379,7 +389,7 @@ def main() -> int:
                 "qualification": "NOT_CLAIMED",
             }
             args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-            print(f"COMPACT JWS CHAIN CHECK PASS: 1 signed positive + {len(receipt['controls']) - 1} negative controls")
+            print(f"COMPACT JWS CHAIN CHECK PASS: 2 signed positives + {receipt['summary']['negative_controls']} negative controls")
             print("COMPACT JWS MUTATION SENSITIVITY PASS: 3 of 3 omitted checks accepted known-bad fixtures")
             print("QUALIFICATION NOT CLAIMED: capability subsumption and leaf proof-of-possession are not implemented")
             return 0
