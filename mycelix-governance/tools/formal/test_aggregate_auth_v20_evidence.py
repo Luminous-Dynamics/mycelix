@@ -28,6 +28,7 @@ FROZEN_REQUIRED_RECEIPTS = (
     ("auth-v20-par-hash-evidence/delegation-chain-par-hash.json", "mycelix.par-hash-differential-receipt.v1"),
     ("auth-v20-compact-jws-evidence/compact-jws-chain.json", "mycelix.compact-jws-aat-chain-differential-receipt.v1"),
     ("auth-v20-capability-evidence/aat-capability-subsumption.json", "mycelix.aat-capability-subsumption-differential-receipt.v1"),
+    ("auth-v20-pop-evidence/delegation-chain-pop-differential.json", "mycelix.aat-invocation-pop-differential-receipt.v1"),
 )
 FROZEN_MATRIX_MUTATIONS = (
     "remove-request-value", "reorder-request-values", "widen-amount-domain",
@@ -85,6 +86,11 @@ FROZEN_MUTATIONS = {
             "constraint-subsumption-bypassed", "tool-set-attenuation-bypassed",
             "runtime-constraint-bypassed", "invocation-shape-bypassed",
         )),
+    "auth-v20-pop-evidence/delegation-chain-pop-differential.json": (
+        "mutations", "mutant_acceptance_observed", (
+            "pop-signature-check-omitted", "pop-binding-check-omitted",
+            "pop-canonical-payload-check-omitted", "pop-replay-consumption-omitted",
+        )),
 }
 
 
@@ -96,6 +102,7 @@ FROZEN_AGGREGATE_MUTATIONS = (
     "mutant-detection-count-weakened", "mutation-identity-substituted",
     "duplicate-mutation-id", "compact-jws-mutant-count-weakened",
     "missing-capability-receipt", "capability-mutant-count-weakened",
+    "missing-pop-receipt", "pop-mutant-count-weakened",
     "expected-head-malformed", "missing-aggregate-mutation-guard",
     "aggregate-guard-head-mismatch", "aggregate-guard-count-weakened",
     "aggregate-guard-identity-substituted", "missing-control-artifact",
@@ -149,6 +156,11 @@ FROZEN_SOURCE_HASH_FIELDS = {
     "auth-v20-capability-evidence/aat-capability-subsumption.json": (
         ("module_sha256", "mycelix-governance/tools/formal/aat_capability_subsumption.py"),
         ("test_sha256", "mycelix-governance/tools/formal/test_aat_capability_subsumption.py"),
+    ),
+    "auth-v20-pop-evidence/delegation-chain-pop-differential.json": (
+        ("checker_sha256", "mycelix-governance/tools/formal/delegation_chain_pop.py"),
+        ("test_sha256", "mycelix-governance/tools/formal/test_delegation_chain_pop.py"),
+        ("aat_fixture_sha256", "mycelix-governance/tools/formal/test_delegation_chain_compact_jws.py"),
     ),
 }
 HEAD = "a" * 40
@@ -237,6 +249,13 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
                 "runtime_and_invocation_controls": 21,
                 "mutants_detected": 4,
             })
+        elif relative == "auth-v20-pop-evidence/delegation-chain-pop-differential.json":
+            data["summary"].update({
+                "positive_controls": 2,
+                "negative_controls": 19,
+                "mutants_detected": 4,
+                "replay_jti_consumed": True,
+            })
         if relative in FROZEN_MUTATIONS:
             rows_key, detected_key, names = FROZEN_MUTATIONS[relative]
             data[rows_key] = [{"id": name, detected_key: True} for name in names]
@@ -291,6 +310,7 @@ def apply_mutation(root: Path, name: str) -> None:
     keylink = root / FROZEN_REQUIRED_RECEIPTS[7][0]
     compact_jws = root / FROZEN_REQUIRED_RECEIPTS[9][0]
     capability_receipt = root / FROZEN_REQUIRED_RECEIPTS[10][0]
+    pop_receipt = root / FROZEN_REQUIRED_RECEIPTS[11][0]
     aggregate_guard = root / "auth-v20-final-evidence/aggregate-mutation-guard.json"
     control_dir = root / "auth-v20-evidence"
     control_input = control_dir / "actual-authority-expansion.input.json"
@@ -355,6 +375,12 @@ def apply_mutation(root: Path, name: str) -> None:
         data = json.loads(capability_receipt.read_text(encoding="utf-8"))
         data["summary"]["mutants_detected"] = 3
         capability_receipt.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "missing-pop-receipt":
+        pop_receipt.unlink()
+    elif name == "pop-mutant-count-weakened":
+        data = json.loads(pop_receipt.read_text(encoding="utf-8"))
+        data["summary"]["mutants_detected"] = 3
+        pop_receipt.write_text(json.dumps(data), encoding="utf-8")
     elif name == "missing-aggregate-mutation-guard":
         aggregate_guard.unlink()
     elif name == "aggregate-guard-head-mismatch":
@@ -465,6 +491,8 @@ def main() -> int:
                 "compact-jws-mutant-count-weakened",
                 "missing-capability-receipt",
                 "capability-mutant-count-weakened",
+                "missing-pop-receipt",
+                "pop-mutant-count-weakened",
                 "expected-head-malformed",
                 "missing-aggregate-mutation-guard",
                 "aggregate-guard-head-mismatch",
