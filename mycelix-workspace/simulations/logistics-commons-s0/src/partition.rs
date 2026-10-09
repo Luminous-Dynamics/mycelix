@@ -254,6 +254,8 @@ pub fn verify_reconciliation(
     let mut violations = BTreeSet::new();
     type Identity = (String, String, String);
     let mut request_by_id: BTreeMap<Identity, &OfflineReservation> = BTreeMap::new();
+    let mut request_by_reservation_id: BTreeMap<String, &OfflineReservation> = BTreeMap::new();
+    let mut requests_by_resource: BTreeMap<(String, String), Vec<&OfflineReservation>> = BTreeMap::new();
     let mut reservation_id_counts: BTreeMap<String, usize> = BTreeMap::new();
     for request in requests {
         *reservation_id_counts.entry(request.reservation_id.clone()).or_default() += 1;
@@ -261,6 +263,11 @@ pub fn verify_reconciliation(
         if request_by_id.insert(identity, request).is_some() {
             violations.insert(format!("duplicate-request-identity:{}", request.reservation_id));
         }
+        request_by_reservation_id.insert(request.reservation_id.clone(), request);
+        requests_by_resource
+            .entry((request.hub_id.clone(), request.sku_id.clone()))
+            .or_default()
+            .push(request);
     }
     for (reservation_id, count) in reservation_id_counts {
         if count > 1 {
@@ -309,8 +316,8 @@ pub fn verify_reconciliation(
                     .or_default().push(request);
             }
             ReconciliationDisposition::DuplicateOf { primary_id } => {
-                let primary = requests.iter().find(|candidate| candidate.reservation_id == *primary_id
-                    && candidate.participant_id == request.participant_id);
+                let primary = request_by_reservation_id.get(primary_id).copied()
+                    .filter(|candidate| candidate.participant_id == request.participant_id);
                 match primary {
                     Some(candidate) if candidate.reservation_id != request.reservation_id
                         && candidate.idempotency_key == request.idempotency_key
@@ -341,10 +348,19 @@ pub fn verify_reconciliation(
                     violations.insert(format!("malformed-conflict-set:{}", request.reservation_id));
                 }
                 for contender in contenders {
-                    let matching = decisions.iter().any(|other| other.reservation_id == *contender
-                        && matches!(&other.disposition, ReconciliationDisposition::UnresolvedConflict {
+                    let matching = request_by_reservation_id.get(contender).and_then(|candidate| {
+                        let candidate_identity = (
+                            candidate.participant_id.clone(),
+                            candidate.node_id.clone(),
+                            candidate.reservation_id.clone(),
+                        );
+                        decision_by_id.get(&candidate_identity)
+                    }).is_some_and(|other| matches!(
+                        &other.disposition,
+                        ReconciliationDisposition::UnresolvedConflict {
                             reason: other_reason, contenders: other_contenders
-                        } if other_reason == reason && other_contenders == contenders));
+                        } if other_reason == reason && other_contenders == contenders
+                    ));
                     if !matching { violations.insert(format!("inconsistent-conflict-set:{contender}")); }
                 }
 
@@ -352,10 +368,11 @@ pub fn verify_reconciliation(
                 // resource which the output classifies as unresolved or awaiting recheck.
                 // Otherwise an omitted request could be treated as a separate, non-conflicting
                 // recheck and escape the common conflict decision.
-                let mut expected_contenders = requests.iter().filter_map(|candidate| {
-                    if candidate.hub_id != request.hub_id || candidate.sku_id != request.sku_id {
-                        return None;
-                    }
+                let resource_key = (request.hub_id.clone(), request.sku_id.clone());
+                let resource_requests = requests_by_resource.get(&resource_key)
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[]);
+                let mut expected_contenders = resource_requests.iter().filter_map(|candidate| {
                     let candidate_identity = (
                         candidate.participant_id.clone(),
                         candidate.node_id.clone(),
@@ -380,8 +397,8 @@ pub fn verify_reconciliation(
                     violations.insert(format!("non-exhaustive-conflict-set:{}", request.reservation_id));
                 }
 
-                let rows = requests.iter()
-                    .filter(|candidate| contenders.contains(&candidate.reservation_id))
+                let rows = contenders.iter()
+                    .filter_map(|reservation_id| request_by_reservation_id.get(reservation_id).copied())
                     .collect::<Vec<_>>();
                 if rows.len() != contenders.len() {
                     violations.insert(format!("conflict-input-cardinality-mismatch:{}", request.reservation_id));
