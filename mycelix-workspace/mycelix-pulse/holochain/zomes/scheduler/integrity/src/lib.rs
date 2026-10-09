@@ -145,10 +145,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::ScheduledEmail(scheduled) => {
-                    validate_create_scheduled_email(action, scheduled)
+                    validate_create_scheduled_email(action.into(), scheduled)
                 }
                 EntryTypes::SnoozeReminder(reminder) => {
-                    validate_create_snooze_reminder(action, reminder)
+                    validate_create_snooze_reminder(action.into(), reminder)
                 }
             },
             OpEntry::UpdateEntry { app_entry, action } => match app_entry {
