@@ -1061,10 +1061,17 @@ def verify_artifact_enumeration(
         fail("repeat artifact page counts differ")
     if enumeration["repeat_artifact_identity_sha256"] != enumeration["artifact_identity_sha256"]:
         fail("repeat artifact identity commitment differs")
-    identities = [
-        {"id": item["id"], "name": item["name"]}
-        for item in items
-    ]
+    identities = []
+    for position, item in enumerate(items):
+        if type(item) is not dict:
+            fail(f"artifact enumeration item {position} is not an object")
+        artifact_id = require_json_int(
+            item.get("id"), f"artifact enumeration item {position} ID", minimum=1
+        )
+        name = item.get("name")
+        if not isinstance(name, str) or not name:
+            fail(f"artifact enumeration item {position} has an invalid name")
+        identities.append({"id": artifact_id, "name": name})
     commitment = hashlib.sha256(
         json.dumps(identities, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
     ).hexdigest()
@@ -1210,13 +1217,19 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
         if item["expired"] is not False:
             fail(f"{label} artifact is expired")
         validate_artifact_lifetime(item, label)
-        if item["size_in_bytes"] <= 0:
+        require_json_int(item.get("id"), f"{label} artifact ID", minimum=1)
+        if require_json_int(item.get("size_in_bytes"), f"{label} artifact size", minimum=1) <= 0:
             fail(f"{label} artifact is empty")
-        if item["workflow_run"]["id"] != trusted_run["id"]:
+        workflow_run = item.get("workflow_run")
+        if type(workflow_run) is not dict:
+            fail(f"{label} artifact workflow_run metadata is not an object")
+        artifact_run_id = require_json_int(workflow_run.get("id"), f"{label} artifact workflow run ID", minimum=1)
+        trusted_run_id_from_snapshot = require_json_int(trusted_run.get("id"), "trusted workflow run ID", minimum=1)
+        if artifact_run_id != trusted_run_id_from_snapshot:
             fail(f"{label} artifact run mismatch")
-        if item["workflow_run"]["repository_id"] != BASE_REPOSITORY_ID:
+        if require_json_int(workflow_run.get("repository_id"), f"{label} artifact repository ID", minimum=1) != BASE_REPOSITORY_ID:
             fail(f"{label} artifact repository mismatch")
-        if item["workflow_run"]["head_repository_id"] != BASE_REPOSITORY_ID:
+        if require_json_int(workflow_run.get("head_repository_id"), f"{label} artifact head repository ID", minimum=1) != BASE_REPOSITORY_ID:
             fail(f"{label} artifact head repository mismatch")
         if item["workflow_run"]["head_sha"] != trusted_run["head_sha"]:
             fail(f"{label} artifact trusted-run head SHA mismatch")
