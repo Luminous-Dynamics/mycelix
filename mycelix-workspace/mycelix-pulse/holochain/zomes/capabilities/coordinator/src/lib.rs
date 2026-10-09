@@ -374,7 +374,13 @@ pub fn revoke_capability(input: (ActionHash, Option<String>)) -> ExternResult<Ac
 
 // ==================== VERIFY CAPABILITY ====================
 
-/// Verify if a capability is valid for an action
+/// Check the currently visible application capability projection for an audit action.
+///
+/// This is not an access-control boundary or proof of globally current DHT state:
+/// a remote agent may not yet have received a later revocation. Protected remote
+/// zome calls must rely on Holochain's actual CapGrant enforcement. The
+/// probe_remote_capability endpoint separately exercises the assigned inbox grant
+/// and reports the actual conductor response for that specific remote call.
 #[hdk_extern]
 pub fn verify_capability(input: (ActionHash, AuditAction)) -> ExternResult<bool> {
     let (cap_hash, action) = input;
