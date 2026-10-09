@@ -585,6 +585,19 @@ pub fn resolve_machine_temporal_attestations(
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         }
 
+        let profile_statement = MachineTemporalSignedProfileStatement {
+            action_hash: attestation.profile_hash.clone(),
+            signer: profile_details.record.action().author().clone(),
+            payload: profile_record.signed_payload(),
+            signature: profile_record.registrant_signature.clone(),
+        };
+        let attestation_statement = MachineTemporalSignedAttestationStatement {
+            action_hash: hash.clone(),
+            signer: record.action().author().clone(),
+            payload: attestation.signed_payload(),
+            signature: attestation.authority_signature.clone(),
+        };
+
         evidence.push(MachineTemporalEvidenceObservation {
             attestation_hash: hash,
             authority_agent: profile_record.authority_agent,
@@ -599,6 +612,8 @@ pub fn resolve_machine_temporal_attestations(
             source_reference: attestation.source_reference,
             source_commitment_algorithm: attestation.source_commitment_algorithm,
             source_commitment: attestation.source_commitment,
+            profile_statement,
+            attestation_statement,
         });
     }
 
