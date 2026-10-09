@@ -365,7 +365,7 @@ jobs:
             --mount type=bind,src="${GITHUB_WORKSPACE}/candidate",dst=/candidate,readonly \
             --mount type=bind,src="${FPM_TOOLCHAIN_ROOT}",dst=/opt/fpm-rust,readonly \
             --user "${CANDIDATE_UID}:${CANDIDATE_GID}" --workdir /candidate \
-            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu '
+            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu "$(cat <<'FPM_SANDBOX_SCRIPT'
               umask 077
               export HOME=/tmp/home
               export PATH=/opt/fpm-rust/bin:/usr/bin:/bin
@@ -378,7 +378,8 @@ jobs:
               test ! -d /home/runner
               test -z "$(env | grep '^GITHUB_' || true)"
               cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
-            '
+          FPM_SANDBOX_SCRIPT
+          )"
 
       - name: Probe hostile-code sandbox boundary
         id: sandbox_probe
@@ -398,7 +399,7 @@ jobs:
             --mount type=bind,src="${FPM_CARGO_HOME}",dst=/cargo-ro,readonly \
             --mount type=bind,src="${FPM_TARGET_DIR}",dst=/target \
             --user "${CANDIDATE_UID}:${CANDIDATE_GID}" --workdir /candidate \
-            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu '
+            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu "$(cat <<'FPM_SANDBOX_SCRIPT'
               umask 077
               export HOME=/tmp/home
               export PATH=/opt/fpm-rust/bin:/usr/bin:/bin
@@ -474,7 +475,8 @@ jobs:
                 done <<< "$ldd_output"
               done
               cat "$closure"
-            ' > "${FPM_EVIDENCE_DIR}/sandbox-system-closure.tsv"
+          FPM_SANDBOX_SCRIPT
+          )" > "${FPM_EVIDENCE_DIR}/sandbox-system-closure.tsv"
           test -s "${FPM_EVIDENCE_DIR}/sandbox-system-closure.tsv"
           chmod 400 "${FPM_EVIDENCE_DIR}/sandbox-system-closure.tsv"
           printf 'sandbox_probe=passed\n' >> "$GITHUB_OUTPUT"
@@ -498,7 +500,7 @@ jobs:
             --mount type=bind,src="${FPM_CARGO_HOME}",dst=/cargo-ro,readonly \
             --mount type=bind,src="${FPM_TARGET_DIR}",dst=/target \
             --user "${CANDIDATE_UID}:${CANDIDATE_GID}" --workdir /candidate \
-            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu '
+            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu "$(cat <<'FPM_SANDBOX_SCRIPT'
               umask 077
               mkdir -p /tmp/home /tmp/cargo
               ln -s /cargo-ro/registry /tmp/cargo/registry
@@ -579,7 +581,8 @@ jobs:
               done
               test -s "$closure"
               cat "$closure"
-            ' > "${FPM_EVIDENCE_DIR}/sandbox-target-closure.tsv"
+          FPM_SANDBOX_SCRIPT
+          )" > "${FPM_EVIDENCE_DIR}/sandbox-target-closure.tsv"
           test -s "${FPM_EVIDENCE_DIR}/sandbox-target-closure.tsv"
           chmod 400 "${FPM_EVIDENCE_DIR}/sandbox-target-closure.tsv"
       - name: Execute precompiled test harness inside immutable sandbox
@@ -602,7 +605,7 @@ jobs:
             --mount type=bind,src="${FPM_TARGET_DIR}",dst=/target,readonly \
             --mount type=bind,src="${TARGET_CLOSURE_FILE}",dst=/tmp/fpm-target-closure.tsv,readonly \
             --user "${CANDIDATE_UID}:${CANDIDATE_GID}" --workdir /candidate \
-            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu '
+            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu "$(cat <<'FPM_SANDBOX_SCRIPT'
               umask 077
               mkdir -p /tmp/home
               export HOME=/tmp/home
@@ -707,7 +710,8 @@ jobs:
               done
               test "$test_count" -ge 1
               verify_target_closure
-            '
+          FPM_SANDBOX_SCRIPT
+          )"
 
       - name: Postflight source and live-PR reconciliation
         id: postflight
@@ -969,10 +973,10 @@ jobs:
           ARTIFACT_DIGEST: ${{ steps.upload_evidence.outputs.artifact-digest }}
           ARTIFACT_URL: ${{ steps.upload_evidence.outputs.artifact-url }}
           RECEIPT_SHA256: ${{ steps.receipt.outputs.receipt_sha256 }}
-          SUBJECT_SHA: ${{ steps.source.outputs.candidate_head_sha || steps.preflight.outputs.expected_head_sha || "" }}
-          SUBJECT_TREE_SHA: ${{ steps.source.outputs.candidate_tree_sha || "" }}
-          TRUSTED_POLICY_SHA: ${{ steps.policy.outputs.trusted_policy_sha || "" }}
-          TRUSTED_POLICY_BLOB_SHA: ${{ steps.policy.outputs.trusted_policy_blob_sha || "" }}
+          SUBJECT_SHA: ${{ steps.source.outputs.candidate_head_sha || steps.preflight.outputs.expected_head_sha || '' }}
+          SUBJECT_TREE_SHA: ${{ steps.source.outputs.candidate_tree_sha || '' }}
+          TRUSTED_POLICY_SHA: ${{ steps.policy.outputs.trusted_policy_sha || '' }}
+          TRUSTED_POLICY_BLOB_SHA: ${{ steps.policy.outputs.trusted_policy_blob_sha || '' }}
           TRUSTED_RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
