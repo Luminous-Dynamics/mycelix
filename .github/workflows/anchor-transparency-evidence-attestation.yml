@@ -65,13 +65,25 @@ jobs:
           diff -u execution-evidence/attestation-predicate-python.json execution-evidence/attestation-predicate-node.json
 
       - name: Create GitHub Sigstore-backed attestation for the evidence receipt
+        id: attest_receipt
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: execution-evidence/qualification-execution-receipt.json
           predicate-type: https://luminousdynamics.io/attestations/mycelix-anchor-research-execution/v1
           predicate-path: execution-evidence/attestation-predicate-python.json
 
-      - name: Verify signed receipt, predicate type, repository, and signer workflow
+      - name: Preserve the exact Sigstore bundle emitted by the signing action
+        shell: bash
+        env:
+          ATTESTATION_BUNDLE_SOURCE: ${{ steps.attest_receipt.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -n "$ATTESTATION_BUNDLE_SOURCE"
+          test -s "$ATTESTATION_BUNDLE_SOURCE"
+          cp -- "$ATTESTATION_BUNDLE_SOURCE" execution-evidence/qualification-execution-receipt.sigstore.json
+          test -s execution-evidence/qualification-execution-receipt.sigstore.json
+
+      - name: Verify emitted bundle, subject digest, predicate type, repository, and signer workflow
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -79,6 +91,7 @@ jobs:
         run: |
           set -euo pipefail
           gh attestation verify execution-evidence/qualification-execution-receipt.json \
+            --bundle execution-evidence/qualification-execution-receipt.sigstore.json \
             --repo "$GITHUB_REPOSITORY" \
             --predicate-type "$PREDICATE_TYPE" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/anchor-transparency-evidence-attestation.yml"
@@ -90,5 +103,7 @@ jobs:
           path: |
             execution-evidence/qualification-execution-receipt.json
             execution-evidence/attestation-predicate-python.json
+            execution-evidence/attestation-predicate-node.json
+            execution-evidence/qualification-execution-receipt.sigstore.json
           if-no-files-found: error
           retention-days: 90
