@@ -78,6 +78,7 @@ EXPECTED_MUTATION_IDS = {
             "pop-binding-check-omitted",
             "pop-canonical-payload-check-omitted",
             "pop-replay-consumption-omitted",
+            "pop-trusted-clock-check-omitted",
         ),
     ),
     "auth-v20-capability-evidence/aat-capability-subsumption.json": (
@@ -499,7 +500,7 @@ def main() -> int:
         require(pop_summary.get("negative_controls") == 23,
                 "AAT PoP harness did not execute all 23 denial/replay controls")
         require(pop_summary.get("mutants_detected") == 4,
-                "AAT PoP harness did not detect all four omitted-check mutants")
+                "AAT PoP harness did not detect all five omitted-check mutants")
         require(pop_summary.get("replay_jti_consumed") is True,
                 "AAT PoP harness did not verify one-time replay consumption")
         observed_pop_control_ids = [
@@ -533,7 +534,7 @@ def main() -> int:
             "aat_capability_mutants_detected": 4,
             "aat_capability_subsumption_controls": 34,
             "aat_capability_runtime_invocation_controls": 21,
-            "aat_invocation_pop_mutants_detected": 4,
+            "aat_invocation_pop_mutants_detected": 5,
             "aat_invocation_pop_negative_controls": 23,
             "qualification": "NOT_CLAIMED",
         }
