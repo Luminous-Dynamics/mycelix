@@ -14,6 +14,7 @@ import copy
 import hashlib
 import json
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -301,6 +302,17 @@ def main() -> int:
                 "independent_fixture": "AAT chain and PoP signed with OpenSSL Ed25519",
                 "replay_jti_consumed": result.get("replay_jti_consumed") is True,
             })
+
+            with sqlite3.connect(str(database)) as connection:
+                stored_columns = {row[1] for row in connection.execute("PRAGMA table_info(aat_pop_replay)")}
+                stored_rows = connection.execute("SELECT scope, jti_sha256, iat FROM aat_pop_replay").fetchall()
+            require("jti_sha256" in stored_columns and "jti" not in stored_columns,
+                    "replay store schema persists a raw jti field instead of its digest")
+            require(len(stored_rows) == 1 and stored_rows[0][1] == hashlib.sha256(
+                b"pop-valid-0001"
+            ).hexdigest(), "replay store did not persist the expected one-way jti digest")
+            require("pop-valid-0001" not in repr(stored_rows),
+                    "replay store exposed the raw PoP jti")
 
             # Replay the exact same proof in the same store: second use MUST deny.
             replay = invoke(raw, anchors, token, database)
