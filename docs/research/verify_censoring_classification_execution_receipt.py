@@ -169,6 +169,8 @@ def self_test():
         legacy_bad=dict(legacy);legacy_bad["case_count"]=3;report_path.write_bytes(canonical(legacy_bad));_,err=validate_report(report_path,2);assert err=="case-count-mismatch"
         invalid=dict(sample);invalid["failures"]=[{"case_id":"a"}];report_path.write_bytes(canonical(invalid));_,err=validate_report(report_path,2);assert err=="reported-failures"
         invalid=dict(sample);invalid["cases"]=[{"case_id":"a"},{"case_id":"a"}];report_path.write_bytes(canonical(invalid));_,err=validate_report(report_path,2);assert err=="duplicate-case-id"
+        invalid=dict(sample);invalid["cases"]=[{"case_id":"a","expected_verdict":"qualified","actual_verdict":"unresolved"},{"case_id":"b"}];report_path.write_bytes(canonical(invalid));_,err=validate_report(report_path,2);assert err=="verdict-mismatch"
+        invalid=dict(sample);invalid["cases"]=[{"case_id":"a","expected_verdict":"qualified"},{"case_id":"b"}];report_path.write_bytes(canonical(invalid));_,err=validate_report(report_path,2);assert err=="actual-verdict-missing"
 
     with tempfile.TemporaryDirectory() as td:
         base=Path(td);artifact=base/"artifact";reports=artifact/"reports";support=artifact/"supporting"
