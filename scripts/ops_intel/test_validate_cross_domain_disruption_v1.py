@@ -185,6 +185,30 @@ class FixturePreflightTests(unittest.TestCase):
             ),
         )
 
+    def test_duplicate_f0_facility_ref_fails(self) -> None:
+        self.assert_invalid(
+            "f0",
+            lambda value: value["observations"][2]["coverage"].update(
+                facility_refs_observed=[
+                    "subject:supplier-B-facility-A",
+                    "subject:supplier-B-facility-A",
+                    "subject:supplier-B-facility-B",
+                    "subject:supplier-B-facility-C",
+                ]
+            ),
+        )
+
+    def test_duplicate_f1_facility_ref_fails(self) -> None:
+        self.assert_invalid(
+            "f1",
+            lambda value: value["added_observations"][0]["coverage"].update(
+                facility_refs_observed=[
+                    "subject:supplier-B-facility-D",
+                    "subject:supplier-B-facility-D",
+                ]
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
