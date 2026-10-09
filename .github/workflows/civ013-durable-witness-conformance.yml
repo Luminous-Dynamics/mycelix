@@ -66,6 +66,8 @@ jobs:
           expected_rusqlite_version="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_rusqlite_version"])')"
           expected_libsqlite3_sys_version="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_libsqlite3_sys_version"])')"
           expected_sqlite_min_version_number="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_bundled_sqlite_min_version_number"])')"
+          expected_bundled_sqlite_version="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_bundled_sqlite_version"])')"
+          expected_bundled_sqlite_version_number="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_bundled_sqlite_version_number"])')"
           git init symthaea-source
           git -C symthaea-source fetch --depth=1 https://github.com/Luminous-Dynamics/symthaea.git "$source_commit"
           git -C symthaea-source checkout --detach FETCH_HEAD
@@ -84,13 +86,13 @@ jobs:
 
           # Validate the dependency graph pinned by the same exact source commit,
           # not just the adapter's Rust source. The WAL-reset fix requires the
-          # bundled SQLite version introduced by rusqlite 0.39.0 / libsqlite3-sys 0.37.0.
-          python3 - "$expected_rusqlite_version" "$expected_libsqlite3_sys_version" "$expected_sqlite_min_version_number" <<'PY'
+          # pinned bundled SQLite version carried by rusqlite 0.40.2 / libsqlite3-sys 0.38.2.
+          python3 - "$expected_rusqlite_version" "$expected_libsqlite3_sys_version" "$expected_sqlite_min_version_number" "$expected_bundled_sqlite_version" "$expected_bundled_sqlite_version_number" "$expected_bundled_sqlite_version" "$expected_bundled_sqlite_version_number" <<'PY'
           import re
           import sys
           from pathlib import Path
 
-          expected_rusqlite, expected_sys, expected_sqlite_min = sys.argv[1:]
+          expected_rusqlite, expected_sys, expected_sqlite_min, expected_bundle, expected_bundle_number = sys.argv[1:]
           cargo = Path("symthaea-source/Cargo.toml").read_text(encoding="utf-8")
           required_line = f'rusqlite = {{ version = "{expected_rusqlite}", features = ["bundled", "fallible_uint"] }}'
           if cargo.count(required_line) != 1:
@@ -124,6 +126,19 @@ jobs:
           actual_minimum = int(version_match.group(1).replace("_", ""))
           if actual_minimum != int(expected_sqlite_min):
               raise SystemExit("adapter SQLite runtime floor does not match the manifest")
+          bundle_match = re.search(
+              r"const EXPECTED_BUNDLED_SQLITE_VERSION_NUMBER: i32 = ([0-9_]+);",
+              source_lib,
+          )
+          if bundle_match is None:
+              raise SystemExit("adapter does not declare EXPECTED_BUNDLED_SQLITE_VERSION_NUMBER")
+          actual_bundle_number = int(bundle_match.group(1).replace("_", ""))
+          version_parts = tuple(int(part) for part in expected_bundle.split("."))
+          if len(version_parts) != 3 or actual_bundle_number != int(expected_bundle_number):
+              raise SystemExit("bundled SQLite version number does not match the manifest")
+          encoded_bundle_number = version_parts[0] * 1_000_000 + version_parts[1] * 1_000 + version_parts[2]
+          if encoded_bundle_number != actual_bundle_number:
+              raise SystemExit("bundled SQLite version text/number encoding mismatch")
           if "validate_sqlite_runtime_version(rusqlite::version_number())?;" not in source_lib:
               raise SystemExit("every adapter connection must fail closed on an unsupported SQLite runtime")
           if "fn rejects_sqlite_runtime_below_wal_reset_fix_floor()" not in source_lib:
@@ -131,7 +146,7 @@ jobs:
           if "fn linked_sqlite_includes_wal_reset_fix()" not in source_lib:
               raise SystemExit("adapter is missing the linked SQLite version regression")
           PY
-          printf 'checker_commit_sha=%s\nchecker_blob_sha=%s\nsource_adapter_commit=%s\nsource_adapter_blob_sha=%s\nsource_toolchain_blob_sha=%s\nsource_workspace_manifest_blob_sha=%s\nsource_lockfile_blob_sha=%s\nsource_rust_version=%s\nsource_rusqlite_version=%s\nsource_libsqlite3_sys_version=%s\nsource_bundled_sqlite_min_version_number=%s\n' "$checker_commit" "$actual_checker_blob" "$actual_source_commit" "$actual_source_blob" "$actual_toolchain_blob" "$actual_workspace_manifest_blob" "$actual_lockfile_blob" "$actual_rust_version" "$expected_rusqlite_version" "$expected_libsqlite3_sys_version" "$expected_sqlite_min_version_number"
+          printf 'checker_commit_sha=%s\nchecker_blob_sha=%s\nsource_adapter_commit=%s\nsource_adapter_blob_sha=%s\nsource_toolchain_blob_sha=%s\nsource_workspace_manifest_blob_sha=%s\nsource_lockfile_blob_sha=%s\nsource_rust_version=%s\nsource_rusqlite_version=%s\nsource_libsqlite3_sys_version=%s\nsource_bundled_sqlite_min_version_number=%s\nsource_bundled_sqlite_version=%s\nsource_bundled_sqlite_version_number=%s\n' "$checker_commit" "$actual_checker_blob" "$actual_source_commit" "$actual_source_blob" "$actual_toolchain_blob" "$actual_workspace_manifest_blob" "$actual_lockfile_blob" "$actual_rust_version" "$expected_rusqlite_version" "$expected_libsqlite3_sys_version" "$expected_sqlite_min_version_number"
 
       - name: Run independent durable-profile checker
         id: vectors
