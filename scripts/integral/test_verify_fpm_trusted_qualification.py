@@ -341,6 +341,11 @@ def assert_evidence_archive_contract() -> None:
     assert workflow.count("- name: Extract evidence targets with strict JSON parser") == 1
     assert "root_config_hits=\"$(git ls-files --stage -- .cargo/config .cargo/config.toml || true)\"" in trusted_workflow
     assert 'config_ancestor="$(pwd -P)"' in trusted_workflow
+    assert 'LOCK_HOME="$RUNNER_TEMP/fpm-lock-home"' in trusted_workflow
+    assert 'GIT_CONFIG_GLOBAL=/dev/null' in trusted_workflow
+    assert 'env -i \\\n              PATH="$PATH" \\\n              HOME="$HOME" \\\n              CARGO_HOME="$CARGO_HOME"' in trusted_workflow
+    assert "cargo generate-lockfile --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml" in trusted_workflow
+    assert 'test ! -L "${CARGO_HOME}/config.toml"' in trusted_workflow
     assert 'while :; do' in trusted_workflow
     assert 'cargo_config_dir="${config_ancestor}/.cargo"' in trusted_workflow
     assert 'test ! -L "$cargo_config_dir"' in trusted_workflow
