@@ -679,7 +679,6 @@ mod tests {
                 EntryVisibility::Public,
             )),
                 entry_hash: EntryHash::from_raw_36(vec![1; 36]),
-                weight: Default::default(),
             }),
         };
         let hashed = HoloHashed::from_content_sync(action);
@@ -718,19 +717,22 @@ mod tests {
         }
     }
 
-    fn test_action() -> Create {
-        Create {
-            author: AgentPubKey::from_raw_36(vec![99; 36]),
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
-            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
-            weight: Default::default(),
+    fn test_action() -> TypedAction<EntryCreationData> {
+        TypedAction {
+            header: ActionHeader {
+                author: AgentPubKey::from_raw_36(vec![99; 36]),
+                timestamp: Timestamp::from_micros(0),
+                action_seq: 3,
+                prev_action: Some(ActionHash::from_raw_36(vec![0; 36])),
+            },
+            data: EntryCreationData::Create(CreateData {
+                entry_type: EntryType::App(AppEntryDef::new(
+                    EntryDefIndex(0),
+                    ZomeIndex(0),
+                    EntryVisibility::Public,
+                )),
+                entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            }),
         }
     }
 
