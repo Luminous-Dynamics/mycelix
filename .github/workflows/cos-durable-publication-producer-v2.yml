@@ -921,29 +921,28 @@ jobs:
           current_ruleset = {'schema': 'MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1', 'repository': frozen_ruleset['repository'], 'repository_id': frozen_ruleset['repository_id'], 'branch': 'refs/heads/main', 'rulesets': current_items}
           assert current_ruleset==frozen_ruleset, 'ruleset governance changed'
           PY
-      - name: Recheck release tag target immediately before immutable publication
+      - name: Publish immutable release after in-step exact tag recheck
         env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
           RELEASE_TAG: cos-qualification-${{ needs.prepare.outputs.claim_id }}
           EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
         run: |
           set -euo pipefail
+          release_token="${COS_RELEASE_ADMIN_TOKEN}"
+          unset COS_RELEASE_ADMIN_TOKEN
+          test -n "${release_token}"
+          claim_id="${{ needs.prepare.outputs.claim_id }}"
+          test "${RELEASE_TAG}" = "cos-qualification-${claim_id}"
           annotated="$(git ls-remote origin "refs/tags/${RELEASE_TAG}^{}" | awk 'NR==1 {print $1}')"
           lightweight="$(git ls-remote origin "refs/tags/${RELEASE_TAG}" | awk 'NR==1 {print $1}')"
           tag_sha="${annotated:-${lightweight}}"
           printf '%s\n' "${tag_sha}" | grep -Eq '^[0-9a-f]{40}$'
           test "${tag_sha}" = "${EXPECTED_MAIN_SHA}" || {
-            echo "release tag changed or resolves incorrectly before publication" >&2
+            echo "release tag changed or resolves incorrectly at publication boundary" >&2
             exit 1
           }
-
-      - name: Publish immutable release
-        env:
-          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
-        run: |
-          set -euo pipefail
-          claim_id="${{ needs.prepare.outputs.claim_id }}"
-          GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release edit "cos-qualification-${claim_id}" --repo "${GITHUB_REPOSITORY}" --draft=false
-
+          GH_TOKEN="${release_token}" gh release edit "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false
+          unset release_token
       - name: Prove immutable release and asset
         env:
           COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
