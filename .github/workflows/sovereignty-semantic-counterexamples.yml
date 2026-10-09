@@ -39,7 +39,9 @@ jobs:
             mycelix-governance/tools/formal/differential_compound_subsumption.py \
             mycelix-governance/tools/formal/test_differential_matrix_freeze.py \
             mycelix-governance/tools/formal/test_oracle_mutation_sensitivity.py \
-            mycelix-governance/tools/formal/test_effective_policy_mutation_sensitivity.py
+            mycelix-governance/tools/formal/test_effective_policy_mutation_sensitivity.py \
+            mycelix-governance/tools/formal/delegation_chain_counterexamples.py \
+            mycelix-governance/tools/formal/test_delegation_chain_counterexamples.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json >/dev/null
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json >/dev/null
       - name: Execute controls and independently replay witnesses
@@ -66,6 +68,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/auth-v20-policy-mutation-evidence"
           python3 mycelix-governance/tools/formal/test_effective_policy_mutation_sensitivity.py \
             --output "$RUNNER_TEMP/auth-v20-policy-mutation-evidence/effective-policy-mutation-sensitivity.json"
+          mkdir -p "$RUNNER_TEMP/auth-v20-chain-evidence"
+          python3 mycelix-governance/tools/formal/test_delegation_chain_counterexamples.py \
+            --output "$RUNNER_TEMP/auth-v20-chain-evidence/delegation-chain-differential.json"
       - name: Verify repository postflight
         if: always()
         run: |
@@ -81,5 +86,6 @@ jobs:
             ${{ runner.temp }}/auth-v20-differential-evidence
             ${{ runner.temp }}/auth-v20-mutation-evidence
             ${{ runner.temp }}/auth-v20-policy-mutation-evidence
+            ${{ runner.temp }}/auth-v20-chain-evidence
           if-no-files-found: warn
           retention-days: 30
