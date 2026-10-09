@@ -1264,52 +1264,72 @@ mod tests {
             execution_id: "ex-1".into(),
             timelock_id: "tl-1".into(),
             proposal_id: "prop-1".into(),
-            executor: "did:key:z6Mk".into(),
+            executor: test_author_did(),
+            execution_action_hash: Some(ActionHash::from_raw_36(vec![0; 36])),
+            timelock_action_hash: Some(ActionHash::from_raw_36(vec![1; 36])),
             bindings: vec![ExecutionResolutionBindingV1 {
-                attempt_identity: format!(
-                    "{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}",
-                    "e".repeat(64)
-                ),
-                action_key_digest: format!(
-                    "{EXECUTION_ACTION_KEY_PREFIX}{}",
-                    "a".repeat(64)
-                ),
-                terminal_evidence_digest: format!(
-                    "{EXECUTION_TERMINAL_EVIDENCE_PREFIX}{}",
-                    "b".repeat(64)
-                ),
-                authorization_admission_proof_digest: format!(
-                    "{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}",
-                    "c".repeat(64)
-                ),
-                final_provider_entry_proof_digest: format!(
-                    "{EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX}{}",
-                    "d".repeat(64)
-                ),
+                attempt_identity: format!("{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}", "e".repeat(64)),
+                action_key_digest: format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "a".repeat(64)),
+                terminal_evidence_digest: format!("{EXECUTION_TERMINAL_EVIDENCE_PREFIX}{}", "b".repeat(64)),
+                authorization_admission_proof_digest: format!("{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}", "c".repeat(64)),
+                final_provider_entry_proof_digest: format!("{EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX}{}", "d".repeat(64)),
             }],
             outcome: ExecutionResolutionOutcome::Executed,
             resolved_at: ts(4_000_000),
         };
-        assert!(check_create_execution_resolution(&valid).is_ok());
+        let create = make_create();
+        assert!(check_create_execution_resolution(&create, &valid).is_ok());
 
         let mut missing_bindings = valid.clone();
         missing_bindings.bindings.clear();
-        assert!(check_create_execution_resolution(&missing_bindings).is_err());
+        assert!(check_create_execution_resolution(&create, &missing_bindings).is_err());
 
         let mut bad_auth_root = valid.clone();
         bad_auth_root.bindings[0].authorization_admission_proof_digest =
             "not-a-canonical-root".into();
-        assert!(check_create_execution_resolution(&bad_auth_root).is_err());
+        assert!(check_create_execution_resolution(&create, &bad_auth_root).is_err());
 
         let mut bad_final_root = valid.clone();
         bad_final_root.bindings[0].final_provider_entry_proof_digest =
             "not-a-canonical-root".into();
-        assert!(check_create_execution_resolution(&bad_final_root).is_err());
+        assert!(check_create_execution_resolution(&create, &bad_final_root).is_err());
 
         let mut uppercase_digest = valid.clone();
         uppercase_digest.bindings[0].action_key_digest =
             format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "A".repeat(64));
-        assert!(check_create_execution_resolution(&uppercase_digest).is_err());
+        assert!(check_create_execution_resolution(&create, &uppercase_digest).is_err());
+
+        let mut missing_execution_anchor = valid.clone();
+        missing_execution_anchor.execution_action_hash = None;
+        assert!(check_create_execution_resolution(&create, &missing_execution_anchor).is_err());
+
+        let mut missing_timelock_anchor = valid.clone();
+        missing_timelock_anchor.timelock_action_hash = None;
+        assert!(check_create_execution_resolution(&create, &missing_timelock_anchor).is_err());
+
+        let mut execution = make_execution();
+        execution.executor = valid.executor.clone();
+        assert!(check_resolution_execution_scope(&valid, &execution).is_ok());
+        let mut wrong_execution_status = execution.clone();
+        wrong_execution_status.status = ExecutionStatus::Failed;
+        assert!(check_resolution_execution_scope(&valid, &wrong_execution_status).is_err());
+        let mut wrong_execution_id = execution.clone();
+        wrong_execution_id.id = "other-execution".into();
+        assert!(check_resolution_execution_scope(&valid, &wrong_execution_id).is_err());
+
+        let mut timelock = make_timelock();
+        timelock.status = TimelockStatus::Prepared;
+        assert!(check_resolution_timelock_scope(&valid, &timelock).is_ok());
+        let mut wrong_timelock_status = timelock.clone();
+        wrong_timelock_status.status = TimelockStatus::Cancelled;
+        assert!(check_resolution_timelock_scope(&valid, &wrong_timelock_status).is_err());
+        let mut wrong_timelock_proposal = timelock.clone();
+        wrong_timelock_proposal.proposal_id = "other-proposal".into();
+        assert!(check_resolution_timelock_scope(&valid, &wrong_timelock_proposal).is_err());
+
+        let mut duplicate_binding = valid.clone();
+        duplicate_binding.bindings.push(duplicate_binding.bindings[0].clone());
+        assert!(check_execution_resolution_bindings(&duplicate_binding.bindings).is_err());
 
         let too_many_bindings = vec![
             valid.bindings[0].clone();
@@ -1317,7 +1337,6 @@ mod tests {
         ];
         assert!(check_execution_resolution_bindings(&too_many_bindings).is_err());
     }
-
     // ---- Veto override result tests ----
 
     #[test]
