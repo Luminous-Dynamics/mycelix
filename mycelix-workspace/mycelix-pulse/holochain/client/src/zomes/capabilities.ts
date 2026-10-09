@@ -91,6 +91,12 @@ export class CapabilitiesZomeClient {
     ]);
   }
 
+  /**
+   * Reads the best currently visible application projection. This is advisory,
+   * not proof of globally current DHT state or remote authorization. The zome
+   * call may reject with an explicit unknown-state error while update evidence
+   * is incomplete; callers must not coerce that error to false or true.
+   */
   async verifyCapability(
     capabilityHash: ActionHash,
     action: AuditAction,
@@ -108,7 +114,9 @@ export class CapabilitiesZomeClient {
 
   /**
    * Probe performs a real, data-discarding remote inbox call with the recipient's
-   * private CapClaim and returns Authorized/Unauthorized/ClaimMissing only.
+   * private CapClaim. FunctionNotGranted means this inbox probe is outside the
+   * capability's granted scope. Unauthorized means this specific call was denied;
+   * by itself it does not prove revocation rather than a secret/grant mismatch.
    */
   async probeRemoteCapability(capabilityHash: ActionHash): Promise<CapabilityProbeResult> {
     return this.callZome<CapabilityProbeResult>('probe_remote_capability', capabilityHash);
