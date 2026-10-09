@@ -216,7 +216,10 @@ def _prepare_replay_database(database_path: Path) -> None:
                 "replay store parent must not be group/world writable",
             )
 
-        nofollow = getattr(os, "O_NOFOLLOW", 0)
+        nofollow = getattr(os, "O_NOFOLLOW", None)
+        if nofollow is None:
+            raise PopVerificationError("pop-replay-store-unavailable",
+                                       "platform cannot guarantee no-follow replay-store opens")
         close_on_exec = getattr(os, "O_CLOEXEC", 0)
         try:
             descriptor = os.open(
