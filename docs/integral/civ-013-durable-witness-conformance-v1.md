@@ -85,6 +85,12 @@ The profile's transition vectors are an independent abstract reference for these
 | DA021 | RejectCorruptForkEvidence | A single fork-evidence history cannot splice entries from different log IDs, even when each entry's digest is valid |
 | DA022–DA023 | RejectSqliteIntegerRange | Adapter rejection of generation or receipt sequence above SQLite's signed-integer maximum |
 | DA024 | ExternalAnchorMismatch | Equal-generation recovery fails closed when the local accepted-head digest is absent |
+| DA025 | IdempotentAcceptedHistory | Late finalization confirms that the metadata pointer matches the accepted current-head row |
+| DA026 | CorruptCurrentHeadMetadata | Late finalization rejects a well-formed but incorrect metadata head digest |
+
+## Late-finalization metadata binding
+
+The adapter permits idempotent success when a caller resumes after another process recovered its exact prepared candidate and advanced to a later generation. That exception must not treat a correctly sized digest as proof of a correct head pointer. Before returning success for a historical candidate, the adapter checks that the metadata head row exists, is accepted, and its digest matches the record row at the metadata generation. DA025 and DA026 capture the matching and mismatching cases. A mismatch is storage corruption, not an idempotent success.
 
 ## Per-log fork chain boundary
 
