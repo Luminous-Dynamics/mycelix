@@ -55,7 +55,7 @@ async function main() {
     // of the song-hash/URL identity check.
     await page.addInitScript(() => {
       const nativePlay = HTMLMediaElement.prototype.play;
-      const probe = { captured: false, rejected: false, reject: null };
+      const probe = { armed: false, captured: false, rejected: false, reject: null };
       Object.defineProperty(window, '__stalePlayProbe', {
         value: probe,
         configurable: false,
@@ -65,6 +65,7 @@ async function main() {
         const declaredSource = this.getAttribute('src') || '';
         if (
           this instanceof HTMLAudioElement
+          && probe.armed
           && !probe.captured
           && declaredSource.endsWith('/QmDemo1')
         ) {
@@ -151,12 +152,43 @@ async function main() {
       return audio && !audio.paused && Math.abs(audio.currentTime - expectedTime) < 0.35;
     }, pausedAt, { timeout: 5000 });
 
-    // The earlier play() promise is still unresolved. Reject it late after
-    // pause/resume has issued a newer attempt for the exact same track/source;
-    // the obsolete rejection must not flip the current UI to stopped.
+    // Arm interception only after ordinary startup and pause/resume have
+    // completed. This guarantees the deferred promise belongs to a deliberate
+    // user-triggered attempt, not a loading/canplay retry during startup.
+    await page.evaluate(() => { window.__stalePlayProbe.armed = true; });
+    await page.getByRole('button', { name: 'Pause', exact: true }).click();
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      return audio && audio.paused;
+    }, null, { timeout: 5000 });
+
+    // First resumed attempt reaches native playback but its promise is held
+    // open. Pause it, then resume a second time to advance the app's generation
+    // before rejecting the held promise from the now-obsolete attempt.
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      const probe = window.__stalePlayProbe;
+      return probe && probe.captured && audio && !audio.paused && audio.currentTime > 1;
+    }, null, { timeout: 5000 });
+    const supersededAttemptAt = await page.locator('audio').evaluate(audio => audio.currentTime);
+
+    await page.getByRole('button', { name: 'Pause', exact: true }).click();
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      return audio && audio.paused;
+    }, null, { timeout: 5000 });
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await page.waitForFunction(expectedTime => {
+      const audio = document.querySelector('audio');
+      return audio && !audio.paused && audio.currentTime >= expectedTime;
+    }, supersededAttemptAt, { timeout: 5000 });
+
+    // Reject the earlier promise only after the later user-triggered attempt
+    // is active on the same track and URL.
     await page.evaluate(() => {
       const probe = window.__stalePlayProbe;
-      if (!probe.captured || typeof probe.reject !== 'function' || probe.rejected) {
+      if (!probe.armed || !probe.captured || typeof probe.reject !== 'function' || probe.rejected) {
         throw new Error('the superseded play() promise was not captured exactly once');
       }
       probe.rejected = true;
