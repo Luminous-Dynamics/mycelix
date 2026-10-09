@@ -773,12 +773,12 @@ def main() -> None:
     record = load_record(evidence)
 
     assert set(record) == set(policy["record_fields"])
-    assert record["status"] == "runtime-reference-evidence"
+    assert record["status"] == "runtime-reference-evidence", "runtime evidence status mismatch"
     assert record["workflow_run_id"] == str(executor_run["id"])
     assert record["workflow_run_attempt"] == str(executor_run["run_attempt"])
     assert record["executor_run_id"] == str(executor_run["id"])
     assert record["executor_run_attempt"] == str(executor_run["run_attempt"])
-    assert record["attestation_status"] == "deferred-to-trusted-builder"
+    assert record["attestation_status"] == "deferred-to-trusted-builder", "trusted-builder handoff status mismatch"
     assert record["claim_ceiling"] == policy["claim_ceiling"]
     verify_record_metadata(record, policy)
 
