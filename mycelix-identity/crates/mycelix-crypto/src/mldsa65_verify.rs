@@ -129,7 +129,7 @@ mod tests {
 
     #[test]
     fn rejects_signature_made_with_nonempty_context() {
-        use ml_dsa::{Generate, KeyExport, MlDsa65, SigningKey};
+        use ml_dsa::{Generate, Keypair as _, MlDsa65, SigningKey};
 
         let signing_key = SigningKey::<MlDsa65>::generate();
         let message = b"context contract";
