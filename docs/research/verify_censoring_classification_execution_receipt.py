@@ -58,25 +58,35 @@ def validate_receipt(receipt_path:Path,artifact_root:Path,event_path:Path):
     if err:return None,"workflow-run-"+err
     wr=event.get("workflow_run") if isinstance(event,dict) else None
     if not isinstance(wr,dict):return None,"workflow-run-event-missing"
+    if not isinstance(receipt,dict) or set(receipt)!={"schema","status","source","evidence","claim_ceiling"}:return None,"receipt-envelope"
     if receipt.get("schema")!=RECEIPT_SCHEMA:return None,"receipt-schema"
     if receipt.get("status")!="research-evidence-only":return None,"receipt-status"
-    src=receipt.get("source",{})
-    if src.get("repository")!=REPOSITORY or event.get("repository",{}).get("full_name")!=REPOSITORY:return None,"repository-binding"
-    if wr.get("repository",{}).get("full_name")!=REPOSITORY:return None,"source-run-repository"
-    if wr.get("head_repository",{}).get("full_name") not in (None,REPOSITORY):return None,"source-run-head-repository"
+    src=receipt.get("source");evidence=receipt.get("evidence");ceiling=receipt.get("claim_ceiling")
+    if not isinstance(src,dict) or set(src)!={"repository","workflow","workflow_ref","event_name","ref","checked_out_commit_sha","event_sha","pull_request_head_sha","pull_request_number","run_id","run_number","run_attempt"}:return None,"source-schema"
+    if not isinstance(evidence,dict) or set(evidence)!={"report_pair_count","report_file_count","report_pairs","supporting_inputs","generated_corpus_a_equals_b"}:return None,"evidence-schema"
+    if not isinstance(ceiling,dict) or set(ceiling)!={"prior_verifier_steps_succeeded_at_receipt_creation","overall_workflow_conclusion","hosted_qualification_pass_claimed","qualification_authority","scitt_interoperability_claimed","live_network_convergence_claimed"}:return None,"claim-ceiling-schema"
+    event_repo=event.get("repository") if isinstance(event,dict) else None
+    wr_repo=wr.get("repository");head_repo=wr.get("head_repository")
+    if not isinstance(event_repo,dict) or event_repo.get("full_name")!=REPOSITORY or src.get("repository")!=REPOSITORY:return None,"repository-binding"
+    if not isinstance(wr_repo,dict) or wr_repo.get("full_name")!=REPOSITORY:return None,"source-run-repository"
+    if not isinstance(head_repo,dict) or head_repo.get("full_name")!=REPOSITORY:return None,"source-run-head-repository"
     if wr.get("name")!=WORKFLOW_NAME or str(wr.get("path","")).split("@")[0]!=WORKFLOW_PATH:return None,"source-workflow-binding"
     if wr.get("event")!="push" or src.get("event_name")!="push":return None,"source-event-not-push"
     if wr.get("head_branch")!="main" or src.get("ref")!="refs/heads/main":return None,"source-branch-not-main"
     if wr.get("conclusion")!="success":return None,"source-workflow-not-success"
-    pairs=receipt.get("evidence",{}).get("report_pairs")
-    if not isinstance(pairs,list) or len(pairs)!=len(REPORT_PAIRS):return None,"report-pair-inventory"
-    if receipt["evidence"].get("report_file_count")!=2*len(REPORT_PAIRS):return None,"report-file-count"
-    if receipt["evidence"].get("generated_corpus_a_equals_b") is not True:return None,"generated-corpus-identity-claim"
+    pairs=evidence.get("report_pairs")
+    if not isinstance(pairs,list) or len(pairs)!=len(REPORT_PAIRS) or evidence.get("report_pair_count")!=len(REPORT_PAIRS):return None,"report-pair-inventory"
+    if evidence.get("report_file_count")!=2*len(REPORT_PAIRS):return None,"report-file-count"
+    if evidence.get("generated_corpus_a_equals_b") is not True:return None,"generated-corpus-identity-claim"
+    support=evidence.get("supporting_inputs")
+    if not isinstance(support,list) or len(support)!=len(SUPPORTING) or {x.get("name") for x in support if isinstance(x,dict)}!={x[0] for x in SUPPORTING}:return None,"supporting-input-inventory"
     expected_names={name for _,pyfile,nodefile,_ in REPORT_PAIRS for name in (pyfile,nodefile)}
     seen_names=set()
     expected_by_layer={name:(pyfile,nodefile,count) for name,pyfile,nodefile,count in REPORT_PAIRS}
     summary=[]
+    expected_item_keys={"name","python_file","node_file","sha256","schema","case_count","case_ids_sha256","failure_count","python_node_byte_identical"}
     for item in pairs:
+        if not isinstance(item,dict) or set(item)!=expected_item_keys:return None,"report-item-schema"
         layer=item.get("name")
         if layer not in expected_by_layer:return None,"unknown-report-layer"
         pyname,nodename,expected_count=expected_by_layer[layer]
@@ -101,7 +111,7 @@ def validate_receipt(receipt_path:Path,artifact_root:Path,event_path:Path):
         raw=path.read_bytes();obj,err=read_json(path)
         if err:return None,"supporting-input-"+err
         if not isinstance(obj,dict) or not isinstance(obj.get("cases"),list) or len(obj["cases"])!=count:return None,"supporting-input-case-count:"+name
-        entries=receipt["evidence"].get("supporting_inputs",[])
+        entries=support
         pin=next((x for x in entries if x.get("name")==name),None)
         if not pin or pin.get("file")!=rel or pin.get("sha256")!=sha(raw) or pin.get("case_count")!=count:return None,"supporting-input-pin:"+name
     if (artifact_root/"supporting/generated-a.json").read_bytes()!=(artifact_root/"supporting/generated-b.json").read_bytes():return None,"generated-corpus-not-deterministic"
@@ -114,9 +124,11 @@ def validate_receipt(receipt_path:Path,artifact_root:Path,event_path:Path):
     for k,v in expected_src.items():
         if source.get(k)!=v:return None,"source-metadata-binding:"+k
     if not str(source.get("workflow_ref","")).endswith(WORKFLOW_PATH+"@refs/heads/main"):return None,"source-workflow-ref-binding"
-    if source.get("pull_request_head_sha") is not None:return None,"unexpected-pr-head"
-    ceiling=receipt.get("claim_ceiling",{})
-    if ceiling.get("hosted_qualification_pass_claimed") is not False or ceiling.get("qualification_authority") is not False:return None,"qualification-claim-injection"
+    if source.get("pull_request_head_sha") is not None or source.get("pull_request_number") is not None:return None,"unexpected-pr-head"
+    if not str(source.get("workflow_ref","")).endswith(WORKFLOW_PATH+"@refs/heads/main"):return None,"source-workflow-ref-binding"
+    if ceiling.get("prior_verifier_steps_succeeded_at_receipt_creation") is not True or ceiling.get("overall_workflow_conclusion")!="pending-downstream-observation":return None,"claim-ceiling-context"
+    for key in ("hosted_qualification_pass_claimed","qualification_authority","scitt_interoperability_claimed","live_network_convergence_claimed"):
+        if ceiling.get(key) is not False:return None,"qualification-claim-injection"
     predicate={
       "schema":PREDICATE_SCHEMA,
       "evidence_type":"mycelix-anchor-transparency-execution-receipt",
