@@ -192,6 +192,7 @@ impl PlayerState {
     /// Removing the active track selects the next item, or the previous item
     /// when the removed track was last. Removing the final queued item clears
     /// playback state; removing an earlier item only adjusts the queue index.
+    pub fn remove_queued_song_at(&self, removed_index: usize) {
         let mut updated = self.queue.get_untracked();
         if removed_index >= updated.len() {
             return;
