@@ -108,6 +108,47 @@ def _pop_header(header_bytes: bytes) -> dict[str, Any]:
     return header
 
 
+def verify_pop_signature(signing_input: bytes, signature: bytes, leaf_jwk: dict[str, Any],
+                         openssl_binary: str = "openssl") -> None:
+    try:
+        chain_verifier.verify_ed25519_signature(signing_input, signature, leaf_jwk,
+                                                 openssl_binary=openssl_binary)
+    except chain_verifier.VerificationError as error:
+        raise PopVerificationError("pop-" + error.code, error.detail) from error
+
+
+def verify_pop_payload_canonical(payload_bytes: bytes, claims: dict[str, Any]) -> None:
+    if payload_bytes != canonical_json_profile(claims):
+        raise PopVerificationError("pop-payload-not-canonical",
+                                   "signed PoP payload is not canonical for the supported JSON profile")
+
+
+def verify_pop_invocation_binding(claims: dict[str, Any], leaf_jti: str, tool: Any, args: Any,
+                                  now: int, expected_audience: str | None) -> None:
+    if claims["aat_id"] != leaf_jti:
+        raise PopVerificationError("pop-leaf-id-mismatch",
+                                   "PoP aat_id must exactly equal the verified leaf token jti")
+    if claims["aat_tool"] != tool:
+        raise PopVerificationError("pop-tool-mismatch",
+                                   "PoP aat_tool must exactly equal this invocation's tool identifier")
+    if canonical_json_profile(claims["hta"]) != canonical_json_profile(args):
+        raise PopVerificationError("pop-arguments-mismatch",
+                                   "PoP hta does not canonically equal the actual invocation arguments")
+    if expected_audience is not None:
+        if not isinstance(expected_audience, str) or not expected_audience:
+            raise PopVerificationError("pop-audience-policy-invalid",
+                                       "configured expected_audience must be a non-empty string")
+        if claims.get("aat_aud") != expected_audience:
+            raise PopVerificationError("pop-audience-mismatch",
+                                       "PoP aat_aud must identify the configured enforcement audience")
+    elif "aat_aud" in claims:
+        raise PopVerificationError("pop-audience-policy-unconfigured",
+                                   "PoP contains aat_aud but no expected audience is configured")
+    if abs(claims["iat"] - now) > POP_CLOCK_TOLERANCE_SECONDS:
+        raise PopVerificationError("pop-iat-outside-window",
+                                   "PoP iat falls outside the configured ±30-second acceptance window")
+
+
 def _decode_pop(pop_token: Any, leaf_jwk: dict[str, Any],
                 openssl_binary: str) -> dict[str, Any]:
     if not isinstance(pop_token, str) or not pop_token:
@@ -123,8 +164,7 @@ def _decode_pop(pop_token: Any, leaf_jwk: dict[str, Any],
         h64, p64, _s64, header_bytes, payload_bytes, signature = chain_verifier.split_compact_jws(pop_token)
         _pop_header(header_bytes)
         signing_input = (h64 + "." + p64).encode("ascii")
-        chain_verifier.verify_ed25519_signature(signing_input, signature, leaf_jwk,
-                                                 openssl_binary=openssl_binary)
+        verify_pop_signature(signing_input, signature, leaf_jwk, openssl_binary=openssl_binary)
         if len(payload_bytes) > MAX_POP_CLAIMS_BYTES:
             raise PopVerificationError("pop-claims-size-exceeded", "PoP claims exceed the size limit")
         claims = chain_verifier.parse_json_object(payload_bytes, "pop-claims-invalid")
@@ -133,10 +173,7 @@ def _decode_pop(pop_token: Any, leaf_jwk: dict[str, Any],
     except chain_verifier.VerificationError as error:
         raise PopVerificationError("pop-" + error.code, error.detail) from error
 
-    canonical = canonical_json_profile(claims)
-    if payload_bytes != canonical:
-        raise PopVerificationError("pop-payload-not-canonical",
-                                   "signed PoP payload is not canonical for the supported JSON profile")
+    verify_pop_payload_canonical(payload_bytes, claims)
     required = {"jti", "iat", "aat_id", "aat_tool", "hta"}
     allowed = required | {"aat_aud"}
     missing = sorted(required - set(claims))
@@ -253,28 +290,7 @@ def verify_chain_invocation(raw_chain: dict[str, Any],
 
         claims = _decode_pop(pop_token, leaf_jwk, openssl_binary)
         now = raw_chain["now"]
-        if claims["aat_id"] != leaf_jti:
-            raise PopVerificationError("pop-leaf-id-mismatch",
-                                       "PoP aat_id must exactly equal the verified leaf token jti")
-        if claims["aat_tool"] != tool:
-            raise PopVerificationError("pop-tool-mismatch",
-                                       "PoP aat_tool must exactly equal this invocation's tool identifier")
-        if canonical_json_profile(claims["hta"]) != canonical_json_profile(args):
-            raise PopVerificationError("pop-arguments-mismatch",
-                                       "PoP hta does not canonically equal the actual invocation arguments")
-        if expected_audience is not None:
-            if not isinstance(expected_audience, str) or not expected_audience:
-                raise PopVerificationError("pop-audience-policy-invalid",
-                                           "configured expected_audience must be a non-empty string")
-            if claims.get("aat_aud") != expected_audience:
-                raise PopVerificationError("pop-audience-mismatch",
-                                           "PoP aat_aud must identify the configured enforcement audience")
-        elif "aat_aud" in claims:
-            raise PopVerificationError("pop-audience-policy-unconfigured",
-                                       "PoP contains aat_aud but no expected audience is configured")
-        if abs(claims["iat"] - now) > POP_CLOCK_TOLERANCE_SECONDS:
-            raise PopVerificationError("pop-iat-outside-window",
-                                       "PoP iat falls outside the configured ±30-second acceptance window")
+        verify_pop_invocation_binding(claims, leaf_jti, tool, args, now, expected_audience)
 
         _consume_pop_jti(replay_database, replay_scope, claims["jti"], claims["iat"],
                          now, POP_CLOCK_TOLERANCE_SECONDS)
@@ -289,7 +305,7 @@ def verify_chain_invocation(raw_chain: dict[str, Any],
             "verified_invariants": [
                 "full-compact-aat-chain-verified-first",
                 "leaf-capability-and-invocation-constraints",
-                "leaf-cn f-jwk-ed25519-pop-signature",
+                "leaf-cnf-jwk-ed25519-pop-signature",
                 "aat_id-bound-to-verified-leaf-jti",
                 "aat_tool-equals-invocation",
                 "hta-canonical-equality-with-invocation-arguments",
