@@ -53,7 +53,7 @@ jobs:
             mycelix-governance/tools/formal/test_aat_capability_subsumption.py \
             mycelix-governance/tools/formal/delegation_chain_compact_jws.py \
             mycelix-governance/tools/formal/test_delegation_chain_compact_jws.py \
-            mycelix-governance/tools/formal/test_aggregate_auth_v20_evidence.py
+            mycelix-governance/tools/formal/test_aggregate_auth_v20_evidence.py \
             mycelix-governance/tools/formal/delegation_chain_pop.py \
             mycelix-governance/tools/formal/test_delegation_chain_pop.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json >/dev/null
