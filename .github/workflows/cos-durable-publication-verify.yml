@@ -63,7 +63,7 @@ jobs:
           test -n "${RELEASE_TAG}"
           test -n "${ASSET_NAME}"
           gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
-            --json id,tagName,isDraft,isImmutable,isPrerelease,publishedAt,targetCommitish,assets \
+            --json id,tagName,isDraft,isImmutable,isLatest,isPrerelease,publishedAt,targetCommitish,assets \
             > release.json
           python - <<'PY'
           import json
@@ -72,12 +72,14 @@ jobs:
 
           data = json.loads(Path("release.json").read_text())
           assert set(data) == {
-              "id", "tagName", "isDraft", "isImmutable",
+              "id", "tagName", "isDraft", "isImmutable", "isLatest",
               "isPrerelease", "publishedAt", "targetCommitish", "assets"
           }
           assert data["tagName"] == os.environ["RELEASE_TAG"]
           assert data["isDraft"] is False
           assert data["isImmutable"] is True
+          assert data["isLatest"] is False
+          assert data["isPrerelease"] is False
           assert data["publishedAt"]
           assert isinstance(data["assets"], list)
           matches = [asset for asset in data["assets"] if asset.get("name") == os.environ["ASSET_NAME"]]
@@ -171,14 +173,18 @@ jobs:
             echo "durable archive contains unsafe path entries" >&2
             exit 1
           fi
-          expected=''
           python - <<'PY'
           from pathlib import Path
           required={
+              "durable-publication-manifest-v1.json",
               "qualification-manifest-v1.json",
               "qualification-attestation-predicate-v3.json",
               "attestor-run-receipt.json",
-              "attestation-bundle-publication-verification.json",
+              "qualification-attestation-bundle.json",
+              "environment-policy-v1.json",
+              "effective-main-rules-v1.json",
+              "main-branch-policy-v1.json",
+              "main-ruleset-governance-v1.json",
               "SHA256SUMS",
           }
           members={line.strip().rstrip('/') for line in Path("durable-members.txt").read_text().splitlines() if line.strip()}
@@ -223,8 +229,8 @@ jobs:
           assert isinstance(signer_sha, str) and len(signer_sha) == 40 and all(ch in '0123456789abcdef' for ch in signer_sha)
           Path('attestor-signer-workflow-sha.txt').write_text(signer_sha + '\n')
           PY
-          gh api --method GET "repos/${GITHUB_REPOSITORY}/contents/.github/cos/qualification-trust-root-v2.json" -f "ref=${EXPECTED_MAIN_SHA}" > trust-root-api-response.json
-          gh api --method GET "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/cos-conformance-qualification-attestor.yml" -f "ref=$(cat attestor-signer-workflow-sha.txt)" > attestor-workflow-api-response.json
+          gh api -H 'X-GitHub-Api-Version: 2026-03-10' --method GET "repos/${GITHUB_REPOSITORY}/contents/.github/cos/qualification-trust-root-v2.json" -f "ref=${EXPECTED_MAIN_SHA}" > trust-root-api-response.json
+          gh api -H 'X-GitHub-Api-Version: 2026-03-10' --method GET "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/cos-conformance-qualification-attestor.yml" -f "ref=$(cat attestor-signer-workflow-sha.txt)" > attestor-workflow-api-response.json
           python - <<'PY'
           import base64
           import hashlib
@@ -284,6 +290,24 @@ jobs:
               out.write(f'attestor_workflow_content_sha256={content_sha256}\n')
           PY
 
+      - name: Verify archived signed qualification attestation
+        env:
+          EXPECTED_PREDICATE_TYPE: https://luminousdynamics.io/attestations/mycelix-cos-qualification/v1
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/cos-conformance-qualification-attestor.yml
+          SIGNER_DIGEST: ${{ steps.reconcile.outputs.attestor_workflow_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh attestation verify durable-extracted/qualification-manifest-v1.json \
+            --repo "${GITHUB_REPOSITORY}" \
+            --bundle durable-extracted/qualification-attestation-bundle.json \
+            --predicate-type "${EXPECTED_PREDICATE_TYPE}" \
+            --signer-workflow "${SIGNER_WORKFLOW}" \
+            --signer-digest "${SIGNER_DIGEST}" \
+            --deny-self-hosted-runners \
+            --format json > archived-attestation-verification.json
+          test -s archived-attestation-verification.json
+
       - name: Validate durable subject semantics
         env:
           EXPECTED_CLAIM_ID: ${{ inputs.expected_claim_id }}
@@ -292,9 +316,14 @@ jobs:
           EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}
           EXPECTED_PREDICATE_TYPE: https://luminousdynamics.io/attestations/mycelix-cos-qualification/v1
           EXPECTED_ATTESTOR_WORKFLOW_SHA: ${{ steps.reconcile.outputs.attestor_workflow_sha }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          ASSET_NAME: ${{ inputs.asset_name }}
+          EXPECTED_ATTESTOR_WORKFLOW_BLOB_SHA1: ${{ steps.reconcile.outputs.attestor_workflow_git_blob_sha1 }}
+          EXPECTED_ATTESTOR_WORKFLOW_CONTENT_SHA256: ${{ steps.reconcile.outputs.attestor_workflow_content_sha256 }}
         run: |
           set -euo pipefail
           EXPECTED_CLAIM_ID="${EXPECTED_CLAIM_ID}" EXPECTED_MANIFEST_SHA256="${EXPECTED_MANIFEST_SHA256}" EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" EXPECTED_REPOSITORY_ID="${EXPECTED_REPOSITORY_ID}" EXPECTED_PREDICATE_TYPE="${EXPECTED_PREDICATE_TYPE}" EXPECTED_ATTESTOR_WORKFLOW_SHA="${EXPECTED_ATTESTOR_WORKFLOW_SHA}" python - <<'PY'
+          import fnmatch
           import hashlib
           import json
           import os
@@ -316,15 +345,232 @@ jobs:
               return result
 
           root=Path('durable-extracted')
+          durable_manifest_path=root/'durable-publication-manifest-v1.json'
+          bundle_path=root/'qualification-attestation-bundle.json'
+          durable_manifest=strict(durable_manifest_path.read_text())
+          bundle_raw=bundle_path.read_bytes()
+          bundle_sha256=hashlib.sha256(bundle_raw).hexdigest()
+          def verify_self_hashed_projection(path, schema):
+              data=json.loads(
+                  Path(path).read_text(),
+                  object_pairs_hook=duplicate_reject,
+                  parse_constant=lambda value: (_ for _ in ()).throw(ValueError(f'non-standard JSON constant: {value}'))
+              )
+              assert data['schema']==schema
+              digest=data.pop('sha256')
+              canonical=json.dumps(data,sort_keys=True,separators=(',',':')).encode('utf-8')
+              assert digest==hashlib.sha256(canonical).hexdigest()
+              return data,digest
+
+          def ruleset_applies_to_main(conditions):
+              if not isinstance(conditions,dict):
+                  return True
+              ref=conditions.get('ref_name')
+              if ref is None or not isinstance(ref,dict):
+                  return True
+              include,exclude=ref.get('include'),ref.get('exclude')
+              if not isinstance(include,list) or not isinstance(exclude,list) or not include:
+                  return True
+              patterns=include+exclude
+              if any(not isinstance(value,str) for value in patterns):
+                  return True
+              def recognized(value):
+                  return value in ('~ALL','~DEFAULT_BRANCH') or value.startswith('refs/heads/') or value.startswith('refs/tags/')
+              if any(not recognized(value) for value in patterns):
+                  return True
+              def matches(value):
+                  if value in ('~ALL','~DEFAULT_BRANCH'):
+                      return True
+                  return fnmatch.fnmatchcase('refs/heads/main',value) or fnmatch.fnmatchcase('main',value)
+              return any(matches(value) for value in include) and not any(matches(value) for value in exclude)
+          environment_policy,environment_policy_sha=verify_self_hashed_projection(root/'environment-policy-v1.json','MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1')
+          effective_rules,effective_rules_sha=verify_self_hashed_projection(root/'effective-main-rules-v1.json','MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1')
+          main_branch_policy,main_branch_policy_sha=verify_self_hashed_projection(root/'main-branch-policy-v1.json','MYCELIX-COS-PROTECTED-MAIN-POLICY-V1')
+          main_ruleset_governance,main_ruleset_governance_sha=verify_self_hashed_projection(root/'main-ruleset-governance-v1.json','MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1')
+          release=json.loads(Path('release.json').read_text())
           manifest_path=root/'qualification-manifest-v1.json'
           predicate_path=root/'qualification-attestation-predicate-v3.json'
           receipt_path=root/'attestor-run-receipt.json'
-          publication_path=root/'attestation-bundle-publication-verification.json'
           manifest_raw=manifest_path.read_bytes()
           manifest=strict(manifest_raw.decode('utf-8'))
           predicate=strict(predicate_path.read_text())
           receipt=strict(receipt_path.read_text())
-          publication=strict(publication_path.read_text())
+          assert receipt['attestation']['bundle_sha256'] == bundle_sha256
+          assert set(durable_manifest) == {
+              'schema','repository','repository_id','release_tag',
+              'asset_name','expected_main_sha','qualification_claim_id',
+              'qualification_manifest_sha256','predicate_sha256','predicate_type','publication_profile',
+              'claim_ceiling', 'trust_root_manifest_blob_sha1', 'trust_root_manifest_sha256',
+              'trust_root_main_snapshot_sha','publication_handoff_sha256',
+              'attestor_run_id','attestor_run_attempt','attestor_artifact_id','attestor_artifact_digest',
+              'verifier_run_id','verifier_run_attempt','signing_input_artifact_id','signing_input_artifact_digest',
+              'environment_policy_sha256','effective_main_rules_sha256','main_branch_policy_sha256',
+               'main_ruleset_governance_sha256',
+              'attestor_workflow_path','attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256',
+              'signed_attestation_bundle_sha256','publication_handoff_basis','files'
+          }
+          assert durable_manifest['schema'] == 'MYCELIX-COS-DURABLE-PUBLICATION-MANIFEST-V1'
+          assert durable_manifest['environment_policy_sha256']==environment_policy_sha
+          assert durable_manifest['effective_main_rules_sha256']==effective_rules_sha
+          assert durable_manifest['main_branch_policy_sha256']==main_branch_policy_sha
+          assert durable_manifest['main_ruleset_governance_sha256']==main_ruleset_governance_sha
+          assert environment_policy['name']=='cos-durable-publication'
+          assert environment_policy['prevent_self_review'] is True
+          assert environment_policy['required_reviewers']
+          assert environment_policy['deployment_branch_policy']=={'protected_branches':True,'custom_branch_policies':False}
+          assert effective_rules['branch']=='refs/heads/main'
+          assert isinstance(effective_rules['rules'],list)
+          assert main_branch_policy['branch']=='refs/heads/main'
+          assert main_branch_policy['enforce_admins'] is True
+          assert main_branch_policy['required_approving_review_count']>=1
+          assert main_branch_policy['required_status_checks']['checks']
+          assert main_branch_policy['allow_force_pushes'] is False
+          assert main_branch_policy['allow_deletions'] is False
+          assert 'additional_policy' in main_branch_policy
+          assert 'required_signatures' in main_branch_policy['additional_policy']
+          assert 'restrictions' in main_branch_policy['additional_policy']
+          assert 'lock_branch' in main_branch_policy['additional_policy']
+          assert 'block_creations' in main_branch_policy['additional_policy']
+          assert 'allow_fork_syncing' in main_branch_policy['additional_policy']
+          assert environment_policy['schema']=='MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1'
+          assert effective_rules['schema']=='MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1'
+          assert main_branch_policy['schema']=='MYCELIX-COS-PROTECTED-MAIN-POLICY-V1'
+          assert main_ruleset_governance['schema']=='MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1'
+          assert main_ruleset_governance['repository']==durable_manifest['repository']
+          assert main_ruleset_governance['repository_id']==durable_manifest['repository_id']
+          assert main_ruleset_governance['branch']=='refs/heads/main'
+          assert isinstance(main_ruleset_governance['rulesets'],list)
+          rulesets=main_ruleset_governance['rulesets']
+          rule_ids=[item.get('id') for item in rulesets]
+          assert all(type(value) is int and value>0 for value in rule_ids)
+          assert len(rule_ids)==len(set(rule_ids))
+          assert rulesets==sorted(rulesets,key=lambda item:(item['source_type'],item['source'],item['id']))
+          actor_types={'Integration','OrganizationAdmin','RepositoryRole','Team','DeployKey','User','EnterpriseOwner','EnterpriseRole'}
+          bypass_modes={'always','pull_request','exempt'}
+          for ruleset in rulesets:
+              assert ruleset['target']=='branch'
+              assert ruleset['enforcement'] in ('active','evaluate','disabled')
+              assert isinstance(ruleset['name'],str) and isinstance(ruleset['source_type'],str) and isinstance(ruleset['source'],str)
+              assert isinstance(ruleset['rules'],list) and isinstance(ruleset['conditions'],dict)
+              assert isinstance(ruleset['created_at'],str) and isinstance(ruleset['updated_at'],str)
+              assert ruleset['applicable_to_main'] is ruleset_applies_to_main(ruleset['conditions'])
+              actors=ruleset['bypass_actors']
+              assert isinstance(actors,list)
+              for actor in actors:
+                  assert isinstance(actor,dict) and 'actor_id' in actor
+                  actor_type=actor.get('actor_type')
+                  bypass_mode=actor.get('bypass_mode')
+                  assert actor_type in actor_types and bypass_mode in bypass_modes
+                  actor_id=actor['actor_id']
+                  if actor_type=='DeployKey':
+                      assert actor_id is None and bypass_mode!='pull_request'
+                  elif actor_type in ('OrganizationAdmin','EnterpriseOwner'):
+                      assert actor_id is None or (type(actor_id) is int and actor_id>0)
+                  else:
+                      assert type(actor_id) is int and actor_id>0
+              assert actors==sorted(actors,key=lambda actor:(actor['actor_type'],-1 if actor['actor_id'] is None else actor['actor_id'],actor['bypass_mode']))
+              if ruleset['applicable_to_main'] and ruleset['enforcement']=='active':
+                  assert not actors, f"active main-applicable ruleset has bypass actors: {ruleset['id']}"
+          assert durable_manifest['environment_policy_sha256']==environment_policy_sha
+          assert durable_manifest['effective_main_rules_sha256']==effective_rules_sha
+          assert durable_manifest['main_branch_policy_sha256']==main_branch_policy_sha
+          assert durable_manifest['main_ruleset_governance_sha256']==main_ruleset_governance_sha
+          assert durable_manifest['files']['environment-policy-v1.json']==hashlib.sha256((root/'environment-policy-v1.json').read_bytes()).hexdigest()
+          assert durable_manifest['files']['effective-main-rules-v1.json']==hashlib.sha256((root/'effective-main-rules-v1.json').read_bytes()).hexdigest()
+          assert durable_manifest['files']['main-branch-policy-v1.json']==hashlib.sha256((root/'main-branch-policy-v1.json').read_bytes()).hexdigest()
+          assert durable_manifest['files']['main-ruleset-governance-v1.json']==hashlib.sha256((root/'main-ruleset-governance-v1.json').read_bytes()).hexdigest()
+          assert durable_manifest['repository'] == os.environ['GITHUB_REPOSITORY']
+          assert durable_manifest['repository_id'] == int(os.environ['EXPECTED_REPOSITORY_ID'])
+          assert durable_manifest['release_tag'] == os.environ['RELEASE_TAG']
+          assert durable_manifest['release_tag'] == f"cos-qualification-{durable_manifest['qualification_claim_id']}"
+          assert durable_manifest['asset_name'] == os.environ['ASSET_NAME']
+          assert durable_manifest['expected_main_sha'] == os.environ['EXPECTED_MAIN_SHA']
+          assert durable_manifest['qualification_claim_id'] == os.environ['EXPECTED_CLAIM_ID']
+          assert durable_manifest['qualification_manifest_sha256'] == os.environ['EXPECTED_MANIFEST_SHA256']
+          assert durable_manifest['predicate_type'] == os.environ['EXPECTED_PREDICATE_TYPE']
+          # GitHub's numeric release ID is publication-instance metadata, not durable evidence; keep it only in the external observation.
+          assert durable_manifest['publication_profile'] == 'CONTENT-ADDRESSED-DURABLE-PUBLICATION-V1'
+          assert durable_manifest['claim_ceiling'] == 'ReferenceModelOnly'
+          assert durable_manifest['trust_root_manifest_sha256'] == receipt['trust_root']['manifest_sha256']
+          assert durable_manifest['trust_root_manifest_blob_sha1'] == receipt['trust_root']['manifest_blob_sha1']
+          assert durable_manifest['trust_root_main_snapshot_sha'] == receipt['trust_root']['main_snapshot_sha']
+          assert durable_manifest['trust_root_main_snapshot_sha'] == os.environ['EXPECTED_MAIN_SHA']
+          handoff_basis=durable_manifest['publication_handoff_basis']
+          expected_basis_keys={
+              'schema','repository','repository_id','release_tag','asset_name','claim_id','expected_main_sha',
+              'manifest_sha256','predicate_sha256','bundle_sha256','predicate_type','publication_profile','claim_ceiling',
+              'attestor_run_id','attestor_run_attempt','attestor_artifact_id','attestor_artifact_digest',
+              'verifier_run_id','verifier_run_attempt','signing_input_artifact_id','signing_input_artifact_digest',
+              'attestor_workflow_sha','attestor_workflow_ref','trust_root_manifest_sha256','trust_root_manifest_blob_sha1',
+              'trust_root_main_snapshot_sha','environment_policy_sha256','effective_main_rules_sha256'
+          }
+          assert set(handoff_basis)==expected_basis_keys
+          assert handoff_basis['schema']=='MYCELIX-COS-DURABLE-PUBLICATION-HANDOFF-BASIS-V1'
+          expected_handoff=hashlib.sha256(json.dumps(handoff_basis,sort_keys=True,separators=(',',':')).encode('utf-8')).hexdigest()
+          assert expected_handoff==durable_manifest['publication_handoff_sha256']
+          assert handoff_basis['repository']==durable_manifest['repository']
+          assert handoff_basis['repository_id']==durable_manifest['repository_id']
+          assert handoff_basis['release_tag']==durable_manifest['release_tag']
+          assert handoff_basis['asset_name']==durable_manifest['asset_name']
+          assert handoff_basis['expected_main_sha']==durable_manifest['expected_main_sha']
+          assert handoff_basis['claim_id']==durable_manifest['qualification_claim_id']==receipt['qualification_claim_id']
+          assert handoff_basis['manifest_sha256']==durable_manifest['qualification_manifest_sha256']==hashlib.sha256(manifest_raw).hexdigest()
+          assert handoff_basis['predicate_sha256']==durable_manifest['predicate_sha256']==hashlib.sha256(predicate_path.read_bytes()).hexdigest()
+          assert handoff_basis['bundle_sha256']==durable_manifest['signed_attestation_bundle_sha256']==bundle_sha256
+          assert handoff_basis['predicate_type']==durable_manifest['predicate_type']==predicate['predicate_type']
+          assert handoff_basis['publication_profile']==durable_manifest['publication_profile']
+          assert handoff_basis['claim_ceiling']==durable_manifest['claim_ceiling']
+          assert handoff_basis['attestor_run_id']==durable_manifest['attestor_run_id']==receipt['attestor']['run_id']
+          assert handoff_basis['attestor_run_attempt']==durable_manifest['attestor_run_attempt']==receipt['attestor']['run_attempt']
+          assert handoff_basis['attestor_artifact_id']==durable_manifest['attestor_artifact_id']
+          assert handoff_basis['attestor_artifact_digest']==durable_manifest['attestor_artifact_digest']
+          assert handoff_basis['verifier_run_id']==durable_manifest['verifier_run_id']==receipt['verifier_run']['id']
+          assert handoff_basis['verifier_run_attempt']==durable_manifest['verifier_run_attempt']==receipt['verifier_run']['attempt']
+          assert handoff_basis['signing_input_artifact_id']==durable_manifest['signing_input_artifact_id']==receipt['signing_input_artifact']['id']
+          assert handoff_basis['signing_input_artifact_digest']==durable_manifest['signing_input_artifact_digest']==receipt['signing_input_artifact']['digest']
+          assert handoff_basis['attestor_workflow_sha']==durable_manifest['attestor_workflow_sha']
+          assert handoff_basis['attestor_workflow_ref']==durable_manifest['attestor_workflow_path']
+          assert handoff_basis['trust_root_manifest_sha256']==durable_manifest['trust_root_manifest_sha256']==receipt['trust_root']['manifest_sha256']
+          assert handoff_basis['trust_root_manifest_blob_sha1']==durable_manifest['trust_root_manifest_blob_sha1']==receipt['trust_root']['manifest_blob_sha1']
+          assert handoff_basis['trust_root_main_snapshot_sha']==durable_manifest['trust_root_main_snapshot_sha']==receipt['trust_root']['main_snapshot_sha']
+          assert handoff_basis['environment_policy_sha256']==durable_manifest['environment_policy_sha256']
+          assert handoff_basis['effective_main_rules_sha256']==durable_manifest['effective_main_rules_sha256']
+          assert durable_manifest['attestor_run_id'] == receipt['attestor']['run_id']
+          assert durable_manifest['attestor_run_attempt'] == receipt['attestor']['run_attempt']
+          assert durable_manifest['verifier_run_id'] == receipt['verifier_run']['id']
+          assert durable_manifest['verifier_run_attempt'] == receipt['verifier_run']['attempt']
+          assert durable_manifest['signing_input_artifact_id'] == receipt['signing_input_artifact']['id']
+          assert durable_manifest['signing_input_artifact_digest'] == receipt['signing_input_artifact']['digest']
+          assert durable_manifest['attestor_artifact_id'] > 0
+          assert durable_manifest['attestor_artifact_digest'].startswith('sha256:')
+          assert len(durable_manifest['environment_policy_sha256']) == 64 and all(ch in '0123456789abcdef' for ch in durable_manifest['environment_policy_sha256'])
+          assert durable_manifest['attestor_workflow_git_blob_sha1'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_BLOB_SHA1']
+          assert durable_manifest['attestor_workflow_content_sha256'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_CONTENT_SHA256']
+          assert durable_manifest['attestor_workflow_path'] == receipt['attestor']['workflow_ref']
+          assert durable_manifest['attestor_workflow_sha'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_SHA']
+          assert durable_manifest['signed_attestation_bundle_sha256'] == bundle_sha256
+          assert durable_manifest['files'] == {
+              'qualification-manifest-v1.json': hashlib.sha256((root/'qualification-manifest-v1.json').read_bytes()).hexdigest(),
+              'qualification-attestation-predicate-v3.json': hashlib.sha256((root/'qualification-attestation-predicate-v3.json').read_bytes()).hexdigest(),
+              'attestor-run-receipt.json': hashlib.sha256((root/'attestor-run-receipt.json').read_bytes()).hexdigest(),
+              'qualification-attestation-bundle.json': bundle_sha256,
+              'environment-policy-v1.json': hashlib.sha256((root/'environment-policy-v1.json').read_bytes()).hexdigest(),
+              'effective-main-rules-v1.json': hashlib.sha256((root/'effective-main-rules-v1.json').read_bytes()).hexdigest(),
+              'main-branch-policy-v1.json': hashlib.sha256((root/'main-branch-policy-v1.json').read_bytes()).hexdigest(),
+              'main-ruleset-governance-v1.json': hashlib.sha256((root/'main-ruleset-governance-v1.json').read_bytes()).hexdigest(),
+          }
+          assert set(durable_manifest['files']) == {
+              'qualification-manifest-v1.json','qualification-attestation-predicate-v3.json',
+              'attestor-run-receipt.json','qualification-attestation-bundle.json',
+              'environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json',
+              'main-ruleset-governance-v1.json',
+          }
+          assert durable_manifest['attestor_workflow_path'] == f"{os.environ['GITHUB_REPOSITORY']}/.github/workflows/cos-conformance-qualification-attestor.yml@refs/heads/main"
+          assert durable_manifest['attestor_workflow_sha'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_SHA']
+          assert len(os.environ['EXPECTED_ATTESTOR_WORKFLOW_BLOB_SHA1']) == 40
+          assert len(os.environ['EXPECTED_ATTESTOR_WORKFLOW_CONTENT_SHA256']) == 64
+          assert os.environ['EXPECTED_ATTESTOR_WORKFLOW_CONTENT_SHA256']
+          assert isinstance(json.loads(Path('archived-attestation-verification.json').read_text()), list)
 
           assert hashlib.sha256(manifest_raw).hexdigest() == os.environ['EXPECTED_MANIFEST_SHA256']
           assert predicate['schema'] == 'MYCELIX-COS-QUALIFICATION-ATTESTATION-PREDICATE-V3'
@@ -343,11 +589,6 @@ jobs:
           assert receipt['qualification_topology']['head_sha'] == os.environ['EXPECTED_MAIN_SHA']
           assert receipt['attestor']['workflow_sha'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_SHA']
           assert receipt['attestor']['workflow_ref'] == f"{os.environ['GITHUB_REPOSITORY']}/.github/workflows/cos-conformance-qualification-attestor.yml@refs/heads/main"
-          assert publication['schema'] == 'MYCELIX-COS-ATTESTATION-BUNDLE-VERIFICATION-V1'
-          assert publication['repository_id'] == int(os.environ['EXPECTED_REPOSITORY_ID'])
-          assert publication['subject_digest'] == os.environ['EXPECTED_MANIFEST_SHA256']
-          assert publication['predicate_type'] == os.environ['EXPECTED_PREDICATE_TYPE']
-          assert publication['state'] == 'DiscoverableAndVerifiable'
           PY
 
       - name: Record durable verification state
@@ -363,41 +604,60 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
-          import json
-          import os
+          import hashlib,json,os
           from pathlib import Path
-          release=json.loads(Path('release.json').read_text())
-          asset=json.loads(Path('release-asset-metadata.json').read_text())
+          def reject_duplicate_keys(pairs):
+              result={}
+              for key,value in pairs:
+                  if key in result: raise ValueError(f'duplicate JSON key: {key}')
+                  result[key]=value
+              return result
+          def reject_constant(value): raise ValueError(f'non-standard JSON constant: {value}')
+          release=json.loads(Path('release.json').read_text(),object_pairs_hook=reject_duplicate_keys,parse_constant=reject_constant)
+          asset=json.loads(Path('release-asset-metadata.json').read_text(),object_pairs_hook=reject_duplicate_keys,parse_constant=reject_constant)
+          durable_manifest=json.loads(Path('durable-extracted/durable-publication-manifest-v1.json').read_text(),object_pairs_hook=reject_duplicate_keys,parse_constant=reject_constant)
           observation={
-              'schema':'MYCELIX-COS-DURABLE-PUBLICATION-VERIFICATION-V1',
+              'schema':'MYCELIX-COS-DURABLE-PUBLICATION-OBSERVATION-V2',
               'repository':os.environ['GITHUB_REPOSITORY'],
               'repository_id':int(os.environ['GITHUB_REPOSITORY_ID']),
               'release_tag':os.environ['RELEASE_TAG'],
               'release_id':release['id'],
               'immutable':release['isImmutable'],
+              'is_latest':release['isLatest'],
+              'is_prerelease':release['isPrerelease'],
               'asset_name':os.environ['ASSET_NAME'],
               'asset_digest':asset['digest'],
               'expected_main_sha':os.environ['EXPECTED_MAIN_SHA'],
               'qualification_claim_id':os.environ['EXPECTED_CLAIM_ID'],
+              'qualification_manifest_sha256':os.environ['EXPECTED_MANIFEST_SHA256'],
+              'durable_publication_manifest_sha256':hashlib.sha256(Path('durable-extracted/durable-publication-manifest-v1.json').read_bytes()).hexdigest(),
+              'signed_attestation_bundle_sha256':hashlib.sha256(Path('durable-extracted/qualification-attestation-bundle.json').read_bytes()).hexdigest(),
+              'publication_handoff_sha256':durable_manifest['publication_handoff_sha256'],
               'attestor_workflow_sha':os.environ['ATTESTOR_WORKFLOW_SHA'],
               'attestor_workflow_git_blob_sha1':os.environ['ATTESTOR_WORKFLOW_BLOB_SHA1'],
               'attestor_workflow_content_sha256':os.environ['ATTESTOR_WORKFLOW_CONTENT_SHA256'],
-              'qualification_manifest_sha256':os.environ['EXPECTED_MANIFEST_SHA256'],
+              'environment_policy_sha256':durable_manifest['environment_policy_sha256'],
+              'effective_main_rules_sha256':durable_manifest['effective_main_rules_sha256'],
+              'main_branch_policy_sha256':durable_manifest['main_branch_policy_sha256'],
+              'main_ruleset_governance_sha256':durable_manifest['main_ruleset_governance_sha256'],
               'state':'DurableAndVerifiable',
           }
-          assert set(observation) == {
-              'schema','repository','repository_id','release_tag','release_id',
-              'immutable','asset_name','asset_digest','expected_main_sha',
-              'qualification_claim_id','attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256','qualification_manifest_sha256','state'
+          assert set(observation)=={
+              'schema','repository','repository_id','release_tag','release_id','immutable','is_latest','is_prerelease',
+              'asset_name','asset_digest','expected_main_sha','qualification_claim_id','qualification_manifest_sha256',
+              'durable_publication_manifest_sha256','signed_attestation_bundle_sha256','publication_handoff_sha256',
+              'attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256',
+              'environment_policy_sha256','effective_main_rules_sha256','main_branch_policy_sha256','main_ruleset_governance_sha256','state'
           }
+          assert observation['immutable'] is True and observation['is_latest'] is False and observation['is_prerelease'] is False
           Path('durable-publication-verification.json').write_text(json.dumps(observation,indent=2,sort_keys=True)+'\n')
           PY
-
       - name: Preserve verifier observation
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a0 # v7.0.1
         with:
           name: cos-durable-publication-verification-${{ inputs.expected_claim_id }}
           path: |
+            archived-attestation-verification.json
             attestor-signer-root-reconciliation.json
             attestor-signer-workflow-sha.txt
             expected-trust-root.json
