@@ -145,6 +145,8 @@ jobs:
               raise SystemExit("adapter is missing the below-floor SQLite regression")
           if "fn linked_sqlite_includes_wal_reset_fix()" not in source_lib:
               raise SystemExit("adapter is missing the linked SQLite version regression")
+          if "fn receipt_sequence_above_sqlite_integer_range_fails_without_state_mutation()" not in source_lib:
+              raise SystemExit("adapter is missing the mutation-free receipt integer-range regression")
           PY
           printf 'checker_commit_sha=%s\nchecker_blob_sha=%s\nsource_adapter_commit=%s\nsource_adapter_blob_sha=%s\nsource_toolchain_blob_sha=%s\nsource_workspace_manifest_blob_sha=%s\nsource_lockfile_blob_sha=%s\nsource_rust_version=%s\nsource_rusqlite_version=%s\nsource_libsqlite3_sys_version=%s\nsource_bundled_sqlite_min_version_number=%s\nsource_bundled_sqlite_version=%s\nsource_bundled_sqlite_version_number=%s\n' "$checker_commit" "$actual_checker_blob" "$actual_source_commit" "$actual_source_blob" "$actual_toolchain_blob" "$actual_workspace_manifest_blob" "$actual_lockfile_blob" "$actual_rust_version" "$expected_rusqlite_version" "$expected_libsqlite3_sys_version" "$expected_sqlite_min_version_number" "$expected_bundled_sqlite_version" "$expected_bundled_sqlite_version_number"
 
