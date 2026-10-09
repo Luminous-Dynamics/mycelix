@@ -2,7 +2,7 @@
 
 **Profile ID:** `civ-013-durable-adapter-v1`  
 **Status:** experimental reference profile; not production qualification.  
-**Source adapter revision:** [Symthaea commit `5a73c08b5a9e6f2bec036c29cbd6c3e071b4ea9a`](https://github.com/Luminous-Dynamics/symthaea/commit/5a73c08b5a9e6f2bec036c29cbd6c3e071b4ea9a)  
+**Source adapter revision:** [Symthaea commit `44252bba3fd550732cef424b5e8a59b6bcbbfc1c`](https://github.com/Luminous-Dynamics/symthaea/commit/44252bba3fd550732cef424b5e8a59b6bcbbfc1c)  
 **Golden vectors:** [civ-013-durable-witness-conformance-v1.json](civ-013-durable-witness-conformance-v1.json)  
 **Manifest:** [civ-013-durable-witness-conformance-v1-manifest.json](civ-013-durable-witness-conformance-v1-manifest.json)  
 **Independent checker:** [verify_civ013_durable_witness_conformance_v1.py](../../scripts/integral/verify_civ013_durable_witness_conformance_v1.py)  
