@@ -98,6 +98,14 @@ The profile's transition vectors are an independent abstract reference for these
 
 The adapter permits idempotent success for both an exact same-generation retry and a historical candidate after another process recovered its prepared candidate and advanced to a later generation. That exception must not treat a correctly sized digest as proof of a correct head pointer or a well-shaped stored row as a self-consistent record. Before returning success for a historical candidate, the adapter checks that the metadata head row exists, is accepted, and its digest matches the record row at the metadata generation; it then validates the accepted history and recomputes record digests in the same transaction snapshot. DA025–DA027 capture valid pointer matching, pointer mismatch, and field tampering under an unchanged digest column. Any mismatch is corruption, not idempotent success.
 
+## Fork-evidence tail commitment
+
+Fork evidence is append-only within the SQLite adapter, but validating only the rows that remain cannot detect deletion of the final row: the shortened prefix can still be a valid hash chain. The local schema therefore stores a per-log `witness_fork_meta` commitment with the evidence count and tail digest. Each append updates the evidence row and this commitment in the same `BEGIN IMMEDIATE` transaction. Reads fail closed if the row count or current chain tail disagrees with the commitment.
+
+DA031 deletes the last evidence row while leaving the count/tail commitment untouched; DA032 leaves all evidence rows in place but mutates the persisted tail digest. Both must return `CorruptForkEvidence`.
+
+This is local truncation/corruption detection, not a tamper-proof external anchor. An actor who can rewrite or restore both the evidence rows and their local commitment can still roll them back together; anti-rollback for evidence history needs an independent trust domain.
+
 ## Per-log fork chain boundary
 
 Each SQLite fork-evidence chain is queried and validated for one exact `log_id`. The hash preimage binds the log ID, but hash validity alone does not prove that a sequence of individually valid records belongs to one chain. DA021 checks a cross-log splice and requires rejection.
