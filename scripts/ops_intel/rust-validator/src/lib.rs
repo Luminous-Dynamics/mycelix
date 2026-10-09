@@ -841,7 +841,8 @@ mod tests {
     fn rejects_duplicate_predicate_ids() {
         let mut docs = load_real_fixture();
         let items = docs.get_mut("predicates").unwrap()["predicates"].as_array_mut().unwrap();
-        items[1]["id"] = items[0]["id"].clone();
+        let first_id = items[0]["id"].clone();
+        items[1]["id"] = first_id;
         assert!(validate_documents(&docs).iter().any(|e| e.contains("duplicate id values")));
     }
 
