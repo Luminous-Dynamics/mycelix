@@ -145,6 +145,40 @@ jobs:
             exit 1
           }
 
+          grep -Fq 'execution_action_hash' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: resolution lacks an exact Execution source-action root."
+            exit 1
+          }
+
+          grep -Fq 'timelock_action_hash' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: resolution lacks an exact Timelock source-action root."
+            exit 1
+          }
+
+          grep -Fq 'must_get_valid_record(execution_hash)' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: execution source-action root is not dereferenced by integrity validation."
+            exit 1
+          }
+
+          grep -Fq 'must_get_valid_record(timelock_hash)' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: timelock source-action root is not dereferenced by integrity validation."
+            exit 1
+          }
+
+          grep -Fq 'check_resolution_execution_scope' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: prepared Execution scope is not validated."
+            exit 1
+          }
+
+          grep -Fq 'check_resolution_timelock_scope' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: prepared Timelock scope is not validated."
+            exit 1
+          }
+
+          grep -Fq 'Resolution bindings must not reuse attempt/action/proof roots' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
+            echo "NOT QUALIFIED: duplicate binding roots are not rejected."
+            exit 1
+          }
           grep -Fq 'ExecutionResolutionBindingV1' 'mycelix-governance/zomes/execution/integrity/src/lib.rs' || {
             echo "NOT QUALIFIED: proof roots are not grouped into typed per-action bindings."
             exit 1
