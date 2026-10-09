@@ -635,6 +635,18 @@
       "source_rusqlite_version": "0.39.0",
       "source_libsqlite3_sys_version": "0.37.0",
       "claim": "Adapter must refuse a runtime below the WAL-reset fix floor"
+    },
+    {
+      "id": "DA041-coordinated-local-fork-erasure-outside-claim",
+      "kind": "fork_evidence_full_erasure_boundary",
+      "expected_outcome": "UnanchoredForkEvidenceErasure",
+      "log_id": "durable-fixture-log-001",
+      "local_fork_evidence_rows_present": false,
+      "local_fork_meta_present": false,
+      "external_anchor_has_fork_frontier": false,
+      "external_anchor_tracks_accepted_head_only": true,
+      "claim_includes_hostile_full_database_rewrite": false,
+      "required_behavior": "Do not claim fork-audit continuity; require independent fork witness or fail closed."
     }
   ],
   "claim_ceiling": "Durable-adapter golden-reference and abstract-transition conformance only. Local fork-evidence count/tail metadata detects inconsistent surviving state but is not independently anchored; coordinated erasure or rollback of both fork-evidence rows and local metadata is outside this claim. Does not establish actual SQLite tests passed, filesystem crash/power-loss durability, a genuine independent external anchor, bootstrap caller authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback."
