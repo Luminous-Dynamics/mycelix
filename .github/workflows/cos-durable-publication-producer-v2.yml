@@ -941,6 +941,22 @@ jobs:
             echo "release tag changed or resolves incorrectly at publication boundary" >&2
             exit 1
           }
+          asset_name="cos-durable-${claim_id}.tar.gz"
+          expected_asset_sha="$(sha256sum "${asset_name}" | awk '{print $1}')"
+          GH_TOKEN="${release_token}" gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json id,tagName,isDraft,isImmutable,isLatest,isPrerelease,targetCommitish,assets > prepublish-release.json
+          EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" EXPECTED_ASSET_SHA="${expected_asset_sha}" RELEASE_TAG="${RELEASE_TAG}" ASSET_NAME="${asset_name}" python - <<'PY'
+          import json,os
+          from pathlib import Path
+          release=json.loads(Path('prepublish-release.json').read_text())
+          assert release['tagName']==os.environ['RELEASE_TAG']
+          assert release['isDraft'] is True and release['isImmutable'] is False
+          assert release['isLatest'] is False and release['isPrerelease'] is False
+          assert release['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']
+          assets=release['assets']
+          assert isinstance(assets,list) and len(assets)==1
+          matches=[asset for asset in assets if asset.get('name')==os.environ['ASSET_NAME'] and asset.get('state')=='uploaded']
+          assert len(matches)==1 and matches[0].get('digest')=='sha256:'+os.environ['EXPECTED_ASSET_SHA']
+          PY
           GH_TOKEN="${release_token}" gh release edit "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false
           unset release_token
       - name: Prove immutable release and asset
