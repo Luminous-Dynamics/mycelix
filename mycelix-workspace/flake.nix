@@ -107,6 +107,47 @@
           "-I${sdkClangResourceDir}"
         ];
 
+        # Resolve the committed package-lock.json directly into Nix-store paths.
+        # The SDK build/test derivation can then run without npm fetching packages
+        # from the network or maintaining a second package-manager lockfile.
+        sdkTsPackage = builtins.fromJSON (builtins.readFile ./sdk-ts/package.json);
+        sdkTsDependencies = pkgs.importNpmLock.buildNodeModules {
+          npmRoot = ./sdk-ts;
+          nodejs = pkgs.nodejs_24;
+        };
+        sdkTs = pkgs.stdenv.mkDerivation {
+          pname = "mycelix-sdk-ts";
+          version = sdkTsPackage.version;
+          src = ./sdk-ts;
+          npmDeps = sdkTsDependencies;
+          nativeBuildInputs = [
+            pkgs.nodejs_24
+            pkgs.importNpmLock.hooks.linkNodeModulesHook
+          ];
+
+          buildPhase = ''
+            runHook preBuild
+            npm run typecheck
+            npm run lint
+            npm test
+            npm run build
+            runHook postBuild
+          '';
+
+          installPhase = ''
+            runHook preInstall
+            mkdir -p "$out"
+            cp -r dist "$out/dist"
+            cp package.json README.md LICENSE "$out/"
+            runHook postInstall
+          '';
+
+          meta = {
+            description = "Nix-built Mycelix TypeScript SDK; typecheck, lint, tests and build are required";
+            platforms = pkgs.nodejs_24.meta.platforms;
+          };
+        };
+
       in {
         devShells = {
           # Full development environment (all tools)
@@ -247,6 +288,10 @@
 
         # Packages
         packages = {
+          # Build, typecheck, lint, and test the TypeScript SDK entirely from
+          # the flake-pinned Node toolchain and Nix-materialized lockfile.
+          sdk-ts = sdkTs;
+
           # Build all core zomes from workspace
           all-zomes = pkgs.stdenv.mkDerivation {
             name = "mycelix-all-zomes";
@@ -277,6 +322,10 @@
             '';
           };
         };
+
+        # Include the same derivation in nix flake check; packages.sdk-ts is
+        # also available for direct builds and CI evidence collection.
+        checks.sdk-ts = sdkTs;
       }
     );
 }
