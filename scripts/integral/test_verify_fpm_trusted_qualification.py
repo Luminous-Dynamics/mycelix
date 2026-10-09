@@ -340,11 +340,15 @@ def assert_evidence_archive_contract() -> None:
     assert "--mount type=bind,src=\"${TARGET_CLOSURE_FILE}\",dst=/tmp/fpm-target-closure.tsv,readonly" in trusted_workflow
     assert workflow.count("- name: Extract evidence targets with strict JSON parser") == 1
     assert "root_config_hits=\"$(git ls-files --stage -- .cargo/config .cargo/config.toml || true)\"" in trusted_workflow
-    assert "test ! -L .cargo" in trusted_workflow
-    assert "test ! -L ../.cargo" in trusted_workflow
-    assert "for config_path in .cargo/config .cargo/config.toml ../.cargo/config ../.cargo/config.toml; do" in trusted_workflow
-    assert 'test ! -e "$config_path"' in trusted_workflow
-    assert 'test ! -L "$config_path"' in trusted_workflow
+    assert 'config_ancestor="$(pwd -P)"' in trusted_workflow
+    assert 'while :; do' in trusted_workflow
+    assert 'cargo_config_dir="${config_ancestor}/.cargo"' in trusted_workflow
+    assert 'test ! -L "$cargo_config_dir"' in trusted_workflow
+    assert 'config_path="${cargo_config_dir}/${config_name}"' in trusted_workflow
+    assert '[ -e "$config_path" ] || [ -L "$config_path" ]' in trusted_workflow
+    assert 'config_ancestor="$(dirname -- "$config_ancestor")"' in trusted_workflow
+    assert trusted_workflow.count("test ! -e /.cargo/config") == 4
+    assert trusted_workflow.count("test ! -e /.cargo/config.toml") == 4
     assert 'if "patch" in lock or "replace" in lock:' in trusted_workflow
     assert 'test ! -e "$CARGO_HOME/config"' in trusted_workflow
     assert 'test ! -L "$CARGO_HOME/config.toml"' in trusted_workflow
