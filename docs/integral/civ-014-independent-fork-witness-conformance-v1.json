@@ -5,8 +5,8 @@
   "source_repository": "Luminous-Dynamics/symthaea",
   "source_commit": "5e2a06f2b6a0aa12c76d652bc249271050a8c0cd",
   "event_schema_version": 1,
-  "event_domain": "mycelix-civ014-fork-event-v1\\0",
-  "receipt_domain": "mycelix-civ014-fork-receipt-v1\\0",
+  "event_domain": "mycelix-civ014-fork-event-v1\u0000",
+  "receipt_domain": "mycelix-civ014-fork-receipt-v1\u0000",
   "vectors": [
     {
       "id": "DF001-event-canonical-golden",
