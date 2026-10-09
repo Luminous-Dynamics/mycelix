@@ -284,11 +284,15 @@ export type AuditAction =
   | 'DeleteEmail'
   | 'MoveEmail'
   | 'CreateFolder'
+  | 'DeleteFolder'
   | 'AccessAttachment'
   | 'ModifySettings'
   | 'GrantCapability'
   | 'RevokeCapability'
   | 'ModifyTrust'
+  | 'ExportData'
+  | 'Login'
+  | 'Logout'
   | { Custom: string };
 
 export type CapabilityProbeResult = 'Authorized' | 'Unauthorized' | 'ClaimMissing';
