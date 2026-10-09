@@ -710,14 +710,16 @@ pub fn get_email(hash: ActionHash) -> ExternResult<Option<EncryptedEmail>> {
         return Ok(None);
     };
     let local_agent = agent_info()?.agent_initial_pubkey;
-    if !record_belongs_to_local_mailbox(&record, &local_agent)? {
-        return Ok(None);
+    // This endpoint is V1-only. Other valid app-entry types (including V2 mail)
+    // may not deserialize as EncryptedEmail, so treat a type mismatch as no result.
+    match record.entry().to_app_option::<EncryptedEmail>() {
+        Ok(Some(email))
+            if is_mailbox_participant(&email.sender, &email.recipient, &local_agent) =>
+        {
+            Ok(Some(email))
+        }
+        Ok(Some(_)) | Ok(None) | Err(_) => Ok(None),
     }
-    let email = record
-        .entry()
-        .to_app_option::<EncryptedEmail>()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
-    Ok(email)
 }
 
 /// Return true when a V1/V2 message's signed sender or recipient is this mailbox.
@@ -734,15 +736,15 @@ fn is_mailbox_participant(
 
 /// Check the message boundary before serving message-specific data such as
 /// full encrypted envelopes or attachment chunks.
+///
+/// to_app_option reports a deserialization error when the present entry is a
+/// different app-entry type. Try both supported mail envelope schemas and deny
+/// when neither parses; unrelated DHT records must not escape this boundary.
 fn record_belongs_to_local_mailbox(
     record: &Record,
     local_agent: &AgentPubKey,
 ) -> ExternResult<bool> {
-    if let Some(email) = record
-        .entry()
-        .to_app_option::<EncryptedEmail>()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-    {
+    if let Ok(Some(email)) = record.entry().to_app_option::<EncryptedEmail>() {
         return Ok(is_mailbox_participant(
             &email.sender,
             &email.recipient,
@@ -750,11 +752,7 @@ fn record_belongs_to_local_mailbox(
         ));
     }
 
-    if let Some(email) = record
-        .entry()
-        .to_app_option::<EncryptedEmailV2>()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-    {
+    if let Ok(Some(email)) = record.entry().to_app_option::<EncryptedEmailV2>() {
         return Ok(is_mailbox_participant(
             &email.sender,
             &email.recipient,
