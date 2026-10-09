@@ -424,7 +424,8 @@ jobs:
           node docs/research/verify_censoring_classification_anchor_audit_bundle.mjs \
             "$GITHUB_WORKSPACE" \
             docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE.json \
-            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_CAMPAIGN.json
+            docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_CAMPAIGN.json \
+            audit-bundle-node.json
           diff -u audit-bundle-python.json audit-bundle-node.json
 
       - name: Run RFC 9942 COSE receipt campaign
