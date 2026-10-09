@@ -61,6 +61,8 @@ FROZEN_REQUIRED_INVARIANTS = [
     "structural_and_denotational_disagreement_are_reported_as_distinct_classes",
     "clause_permutation_preserves_decision_and_id_mapped_witness",
     "counterexample_reducer_preserves_failure_class",
+    "authority_expansion_diagnostics_match_independent_replay",
+    "minimized_witness_core_preserves_admission_and_rejection",
 ]
 
 
