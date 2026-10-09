@@ -25,11 +25,8 @@ use ed25519_dalek::{
     Signature as EdSignature, Signer as _, SigningKey as EdSigningKey, Verifier as _,
     VerifyingKey as EdVerifyingKey,
 };
-use ml_dsa::signature::{Keypair as _, Signer as MlSigner, Verifier as MlVerifier};
-use ml_dsa::{
-    EncodedSignature, EncodedVerifyingKey, Generate as _, KeyExport as _, KeyInit as _, MlDsa65,
-    Signature as MlSignature, SigningKey as MlSigningKey, VerifyingKey as MlVerifyingKey,
-};
+use ml_dsa::signature::{Keypair as _, Signer as MlSigner};
+use ml_dsa::{Generate as _, KeyExport as _, KeyInit as _, MlDsa65, SigningKey as MlSigningKey};
 use rand::rngs::OsRng;
 
 /// Hybrid signer holding both secret keys. Persist with
@@ -125,16 +122,9 @@ pub fn verify(
         .map_err(|_| CryptoError::Validation("Ed25519 signature verification failed".into()))?;
 
     // --- ML-DSA-65 (post-quantum) ---
-    let ml_encoded_vk = EncodedVerifyingKey::<MlDsa65>::try_from(keys.ml_dsa.as_slice())
-        .map_err(|_| CryptoError::Validation("invalid ML-DSA verifying key length".into()))?;
-    let ml_vk = MlVerifyingKey::<MlDsa65>::decode(&ml_encoded_vk);
-    let ml_encoded_sig = EncodedSignature::<MlDsa65>::try_from(sig.ml_dsa.as_slice())
-        .map_err(|_| CryptoError::Validation("invalid ML-DSA signature length".into()))?;
-    let ml_sig = MlSignature::<MlDsa65>::decode(&ml_encoded_sig)
-        .ok_or_else(|| CryptoError::Validation("undecodable ML-DSA signature".into()))?;
-    ml_vk
-        .verify(message, &ml_sig)
-        .map_err(|_| CryptoError::Validation("ML-DSA signature verification failed".into()))?;
+    // Keep hybrid verification on the same explicitly empty-context primitive
+    // exposed to protocol adapters, so the two paths cannot silently diverge.
+    crate::mldsa65_verify::verify_with_empty_context(&keys.ml_dsa, message, &sig.ml_dsa)?;
 
     Ok(())
 }
