@@ -13,6 +13,24 @@ from typing import Any
 from differential_compound_subsumption import validate_matrix
 
 
+EXPECTED_MUTATIONS = (
+    "remove-request-value",
+    "reorder-request-values",
+    "widen-amount-domain",
+    "weaken-atom-target",
+    "widen-atom-numeric-bound",
+    "remove-atom",
+    "change-generation-rule",
+    "lower-expression-count",
+    "lower-pair-count",
+    "lower-pair-request-count",
+    "remove-compound-operator",
+    "remove-required-invariant",
+    "enable-randomized-generation",
+    "duplicate-atom-identifier",
+)
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
@@ -58,6 +76,9 @@ def main() -> int:
         rejected(name, candidate)
         rejected_names.append(name)
 
+    require(tuple(rejected_names) == EXPECTED_MUTATIONS,
+            "mutation guard coverage differs from the frozen set of 14 mutations")
+
     head = subprocess.run(
         ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
         check=True, timeout=15,
@@ -67,6 +88,7 @@ def main() -> int:
         "status": "PASS",
         "source_head": head,
         "matrix_sha256": hashlib.sha256(matrix_bytes).hexdigest(),
+        "checker_sha256": hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest(),
         "mutation_count": len(rejected_names),
         "mutations_rejected": rejected_names,
         "baseline_manifest_validation": "PASS",
