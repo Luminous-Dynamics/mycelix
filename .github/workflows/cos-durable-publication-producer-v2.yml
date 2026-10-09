@@ -712,18 +712,19 @@ jobs:
       - name: Prove immutable release and asset
         env:
           COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
         run: |
           set -euo pipefail
           claim_id="${{ needs.prepare.outputs.claim_id }}"
           release_tag="cos-qualification-${claim_id}"
           asset_name="cos-durable-${claim_id}.tar.gz"
           GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release view "${release_tag}" --repo "${GITHUB_REPOSITORY}" --json id,tagName,isDraft,isImmutable,isLatest,isPrerelease,publishedAt,targetCommitish > published-release.json
-          python - <<'PY'
-          import json
+          EXPECTED_MAIN_SHA="${EXPECTED_MAIN_SHA}" python - <<'PY'
+          import json,os
           from pathlib import Path
           d=json.loads(Path('published-release.json').read_text())
           assert d['isDraft'] is False and d['isImmutable'] is True and d['isLatest'] is False and d['isPrerelease'] is False and d['publishedAt']
-          assert d['targetCommitish']
+          assert d['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']
           PY
           GH_TOKEN="${COS_RELEASE_ADMIN_TOKEN}" gh release verify "${release_tag}" --repo "${GITHUB_REPOSITORY}" --format json > release-attestation-verification.json
           rm -rf final-asset && mkdir final-asset
