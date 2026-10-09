@@ -264,28 +264,56 @@ def verify_executor_workflow_record(
     )
 
 
+def verify_executor_run_event(
+    executor_run: dict,
+    policy: dict,
+    repo: str,
+) -> None:
+    cfg = policy["executor_workflow"]
+    expected_repository_id = int(policy["repository_identity"]["repository_id"])
+    assert executor_run["name"] == cfg["name"], "executor workflow name mismatch"
+    assert executor_run["path"] == cfg["path"], "executor workflow path mismatch"
+    assert executor_run["event"] == "workflow_run", "executor event type mismatch"
+    assert executor_run["conclusion"] == "success", "executor run did not succeed"
+    assert executor_run["repository"]["full_name"] == repo, "executor repository name mismatch"
+    assert int(executor_run["repository"]["id"]) == expected_repository_id, (
+        "executor repository ID mismatch"
+    )
+    assert executor_run["head_repository"]["full_name"] == repo, (
+        "executor head repository name mismatch"
+    )
+    assert int(executor_run["head_repository"]["id"]) == expected_repository_id, (
+        "executor head repository ID mismatch"
+    )
+    assert executor_run["head_branch"] == "main", "executor workflow ref is not main"
+    head_sha = executor_run["head_sha"]
+    assert isinstance(head_sha, str) and re.fullmatch(r"[0-9a-f]{40}", head_sha), (
+        "executor workflow commit SHA is not canonical"
+    )
+    for key in ("id", "run_attempt"):
+        value = executor_run[key]
+        assert isinstance(value, int) and not isinstance(value, bool) and value > 0, (
+            f"executor {key} is not a positive integer"
+        )
+
+
 def verify_executor_run_record(
     executor_run: dict,
     record: dict[str, str],
     policy: dict,
     repo: str,
 ) -> None:
-    cfg = policy["executor_workflow"]
-    expected_repository_id = int(policy["repository_identity"]["repository_id"])
-    assert executor_run["name"] == cfg["name"]
-    assert executor_run["path"] == cfg["path"]
-    assert executor_run["event"] == "workflow_run"
-    assert executor_run["conclusion"] == "success"
-    assert executor_run["repository"]["full_name"] == repo
-    assert int(executor_run["repository"]["id"]) == expected_repository_id
-    assert executor_run["head_repository"]["full_name"] == repo
-    assert int(executor_run["head_repository"]["id"]) == expected_repository_id
-    assert executor_run["head_branch"] == "main"
+    verify_executor_run_event(executor_run, policy, repo)
     head_sha = executor_run["head_sha"]
-    assert isinstance(head_sha, str) and re.fullmatch(r"[0-9a-f]{40}", head_sha)
-    assert record["executor_workflow_commit_sha"] == head_sha
-    assert executor_run["id"] == int(record["executor_run_id"])
-    assert executor_run["run_attempt"] == int(record["executor_run_attempt"])
+    assert record["executor_workflow_commit_sha"] == head_sha, (
+        "executor workflow commit does not match evidence record"
+    )
+    assert executor_run["id"] == int(record["executor_run_id"]), (
+        "executor run ID does not match evidence record"
+    )
+    assert executor_run["run_attempt"] == int(record["executor_run_attempt"]), (
+        "executor run attempt does not match evidence record"
+    )
 
 
 def verify_executor_workflow_against_run_head(
@@ -740,10 +768,7 @@ def main() -> None:
     )
 
     assert event["repository"]["full_name"] == repo
-    verify_executor_run_record(executor_run, {
-        "executor_run_id": str(executor_run["id"]),
-        "executor_run_attempt": str(executor_run["run_attempt"]),
-    }, policy, repo)
+    verify_executor_run_event(executor_run, policy, repo)
     verify_executor_workflow_against_run_head(
         executor_run,
         policy,
@@ -773,6 +798,7 @@ def main() -> None:
     record = load_record(evidence)
 
     assert set(record) == set(policy["record_fields"])
+    verify_executor_run_record(executor_run, record, policy, repo)
     assert record["status"] == "runtime-reference-evidence", "runtime evidence status mismatch"
     assert record["workflow_run_id"] == str(executor_run["id"])
     assert record["workflow_run_attempt"] == str(executor_run["run_attempt"])
