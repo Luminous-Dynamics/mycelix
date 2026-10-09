@@ -234,3 +234,12 @@ Hosted exact-head execution and receipt review are still required before reporti
 
 
 The invocation API requires `trusted_now` as a separate, explicit input. It overwrites the `now` field in the provided chain bundle before running chain verification and uses the same trusted value for PoP timestamp checks and replay bookkeeping. The signed regression fixture sets an attacker-controlled bundle time 30 seconds in the past (which keeps the AAT's `iat` within the profile's future-skew allowance) while passing a trusted enforcement time after the leaf's expiry; this must fail at chain verification before PoP evaluation. A caller must supply this value from the enforcement point's clock, not from token data, tool arguments, or an agent-controlled request.
+
+
+## AAT capability resource bounds and aggregate inventory consistency
+
+The capability checker now enforces explicit limits of 256 tools per token and 64 constrained argument keys per tool, in addition to the existing constraint-tree depth (32), node count (512), and composite fan-out (128). These choices follow the current AAT draft's non-normative recommended defaults for tool and per-tool constraint counts; they are implementation limits for this candidate, not universal protocol constants.
+
+The independent capability harness freezes all five bounds and now exercises two extra denial controls: one authorization-details entry with 257 tools and one tool with 65 argument constraints. The evidence aggregator verifies the exact ordered inventory of all 12 malformed/bound controls and the serialized resource-limit record, instead of relying only on the headline count. The aggregate's own mutation harness also mutates both that inventory and the limit record.
+
+During this pass I found two CI evidence-contract defects and repaired them: the aggregate had expected nine malformed/bound capability controls although the harness already produced ten; after adding the two resource-bound controls, the frozen expectation is twelve. Separately, the synthetic aggregate test's capability-mutant-count weakening had been writing the expected value (four), which did not weaken it; it now writes three so the mutation is meaningful. These are source-level fixes; hosted execution and receipt inspection remain necessary to verify the harnesses themselves.
