@@ -285,6 +285,20 @@ def exercise_candidate_path_guard() -> None:
             "candidate path is not canonical relative path",
             "candidate path guard accepted parent-directory traversal",
         )
+        assert_rejected(
+            lambda: candidate_regular_file(
+                candidate_root, str(outside_file), "absolute-path fixture"
+            ),
+            "candidate path is not canonical relative path",
+            "candidate path guard accepted an absolute file path",
+        )
+        assert_rejected(
+            lambda: candidate_regular_file(
+                candidate_root, r"scripts\program.py", "backslash-path fixture"
+            ),
+            "candidate path is not canonical relative path",
+            "candidate path guard accepted a backslash-containing path",
+        )
 
 
 def verify_candidate_trusted_program_blobs(
