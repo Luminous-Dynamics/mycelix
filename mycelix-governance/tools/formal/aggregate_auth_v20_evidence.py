@@ -427,11 +427,11 @@ def main() -> int:
         compact_jws = json.loads((args.evidence_root /
             "auth-v20-compact-jws-evidence/compact-jws-chain.json").read_text(encoding="utf-8"))
         require(compact_jws.get("summary", {}).get("negative_controls") == 36,
-                "compact-JWS harness did not execute all 30 negative controls")
+                "compact-JWS harness did not execute all 36 negative controls")
         require(compact_jws.get("summary", {}).get("positive_controls") == 3,
-                "compact-JWS harness did not verify both four-token and single-token positive chains")
+                "compact-JWS harness did not verify all three positive-chain profiles")
         require(compact_jws.get("summary", {}).get("signatures_verified") == 9,
-                "compact-JWS harness did not verify all five positive-chain signatures")
+                "compact-JWS harness did not verify all nine positive-chain signatures")
         capability_result = json.loads((args.evidence_root /
             "auth-v20-capability-evidence/aat-capability-subsumption.json").read_text(encoding="utf-8"))
         capability_summary = capability_result.get("summary", {})
