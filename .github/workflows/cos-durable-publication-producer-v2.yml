@@ -467,6 +467,115 @@ jobs:
           Path('main-branch-policy-v1.json').write_text(json.dumps(projection,indent=2,sort_keys=True)+'\n')
           PY
 
+      - name: Snapshot full main ruleset bypass governance
+        env:
+          COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$COS_RELEASE_ADMIN_TOKEN"
+          GH_TOKEN="$COS_RELEASE_ADMIN_TOKEN" gh api --paginate --slurp -H 'X-GitHub-Api-Version: 2026-03-10' "repos/$GITHUB_REPOSITORY/rulesets?includes_parents=true&targets=branch&per_page=100" > ruleset-index-pages.json
+          python - <<'PY'
+          import fnmatch,hashlib,json,os
+          from pathlib import Path
+          pages=json.loads(Path('ruleset-index-pages.json').read_text())
+          assert isinstance(pages,list) and all(isinstance(page,list) for page in pages)
+          listed=[item for page in pages for item in page]
+          ids=[item['id'] for item in listed]
+          assert all(type(value) is int and value>0 for value in ids)
+          assert len(ids)==len(set(ids))
+          Path('ruleset-ids.txt').write_text(''.join(f'{value}\n' for value in sorted(ids)))
+          PY
+          mkdir -p ruleset-details
+          while IFS= read -r id; do
+            test -n "$id"
+            printf '%s\n' "$id" | grep -Eq '^[0-9]+$'
+            GH_TOKEN="$COS_RELEASE_ADMIN_TOKEN" gh api -H 'X-GitHub-Api-Version: 2026-03-10' "repos/$GITHUB_REPOSITORY/rulesets/$id?includes_parents=true" > "ruleset-details/$id.json"
+          done < ruleset-ids.txt
+          python - <<'PY'
+          import fnmatch,hashlib,json,os
+          from pathlib import Path
+          pages=json.loads(Path('ruleset-index-pages.json').read_text())
+          listed=[item for page in pages for item in page]
+          listed_ids={item['id'] for item in listed}
+          actor_types={'Integration','OrganizationAdmin','RepositoryRole','Team','DeployKey','User'}
+          bypass_modes={'always','pull_request','exempt'}
+          def applies_to_main(conditions):
+              if not isinstance(conditions,dict):
+                  return True
+              ref=conditions.get('ref_name')
+              if ref is None:
+                  return True
+              if not isinstance(ref,dict):
+                  return True
+              include,exclude=ref.get('include'),ref.get('exclude')
+              if not isinstance(include,list) or not isinstance(exclude,list) or not include:
+                  return True
+              patterns=include+exclude
+              if any(not isinstance(value,str) for value in patterns):
+                  return True
+              def recognized(value):
+                  return value in ('~ALL','~DEFAULT_BRANCH') or value.startswith('refs/heads/') or value.startswith('refs/tags/')
+              if any(not recognized(value) for value in patterns):
+                  return True
+              def matches(value):
+                  if value in ('~ALL','~DEFAULT_BRANCH'):
+                      return True
+                  return fnmatch.fnmatchcase('refs/heads/main',value) or fnmatch.fnmatchcase('main',value)
+              return any(matches(value) for value in include) and not any(matches(value) for value in exclude)
+          rulesets=[]
+          for path in sorted(Path('ruleset-details').glob('*.json'),key=lambda value:int(value.stem)):
+              data=json.loads(path.read_text())
+              assert type(data.get('id')) is int and data['id']==int(path.stem) and data['id'] in listed_ids
+              assert data.get('target')=='branch'
+              assert data.get('enforcement') in ('active','evaluate','disabled')
+              assert isinstance(data.get('name'),str) and isinstance(data.get('source_type'),str) and isinstance(data.get('source'),str)
+              assert isinstance(data.get('rules'),list)
+              # A readable response with no bypass_actors field is not a no-bypass proof.
+              assert 'bypass_actors' in data and isinstance(data['bypass_actors'],list)
+              conditions=data.get('conditions') or {}
+              assert isinstance(conditions,dict)
+              actors=[]
+              for actor in data['bypass_actors']:
+                  assert isinstance(actor,dict) and 'actor_id' in actor
+                  actor_type=actor.get('actor_type')
+                  bypass_mode=actor.get('bypass_mode')
+                  assert actor_type in actor_types and bypass_mode in bypass_modes
+                  actor_id=actor['actor_id']
+                  if actor_type=='DeployKey':
+                      assert actor_id is None and bypass_mode!='pull_request'
+                  elif actor_type=='OrganizationAdmin':
+                      assert actor_id is None or (type(actor_id) is int and actor_id>0)
+                  else:
+                      assert type(actor_id) is int and actor_id>0
+                  actors.append({'actor_id':actor_id,'actor_type':actor_type,'bypass_mode':bypass_mode})
+              actors.sort(key=lambda actor:(actor['actor_type'],-1 if actor['actor_id'] is None else actor['actor_id'],actor['bypass_mode']))
+              applicable=applies_to_main(conditions)
+              item={
+                  'id':data['id'],'name':data['name'],'target':data['target'],
+                  'source_type':data['source_type'],'source':data['source'],
+                  'enforcement':data['enforcement'],'bypass_actors':actors,
+                  'conditions':conditions,'rules':data['rules'],
+                  'created_at':data['created_at'],'updated_at':data['updated_at'],
+                  'applicable_to_main':applicable,
+              }
+              assert isinstance(item['created_at'],str) and isinstance(item['updated_at'],str)
+              if applicable and item['enforcement']=='active':
+                  assert not actors, f"active ruleset applicable to main has bypass actors: {item['id']}"
+              rulesets.append(item)
+          assert {item['id'] for item in rulesets}==listed_ids
+          rulesets.sort(key=lambda item:(item['source_type'],item['source'],item['id']))
+          projection={
+              'schema':'MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1',
+              'repository':os.environ['GITHUB_REPOSITORY'],
+              'repository_id':int(os.environ['GITHUB_REPOSITORY_ID']),
+              'branch':'refs/heads/main',
+              'rulesets':rulesets,
+          }
+          canonical=json.dumps(projection,sort_keys=True,separators=(',',':')).encode('utf-8')
+          projection['sha256']=hashlib.sha256(canonical).hexdigest()
+          Path('main-ruleset-governance-v1.json').write_text(json.dumps(projection,indent=2,sort_keys=True)+'\n')
+          PY
+
       - name: Verify immutable-release capability
         env:
           COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
@@ -571,12 +680,13 @@ jobs:
           cp environment-policy-v1.json durable-source/environment-policy-v1.json
           cp effective-main-rules-v1.json durable-source/effective-main-rules-v1.json
           cp main-branch-policy-v1.json durable-source/main-branch-policy-v1.json
+          cp main-ruleset-governance-v1.json durable-source/main-ruleset-governance-v1.json
           asset_name="cos-durable-${claim_id}.tar.gz"
           EXPECTED_MAIN_SHA="${{ inputs.expected_main_sha }}" CLAIM_ID="${claim_id}" RELEASE_TAG="${release_tag}" python - <<'PY'
           import hashlib,json,os
           from pathlib import Path
           facts=json.loads(Path('handoff/source-facts.json').read_text())
-          files={name:hashlib.sha256((Path('durable-source')/name).read_bytes()).hexdigest() for name in ('qualification-manifest-v1.json','qualification-attestation-predicate-v3.json','attestor-run-receipt.json','qualification-attestation-bundle.json','environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json')}
+          files={name:hashlib.sha256((Path('durable-source')/name).read_bytes()).hexdigest() for name in ('qualification-manifest-v1.json','qualification-attestation-predicate-v3.json','attestor-run-receipt.json','qualification-attestation-bundle.json','environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json','main-ruleset-governance-v1.json')}
           manifest={
               'schema':'MYCELIX-COS-DURABLE-PUBLICATION-MANIFEST-V1',
               'repository':os.environ['GITHUB_REPOSITORY'],
@@ -603,6 +713,7 @@ jobs:
               'environment_policy_sha256':facts['environment_policy_sha256'],
               'effective_main_rules_sha256':facts['effective_main_rules_sha256'],
               'main_branch_policy_sha256':json.loads(Path('main-branch-policy-v1.json').read_text())['sha256'],
+               'main_ruleset_governance_sha256':json.loads(Path('main-ruleset-governance-v1.json').read_text())['sha256'],
               'attestor_workflow_path':facts['attestor_workflow_ref'],
               'attestor_workflow_sha':facts['attestor_workflow_sha'],
               'attestor_workflow_git_blob_sha1':facts['attestor_workflow_git_blob_sha1'],
@@ -611,14 +722,14 @@ jobs:
               'publication_handoff_sha256':facts['publication_handoff_sha256'],'publication_handoff_basis':facts['publication_handoff_basis'],
               'files':files,
           }
-          expected={'schema','repository','repository_id','release_tag','asset_name','expected_main_sha','qualification_claim_id','qualification_manifest_sha256','predicate_sha256','predicate_type','publication_profile','claim_ceiling','trust_root_manifest_blob_sha1','trust_root_manifest_sha256','trust_root_main_snapshot_sha','attestor_run_id','attestor_run_attempt','attestor_artifact_id','attestor_artifact_digest','verifier_run_id','verifier_run_attempt','signing_input_artifact_id','signing_input_artifact_digest','environment_policy_sha256','effective_main_rules_sha256','main_branch_policy_sha256','attestor_workflow_path','attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256','signed_attestation_bundle_sha256','publication_handoff_sha256','publication_handoff_basis','files'}
+          expected={'schema','repository','repository_id','release_tag','asset_name','expected_main_sha','qualification_claim_id','qualification_manifest_sha256','predicate_sha256','predicate_type','publication_profile','claim_ceiling','trust_root_manifest_blob_sha1','trust_root_manifest_sha256','trust_root_main_snapshot_sha','attestor_run_id','attestor_run_attempt','attestor_artifact_id','attestor_artifact_digest','verifier_run_id','verifier_run_attempt','signing_input_artifact_id','signing_input_artifact_digest','environment_policy_sha256','effective_main_rules_sha256','main_branch_policy_sha256','main_ruleset_governance_sha256','attestor_workflow_path','attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256','signed_attestation_bundle_sha256','publication_handoff_sha256','publication_handoff_basis','files'}
           assert set(manifest)==expected
           handoff_basis=manifest['publication_handoff_basis']
           assert hashlib.sha256(json.dumps(handoff_basis,sort_keys=True,separators=(',',':')).encode('utf-8')).hexdigest()==manifest['publication_handoff_sha256']
           Path('durable-source/durable-publication-manifest-v1.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
           PY
-          (cd durable-source && sha256sum qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json environment-policy-v1.json effective-main-rules-v1.json main-branch-policy-v1.json durable-publication-manifest-v1.json) > durable-source/SHA256SUMS
-          build_asset(){ tar -C durable-source --format=ustar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - durable-publication-manifest-v1.json qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json environment-policy-v1.json effective-main-rules-v1.json main-branch-policy-v1.json SHA256SUMS | gzip -n > "$1"; }
+          (cd durable-source && sha256sum qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json environment-policy-v1.json effective-main-rules-v1.json main-branch-policy-v1.json main-ruleset-governance-v1.json durable-publication-manifest-v1.json) > durable-source/SHA256SUMS
+          build_asset(){ tar -C durable-source --format=ustar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - durable-publication-manifest-v1.json qualification-manifest-v1.json qualification-attestation-predicate-v3.json attestor-run-receipt.json qualification-attestation-bundle.json environment-policy-v1.json effective-main-rules-v1.json main-branch-policy-v1.json main-ruleset-governance-v1.json SHA256SUMS | gzip -n > "$1"; }
           build_asset asset-a.tar.gz
           build_asset asset-b.tar.gz
           test "$(sha256sum asset-a.tar.gz | awk '{print $1}')" = "$(sha256sum asset-b.tar.gz | awk '{print $1}')"
@@ -632,7 +743,7 @@ jobs:
           import hashlib,json
           from pathlib import Path
           root=Path('local-verify')
-          expected={'durable-publication-manifest-v1.json','qualification-manifest-v1.json','qualification-attestation-predicate-v3.json','attestor-run-receipt.json','qualification-attestation-bundle.json','environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json','SHA256SUMS'}
+          expected={'durable-publication-manifest-v1.json','qualification-manifest-v1.json','qualification-attestation-predicate-v3.json','attestor-run-receipt.json','qualification-attestation-bundle.json','environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json','main-ruleset-governance-v1.json','SHA256SUMS'}
           assert {p.name for p in root.iterdir() if p.is_file()}==expected
           def strict(path):
               def reject(pairs):
@@ -654,8 +765,10 @@ jobs:
           assert m['signed_attestation_bundle_sha256']==b and r['attestation']['bundle_sha256']==b
           assert m['qualification_manifest_sha256']==hashlib.sha256((root/'qualification-manifest-v1.json').read_bytes()).hexdigest()
           assert m['predicate_type']==p['predicate_type']
+          expected_files={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in ('qualification-manifest-v1.json','qualification-attestation-predicate-v3.json','attestor-run-receipt.json','qualification-attestation-bundle.json','environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json','main-ruleset-governance-v1.json')}
+          assert m['files']==expected_files
           policy_digests={}
-          for filename in ('environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json'):
+          for filename in ('environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json','main-ruleset-governance-v1.json'):
               data=strict(root/filename)
               reported=data.pop('sha256')
               canonical=json.dumps(data,sort_keys=True,separators=(',',':')).encode('utf-8')
@@ -664,6 +777,14 @@ jobs:
           assert m['environment_policy_sha256']==policy_digests['environment-policy-v1.json']
           assert m['effective_main_rules_sha256']==policy_digests['effective-main-rules-v1.json']
           assert m['main_branch_policy_sha256']==policy_digests['main-branch-policy-v1.json']
+          assert m['main_ruleset_governance_sha256']==policy_digests['main-ruleset-governance-v1.json']
+          ruleset_policy=strict(root/'main-ruleset-governance-v1.json')
+          assert ruleset_policy['schema']=='MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1'
+          assert ruleset_policy['repository']==m['repository'] and ruleset_policy['repository_id']==m['repository_id']
+          assert ruleset_policy['branch']=='refs/heads/main'
+          assert isinstance(ruleset_policy['rulesets'],list)
+          assert all(isinstance(x['bypass_actors'],list) for x in ruleset_policy['rulesets'])
+          assert all(not x['bypass_actors'] for x in ruleset_policy['rulesets'] if x['applicable_to_main'] and x['enforcement']=='active')
           handoff_basis=m['publication_handoff_basis']
           assert hashlib.sha256(json.dumps(handoff_basis,sort_keys=True,separators=(',',':')).encode('utf-8')).hexdigest()==m['publication_handoff_sha256']
           assert handoff_basis['schema']=='MYCELIX-COS-DURABLE-PUBLICATION-HANDOFF-BASIS-V1'
