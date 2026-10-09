@@ -32,6 +32,8 @@ A separate `workflow_run` workflow is restricted to successful **push** runs for
 
 It downloads the artifact by exact source run ID, verifies every receipt/report hash, checks the source workflow-run event metadata, and independently emits an in-toto-style custom predicate in Python and Node. The two predicate outputs must be byte-identical.
 
+The privileged consumer requires both the workflow-run repository and `head_repository.full_name` to equal `Luminous-Dynamics/mycelix`; branch name alone is not sufficient. The Python and Node self-tests include a fork-origin run whose branch is named `main` and require it to be rejected. This is defense in depth against the branch-origin confusion class described in [GHSL-2026-225](https://securitylab.github.com/advisories/GHSL-2026-225_actions_attest/).
+
 Only then does the separate workflow use GitHub's OIDC/Sigstore-backed artifact-attestation action to attest the aggregate receipt. Signing authority is therefore not granted to the PR test workflow.
 
 ## What the attestation says
