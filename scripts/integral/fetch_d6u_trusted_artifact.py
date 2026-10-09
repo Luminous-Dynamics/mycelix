@@ -191,7 +191,7 @@ def expected_current_run_artifact(repo: str, policy: dict) -> dict:
     assert workflow_artifact_run["head_branch"] == current_run["head_branch"]
     assert workflow_artifact_run["head_sha"] == current_run["head_sha"]
     digest = artifact.get("digest", "")
-    assert digest.startswith("sha256:") and len(digest) == 71, (
+    assert isinstance(digest, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", digest), (
         f"missing or malformed GitHub artifact digest: {digest!r}"
     )
     maximum = int(policy["auditor_handoff"]["artifact_max_archive_bytes"])
