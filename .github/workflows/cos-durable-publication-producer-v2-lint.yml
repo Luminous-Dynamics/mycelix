@@ -207,4 +207,45 @@ jobs:
           assert "active main-applicable ruleset has bypass actors" in text
           assert "active main-applicable ruleset has bypass actors" in verifier
 
+          def extract_policy_gate(source, condition, signature):
+              source_lines=source.splitlines()
+              matches=[i for i,line in enumerate(source_lines) if line.strip()==condition]
+              assert len(matches)==1, (condition,matches)
+              start=matches[0]
+              indent=len(source_lines[start])-len(source_lines[start].lstrip())
+              end=start+1
+              while end<len(source_lines):
+                  line=source_lines[end]
+                  if line.strip() and len(line)-len(line.lstrip())<=indent:
+                      break
+                  end+=1
+              block=textwrap.dedent("\n".join(source_lines[start:end]))
+              function_source=signature+"\n"+textwrap.indent(block,"    ")
+              tree=ast.parse(function_source)
+              assert len(tree.body)==1 and isinstance(tree.body[0],ast.FunctionDef)
+              namespace={}
+              exec(compile(tree,"<policy-gate>","exec"),namespace)
+              return namespace["gate"]
+
+          producer_gate=extract_policy_gate(text,"if applicable and item['enforcement']=='active':","def gate(item, applicable, actors):")
+          verifier_gate=extract_policy_gate(verifier,"if ruleset['applicable_to_main'] and ruleset['enforcement']=='active':","def gate(ruleset, actors):")
+          for bypass_mode in ("always","pull_request","exempt"):
+              actor={"actor_type":"Team","actor_id":123,"bypass_mode":bypass_mode}
+              try:
+                  producer_gate({"id":17,"enforcement":"active"},True,[actor])
+                  raise AssertionError(("producer accepted active-main bypass",bypass_mode))
+              except AssertionError as error:
+                  assert "bypass actors" in str(error), (bypass_mode,str(error))
+              try:
+                  verifier_gate({"id":17,"enforcement":"active","applicable_to_main":True},[actor])
+                  raise AssertionError(("verifier accepted active-main bypass",bypass_mode))
+              except AssertionError as error:
+                  assert "bypass actors" in str(error), (bypass_mode,str(error))
+          producer_gate({"id":17,"enforcement":"active"},True,[])
+          verifier_gate({"id":17,"enforcement":"active","applicable_to_main":True},[])
+          producer_gate({"id":17,"enforcement":"active"},False,[{"bypass_mode":"always"}])
+          verifier_gate({"id":17,"enforcement":"active","applicable_to_main":False},[{"bypass_mode":"always"}])
+          producer_gate({"id":17,"enforcement":"disabled"},True,[{"bypass_mode":"always"}])
+          verifier_gate({"id":17,"enforcement":"disabled","applicable_to_main":True},[{"bypass_mode":"always"}])
+
           PY
