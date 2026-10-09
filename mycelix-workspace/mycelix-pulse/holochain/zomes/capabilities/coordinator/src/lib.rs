@@ -894,7 +894,11 @@ pub fn receive_capability_grant(delivery: CapabilityGrantDelivery) -> ExternResu
         )));
     }
 
-    if let Some(existing) = find_cap_claim(&delivery.grantor, &delivery.capability_id)? {
+    if let Some(existing) = find_cap_claim(
+        &delivery.grantor,
+        &delivery.capability_id,
+        &capability.secret_hash,
+    )? {
         if existing.secret.as_ref() != delivery.secret.as_ref() {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Conflicting claim already exists for this grantor and capability ID".to_string()
