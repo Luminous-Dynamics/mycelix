@@ -104,7 +104,7 @@ FROZEN_AGGREGATE_MUTATIONS = (
 FROZEN_SOURCE_HASH_FIELDS = {
     "auth-v20-evidence/receipt.json": (
         ("oracle_source_sha256", "mycelix-governance/tools/formal/compound_subsumption_counterexamples.py"),
-        ("control_matrix_sha256", "docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_CONTROL_MATRIX_V1.json"),
+        ("control_matrix_sha256", "docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json"),
     ),
     "auth-v20-differential-evidence/receipt.json": (
         ("matrix_sha256", "docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json"),
