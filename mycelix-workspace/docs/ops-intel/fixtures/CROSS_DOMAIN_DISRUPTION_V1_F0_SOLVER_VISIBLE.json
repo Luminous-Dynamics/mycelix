@@ -1,0 +1,492 @@
+{
+  "fixture_profile": "OPS-INTEL-TEST-001",
+  "fixture_version": "CrossDomainDisruptionV1",
+  "schema_version": "0.1",
+  "data_class": "synthetic",
+  "visibility": "solver-visible-only",
+  "authority_ceiling": "FixtureDescriptionOnly",
+  "purpose": "Exercise evidence, projection, scenario, decision-candidate and authority/effect semantic boundaries. This is not a real operational recommendation.",
+  "frontier": {
+    "frontier_ref": "frontier:F0",
+    "parent_frontier_ref": null,
+    "cutoff_utc": "2026-06-01T12:00:00Z",
+    "temporal_profile_ref": "temporal-profile:synthetic-utc-v1",
+    "inclusion_rule": "Only artifacts and observations explicitly listed in this file are available to an F0 solver.",
+    "immutable": true
+  },
+  "domains": [
+    {
+      "domain_ref": "domain:SupplyChain",
+      "native_owner": "synthetic-supply-chain",
+      "description": "Shipments, suppliers and inventory observations."
+    },
+    {
+      "domain_ref": "domain:Energy",
+      "native_owner": "synthetic-energy",
+      "description": "Capacity and calibration observations."
+    },
+    {
+      "domain_ref": "domain:ServiceOperations",
+      "native_owner": "synthetic-service-operations",
+      "description": "Regional service demand and coverage."
+    },
+    {
+      "domain_ref": "domain:OrganizationPolicy",
+      "native_owner": "synthetic-policy-owner",
+      "description": "Decision constraints and preferences supplied externally."
+    }
+  ],
+  "subjects": [
+    {
+      "subject_ref": "subject:shipment-A-17",
+      "domain_ref": "domain:SupplyChain",
+      "subject_kind": "shipment",
+      "native_id": "shipment-A-17",
+      "display_name": "Shipment A-17"
+    },
+    {
+      "subject_ref": "subject:supplier-A",
+      "domain_ref": "domain:SupplyChain",
+      "subject_kind": "supplier",
+      "native_id": "supplier-A",
+      "display_name": "Supplier A"
+    },
+    {
+      "subject_ref": "subject:supplier-B",
+      "domain_ref": "domain:SupplyChain",
+      "subject_kind": "supplier",
+      "native_id": "supplier-B",
+      "display_name": "Supplier B"
+    },
+    {
+      "subject_ref": "subject:energy-zone-1",
+      "domain_ref": "domain:Energy",
+      "subject_kind": "energy-zone",
+      "native_id": "energy-zone-1",
+      "display_name": "Energy Zone 1"
+    },
+    {
+      "subject_ref": "subject:service-region-R1",
+      "domain_ref": "domain:ServiceOperations",
+      "subject_kind": "service-region",
+      "native_id": "service-region-R1",
+      "display_name": "Region R1"
+    },
+    {
+      "subject_ref": "subject:service-region-R2",
+      "domain_ref": "domain:ServiceOperations",
+      "subject_kind": "service-region",
+      "native_id": "service-region-R2",
+      "display_name": "Region R2"
+    }
+  ],
+  "source_registry": [
+    {
+      "source_ref": "source:carrier-A",
+      "source_kind": "carrier-report",
+      "source_scope": "shipment-A-17",
+      "trust_status": "UnassessedUnderProfile",
+      "source_dependency_status": "Unknown"
+    },
+    {
+      "source_ref": "source:supplier-A-portal",
+      "source_kind": "supplier-portal",
+      "source_scope": "shipment-A-17",
+      "trust_status": "UnassessedUnderProfile",
+      "source_dependency_status": "Unknown"
+    },
+    {
+      "source_ref": "source:warehouse-B-snapshot",
+      "source_kind": "warehouse-snapshot",
+      "source_scope": "supplier-B",
+      "trust_status": "UnassessedUnderProfile",
+      "source_dependency_status": "Unknown"
+    },
+    {
+      "source_ref": "source:energy-E1",
+      "source_kind": "energy-telemetry",
+      "source_scope": "energy-zone-1",
+      "trust_status": "UnassessedUnderProfile",
+      "source_dependency_status": "Unknown"
+    },
+    {
+      "source_ref": "source:energy-E2",
+      "source_kind": "energy-telemetry",
+      "source_scope": "energy-zone-1",
+      "trust_status": "UnassessedUnderProfile",
+      "source_dependency_status": "Unknown"
+    },
+    {
+      "source_ref": "source:demand-R1",
+      "source_kind": "service-demand-telemetry",
+      "source_scope": "service-region-R1",
+      "trust_status": "UnassessedUnderProfile",
+      "source_dependency_status": "Unknown"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_ref": "artifact:carrier-A-shipment-17-20260601T1030Z",
+      "source_ref": "source:carrier-A",
+      "captured_at_utc": "2026-06-01T10:34:00Z",
+      "media_type": "application/json",
+      "content_digest_ref": "digest:synthetic-carrier-A-01",
+      "exact_selector": "$.shipment.status",
+      "selector_profile": "jsonpath-subset-v1"
+    },
+    {
+      "artifact_ref": "artifact:supplier-A-portal-shipment-17-20260601T0950Z",
+      "source_ref": "source:supplier-A-portal",
+      "captured_at_utc": "2026-06-01T09:52:00Z",
+      "media_type": "application/json",
+      "content_digest_ref": "digest:synthetic-supplier-portal-01",
+      "exact_selector": "$.shipment.status",
+      "selector_profile": "jsonpath-subset-v1"
+    },
+    {
+      "artifact_ref": "artifact:warehouse-B-inventory-20260601T0900Z",
+      "source_ref": "source:warehouse-B-snapshot",
+      "captured_at_utc": "2026-06-01T09:02:00Z",
+      "media_type": "application/json",
+      "content_digest_ref": "digest:synthetic-warehouse-B-01",
+      "exact_selector": "$.inventory.available_pallet_positions",
+      "selector_profile": "jsonpath-subset-v1"
+    },
+    {
+      "artifact_ref": "artifact:energy-E1-20260601T1100Z",
+      "source_ref": "source:energy-E1",
+      "captured_at_utc": "2026-06-01T11:02:00Z",
+      "media_type": "application/json",
+      "content_digest_ref": "digest:synthetic-energy-E1-01",
+      "exact_selector": "$.capacity.available_mw",
+      "selector_profile": "jsonpath-subset-v1"
+    },
+    {
+      "artifact_ref": "artifact:energy-E2-20260601T1115Z",
+      "source_ref": "source:energy-E2",
+      "captured_at_utc": "2026-06-01T11:16:00Z",
+      "media_type": "application/json",
+      "content_digest_ref": "digest:synthetic-energy-E2-01",
+      "exact_selector": "$.capacity.available_mw",
+      "selector_profile": "jsonpath-subset-v1"
+    },
+    {
+      "artifact_ref": "artifact:demand-R1-20260601T1120Z",
+      "source_ref": "source:demand-R1",
+      "captured_at_utc": "2026-06-01T11:22:00Z",
+      "media_type": "application/json",
+      "content_digest_ref": "digest:synthetic-demand-R1-01",
+      "exact_selector": "$.demand.requests_per_minute",
+      "selector_profile": "jsonpath-subset-v1"
+    }
+  ],
+  "observations": [
+    {
+      "observation_ref": "observation:shipment-A-17-carrier",
+      "subject_ref": "subject:shipment-A-17",
+      "proposition_ref": "proposition:shipment-A-17-status",
+      "property_ref": "property:shipment.status",
+      "value": "Delayed",
+      "value_class": "ObservedValue",
+      "source_ref": "source:carrier-A",
+      "artifact_ref": "artifact:carrier-A-shipment-17-20260601T1030Z",
+      "event_time_utc": "2026-06-01T10:25:00Z",
+      "observation_time_utc": "2026-06-01T10:30:00Z",
+      "receipt_time_utc": "2026-06-01T10:34:00Z",
+      "currentness": "CurrentUnderProfile",
+      "coverage": "ShipmentSpecific",
+      "dependency_assessment": "Unknown",
+      "limitations": [
+        "Carrier status is not independent proof of physical arrival."
+      ]
+    },
+    {
+      "observation_ref": "observation:shipment-A-17-portal",
+      "subject_ref": "subject:shipment-A-17",
+      "proposition_ref": "proposition:shipment-A-17-status",
+      "property_ref": "property:shipment.status",
+      "value": "OnTime",
+      "value_class": "AssertedBySource",
+      "source_ref": "source:supplier-A-portal",
+      "artifact_ref": "artifact:supplier-A-portal-shipment-17-20260601T0950Z",
+      "event_time_utc": "2026-06-01T09:40:00Z",
+      "observation_time_utc": "2026-06-01T09:50:00Z",
+      "receipt_time_utc": "2026-06-01T09:52:00Z",
+      "currentness": "CurrentUnderProfile",
+      "coverage": "ShipmentSpecific",
+      "dependency_assessment": "Unknown",
+      "relation_to": "observation:shipment-A-17-carrier",
+      "relation_kind": "ContradictsCandidate",
+      "limitations": [
+        "Supplier portal statement may be stale or derived from a shared upstream feed."
+      ]
+    },
+    {
+      "observation_ref": "observation:supplier-B-inventory-partial",
+      "subject_ref": "subject:supplier-B",
+      "proposition_ref": "proposition:supplier-B-available-inventory",
+      "property_ref": "property:inventory.available_pallet_positions",
+      "value": 120,
+      "unit_ref": "unit:pallet-position",
+      "value_class": "ObservedValue",
+      "source_ref": "source:warehouse-B-snapshot",
+      "artifact_ref": "artifact:warehouse-B-inventory-20260601T0900Z",
+      "observation_time_utc": "2026-06-01T09:00:00Z",
+      "receipt_time_utc": "2026-06-01T09:02:00Z",
+      "currentness": "CurrentUnderProfile",
+      "coverage": {
+        "state": "PartialCoverage",
+        "facilities_observed": 3,
+        "facilities_known": 5
+      },
+      "dependency_assessment": "Unknown",
+      "limitations": [
+        "Inventory in two facilities is not observed; the value is not a complete supplier-wide total."
+      ]
+    },
+    {
+      "observation_ref": "observation:energy-E1-capacity",
+      "subject_ref": "subject:energy-zone-1",
+      "proposition_ref": "proposition:energy-zone-1-available-capacity",
+      "property_ref": "property:capacity.available",
+      "value": 40,
+      "unit_ref": "unit:MW",
+      "value_class": "ObservedValue",
+      "source_ref": "source:energy-E1",
+      "artifact_ref": "artifact:energy-E1-20260601T1100Z",
+      "observation_time_utc": "2026-06-01T11:00:00Z",
+      "receipt_time_utc": "2026-06-01T11:02:00Z",
+      "currentness": "StaleUnderProfile",
+      "calibration_ref": "calibration:energy-E1",
+      "calibration_state": "Expired",
+      "relation_to": "observation:energy-E2-capacity",
+      "relation_kind": "ContradictsCandidate",
+      "limitations": [
+        "Calibration expired before this observation; do not discard it or treat it as current."
+      ]
+    },
+    {
+      "observation_ref": "observation:energy-E2-capacity",
+      "subject_ref": "subject:energy-zone-1",
+      "proposition_ref": "proposition:energy-zone-1-available-capacity",
+      "property_ref": "property:capacity.available",
+      "value": 67,
+      "unit_ref": "unit:MW",
+      "value_class": "ObservedValue",
+      "source_ref": "source:energy-E2",
+      "artifact_ref": "artifact:energy-E2-20260601T1115Z",
+      "observation_time_utc": "2026-06-01T11:15:00Z",
+      "receipt_time_utc": "2026-06-01T11:16:00Z",
+      "currentness": "CurrentUnderProfile",
+      "calibration_ref": "calibration:energy-E2",
+      "calibration_state": "Valid",
+      "limitations": [
+        "A current calibration does not establish that this telemetry source is globally authoritative."
+      ]
+    },
+    {
+      "observation_ref": "observation:demand-R1-current",
+      "subject_ref": "subject:service-region-R1",
+      "proposition_ref": "proposition:service-region-R1-demand",
+      "property_ref": "property:demand.requests_per_minute",
+      "value": 90,
+      "unit_ref": "unit:requests-per-minute",
+      "value_class": "ObservedValue",
+      "source_ref": "source:demand-R1",
+      "artifact_ref": "artifact:demand-R1-20260601T1120Z",
+      "observation_time_utc": "2026-06-01T11:20:00Z",
+      "receipt_time_utc": "2026-06-01T11:22:00Z",
+      "currentness": "CurrentUnderProfile",
+      "coverage": "RegionSpecific",
+      "limitations": [
+        "This observation supports R1 only."
+      ]
+    }
+  ],
+  "coverage_assertions": [
+    {
+      "coverage_ref": "coverage:service-demand-R2",
+      "subject_ref": "subject:service-region-R2",
+      "property_ref": "property:demand.requests_per_minute",
+      "state": "OutsideCoverage",
+      "value": null,
+      "source_ref": null,
+      "limitations": [
+        "No R2 demand value is available at F0. Null here denotes no measured value paired with an explicit coverage state; it is not zero demand."
+      ]
+    },
+    {
+      "coverage_ref": "coverage:supplier-B-unobserved-facilities",
+      "subject_ref": "subject:supplier-B",
+      "property_ref": "property:inventory.available_pallet_positions",
+      "state": "PartialCoverage",
+      "facilities_observed": 3,
+      "facilities_known": 5,
+      "limitations": [
+        "Do not project the partial inventory as a complete supplier-wide total."
+      ]
+    }
+  ],
+  "protected_fields": [
+    {
+      "field_ref": "field:supplier-B-contract-terms",
+      "subject_ref": "subject:supplier-B",
+      "property_ref": "property:contract.unit_price",
+      "handling_state": "OmittedUnderPolicy",
+      "public_representation": "ProtectedOpaqueRef",
+      "payload_included": false,
+      "policy_ref": "policy:public-sink-no-commercial-terms",
+      "limitations": [
+        "This fixture intentionally contains no protected commercial payload."
+      ]
+    }
+  ],
+  "source_dependency_assessments": [
+    {
+      "assessment_ref": "dependency-assessment:shipment-A-17-sources",
+      "member_refs": [
+        "source:carrier-A",
+        "source:supplier-A-portal"
+      ],
+      "disposition": "Unknown",
+      "known_common_ancestry_refs": [],
+      "limitations": [
+        "A separate evaluator may vary hidden common-cause ancestry while keeping this F0 solver-visible record byte-identical."
+      ]
+    },
+    {
+      "assessment_ref": "dependency-assessment:energy-sources",
+      "member_refs": [
+        "source:energy-E1",
+        "source:energy-E2"
+      ],
+      "disposition": "Unknown",
+      "known_common_ancestry_refs": [],
+      "limitations": [
+        "Different source identifiers are not proof of independent evidence."
+      ]
+    }
+  ],
+  "policy": {
+    "policy_ref": "policy:organization-response-v1",
+    "effective_at_utc": "2026-06-01T08:00:00Z",
+    "hard_constraints": [
+      {
+        "constraint_ref": "constraint:protect-life-safety-service",
+        "rule": "Life/safety-critical service may not be shed.",
+        "type": "HardConstraint"
+      },
+      {
+        "constraint_ref": "constraint:procurement-approval",
+        "rule": "Discretionary procurement spend above 5000 synthetic currency units requires role P2 approval.",
+        "type": "HardConstraint",
+        "threshold": 5000,
+        "unit_ref": "unit:synthetic-currency"
+      },
+      {
+        "constraint_ref": "constraint:protect-supplier-terms",
+        "rule": "Protected supplier contract terms may not be disclosed to public sinks.",
+        "type": "HardConstraint"
+      }
+    ],
+    "preferences": [
+      {
+        "preference_ref": "preference:minimize-interruption",
+        "rule": "Minimize interruption duration.",
+        "type": "Preference"
+      },
+      {
+        "preference_ref": "preference:minimize-cost",
+        "rule": "Minimize incremental cost.",
+        "type": "Preference"
+      },
+      {
+        "preference_ref": "preference:reversibility",
+        "rule": "Prefer reversible interventions where other material dimensions are comparable.",
+        "type": "Preference"
+      }
+    ],
+    "unresolved_policy_questions": [
+      {
+        "question_ref": "policy-question:cost-versus-recovery",
+        "state": "Unknown",
+        "description": "Exact relative priority between cost and recovery speed is not fixed by this policy alone."
+      }
+    ]
+  },
+  "decision_profiles": [
+    {
+      "profile_ref": "decision-profile:FAST-RECOVERY",
+      "policy_ref": "policy:organization-response-v1",
+      "ordering": [
+        "HardConstraintCompliance",
+        "RecoveryTimeAscending",
+        "IncrementalCostAscending"
+      ],
+      "authority_ceiling": "CandidateOnly"
+    },
+    {
+      "profile_ref": "decision-profile:COST-CONSERVATIVE",
+      "policy_ref": "policy:organization-response-v1",
+      "discretionary_spend_limit": 2500,
+      "unit_ref": "unit:synthetic-currency",
+      "ordering": [
+        "HardConstraintCompliance",
+        "DiscretionarySpendLimit",
+        "RecoveryTimeAscending"
+      ],
+      "authority_ceiling": "CandidateOnly"
+    }
+  ],
+  "candidate_interventions": [
+    {
+      "candidate_ref": "candidate:RerouteToSupplierB",
+      "label": "Reroute to Supplier B",
+      "intervention_kind": "LogisticsReroute",
+      "authority_ceiling": "CandidateOnly",
+      "execution_material_present": false
+    },
+    {
+      "candidate_ref": "candidate:DeferEligibleDemand",
+      "label": "Defer eligible noncritical demand",
+      "intervention_kind": "DemandScheduling",
+      "authority_ceiling": "CandidateOnly",
+      "execution_material_present": false
+    },
+    {
+      "candidate_ref": "candidate:AcquireTemporaryCapacity",
+      "label": "Acquire temporary energy capacity",
+      "intervention_kind": "Procurement",
+      "authority_ceiling": "CandidateOnly",
+      "execution_material_present": false
+    },
+    {
+      "candidate_ref": "candidate:CombinedBoundedResponse",
+      "label": "Combine bounded interventions",
+      "intervention_kind": "CompositeCandidate",
+      "authority_ceiling": "CandidateOnly",
+      "execution_material_present": false
+    },
+    {
+      "candidate_ref": "candidate:GatherMoreEvidence",
+      "label": "Gather authorized additional evidence",
+      "intervention_kind": "InformationRequest",
+      "authority_ceiling": "CandidateOnly",
+      "execution_material_present": false
+    },
+    {
+      "candidate_ref": "candidate:NoAction",
+      "label": "No action under current evidence/policy",
+      "intervention_kind": "NoActionCandidate",
+      "authority_ceiling": "CandidateOnly",
+      "execution_material_present": false
+    }
+  ],
+  "nonclaims": [
+    "No real infrastructure, organization, person, credential, secret, or external system is represented.",
+    "The fixture does not encode one universally correct recommendation.",
+    "Source identifiers do not establish independence.",
+    "No candidate is an execution permit, capability, authorization or claim of action success.",
+    "This public fixture does not contain evaluator-only ground truth."
+  ]
+}
