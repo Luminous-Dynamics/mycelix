@@ -79,6 +79,23 @@ jobs:
           assert 'recheck-ruleset-pages.json' in publish and 'recheck-rulesets/' in publish
           observation_step=publish.split('- name: Record durable publication observation',1)[1].split('\n      - name:',1)[0]
           preserve_step=publish.split('- name: Preserve publication observation',1)[1].split('\n      - name:',1)[0]
+          def observation_schema(source, step_name):
+              block=source.split(f'- name: {step_name}',1)[1].split('\n      - name:',1)[0]
+              script=block.split("python - <<'PY'\n",1)[1].split('\n          PY',1)[0]
+              tree=ast.parse(textwrap.dedent(script))
+              assignments=[node for node in ast.walk(tree) if isinstance(node,ast.Assign) and any(isinstance(target,ast.Name) and target.id=='observation' for target in node.targets)]
+              assert len(assignments)==1 and isinstance(assignments[0].value,ast.Dict)
+              payload=assignments[0].value
+              keys=[key.value for key in payload.keys]
+              assert all(isinstance(key,str) for key in keys) and len(keys)==len(set(keys))
+              schema_node=next(value for key,value in zip(payload.keys,payload.values) if key.value=='schema')
+              assert isinstance(schema_node,ast.Constant) and schema_node.value=='MYCELIX-COS-DURABLE-PUBLICATION-OBSERVATION-V2'
+              return set(keys)
+          producer_observation_keys=observation_schema(text,'Record durable publication observation')
+          verifier_observation_keys=observation_schema(verifier,'Record durable verification state')
+          assert producer_observation_keys==verifier_observation_keys
+          assert len(producer_observation_keys)==24
+          assert {'is_prerelease','publication_handoff_sha256','main_ruleset_governance_sha256','attestor_workflow_content_sha256'} <= producer_observation_keys
           assert "'main_ruleset_governance_sha256':ruleset_policy['sha256']" in observation_step
           for evidence_path in ('main-ruleset-governance-v1.json','ruleset-index-pages.json','ruleset-details/','ruleset-ids.txt','recheck-environment.json','recheck-effective-rules.json','recheck-main-protection.json','recheck-ruleset-pages.json','recheck-immutable-releases.json','recheck-rulesets/'):
               assert evidence_path in preserve_step, evidence_path
