@@ -26,6 +26,13 @@ import sys
 from unittest.mock import patch
 
 
+EVALUATOR_OPTIMIZATION_GUARD_MESSAGE = (
+    "independent D6U evaluator must not run with Python optimization enabled"
+)
+if not __debug__:
+    raise SystemExit(EVALUATOR_OPTIMIZATION_GUARD_MESSAGE)
+
+
 EXPECTED_TRUSTED_POLICY_BLOB = "f7c7581017cc5773243a2d25093e5de3cd522e2e"
 EXPECTED_TRUSTED_PROGRAM_PATHS = (
     "scripts/integral/verify_d6u_trusted_artifacts.py",
@@ -60,6 +67,30 @@ def assert_rejected(fn, expected_fragment: str, message: str) -> None:
                 ) from exc
         return
     raise AssertionError(message)
+
+
+def exercise_evaluator_optimized_mode_guard() -> None:
+    """Prove the evaluator fails closed before candidate access under python -O."""
+    with tempfile.TemporaryDirectory(prefix="d6u-evaluator-optimized-") as scratch:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-O",
+                str(pathlib.Path(__file__).resolve()),
+                "--candidate-root",
+                scratch,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    assert completed.returncode != 0, (
+        "independent evaluator ran under optimized Python"
+    )
+    assert EVALUATOR_OPTIMIZATION_GUARD_MESSAGE in completed.stderr, (
+        "independent evaluator did not fail at its optimized-mode guard: "
+        f"returncode={completed.returncode}, stderr={completed.stderr!r}"
+    )
 
 
 def policy() -> dict:
@@ -1288,6 +1319,7 @@ def exercise_main_record_guards(
 
 def run(candidate_root: pathlib.Path) -> None:
     exercise_candidate_path_guard()
+    exercise_evaluator_optimized_mode_guard()
     policy_path = candidate_regular_file(
         candidate_root, "docs/integral/d6u-trusted-builder-policy.json", "policy"
     )
