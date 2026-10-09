@@ -1109,6 +1109,7 @@ def test_executor_run_live_identity_is_rejected() -> None:
         "repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
         "head_repository": {"id": 9001, "full_name": "Luminous-Dynamics/mycelix"},
         "head_branch": "main",
+        "head_sha": "b" * 40,
     }
     verify_executor_run_record(valid, record, policy, "Luminous-Dynamics/mycelix")
 
