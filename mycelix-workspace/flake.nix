@@ -107,31 +107,27 @@
           "-I${sdkClangResourceDir}"
         ];
 
-        # Resolve the committed package-lock.json directly into Nix-store paths.
-        # The SDK build/test derivation can then run without npm fetching packages
-        # from the network or maintaining a second package-manager lockfile.
+        # Resolve the committed package-lock.json into Nix-store dependency paths.
+        # For a package build, use buildNpmPackage + importNpmLock's package hook;
+        # the buildNodeModules/linkNodeModulesHook pair is for dev-shell workflows.
+        # No second package-manager lockfile or hand-maintained dependency hash is
+        # needed: importNpmLock consumes the committed lockfile integrity metadata.
         sdkTsPackage = builtins.fromJSON (builtins.readFile ./sdk-ts/package.json);
-        sdkTsDependencies = pkgs.importNpmLock.buildNodeModules {
+        sdkTsDependencies = pkgs.importNpmLock {
           npmRoot = ./sdk-ts;
-          nodejs = pkgs.nodejs_24;
         };
-        sdkTs = pkgs.stdenv.mkDerivation {
+        sdkTs = pkgs.buildNpmPackage {
           pname = "mycelix-sdk-ts";
           version = sdkTsPackage.version;
           src = ./sdk-ts;
           npmDeps = sdkTsDependencies;
-          nativeBuildInputs = [
-            pkgs.nodejs_24
-            pkgs.importNpmLock.hooks.linkNodeModulesHook
-          ];
+          npmConfigHook = pkgs.importNpmLock.npmConfigHook;
 
-          buildPhase = ''
-            runHook preBuild
+          # Run the quality gates before the normal npm build hook runs "build".
+          preBuild = ''
             npm run typecheck
             npm run lint
             npm test
-            npm run build
-            runHook postBuild
           '';
 
           installPhase = ''
