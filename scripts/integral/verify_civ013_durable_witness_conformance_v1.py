@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "42cb87e89167f0e9617e7052b118ef70bdfbc8b4"
+SOURCE_COMMIT = "a8e16a7877043114d4fe98fbc47df91c448d9665"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 SQLITE_MINIMUM_VERSION_NUMBER = 3_051_003
 
@@ -67,6 +67,7 @@ REQUIRED_IDS = {
     "DA039-sqlite-runtime-minimum-accepted",
     "DA040-sqlite-runtime-below-minimum-rejected",
     "DA041-coordinated-local-fork-erasure-outside-claim",
+    "DA042-recovery-records-same-generation-divergence",
 }
 
 
@@ -525,6 +526,27 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         ):
             return "SubprocessCrashStateMismatch"
         return "RecoverExactPreparedSuccessor"
+
+    if kind == "recovery_same_generation_fork":
+        try:
+            local_digest = parse_digest(vector.get("local_accepted_digest"), "local_accepted_digest")
+            anchor_digest = parse_digest(vector.get("external_anchor_digest"), "external_anchor_digest")
+            first_digest = parse_digest(vector.get("expected_first_fork_digest"), "expected_first_fork_digest")
+            conflicting_digest = parse_digest(vector.get("expected_conflicting_fork_digest"), "expected_conflicting_fork_digest")
+        except (TypeError, ValueError):
+            return "InvalidInput"
+        if (
+            vector.get("external_anchor_log_id") != vector.get("log_id")
+            or vector.get("external_anchor_generation") != vector.get("local_accepted_generation")
+            or anchor_digest == local_digest
+            or first_digest != anchor_digest
+            or conflicting_digest != local_digest
+            or vector.get("expected_fork_evidence_count_after") != 1
+            or vector.get("accepted_head_unchanged") is not True
+            or vector.get("prepared_candidate_created") is not False
+        ):
+            return "SameGenerationRecoveryForkContractMismatch"
+        return "ExternalAnchorMismatchAndForkEvidenceRecorded"
 
     if kind == "fork_evidence_full_erasure_boundary":
         if (
