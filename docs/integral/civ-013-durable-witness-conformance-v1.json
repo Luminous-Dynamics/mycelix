@@ -637,5 +637,5 @@
       "claim": "Adapter must refuse a runtime below the WAL-reset fix floor"
     }
   ],
-  "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback."
+  "claim_ceiling": "Durable-adapter golden-reference and abstract-transition conformance only. Local fork-evidence count/tail metadata detects inconsistent surviving state but is not independently anchored; coordinated erasure or rollback of both fork-evidence rows and local metadata is outside this claim. Does not establish actual SQLite tests passed, filesystem crash/power-loss durability, a genuine independent external anchor, bootstrap caller authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback."
 }
