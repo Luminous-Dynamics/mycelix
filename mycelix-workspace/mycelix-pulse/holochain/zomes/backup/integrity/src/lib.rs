@@ -382,6 +382,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
+            OpRecord::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
+                "Backup entries cannot be updated".to_string(),
+            )),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
             "Backup entries cannot be updated".to_string(),
         )),
