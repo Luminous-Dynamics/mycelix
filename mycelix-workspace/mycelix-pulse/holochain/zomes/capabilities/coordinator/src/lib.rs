@@ -940,8 +940,11 @@ fn resolve_latest_capability(
             "Unexpected entry type for capability record".to_string()
         )))?;
 
+    // Capability updates are grantor-authored and validated as a single
+    // active -> revoked transition. Compare source-chain action sequence, not
+    // wall-clock timestamps or hash lexical order (both can tie or misorder).
     let mut latest = (
-        record.action().timestamp(),
+        record.action().action_seq(),
         capability_hash.clone(),
         capability,
     );
@@ -972,11 +975,9 @@ fn resolve_latest_capability(
                 continue;
             };
 
-            let timestamp = update_record.action().timestamp();
-            if timestamp > latest.0
-                || (timestamp == latest.0 && update_hash.to_string() > latest.1.to_string())
-            {
-                latest = (timestamp, update_hash.clone(), updated_capability);
+            let action_seq = update_record.action().action_seq();
+            if action_seq > latest.0 {
+                latest = (action_seq, update_hash.clone(), updated_capability);
             }
             frontier.push(update_hash);
         }
