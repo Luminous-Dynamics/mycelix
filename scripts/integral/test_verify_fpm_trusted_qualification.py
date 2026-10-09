@@ -125,6 +125,7 @@ def snapshot(root: Path) -> None:
         "sandbox_target_closure": {
             "executables": [
                 {"path": "/target/debug/deps/fpm_wasm_artifact_identity-1111111111111111", "sha256": "f" * 64},
+                {"path": "/target/debug/deps/fpm_wasm_artifact_identity-2222222222222222", "sha256": "0" * 64},
             ],
             "libraries": [
                 {"path": "/lib/x86_64-linux-gnu/libc.so.6", "sha256": "1" * 64},
@@ -135,6 +136,7 @@ def snapshot(root: Path) -> None:
             cjson({
                 "executables": [
                     {"path": "/target/debug/deps/fpm_wasm_artifact_identity-1111111111111111", "sha256": "f" * 64},
+                {"path": "/target/debug/deps/fpm_wasm_artifact_identity-2222222222222222", "sha256": "0" * 64},
                 ],
                 "libraries": [
                     {"path": "/lib/x86_64-linux-gnu/libc.so.6", "sha256": "1" * 64},
@@ -558,6 +560,14 @@ version = "1.0.0"
             lambda x: x.__setitem__("sandbox_target_closure_sha256", "0" * 64),
         )
         expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_target_closure.executable-order",
+            lambda x: x["sandbox_target_closure"]["executables"].reverse(),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_target_closure.library-order",
+            lambda x: x["sandbox_target_closure"]["libraries"].reverse(),
+        )
+        expect_failure(
             root, "qualification-receipt.json", "receipt.sandbox_target_closure.executable-escape",
             lambda x: x["sandbox_target_closure"]["executables"][0].__setitem__("path", "/tmp/evil"),
         )
@@ -584,6 +594,10 @@ version = "1.0.0"
         expect_failure(
             root, "qualification-receipt.json", "receipt.sandbox_system_closure.command-digest",
             lambda x: x["sandbox_system_closure"]["commands"][0].__setitem__("sha256", "bad"),
+        )
+        expect_failure(
+            root, "qualification-receipt.json", "receipt.sandbox_system_closure.library-order",
+            lambda x: x["sandbox_system_closure"]["libraries"].reverse(),
         )
         expect_failure(
             root, "qualification-receipt.json", "receipt.sandbox_system_closure.library-duplicate",
