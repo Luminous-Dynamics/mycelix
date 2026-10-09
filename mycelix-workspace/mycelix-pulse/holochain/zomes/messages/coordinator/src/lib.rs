@@ -1183,6 +1183,32 @@ pub fn get_folders(_: ()) -> ExternResult<Vec<(ActionHash, EmailFolder)>> {
 #[hdk_extern]
 pub fn move_to_folder(input: (ActionHash, ActionHash)) -> ExternResult<()> {
     let (email_hash, folder_hash) = input;
+    let local_agent = agent_info()?.agent_initial_pubkey;
+
+    let folder_record = get(folder_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Folder is not available to this mailbox".to_string())
+    ))?;
+    let folder: EmailFolder = folder_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Target is not an email folder".to_string()
+        )))?;
+    if folder.owner != local_agent {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot move a message into a folder owned by another agent".to_string()
+        )));
+    }
+
+    let email_record = get(email_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Message is not available to this mailbox".to_string())
+    ))?;
+    if !record_belongs_to_local_mailbox(&email_record, &local_agent)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot move a message that is neither sent nor received by this agent".to_string()
+        )));
+    }
 
     create_link(
         folder_hash,
