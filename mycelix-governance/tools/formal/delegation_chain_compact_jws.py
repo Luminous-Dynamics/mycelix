@@ -271,7 +271,13 @@ def _token_signing_input(token: str) -> bytes:
 
 
 def evaluate_compact_chain(raw: dict[str, Any], trusted_anchors: list[dict[str, Any]],
-                           openssl_binary: str = "openssl") -> dict[str, Any]:
+                           openssl_binary: str = "openssl", *,
+                           trusted_now: int | None = None) -> dict[str, Any]:
+    """Verify a chain using a separately supplied trusted enforcement clock.
+
+    The raw input's "now" value is retained only for fixture/schema compatibility;
+    it is never used as authority for expiration or issued-at checks.
+    """
     if not isinstance(raw, dict):
         return {"schema": RESULT_SCHEMA, "status": "UNSUPPORTED_OR_UNDECIDABLE",
                 "findings": [{"code": "top-level-input-not-object"}], "qualification": "NOT_CLAIMED"}
@@ -281,10 +287,15 @@ def evaluate_compact_chain(raw: dict[str, Any], trusted_anchors: list[dict[str, 
     if set(raw) != {"schema", "now", "chain"}:
         return {"schema": RESULT_SCHEMA, "status": "UNSUPPORTED_OR_UNDECIDABLE",
                 "findings": [{"code": "unexpected-chain-input-field"}], "qualification": "NOT_CLAIMED"}
-    now = raw.get("now")
+    if type(trusted_now) is not int or not 0 <= trusted_now <= (1 << 53) - 1:
+        return {"schema": RESULT_SCHEMA, "status": "UNSUPPORTED_OR_UNDECIDABLE",
+                "findings": [{"code": "trusted-clock-invalid",
+                              "detail": "trusted_now must be a non-negative safe integer Unix timestamp"}],
+                "qualification": "NOT_CLAIMED"}
+    now = trusted_now
     chain = raw.get("chain")
     anchors = trusted_anchors
-    if type(now) is not int or not isinstance(chain, list) or not chain or not isinstance(anchors, list) or not anchors:
+    if not isinstance(chain, list) or not chain or not isinstance(anchors, list) or not anchors:
         return {"schema": RESULT_SCHEMA, "status": "UNSUPPORTED_OR_UNDECIDABLE",
                 "findings": [{"code": "malformed-top-level-input"}], "qualification": "NOT_CLAIMED"}
     if len(chain) > MAX_TOKEN_COUNT:
