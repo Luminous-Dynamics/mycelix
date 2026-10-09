@@ -38,16 +38,30 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: Assert trusted source, workflow commit, and evaluator blob
+      - name: Checkout workflow-definition revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: _workflow-definition
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert trusted source and workflow-file identity
         env:
           EXPECTED_TRUSTED_SHA: ${{ github.sha }}
+          EXPECTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
           EXPECTED_EVALUATOR_BLOB: 0e79fcd1292fa67f3ad4749e69353605dc1c0a6d
         run: |
           set -euo pipefail
           observed_commit="$(git rev-parse HEAD)"
           test "$observed_commit" = "$EXPECTED_TRUSTED_SHA"
-          # Bind the workflow definition and checked-out trusted source to one commit.
-          test "$GITHUB_WORKFLOW_SHA" = "$EXPECTED_TRUSTED_SHA"
+          [[ "$EXPECTED_TRUSTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          observed_workflow_revision="$(git -C _workflow-definition rev-parse HEAD)"
+          test "$observed_workflow_revision" = "$EXPECTED_WORKFLOW_SHA"
+          trusted_workflow_blob="$(git rev-parse HEAD:.github/workflows/d6u-trusted-verifier-candidate-check.yml)"
+          workflow_revision_blob="$(git -C _workflow-definition rev-parse HEAD:.github/workflows/d6u-trusted-verifier-candidate-check.yml)"
+          test "$trusted_workflow_blob" = "$workflow_revision_blob"
           observed_blob="$(git rev-parse HEAD:scripts/integral/evaluate_d6u_trusted_verifier_independently.py)"
           test "$observed_blob" = "$EXPECTED_EVALUATOR_BLOB"
 
@@ -113,7 +127,12 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REPOSITORY" = "Luminous-Dynamics/mycelix"
           test "$(git rev-parse HEAD)" = "$EXPECTED_TRUSTED_SHA"
-          test "$GITHUB_WORKFLOW_SHA" = "$EXPECTED_TRUSTED_SHA"
+          [[ "$EXPECTED_TRUSTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GITHUB_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git -C _workflow-definition rev-parse HEAD)" = "$GITHUB_WORKFLOW_SHA"
+          trusted_workflow_blob="$(git rev-parse HEAD:.github/workflows/d6u-trusted-verifier-candidate-check.yml)"
+          workflow_revision_blob="$(git -C _workflow-definition rev-parse HEAD:.github/workflows/d6u-trusted-verifier-candidate-check.yml)"
+          test "$trusted_workflow_blob" = "$workflow_revision_blob"
           [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
           [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           observed_evaluator_blob="$(git rev-parse HEAD:scripts/integral/evaluate_d6u_trusted_verifier_independently.py)"
