@@ -1,0 +1,85 @@
+name: anchor-transparency-execution-attestation
+
+on:
+  workflow_run:
+    workflows:
+      - continual-adaptation-censoring-classification-provenance
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  attest-execution-evidence:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Check out the exact successful source commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 release
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Download the exact source-run evidence artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: anchor-transparency-execution-evidence
+          path: execution-evidence
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify execution receipt and source-run metadata in Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/research/verify_censoring_classification_execution_receipt.py verify \
+            --artifact-root execution-evidence \
+            --receipt execution-evidence/qualification-execution-receipt.json \
+            --event "$GITHUB_EVENT_PATH" \
+            --predicate execution-evidence/attestation-predicate-python.json
+
+      - name: Independently verify execution receipt in Node.js
+        shell: bash
+        run: |
+          set -euo pipefail
+          node docs/research/verify_censoring_classification_execution_receipt.mjs verify \
+            --artifact-root execution-evidence \
+            --receipt execution-evidence/qualification-execution-receipt.json \
+            --event "$GITHUB_EVENT_PATH" \
+            --predicate execution-evidence/attestation-predicate-node.json
+          diff -u execution-evidence/attestation-predicate-python.json execution-evidence/attestation-predicate-node.json
+
+      - name: Create GitHub Sigstore-backed attestation for the evidence receipt
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: execution-evidence/qualification-execution-receipt.json
+          predicate-type: https://luminousdynamics.io/attestations/mycelix-anchor-research-execution/v1
+          predicate-path: execution-evidence/attestation-predicate-python.json
+
+      - name: Preserve the verified predicate alongside the source evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: anchor-transparency-signed-execution-evidence
+          path: |
+            execution-evidence/qualification-execution-receipt.json
+            execution-evidence/attestation-predicate-python.json
+          if-no-files-found: error
+          retention-days: 90
