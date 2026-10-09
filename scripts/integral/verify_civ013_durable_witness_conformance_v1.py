@@ -136,6 +136,10 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         if (sequence == 0) != (tail is None):
             return "INVALID_RECEIPT_TAIL"
         predecessor_id = vector.get("requires_predecessor")
+        if not predecessor_id and (
+            record["generation"] != 1 or record["previous_record_digest"] is not None
+        ):
+            return "INVALID_BOOTSTRAP_SHAPE"
         if predecessor_id:
             predecessor = accepted.get(predecessor_id)
             if predecessor is None:
