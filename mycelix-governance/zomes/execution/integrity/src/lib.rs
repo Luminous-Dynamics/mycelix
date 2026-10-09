@@ -833,11 +833,15 @@ pub fn check_resolution_source_action_linkage(
     let execution_predecessor = execution
         .authorized_timelock_action_hash
         .as_ref()
-        .ok_or_else(|| "Execution is missing its authorized Ready timelock action hash".to_string())?;
+        .ok_or_else(|| {
+            "Execution is missing its authorized Ready timelock action hash".to_string()
+        })?;
     let prepared_predecessor = prepared_timelock
         .prepared_from_action_hash
         .as_ref()
-        .ok_or_else(|| "Prepared timelock is missing its exact Ready predecessor action".to_string())?;
+        .ok_or_else(|| {
+            "Prepared timelock is missing its exact Ready predecessor action".to_string()
+        })?;
     if execution_predecessor != prepared_predecessor {
         return Err(
             "Execution and Prepared Timelock do not share the exact Ready predecessor action"
@@ -1489,7 +1493,9 @@ mod tests {
         let mut mismatched_predecessor = timelock.clone();
         mismatched_predecessor.prepared_from_action_hash =
             Some(ActionHash::from_raw_36(vec![3; 36]));
-        assert!(check_resolution_source_action_linkage(&execution, &mismatched_predecessor).is_err());
+        assert!(
+            check_resolution_source_action_linkage(&execution, &mismatched_predecessor).is_err()
+        );
         let mut wrong_timelock_status = timelock.clone();
         wrong_timelock_status.status = TimelockStatus::Cancelled;
         assert!(check_resolution_timelock_scope(&valid, &wrong_timelock_status).is_err());
