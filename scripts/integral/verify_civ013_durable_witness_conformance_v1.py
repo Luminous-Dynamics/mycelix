@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "e259becc6cbb516b0750efd13464793f27f74f16"
+SOURCE_COMMIT = "2b3ea63771fb9f24c131b05ee9d69b81c085d8dc"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 
 REQUIRED_IDS = {
@@ -54,6 +54,7 @@ REQUIRED_IDS = {
     "DA027-late-finalize-current-head-record-tampered",
     "DA028-same-generation-finalize-tampered-current-head",
     "DA029-anchor-advances-past-candidate",
+    "DA030-anchor-advances-before-prepare",
 }
 
 
@@ -363,6 +364,28 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
             or type(vector.get("candidate_generation")) is not int
             or vector["candidate_generation"] != vector["accepted_generation"] + 1
             or vector.get("stage") != "after_prepare"
+            or vector.get("expected_fork_evidence") is not False
+        ):
+            return "InvalidInput"
+        if vector["observed_anchor_log_id"] != vector["log_id"]:
+            return "ExternalAnchorMismatch"
+        if vector["observed_anchor_generation"] > vector["candidate_generation"]:
+            return "RollbackDetected"
+        if vector["observed_anchor_generation"] == vector["candidate_generation"]:
+            return (
+                "ACCEPT_ALREADY_ANCHORED"
+                if vector["observed_anchor_digest"] == vector.get("candidate_digest")
+                else "ExternalAnchorMismatch"
+            )
+        return "AnchorNotAhead"
+
+    if kind == "anchor_ahead_before_prepare":
+        if (
+            type(vector.get("accepted_generation")) is not int
+            or type(vector.get("candidate_generation")) is not int
+            or vector["candidate_generation"] != vector["accepted_generation"] + 1
+            or vector.get("stage") != "before_prepare"
+            or vector.get("expected_candidate_persisted") is not False
             or vector.get("expected_fork_evidence") is not False
         ):
             return "InvalidInput"
