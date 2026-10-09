@@ -874,6 +874,23 @@ enum MailboxAccessTypeInput {
     Custom(String),
 }
 
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MailboxCapabilityWire {
+    id: String,
+    grantor: AgentPubKey,
+    grantee: AgentPubKey,
+    access_type: MailboxAccessTypeInput,
+    permissions: MailboxPermissionsInput,
+    restrictions: Option<serde_json::Value>,
+    granted_at: Timestamp,
+    expires_at: Option<Timestamp>,
+    revoked: bool,
+    revocation_reason: Option<String>,
+    system_grant_action_hash: Option<ActionHash>,
+    secret_hash: Vec<u8>,
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
 struct MailboxPermissionsInput {
     can_read: bool,
@@ -939,6 +956,25 @@ async fn test_capability_grant_and_revocation_lifecycle() {
         )
         .await
         .expect("Alice should create an assigned capability grant");
+
+    // The public record contains only a fixed-size digest and a binding to the
+    // private system CapGrant. deny_unknown_fields makes adding a raw secret to
+    // this application entry a hard test failure.
+    let granted: Vec<(ActionHash, MailboxCapabilityWire)> = conductor
+        .call_fallible(
+            &alice.zome("mail_capabilities"),
+            "get_granted_capabilities",
+            (),
+        )
+        .await
+        .expect("grantor should be able to inspect the application projection");
+    let (_, wire_capability) = granted
+        .into_iter()
+        .find(|(hash, _)| hash == &capability_hash)
+        .expect("new capability should be listed by its grantor");
+    assert_eq!(wire_capability.secret_hash.len(), 32, "public record stores only a SHA-256 fingerprint");
+    assert!(wire_capability.system_grant_action_hash.is_some(), "new grant must retain exact conductor grant binding");
+    assert!(!wire_capability.revoked);
 
     // Delivery is deliberately a second call: the grant's source-chain actions
     // must commit before the recipient can verify the public metadata and claim.
