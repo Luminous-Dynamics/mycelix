@@ -19,6 +19,7 @@ import json
 import re
 import subprocess
 import tempfile
+from json.decoder import scanstring
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -130,6 +131,147 @@ def jwk_thumbprint_uri(jwk: dict[str, Any]) -> str:
     canonical = json.dumps(required_members, sort_keys=True, separators=(",", ":"),
                            ensure_ascii=False, allow_nan=False).encode("utf-8")
     return THUMBPRINT_URI_PREFIX + b64url_encode(hashlib.sha256(canonical).digest())
+
+
+_JSON_NUMBER = re.compile(r"-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?")
+
+
+def _skip_json_space(text: str, index: int) -> int:
+    while index < len(text) and text[index] in " \t\r\n":
+        index += 1
+    return index
+
+
+def _scan_json_string(text: str, index: int) -> tuple[str, int]:
+    if index >= len(text) or text[index] != '"':
+        raise VerificationError("jti-preparse-invalid", "expected JSON string while scanning jti")
+    try:
+        value, end = scanstring(text, index + 1, strict=True)
+    except (ValueError, UnicodeError) as error:
+        raise VerificationError("jti-preparse-invalid", "invalid JSON string while scanning jti") from error
+    return value, end
+
+
+def _skip_json_value(text: str, index: int, depth: int = 0) -> int:
+    """Validate and skip one JSON value without materializing arbitrary nested values."""
+    index = _skip_json_space(text, index)
+    if depth > 64:
+        raise VerificationError("jti-preparse-depth-exceeded",
+                                "pre-signature jti scan exceeds the profile's JSON nesting bound")
+    if index >= len(text):
+        raise VerificationError("jti-preparse-invalid", "missing JSON value")
+    char = text[index]
+    if char == '"':
+        _, end = _scan_json_string(text, index)
+        return end
+    if char == "{":
+        index = _skip_json_space(text, index + 1)
+        if index < len(text) and text[index] == "}":
+            return index + 1
+        while True:
+            _, index = _scan_json_string(text, index)
+            index = _skip_json_space(text, index)
+            if index >= len(text) or text[index] != ":":
+                raise VerificationError("jti-preparse-invalid", "object key lacks a colon")
+            index = _skip_json_value(text, index + 1, depth + 1)
+            index = _skip_json_space(text, index)
+            if index >= len(text):
+                raise VerificationError("jti-preparse-invalid", "unterminated JSON object")
+            if text[index] == "}":
+                return index + 1
+            if text[index] != ",":
+                raise VerificationError("jti-preparse-invalid", "expected comma in JSON object")
+            index = _skip_json_space(text, index + 1)
+    if char == "[":
+        index = _skip_json_space(text, index + 1)
+        if index < len(text) and text[index] == "]":
+            return index + 1
+        while True:
+            index = _skip_json_value(text, index, depth + 1)
+            index = _skip_json_space(text, index)
+            if index >= len(text):
+                raise VerificationError("jti-preparse-invalid", "unterminated JSON array")
+            if text[index] == "]":
+                return index + 1
+            if text[index] != ",":
+                raise VerificationError("jti-preparse-invalid", "expected comma in JSON array")
+            index = _skip_json_space(text, index + 1)
+    for literal in ("true", "false", "null"):
+        if text.startswith(literal, index):
+            end = index + len(literal)
+            if end == len(text) or text[end] in " \t\r\n,]}":
+                return end
+            raise VerificationError("jti-preparse-invalid", "invalid JSON literal")
+    number_match = _JSON_NUMBER.match(text, index)
+    if number_match is not None:
+        end = number_match.end()
+        if end == len(text) or text[end] in " \t\r\n,]}":
+            return end
+    raise VerificationError("jti-preparse-invalid", "invalid JSON value during pre-signature scan")
+
+
+def extract_untrusted_jti(payload_bytes: bytes, hop_index: int) -> str:
+    """Extract only top-level jti before signature verification, for cycle rejection.
+
+    Returned values remain untrusted. The caller may use this result only to
+    reject duplicate token identifiers; authorization claims are parsed after
+    the corresponding token signature has verified.
+    """
+    try:
+        text = payload_bytes.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as error:
+        raise VerificationError("jti-preparse-invalid",
+                                f"token[{hop_index}] payload is not UTF-8 JSON") from error
+    index = _skip_json_space(text, 0)
+    if index >= len(text) or text[index] != "{":
+        raise VerificationError("jti-preparse-invalid",
+                                f"token[{hop_index}] payload must be a JSON object")
+    index = _skip_json_space(text, index + 1)
+    found = False
+    jti: str | None = None
+    if index < len(text) and text[index] == "}":
+        raise VerificationError("jti-preparse-invalid",
+                                f"token[{hop_index}] payload is missing a non-empty jti")
+    while True:
+        key, index = _scan_json_string(text, index)
+        index = _skip_json_space(text, index)
+        if index >= len(text) or text[index] != ":":
+            raise VerificationError("jti-preparse-invalid",
+                                    f"token[{hop_index}] has an invalid JSON object member")
+        index = _skip_json_space(text, index + 1)
+        if key == "jti":
+            if found:
+                raise VerificationError("jti-preparse-duplicate",
+                                        f"token[{hop_index}] has duplicate top-level jti members")
+            found = True
+            value, index = _scan_json_string(text, index)
+            if not value:
+                raise VerificationError("jti-preparse-invalid",
+                                        f"token[{hop_index}] jti must be a non-empty string")
+            if any(0xD800 <= ord(char) <= 0xDFFF for char in value):
+                raise VerificationError("jti-preparse-invalid",
+                                        f"token[{hop_index}] jti contains a surrogate code point")
+            jti = value
+        else:
+            index = _skip_json_value(text, index, depth=1)
+        index = _skip_json_space(text, index)
+        if index >= len(text):
+            raise VerificationError("jti-preparse-invalid",
+                                    f"token[{hop_index}] payload object is unterminated")
+        if text[index] == "}":
+            index = _skip_json_space(text, index + 1)
+            if index != len(text):
+                raise VerificationError("jti-preparse-invalid",
+                                        f"token[{hop_index}] payload has trailing JSON data")
+            break
+        if text[index] != ",":
+            raise VerificationError("jti-preparse-invalid",
+                                    f"token[{hop_index}] expected comma between JSON members")
+        index = _skip_json_space(text, index + 1)
+    if not found or not isinstance(jti, str) or not jti:
+        raise VerificationError("jti-preparse-invalid",
+                                f"token[{hop_index}] payload is missing a non-empty string jti")
+    return jti
 
 
 def split_compact_jws(token: Any) -> tuple[str, str, str, bytes, bytes, bytes]:
@@ -328,13 +470,22 @@ def evaluate_compact_chain(raw: dict[str, Any], trusted_anchors: list[dict[str, 
     parsed_wires: list[dict[str, Any]] = []
     try:
         for index, token in enumerate(chain):
-            h64, p64, s64, header_bytes, _, signature = split_compact_jws(token)
+            h64, p64, s64, header_bytes, payload_bytes, signature = split_compact_jws(token)
             header = parse_and_validate_header(header_bytes)
+            preverified_jti = extract_untrusted_jti(payload_bytes, index)
             parsed_wires.append({
                 "token": token, "header": header,
                 "signing_input": (h64 + "." + p64).encode("ascii"),
                 "signature": signature, "index": index,
+                "preverified_jti": preverified_jti,
             })
+
+        # AAT chain verification permits only this one claim to be extracted
+        # before signatures; use it solely to reject token-identifier cycles.
+        # Every value remains untrusted until its token's signature verifies.
+        preverified_jtis = [wire["preverified_jti"] for wire in parsed_wires]
+        if len(preverified_jtis) != len(set(preverified_jtis)):
+            raise VerificationError("duplicate-jti", "presented chain reuses an untrusted token jti")
 
         root_wire = parsed_wires[0]
         root_valid_anchors: list[dict[str, Any]] = []
@@ -363,6 +514,9 @@ def evaluate_compact_chain(raw: dict[str, Any], trusted_anchors: list[dict[str, 
         root_iat, root_exp, root_depth, root_max, root_jti, root_holder_jwk = _validate_common_claims(
             root_claims, 0, now
         )
+        if root_jti != root_wire["preverified_jti"]:
+            raise VerificationError("jti-preparse-mismatch",
+                                    "authenticated root jti differs from pre-signature extraction")
         try:
             root_tools = capability.validate_authorization_details(
                 root_claims["authorization_details"], require_one=True, label="root"
@@ -383,6 +537,9 @@ def evaluate_compact_chain(raw: dict[str, Any], trusted_anchors: list[dict[str, 
                                      previous_holder_jwk, openssl_binary=openssl_binary)
             claims = _parse_authenticated_token(wire["token"], index)
             iat, exp, depth, max_depth, jti, holder_jwk = _validate_common_claims(claims, index, now)
+            if jti != wire["preverified_jti"]:
+                raise VerificationError("jti-preparse-mismatch",
+                                        f"token[{index}] authenticated jti differs from pre-signature extraction")
             if jti in jtis:
                 raise VerificationError("duplicate-jti", f"token[{index}] reuses jti from an earlier chain token")
             jtis.add(jti)
