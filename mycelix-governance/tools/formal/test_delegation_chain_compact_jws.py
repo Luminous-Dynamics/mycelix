@@ -105,7 +105,7 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain", count: in
     root_exp = NOW + 10_000
 
     for index in range(count):
-        header: dict[str, Any] = {"alg": "EdDSA", "typ": "JWT", "kid": f"fixture-{index}"}
+        header: dict[str, Any] = {"alg": "EdDSA", "typ": "aat+jwt", "kid": f"fixture-{index}"}
         claims: dict[str, Any] = {
             "jti": f"token-{index}",
             "iss": ISSUER if index == 0 else thumbprint_uri(holder_jwks[index]),
@@ -154,6 +154,8 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain", count: in
             header["b64"] = True
         elif case == "critical-header-present" and index == 1:
             header["crit"] = ["unsupported-extension"]
+        elif case == "wrong-token-type" and index == 1:
+            header["typ"] = "JWT"
         elif case == "unhashable-header-typ" and index == 1:
             header["typ"] = []
 
@@ -180,12 +182,12 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain", count: in
         old_token = chain[1]
         parts = old_token.split(".")
         claims = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * ((4-len(parts[1])%4)%4)))
-        original_root_header = {"alg": "EdDSA", "typ": "JWT", "kid": "fixture-0"}
+        original_root_header = {"alg": "EdDSA", "typ": "aat+jwt", "kid": "fixture-0"}
         original_parent_input = (
             encode_segment(compact_json(original_root_header)) + "." + chain[0].split(".")[1]
         )
         claims["par_hash"] = b64u(hashlib.sha256(original_parent_input.encode("ascii")).digest())
-        chain[1] = sign_token(keys[1]["private_path"], {"alg": "EdDSA", "typ": "JWT", "kid": "fixture-1"},
+        chain[1] = sign_token(keys[1]["private_path"], {"alg": "EdDSA", "typ": "aat+jwt", "kid": "fixture-1"},
                               claims, directory, f"{case}-relinked-child")
 
     anchors = [{"issuer_uri": ISSUER, "jwk": copy.deepcopy(keys[0]["public_jwk"])}]
@@ -222,6 +224,7 @@ def cases(directory: Path) -> dict[str, dict[str, Any]]:
         "none-algorithm",
         "b64-header-present",
         "critical-header-present",
+        "wrong-token-type",
         "unhashable-header-typ",
         "malformed-compact-token",
         "oversized-token",
@@ -265,7 +268,7 @@ def main() -> int:
             root = Path(temporary)
             valid = build_chain(root, "valid-four-token-chain")
             observed = invoke_fixture(valid, openssl)
-            require(observed.get("status") == "COMPACT_JWS_CHAIN_VERIFIED",
+            require(observed.get("status") == "COMPACT_JWS_CRYPTO_LINKAGE_PASS",
                     "valid signed chain rejected: " + json.dumps(observed, sort_keys=True))
             receipt["controls"].append({
                 "id": "valid-four-token-chain", "status": observed["status"],
@@ -274,7 +277,7 @@ def main() -> int:
             })
             valid_single = build_chain(root, "valid-single-token-chain", count=1)
             observed_single = invoke_fixture(valid_single, openssl)
-            require(observed_single.get("status") == "COMPACT_JWS_CHAIN_VERIFIED",
+            require(observed_single.get("status") == "COMPACT_JWS_CRYPTO_LINKAGE_PASS",
                     "valid root-as-leaf single-token chain rejected: " +
                     json.dumps(observed_single, sort_keys=True))
             receipt["controls"].append({
@@ -340,6 +343,7 @@ def main() -> int:
                     "none-algorithm": "algorithm-not-allowed",
                     "b64-header-present": "b64-header-not-allowed",
                     "critical-header-present": "critical-header-unsupported",
+                    "wrong-token-type": "token-type-invalid",
                     "unhashable-header-typ": "token-type-invalid",
                     "malformed-compact-token": "compact-token-malformed",
                     "oversized-token": "token-size-exceeded",
@@ -376,7 +380,7 @@ def main() -> int:
                     mutated_result = invoke_fixture(bad_cases[fixture_name], openssl)
                 finally:
                     setattr(verifier, attribute, original)
-                require(mutated_result.get("status") == "COMPACT_JWS_CHAIN_VERIFIED",
+                require(mutated_result.get("status") == "COMPACT_JWS_CRYPTO_LINKAGE_PASS",
                         mutation_id + ": omitted-check mutant did not accept the known-bad fixture")
                 receipt["mutations"].append({
                     "id": mutation_id,
@@ -405,7 +409,7 @@ def main() -> int:
                 "qualification": "NOT_CLAIMED",
             }
             args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-            print(f"COMPACT JWS CHAIN CHECK PASS: 2 signed positives + {receipt['summary']['negative_controls']} negative controls")
+            print(f"COMPACT JWS CRYPTO-LINK CHECK PASS: 2 signed positives + {receipt['summary']['negative_controls']} negative controls")
             print("COMPACT JWS MUTATION SENSITIVITY PASS: 3 of 3 omitted checks accepted known-bad fixtures")
             print("QUALIFICATION NOT CLAIMED: capability subsumption and leaf proof-of-possession are not implemented")
             return 0
