@@ -2,8 +2,67 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
-use crate::app::PlayerState;
+use crate::app::{format_time, PlayerState};
+use crate::types::RepeatMode;
 use leptos::prelude::*;
+use super::queue::QueuePanel;
+
+/// Attempt playback and observe the media promise instead of treating the
+/// synchronous JS call as proof that playback actually started. A stale reject
+/// from an older track/play attempt must not pause a newer selection.
+fn request_playback(
+    audio: web_sys::HtmlAudioElement,
+    player: PlayerState,
+    attempt_generation: RwSignal<u64>,
+) {
+    let Some(expected_song_hash) = player
+        .current_song
+        .get_untracked()
+        .map(|song| song.song_hash)
+    else {
+        return;
+    };
+    if !player.is_playing.get_untracked() {
+        return;
+    }
+
+    let generation = attempt_generation.get_untracked().wrapping_add(1);
+    attempt_generation.set(generation);
+    let expected_hash_for_result = expected_song_hash.clone();
+
+    match audio.play() {
+        Ok(promise) => {
+            let player_for_result = player.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                if wasm_bindgen_futures::JsFuture::from(promise)
+                    .await
+                    .is_err()
+                    && attempt_generation.get_untracked() == generation
+                    && player_for_result.is_playing.get_untracked()
+                    && player_for_result
+                        .current_song
+                        .get_untracked()
+                        .map(|song| song.song_hash)
+                        == Some(expected_hash_for_result)
+                {
+                    player_for_result.is_playing.set(false);
+                }
+            });
+        }
+        Err(_) => {
+            if attempt_generation.get_untracked() == generation
+                && player.is_playing.get_untracked()
+                && player
+                    .current_song
+                    .get_untracked()
+                    .map(|song| song.song_hash)
+                    == Some(expected_song_hash)
+            {
+                player.is_playing.set(false);
+            }
+        }
+    }
+}
 
 /// Persistent audio player bar at the bottom of the screen.
 /// Plays audio from IPFS gateway URLs and records plays via zome calls.
@@ -14,26 +73,41 @@ pub fn Player() -> impl IntoView {
     let is_playing = player.is_playing;
     let volume = player.volume;
     let audio_ref = NodeRef::<leptos::html::Audio>::new();
+    // Invalidates rejected play promises from older user actions / selections.
+    let play_attempt_generation = RwSignal::new(0u64);
 
     let toggle_play = move |_| {
         is_playing.update(|p| *p = !*p);
     };
 
+    // Clone the state per rendered view so reactive re-renders do not consume
+    // the event handlers captured by the component.
+    let player_for_previous = player.clone();
+    let player_for_next = player.clone();
+
+    let show_queue = player.show_queue;
+    let toggle_queue = move |_| show_queue.update(|show| *show = !*show);
+    let queue = player.queue;
+    let progress = player.progress;
+    let duration = player.duration;
+    let repeat_mode = player.repeat_mode;
+    let cycle_repeat = move |_| {
+        repeat_mode.update(|mode| *mode = mode.next());
+    };
+
     // `autoplay` is only a loading hint; changing it after mount does not
     // reliably control an existing media element. Drive the media API from
     // the reactive playback state instead.
+    let player_for_effect = player.clone();
     Effect::new(move |_| {
         let has_song = current.get().is_some();
         let should_play = is_playing.get();
-        if !has_song {
-            return;
-        }
         if let Some(audio) = audio_ref.get() {
-            if should_play {
-                if audio.play().is_err() {
-                    is_playing.set(false);
-                }
+            if has_song && should_play {
+                request_playback(audio, player_for_effect.clone(), play_attempt_generation);
             } else {
+                // A cleared queue must stop the media element, not merely hide
+                // its controls or clear the reactive playing flag.
                 let _ = audio.pause();
             }
         }
@@ -43,6 +117,28 @@ pub fn Player() -> impl IntoView {
     let update_time = move |_| {
         if let Some(audio) = audio_ref.get() {
             player_for_time.progress.set(audio.current_time());
+        }
+    };
+
+    let seek_progress = player.progress;
+    let seek_audio = audio_ref;
+    // NodeRef and RwSignal are copyable handles; keeping this handler outside
+    // the per-song render closure avoids moving a non-Copy closure on rerender.
+    let seek_to = move |ev| {
+        if let Ok(seconds) = event_target_value(&ev).parse::<f64>() {
+            if seconds.is_finite() {
+                if let Some(audio) = seek_audio.get() {
+                    let media_duration = audio.duration();
+                    let max_time = if media_duration.is_finite() {
+                        media_duration.max(0.0)
+                    } else {
+                        seconds.max(0.0)
+                    };
+                    let target = seconds.clamp(0.0, max_time);
+                    audio.set_current_time(target);
+                    seek_progress.set(target);
+                }
+            }
         }
     };
 
@@ -56,61 +152,215 @@ pub fn Player() -> impl IntoView {
         }
     };
 
-    let player_for_end = player.clone();
-
+    let player_for_ready = player.clone();
     let start_when_ready = move |_| {
-        if is_playing.get_untracked() {
+        if player_for_ready.is_playing.get_untracked() {
             if let Some(audio) = audio_ref.get() {
-                if audio.play().is_err() {
-                    is_playing.set(false);
-                }
+                request_playback(
+                    audio,
+                    player_for_ready.clone(),
+                    play_attempt_generation,
+                );
+            }
+        }
+    };
+
+    let player_for_end = player.clone();
+    let audio_for_end = audio_ref;
+    let on_ended = move |_| {
+        let before_hash = player_for_end
+            .current_song
+            .get_untracked()
+            .map(|song| song.song_hash);
+        player_for_end.next_on_end();
+        let after_hash = player_for_end
+            .current_song
+            .get_untracked()
+            .map(|song| song.song_hash);
+        // Repeat-one (or a one-track repeat-all queue) has the same source
+        // on both sides. Rewind and explicitly restart the persistent element.
+        if player_for_end.is_playing.get_untracked() && before_hash == after_hash {
+            if let Some(audio) = audio_for_end.get() {
+                audio.set_current_time(0.0);
+                request_playback(
+                    audio,
+                    player_for_end.clone(),
+                    play_attempt_generation,
+                );
             }
         }
     };
 
     view! {
-        <div class="player-bar">
-            {move || {
-                if let Some(song) = current.get() {
-                    let on_ended = {
-                        let player_for_end = player_for_end.clone();
-                        move |_| player_for_end.next()
-                    };
-                    view! {
-                        <div class="player-info">
-                            <span class="player-title">{song.title.clone()}</span>
-                            <span class="player-duration">{song.duration_display()}</span>
-                        </div>
-                        <div class="player-controls">
-                            <button
-                                class="btn-player"
-                                on:click=toggle_play
-                                aria-label=move || if is_playing.get() { "Pause" } else { "Play" }
-                            >
-                                {move || if is_playing.get() { "⏸" } else { "▶" }}
-                            </button>
-                        </div>
-                        <audio
-                            node_ref=audio_ref
-                            prop:src=song.audio_url()
-                            prop:volume=move || volume.get()
-                            preload="metadata"
-                            on:canplay=start_when_ready
-                            on:timeupdate=update_time
-                            on:loadedmetadata=update_metadata
-                            on:ended=on_ended
-                        />
-                    }.into_any()
-                } else {
-                    view! {
-                        <div class="player-empty">
-                            <span>"No song selected — browse "
-                                <a href="/discover">"Discover"</a>
-                            </span>
-                        </div>
-                    }.into_any()
-                }
-            }}
-        </div>
+        <>
+            <div class="player-bar">
+                {move || {
+                    if let Some(song) = current.get() {
+                        let previous_player = player_for_previous.clone();
+                        let previous_audio = audio_ref;
+                        let play_previous = move |_| {
+                            let before_hash = previous_player
+                                .current_song
+                                .get_untracked()
+                                .map(|song| song.song_hash);
+                            let restart_current =
+                                previous_player.progress.get_untracked() > 3.0;
+                            let was_playing = previous_player.is_playing.get_untracked();
+                            previous_player.previous();
+                            let after_hash = previous_player
+                                .current_song
+                                .get_untracked()
+                                .map(|song| song.song_hash);
+                            // Previous at the start of the first track can resolve to
+                            // the same source. Keep the real element in sync with the
+                            // state transition, but preserve pause on the >3s restart gesture.
+                            if before_hash == after_hash {
+                                if let Some(audio) = previous_audio.get() {
+                                    audio.set_current_time(0.0);
+                                    if !restart_current || was_playing {
+                                        request_playback(
+                                            audio,
+                                            previous_player.clone(),
+                                            play_attempt_generation,
+                                        );
+                                    }
+                                }
+                            }
+                        };
+                        let next_player = player_for_next.clone();
+                        let next_audio = audio_ref;
+                        let play_next = move |_| {
+                            let before_hash = next_player
+                                .current_song
+                                .get_untracked()
+                                .map(|song| song.song_hash);
+                            next_player.next();
+                            let after_hash = next_player
+                                .current_song
+                                .get_untracked()
+                                .map(|song| song.song_hash);
+                            // Repeat-one and a one-track repeat-all queue select the
+                            // same source. Rewind and start it even if it was paused.
+                            if next_player.is_playing.get_untracked()
+                                && before_hash == after_hash
+                            {
+                                if let Some(audio) = next_audio.get() {
+                                    audio.set_current_time(0.0);
+                                    request_playback(
+                                        audio,
+                                        next_player.clone(),
+                                        play_attempt_generation,
+                                    );
+                                }
+                            }
+                        };
+                        view! {
+                            <div class="player-info">
+                                <span class="player-title">{song.title.clone()}</span>
+                                <span class="player-duration">{song.duration_display()}</span>
+                            </div>
+                            <div class="player-timeline">
+                                <span class="player-time">{move || format_time(progress.get())}</span>
+                                <input
+                                    class="player-seek"
+                                    type="range"
+                                    min="0"
+                                    max=move || duration.get().max(0.0).to_string()
+                                    step="0.1"
+                                    prop:value=move || progress.get().min(duration.get().max(0.0)).max(0.0).to_string()
+                                    on:input=seek_to
+                                    disabled=move || duration.get() <= 0.0
+                                    aria-label="Seek playback position"
+                                    title="Seek playback position"
+                                />
+                                <span class="player-time">{move || format_time(duration.get())}</span>
+                            </div>
+                            <div class="player-controls">
+                                <button
+                                    class="btn-player-secondary"
+                                    on:click=play_previous
+                                    disabled=move || player.queue.get().is_empty()
+                                    aria-label="Previous track"
+                                    title="Previous track"
+                                >
+                                    "⏮"
+                                </button>
+                                <button
+                                    class="btn-player"
+                                    on:click=toggle_play
+                                    aria-label=move || if is_playing.get() { "Pause" } else { "Play" }
+                                    title=move || if is_playing.get() { "Pause" } else { "Play" }
+                                >
+                                    {move || if is_playing.get() { "⏸" } else { "▶" }}
+                                </button>
+                                <button
+                                    class="btn-player-secondary"
+                                    on:click=play_next
+                                    disabled=move || player.queue.get().is_empty()
+                                    aria-label="Next track"
+                                    title="Next track"
+                                >
+                                    "⏭"
+                                </button>
+                                <button
+                                    class=move || match repeat_mode.get() {
+                                        RepeatMode::None => "btn-player-secondary repeat-off",
+                                        RepeatMode::All => "btn-player-secondary repeat-active",
+                                        RepeatMode::One => "btn-player-secondary repeat-active repeat-one",
+                                    }
+                                    on:click=cycle_repeat
+                                    aria-label=move || match repeat_mode.get() {
+                                        RepeatMode::None => "Repeat off",
+                                        RepeatMode::All => "Repeat all",
+                                        RepeatMode::One => "Repeat one",
+                                    }
+                                    title=move || match repeat_mode.get() {
+                                        RepeatMode::None => "Repeat off",
+                                        RepeatMode::All => "Repeat all",
+                                        RepeatMode::One => "Repeat one",
+                                    }
+                                    aria-pressed=move || (repeat_mode.get() != RepeatMode::None).to_string()
+                                >
+                                    {move || match repeat_mode.get() {
+                                        RepeatMode::None => "↻",
+                                        RepeatMode::All => "↻",
+                                        RepeatMode::One => "1↻",
+                                    }}
+                                </button>
+                            </div>
+                        }.into_any()
+                    } else {
+                        view! {
+                            <div class="player-empty">
+                                <span>"No song selected — browse "<a href="/discover">"Discover"</a></span>
+                            </div>
+                        }.into_any()
+                    }
+                }}
+                <button
+                    class="btn-player-secondary queue-toggle"
+                    on:click=toggle_queue
+                    aria-label="Toggle playback queue"
+                    aria-expanded=move || show_queue.get().to_string()
+                    title="Open playback queue"
+                >
+                    "Queue (" {move || queue.get().len()} ")"
+                </button>
+            </div>
+            // Keep one media element mounted across song and queue transitions.
+            // Removing src when no song is selected avoids loading the page URL,
+            // and gives clear-queue transitions a stable element to pause.
+            <audio
+                node_ref=audio_ref
+                src=move || current.get().map(|song| song.audio_url())
+                prop:volume=move || volume.get()
+                preload="metadata"
+                on:canplay=start_when_ready
+                on:timeupdate=update_time
+                on:loadedmetadata=update_metadata
+                on:ended=on_ended
+            />
+            <QueuePanel />
+        </>
     }
 }

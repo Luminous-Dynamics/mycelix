@@ -47,7 +47,23 @@ impl PlayerState {
         }
     }
 
+    /// Reset duration only when the selected audio source actually changes.
+    /// Re-selecting the same track should keep seeking available while it restarts.
+    fn prepare_track_change(&self, next_song: &Song) {
+        let source_changed = self
+            .current_song
+            .get_untracked()
+            .map_or(true, |current| current.song_hash != next_song.song_hash);
+        if source_changed {
+            self.duration.set(0.0);
+        }
+    }
+
     pub fn play_song(&self, song: Song) {
+        let same_source = self
+            .current_song
+            .get_untracked()
+            .map_or(false, |current| current.song_hash == song.song_hash);
         let mut q = self.queue.get_untracked();
         let idx = q
             .iter()
@@ -58,8 +74,13 @@ impl PlayerState {
                 q.len() - 1
             });
         self.queue_index.set(Some(idx));
+        self.prepare_track_change(&song);
         self.current_song.set(Some(song));
-        self.progress.set(0.0);
+        // Re-selecting the active source resumes it; resetting only the signal
+        // would put the playhead at zero while the audio element keeps its time.
+        if !same_source {
+            self.progress.set(0.0);
+        }
         self.is_playing.set(true);
     }
 
@@ -78,28 +99,40 @@ impl PlayerState {
         let first = songs[0].clone();
         self.queue.set(songs);
         self.queue_index.set(Some(0));
+        self.prepare_track_change(&first);
         self.current_song.set(Some(first));
         self.progress.set(0.0);
         self.is_playing.set(true);
     }
 
+    /// Advance because the user pressed Next. Repeat-one affects natural
+    /// track completion, not an explicit request to skip forward.
     pub fn next(&self) {
+        self.advance_queue(false);
+    }
+
+    /// Advance after the current media element naturally reaches its end.
+    pub fn next_on_end(&self) {
+        self.advance_queue(true);
+    }
+
+    fn advance_queue(&self, track_ended: bool) {
         let q = self.queue.get_untracked();
         if q.is_empty() {
             return;
         }
-        let idx = self.queue_index.get_untracked().unwrap_or(0);
-        let next = match self.repeat_mode.get_untracked() {
-            RepeatMode::One => Some(idx),
-            RepeatMode::All => Some((idx + 1) % q.len()),
-            RepeatMode::None => {
-                let n = idx + 1;
-                if n < q.len() { Some(n) } else { None }
-            }
-        };
+        let repeat_mode = self.repeat_mode.get_untracked();
+        let next = queue_next_index(
+            self.queue_index.get_untracked(),
+            q.len(),
+            &repeat_mode,
+            track_ended,
+        );
         if let Some(i) = next {
             self.queue_index.set(Some(i));
-            self.current_song.set(Some(q[i].clone()));
+            let next_song = q[i].clone();
+            self.prepare_track_change(&next_song);
+            self.current_song.set(Some(next_song));
             self.progress.set(0.0);
             self.is_playing.set(true);
         } else {
@@ -116,7 +149,7 @@ impl PlayerState {
             self.progress.set(0.0);
             return;
         }
-        let idx = self.queue_index.get_untracked().unwrap_or(0);
+        let idx = queue_navigation_index(self.queue_index.get_untracked(), q.len());
         let prev = if idx > 0 {
             idx - 1
         } else if self.repeat_mode.get_untracked() == RepeatMode::All {
@@ -125,9 +158,229 @@ impl PlayerState {
             0
         };
         self.queue_index.set(Some(prev));
-        self.current_song.set(Some(q[prev].clone()));
+        let previous_song = q[prev].clone();
+        self.prepare_track_change(&previous_song);
+        self.current_song.set(Some(previous_song));
         self.progress.set(0.0);
         self.is_playing.set(true);
+    }
+
+    /// Remove a queued track and keep the active selection/index coherent.
+    ///
+    /// Removing the active track selects the next item, or the previous item
+    /// when the removed track was last. Removing the final queued item clears
+    /// playback state; removing an earlier unrelated item only shifts the
+    /// queue index.
+    pub fn remove_queued_song(&self, song_hash: &str) {
+        let mut updated = self.queue.get_untracked();
+        let Some(removed_index) = updated.iter().position(|song| song.song_hash == song_hash) else {
+            return;
+        };
+        let current_index = self.queue_index.get_untracked();
+        updated.remove(removed_index);
+        self.queue.set(updated.clone());
+
+        match queue_removal_action(current_index, removed_index, updated.len()) {
+            QueueRemovalAction::Keep => {}
+            QueueRemovalAction::ShiftIndex(index) => self.queue_index.set(Some(index)),
+            QueueRemovalAction::Select(index) => {
+                self.queue_index.set(Some(index));
+                let next_song = updated[index].clone();
+                self.prepare_track_change(&next_song);
+                self.current_song.set(Some(next_song));
+                self.progress.set(0.0);
+            }
+            QueueRemovalAction::ClearPlayback => {
+                self.queue_index.set(None);
+                self.current_song.set(None);
+                self.is_playing.set(false);
+                self.progress.set(0.0);
+                self.duration.set(0.0);
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum QueueRemovalAction {
+    Keep,
+    ShiftIndex(usize),
+    Select(usize),
+    ClearPlayback,
+}
+
+/// Decide the playback-state consequence of removing one queue position.
+fn queue_removal_action(
+    current_index: Option<usize>,
+    removed_index: usize,
+    remaining_len: usize,
+) -> QueueRemovalAction {
+    // Empty queue means the player must not retain a stale current item,
+    // even if an earlier inconsistency left queue_index unset or out of range.
+    if remaining_len == 0 {
+        return QueueRemovalAction::ClearPlayback;
+    }
+
+    match current_index {
+        Some(index) if index == removed_index => {
+            QueueRemovalAction::Select(removed_index.min(remaining_len - 1))
+        }
+        // Defend against a stale/out-of-range index instead of carrying it
+        // forward into navigation where it could index beyond the queue.
+        Some(index) if index >= remaining_len.saturating_add(1) => {
+            QueueRemovalAction::Select(remaining_len - 1)
+        }
+        Some(index) if removed_index < index => QueueRemovalAction::ShiftIndex(index - 1),
+        _ => QueueRemovalAction::Keep,
+    }
+}
+
+/// Return a valid current queue index for a known non-empty queue.
+fn queue_navigation_index(current_index: Option<usize>, queue_len: usize) -> usize {
+    current_index.unwrap_or(0).min(queue_len.saturating_sub(1))
+}
+
+/// Select the next queue index, distinguishing a natural end from an explicit skip.
+fn queue_next_index(
+    current_index: Option<usize>,
+    queue_len: usize,
+    repeat_mode: &RepeatMode,
+    track_ended: bool,
+) -> Option<usize> {
+    if queue_len == 0 {
+        return None;
+    }
+
+    let index = queue_navigation_index(current_index, queue_len);
+    if track_ended && repeat_mode == &RepeatMode::One {
+        return Some(index);
+    }
+    if repeat_mode == &RepeatMode::All {
+        return Some((index + 1) % queue_len);
+    }
+
+    let next = index + 1;
+    (next < queue_len).then_some(next)
+}
+
+#[cfg(test)]
+mod player_queue_tests {
+    use super::{QueueRemovalAction, queue_next_index, queue_removal_action};
+    use crate::types::RepeatMode;
+
+    #[test]
+    fn removing_track_before_current_shifts_index() {
+        assert_eq!(
+            queue_removal_action(Some(3), 1, 4),
+            QueueRemovalAction::ShiftIndex(2)
+        );
+    }
+
+    #[test]
+    fn removing_track_after_current_keeps_selection() {
+        assert_eq!(
+            queue_removal_action(Some(1), 3, 3),
+            QueueRemovalAction::Keep
+        );
+    }
+
+    #[test]
+    fn removing_current_selects_next_track_when_available() {
+        assert_eq!(
+            queue_removal_action(Some(1), 1, 3),
+            QueueRemovalAction::Select(1)
+        );
+    }
+
+    #[test]
+    fn removing_last_current_selects_previous_track() {
+        assert_eq!(
+            queue_removal_action(Some(3), 3, 3),
+            QueueRemovalAction::Select(2)
+        );
+    }
+
+    #[test]
+    fn removing_final_track_clears_playback() {
+        assert_eq!(
+            queue_removal_action(Some(0), 0, 0),
+            QueueRemovalAction::ClearPlayback
+        );
+    }
+
+    #[test]
+    fn removing_final_track_clears_playback_even_if_index_is_missing() {
+        assert_eq!(
+            queue_removal_action(None, 0, 0),
+            QueueRemovalAction::ClearPlayback
+        );
+    }
+
+    #[test]
+    fn absent_current_index_does_not_invent_a_selection() {
+        assert_eq!(
+            queue_removal_action(None, 0, 1),
+            QueueRemovalAction::Keep
+        );
+    }
+
+    #[test]
+    fn stale_current_index_recovers_to_last_remaining_track_on_removal() {
+        assert_eq!(
+            queue_removal_action(Some(99), 0, 2),
+            QueueRemovalAction::Select(1)
+        );
+    }
+
+    #[test]
+    fn navigation_clamps_stale_indices_to_existing_queue() {
+        assert_eq!(super::queue_navigation_index(Some(99), 3), 2);
+        assert_eq!(super::queue_navigation_index(None, 3), 0);
+        assert_eq!(super::queue_navigation_index(Some(99), 0), 0);
+    }
+
+    #[test]
+    fn repeat_one_replays_only_on_natural_end_not_manual_next() {
+        assert_eq!(
+            queue_next_index(Some(0), 3, &RepeatMode::One, true),
+            Some(0)
+        );
+        assert_eq!(
+            queue_next_index(Some(0), 3, &RepeatMode::One, false),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn manual_next_at_last_track_stops_even_with_repeat_one() {
+        assert_eq!(
+            queue_next_index(Some(2), 3, &RepeatMode::One, false),
+            None
+        );
+    }
+
+    #[test]
+    fn repeat_all_wraps_at_end() {
+        assert_eq!(
+            queue_next_index(Some(2), 3, &RepeatMode::All, true),
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn repeat_none_stops_at_end() {
+        assert_eq!(
+            queue_next_index(Some(2), 3, &RepeatMode::None, true),
+            None
+        );
+    }
+
+    #[test]
+    fn next_from_empty_queue_has_no_selection() {
+        assert_eq!(
+            queue_next_index(None, 0, &RepeatMode::All, true),
+            None
+        );
     }
 }
 

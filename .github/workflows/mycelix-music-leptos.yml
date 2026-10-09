@@ -1,0 +1,54 @@
+name: Mycelix Music Leptos
+
+on:
+  # The PR event follows updates to the proposed public source branch.
+  # Avoid duplicate push + pull_request jobs for the same commit.
+  pull_request:
+    paths:
+      - ".github/workflows/mycelix-music-leptos.yml"
+      - "mycelix-workspace/mycelix-music/apps/leptos/**"
+      - "crates/mycelix-leptos-core/**"
+      - "crates/mycelix-leptos-client/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mycelix-music-leptos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Native tests and WASM check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CARGO_TERM_COLOR: always
+      # Keep hosted CI independent of any developer-machine sccache wrapper.
+      RUSTC_WRAPPER: /usr/bin/env
+    steps:
+      - name: Checkout exact public source subject
+        uses: actions/checkout@v4
+        with:
+          # Qualify the PR's source commit, not GitHub's synthetic merge ref.
+          # Manual dispatch falls back to the selected ref's commit.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install repository Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Format check
+        working-directory: mycelix-workspace/mycelix-music/apps/leptos
+        run: cargo fmt --check --manifest-path Cargo.toml
+
+      - name: Native unit tests
+        working-directory: mycelix-workspace/mycelix-music/apps/leptos
+        run: cargo test --manifest-path Cargo.toml
+
+      - name: Browser-target compilation
+        working-directory: mycelix-workspace/mycelix-music/apps/leptos
+        run: cargo check --manifest-path Cargo.toml --target wasm32-unknown-unknown

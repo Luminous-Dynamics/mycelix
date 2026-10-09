@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
-use leptos::prelude::*;
 use crate::app::PlayerState;
+use leptos::prelude::*;
 
 /// Toggleable queue panel showing the current playlist.
 #[component]
@@ -23,16 +23,27 @@ pub fn QueuePanel() -> impl IntoView {
 fn QueuePanelInner() -> impl IntoView {
     let player = expect_context::<PlayerState>();
 
-    let p1 = player.clone();
+    let clear_player = player.clone();
     let clear_queue = move |_| {
-        p1.queue.set(Vec::new());
-        p1.queue_index.set(None);
-        p1.current_song.set(None);
-        p1.is_playing.set(false);
-        p1.show_queue.set(false);
+        clear_player.queue.set(Vec::new());
+        clear_player.queue_index.set(None);
+        clear_player.current_song.set(None);
+        clear_player.is_playing.set(false);
+        clear_player.progress.set(0.0);
+        clear_player.duration.set(0.0);
+        clear_player.show_queue.set(false);
     };
 
     let show_q = player.show_queue;
+    let panel_ref = NodeRef::<leptos::html::Div>::new();
+
+    // The dialog only exists while open. Move keyboard focus into it so
+    // Escape and the panel's keyboard controls work immediately.
+    Effect::new(move |_| {
+        if let Some(panel) = panel_ref.get() {
+            let _ = panel.focus();
+        }
+    });
     let close = move |_: web_sys::MouseEvent| {
         show_q.set(false);
     };
@@ -41,7 +52,7 @@ fn QueuePanelInner() -> impl IntoView {
         show_q.set(false);
     };
 
-    // Escape key closes queue
+    // Escape key closes the queue when the overlay has keyboard focus.
     let on_keydown = move |ev: web_sys::KeyboardEvent| {
         if ev.key() == "Escape" {
             show_q.set(false);
@@ -49,63 +60,87 @@ fn QueuePanelInner() -> impl IntoView {
     };
 
     view! {
-        <div class="queue-overlay" on:click=close on:keydown=on_keydown tabindex="-1"></div>
-        <div class="queue-panel">
-            <div class="queue-header">
-                <h3>"Queue"</h3>
-                <div class="queue-actions">
-                    <button class="btn-sm" on:click=clear_queue>"Clear"</button>
-                    <button class="btn-sm" on:click=close2>"\u{2715}"</button>
+        <>
+            <div class="queue-overlay" on:click=close></div>
+            <div
+                class="queue-panel"
+                node_ref=panel_ref
+                role="dialog"
+                aria-modal="true"
+                aria-label="Playback queue"
+                tabindex="-1"
+                on:keydown=on_keydown
+            >
+                <div class="queue-header">
+                    <div>
+                        <h3>"Queue"</h3>
+                        <span class="queue-subtitle">
+                            {move || format!("{} tracks", player.queue.get().len())}
+                        </span>
+                    </div>
+                    <div class="queue-actions">
+                        <button class="btn-sm" on:click=clear_queue disabled=move || player.queue.get().is_empty()>
+                            "Clear"
+                        </button>
+                        <button class="btn-sm" on:click=close2 aria-label="Close queue" title="Close queue">
+                            "✕"
+                        </button>
+                    </div>
+                </div>
+                <div class="queue-list">
+                    {move || {
+                        let q = player.queue.get();
+                        let current_idx = player.queue_index.get();
+                        if q.is_empty() {
+                            view! {
+                                <div class="queue-empty">
+                                    <p>"Your queue is empty."</p>
+                                    <p>"Choose + Queue on any track to build a listening session."</p>
+                                </div>
+                            }.into_any()
+                        } else {
+                            q.into_iter()
+                                .enumerate()
+                                .map(|(i, song)| {
+                                    let is_current = current_idx == Some(i);
+                                    let class = if is_current {
+                                        "queue-item current"
+                                    } else {
+                                        "queue-item"
+                                    };
+                                    let player_for_play = player.clone();
+                                    let song_for_play = song.clone();
+                                    let play_this = move |_| {
+                                        player_for_play.play_song(song_for_play.clone());
+                                    };
+
+                                    let player_for_remove = player.clone();
+                                    let song_hash = song.song_hash.clone();
+                                    let remove = move |_| {
+                                        player_for_remove.remove_queued_song(&song_hash);
+                                    };
+
+                                    view! {
+                                        <div class=class>
+                                            <button class="queue-play" on:click=play_this aria-label=format!("Play {}", song.title) title="Play track">
+                                                {if is_current { "♫" } else { "▶" }}
+                                            </button>
+                                            <div class="queue-song-info">
+                                                <span class="queue-title">{song.title.clone()}</span>
+                                                <span class="queue-duration">{song.duration_display()}</span>
+                                            </div>
+                                            <button class="queue-remove" on:click=remove aria-label=format!("Remove {}", song.title) title="Remove from queue">
+                                                "✕"
+                                            </button>
+                                        </div>
+                                    }
+                                })
+                                .collect_view()
+                                .into_any()
+                        }
+                    }}
                 </div>
             </div>
-            <div class="queue-list">
-                {move || {
-                    let q = player.queue.get();
-                    let current_idx = player.queue_index.get();
-                    if q.is_empty() {
-                        view! {
-                            <div class="queue-empty">"Queue is empty"</div>
-                        }.into_any()
-                    } else {
-                        q.into_iter()
-                            .enumerate()
-                            .map(|(i, song)| {
-                                let is_current = current_idx == Some(i);
-                                let class = if is_current {
-                                    "queue-item current"
-                                } else {
-                                    "queue-item"
-                                };
-                                let player_a = player.clone();
-                                let song_clone = song.clone();
-                                let play_this = move |_| {
-                                    player_a.play_song(song_clone.clone());
-                                };
-                                let player_b = player.clone();
-                                let song_hash = song.song_hash.clone();
-                                let remove = move |_| {
-                                    player_b.queue.update(|q| {
-                                        q.retain(|s| s.song_hash != song_hash);
-                                    });
-                                };
-                                view! {
-                                    <div class=class>
-                                        <button class="queue-play" on:click=play_this>
-                                            {if is_current { "\u{1f50a}" } else { "\u{25b6}" }}
-                                        </button>
-                                        <div class="queue-song-info">
-                                            <span class="queue-title">{song.title.clone()}</span>
-                                            <span class="queue-duration">{song.duration_display()}</span>
-                                        </div>
-                                        <button class="queue-remove" on:click=remove>"\u{2715}"</button>
-                                    </div>
-                                }
-                            })
-                            .collect_view()
-                            .into_any()
-                    }
-                }}
-            </div>
-        </div>
+        </>
     }
 }
