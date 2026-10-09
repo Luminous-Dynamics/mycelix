@@ -16,6 +16,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import re
 import subprocess
 import tempfile
@@ -81,8 +82,20 @@ def parse_json_object(raw: bytes, code: str) -> dict[str, Any]:
                                VerificationError("json-invalid-constant", f"invalid JSON constant {value}")))
     except VerificationError:
         raise
-    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as error:
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError) as error:
         raise VerificationError(code, "invalid or excessively nested UTF-8 JSON object") from error
+
+    def reject_nonfinite(node: Any, path: str) -> None:
+        if type(node) is float and not math.isfinite(node):
+            raise VerificationError(code, f"non-finite JSON number at {path}")
+        if isinstance(node, list):
+            for index, item in enumerate(node):
+                reject_nonfinite(item, f"{path}[{index}]")
+        elif isinstance(node, dict):
+            for key, item in node.items():
+                reject_nonfinite(item, f"{path}.{key}")
+
+    reject_nonfinite(value, "$")
     if not isinstance(value, dict):
         raise VerificationError(code, "JWT header/payload must be a JSON object")
     return value
