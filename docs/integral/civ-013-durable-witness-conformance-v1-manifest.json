@@ -3,10 +3,10 @@
   "profile_id": "civ-013-durable-adapter-v1",
   "spec_version": "civ-013-durable-adapter-v1",
   "source_repository": "Luminous-Dynamics/symthaea",
-  "source_adapter_commit": "37fdf714319a86d7539ee2ca7c80f641ee98ade2",
+  "source_adapter_commit": "9a5b9498669af2af7c03f1f00351b707540b0bfe",
   "fixture_path": "docs/integral/civ-013-durable-witness-conformance-v1.json",
   "verifier_path": "scripts/integral/verify_civ013_durable_witness_conformance_v1.py",
-  "expected_vector_count": 38,
+  "expected_vector_count": 40,
   "required_vector_ids": [
     "DA001-bootstrap-record",
     "DA002-successor-record",
@@ -45,22 +45,29 @@
     "DA035-legacy-fork-meta-migration-rejects-corruption",
     "DA036-startup-integrity-detects-fork-tail-truncation",
     "DA037-subprocess-crash-after-anchor-commit-recovers-exact-prepared",
-    "DA038-unprovisioned-persistent-anchor-fails-closed"
+    "DA038-unprovisioned-persistent-anchor-fails-closed",
+    "DA039-sqlite-runtime-minimum-accepted",
+    "DA040-sqlite-runtime-below-minimum-rejected"
   ],
   "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback.",
-  "fixture_git_blob_sha": "d26225fa1dba04f351aef71d2249d3167f89ff7b",
-  "checker_git_blob_sha": "7581ab74be7935d586ef8ba1cf43ff0c95720d51",
-  "spec_git_blob_sha": "8ba557edd185f8c8c3fe090b68f7cc1d5fd00d77",
-  "workflow_git_blob_sha": "f1454412875ea1984edae04814edaa4b84d4a255",
-  "source_adapter_blob_sha": "f4600fbfff5b1c80adcfe22676d9c6fb6c8d2252",
+  "fixture_git_blob_sha": "6675c2bc07110c77cbbeba172384a52da1540980",
+  "checker_git_blob_sha": "68c83b2e5581ec4bb3fa80256a520721c0bb9927",
+  "spec_git_blob_sha": "106c21ea125b0f8964a56f3e609c4011735fb7f6",
+  "workflow_git_blob_sha": "197a6e19dd788c44a8606918ef784ee7ffced126",
+  "source_adapter_blob_sha": "a5dcfe87eba6e1cc6514a4d24db44d4738f38ad7",
   "source_toolchain_path": "rust-toolchain.toml",
   "source_toolchain_blob_sha": "4f0430eac96d545bcfaa0df23ce475faf4aee96a",
   "source_rust_version": "1.96.0",
-  "checker_commit_sha": "ed892ea02799944d673214c8144fc7d9eef0bea3",
+  "checker_commit_sha": "fa3ae5b6cbbbe131736a1d6a0fb17087e1e82db8",
   "checker_runtime": {
     "implementation": "CPython",
     "minimum_version": "3.10",
     "runner": "ubuntu-24.04",
     "records_exact_version_in_artifact": true
-  }
+  },
+  "source_workspace_manifest_blob_sha": "2783fcc9515b4029aa9bc021cdc358a82ccb3bf7",
+  "source_lockfile_blob_sha": "4fdd20fcf0abf6cd2903063148e3611f205c2d95",
+  "source_rusqlite_version": "0.39.0",
+  "source_libsqlite3_sys_version": "0.37.0",
+  "source_bundled_sqlite_min_version_number": 3051003
 }
