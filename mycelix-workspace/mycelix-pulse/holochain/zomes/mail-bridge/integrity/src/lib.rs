@@ -1147,7 +1147,9 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => match app_entry {
+            OpEntry::CreateEntry { app_entry, action } => {
+                let action: TypedAction<EntryCreationData> = action.into();
+                match app_entry {
                 EntryTypes::MailBridgeQuery(query) => {
                     if query.requester != action.author() {
                         return Ok(ValidateCallbackResult::Invalid(
@@ -1310,6 +1312,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     validate_sender_proof_activation_audit_event(&event, &action)
                 }
                 EntryTypes::MailBridgeEvent(_) => Ok(ValidateCallbackResult::Valid),
+                }
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
                 EntryTypes::SenderProofConsumption(_) => Ok(ValidateCallbackResult::Invalid(
