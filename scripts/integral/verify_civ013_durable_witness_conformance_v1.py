@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "2b3ea63771fb9f24c131b05ee9d69b81c085d8dc"
+SOURCE_COMMIT = "6e7ecb488c7fe5988b19c475588b69a3d45750b8"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 
 REQUIRED_IDS = {
@@ -55,6 +55,8 @@ REQUIRED_IDS = {
     "DA028-same-generation-finalize-tampered-current-head",
     "DA029-anchor-advances-past-candidate",
     "DA030-anchor-advances-before-prepare",
+    "DA031-fork-evidence-tail-truncated",
+    "DA032-fork-evidence-tail-pointer-tampered",
 }
 
 
@@ -378,6 +380,23 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
                 else "ExternalAnchorMismatch"
             )
         return "AnchorNotAhead"
+
+    if kind == "fork_evidence_tail_integrity":
+        chain = vector.get("stored_chain")
+        if not isinstance(chain, list) or not valid_fork_chain(chain):
+            return "CorruptForkEvidence"
+        if vector.get("stored_count") != len(chain):
+            return "CorruptForkEvidence"
+        if vector.get("metadata_count") != vector.get("stored_count"):
+            return "CorruptForkEvidence"
+        try:
+            tail = parse_digest(vector["metadata_tail_digest"], "metadata_tail_digest")
+            actual_tail = parse_digest(chain[-1]["digest"], "stored chain tail")
+        except (KeyError, IndexError, TypeError, ValueError):
+            return "CorruptForkEvidence"
+        if tail != actual_tail:
+            return "CorruptForkEvidence"
+        return "VALID_FORK_EVIDENCE_TAIL"
 
     if kind == "anchor_ahead_before_prepare":
         if (
