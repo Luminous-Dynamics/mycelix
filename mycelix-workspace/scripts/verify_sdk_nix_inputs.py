@@ -106,6 +106,8 @@ def verify_contract(package_raw: str, lock_raw: str) -> dict:
         resolved = entry.get("resolved")
         if not isinstance(resolved, str) or not resolved:
             raise InputContractError(f"package entry lacks resolved source URL: {key}")
+        if any(character.isspace() or ord(character) < 0x20 or ord(character) == 0x7F for character in resolved) or "\\" in resolved:
+            raise InputContractError(f"package entry source URL contains whitespace, control, or backslash: {key}")
         try:
             parsed_url = urlsplit(resolved)
         except ValueError as exc:
@@ -209,6 +211,10 @@ def run_self_tests(package_raw: str, lock_raw: str) -> list[dict]:
         )
     )
     tests.append(("registry_url_credentials", package_raw, json.dumps(credential_url)))
+
+    control_character_url = copy.deepcopy(lock)
+    control_character_url["packages"][resolved_key]["resolved"] += "\\n"
+    tests.append(("source_url_control_character", package_raw, json.dumps(control_character_url)))
 
     bad_registry = copy.deepcopy(lock)
     bad_registry["packages"][resolved_key]["resolved"] = (
