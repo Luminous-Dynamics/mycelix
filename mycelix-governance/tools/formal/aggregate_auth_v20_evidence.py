@@ -203,7 +203,8 @@ def main() -> int:
             "aggregate-guard-head-mismatch", "aggregate-guard-count-weakened",
             "aggregate-guard-identity-substituted", "missing-control-artifact",
             "tampered-control-result", "tampered-control-input",
-            "unexpected-control-artifact",
+            "unexpected-control-artifact", "aggregate-guard-aggregator-hash-forged",
+            "aggregate-guard-test-hash-forged",
         )
         aggregate_guard_mutations = aggregate_guard.get("mutations")
         require(isinstance(aggregate_guard_mutations, list),
