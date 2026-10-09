@@ -9,7 +9,7 @@
 
 ## Purpose
 
-These deterministic vectors establish a shared reference for canonical witness-record encoding and selected protocol outcomes across Symthaea and Mycelix. Version 1 now covers 17 vectors, including cross-log successor rejection and monotonic receipt-tail history. The checker is intentionally implemented separately from the Rust producer model, using only Python's standard library. It consumes serialized fixture bytes/fields and expected results; it does not import or execute the Rust reducer.
+These deterministic vectors establish a shared reference for canonical witness-record encoding and selected protocol outcomes across Symthaea and Mycelix. Version 1 now covers 19 vectors, including cross-log successor rejection, monotonic receipt-tail history, invalid candidate-tail shape, and explicit bootstrap-anchor binding. The checker is intentionally implemented separately from the Rust producer model, using only Python's standard library. It consumes serialized fixture bytes/fields and expected results; it does not import or execute the Rust reducer.
 
 This is a compatibility starting point. Before treating v1 as normative production wire format, both projects must review and accept its field semantics, compatibility policy, and trust assumptions. No production storage implementation should be assumed from this fixture suite alone.
 
@@ -54,9 +54,13 @@ The canonical record digest binds the accepted-record fields. It is not a digita
 | V015 | REJECT_LOG_ID_MISMATCH | A successor attempts to cross into another log identity |
 | V016 | REJECT_RECEIPT_TAIL_HISTORY_INVALID | A rehashed committed chain regresses its receipt sequence |
 | V017 | REJECT_RECEIPT_TAIL_HISTORY_INVALID | A rehashed committed chain changes the digest at the same sequence |
+| V018 | REJECT_BAD_RECEIPT_TAIL | Sequence zero cannot carry a tail digest |
+| V019 | REJECT_UNTRUSTED_BOOTSTRAP | A valid record/marker cannot override a separately supplied trust anchor |
 
 ## Required interpretation rules
 
+- Bootstrap must bind to a separately supplied trusted anchor commitment. A syntactically valid record and marker cannot establish their own trust by being the first item observed.
+- Receipt-tail shape is canonical: sequence zero means no tail digest; a positive sequence requires a digest. The accepted sequence cannot regress, and equal-sequence/different-digest evidence is equivocation.
 - Identical retries are idempotent only when they match the exact committed transition and receipt identity.
 - A competing writer's result must not be overwritten by a stale candidate.
 - A generation gap or wrong predecessor does not get repaired by guessing.
