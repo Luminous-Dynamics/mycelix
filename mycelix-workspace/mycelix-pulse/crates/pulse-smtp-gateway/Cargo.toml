@@ -121,3 +121,5 @@ lettre = { version = "0.11", default-features = false, features = [
 ] }
 tempfile = "3"
 tokio-test = "0.4"
+# Standalone daemon nested inside the repository's umbrella source tree.
+[workspace]
