@@ -84,6 +84,31 @@ jobs:
         id: commit-lockfiles
         run: |
           git add -A -- mycelix-workspace/mycelix-pulse
+
+          # Do not allow .gitignore drift to silently omit locks which later
+          # --locked builds depend on. These are all independently generated
+          # lockfiles in this workflow; existence alone is not enough.
+          lockfiles=(
+            mycelix-workspace/mycelix-pulse/holochain/Cargo.lock
+            mycelix-workspace/mycelix-pulse/tests/Cargo.lock
+            mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock
+            mycelix-workspace/mycelix-pulse/happ/cli/Cargo.lock
+            mycelix-workspace/mycelix-pulse/crates/pulse-smtp-gateway/Cargo.lock
+            mycelix-workspace/mycelix-pulse/happ/dna/integrity/Cargo.lock
+            mycelix-workspace/mycelix-pulse/happ/dna/zomes/mail_messages/Cargo.lock
+            mycelix-workspace/mycelix-pulse/happ/dna/zomes/trust_filter/Cargo.lock
+            mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity/Cargo.lock
+            mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages/Cargo.lock
+            mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.lock
+          )
+          for lockfile in "${lockfiles[@]}"; do
+            test -s "$lockfile"
+            git ls-files --error-unmatch "$lockfile" >/dev/null || {
+              echo "Generated lockfile was not staged: $lockfile"
+              exit 1
+            }
+          done
+
           if git diff --cached --quiet; then
             echo "Lockfiles are already current."
           else
