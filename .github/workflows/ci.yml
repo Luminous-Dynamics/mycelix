@@ -495,6 +495,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          {
+            echo "sdk_input_contract_verifier_git_blob_sha=$(git hash-object mycelix-workspace/scripts/verify_sdk_nix_inputs.py)"
+            echo "sdk_input_contract_python_path=$(command -v python3)"
+            echo "sdk_input_contract_python_version=$(python3 --version 2>&1)"
+          } >> security-nix-sdk/receipt.txt
           set +e
           python3 -m py_compile mycelix-workspace/scripts/verify_sdk_nix_inputs.py
           compile_status=$?
@@ -506,20 +511,73 @@ jobs:
             : > security-nix-sdk/sdk-input-contract.json
             echo "Python compilation failed for verify_sdk_nix_inputs.py" > security-nix-sdk/sdk-input-contract.stderr.txt
           fi
-          set -e
           cat security-nix-sdk/sdk-input-contract.json
           cat security-nix-sdk/sdk-input-contract.stderr.txt >&2
           echo "sdk_input_contract_exit_code=$status" >> security-nix-sdk/receipt.txt
-          if [[ "$status" -eq 0 ]] && grep -q '"negative_fixtures_all_rejected": true' security-nix-sdk/sdk-input-contract.json; then
+          contract_validation_status=1
+          if [[ "$status" -eq 0 ]]; then
+            python3 - security-nix-sdk/sdk-input-contract.json <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    report = json.load(handle)
+
+expected_fixtures = {
+    "malformed_package_json",
+    "malformed_lock_json",
+    "unsafe_package_entry_path",
+    "missing_package_version",
+    "missing_integrity",
+    "weak_integrity_algorithm",
+    "invalid_sha512_digest_length",
+    "missing_resolved_source",
+    "non_https_source",
+    "registry_url_credentials",
+    "source_url_control_character",
+    "unapproved_registry",
+    "manifest_lock_dependency_drift",
+    "manifest_lock_identity_drift",
+    "non_v3_lockfile",
+    "install_lifecycle_metadata_drift",
+    "unexpected_install_lifecycle_script",
+}
+if report.get("schema") != "luminous.mycelix.sdk-nix-input-contract.v1":
+    raise SystemExit("unexpected or missing SDK input-contract schema")
+if report.get("approved_registry") != "registry.npmjs.org":
+    raise SystemExit("approved npm registry identity changed")
+if report.get("integrity_coverage_complete") is not True:
+    raise SystemExit("resolved package integrity coverage is not complete")
+if report.get("resolved_package_count") != report.get("sha512_integrity_count"):
+    raise SystemExit("resolved package count differs from SHA-512 integrity count")
+if report.get("negative_fixtures_all_rejected") is not True:
+    raise SystemExit("one or more SDK lock-contract mutation fixtures were accepted")
+fixtures = report.get("negative_fixtures")
+if not isinstance(fixtures, list):
+    raise SystemExit("negative_fixtures must be an array")
+names = [item.get("fixture") for item in fixtures if isinstance(item, dict)]
+if len(names) != len(expected_fixtures) or len(set(names)) != len(names) or set(names) != expected_fixtures:
+    raise SystemExit(f"SDK negative-fixture inventory drift: observed={sorted(names)}")
+if any(item.get("status") != "PASS_REJECTED" for item in fixtures):
+    raise SystemExit("an SDK negative fixture did not record PASS_REJECTED")
+print(f"validated_fixture_count={len(fixtures)}")
+PY
+            contract_validation_status=$?
+          fi
+          set -e
+          echo "sdk_input_contract_validation_exit_code=$contract_validation_status" >> security-nix-sdk/receipt.txt
+          if [[ "$status" -eq 0 && "$contract_validation_status" -eq 0 ]]; then
             {
               echo "sdk_input_contract_status=PASS"
               echo "sdk_input_contract_sha256=$(sha256sum security-nix-sdk/sdk-input-contract.json | cut -d ' ' -f1)"
               echo "sdk_input_contract_stderr_sha256=$(sha256sum security-nix-sdk/sdk-input-contract.stderr.txt | cut -d ' ' -f1)"
-              echo "sdk_negative_fixture_count=$(python3 -c 'import json; print(json.load(open("security-nix-sdk/sdk-input-contract.json"))["negative_fixture_count"])')"
+              echo "sdk_negative_fixture_count=17"
+              echo "sdk_negative_fixture_inventory_status=PASS"
             } >> security-nix-sdk/receipt.txt
           else
             echo "sdk_input_contract_status=FAIL" >> security-nix-sdk/receipt.txt
-            echo "sdk_input_contract_failure=The SDK package/lock contract or a negative fixture did not behave as required" >> security-nix-sdk/receipt.txt
+            echo "sdk_input_contract_failure=The SDK package/lock contract, exact negative-fixture inventory, or a fixture rejection failed" >> security-nix-sdk/receipt.txt
             if [[ "$status" -eq 0 ]]; then status=25; fi
           fi
           exit "$status"
