@@ -10,7 +10,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: \${{ github.workflow }}-\${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   semantic-counterexamples:
@@ -20,12 +20,12 @@ jobs:
       - name: Checkout exact head
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: \${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
       - name: Assert exact head
         env:
-          EXPECTED_SHA: \${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
@@ -71,10 +71,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: sovereignty-semantic-counterexamples-\${{ github.sha }}
+          name: sovereignty-semantic-counterexamples-${{ github.sha }}
           path: |
-            \${{ runner.temp }}/auth-v20-evidence
-            \${{ runner.temp }}/auth-v20-differential-evidence
-            \${{ runner.temp }}/auth-v20-mutation-evidence
+            ${{ runner.temp }}/auth-v20-evidence
+            ${{ runner.temp }}/auth-v20-differential-evidence
+            ${{ runner.temp }}/auth-v20-mutation-evidence
           if-no-files-found: warn
           retention-days: 30
