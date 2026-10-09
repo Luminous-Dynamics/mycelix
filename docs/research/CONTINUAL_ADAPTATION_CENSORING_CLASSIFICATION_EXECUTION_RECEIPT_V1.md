@@ -24,7 +24,7 @@ The provenance regression workflow retains read-only repository permissions. Aft
 - binds the receipt to repository, workflow/ref, checked-out commit, event SHA, run ID, run number and run attempt;
 - explicitly records `hosted_qualification_pass_claimed=false` and `qualification_authority=false`.
 
-The receipt is uploaded only on source-workflow success. The source workflow itself has no attestation-writing permission.
+The receipt is uploaded only on source-workflow success. Each uploaded evidence artifact is named with the source run attempt, so retrying a workflow run cannot overwrite or accidentally reuse an artifact from an earlier attempt. The source workflow itself has no attestation-writing permission.
 
 ## Separate attestation workflow
 
