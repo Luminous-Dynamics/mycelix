@@ -642,7 +642,7 @@ pub fn record_prepared_execution_resolution(
     .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
 
     check_execution_resolution_bindings(&input.bindings)
-    .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error)))?;
 
     // Resolution is source-chain scoped to the single executor identity.
     // Re-submit of the same resolution returns the existing record; a different
