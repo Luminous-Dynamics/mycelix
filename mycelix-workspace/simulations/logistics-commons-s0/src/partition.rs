@@ -151,12 +151,9 @@ pub fn reconcile_offline_reservations(
     // the same opaque value without either silently aliasing or globally colliding.
     let mut by_idempotency: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
     for (index, request) in requests.iter().enumerate() {
-        // Detect payload collisions even when one copy is stale or otherwise ineligible.
-        // Otherwise a valid-looking reuse could hide behind an invalid copy of the same key.
-        let unique_reservation_id =
-            id_counts.get(&request.reservation_id).copied().unwrap_or_default() == 1;
-        if unique_reservation_id
-            && !request.participant_id.trim().is_empty()
+        // Detect payload collisions even when a copy has a stale snapshot or duplicate ID.
+        // Duplicate IDs are not eligible primaries, but must not hide a conflicting key reuse.
+        if !request.participant_id.trim().is_empty()
             && !request.idempotency_key.trim().is_empty()
         {
             by_idempotency.entry((request.participant_id.clone(), request.idempotency_key.clone()))
@@ -174,7 +171,11 @@ pub fn reconcile_offline_reservations(
             // because their reservation ID sorts first. They remain rejected and cannot suppress
             // a structurally valid replay of the same participant-scoped operation.
             let structurally_valid = indices.iter().copied()
-                .filter(|index| structurally_valid_reservation(&requests[*index]))
+                .filter(|index| {
+                    let request = &requests[*index];
+                    id_counts.get(&request.reservation_id).copied().unwrap_or_default() == 1
+                        && structurally_valid_reservation(request)
+                })
                 .collect::<Vec<_>>();
             if let Some(primary_index) = structurally_valid.first().copied() {
                 let primary = &requests[primary_index];
@@ -700,6 +701,26 @@ mod tests {
         assert!(decisions.iter().all(|decision| matches!(&decision.disposition,
             ReconciliationDisposition::UnresolvedConflict { reason: "quantity-overflow", .. })));
         assert!(verify_reconciliation(&requests, 120, &decisions).is_empty());
+    }
+
+    #[test]
+    fn duplicate_id_records_cannot_hide_idempotency_payload_collision() {
+        let a = offline("coop-a", "edge-a", "same-id", "same-op", 1, 4);
+        let b = offline("coop-a", "edge-b", "same-id", "same-op", 1, 4);
+        let c = offline("coop-a", "edge-c", "unique-id", "same-op", 2, 4);
+        let requests = vec![a, b, c];
+        let decisions = reconcile_offline_reservations(&requests, 120);
+        assert!(decisions.iter().all(|decision| matches!(
+            &decision.disposition,
+            ReconciliationDisposition::Rejected {
+                reason: "idempotency-key-payload-conflict"
+            }
+        )));
+        assert!(!decisions.iter().any(|decision|
+            decision.reservation_id == "unique-id"
+                && decision.disposition == ReconciliationDisposition::AwaitingAuthoritativeRecheck));
+        assert!(verify_reconciliation(&requests, 120, &decisions)
+            .iter().any(|violation| violation == "duplicate-reservation-id:same-id"));
     }
 
     #[test]
