@@ -257,11 +257,35 @@ def verify_chain_invocation(raw_chain: dict[str, Any],
                             pop_token: Any,
                             replay_database: Path,
                             replay_scope: str,
+                            *,
+                            trusted_now: int,
                             expected_audience: str | None = None,
                             openssl_binary: str = "openssl") -> dict[str, Any]:
-    """Verify chain, leaf capability/invocation, PoP, and stateful one-time jti."""
+    """Verify chain, leaf capability/invocation, PoP, and stateful one-time jti.
+
+    trusted_now MUST come from the enforcement point's trusted clock. The
+    embedded raw_chain['now'] is caller-controlled fixture/input data and is
+    overwritten before the compact-chain verifier is called.
+    """
+    if type(trusted_now) is not int:
+        return {
+            "schema": POP_RESULT_SCHEMA,
+            "status": "UNSUPPORTED_OR_UNDECIDABLE",
+            "findings": [{"code": "trusted-clock-invalid",
+                          "detail": "trusted_now must be an integer Unix timestamp"}],
+            "qualification": "NOT_CLAIMED",
+        }
+    if not isinstance(raw_chain, dict):
+        return {
+            "schema": POP_RESULT_SCHEMA,
+            "status": "UNSUPPORTED_OR_UNDECIDABLE",
+            "findings": [{"code": "chain-input-invalid"}],
+            "qualification": "NOT_CLAIMED",
+        }
+    chain_input = dict(raw_chain)
+    chain_input["now"] = trusted_now
     chain_result = chain_verifier.evaluate_compact_chain(
-        raw_chain, trusted_anchors, openssl_binary=openssl_binary
+        chain_input, trusted_anchors, openssl_binary=openssl_binary
     )
     if chain_result.get("status") != "COMPACT_JWS_CRYPTO_LINKAGE_PASS":
         return {
@@ -291,7 +315,7 @@ def verify_chain_invocation(raw_chain: dict[str, Any],
             raise PopVerificationError(error.code, error.detail) from error
 
         claims = _decode_pop(pop_token, leaf_jwk, openssl_binary)
-        now = raw_chain["now"]
+        now = trusted_now
         verify_pop_invocation_binding(claims, leaf_jti, tool, args, now, expected_audience)
 
         _consume_pop_jti(replay_database, replay_scope, claims["jti"], claims["iat"],
@@ -305,6 +329,7 @@ def verify_chain_invocation(raw_chain: dict[str, Any],
             "replay_scope": replay_scope,
             "replay_jti_consumed": True,
             "verified_invariants": [
+                "trusted-clock-injected-into-chain-and-pop-checks",
                 "full-compact-aat-chain-verified-first",
                 "leaf-capability-and-invocation-constraints",
                 "leaf-cnf-jwk-ed25519-pop-signature",
