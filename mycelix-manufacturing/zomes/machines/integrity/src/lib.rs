@@ -34,8 +34,11 @@ pub const MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES: usize = 128;
 /// Bounded external evidence locator size.
 pub const MAX_MACHINE_TEMPORAL_SOURCE_REFERENCE_BYTES: usize = 512;
 /// Maximum distinct temporal-attestation targets hydrated and retained in one resolution.
-/// The host's get_links result is materialized before this application-level bound is applied.
 pub const MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS: usize = 256;
+/// Maximum raw subject-to-attestation link actions to iterate in one resolution.
+/// This limits application-level duplicate-link processing; get_links has already materialized
+/// the vector before this bound can be enforced.
+pub const MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS: usize = 1_024;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct MachineTemporalEvidenceObservation {
@@ -97,9 +100,15 @@ pub enum MachineTemporalEvidenceResolution {
     /// At least one validation-critical dependency or semantic invariant failed.
     InvalidEvidence,
 
-    /// The observed evidence set exceeded the resolver's processing bound.
+    /// The observed evidence set exceeded the distinct-attestation processing bound.
     /// No partial set is reported as unique or conflict-free.
     EvidenceSetLimitExceeded {
+        limit: u32,
+    },
+
+    /// The subject's raw link collection exceeded the coordinator's iteration bound.
+    /// The host has already materialized the link vector; no attestations are hydrated.
+    EvidenceLinkSetLimitExceeded {
         limit: u32,
     },
 }
@@ -1948,6 +1957,17 @@ mod content_restriction_tests {
             resolve_temporal_evidence(vec![a, divergent]),
             MachineTemporalEvidenceResolution::InvalidEvidence
         );
+    }
+
+    #[test]
+    fn temporal_evidence_link_limit_outcome_round_trips() {
+        let outcome = MachineTemporalEvidenceResolution::EvidenceLinkSetLimitExceeded {
+            limit: MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS as u32,
+        };
+        let encoded = serde_json::to_vec(&outcome).unwrap();
+        let decoded: MachineTemporalEvidenceResolution =
+            serde_json::from_slice(&encoded).unwrap();
+        assert_eq!(decoded, outcome);
     }
 
     #[test]
