@@ -367,6 +367,15 @@ def assert_trusted_workflow_context_scope() -> None:
     assert "export CARGO_NET_OFFLINE=false" in lock_step
     assert "export CARGO_NET_GIT_FETCH_WITH_CLI=false" in lock_step
     assert lock_step.index('export GIT_CONFIG_GLOBAL=/dev/null') < lock_step.index("cargo generate-lockfile")
+    assert 'env -i \\\n' in lock_step
+    assert 'CARGO_HOME="$CARGO_HOME" \\\n' in lock_step
+    assert "CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse" in lock_step
+    assert "CARGO_NET_OFFLINE=false" in lock_step
+    assert "CARGO_NET_GIT_FETCH_WITH_CLI=false" in lock_step
+    assert "GIT_CONFIG_GLOBAL=/dev/null" in lock_step
+    assert "GIT_CONFIG_NOSYSTEM=true" in lock_step
+    assert "GIT_TERMINAL_PROMPT=0" in lock_step
+    assert lock_step.index("env -i") < lock_step.index("cargo generate-lockfile")
     assert 'test ! -e "$HOME/.gitconfig"' in lock_step
     assert 'test ! -e "${CARGO_HOME}/config.toml"' in lock_step
 def assert_workflow_target_extractor_dependencies() -> None:
