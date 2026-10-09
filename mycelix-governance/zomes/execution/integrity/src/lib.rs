@@ -1270,9 +1270,18 @@ mod tests {
             bindings: vec![ExecutionResolutionBindingV1 {
                 attempt_identity: format!("{EXECUTION_ATTEMPT_IDENTITY_PREFIX}{}", "e".repeat(64)),
                 action_key_digest: format!("{EXECUTION_ACTION_KEY_PREFIX}{}", "a".repeat(64)),
-                terminal_evidence_digest: format!("{EXECUTION_TERMINAL_EVIDENCE_PREFIX}{}", "b".repeat(64)),
-                authorization_admission_proof_digest: format!("{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}", "c".repeat(64)),
-                final_provider_entry_proof_digest: format!("{EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX}{}", "d".repeat(64)),
+                terminal_evidence_digest: format!(
+                    "{EXECUTION_TERMINAL_EVIDENCE_PREFIX}{}",
+                    "b".repeat(64)
+                ),
+                authorization_admission_proof_digest: format!(
+                    "{EXECUTION_AUTHORIZATION_ADMISSION_PROOF_PREFIX}{}",
+                    "c".repeat(64)
+                ),
+                final_provider_entry_proof_digest: format!(
+                    "{EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX}{}",
+                    "d".repeat(64)
+                ),
             }],
             outcome: ExecutionResolutionOutcome::Executed,
             resolved_at: ts(4_000_000),
