@@ -156,6 +156,13 @@
       "mutation": "Return constant empty output for every input and claim noninterference pass.",
       "expected": "FailPositiveSensitivityControl",
       "reason": "Noninterference requires a positive sensitivity control."
+    },
+    {
+      "id": "M23",
+      "target": "subject:supplier-B inventory aggregation",
+      "mutation": "Treat F0 inventory for facilities A/B/C and F1 inventory for D/E as a single contemporaneous supplier-wide total without reconciling observation times.",
+      "expected": "FailConformance",
+      "reason": "Facility scope and observation time are both identity-/interpretation-bearing; complete coverage across a time interval does not create a same-time aggregate."
     }
   ]
 }

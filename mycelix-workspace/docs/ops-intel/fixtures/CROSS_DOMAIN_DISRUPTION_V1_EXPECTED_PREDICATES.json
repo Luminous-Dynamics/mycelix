@@ -117,6 +117,12 @@
       "frontier": "frontier:F2",
       "requirement": "Synthetic authority validation distinguishes policy allow, absent permit, stale permit, wrong subject/candidate/payload and a matching mock permit accepted for simulation only.",
       "failure": "Policy-decision evidence is treated as a permit, mismatched/stale mock permits are accepted, or structural acceptance grants real execution authority."
+    },
+    {
+      "id": "P20",
+      "frontier": "frontier:F1",
+      "requirement": "Supplier-B facility coverage names exact facility identities: F0 covers A/B/C, F1 adds D/E. The different-time values are not summed or reported as one contemporaneous/current supplier-wide total without an explicit temporal reconciliation profile.",
+      "failure": "Count-only coverage hides facility overlap/gaps or values from different observation times are silently summed into a current total."
     }
   ],
   "nonclaims": [

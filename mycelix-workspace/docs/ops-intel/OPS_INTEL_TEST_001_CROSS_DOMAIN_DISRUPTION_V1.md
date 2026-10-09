@@ -9,7 +9,7 @@
 
 This PR freezes the first public **solver-visible** synthetic input seed, frontier deltas, structural conformance predicates, and mutation descriptors for the CrossDomainDisruptionV1 world. It is a fixture subject only; it does not add Rust, Holochain, network I/O, collection behavior, an operational recommendation engine, policy enforcement, or execution capability.
 
-The seed covers SupplyChain, Energy, ServiceOperations, and OrganizationPolicy. F0 intentionally contains conflict, stale calibration, partial coverage, protected omission, and unknown source dependencies. F1 adds observations. F2 contains a simulation-only attempt and non-secret negative controls for absent/stale/mismatched mock permits. F3 contains a bounded synthetic outcome observation that conflicts with the interpretation of the attempt receipt.
+The seed covers SupplyChain, Energy, ServiceOperations, and OrganizationPolicy. F0 intentionally contains conflict, stale calibration, partial coverage, protected omission, and unknown source dependencies. F1 adds observations for explicitly named Supplier B facilities D/E and refreshes energy observations. Facility coverage is identified by stable synthetic facility refs; inventory values from F0 and F1 are not treated as one contemporaneous total because their observation times differ. F2 contains a simulation-only attempt and non-secret negative controls for absent/stale/mismatched mock permits. F3 contains a bounded synthetic outcome observation that conflicts with the interpretation of the attempt receipt.
 
 ## Files
 
@@ -17,8 +17,8 @@ The seed covers SupplyChain, Energy, ServiceOperations, and OrganizationPolicy. 
 - `CROSS_DOMAIN_DISRUPTION_V1_F1_DELTA.json` — supplied only for an F1 run or explicit replay using that frontier.
 - `CROSS_DOMAIN_DISRUPTION_V1_F2_DELTA.json` — simulation-only attempt plus no-secret mock authority negative controls for absent, stale, and mismatched permits.
 - `CROSS_DOMAIN_DISRUPTION_V1_F3_DELTA.json` — later outcome evidence; not available to F0/F1 computations.
-- `CROSS_DOMAIN_DISRUPTION_V1_EXPECTED_PREDICATES.json` — 19 structural expectations, intentionally not a single preferred intervention.
-- `CROSS_DOMAIN_DISRUPTION_V1_MUTATIONS.json` — 22 adversarial mutations and their expected failure/disposition class.
+- `CROSS_DOMAIN_DISRUPTION_V1_EXPECTED_PREDICATES.json` — 20 structural expectations, intentionally not a single preferred intervention.
+- `CROSS_DOMAIN_DISRUPTION_V1_MUTATIONS.json` — 23 adversarial mutations and their expected failure/disposition class.
 
 ## Solver/evaluator separation
 

@@ -23,13 +23,20 @@
       "currentness": "CurrentUnderProfile",
       "coverage": {
         "state": "NamedFacilitiesCovered",
+        "facility_refs_observed": [
+          "subject:supplier-B-facility-D",
+          "subject:supplier-B-facility-E"
+        ],
         "facilities_observed": 2,
         "facilities_known": 2
       },
       "dependency_assessment": "Unknown",
       "limitations": [
-        "Distinct acquisition method/source is recorded; independence from all prior data is not implied without an admitted dependency assessment."
-      ]
+        "Distinct acquisition method/source is recorded; independence from all prior data is not implied without an admitted dependency assessment.",
+        "This observation covers only facilities D and E at its own observation time. F0's A/B/C value is earlier; do not sum the two snapshots into a purported current supplier-wide total without a separately qualified temporal reconciliation."
+      ],
+      "scope_ref": "scope:supplier-B-facilities-D-E",
+      "aggregate_semantics": "SumWithinListedFacilitiesAtObservationTime"
     },
     {
       "observation_ref": "observation:energy-E1-recalibrated-capacity",
@@ -74,14 +81,15 @@
   "nonclaims": [
     "F1 does not mutate F0.",
     "The new inventory observation does not make all of Supplier B inventory known outside its declared coverage.",
-    "A newer calibrated energy observation does not by itself establish the uniquely true capacity."
+    "A newer calibrated energy observation does not by itself establish the uniquely true capacity.",
+    "F0 inventory for A/B/C and F1 inventory for D/E have different observation times and must not be combined into a single current total without explicit temporal reconciliation."
   ],
   "frontier_cutoff_utc": "2026-06-01T12:20:00Z",
   "added_sources": [
     {
       "source_ref": "source:warehouse-inspection-B-refresh",
       "source_kind": "warehouse-inspection",
-      "source_scope": "supplier-B named facilities",
+      "source_scope": "Supplier B facilities D and E; these are the two facility identities outside the declared F0 inventory coverage.",
       "trust_status": "UnassessedUnderProfile",
       "source_dependency_status": "Unknown"
     }
@@ -113,6 +121,24 @@
       "content_digest_ref": "digest:synthetic-energy-E2-refresh-01",
       "exact_selector": "$.capacity.available_mw",
       "selector_profile": "jsonpath-subset-v1"
+    }
+  ],
+  "added_coverage_assessments": [
+    {
+      "coverage_ref": "coverage:supplier-B-facilities-D-E-at-F1",
+      "subject_ref": "subject:supplier-B",
+      "scope_ref": "scope:supplier-B-facilities-D-E",
+      "facility_refs_observed": [
+        "subject:supplier-B-facility-D",
+        "subject:supplier-B-facility-E"
+      ],
+      "state": "ObservedCoverageAtF1",
+      "complements_coverage_ref": "coverage:supplier-B-unobserved-facilities",
+      "currentness_relation": "DifferentObservationTime",
+      "aggregate_inference": "NotPermittedWithoutTemporalReconciliation",
+      "limitations": [
+        "D/E are the previously unobserved facilities under F0's registry. This adds a new observation frontier; it does not rewrite the F0 inventory or imply a same-time full-supplier total."
+      ]
     }
   ]
 }

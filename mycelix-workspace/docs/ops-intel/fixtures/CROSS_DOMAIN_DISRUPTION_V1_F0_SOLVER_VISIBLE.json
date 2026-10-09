@@ -78,6 +78,41 @@
       "subject_kind": "service-region",
       "native_id": "service-region-R2",
       "display_name": "Region R2"
+    },
+    {
+      "subject_ref": "subject:supplier-B-facility-A",
+      "domain_ref": "domain:SupplyChain",
+      "subject_kind": "supplier-facility",
+      "native_id": "supplier-B-facility-A",
+      "display_name": "Supplier B Facility A"
+    },
+    {
+      "subject_ref": "subject:supplier-B-facility-B",
+      "domain_ref": "domain:SupplyChain",
+      "subject_kind": "supplier-facility",
+      "native_id": "supplier-B-facility-B",
+      "display_name": "Supplier B Facility B"
+    },
+    {
+      "subject_ref": "subject:supplier-B-facility-C",
+      "domain_ref": "domain:SupplyChain",
+      "subject_kind": "supplier-facility",
+      "native_id": "supplier-B-facility-C",
+      "display_name": "Supplier B Facility C"
+    },
+    {
+      "subject_ref": "subject:supplier-B-facility-D",
+      "domain_ref": "domain:SupplyChain",
+      "subject_kind": "supplier-facility",
+      "native_id": "supplier-B-facility-D",
+      "display_name": "Supplier B Facility D"
+    },
+    {
+      "subject_ref": "subject:supplier-B-facility-E",
+      "domain_ref": "domain:SupplyChain",
+      "subject_kind": "supplier-facility",
+      "native_id": "supplier-B-facility-E",
+      "display_name": "Supplier B Facility E"
     }
   ],
   "source_registry": [
@@ -236,13 +271,28 @@
       "currentness": "CurrentUnderProfile",
       "coverage": {
         "state": "PartialCoverage",
+        "facility_refs_observed": [
+          "subject:supplier-B-facility-A",
+          "subject:supplier-B-facility-B",
+          "subject:supplier-B-facility-C"
+        ],
+        "facility_refs_known": [
+          "subject:supplier-B-facility-A",
+          "subject:supplier-B-facility-B",
+          "subject:supplier-B-facility-C",
+          "subject:supplier-B-facility-D",
+          "subject:supplier-B-facility-E"
+        ],
         "facilities_observed": 3,
         "facilities_known": 5
       },
       "dependency_assessment": "Unknown",
       "limitations": [
-        "Inventory in two facilities is not observed; the value is not a complete supplier-wide total."
-      ]
+        "Inventory in two facilities is not observed; the value is not a complete supplier-wide total.",
+        "The value 120 applies only to facilities A, B and C at the F0 observation time. It cannot be added to later observations for D and E as if they were a contemporaneous snapshot."
+      ],
+      "scope_ref": "scope:supplier-B-facilities-A-B-C",
+      "aggregate_semantics": "SumWithinListedFacilitiesAtObservationTime"
     },
     {
       "observation_ref": "observation:energy-E1-capacity",
@@ -323,8 +373,22 @@
       "facilities_observed": 3,
       "facilities_known": 5,
       "limitations": [
-        "Do not project the partial inventory as a complete supplier-wide total."
-      ]
+        "Do not project the partial inventory as a complete supplier-wide total.",
+        "Coverage gaps are exact facility identities D and E, not an unbound count-only assertion."
+      ],
+      "facility_refs_observed": [
+        "subject:supplier-B-facility-A",
+        "subject:supplier-B-facility-B",
+        "subject:supplier-B-facility-C"
+      ],
+      "facility_refs_known": [
+        "subject:supplier-B-facility-A",
+        "subject:supplier-B-facility-B",
+        "subject:supplier-B-facility-C",
+        "subject:supplier-B-facility-D",
+        "subject:supplier-B-facility-E"
+      ],
+      "scope_ref": "scope:supplier-B-facilities-A-B-C"
     }
   ],
   "protected_fields": [
@@ -488,5 +552,20 @@
     "Source identifiers do not establish independence.",
     "No candidate is an execution permit, capability, authorization or claim of action success.",
     "This public fixture does not contain evaluator-only ground truth."
-  ]
+  ],
+  "facility_registry": {
+    "registry_ref": "registry:supplier-B-facilities-v1",
+    "supplier_ref": "subject:supplier-B",
+    "facility_refs_known": [
+      "subject:supplier-B-facility-A",
+      "subject:supplier-B-facility-B",
+      "subject:supplier-B-facility-C",
+      "subject:supplier-B-facility-D",
+      "subject:supplier-B-facility-E"
+    ],
+    "identity_profile_ref": "identity-profile:synthetic-supplier-facility-v1",
+    "limitations": [
+      "The registry defines five synthetic facility identities for coverage accounting only; it does not establish facility operation, inventory currentness, or commercial ownership outside this fixture."
+    ]
+  }
 }
