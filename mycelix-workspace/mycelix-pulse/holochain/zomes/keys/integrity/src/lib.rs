@@ -398,7 +398,6 @@ mod tests {
                 EntryVisibility::Public,
             )),
                 entry_hash: EntryHash::from_raw_36(vec![1; 36]),
-                weight: Default::default(),
             }),
         };
         let hashed = HoloHashed::from_content_sync(action);
