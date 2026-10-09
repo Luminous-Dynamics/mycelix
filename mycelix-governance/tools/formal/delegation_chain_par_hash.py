@@ -28,6 +28,16 @@ def _is_canonical_segment(value: Any) -> bool:
     return base64.urlsafe_b64encode(decoded).rstrip(b"=").decode("ascii") == value
 
 
+def _is_canonical_sha256(value: Any) -> bool:
+    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]{43}", value):
+        return False
+    try:
+        decoded = base64.urlsafe_b64decode(value + "=")
+    except (ValueError, base64.binascii.Error):
+        return False
+    return len(decoded) == 32 and base64.urlsafe_b64encode(decoded).rstrip(b"=").decode("ascii") == value
+
+
 def signing_input_bytes(value: Any) -> bytes:
     if not isinstance(value, str):
         raise ValueError("JWS signing input must be an ASCII string")
@@ -104,7 +114,7 @@ def evaluate_par_hash_chain(raw: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(observed, str) or not observed:
             findings.append({"code": "par-hash-missing", "hop_id": hop_id,
                              "parent_id": parent_id})
-        elif not re.fullmatch(r"[A-Za-z0-9_-]{43}", observed):
+        elif not _is_canonical_sha256(observed):
             findings.append({"code": "par-hash-malformed", "hop_id": hop_id,
                              "parent_id": parent_id})
         elif expected is not None and observed != expected:
