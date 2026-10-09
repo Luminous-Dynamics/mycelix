@@ -1,0 +1,209 @@
+{
+  "profile_id": "civ-013-durable-adapter-v1",
+  "spec_version": "civ-013-durable-adapter-conformance-v1",
+  "source_adapter_commit": "e259becc6cbb516b0750efd13464793f27f74f16",
+  "encoding": {
+    "digest": "SHA-256",
+    "record_domain_hex": "6d7963656c69782d6369763031332d64757261626c652d7265636f72642d763100",
+    "fork_domain_hex": "6d7963656c69782d6369763031332d64757261626c652d666f726b2d763100",
+    "protocol_version": "u16 big-endian",
+    "generation": "u64 big-endian",
+    "byte_string": "u64 byte length big-endian followed by UTF-8 bytes",
+    "receipt_sequence": "u64 big-endian",
+    "optional_digest": "0x00 for None; 0x01 followed by exactly 32 bytes for Some"
+  },
+  "records": [
+    {
+      "id": "DA001-bootstrap-record",
+      "protocol_version": 1,
+      "generation": 1,
+      "log_id": "civ-durable-fixture-v1",
+      "policy_version": "policy-v1",
+      "anchor_digest": "09ee644cb88127ef5a82fe7c5acbad94b9cdf49d306f1fc0f735b4a9a1c1cf7e",
+      "receipt_sequence": 0,
+      "receipt_digest": null,
+      "previous_record_digest": null,
+      "expected_digest": "942b31460cfa4b8a23b2191bcc2b4df192906897bf15f8db8b155eecc33c85df",
+      "canonical_bytes_hex": "6d7963656c69782d6369763031332d64757261626c652d7265636f72642d7631000001000000000000000100000000000000166369762d64757261626c652d666978747572652d76310000000000000009706f6c6963792d763109ee644cb88127ef5a82fe7c5acbad94b9cdf49d306f1fc0f735b4a9a1c1cf7e00000000000000000000"
+    },
+    {
+      "id": "DA002-successor-record",
+      "protocol_version": 1,
+      "generation": 2,
+      "log_id": "civ-durable-fixture-v1",
+      "policy_version": "policy-v1",
+      "anchor_digest": "08ca0e6fd071a8b3f60806987c3a318e98d9a272dc81f0f2cf6fdc0596fccc98",
+      "receipt_sequence": 1,
+      "receipt_digest": "1623126585a29ed7e9f756979339fe046226759931a22138be37316b76c6a36c",
+      "previous_record_digest": "942b31460cfa4b8a23b2191bcc2b4df192906897bf15f8db8b155eecc33c85df",
+      "expected_digest": "e97ddd11b7620a4a9bb2c436b6c6096e43534f0e5e6186f327b140a2950fdea7",
+      "canonical_bytes_hex": "6d7963656c69782d6369763031332d64757261626c652d7265636f72642d7631000001000000000000000200000000000000166369762d64757261626c652d666978747572652d76310000000000000009706f6c6963792d763108ca0e6fd071a8b3f60806987c3a318e98d9a272dc81f0f2cf6fdc0596fccc980000000000000001011623126585a29ed7e9f756979339fe046226759931a22138be37316b76c6a36c01942b31460cfa4b8a23b2191bcc2b4df192906897bf15f8db8b155eecc33c85df"
+    }
+  ],
+  "fork_evidence": [
+    {
+      "id": "DA003-first-fork-evidence",
+      "generation": 2,
+      "log_id": "civ-durable-fixture-v1",
+      "first_record_digest": "e223c62ddb720a5f18095742e03b7c811e1c13a42686981aab0b3e4e6b115275",
+      "conflicting_record_digest": "21380e49255141792d5eb92646da796aacf4d914ac549643e5c99329358b3d77",
+      "previous_evidence_digest": null,
+      "expected_digest": "623428da749879f4ee74a161daf8e2723cad5b44485c0ff82c76de9c10e69683",
+      "canonical_bytes_hex": "6d7963656c69782d6369763031332d64757261626c652d666f726b2d76310000000000000000166369762d64757261626c652d666978747572652d76310000000000000002e223c62ddb720a5f18095742e03b7c811e1c13a42686981aab0b3e4e6b11527521380e49255141792d5eb92646da796aacf4d914ac549643e5c99329358b3d7700"
+    },
+    {
+      "id": "DA004-linked-fork-evidence",
+      "generation": 3,
+      "log_id": "civ-durable-fixture-v1",
+      "first_record_digest": "7b4ec3555c6a59e860fbac7f630d37bdccecc458acdc77be9f64188b8100dd47",
+      "conflicting_record_digest": "88c39ec97b80e9c2d5c3d985201ad11ef849138069870645d097b196d18418ef",
+      "previous_evidence_digest": "623428da749879f4ee74a161daf8e2723cad5b44485c0ff82c76de9c10e69683",
+      "expected_digest": "33df727e0feab87191ffd551118a2d2520635500b083adfc6d7128ab92a28e79",
+      "canonical_bytes_hex": "6d7963656c69782d6369763031332d64757261626c652d666f726b2d76310000000000000000166369762d64757261626c652d666978747572652d763100000000000000037b4ec3555c6a59e860fbac7f630d37bdccecc458acdc77be9f64188b8100dd4788c39ec97b80e9c2d5c3d985201ad11ef849138069870645d097b196d18418ef01623428da749879f4ee74a161daf8e2723cad5b44485c0ff82c76de9c10e69683"
+    }
+  ],
+  "state_vectors": [
+    {
+      "id": "DA005-trusted-genesis-bootstrap",
+      "operation": "initialize",
+      "local_head": null,
+      "external_anchor": "genesis",
+      "prepared_candidate": null,
+      "expected_outcome": "ACCEPT_AFTER_EXTERNAL_CAS"
+    },
+    {
+      "id": "DA006-exact-retry-after-accept",
+      "operation": "advance",
+      "local_head": "candidate",
+      "external_anchor": "candidate",
+      "prepared_candidate": null,
+      "expected_outcome": "IDEMPOTENT_ACCEPT"
+    },
+    {
+      "id": "DA007-stale-predecessor",
+      "operation": "advance",
+      "local_head": "generation-4",
+      "external_anchor": "generation-4",
+      "prepared_candidate": null,
+      "requested_predecessor": "generation-3",
+      "expected_outcome": "REJECT_STALE"
+    },
+    {
+      "id": "DA008-receipt-tail-regression",
+      "operation": "advance",
+      "local_head": "generation-4-sequence-8",
+      "external_anchor": "same-head",
+      "prepared_candidate": null,
+      "requested_sequence": 7,
+      "expected_outcome": "REJECT_RECEIPT_ROLLBACK"
+    },
+    {
+      "id": "DA009-receipt-tail-equivocation",
+      "operation": "advance",
+      "local_head": "generation-4-sequence-8-digest-A",
+      "external_anchor": "same-head",
+      "prepared_candidate": null,
+      "requested_sequence": 8,
+      "requested_digest": "digest-B",
+      "expected_outcome": "REJECT_RECEIPT_EQUIVOCATION"
+    },
+    {
+      "id": "DA010-anchor-unavailable-before-prepare",
+      "operation": "initialize",
+      "local_head": null,
+      "external_anchor": "unavailable",
+      "prepared_candidate": null,
+      "expected_outcome": "FAIL_CLOSED_NO_LOCAL_WRITE"
+    },
+    {
+      "id": "DA011-anchor-unavailable-after-prepare",
+      "operation": "advance",
+      "local_head": "generation-4",
+      "external_anchor": "unavailable",
+      "prepared_candidate": "exact-successor",
+      "expected_outcome": "RETAIN_PREPARED_NO_ACCEPTANCE"
+    },
+    {
+      "id": "DA012-recover-exact-prepared-successor",
+      "operation": "recover",
+      "local_head": "generation-4",
+      "external_anchor": "generation-5-exact-digest",
+      "prepared_candidate": "generation-5-exact-digest",
+      "expected_outcome": "PROMOTE_PREPARED"
+    },
+    {
+      "id": "DA013-anchor-ahead-without-candidate",
+      "operation": "recover",
+      "local_head": "generation-4",
+      "external_anchor": "generation-6",
+      "prepared_candidate": null,
+      "expected_outcome": "REJECT_ROLLBACK_OR_MISSING_HISTORY"
+    },
+    {
+      "id": "DA014-anchor-same-generation-digest-mismatch",
+      "operation": "recover",
+      "local_head": "generation-5-digest-A",
+      "external_anchor": "generation-5-digest-B",
+      "prepared_candidate": null,
+      "expected_outcome": "REJECT_EXTERNAL_MISMATCH"
+    },
+    {
+      "id": "DA015-local-history-behind-anchor",
+      "operation": "recover",
+      "local_head": "generation-4",
+      "external_anchor": "generation-5",
+      "prepared_candidate": null,
+      "expected_outcome": "REJECT_ROLLBACK_OR_MISSING_HISTORY"
+    },
+    {
+      "id": "DA016-conflicting-prepared-candidate",
+      "operation": "prepare",
+      "local_head": "generation-4",
+      "external_anchor": "generation-4",
+      "prepared_candidate": "candidate-A",
+      "requested_candidate": "candidate-B",
+      "expected_outcome": "REJECT_CONFLICT_PRESERVE_EVIDENCE"
+    },
+    {
+      "id": "DA017-late-finalize-historical-candidate",
+      "operation": "finalize",
+      "local_head": "generation-6",
+      "external_anchor": "generation-6",
+      "prepared_candidate": "generation-5-already-accepted",
+      "expected_outcome": "IDEMPOTENT_HISTORICAL_SUCCESS_NO_HEAD_REGRESSION"
+    },
+    {
+      "id": "DA018-same-generation-retry-tampered-head",
+      "operation": "advance",
+      "local_head": "generation-6-row-digest-mismatch",
+      "external_anchor": "generation-6-stored-digest",
+      "prepared_candidate": null,
+      "requested_candidate": "same-generation-retry",
+      "expected_outcome": "REJECT_TAMPERED_CURRENT_HEAD"
+    },
+    {
+      "id": "DA019-late-finalize-corrupt-head-metadata",
+      "operation": "finalize",
+      "local_head": "generation-6-metadata-points-to-malformed-record",
+      "external_anchor": "generation-6",
+      "prepared_candidate": "generation-5-already-accepted",
+      "expected_outcome": "REJECT_CORRUPT_HEAD_METADATA"
+    },
+    {
+      "id": "DA020-late-finalize-tampered-head-record",
+      "operation": "finalize",
+      "local_head": "generation-6-record-tampered",
+      "external_anchor": "generation-6-stored-digest",
+      "prepared_candidate": "generation-5-already-accepted",
+      "expected_outcome": "REJECT_TAMPERED_CURRENT_HEAD"
+    },
+    {
+      "id": "DA021-anchor-ahead-after-candidate-cas",
+      "operation": "advance",
+      "local_head": "generation-4",
+      "external_anchor": "generation-6-competing-writer",
+      "prepared_candidate": "generation-5-candidate",
+      "expected_outcome": "REJECT_AHEAD_ANCHOR_NO_FALSE_FORK"
+    }
+  ]
+}
