@@ -448,6 +448,16 @@ def main() -> int:
         raise SystemExit("FAIL: spec_version/profile mismatch")
     if corpus.get("source_adapter_commit") != SOURCE_COMMIT or manifest.get("source_adapter_commit") != SOURCE_COMMIT:
         raise SystemExit("FAIL: source adapter commit mismatch")
+    if (
+        manifest.get("source_repository") != "Luminous-Dynamics/symthaea"
+        or corpus.get("source_repository") != manifest.get("source_repository")
+    ):
+        raise SystemExit("FAIL: source repository mismatch")
+    if manifest.get("claim_ceiling") != corpus.get("claim_ceiling"):
+        raise SystemExit("FAIL: claim ceiling differs between fixture and manifest")
+    source_blob = manifest.get("source_adapter_blob_sha")
+    if not isinstance(source_blob, str) or not re.fullmatch(r"[0-9a-f]{40}", source_blob):
+        raise SystemExit("FAIL: source adapter blob pin is missing or malformed")
     if manifest.get("schema_version") != 1:
         raise SystemExit("FAIL: unsupported manifest schema_version")
     verify_manifest_file_bindings(manifest)
