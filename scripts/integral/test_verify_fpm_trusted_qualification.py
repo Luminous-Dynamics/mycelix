@@ -854,6 +854,14 @@ version = "1.0.0"
              lambda x: x.__setitem__("run_attempt", True)),
             ("trusted-run.json", "trusted.run-attempt-bool",
              lambda x: x.__setitem__("run_attempt", True)),
+            ("artifacts.json", "artifact.id-float",
+             lambda x: x["artifacts"][0].__setitem__("id", float(RECEIPT_ARTIFACT))),
+            ("artifacts.json", "artifact.size-float",
+             lambda x: x["artifacts"][0].__setitem__("size_in_bytes", float(x["artifacts"][0]["size_in_bytes"]))),
+            ("artifacts.json", "artifact.run-id-float",
+             lambda x: x["artifacts"][0]["workflow_run"].__setitem__("id", float(TRUSTED_RUN))),
+            ("artifacts.json", "artifact.repository-id-bool",
+             lambda x: x["artifacts"][0]["workflow_run"].__setitem__("repository_id", True)),
         ]
         for file_name, label, mutator in strict_identity_mutations:
             expect_failure(root, file_name, label, mutator)
