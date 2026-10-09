@@ -17,7 +17,7 @@ This layer makes the result of the research verifier stack auditable as a separa
 The provenance regression workflow retains read-only repository permissions. After all upstream verifier steps, Python/Node report diffs, audit-bundle checks, and exact-head checks succeed, a deterministic receipt builder:
 
 - validates that each expected Python/Node report exists;
-- validates the expected case count, unique case identities and empty failure list;
+- validates expected case counts, unique case identities, empty failure lists, and any reported expected-versus-actual verdict fields; missing actual verdicts and mismatches fail closed;
 - requires paired Python and Node report bytes to be identical;
 - records SHA-256 hashes of all 28 reports;
 - records the deterministic generated-corpus pair;
