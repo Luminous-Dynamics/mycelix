@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import struct
 import sys
 from pathlib import Path
 from typing import Any
@@ -35,6 +34,11 @@ REQUIRED_IDS = {
     "V010-fork-evidence-reordered",
     "V011-identical-retry",
     "V012-competing-successor",
+    "V013-transition-receipt-rollback",
+    "V014-transition-same-sequence-equivocation",
+    "V015-cross-log-successor",
+    "V016-history-receipt-regression",
+    "V017-history-same-sequence-equivocation",
 }
 
 
@@ -146,6 +150,13 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
                 return "REJECT_GENERATION_GAP"
             if record["previous_record_digest"] != previous["digest"]:
                 return "REJECT_STALE_PREDECESSOR"
+            if record["log_id"] != previous["log_id"]:
+                return "REJECT_LOG_ID_MISMATCH"
+            if record["receipt_sequence"] < previous["receipt_sequence"] or (
+                record["receipt_sequence"] == previous["receipt_sequence"]
+                and record["receipt_digest"] != previous["receipt_digest"]
+            ):
+                return "REJECT_RECEIPT_TAIL_HISTORY_INVALID"
 
         if record["receipt_sequence"] == 0 and record["receipt_digest"] is not None:
             return "REJECT_BAD_RECEIPT_TAIL"
@@ -175,6 +186,15 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
             return "REJECT_GENERATION_GAP"
         if vector.get("candidate_previous_record_digest") != current_digest:
             return "REJECT_STALE_PREDECESSOR"
+        if "candidate_receipt_sequence" in vector:
+            candidate_sequence = vector["candidate_receipt_sequence"]
+            current_sequence = vector["current_receipt_sequence"]
+            candidate_tail = vector["candidate_receipt_digest"]
+            current_tail = vector["current_receipt_digest"]
+            if candidate_sequence < current_sequence:
+                return "REJECT_RECEIPT_ROLLBACK"
+            if candidate_sequence == current_sequence and candidate_tail != current_tail:
+                return "REJECT_RECEIPT_TAIL_EQUIVOCATION"
         return "ACCEPT_TRANSITION"
 
     if kind == "recovery":
@@ -210,6 +230,45 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
             return "REJECT_BAD_SOURCE_CHAIN"
         reordered = [chain[index] for index in vector["order"]]
         return "REJECT_REORDERED_FORK_CHAIN" if not valid_fork_chain(reordered) else "ACCEPT_FORK_CHAIN"
+
+    if kind == "history_chain_negative":
+        records = vector["records"]
+        markers = vector["commit_markers"]
+        if not records or len(records) != len(markers):
+            return "REJECT_BAD_HISTORY_SHAPE"
+        previous = None
+        for index, record in enumerate(records):
+            if sha256(canonical_record(record)).hex() != record.get("digest"):
+                return "REJECT_BAD_RECORD_DIGEST"
+            marker = markers[index]
+            if (
+                marker.get("generation") != record["generation"]
+                or marker.get("record_digest") != record["digest"]
+                or sha256(canonical_marker(marker["generation"], marker["record_digest"])).hex()
+                != marker.get("digest")
+            ):
+                return "REJECT_BAD_MARKER"
+            if record["receipt_sequence"] == 0 and record["receipt_digest"] is not None:
+                return "REJECT_BAD_RECEIPT_TAIL"
+            if record["receipt_sequence"] > 0 and record["receipt_digest"] is None:
+                return "REJECT_BAD_RECEIPT_TAIL"
+            if previous is None:
+                if record["generation"] != 1 or record["previous_record_digest"] is not None:
+                    return "REJECT_BAD_HISTORY_SHAPE"
+            else:
+                if record["generation"] != previous["generation"] + 1:
+                    return "REJECT_GENERATION_GAP"
+                if record["previous_record_digest"] != previous["digest"]:
+                    return "REJECT_STALE_PREDECESSOR"
+                if record["log_id"] != previous["log_id"]:
+                    return "REJECT_LOG_ID_MISMATCH"
+                if record["receipt_sequence"] < previous["receipt_sequence"] or (
+                    record["receipt_sequence"] == previous["receipt_sequence"]
+                    and record["receipt_digest"] != previous["receipt_digest"]
+                ):
+                    return "REJECT_RECEIPT_TAIL_HISTORY_INVALID"
+            previous = record
+        return "ACCEPT_HISTORY_CHAIN"
 
     raise ValueError(f"unknown vector kind: {kind!r}")
 
