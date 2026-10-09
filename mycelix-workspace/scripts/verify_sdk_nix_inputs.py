@@ -40,9 +40,19 @@ def valid_sha512_token(token: str) -> bool:
     return len(decoded) == 64 and base64.b64encode(decoded).decode("ascii") == encoded_digest
 
 
+def _object_without_duplicate_keys(pairs: list[tuple[str, object]]) -> dict:
+    """Reject duplicate JSON members instead of accepting last-key-wins ambiguity."""
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise InputContractError(f"duplicate JSON object key: {key!r}")
+        result[key] = value
+    return result
+
+
 def parse_object(raw: str, label: str) -> dict:
     try:
-        value = json.loads(raw)
+        value = json.loads(raw, object_pairs_hook=_object_without_duplicate_keys)
     except json.JSONDecodeError as exc:
         raise InputContractError(f"{label} is not valid JSON: {exc.msg} at line {exc.lineno}") from exc
     if not isinstance(value, dict):
@@ -176,6 +186,14 @@ def run_self_tests(package_raw: str, lock_raw: str) -> list[dict]:
 
     tests.append(("malformed_package_json", "{", lock_raw))
     tests.append(("malformed_lock_json", package_raw, "{"))
+    duplicate_lock_raw = lock_raw.replace(
+        '"lockfileVersion": 3,',
+        '"lockfileVersion": 2,\\n  "lockfileVersion": 3,',
+        1,
+    )
+    if duplicate_lock_raw == lock_raw:
+        raise InputContractError("unable to construct duplicate-key lockfile fixture")
+    tests.append(("duplicate_lock_json_key", package_raw, duplicate_lock_raw))
 
     unsafe_path = copy.deepcopy(lock)
     unsafe_path["packages"]["node_modules/../outside"] = unsafe_path["packages"].pop("node_modules/zod")
