@@ -331,6 +331,34 @@
         "generation": 1,
         "record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520"
       }
+    },
+    {
+      "id": "DA025-late-finalize-current-head-pointer-valid",
+      "kind": "late_finalize_head_pointer",
+      "expected_outcome": "IdempotentAcceptedHistory",
+      "candidate_generation": 2,
+      "candidate_previous_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "expected_predecessor_generation": 1,
+      "expected_predecessor_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "current_head_generation": 3,
+      "stored_candidate_status": "accepted",
+      "metadata_head_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+      "stored_current_head_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+      "stored_current_head_status": "accepted"
+    },
+    {
+      "id": "DA026-late-finalize-current-head-pointer-mismatch",
+      "kind": "late_finalize_head_pointer",
+      "expected_outcome": "CorruptCurrentHeadMetadata",
+      "candidate_generation": 2,
+      "candidate_previous_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "expected_predecessor_generation": 1,
+      "expected_predecessor_digest": "33882f847e8cf08ffdc34a0179839b15382c8a0f2465a7914dd487f2c51e0ff4",
+      "current_head_generation": 3,
+      "stored_candidate_status": "accepted",
+      "metadata_head_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+      "stored_current_head_digest": "d5ef2c0f2805aefaa0ca733dc6406446bde9b81e6b092540f232deb64d73435",
+      "stored_current_head_status": "accepted"
     }
   ],
   "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback."
