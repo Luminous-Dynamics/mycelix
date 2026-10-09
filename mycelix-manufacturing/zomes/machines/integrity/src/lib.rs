@@ -1699,6 +1699,23 @@ mod content_restriction_tests {
     }
 
     #[test]
+    fn temporal_evidence_receipt_round_trips_both_signed_statements() {
+        let observation = temporal_observation(1, 7, 100);
+        let encoded = serde_json::to_vec(&observation).unwrap();
+        let decoded: MachineTemporalEvidenceObservation =
+            serde_json::from_slice(&encoded).unwrap();
+        assert_eq!(decoded, observation);
+        assert_eq!(
+            decoded.profile_statement.payload,
+            decoded.profile_statement.payload.clone()
+        );
+        assert_eq!(
+            decoded.attestation_statement.signature,
+            Signature(vec![0; 64])
+        );
+    }
+
+    #[test]
     fn temporal_evidence_resolution_preserves_agreeing_provenance() {
         let a = temporal_observation(1, 7, 100);
         let b = temporal_observation(2, 8, 100);
