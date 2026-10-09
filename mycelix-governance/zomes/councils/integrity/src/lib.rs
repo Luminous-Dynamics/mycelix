@@ -657,17 +657,17 @@ pub fn check_create_decision(decision: &CouncilDecision) -> Result<(), String> {
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Council(council) => validate_create_council(action, council),
+                EntryTypes::Council(council) => validate_create_council(action.into(), council),
                 EntryTypes::CouncilMembership(membership) => {
-                    validate_create_membership(action, membership)
+                    validate_create_membership(action.into(), membership)
                 }
                 EntryTypes::HolonicReflection(reflection) => {
-                    validate_create_reflection(action, reflection)
+                    validate_create_reflection(action.into(), reflection)
                 }
-                EntryTypes::CouncilDecision(decision) => validate_create_decision(action, decision),
+                EntryTypes::CouncilDecision(decision) => validate_create_decision(action.into(), decision),
                 EntryTypes::EmergencySession(session) => {
                     match check_create_emergency_session(&session) {
                         Ok(()) => Ok(ValidateCallbackResult::Valid),
@@ -684,11 +684,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             OpEntry::UpdateEntry {
                 app_entry,
                 action,
-                original_action_hash,
-                original_entry_hash: _,
+                ..
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Council(council) => {
+                    let original_action_hash = action.original_action_address.clone();
                     validate_update_council(action, council, original_action_hash)
                 }
                 EntryTypes::CouncilMembership(membership) => {
@@ -701,18 +701,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
 
 /// Validate council creation
 fn validate_create_council(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     council: Council,
 ) -> ExternResult<ValidateCallbackResult> {
     match check_create_council(&council) {
@@ -723,7 +723,7 @@ fn validate_create_council(
 
 /// Validate council update
 fn validate_update_council(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     council: Council,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -745,13 +745,13 @@ fn validate_update_council(
 
 /// Validate membership creation
 fn validate_create_membership(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     membership: CouncilMembership,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer. A forged `member_did` seats an impersonated member on a council. `join_council` (councils/coordinator:582) takes `member_did` from input with only a length check; joining is self-service (the sole create site is inside that fn, and no approve-flow creates membership for a third party).
     //
     // (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, governance Class-A.)
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
         "CouncilMembership",
         "member_did",
@@ -769,7 +769,7 @@ fn validate_create_membership(
 
 /// Validate membership update
 fn validate_update_membership(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     _membership: CouncilMembership,
 ) -> ExternResult<ValidateCallbackResult> {
     // Memberships can be updated (status changes, phi updates, etc.)
@@ -778,7 +778,7 @@ fn validate_update_membership(
 
 /// Validate holonic reflection creation
 fn validate_create_reflection(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     reflection: HolonicReflection,
 ) -> ExternResult<ValidateCallbackResult> {
     match check_create_reflection(&reflection) {
@@ -789,7 +789,7 @@ fn validate_create_reflection(
 
 /// Validate decision creation
 fn validate_create_decision(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     decision: CouncilDecision,
 ) -> ExternResult<ValidateCallbackResult> {
     match check_create_decision(&decision) {

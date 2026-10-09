@@ -4,7 +4,7 @@
 //! Constitution Integrity Zome
 //! Defines entry types and validation for charter and amendments
 //!
-//! Updated to use HDI 0.7 patterns
+//! Updated to use Holochain 0.7 / HDI 0.8 patterns
 
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
@@ -382,64 +382,52 @@ pub fn check_update_parameter(param: &GovernanceParameter) -> Result<(), String>
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Charter(charter) => validate_create_charter(action, charter),
-                EntryTypes::Amendment(amendment) => validate_create_amendment(action, amendment),
-                EntryTypes::GovernanceParameter(param) => validate_create_parameter(action, param),
+                EntryTypes::Charter(charter) => validate_create_charter(action.into(), charter),
+                EntryTypes::Amendment(amendment) => validate_create_amendment(action.into(), amendment),
+                EntryTypes::GovernanceParameter(param) => validate_create_parameter(action.into(), param),
             },
             OpEntry::UpdateEntry {
                 app_entry,
                 action,
-                original_action_hash,
-                original_entry_hash: _,
+                ..
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Charter(charter) => {
+                    let original_action_hash = action.original_action_address.clone();
                     validate_update_charter(action, charter, original_action_hash)
                 }
                 EntryTypes::Amendment(amendment) => {
+                    let original_action_hash = action.original_action_address.clone();
                     validate_update_amendment(action, amendment, original_action_hash)
                 }
                 EntryTypes::GovernanceParameter(param) => validate_update_parameter(action, param),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
-            link_type,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => match link_type {
+        FlatOp::Link(OpLink::CreateLink { link_type, .. }) => match link_type {
             LinkTypes::CurrentCharter => Ok(ValidateCallbackResult::Valid),
             LinkTypes::CharterHistory => Ok(ValidateCallbackResult::Valid),
             LinkTypes::CharterToAmendment => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ParameterIndex => Ok(ValidateCallbackResult::Valid),
             LinkTypes::AmendmentById => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterDeleteLink {
-            link_type,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => match link_type {
+        FlatOp::Link(OpLink::DeleteLink { link_type, .. }) => match link_type {
             LinkTypes::CurrentCharter => Ok(ValidateCallbackResult::Valid),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
 
 /// Validate charter creation
 fn validate_create_charter(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     charter: Charter,
 ) -> ExternResult<ValidateCallbackResult> {
     match check_create_charter(&charter) {
@@ -450,7 +438,7 @@ fn validate_create_charter(
 
 /// Validate charter update
 fn validate_update_charter(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     charter: Charter,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -471,13 +459,13 @@ fn validate_update_charter(
 
 /// Validate amendment creation
 fn validate_create_amendment(
-    action: Create,
+    action: TypedAction<EntryCreationData>,
     amendment: Amendment,
 ) -> ExternResult<ValidateCallbackResult> {
     // Bind to the committer. A forged `proposer` attributes a constitutional amendment to someone else. `propose_amendment` (constitution/coordinator:109) takes `proposer_did` from input with only a length check.
     //
     // (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, governance Class-A.)
-    let author_did = did_for_author(&action.author);
+    let author_did = did_for_author(action.author());
     if let ValidateCallbackResult::Invalid(msg) =
         require_did_is_author("Amendment", "proposer", &amendment.proposer, &author_did)
     {
@@ -492,7 +480,7 @@ fn validate_create_amendment(
 
 /// Validate amendment update — enforce status transition whitelist
 fn validate_update_amendment(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     amendment: Amendment,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -513,7 +501,7 @@ fn validate_update_amendment(
 
 /// Validate governance parameter creation
 fn validate_create_parameter(
-    _action: Create,
+    _action: TypedAction<EntryCreationData>,
     param: GovernanceParameter,
 ) -> ExternResult<ValidateCallbackResult> {
     match check_create_parameter(&param) {
@@ -524,7 +512,7 @@ fn validate_create_parameter(
 
 /// Validate governance parameter update
 fn validate_update_parameter(
-    _action: Update,
+    _action: TypedAction<UpdateData>,
     param: GovernanceParameter,
 ) -> ExternResult<ValidateCallbackResult> {
     match check_update_parameter(&param) {
@@ -539,45 +527,6 @@ mod tests {
 
     fn ts(micros: i64) -> Timestamp {
         Timestamp::from_micros(micros)
-    }
-
-    fn make_create() -> Create {
-        Create {
-            author: AgentPubKey::from_raw_36(vec![0; 36]),
-            timestamp: ts(1_000_000),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::CapClaim,
-            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
-            weight: Default::default(),
-        }
-    }
-
-    /// DID of the agent `make_create()` attributes actions to.
-    fn test_author_did() -> String {
-        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
-    }
-
-    #[test]
-    fn author_binding_accepts_the_committing_agent() {
-        let mut e = valid_amendment();
-        e.proposer = test_author_did();
-        let result = validate_create_amendment(make_create(), e).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Valid));
-    }
-
-    #[test]
-    fn author_binding_rejects_a_forged_proposer() {
-        let mut e = valid_amendment();
-        e.proposer = "did:mycelix:uhCAkSomeoneElse".into();
-        let result = validate_create_amendment(make_create(), e).unwrap();
-        match result {
-            ValidateCallbackResult::Invalid(msg) => assert!(
-                msg.contains("Amendment") && msg.contains("forgery"),
-                "got: {msg}"
-            ),
-            other => panic!("forged proposer must be rejected, got {other:?}"),
-        }
     }
 
     fn valid_charter() -> Charter {

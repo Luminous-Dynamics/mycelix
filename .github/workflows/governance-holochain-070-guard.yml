@@ -1,0 +1,23 @@
+name: Governance Holochain 0.7 Toolchain Guard
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/**'
+      - 'scripts/verify-governance-holochain-070.sh'
+      - '.github/workflows/governance-holochain-070-guard.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-governance/**'
+      - 'scripts/verify-governance-holochain-070.sh'
+      - '.github/workflows/governance-holochain-070-guard.yml'
+  workflow_dispatch:
+
+jobs:
+  governance-toolchain-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify canonical Governance 0.7 tuple and migrated action model
+        run: bash scripts/verify-governance-holochain-070.sh
