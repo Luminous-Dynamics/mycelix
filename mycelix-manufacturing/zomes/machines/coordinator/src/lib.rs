@@ -530,14 +530,15 @@ pub fn resolve_machine_temporal_attestations(
         let Some(hash) = link.target.into_action_hash() else {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         };
-        if !seen_attestations.insert(hash.clone()) {
+        if seen_attestations.contains(&hash) {
             continue;
         }
-        if seen_attestations.len() > MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS {
+        if seen_attestations.len() >= MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS {
             return Ok(MachineTemporalEvidenceResolution::EvidenceSetLimitExceeded {
                 limit: MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS as u32,
             });
         }
+        seen_attestations.insert(hash.clone());
         let Some(Details::Record(record_details)) = get_details(hash.clone(), GetOptions::default())? else {
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         };
