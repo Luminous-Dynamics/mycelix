@@ -173,7 +173,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::AuditEntry(entry) => validate_create_audit_entry(action, entry),
+                EntryTypes::AuditEntry(entry) => validate_create_audit_entry(action.into(), entry),
                 EntryTypes::AuditSummary(_) => Ok(ValidateCallbackResult::Valid),
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
