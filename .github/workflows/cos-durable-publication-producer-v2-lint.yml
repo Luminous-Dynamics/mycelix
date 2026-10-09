@@ -64,23 +64,25 @@ jobs:
           publisher_gate=publish.index('Require protected publisher ref')
           assert publisher_gate < first_secret
           governance_recheck=publish.index('Revalidate governance snapshots immediately before publication')
-          tag_recheck=publish.index('Recheck release tag target immediately before immutable publication')
-          irreversible_publish=publish.index('Publish immutable release')
-          assert governance_recheck < tag_recheck < irreversible_publish
+          final_publish=publish.index('Publish immutable release after in-step exact tag recheck')
+          publication_transition=publish.index('Publish immutable release after in-step exact tag recheck')
+          assert governance_recheck < final_publish == publication_transition
           assert publish.count('- name: Publish immutable release') == 1
           assert publish.count('- name: Prove immutable release and asset') == 1
           assert publish.count('- name: Record durable publication observation') == 1
           assert publish.count('- name: Preserve publication observation') == 1
-          tag_gate_tail=publish.split('Recheck release tag target immediately before immutable publication',1)[1]
-          next_step=tag_gate_tail.split('\n      - name:',1)[1]
-          assert next_step.lstrip().startswith('Publish immutable release')
+          release_step=publish.split('- name: Publish immutable release after in-step exact tag recheck',1)[1].split('\n      - name:',1)[0]
+          tag_readback=release_step.index('git ls-remote origin "refs/tags/${RELEASE_TAG}^{}"')
+          release_publish=release_step.index('gh release edit "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false')
+          assert tag_readback < release_publish
+          assert 'unset COS_RELEASE_ADMIN_TOKEN' in release_step
           assert 'recheck-ruleset-pages.json' in publish and 'recheck-rulesets/' in publish
           observation_step=publish.split('- name: Record durable publication observation',1)[1].split('\n      - name:',1)[0]
           preserve_step=publish.split('- name: Preserve publication observation',1)[1].split('\n      - name:',1)[0]
           assert "'main_ruleset_governance_sha256':ruleset_policy['sha256']" in observation_step
           for evidence_path in ('main-ruleset-governance-v1.json','ruleset-index-pages.json','ruleset-details/','ruleset-ids.txt','recheck-environment.json','recheck-effective-rules.json','recheck-main-protection.json','recheck-ruleset-pages.json','recheck-immutable-releases.json','recheck-rulesets/'):
               assert evidence_path in preserve_step, evidence_path
-          assert 'recheck-ruleset-index-pages.json' in publish
+          assert 'recheck-ruleset-pages.json' in publish
           assert 'current_environment==frozen_environment' in publish
           assert 'current_effective==frozen_effective' in publish
           assert 'current_main==frozen_main' in publish
@@ -105,10 +107,8 @@ jobs:
           assert 'git ls-remote origin "refs/tags/${RELEASE_TAG}^{}"' in publish
           assert 'test "${tag_sha}" = "${EXPECTED_MAIN_SHA}"' in publish
           assert publish.count('git ls-remote origin "refs/tags/${RELEASE_TAG}^{}"') == 2
-          recheck_gate=publish.index('Recheck release tag target immediately before immutable publication')
           draft_asset_gate=publish.index('Revalidate draft and asset digest')
-          publish_gate=publish.index('Publish immutable release')
-          assert draft_asset_gate < recheck_gate < publish_gate
+          assert draft_asset_gate < governance_recheck < final_publish
           final_proof=publish.split('- name: Prove immutable release and asset',1)[1].split('\n      - name:',1)[0]
           assert "assert d['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']" in final_proof
           assert 'MYCELIX-COS-PROTECTED-MAIN-POLICY-V1' in text
