@@ -99,6 +99,7 @@ FROZEN_AGGREGATE_MUTATIONS = (
     "aggregate-guard-head-mismatch", "aggregate-guard-count-weakened",
     "aggregate-guard-identity-substituted", "missing-control-artifact",
     "tampered-control-result", "tampered-control-input", "unexpected-control-artifact",
+    "aggregate-guard-aggregator-hash-forged", "aggregate-guard-test-hash-forged",
 )
 HEAD = "a" * 40
 
@@ -198,6 +199,8 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
         "status": "PASS",
         "source_head": HEAD,
         "qualification": "NOT_CLAIMED",
+        "aggregator_sha256": hashlib.sha256(Path(aggregator.__file__).resolve().read_bytes()).hexdigest(),
+        "test_sha256": hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest(),
         "mutations": [{"id": name, "rejected": True} for name in FROZEN_AGGREGATE_MUTATIONS],
         "summary": {
             "mutations_attempted": len(FROZEN_AGGREGATE_MUTATIONS),
@@ -305,6 +308,14 @@ def apply_mutation(root: Path, name: str) -> None:
         data = json.loads(aggregate_guard.read_text(encoding="utf-8"))
         data["mutations"][0]["id"] = "fabricated-aggregate-mutant"
         aggregate_guard.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "aggregate-guard-aggregator-hash-forged":
+        data = json.loads(aggregate_guard.read_text(encoding="utf-8"))
+        data["aggregator_sha256"] = "0" * 64
+        aggregate_guard.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "aggregate-guard-test-hash-forged":
+        data = json.loads(aggregate_guard.read_text(encoding="utf-8"))
+        data["test_sha256"] = "0" * 64
+        aggregate_guard.write_text(json.dumps(data), encoding="utf-8")
     elif name == "missing-control-artifact":
         control_input.unlink()
     elif name == "tampered-control-result":
@@ -394,6 +405,8 @@ def main() -> int:
                 "aggregate-guard-head-mismatch",
                 "aggregate-guard-count-weakened",
                 "aggregate-guard-identity-substituted",
+                "aggregate-guard-aggregator-hash-forged",
+                "aggregate-guard-test-hash-forged",
             )
             require(tuple(mutations) == FROZEN_AGGREGATE_MUTATIONS,
                     "executed aggregate mutations differ from independently frozen inventory")
@@ -421,7 +434,7 @@ def main() -> int:
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 23 weakening mutations rejected")
+        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 25 weakening mutations rejected")
         print("QUALIFICATION NOT CLAIMED: synthetic receipt checks do not establish semantic correctness")
         return 0
     except Exception as error:
