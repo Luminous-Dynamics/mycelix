@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "44252bba3fd550732cef424b5e8a59b6bcbbfc1c"
+SOURCE_COMMIT = "0c8ae581b8a753415b56d53a9b65cef62e552913"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 SQLITE_MINIMUM_VERSION_NUMBER = 3_051_003
 
@@ -71,6 +71,7 @@ REQUIRED_IDS = {
     "DA043-recovery-genesis-mismatch-not-a-record",
     "DA044-receipt-sequence-overflow-is-state-mutation-free",
     "DA045-generation-overflow-before-anchor-read",
+    "DA046-integrity-check-uses-one-snapshot-during-concurrent-advance",
 }
 
 
@@ -666,6 +667,24 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         ):
             return "UnexpectedStateMutation"
         return "RejectBeforeStateMutation"
+
+    if kind == "integrity_check_snapshot_consistency":
+        if (
+            vector.get("sqlite_journal_mode") != "wal"
+            or vector.get("snapshot_generation") != 1
+            or vector.get("snapshot_established_before_writer") is not True
+            or vector.get("concurrent_writer_commit") is not True
+            or vector.get("committed_generation") != 2
+            or vector.get("snapshot_integrity_result") != "ok"
+            or vector.get("snapshot_visible_record_generations") != [1]
+            or vector.get("same_snapshot_for_integrity_fk_logs_and_semantic_checks") is not True
+            or vector.get("fresh_integrity_result") != "ok"
+            or vector.get("fresh_snapshot_visible_record_generations") != [1, 2]
+            or vector.get("integrity_check_uses_deferred_read_transaction") is not True
+            or vector.get("claim_is_power_loss_durability") is not False
+        ):
+            return "MixedSnapshotOrFalseCorruption"
+        return "ConsistentSnapshotMaintained"
 
     if kind == "sqlite_integer_range":
         generation = vector["record_generation"]
