@@ -59,3 +59,12 @@ jobs:
 
       - name: Compile standalone Sweettest harness (do not run conductor tests yet)
         run: cargo test --manifest-path mycelix-workspace/mycelix-pulse/tests/Cargo.toml --no-run
+
+      - name: Compile backend against Holochain 0.7 client
+        run: cargo check --manifest-path mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml --all-targets
+
+      - name: Compile CLI against Holochain 0.7 client
+        run: cargo check --manifest-path mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml --all-targets
+
+      - name: Compile SMTP gateway with real Holochain bridge
+        run: cargo check --manifest-path mycelix-workspace/mycelix-pulse/crates/pulse-smtp-gateway/Cargo.toml --all-targets --features holochain-bridge
