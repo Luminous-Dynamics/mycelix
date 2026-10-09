@@ -352,6 +352,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             OpRecord::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action.into()),
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::Update(OpUpdate::Entry { app_entry, action }) => {
+            validate_update_entry(app_entry, action)
+        }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported trust update variant".to_string(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
