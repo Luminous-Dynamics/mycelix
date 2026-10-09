@@ -794,6 +794,84 @@ pub fn get_received_capabilities(_: ()) -> ExternResult<Vec<(ActionHash, Mailbox
     Ok(capabilities)
 }
 
+// ==================== REMOTE CAPABILITY QUALIFICATION ====================
+
+/// Result of a real conductor-authorized remote call. This deliberately does not
+/// infer authorization from the public MailboxCapability.revoked projection.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum CapabilityProbeResult {
+    Authorized,
+    Unauthorized,
+    ClaimMissing,
+}
+
+/// Find the private source-chain claim corresponding to one grantor + capability tag.
+fn find_cap_claim(grantor: &AgentPubKey, tag: &str) -> ExternResult<Option<CapClaim>> {
+    let filter = ChainQueryFilter::new()
+        .action_type(ActionType::Create)
+        .entry_type(EntryType::CapClaim)
+        .include_entries(true);
+
+    let matching_claim = query(filter)?.into_iter().find_map(|record| {
+        let entry = record.entry().as_option()?;
+        match entry {
+            Entry::CapClaim(claim) if claim.grantor == *grantor && claim.tag == tag => {
+                Some(claim.clone())
+            }
+            _ => None,
+        }
+    });
+
+    Ok(matching_claim)
+}
+
+/// Probe the actual Holochain grant by making a harmless, data-discarding remote
+/// call to get_inbox_v2. The app-entry revoked flag is intentionally not an early
+/// return here: this diagnostic must distinguish an application projection from
+/// actual conductor authorization. It returns no mailbox contents.
+#[hdk_extern]
+pub fn probe_remote_capability(capability_hash: ActionHash) -> ExternResult<CapabilityProbeResult> {
+    let local_agent = agent_info()?.agent_initial_pubkey;
+    let record = get(capability_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Capability record not found".to_string())
+    ))?;
+    let capability: MailboxCapability = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Unexpected entry type for capability probe".to_string()
+        )))?;
+
+    if capability.grantee != local_agent {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the assigned grantee can probe this capability".to_string()
+        )));
+    }
+
+    let Some(claim) = find_cap_claim(&capability.grantor, &capability.id)? else {
+        return Ok(CapabilityProbeResult::ClaimMissing);
+    };
+
+    let response = call_remote(
+        capability.grantor,
+        ZomeName::from("mail_messages"),
+        FunctionName::from("get_inbox_v2"),
+        Some(claim.secret),
+        (),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(_) => Ok(CapabilityProbeResult::Authorized),
+        ZomeCallResponse::Unauthorized(_, _, _, _, _) => {
+            Ok(CapabilityProbeResult::Unauthorized)
+        }
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Remote capability probe failed for a reason other than authorization".to_string()
+        ))),
+    }
+}
+
 // ==================== SIGNAL HANDLING ====================
 
 #[hdk_extern]
