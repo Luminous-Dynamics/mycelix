@@ -986,6 +986,21 @@ def verify_artifact_enumeration(
         )
     if enumeration["schema"] != "mycelix.fpm.trusted-qualification-artifact-enumeration.v1":
         fail("unexpected artifact enumeration schema")
+    # Python considers bool a subclass of int, and numeric equality also
+    # accepts values such as 1.0 == 1. Treat JSON schema integers strictly:
+    # otherwise malformed independent evidence can pass equality checks.
+    integer_fields = (
+        "page_size",
+        "max_pages",
+        "max_artifacts",
+        "terminal_page",
+        "enumerated_count",
+        "total_count_reported",
+        "repeat_total_count_reported",
+    )
+    for field in integer_fields:
+        if type(enumeration[field]) is not int:
+            fail(f"artifact enumeration {field} must be a JSON integer")
     if enumeration["page_size"] != 100:
         fail("unexpected artifact enumeration page size")
     if enumeration["max_pages"] != 4:
@@ -1011,9 +1026,14 @@ def verify_artifact_enumeration(
         fail("artifact enumeration did not observe a short/empty terminal page")
     if enumeration["repeat_enumeration_verified"] is not True:
         fail("artifact enumeration repeat-consistency check did not pass")
+    repeat_counts = enumeration["repeat_page_counts"]
+    if not isinstance(repeat_counts, list) or any(
+        type(x) is not int or x < 0 or x > 100 for x in repeat_counts
+    ):
+        fail("repeat artifact page counts are invalid")
     if enumeration["repeat_total_count_reported"] != enumeration["total_count_reported"]:
         fail("repeat artifact total count differs")
-    if enumeration["repeat_page_counts"] != counts:
+    if repeat_counts != counts:
         fail("repeat artifact page counts differ")
     if enumeration["repeat_artifact_identity_sha256"] != enumeration["artifact_identity_sha256"]:
         fail("repeat artifact identity commitment differs")
