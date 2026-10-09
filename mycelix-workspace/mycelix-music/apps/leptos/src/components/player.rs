@@ -32,16 +32,19 @@ fn request_playback(
     if !player.is_playing.get_untracked() {
         return;
     }
-    // A source change can briefly leave the persistent element on its previous
-    // resource. Wait for that resource to match, rather than replaying the old
-    // track while the new source is loading.
+    // Invalidate all older play promises as soon as this selection requests
+    // playback, even when the media element still points at a previous source.
+    // Otherwise a late rejection for A could stop a re-selected A after an
+    // intermediate B request returned early while B was loading.
+    let generation = attempt_generation.get_untracked().wrapping_add(1);
+    attempt_generation.set(generation);
+
+    // Never call play against an empty or stale currentSrc. The matching
+    // canplay event will retry once the selected resource is actually active.
     let current_src = audio.current_src();
     if !media_source_matches_expected(&current_src, &expected_audio_url) {
         return;
     }
-
-    let generation = attempt_generation.get_untracked().wrapping_add(1);
-    attempt_generation.set(generation);
     let expected_hash_for_result = expected_song_hash.clone();
     let expected_url_for_result = expected_audio_url.clone();
 
