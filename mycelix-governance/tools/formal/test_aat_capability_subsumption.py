@@ -23,6 +23,7 @@ FROZEN_MAX_TOOLS = 256
 FROZEN_MAX_ARGUMENT_KEYS = 64
 FROZEN_MAX_CONSTRAINT_VALUE_DEPTH = 32
 FROZEN_MAX_CONSTRAINT_VALUE_NODES = 512
+FROZEN_MAX_TOOL_NAME_BYTES = 256
 
 
 def exact(value: Any) -> dict[str, Any]:
@@ -261,6 +262,8 @@ def main() -> int:
                 "nested constraint-value depth limit drifted")
         require(aat.MAX_CONSTRAINT_VALUE_NODES == FROZEN_MAX_CONSTRAINT_VALUE_NODES,
                 "nested constraint-value node limit drifted")
+        require(aat.MAX_TOOL_NAME_BYTES == FROZEN_MAX_TOOL_NAME_BYTES,
+                "tool-name byte limit drifted")
         receipt["source_head"] = subprocess.run(
             ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
             check=True, timeout=15,
@@ -325,6 +328,22 @@ def main() -> int:
             })
         else:
             raise AssertionError("argument-key-limit-exceeded: oversized argument map was accepted")
+
+        oversized_tool_name = "t" * (FROZEN_MAX_TOOL_NAME_BYTES + 1)
+        try:
+            aat.validate_authorization_details(
+                aat_details({oversized_tool_name: {}}),
+                require_one=True,
+                label="tool-name-bound",
+            )
+        except aat.CapabilityError as error:
+            require(error.code == "tool-name-limit-exceeded",
+                    "tool-name length bound returned unexpected finding: " + error.code)
+            receipt["validation_controls"].append({
+                "id": "tool-name-limit-exceeded", "rejected": True, "finding": error.code,
+            })
+        else:
+            raise AssertionError("tool-name-limit-exceeded: oversized tool name was accepted")
 
         for name, parent_tools, child_tools, expected in attenuation_cases():
             try:
@@ -448,6 +467,7 @@ def main() -> int:
                 "max_constraints_per_tool": FROZEN_MAX_ARGUMENT_KEYS,
                 "max_constraint_value_depth": FROZEN_MAX_CONSTRAINT_VALUE_DEPTH,
                 "max_constraint_value_nodes": FROZEN_MAX_CONSTRAINT_VALUE_NODES,
+                "max_tool_name_bytes": FROZEN_MAX_TOOL_NAME_BYTES,
             },
             "bounded_denotation_soundness": "PASS_FOR_RETURNED_SUBSUMPTION_PASSES",
             "qualification": "NOT_CLAIMED",
