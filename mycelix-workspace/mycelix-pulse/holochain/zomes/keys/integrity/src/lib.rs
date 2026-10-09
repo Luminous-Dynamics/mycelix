@@ -273,12 +273,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::PreKeyBundle(bundle) => validate_create_pre_key_bundle(action, bundle),
+                EntryTypes::PreKeyBundle(bundle) => validate_create_pre_key_bundle(action.into(), bundle),
                 EntryTypes::HybridKeyBundleV2(bundle) => {
-                    validate_create_hybrid_key_bundle_v2(action, bundle)
+                    validate_create_hybrid_key_bundle_v2(action.into(), bundle)
                 }
-                EntryTypes::UsedPreKey(used) => validate_create_used_pre_key(action, used),
-                EntryTypes::KeyRotation(rotation) => validate_create_key_rotation(action, rotation),
+                EntryTypes::UsedPreKey(used) => validate_create_used_pre_key(action.into(), used),
+                EntryTypes::KeyRotation(rotation) => validate_create_key_rotation(action.into(), rotation),
             },
             OpEntry::UpdateEntry {
                 app_entry,
