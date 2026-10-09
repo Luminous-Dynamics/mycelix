@@ -218,6 +218,21 @@ def load_canonical_json(path: Path) -> dict[str, Any]:
     return value
 
 
+def load_strict_json(path: Path) -> dict[str, Any]:
+    """Load snapshot JSON while rejecting duplicate keys and nonstandard constants."""
+    try:
+        value = json.loads(
+            path.read_bytes().decode("utf-8"),
+            object_pairs_hook=reject_duplicate_keys,
+            parse_constant=reject_nonstandard_constant,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        fail(f"{path} is not valid strict UTF-8 JSON: {exc}")
+    if not isinstance(value, dict):
+        fail(f"{path} top level must be an object")
+    return value
+
+
 def require_hex(value: Any, length: int, field: str) -> str:
     if not isinstance(value, str) or not re.fullmatch(rf"[0-9a-f]{{{length}}}", value):
         fail(f"{field} is not canonical lowercase hex{length}")
@@ -1150,12 +1165,12 @@ def is_current_promotion_eligible(
 def verify(snapshot_dir: Path) -> dict[str, Any]:
     receipt = load_canonical_json(snapshot_dir / "qualification-receipt.json")
     index = load_canonical_json(snapshot_dir / "artifact-binding-index.json")
-    trusted_run = json.loads((snapshot_dir / "trusted-run.json").read_text(encoding="utf-8"))
-    candidate_run = json.loads((snapshot_dir / "candidate-run.json").read_text(encoding="utf-8"))
-    pr = json.loads((snapshot_dir / "pull-request.json").read_text(encoding="utf-8"))
-    commit = json.loads((snapshot_dir / "subject-commit.json").read_text(encoding="utf-8"))
-    manifest = json.loads((snapshot_dir / "manifest.json").read_text(encoding="utf-8"))
-    policy_file = json.loads((snapshot_dir / "policy-file.json").read_text(encoding="utf-8"))
+    trusted_run = load_strict_json(snapshot_dir / "trusted-run.json")
+    candidate_run = load_strict_json(snapshot_dir / "candidate-run.json")
+    pr = load_strict_json(snapshot_dir / "pull-request.json")
+    commit = load_strict_json(snapshot_dir / "subject-commit.json")
+    manifest = load_strict_json(snapshot_dir / "manifest.json")
+    policy_file = load_strict_json(snapshot_dir / "policy-file.json")
     verifier_control = load_canonical_json(snapshot_dir / "verifier-control.json")
     if set(verifier_control) != CONTROL_KEYS:
         fail(
@@ -1163,10 +1178,10 @@ def verify(snapshot_dir: Path) -> dict[str, Any]:
             f"missing={sorted(CONTROL_KEYS - set(verifier_control))!r} "
             f"extra={sorted(set(verifier_control) - CONTROL_KEYS)!r}"
         )
-    candidate_lock = json.loads((snapshot_dir / "candidate-lock.json").read_text(encoding="utf-8"))
-    main_ref = json.loads((snapshot_dir / "main-ref.json").read_text(encoding="utf-8"))
+    candidate_lock = load_strict_json(snapshot_dir / "candidate-lock.json")
+    main_ref = load_strict_json(snapshot_dir / "main-ref.json")
     main_sha = require_hex(main_ref.get("object", {}).get("sha"), 40, "live main ref SHA")
-    artifacts = json.loads((snapshot_dir / "artifacts.json").read_text(encoding="utf-8"))
+    artifacts = load_strict_json(snapshot_dir / "artifacts.json")
     enumeration = load_canonical_json(snapshot_dir / "artifact-enumeration.json")
 
     artifact_items = artifacts.get("artifacts")
