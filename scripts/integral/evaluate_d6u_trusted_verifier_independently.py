@@ -300,6 +300,44 @@ def candidate_regular_file(
     return current
 
 
+def exercise_candidate_root_cli_preserves_alias(
+    candidate_root_alias: pathlib.Path,
+) -> None:
+    """Prove the CLI does not normalize away a supplied symlinked root."""
+    observed_roots: list[pathlib.Path] = []
+
+    def capture_root(root: pathlib.Path) -> None:
+        observed_roots.append(root)
+
+    original_run = globals()["run"]
+    globals()["run"] = capture_root
+    try:
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "evaluate_d6u_trusted_verifier_independently.py",
+                "--candidate-root",
+                str(candidate_root_alias),
+            ],
+        ):
+            exit_status = main()
+    finally:
+        globals()["run"] = original_run
+
+    assert exit_status == 0, (
+        "candidate-root CLI alias control did not return through the expected probe"
+    )
+    assert observed_roots == [candidate_root_alias], (
+        "candidate-root CLI normalized or altered the supplied root path: "
+        f"expected={str(candidate_root_alias)!r}, "
+        f"observed={[str(root) for root in observed_roots]!r}"
+    )
+    assert observed_roots[0].is_symlink(), (
+        "candidate-root CLI alias control did not preserve the symlink"
+    )
+
+
 def exercise_candidate_path_guard() -> None:
     """Negative controls for path traversal and symlinked intermediate directories."""
     with tempfile.TemporaryDirectory() as scratch:
@@ -315,6 +353,7 @@ def exercise_candidate_path_guard() -> None:
 
         candidate_root_link = scratch_root / "candidate-root-link"
         candidate_root_link.symlink_to(candidate_root, target_is_directory=True)
+        exercise_candidate_root_cli_preserves_alias(candidate_root_link)
         assert_rejected(
             lambda: candidate_regular_file(
                 candidate_root_link, "safe.py", "candidate-root symlink fixture"
