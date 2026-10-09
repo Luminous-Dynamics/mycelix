@@ -7,8 +7,13 @@ on:
     paths:
       - ".github/workflows/mycelix-music-leptos.yml"
       - "mycelix-workspace/mycelix-music/apps/leptos/**"
+      - "mycelix-workspace/Cargo.toml"
+      - "mycelix-workspace/Cargo.lock"
       - "crates/mycelix-leptos-core/**"
       - "crates/mycelix-leptos-client/**"
+      - "crates/mycelix-leptos-ui/**"
+      - "mycelix-workspace/mycelix-personal/crates/personal-leptos-types/**"
+      - "mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**"
   workflow_dispatch:
 
 permissions:
