@@ -15,7 +15,8 @@ import compound_subsumption_counterexamples as oracle
 
 CHAIN_SCHEMA = "mycelix.effective-policy-delegation-chain.v1"
 RESULT_SCHEMA = "mycelix.effective-policy-delegation-chain-result.v1"
-MAX_HOPS = 8
+MAX_DELEGATION_DEPTH = 8
+MAX_HOPS = MAX_DELEGATION_DEPTH + 1
 
 FAILURE_STATUSES = {
     "AUTHORITY_EXPANSION",
@@ -52,7 +53,7 @@ def evaluate_chain(raw: dict[str, Any]) -> dict[str, Any]:
             "hop_count": len(hops),
             "failure_count": 1,
             "failures": [{"status": "UNSUPPORTED_OR_UNDECIDABLE",
-                          "reason": f"chain exceeds bounded maximum of {MAX_HOPS} hops"}],
+                          "reason": f"chain exceeds maximum delegation depth of {MAX_DELEGATION_DEPTH} edges ({MAX_HOPS} tokens including root)"}],
             "reason": f"chain exceeds bounded maximum of {MAX_HOPS} hops",
             "qualification": "NOT_CLAIMED",
         }
