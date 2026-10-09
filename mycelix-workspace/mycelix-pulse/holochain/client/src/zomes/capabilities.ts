@@ -113,10 +113,11 @@ export class CapabilitiesZomeClient {
   }
 
   /**
-   * Probe performs a real, data-discarding remote inbox call with the recipient's
-   * private CapClaim. FunctionNotGranted means this inbox probe is outside the
-   * capability's granted scope. Unauthorized means this specific call was denied;
-   * by itself it does not prove revocation rather than a secret/grant mismatch.
+   * Probe performs a real remote call to the empty-response capability endpoint
+   * using the recipient's private CapClaim; no inbox data is transferred.
+   * FunctionNotGranted means the requested read probe is outside the capability's
+   * scope. Unauthorized means the call was denied; by itself it does not prove
+   * revocation rather than a secret/grant mismatch.
    */
   async probeRemoteCapability(capabilityHash: ActionHash): Promise<CapabilityProbeResult> {
     return this.callZome<CapabilityProbeResult>('probe_remote_capability', capabilityHash);
