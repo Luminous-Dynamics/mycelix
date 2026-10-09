@@ -88,6 +88,17 @@ FROZEN_MUTATIONS = {
 }
 
 
+FROZEN_AGGREGATE_MUTATIONS = (
+    "missing-required-receipt", "wrong-source-head", "qualification-laundered",
+    "failed-receipt-hidden", "schema-downgraded", "corpus-count-weakened",
+    "matrix-mutation-count-weakened", "matrix-mutation-inventory-substituted",
+    "mutant-detection-count-weakened", "mutation-identity-substituted",
+    "duplicate-mutation-id", "compact-jws-mutant-count-weakened",
+    "missing-capability-receipt", "capability-mutant-count-weakened",
+    "expected-head-malformed", "missing-aggregate-mutation-guard",
+    "aggregate-guard-head-mismatch", "aggregate-guard-count-weakened",
+    "aggregate-guard-identity-substituted",
+)
 HEAD = "a" * 40
 
 
@@ -143,6 +154,22 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, sort_keys=True, indent=2) + "\n", encoding="utf-8")
         objects[relative] = data
+
+    aggregate_guard_path = root / "auth-v20-final-evidence/aggregate-mutation-guard.json"
+    aggregate_guard_path.parent.mkdir(parents=True, exist_ok=True)
+    guard = {
+        "schema": "mycelix.auth-v20-aggregate-mutation-test.v1",
+        "status": "PASS",
+        "source_head": HEAD,
+        "qualification": "NOT_CLAIMED",
+        "mutations": [{"id": name, "rejected": True} for name in FROZEN_AGGREGATE_MUTATIONS],
+        "summary": {
+            "mutations_attempted": len(FROZEN_AGGREGATE_MUTATIONS),
+            "mutations_rejected": len(FROZEN_AGGREGATE_MUTATIONS),
+            "qualification": "NOT_CLAIMED",
+        },
+    }
+    aggregate_guard_path.write_text(json.dumps(guard, sort_keys=True, indent=2) + "\\n", encoding="utf-8")
     return objects
 
 
@@ -172,6 +199,7 @@ def apply_mutation(root: Path, name: str) -> None:
     keylink = root / FROZEN_REQUIRED_RECEIPTS[7][0]
     compact_jws = root / FROZEN_REQUIRED_RECEIPTS[9][0]
     capability_receipt = root / FROZEN_REQUIRED_RECEIPTS[10][0]
+    aggregate_guard = root / "auth-v20-final-evidence/aggregate-mutation-guard.json"
     if name == "missing-required-receipt":
         (root / FROZEN_REQUIRED_RECEIPTS[5][0]).unlink()
     elif name == "wrong-source-head":
@@ -224,6 +252,20 @@ def apply_mutation(root: Path, name: str) -> None:
         data = json.loads(capability_receipt.read_text(encoding="utf-8"))
         data["summary"]["mutants_detected"] = 3
         capability_receipt.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "missing-aggregate-mutation-guard":
+        aggregate_guard.unlink()
+    elif name == "aggregate-guard-head-mismatch":
+        data = json.loads(aggregate_guard.read_text(encoding="utf-8"))
+        data["source_head"] = "b" * 40
+        aggregate_guard.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "aggregate-guard-count-weakened":
+        data = json.loads(aggregate_guard.read_text(encoding="utf-8"))
+        data["summary"]["mutations_rejected"] = len(FROZEN_AGGREGATE_MUTATIONS) - 1
+        aggregate_guard.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "aggregate-guard-identity-substituted":
+        data = json.loads(aggregate_guard.read_text(encoding="utf-8"))
+        data["mutations"][0]["id"] = "fabricated-aggregate-mutant"
+        aggregate_guard.write_text(json.dumps(data), encoding="utf-8")
     elif name == "expected-head-malformed":
         # Applied via run_aggregate rather than altering any synthetic receipt.
         return
@@ -263,7 +305,7 @@ def main() -> int:
                     "aggregate does not use the explicit bounded-evidence status")
             require(success.get("qualification") == "NOT_CLAIMED",
                     "aggregate improperly claimed qualification")
-            require(len(success.get("receipts", [])) == len(FROZEN_REQUIRED_RECEIPTS),
+            require(len(success.get("receipts", [])) == len(FROZEN_REQUIRED_RECEIPTS) + 1,
                     "aggregate receipt inventory is incomplete")
 
             mutations = (
@@ -282,6 +324,10 @@ def main() -> int:
                 "missing-capability-receipt",
                 "capability-mutant-count-weakened",
                 "expected-head-malformed",
+                "missing-aggregate-mutation-guard",
+                "aggregate-guard-head-mismatch",
+                "aggregate-guard-count-weakened",
+                "aggregate-guard-identity-substituted",
             )
             for name in mutations:
                 candidate_root = Path(temporary) / name
@@ -307,7 +353,7 @@ def main() -> int:
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 15 weakening mutations rejected")
+        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 19 weakening mutations rejected")
         print("QUALIFICATION NOT CLAIMED: synthetic receipt checks do not establish semantic correctness")
         return 0
     except Exception as error:
