@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import crypto from "node:crypto";
 
 const RECEIPT_SCHEMA="mycelix.continual-adaptation.censoring-classification-execution-receipt.v1";
@@ -125,12 +126,64 @@ function validateReceipt(receiptPath,root,eventPath){
 }
 function selfTest(){
   const sample={schema:"test.v1",case_count:2,cases:[{case_id:"a"},{case_id:"b"}],failures:[]};
-  const valid=Buffer.from(canonical(sample));if(!validateReportBytes(valid,2)[0])throw Error("valid-report-rejected");
+  if(!validateReportBytes(Buffer.from(canonical(sample)),2)[0])throw Error("valid-report-rejected");
   const legacy={schema:"test.v1",cases:[{case_id:"a"},{case_id:"b"}],failures:[]};
   const [legacyMeta,legacyErr]=validateReportBytes(Buffer.from(canonical(legacy)),2);if(legacyErr||legacyMeta.case_count!==2)throw Error("legacy-report-without-count-rejected");
   const badLegacy={...legacy,case_count:3};if(validateReportBytes(Buffer.from(canonical(badLegacy)),2)[1]!=="case-count-mismatch")throw Error("incorrect-explicit-count-accepted");
   const fail=structuredClone(sample);fail.failures=[{case_id:"a"}];if(validateReportBytes(Buffer.from(canonical(fail)),2)[1]!=="reported-failures")throw Error("failures-accepted");
   const dup=structuredClone(sample);dup.cases=[{case_id:"a"},{case_id:"a"}];if(validateReportBytes(Buffer.from(canonical(dup)),2)[1]!=="duplicate-case-id")throw Error("duplicate-IDs-accepted");
+  const base=fs.mkdtempSync(path.join(os.tmpdir(),"mycelix-receipt-selftest-"));
+  try{
+    const artifact=path.join(base,"artifact"),reports=path.join(artifact,"reports"),support=path.join(artifact,"supporting");
+    fs.mkdirSync(reports,{recursive:true});fs.mkdirSync(support,{recursive:true});
+    const pairs=[];
+    for(const [layer,pyname,nodename,count] of PAIRS){
+      if(count===null)throw Error("self-test requires fixed count for "+layer);
+      const ids=Array.from({length:count},(_,i)=>layer+"-"+String(i).padStart(3,"0"));
+      const value={schema:"self-test."+layer,status:"research-evidence-only",case_count:count,
+        cases:ids.map(case_id=>({case_id,expected_verdict:"qualified",actual_verdict:"qualified"})),failures:[]};
+      const raw=Buffer.from(canonical(value)+"\n");
+      fs.writeFileSync(path.join(reports,pyname),raw);fs.writeFileSync(path.join(reports,nodename),raw);
+      const [meta,err]=validateReportBytes(raw,count);if(err)throw Error("synthetic report invalid:"+layer+":"+err);
+      pairs.push({name:layer,python_file:"reports/"+pyname,node_file:"reports/"+nodename,
+        sha256:meta.sha256,schema:meta.schema,case_count:meta.case_count,case_ids_sha256:meta.case_ids_sha256,
+        failure_count:0,python_node_byte_identical:true});
+    }
+    const supportPins=[];
+    for(const [name,rel,count] of SUPPORTING){
+      const value={schema:"self-test.generated-corpus.v1",cases:Array.from({length:count},(_,i)=>({case_id:"generated-"+String(i).padStart(3,"0")}))};
+      const raw=Buffer.from(canonical(value)+"\n");fs.writeFileSync(path.join(artifact,rel),raw);
+      supportPins.push({name,file:rel,sha256:sha(raw),case_count:count});
+    }
+    const head="a".repeat(40);
+    const wr={repository:{full_name:REPOSITORY},head_repository:{full_name:REPOSITORY},name:WORKFLOW_NAME,path:WORKFLOW_PATH,
+      event:"push",head_branch:"main",conclusion:"success",head_sha:head,id:12345,run_number:77,run_attempt:2,workflow_id:888};
+    const event={repository:{full_name:REPOSITORY},workflow_run:wr},eventPath=path.join(base,"event.json");
+    fs.writeFileSync(eventPath,canonical(event)+"\n");
+    const receipt={schema:RECEIPT_SCHEMA,status:"research-evidence-only",
+      source:{repository:REPOSITORY,workflow:WORKFLOW_NAME,workflow_ref:REPOSITORY+"/"+WORKFLOW_PATH+"@refs/heads/main",
+        event_name:"push",ref:"refs/heads/main",checked_out_commit_sha:head,event_sha:head,
+        pull_request_head_sha:null,pull_request_number:null,run_id:12345,run_number:77,run_attempt:2},
+      evidence:{report_pair_count:pairs.length,report_file_count:pairs.length*2,report_pairs:pairs,
+        supporting_inputs:supportPins,generated_corpus_a_equals_b:true},
+      claim_ceiling:{prior_verifier_steps_succeeded_at_receipt_creation:true,overall_workflow_conclusion:"pending-downstream-observation",
+        hosted_qualification_pass_claimed:false,qualification_authority:false,scitt_interoperability_claimed:false,live_network_convergence_claimed:false}};
+    const receiptPath=path.join(base,"receipt.json"),writeReceipt=v=>fs.writeFileSync(receiptPath,canonical(v)+"\n");
+    writeReceipt(receipt);
+    let [,err]=validateReceipt(receiptPath,artifact,eventPath);if(err)throw Error("valid synthetic receipt rejected:"+err);
+    fs.writeFileSync(eventPath,canonical({...event,workflow_run:{...wr,conclusion:"failure"}})+"\n");
+    [,err]=validateReceipt(receiptPath,artifact,eventPath);if(err!=="source-workflow-not-success")throw Error("failed workflow accepted:"+err);
+    fs.writeFileSync(eventPath,canonical(event)+"\n");
+    const tampered=path.join(reports,"python-fixed.json");fs.writeFileSync(tampered,Buffer.concat([fs.readFileSync(tampered),Buffer.from(" ")]));
+    [,err]=validateReceipt(receiptPath,artifact,eventPath);if(err!=="report-sha:python-fixed.json")throw Error("tampered report accepted:"+err);
+    const clean={schema:"self-test.fixed-classification",status:"research-evidence-only",case_count:52,
+      cases:Array.from({length:52},(_,i)=>({case_id:"fixed-classification-"+String(i).padStart(3,"0"),expected_verdict:"qualified",actual_verdict:"qualified"})),failures:[]};
+    fs.writeFileSync(tampered,canonical(clean)+"\n");
+    const changed=structuredClone(receipt);changed.claim_ceiling.hosted_qualification_pass_claimed=true;writeReceipt(changed);
+    [,err]=validateReceipt(receiptPath,artifact,eventPath);if(err!=="qualification-claim-injection")throw Error("claim injection accepted:"+err);
+    const extra={...receipt,untrusted_extra_field:"present"};writeReceipt(extra);
+    [,err]=validateReceipt(receiptPath,artifact,eventPath);if(err!=="receipt-envelope")throw Error("extra receipt field accepted:"+err);
+  }finally{fs.rmSync(base,{recursive:true,force:true});}
   console.log("execution-evidence-verifier-self-test=pass");
 }
 function validateReportBytes(raw,expected){
