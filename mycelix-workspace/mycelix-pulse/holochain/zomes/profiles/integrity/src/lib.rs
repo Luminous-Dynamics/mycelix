@@ -50,6 +50,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::PathComponent => Ok(ValidateCallbackResult::Valid),
             }
         }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Profile records have no update operation".to_string(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
