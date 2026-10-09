@@ -1016,6 +1016,17 @@ pub fn acknowledge_delivery(email_hash: ActionHash) -> ExternResult<ActionHash> 
 /// `get_email` style for full content.
 #[hdk_extern]
 pub fn get_delivery_receipts(email_hash: ActionHash) -> ExternResult<Vec<DeliveryReceipt>> {
+    // Receipt links are DHT-addressable by message hash. Apply the same
+    // mailbox-participant boundary as message and attachment reads so a
+    // delegated reader cannot use this function as a cross-mailbox receipt oracle.
+    let Some(email_record) = get(email_hash.clone(), GetOptions::default())? else {
+        return Ok(Vec::new());
+    };
+    let local_agent = agent_info()?.agent_initial_pubkey;
+    if !record_belongs_to_local_mailbox(&email_record, &local_agent)? {
+        return Ok(Vec::new());
+    }
+
     let links = get_links(
         LinkQuery::try_new(email_hash, LinkTypes::EmailToDeliveryReceipts)?,
         GetStrategy::default(),
