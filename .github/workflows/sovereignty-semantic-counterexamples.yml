@@ -54,6 +54,8 @@ jobs:
             mycelix-governance/tools/formal/delegation_chain_compact_jws.py \
             mycelix-governance/tools/formal/test_delegation_chain_compact_jws.py \
             mycelix-governance/tools/formal/test_aggregate_auth_v20_evidence.py
+            mycelix-governance/tools/formal/delegation_chain_pop.py \
+            mycelix-governance/tools/formal/test_delegation_chain_pop.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json >/dev/null
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json >/dev/null
       - name: Execute controls and independently replay witnesses
@@ -103,6 +105,9 @@ jobs:
           set -euo pipefail
           export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
           mkdir -p "$RUNNER_TEMP/auth-v20-final-evidence"
+          mkdir -p "$RUNNER_TEMP/auth-v20-pop-evidence"
+          python3 mycelix-governance/tools/formal/test_delegation_chain_pop.py \
+            --output "$RUNNER_TEMP/auth-v20-pop-evidence/delegation-chain-pop-differential.json"
           python3 mycelix-governance/tools/formal/test_aggregate_auth_v20_evidence.py \
             --output "$RUNNER_TEMP/auth-v20-final-evidence/aggregate-mutation-guard.json"
       - name: Aggregate exact-head bounded evidence receipts
@@ -135,6 +140,7 @@ jobs:
             ${{ runner.temp }}/auth-v20-chain-claims-evidence
             ${{ runner.temp }}/auth-v20-key-link-evidence
             ${{ runner.temp }}/auth-v20-par-hash-evidence
+            ${{ runner.temp }}/auth-v20-pop-evidence
             ${{ runner.temp }}/auth-v20-compact-jws-evidence
             ${{ runner.temp }}/auth-v20-capability-evidence
             ${{ runner.temp }}/auth-v20-final-evidence
