@@ -115,9 +115,9 @@ fn QueuePanelInner() -> impl IntoView {
                                     };
 
                                     let player_for_remove = player.clone();
-                                    let song_hash = song.song_hash.clone();
+                                    let remove_index = i;
                                     let remove = move |_| {
-                                        player_for_remove.remove_queued_song(&song_hash);
+                                        player_for_remove.remove_queued_song_at(remove_index);
                                     };
 
                                     view! {
