@@ -1,0 +1,161 @@
+{
+  "profile": "OPS-INTEL-TEST-001",
+  "version": "0.1",
+  "expected_mutation_semantics": "A mutation must either be rejected, change the relevant semantic identity/disposition, or trigger a conformance failure exactly as specified. These are mutation descriptors, not executable JSON Patch operations.",
+  "mutations": [
+    {
+      "id": "M01",
+      "target": "observation:energy-E1-capacity",
+      "mutation": "Set currentness to CurrentUnderProfile without changing calibration/source evidence.",
+      "expected": "RejectOrFailConformance",
+      "reason": "Stale evidence cannot be relabeled current by a field edit."
+    },
+    {
+      "id": "M02",
+      "target": "candidate projection",
+      "mutation": "Change CandidateProjection to AdmittedProjection without new admitted source evidence.",
+      "expected": "RejectOrFailConformance",
+      "reason": "Projection cannot strengthen authority."
+    },
+    {
+      "id": "M03",
+      "target": "field:supplier-B-contract-terms",
+      "mutation": "Replace OmittedUnderPolicy with ordinary null/Absent.",
+      "expected": "RejectOrSemanticMismatch",
+      "reason": "Protected omission differs from absence."
+    },
+    {
+      "id": "M04",
+      "target": "proposition:shipment-A-17-status",
+      "mutation": "Remove the portal assertion because the carrier report is newer.",
+      "expected": "FailConformance",
+      "reason": "Timestamp is not a conflict-resolution theorem."
+    },
+    {
+      "id": "M05",
+      "target": "subject identity",
+      "mutation": "Merge distinct native subjects that share display_name.",
+      "expected": "RejectOrDistinctIdentity",
+      "reason": "Display names are not global identifiers."
+    },
+    {
+      "id": "M06",
+      "target": "property:capacity.available",
+      "mutation": "Change MW to kW without a conversion/mapping-profile identity change.",
+      "expected": "RejectOrIdentityChange",
+      "reason": "Quantity/unit semantics are identity-bearing."
+    },
+    {
+      "id": "M07",
+      "target": "frontier:F0",
+      "mutation": "Inject an evaluator-only actual-world value into solver-visible F0 inputs.",
+      "expected": "RejectOrFailNoninterference",
+      "reason": "Evaluator truth is outside the solver input contract."
+    },
+    {
+      "id": "M08",
+      "target": "frontier:F0",
+      "mutation": "Add an F1/F2/F3 artifact as an ancestor of an F0 candidate.",
+      "expected": "RejectOrFailConformance",
+      "reason": "Future evidence cannot enter a prospective earlier frontier."
+    },
+    {
+      "id": "M09",
+      "target": "scenario output",
+      "mutation": "Serialize a scenario-derived capacity as current domain-native observed state.",
+      "expected": "RejectOrFailConformance",
+      "reason": "Predicted scenario state is not an observation."
+    },
+    {
+      "id": "M10",
+      "target": "constraint:protect-life-safety-service",
+      "mutation": "Downgrade the hard constraint to a soft penalty without changing policy identity.",
+      "expected": "RejectOrPolicyIdentityChange",
+      "reason": "Hard constraints and preferences are different semantics."
+    },
+    {
+      "id": "M11",
+      "target": "policy-question:cost-versus-recovery",
+      "mutation": "Invent a numeric weighting for the unresolved cost/recovery tradeoff.",
+      "expected": "FailConformance",
+      "reason": "Missing policy weights must remain unknown/incomparable."
+    },
+    {
+      "id": "M12",
+      "target": "candidate assessment",
+      "mutation": "Copy candidate model confidence into outcome evidence.",
+      "expected": "RejectOrFailConformance",
+      "reason": "Predictions cannot verify themselves."
+    },
+    {
+      "id": "M13",
+      "target": "OperationalDecisionCandidate",
+      "mutation": "Add a constructor or serialization path that emits live action authority.",
+      "expected": "FailAuthoritySurfaceAudit",
+      "reason": "Candidate protocol has CandidateOnly authority ceiling."
+    },
+    {
+      "id": "M14",
+      "target": "PolicyDecisionEvidence",
+      "mutation": "Deserialize policy decision evidence as a current permit.",
+      "expected": "RejectOrFailConformance",
+      "reason": "Policy decision is not a live authorization token."
+    },
+    {
+      "id": "M15",
+      "target": "MockCurrentPermit",
+      "mutation": "Accept a stale or wrong-subject/wrong-candidate/wrong-payload mock permit.",
+      "expected": "Reject",
+      "reason": "Synthetic permit binding must be exact and current under its profile."
+    },
+    {
+      "id": "M16",
+      "target": "attempt:reroute-B-01",
+      "mutation": "Set EffectSuccess based only on DispatchAccepted receipt.",
+      "expected": "RejectOrFailConformance",
+      "reason": "Attempt is not effect."
+    },
+    {
+      "id": "M17",
+      "target": "outcome:reroute-B-window-01",
+      "mutation": "Convert an outcome observation directly into causal attribution.",
+      "expected": "RejectOrFailConformance",
+      "reason": "Outcome relation and causal relation are distinct."
+    },
+    {
+      "id": "M18",
+      "target": "candidate inventory",
+      "mutation": "Remove a previously considered alternative after observing F3 outcomes.",
+      "expected": "FailHistoricalReplay",
+      "reason": "Outcome exposure cannot rewrite the historical candidate set."
+    },
+    {
+      "id": "M19",
+      "target": "projection identity",
+      "mutation": "Keep identity unchanged while changing evidence ancestry but not visible values.",
+      "expected": "RejectOrIdentityChange",
+      "reason": "Material provenance/ancestry changes must affect identity where the profile says so."
+    },
+    {
+      "id": "M20",
+      "target": "public projection",
+      "mutation": "Include payload for field:supplier-B-contract-terms despite OmittedUnderPolicy.",
+      "expected": "RejectOrFailDisclosureBoundary",
+      "reason": "Protected data may not leak into a public projection."
+    },
+    {
+      "id": "M21",
+      "target": "source dependency",
+      "mutation": "Treat two source IDs as proof of independent corroboration when dependency assessment is Unknown.",
+      "expected": "FailConformance",
+      "reason": "No dependency detected is not proof of independence."
+    },
+    {
+      "id": "M22",
+      "target": "frontier:F0 output",
+      "mutation": "Return constant empty output for every input and claim noninterference pass.",
+      "expected": "FailPositiveSensitivityControl",
+      "reason": "Noninterference requires a positive sensitivity control."
+    }
+  ]
+}
