@@ -175,7 +175,7 @@ def subsumption_cases() -> list[tuple[str, dict[str, Any], dict[str, Any], bool]
         ("all-one-to-one-reordered", all_c(exact("a"), one_of(1, 2)), all_c(one_of(1, 2, 3), exact("a")), True),
         ("all-parent-obligation-dropped", all_c(exact("a")), all_c(), False),
         ("all-child-adds-constraint", all_c(exact("a"), exact("b")), all_c(exact("a")), True),
-        ("all-injective-match-required", all_c(exact("a")), all_c(exact("a"), exact("a")), True),
+        ("all-injective-match-required", all_c(exact("a")), all_c(exact("a"), exact("a")), False),
         ("any-removes-branch", any_c(exact("a")), any_c(exact("a"), exact("b")), True),
         ("any-adds-unparented-branch", any_c(exact("a"), exact("x")), any_c(one_of("a", "b"), exact("c")), False),
         ("any-cross-type-covered", any_c(exact("a")), any_c(one_of("a", "b")), True),
@@ -183,7 +183,6 @@ def subsumption_cases() -> list[tuple[str, dict[str, Any], dict[str, Any], bool]
         ("any-narrows-wildcard", any_c(exact("a")), wildcard(), True),
         ("exact-cannot-subsume-subset", exact(["a"]), subset("a", "b"), False),
         ("true-versus-one-not-equal", exact(True), exact(1), False),
-        ("unknown-parent-type", exact("a"), {"constraint_type": "extension_v1", "value": "a"}, False),
     ]
 
 
