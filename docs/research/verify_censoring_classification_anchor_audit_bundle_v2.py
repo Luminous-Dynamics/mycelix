@@ -141,8 +141,9 @@ def mutate(bundle,mutation):
     elif typ=="verifier" and name in b["verifiers"]:b["verifiers"][name][1]="0"*40
     elif typ=="workflow" and name in b.get("workflow_sources",{}):b["workflow_sources"][name][1]="0"*40
     elif typ=="binding" and name=="vds_id":b["bindings"]["vds_id"]="attacker.vds"
-    elif typ=="topology" and name=="4890":
-        next(x for x in b["topology"] if x["pr"]==4890)["head"]="0"*40
+    elif typ=="topology" and name.isdigit():
+        row=next((x for x in b["topology"] if x["pr"]==int(name)),None)
+        if row is not None: row["head"]="0"*40
     elif typ=="disable_verifier" and name in b["bindings"]["required_verifiers"]:b["bindings"]["required_verifiers"][name]=False
     elif typ=="claim" and name in b["bindings"]["security_claims"]:b["bindings"]["security_claims"][name]=True
     elif mutation=="hosted_status":b["hosted_status"]="success"
@@ -153,7 +154,7 @@ def main():
         print("usage: verifier REPO_ROOT BUNDLE CAMPAIGN REPORT",file=sys.stderr);return 2
     repo_root,bundle_path,campaign_path,report_path=map(Path,sys.argv[1:])
     bundle=json.loads(bundle_path.read_text());campaign=json.loads(campaign_path.read_text())
-    if campaign.get("schema")!=CAMPAIGN_SCHEMA or campaign.get("case_count")!=32 or len(campaign.get("cases",[]))!=32:return 1
+    if campaign.get("schema")!=CAMPAIGN_SCHEMA or campaign.get("case_count")!=34 or len(campaign.get("cases",[]))!=34:return 1
     case_ids=[x.get("case_id") for x in campaign["cases"]]
     if len(case_ids)!=len(set(case_ids)):return 1
     rows=[];failures=[]
