@@ -195,6 +195,89 @@ def first_expansion_witness(child_denotation: frozenset, parent_denotation: froz
     return by_tuple[ordered[0]]
 
 
+def independent_failed_dimensions(atom: dict[str, Any], request: dict[str, Any]) -> list[str]:
+    failed = []
+    if request["target"] not in atom["target"]:
+        failed.append("target")
+    if request["purpose"] not in atom["purpose"]:
+        failed.append("purpose")
+    if request["context"] not in atom["context"]:
+        failed.append("context")
+    if request["amount"] > atom["max_amount"]:
+        failed.append("numeric-bound")
+    return failed
+
+
+def independent_core(expr: dict[str, Any], request: dict[str, Any], must_admit: bool) -> list[str]:
+    clauses = sorted(copy.deepcopy(expr["clauses"]), key=lambda atom: atom["id"])
+
+    def admits(rows: list[dict[str, Any]]) -> bool:
+        values = [independent_atom_matches(atom, request) for atom in rows]
+        return all(values) if expr["kind"] == "all" else any(values)
+
+    changed = True
+    while changed and len(clauses) > 1:
+        changed = False
+        for atom in list(clauses):
+            candidate = [item for item in clauses if item["id"] != atom["id"]]
+            if admits(candidate) == must_admit:
+                clauses = candidate
+                changed = True
+                break
+    return sorted(atom["id"] for atom in clauses)
+
+
+def audit_expansion_diagnostics(raw: dict[str, Any], result: dict[str, Any]) -> dict[str, Any] | None:
+    if result.get("status") != "AUTHORITY_EXPANSION":
+        return None
+    parent, child, universe = raw["parent"], raw["child"], raw["universe"]
+    witness = result.get("counterexample", {}).get("request")
+    if not isinstance(witness, dict):
+        return {"kind": "expansion-diagnostic-missing-request"}
+    parent_d = independent_denotation(parent, universe)
+    child_d = independent_denotation(child, universe)
+    request_tuple = (witness.get("target"), witness.get("purpose"),
+                     witness.get("context"), witness.get("amount"))
+    if request_tuple in parent_d or request_tuple not in child_d:
+        return {"kind": "expansion-diagnostic-request-does-not-witness-set-difference",
+                "request": witness}
+    rejected = [
+        atom for atom in sorted(parent["clauses"], key=lambda item: item["id"])
+        if not independent_atom_matches(atom, witness)
+    ]
+    expected_rejected = [
+        {"clause_id": atom["id"], "matched": False,
+         "failed_dimensions": independent_failed_dimensions(atom, witness)}
+        for atom in rejected
+    ]
+    actual = result["counterexample"]
+    if actual.get("all_rejected_parent_constraints") != expected_rejected:
+        return {"kind": "expansion-diagnostic-parent-failures-incorrect",
+                "expected": expected_rejected,
+                "observed": actual.get("all_rejected_parent_constraints")}
+    expected_first = expected_rejected[0] if expected_rejected else None
+    if actual.get("first_divergent_parent_constraint") != expected_first:
+        return {"kind": "expansion-diagnostic-first-divergence-incorrect",
+                "expected": expected_first,
+                "observed": actual.get("first_divergent_parent_constraint")}
+    expected_support = sorted(
+        atom["id"] for atom in child["clauses"] if independent_atom_matches(atom, witness)
+    )
+    if actual.get("child_supporting_clause_ids") != expected_support:
+        return {"kind": "expansion-diagnostic-child-support-incorrect",
+                "expected": expected_support,
+                "observed": actual.get("child_supporting_clause_ids")}
+    expected_core = {
+        "parent_clause_ids_preserving_rejection": independent_core(parent, witness, False),
+        "child_clause_ids_preserving_admission": independent_core(child, witness, True),
+    }
+    if actual.get("minimal_witness_core") != expected_core:
+        return {"kind": "expansion-diagnostic-core-incorrect",
+                "expected": expected_core,
+                "observed": actual.get("minimal_witness_core")}
+    return None
+
+
 def mismatch_for(raw: dict[str, Any], result: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """Return a bug/mismatch category, or None when independent relations agree."""
     parent, child = raw["parent"], raw["child"]
@@ -294,6 +377,10 @@ def mismatch_for(raw: dict[str, Any], result: dict[str, Any] | None = None) -> d
                 "expected_status": expected_status, "observed_status": result.get("status"),
                 "independent_containment": independently_contained,
                 "independent_structural_pass": independent_structure_pass}
+
+    diagnostic_mismatch = audit_expansion_diagnostics(raw, result)
+    if diagnostic_mismatch is not None:
+        return diagnostic_mismatch
 
     witness = first_expansion_witness(child_d, parent_d, universe)
     counterexample = result.get("counterexample", {})
