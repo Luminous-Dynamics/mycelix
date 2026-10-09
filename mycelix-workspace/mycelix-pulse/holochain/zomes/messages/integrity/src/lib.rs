@@ -441,7 +441,7 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action.into()),
             OpEntry::UpdateEntry {
                 app_entry, action, ..
             } => validate_update_entry(app_entry, action),
@@ -475,7 +475,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             )
         },
         FlatOp::CreateRecord(store_record) => match store_record {
-            OpRecord::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+            OpRecord::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action.into()),
             OpRecord::UpdateEntry {
                 app_entry, action, ..
             } => validate_update_entry(app_entry, action),
