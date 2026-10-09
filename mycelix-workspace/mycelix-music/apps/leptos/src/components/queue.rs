@@ -59,10 +59,67 @@ fn QueuePanelInner() -> impl IntoView {
         show_q.set(false);
     };
 
-    // Escape key closes the queue when the overlay has keyboard focus.
+    // Keep modal keyboard navigation inside the queue. Escape closes the
+    // dialog; Tab and Shift+Tab wrap at its first and last enabled controls.
     let on_keydown = move |ev: web_sys::KeyboardEvent| {
         if ev.key() == "Escape" {
+            ev.prevent_default();
             show_q.set(false);
+            return;
+        }
+        if ev.key() != "Tab" {
+            return;
+        }
+
+        let Some(panel) = panel_ref.get() else {
+            return;
+        };
+        let Ok(focusable) = panel.query_selector_all(
+            "button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex='-1'])"
+        ) else {
+            return;
+        };
+        let count = focusable.length();
+        if count == 0 {
+            ev.prevent_default();
+            let _ = panel.focus();
+            return;
+        }
+
+        let first = focusable
+            .item(0)
+            .and_then(|node| node.dyn_into::<web_sys::HtmlElement>().ok());
+        let last = focusable
+            .item(count - 1)
+            .and_then(|node| node.dyn_into::<web_sys::HtmlElement>().ok());
+        let active = web_sys::window()
+            .and_then(|window| window.document())
+            .and_then(|document| document.active_element());
+
+        let active_is_panel = active.as_ref().is_some_and(|active| {
+            active.is_same_node(Some(panel.unchecked_ref::<web_sys::Node>()))
+        });
+        let active_is_first = active.as_ref().zip(first.as_ref()).is_some_and(|(active, first)| {
+            active.is_same_node(Some(first.unchecked_ref::<web_sys::Node>()))
+        });
+        let active_is_last = active.as_ref().zip(last.as_ref()).is_some_and(|(active, last)| {
+            active.is_same_node(Some(last.unchecked_ref::<web_sys::Node>()))
+        });
+
+        if ev.shift_key() && (active_is_panel || active_is_first) {
+            ev.prevent_default();
+            if let Some(last) = last {
+                let _ = last.focus();
+            } else {
+                let _ = panel.focus();
+            }
+        } else if !ev.shift_key() && (active_is_panel || active_is_last) {
+            ev.prevent_default();
+            if let Some(first) = first {
+                let _ = first.focus();
+            } else {
+                let _ = panel.focus();
+            }
         }
     };
 
