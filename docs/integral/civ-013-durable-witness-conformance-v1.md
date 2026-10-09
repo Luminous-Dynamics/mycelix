@@ -2,7 +2,7 @@
 
 **Profile ID:** `civ-013-durable-adapter-v1`  
 **Status:** experimental reference profile; not production qualification.  
-**Source adapter revision:** [Symthaea commit `f3def874aa868c5cb1e0997f601096bc33b0df45`](https://github.com/Luminous-Dynamics/symthaea/commit/f3def874aa868c5cb1e0997f601096bc33b0df45)  
+**Source adapter revision:** [Symthaea commit `e259becc6cbb516b0750efd13464793f27f74f16`](https://github.com/Luminous-Dynamics/symthaea/commit/e259becc6cbb516b0750efd13464793f27f74f16)  
 **Golden vectors:** [civ-013-durable-witness-conformance-v1.json](civ-013-durable-witness-conformance-v1.json)  
 **Manifest:** [civ-013-durable-witness-conformance-v1-manifest.json](civ-013-durable-witness-conformance-v1-manifest.json)  
 **Independent checker:** [verify_civ013_durable_witness_conformance_v1.py](../../scripts/integral/verify_civ013_durable_witness_conformance_v1.py)  
@@ -89,6 +89,7 @@ The profile's transition vectors are an independent abstract reference for these
 | DA026 | CorruptCurrentHeadMetadata | Late finalization rejects a well-formed but incorrect metadata head digest |
 | DA027 | CorruptCurrentHeadRecord | Late finalization rejects field tampering in the accepted head row even when the metadata pointer still matches its stored digest |
 | DA028 | CorruptCurrentHeadRecord | Same-generation retry rejects current-head field tampering when the metadata pointer still matches its stored digest |
+| DA029 | RollbackDetected | A post-prepare anchor already ahead by more than the candidate generation is treated as missing/rollback history, not a same-generation fork |
 
 ## Late-finalization metadata binding
 
