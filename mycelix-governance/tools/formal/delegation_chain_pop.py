@@ -354,7 +354,7 @@ def verify_chain_invocation(raw_chain: dict[str, Any],
     chain_input = dict(raw_chain)
     chain_input["now"] = trusted_now
     chain_result = chain_verifier.evaluate_compact_chain(
-        chain_input, trusted_anchors, openssl_binary=openssl_binary
+        chain_input, trusted_anchors, openssl_binary=openssl_binary, trusted_now=trusted_now
     )
     if chain_result.get("status") != "COMPACT_JWS_CRYPTO_LINKAGE_PASS":
         return {
