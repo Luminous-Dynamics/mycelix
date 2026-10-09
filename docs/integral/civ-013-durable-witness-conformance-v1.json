@@ -2,7 +2,7 @@
   "spec_version": "civ-013-durable-adapter-v1",
   "profile_id": "civ-013-durable-adapter-v1",
   "source_repository": "Luminous-Dynamics/symthaea",
-  "source_adapter_commit": "d1715640fe2e1005631072b9cca629a027d08f9e",
+  "source_adapter_commit": "57d0c21ff54f2374a69037c08f168a0171dbb46f",
   "encoding": {
     "digest": "SHA-256",
     "integer_encoding": "unsigned big-endian",
@@ -479,7 +479,8 @@
       ],
       "stored_count": 2,
       "metadata_count": 2,
-      "metadata_tail_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      "metadata_tail_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "append_must_reject": true
     }
   ],
   "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback."
