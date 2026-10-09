@@ -23,6 +23,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+import aat_capability_subsumption as capability  # noqa: E402
+
 SCHEMA = "mycelix.compact-jws-aat-chain.v1"
 RESULT_SCHEMA = "mycelix.compact-jws-aat-chain-result.v1"
 
@@ -327,17 +329,18 @@ def evaluate_compact_chain(raw: dict[str, Any], trusted_anchors: list[dict[str, 
         root_iat, root_exp, root_depth, root_max, root_jti, root_holder_jwk = _validate_common_claims(
             root_claims, 0, now
         )
-        root_entries = _aat_entries(root_claims["authorization_details"])
-        if not root_claims["authorization_details"] or len(root_entries) != 1:
-            raise VerificationError("root-aat-entry-count-invalid",
-                                    "root authorization_details must contain exactly one AAT entry")
-        root_tools = root_entries[0].get("tools") if isinstance(root_entries[0], dict) else None
-        if not isinstance(root_tools, dict):
-            raise VerificationError("root-tools-map-invalid", "root AAT tools must be an object")
+        try:
+            root_tools = capability.validate_authorization_details(
+                root_claims["authorization_details"], require_one=True, label="root"
+            )
+        except capability.CapabilityError as error:
+            code = "root-aat-entry-count-invalid" if error.code == "aat-entry-count-invalid" else error.code
+            raise VerificationError(code, error.detail) from error
         claims_by_index = [root_claims]
         jtis = {root_jti}
         previous_iat, previous_exp, previous_depth, previous_max = root_iat, root_exp, root_depth, root_max
         previous_holder_jwk = root_holder_jwk
+        previous_tools = root_tools
         previous_token = root_wire["token"]
 
         for index in range(1, len(parsed_wires)):
@@ -366,13 +369,18 @@ def evaluate_compact_chain(raw: dict[str, Any], trusted_anchors: list[dict[str, 
             if iat < previous_iat:
                 raise VerificationError("child-iat-before-parent",
                                         f"token[{index}] iat precedes parent iat")
-            child_entries = _aat_entries(claims["authorization_details"])
-            if len(child_entries) > 1:
-                raise VerificationError("child-aat-entry-count-invalid",
-                                        f"token[{index}] has multiple AAT entries")
+            try:
+                child_tools = capability.validate_authorization_details(
+                    claims["authorization_details"], require_one=False, label=f"token[{index}]"
+                )
+                capability.check_capability_attenuation(previous_tools, child_tools)
+            except capability.CapabilityError as error:
+                code = "child-aat-entry-count-invalid" if error.code == "aat-entry-count-invalid" else error.code
+                raise VerificationError(code, f"token[{index}]: {error.detail}") from error
             claims_by_index.append(claims)
             previous_iat, previous_exp, previous_depth, previous_max = iat, exp, depth, max_depth
             previous_holder_jwk = holder_jwk
+            previous_tools = child_tools
             previous_token = wire["token"]
 
         if len(chain) != previous_depth + 1:
@@ -399,11 +407,12 @@ def evaluate_compact_chain(raw: dict[str, Any], trusted_anchors: list[dict[str, 
                 "expiry-and-iat-monotonicity",
                 "per-token-and-chain-size-bounds",
                 "root-and-leaf-aat-entry-cardinality",
+                "core-tool-and-argument-constraint-attenuation",
             ],
             "qualification": "NOT_CLAIMED",
             "scope": (
-                "research candidate verifies compact Ed25519 JWS signatures and selected AAT "
-                "chain invariants; authorization_details capability/constraint subsumption, "
+                "research candidate verifies compact Ed25519 JWS signatures, selected AAT chain "
+                "invariants, and the bounded core capability/constraint subsumption relation; "
                 "invocation argument checking, revocation/replay database, and leaf proof-of-possession "
                 "are not implemented"
             ),
