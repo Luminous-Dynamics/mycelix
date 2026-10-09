@@ -85,12 +85,12 @@ jobs:
           # Validate the dependency graph pinned by the same exact source commit,
           # not just the adapter's Rust source. The WAL-reset fix requires the
           # bundled SQLite version introduced by rusqlite 0.39.0 / libsqlite3-sys 0.37.0.
-          python3 - "$expected_rusqlite_version" "$expected_libsqlite3_sys_version" <<'PY'
+          python3 - "$expected_rusqlite_version" "$expected_libsqlite3_sys_version" "$expected_sqlite_min_version_number" <<'PY'
           import re
           import sys
           from pathlib import Path
 
-          expected_rusqlite, expected_sys = sys.argv[1:]
+          expected_rusqlite, expected_sys, expected_sqlite_min = sys.argv[1:]
           cargo = Path("symthaea-source/Cargo.toml").read_text(encoding="utf-8")
           required_line = f'rusqlite = {{ version = "{expected_rusqlite}", features = ["bundled", "fallible_uint"] }}'
           if cargo.count(required_line) != 1:
@@ -112,6 +112,24 @@ jobs:
               raise SystemExit("Cargo.lock rusqlite version does not match the manifest")
           if package_version("libsqlite3-sys") != expected_sys:
               raise SystemExit("Cargo.lock libsqlite3-sys version does not match the manifest")
+
+          # Source/runtime gate must agree with the fixed bundled engine floor.
+          source_lib = Path("symthaea-source/crates/domains/symthaea-civ-witness/src/lib.rs").read_text(encoding="utf-8")
+          version_match = re.search(
+              r"const MIN_SQLITE_VERSION_NUMBER: i32 = ([0-9_]+);",
+              source_lib,
+          )
+          if version_match is None:
+              raise SystemExit("adapter does not declare MIN_SQLITE_VERSION_NUMBER")
+          actual_minimum = int(version_match.group(1).replace("_", ""))
+          if actual_minimum != int(expected_sqlite_min):
+              raise SystemExit("adapter SQLite runtime floor does not match the manifest")
+          if "validate_sqlite_runtime_version(rusqlite::version_number())?;" not in source_lib:
+              raise SystemExit("every adapter connection must fail closed on an unsupported SQLite runtime")
+          if "fn rejects_sqlite_runtime_below_wal_reset_fix_floor()" not in source_lib:
+              raise SystemExit("adapter is missing the below-floor SQLite regression")
+          if "fn linked_sqlite_includes_wal_reset_fix()" not in source_lib:
+              raise SystemExit("adapter is missing the linked SQLite version regression")
           PY
           printf 'checker_commit_sha=%s\nchecker_blob_sha=%s\nsource_adapter_commit=%s\nsource_adapter_blob_sha=%s\nsource_toolchain_blob_sha=%s\nsource_workspace_manifest_blob_sha=%s\nsource_lockfile_blob_sha=%s\nsource_rust_version=%s\nsource_rusqlite_version=%s\nsource_libsqlite3_sys_version=%s\nsource_bundled_sqlite_min_version_number=%s\n' "$checker_commit" "$actual_checker_blob" "$actual_source_commit" "$actual_source_blob" "$actual_toolchain_blob" "$actual_workspace_manifest_blob" "$actual_lockfile_blob" "$actual_rust_version" "$expected_rusqlite_version" "$expected_libsqlite3_sys_version" "$expected_sqlite_min_version_number"
 
