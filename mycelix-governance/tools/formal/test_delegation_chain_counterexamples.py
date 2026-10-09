@@ -308,6 +308,8 @@ def main() -> int:
         "baseline_cases": [], "mutations": [],
     }
     try:
+        require(chain_checker.MAX_HOPS == FROZEN_MAX_HOPS,
+                "maximum chain depth differs from the independently frozen value")
         receipt["source_head"] = subprocess.run(
             ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
             check=True, timeout=15,
