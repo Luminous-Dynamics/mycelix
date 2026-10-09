@@ -446,7 +446,7 @@ jobs:
           assert all(type(value) is int and value>0 for value in rule_ids)
           assert len(rule_ids)==len(set(rule_ids))
           assert rulesets==sorted(rulesets,key=lambda item:(item['source_type'],item['source'],item['id']))
-          actor_types={'Integration','OrganizationAdmin','RepositoryRole','Team','DeployKey','User'}
+          actor_types={'Integration','OrganizationAdmin','RepositoryRole','Team','DeployKey','User','EnterpriseOwner','EnterpriseRole'}
           bypass_modes={'always','pull_request','exempt'}
           for ruleset in rulesets:
               assert ruleset['target']=='branch'
@@ -465,7 +465,7 @@ jobs:
                   actor_id=actor['actor_id']
                   if actor_type=='DeployKey':
                       assert actor_id is None and bypass_mode!='pull_request'
-                  elif actor_type=='OrganizationAdmin':
+                  elif actor_type in ('OrganizationAdmin','EnterpriseOwner'):
                       assert actor_id is None or (type(actor_id) is int and actor_id>0)
                   else:
                       assert type(actor_id) is int and actor_id>0
