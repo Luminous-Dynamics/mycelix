@@ -357,6 +357,21 @@ def main() -> int:
                     "aggregate improperly claimed qualification")
             require(len(success.get("receipts", [])) == len(FROZEN_REQUIRED_RECEIPTS) + 1,
                     "aggregate receipt inventory is incomplete")
+            expected_control_artifact_names = {
+                f"auth-v20-evidence/{name}{suffix}"
+                for name in FROZEN_POLICY_CONTROL_IDS
+                for suffix in (".input.json", ".json")
+            }
+            artifact_rows = success.get("artifacts", [])
+            require({row.get("path") for row in artifact_rows} == expected_control_artifact_names,
+                    "aggregate artifact hash inventory does not match all raw/result control files")
+            for row in artifact_rows:
+                artifact_path = root / row["path"]
+                artifact_bytes = artifact_path.read_bytes()
+                require(hashlib.sha256(artifact_bytes).hexdigest() == row.get("sha256"),
+                        "aggregate recorded an incorrect artifact SHA-256: " + row["path"])
+                require(len(artifact_bytes) == row.get("bytes"),
+                        "aggregate recorded an incorrect artifact byte count: " + row["path"])
 
             mutations = (
                 "missing-required-receipt",
