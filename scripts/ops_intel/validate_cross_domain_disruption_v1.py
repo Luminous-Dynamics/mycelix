@@ -76,6 +76,20 @@ def _require(condition: bool, message: str, errors: list[str]) -> None:
         errors.append(message)
 
 
+def _string_refs(value: Any, label: str, errors: list[str]) -> list[str]:
+    """Return valid string refs while recording malformed values without hashing them."""
+    if not isinstance(value, list):
+        errors.append(f"{label}: expected an array of string refs")
+        return []
+    refs: list[str] = []
+    for index, item in enumerate(value):
+        if not isinstance(item, str) or not item:
+            errors.append(f"{label}[{index}]: expected a non-empty string ref")
+            continue
+        refs.append(item)
+    return refs
+
+
 def _unique_refs(items: Any, field: str, label: str, errors: list[str]) -> set[str]:
     if not isinstance(items, list):
         errors.append(f"{label}: expected an array")
@@ -140,8 +154,8 @@ def _walk_for_forbidden_keys(value: Any, path: str, errors: list[str]) -> None:
             _walk_for_forbidden_keys(child, f"{path}[{index}]", errors)
 
 
-def validate_fixture_dir(fixture_dir: Path) -> list[str]:
-    """Return all discovered fixture-integrity errors; an empty list means clean."""
+def _validate_fixture_dir(fixture_dir: Path) -> list[str]:
+    """Internal implementation; caller converts malformed nested shapes to findings."""
     errors: list[str] = []
     loaded: dict[str, dict[str, Any]] = {}
     for name, filename in FIXTURE_NAMES.items():
@@ -190,8 +204,12 @@ def validate_fixture_dir(fixture_dir: Path) -> list[str]:
             _require(len(refs) == 5 and len(set(refs)) == 5, "F0: expected five unique facility refs", errors)
             _require(all(ref in subjects0 for ref in refs), "F0: facility ref is not registered as a subject", errors)
 
+    observations0 = f0.get("observations", [])
+    if not isinstance(observations0, list):
+        errors.append("F0: observations must be an array")
+        observations0 = []
     inventory0 = next(
-        (item for item in f0.get("observations", []) if isinstance(item, dict)
+        (item for item in observations0 if isinstance(item, dict)
          and item.get("observation_ref") == "observation:supplier-B-inventory-partial"),
         None,
     )
@@ -201,8 +219,11 @@ def validate_fixture_dir(fixture_dir: Path) -> list[str]:
         errors.append("F0: supplier-B partial inventory observation is missing")
     else:
         coverage = inventory0.get("coverage", {})
-        observed = coverage.get("facility_refs_observed", []) if isinstance(coverage, dict) else []
-        known = coverage.get("facility_refs_known", []) if isinstance(coverage, dict) else []
+        if not isinstance(coverage, dict):
+            errors.append("F0: inventory observation coverage must be an object")
+            coverage = {}
+        observed = _string_refs(coverage.get("facility_refs_observed", []), "F0 inventory facility_refs_observed", errors)
+        known = _string_refs(coverage.get("facility_refs_known", []), "F0 inventory facility_refs_known", errors)
         _require(set(observed) == expected_abc, "F0: inventory observation must cover exactly facilities A/B/C", errors)
         _require(set(known) == set(facility_refs), "F0: inventory observation must name all five known facility refs", errors)
         _require(inventory0.get("aggregate_semantics") == "SumWithinListedFacilitiesAtObservationTime", "F0: inventory scope aggregation semantics missing", errors)
@@ -215,8 +236,18 @@ def validate_fixture_dir(fixture_dir: Path) -> list[str]:
     if not isinstance(coverage_assertion, dict):
         errors.append("F0: explicit unobserved-facility coverage assertion is missing")
     else:
-        _require(set(coverage_assertion.get("facility_refs_observed", [])) == expected_abc, "F0: coverage assertion scope must name A/B/C", errors)
-        _require(set(coverage_assertion.get("facility_refs_known", [])) == set(facility_refs), "F0: coverage assertion must name A-E", errors)
+        observed_refs = _string_refs(
+            coverage_assertion.get("facility_refs_observed", []),
+            "F0 coverage assertion facility_refs_observed",
+            errors,
+        )
+        known_refs = _string_refs(
+            coverage_assertion.get("facility_refs_known", []),
+            "F0 coverage assertion facility_refs_known",
+            errors,
+        )
+        _require(set(observed_refs) == expected_abc, "F0: coverage assertion scope must name A/B/C", errors)
+        _require(set(known_refs) == set(facility_refs), "F0: coverage assertion must name A-E", errors)
 
     # F1 must add evidence at the next frontier without reinterpreting old values as contemporaneous.
     _require(f1.get("parent_frontier_ref") == "frontier:F0", "F1: parent must be F0", errors)
@@ -226,8 +257,12 @@ def validate_fixture_dir(fixture_dir: Path) -> list[str]:
     _check_refs(f1.get("added_observations"), "source_ref", source1, "F1 added_observations", errors)
     _check_refs(f1.get("added_observations"), "artifact_ref", artifact1, "F1 added_observations", errors)
 
+    added_observations1 = f1.get("added_observations", [])
+    if not isinstance(added_observations1, list):
+        errors.append("F1: added_observations must be an array")
+        added_observations1 = []
     inventory1 = next(
-        (item for item in f1.get("added_observations", []) if isinstance(item, dict)
+        (item for item in added_observations1 if isinstance(item, dict)
          and item.get("observation_ref") == "observation:supplier-B-inventory-refresh"),
         None,
     )
@@ -235,7 +270,10 @@ def validate_fixture_dir(fixture_dir: Path) -> list[str]:
         errors.append("F1: supplier-B inventory refresh is missing")
     else:
         coverage = inventory1.get("coverage", {})
-        observed = coverage.get("facility_refs_observed", []) if isinstance(coverage, dict) else []
+        if not isinstance(coverage, dict):
+            errors.append("F1: inventory refresh coverage must be an object")
+            coverage = {}
+        observed = _string_refs(coverage.get("facility_refs_observed", []), "F1 inventory facility_refs_observed", errors)
         _require(set(observed) == expected_de, "F1: inventory refresh must cover exactly facilities D/E", errors)
         _require(inventory1.get("scope_ref") == "scope:supplier-B-facilities-D-E", "F1: named facility scope ref is missing", errors)
         _require(inventory1.get("aggregate_semantics") == "SumWithinListedFacilitiesAtObservationTime", "F1: inventory scope aggregation semantics missing", errors)
@@ -253,7 +291,11 @@ def validate_fixture_dir(fixture_dir: Path) -> list[str]:
     )
 
     # Frontier ancestry and strictly increasing cutoffs.
-    f0_time = _parse_time(f0.get("frontier", {}).get("cutoff_utc"), "F0 cutoff", errors)
+    f0_frontier = f0.get("frontier", {})
+    if not isinstance(f0_frontier, dict):
+        errors.append("F0: frontier must be an object")
+        f0_frontier = {}
+    f0_time = _parse_time(f0_frontier.get("cutoff_utc"), "F0 cutoff", errors)
     f1_time = _parse_time(f1.get("frontier_cutoff_utc"), "F1 cutoff", errors)
     f2_time = _parse_time(f2.get("frontier_cutoff_utc"), "F2 cutoff", errors)
     f3_time = _parse_time(f3.get("frontier_cutoff_utc"), "F3 cutoff", errors)
@@ -307,6 +349,19 @@ def validate_fixture_dir(fixture_dir: Path) -> list[str]:
             _require(field.get("payload_included") is False, f"Protected field[{index}]: payload must be explicitly absent", errors)
 
     return errors
+
+
+def validate_fixture_dir(fixture_dir: Path) -> list[str]:
+    """Fail closed on malformed nested shapes without leaking a traceback."""
+    try:
+        return _validate_fixture_dir(fixture_dir)
+    except (AttributeError, TypeError, KeyError) as exc:
+        # The input is untrusted JSON. Structural mistakes must be reported as
+        # validation findings, not escape as a crash or be mistaken for a pass.
+        return [
+            "fixture preflight aborted on malformed nested structure "
+            f"({type(exc).__name__}); input rejected fail-closed"
+        ]
 
 
 def main(argv: list[str] | None = None) -> int:
