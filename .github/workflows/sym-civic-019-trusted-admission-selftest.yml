@@ -65,4 +65,5 @@ jobs:
           set -euo pipefail
           python3 scripts/qualification/check_sym_civic_019_trusted_selftest_report.py \
             --report trusted-oracle-selftest-report.json \
-            --trusted-manifest mycelix-workspace/docs/civic-resilience/sym_civic_019_trusted_admission_v1.json
+            --trusted-manifest mycelix-workspace/docs/civic-resilience/sym_civic_019_trusted_admission_v1.json \
+            --candidate-root candidate
