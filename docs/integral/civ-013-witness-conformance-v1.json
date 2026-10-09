@@ -30,7 +30,8 @@
         "generation": 1,
         "record_digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b",
         "digest": "ffd4eb2e1cd61aac467f63895026e313559b95844ad011723e39c2b26e58d47e"
-      }
+      },
+      "trusted_bootstrap_anchor_digest": "9bcfcaee7492cab11ed23c19451e550c2602980dd6ea9fb9f29846aefacb310b"
     },
     {
       "id": "V002-successor-valid",
@@ -296,6 +297,41 @@
           "digest": "46d9b9021bc2756c8b4945269592de9b04fa794aac418c13f71fa4c8beddf2a2"
         }
       ]
+    },
+    {
+      "id": "V018-transition-invalid-tail-shape",
+      "kind": "transition",
+      "expected_outcome": "REJECT_BAD_RECEIPT_TAIL",
+      "current_generation": 2,
+      "current_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "current_receipt_sequence": 5,
+      "current_receipt_digest": "fea5396a7f4325c408b1b65b33a4d77ba5486ceba941804d8889a8546cfbab96",
+      "candidate_generation": 3,
+      "candidate_previous_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "candidate_receipt_sequence": 0,
+      "candidate_receipt_digest": "b8b75f14cfeebfd3e761c0b4c5a6dd70f6dc4c6c814dfaf873e54e0d6bfc77aa"
+    },
+    {
+      "id": "V019-untrusted-bootstrap-anchor",
+      "kind": "bootstrap_negative",
+      "expected_outcome": "REJECT_UNTRUSTED_BOOTSTRAP",
+      "trusted_bootstrap_anchor_digest": "cbaf3f8f3a95b2a2d1e5c8a5d4b73d9f0b2e6c7a1f5d8e3b9a4c6f0d2e7b1c5a",
+      "record": {
+        "protocol_version": 1,
+        "generation": 1,
+        "log_id": "civ013-fixture-log-001",
+        "policy_version": "policy-v1",
+        "anchor_digest": "9bcfcaee7492cab11ed23c19451e550c2602980dd6ea9fb9f29846aefacb310b",
+        "receipt_sequence": 0,
+        "receipt_digest": null,
+        "previous_record_digest": null,
+        "digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b"
+      },
+      "commit_marker": {
+        "generation": 1,
+        "record_digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b",
+        "digest": "ffd4eb2e1cd61aac467f63895026e313559b95844ad011723e39c2b26e58d47e"
+      }
     }
   ],
   "claim_ceiling": "Reference conformance vectors only. These vectors do not establish filesystem crash consistency, genuine signatures, operational witness independence, quorum safety, or production anti-rollback."
