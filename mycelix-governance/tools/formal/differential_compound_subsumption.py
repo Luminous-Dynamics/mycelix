@@ -408,18 +408,32 @@ def control_signature(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def permutation_mismatch_for(raw: dict[str, Any]) -> dict[str, Any] | None:
-    permuted = copy.deepcopy(raw)
-    permuted["parent"]["clauses"].reverse()
-    permuted["child"]["clauses"].reverse()
+    """Compare independently permuted parent, child, and joint syntax orderings."""
     original_result = oracle.evaluate_scenario(raw)
-    permuted_result = oracle.evaluate_scenario(permuted)
     original_signature = control_signature(original_result)
-    permuted_signature = control_signature(permuted_result)
-    if original_signature != permuted_signature:
+    variants = []
+    for label, reverse_parent, reverse_child in (
+        ("parent-only", True, False),
+        ("child-only", False, True),
+        ("parent-and-child", True, True),
+    ):
+        permuted = copy.deepcopy(raw)
+        if reverse_parent:
+            permuted["parent"]["clauses"].reverse()
+        if reverse_child:
+            permuted["child"]["clauses"].reverse()
+        permuted_result = oracle.evaluate_scenario(permuted)
+        permuted_signature = control_signature(permuted_result)
+        if original_signature != permuted_signature:
+            variants.append({
+                "permutation": label,
+                "original_signature": original_signature,
+                "permuted_signature": permuted_signature,
+            })
+    if variants:
         return {
             "kind": "clause-order-permutation-changed-result",
-            "prior_signature": original_signature,
-            "permuted_signature": permuted_signature,
+            "variants": variants,
         }
     return None
 
