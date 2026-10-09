@@ -35,9 +35,11 @@ fn request_playback(
     // Invalidates previous pending attempts even when this request must wait
     // for a new media source to become active.
     let current_src = audio.current_src();
+    let declared_src = audio.src();
     let (generation, source_ready) = prepare_play_attempt(
         attempt_generation.get_untracked(),
         &current_src,
+        &declared_src,
         &expected_audio_url,
     );
     attempt_generation.set(generation);
@@ -91,15 +93,30 @@ fn audio_matches_selected_source(audio: &web_sys::HtmlAudioElement, player: &Pla
     })
 }
 
-/// Advance the request generation and report whether the selected media URL is active.
+/// A selected URL may be requested before the browser populates currentSrc,
+/// but a non-empty active currentSrc must never point at an older resource.
+fn media_source_can_start(
+    current_src: &str,
+    declared_src: &str,
+    expected_url: &str,
+) -> bool {
+    if current_src.is_empty() {
+        !declared_src.is_empty() && declared_src == expected_url
+    } else {
+        current_src == expected_url
+    }
+}
+
+/// Advance the request generation and report whether playback can safely be attempted.
 fn prepare_play_attempt(
     current_generation: u64,
     current_src: &str,
+    declared_src: &str,
     expected_url: &str,
 ) -> (u64, bool) {
     (
         current_generation.wrapping_add(1),
-        media_source_matches_expected(current_src, expected_url),
+        media_source_can_start(current_src, declared_src, expected_url),
     )
 }
 
@@ -484,10 +501,19 @@ mod play_attempt_admission_tests {
     #[test]
     fn waiting_for_empty_source_still_invalidates_older_attempts() {
         let (generation, source_ready) =
-            prepare_play_attempt(41, "", "https://ipfs.io/ipfs/QmSong");
+            prepare_play_attempt(41, "", "", "https://ipfs.io/ipfs/QmSong");
 
         assert_eq!(generation, 42);
         assert!(!source_ready);
+    }
+
+    #[test]
+    fn requested_source_can_start_before_current_src_is_populated() {
+        let expected = "https://ipfs.io/ipfs/QmSong";
+        let (generation, source_ready) = prepare_play_attempt(8, "", expected, expected);
+
+        assert_eq!(generation, 9);
+        assert!(source_ready);
     }
 
     #[test]
@@ -495,6 +521,7 @@ mod play_attempt_admission_tests {
         let (generation, source_ready) = prepare_play_attempt(
             41,
             "https://ipfs.io/ipfs/QmOld",
+            "https://ipfs.io/ipfs/QmNew",
             "https://ipfs.io/ipfs/QmNew",
         );
 
