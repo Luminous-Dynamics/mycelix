@@ -541,6 +541,7 @@ jobs:
               "manifest_lock_identity_drift",
               "manifest_lock_peer_dependency_drift",
               "manifest_lock_peer_metadata_drift",
+              "duplicate_lock_json_key",
               "non_v3_lockfile",
               "install_lifecycle_metadata_drift",
               "unexpected_install_lifecycle_script",
@@ -574,7 +575,7 @@ jobs:
               echo "sdk_input_contract_status=PASS"
               echo "sdk_input_contract_sha256=$(sha256sum security-nix-sdk/sdk-input-contract.json | cut -d ' ' -f1)"
               echo "sdk_input_contract_stderr_sha256=$(sha256sum security-nix-sdk/sdk-input-contract.stderr.txt | cut -d ' ' -f1)"
-              echo "sdk_negative_fixture_count=19"
+              echo "sdk_negative_fixture_count=20"
               echo "sdk_negative_fixture_inventory_status=PASS"
             } >> security-nix-sdk/receipt.txt
           else
