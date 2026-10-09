@@ -46,6 +46,11 @@ def load_report(path:Path,expected:int|None):
     ids=[x.get("case_id",x.get("id")) if isinstance(x,dict) else None for x in cases]
     if any(not isinstance(x,str) or not x for x in ids):return None,"case-identity-missing"
     if len(ids)!=len(set(ids)):return None,"duplicate-case-id"
+    for row in cases:
+        if isinstance(row,dict) and "expected_verdict" in row:
+            actual=row.get("actual_verdict",row.get("verdict"))
+            if actual is None:return None,"actual-verdict-missing"
+            if actual!=row["expected_verdict"]:return None,"verdict-mismatch"
     schema=obj.get("schema")
     if not isinstance(schema,str) or not schema:return None,"report-schema-missing"
     return {"sha256":sha(raw),"schema":schema,"case_count":count,"case_ids_sha256":sha(canonical(ids)),"failure_count":0},None
