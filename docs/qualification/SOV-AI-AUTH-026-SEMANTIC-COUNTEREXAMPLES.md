@@ -153,3 +153,6 @@ This still does **not** parse a compact JWT/JWS or verify signatures. The fixtur
 - RFC 7638, JWK Thumbprint: https://www.rfc-editor.org/rfc/rfc7638
 
 The exact-head workflow compiles and runs this checker and uploads `delegation-chain-par-hash.json`. Qualification remains NOT_CLAIMED pending hosted execution and receipt inspection.
+
+
+The `par_hash` fixture checker also applies independent resource bounds before hashing: at most 64 KiB per supplied signing-input string and at most 256 KiB across the chain, alongside the nine-token ceiling. The independent tests freeze both byte limits and include one oversized signing input plus a chain whose individual inputs fit but aggregate input bytes exceed the chain bound. These limits are applied to the supplied signing-input fixture strings only; they do not prove that compact JWT tokens were fully parsed or that encoded token/stack sizes were enforced by a production verifier.
