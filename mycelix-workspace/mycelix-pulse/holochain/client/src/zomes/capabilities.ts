@@ -69,7 +69,7 @@ export class CapabilitiesZomeClient {
         capability_hash: capabilityHash,
         delivery_acknowledged: true,
       };
-    } catch (error) {
+    } catch {
       return {
         capability_hash: capabilityHash,
         delivery_acknowledged: false,
