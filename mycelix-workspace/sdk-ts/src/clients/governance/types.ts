@@ -806,9 +806,11 @@ export type ExecutionResolutionOutcome = 'Executed' | 'Failed';
 /**
  * Host-side attestation references for a prepared execution.
  *
- * Each array must contain exactly one canonical digest per action in the
- * prepared timelock. The host must independently authenticate the referenced
- * receipts; this input type only transports those references.
+ * Each binding groups one canonical attempt/action/evidence tuple, with
+ * exactly one binding per action in the prepared timelock. The coordinator
+ * derives the exact execution/timelock ActionHash anchors internally; clients
+ * cannot choose those roots. The host must independently authenticate the
+ * referenced receipts; this input type only transports those references.
  */
 export interface ExecutionResolutionBindingV1 {
   attemptIdentity: string;
