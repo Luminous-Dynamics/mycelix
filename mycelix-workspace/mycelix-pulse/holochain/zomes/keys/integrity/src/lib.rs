@@ -280,11 +280,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::UsedPreKey(used) => validate_create_used_pre_key(action.into(), used),
                 EntryTypes::KeyRotation(rotation) => validate_create_key_rotation(action.into(), rotation),
             },
-            OpEntry::UpdateEntry {
-                app_entry,
-                original_action_hash,
-                ..
-            } => match app_entry {
+            OpEntry::UpdateEntry { app_entry, action } => match app_entry {
                 // PreKeyBundle updates are a genuine, deliberate cross-agent exception
                 // (X3DH protocol -- consume_pre_key's caller is the key CONSUMER, marking
                 // the bundle OWNER's one-time key used), so this is NOT an author-binding
@@ -296,7 +292,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 // consumed key, or swap key material -- since only identity_key's length
                 // was checked (P0 author-binding Turn B, keys.PreKeyBundle).
                 EntryTypes::PreKeyBundle(bundle) => {
-                    validate_update_pre_key_bundle(bundle, original_action_hash)
+                    validate_update_pre_key_bundle(
+                        bundle,
+                        action.original_action_address.clone(),
+                    )
                 }
                 EntryTypes::HybridKeyBundleV2(_) => Ok(ValidateCallbackResult::Invalid(
                     "Hybrid V2 bundles are immutable; publish a successor bundle".into(),
