@@ -452,6 +452,8 @@ def main() -> int:
                 "wrong-source-head",
                 "qualification-laundered",
                 "failed-receipt-hidden",
+                "receipt-source-hash-forged",
+                "receipt-source-hash-missing",
                 "schema-downgraded",
                 "corpus-count-weakened",
                 "matrix-mutation-count-weakened",
