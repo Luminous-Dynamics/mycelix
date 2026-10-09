@@ -370,7 +370,7 @@ def verify_positive_inclusion_matrix(tree_sizes, expected_case_count, trusted_ro
             path = reference_inclusion_path(entries, leaf_index)
             try:
                 observed_root = inclusion_root(
-                    sha256(b"\\x00" + entry), leaf_index, tree_size, path
+                    sha256(b"\x00" + entry), leaf_index, tree_size, path
                 )
                 passed = reference_root_matches and observed_root == trusted_root
                 cases.append({
