@@ -171,11 +171,15 @@ impl PlayerState {
     /// when the removed track was last. Removing the final queued item clears
     /// playback state; removing an earlier unrelated item only shifts the
     /// queue index.
-    pub fn remove_queued_song(&self, song_hash: &str) {
+    /// Remove the exact queue occurrence selected by the UI.
+    ///
+    /// A playlist may intentionally contain the same song more than once, so
+    /// content identity alone is not enough to identify a queue row.
+    pub fn remove_queued_song_at(&self, removed_index: usize) {
         let mut updated = self.queue.get_untracked();
-        let Some(removed_index) = updated.iter().position(|song| song.song_hash == song_hash) else {
+        if removed_index >= updated.len() {
             return;
-        };
+        }
         let current_index = self.queue_index.get_untracked();
         updated.remove(removed_index);
         self.queue.set(updated.clone());
@@ -297,6 +301,23 @@ mod player_queue_tests {
         assert_eq!(
             queue_removal_action(Some(3), 3, 3),
             QueueRemovalAction::Select(2)
+        );
+    }
+
+    #[test]
+    fn removing_a_duplicate_playlist_occurrence_uses_its_exact_index() {
+        // If the second of two identical songs is current, removing that row
+        // selects the remaining row at index zero (rather than deleting the
+        // first match by content hash).
+        assert_eq!(
+            queue_removal_action(Some(1), 1, 1),
+            QueueRemovalAction::Select(0)
+        );
+        // Removing the first occurrence instead preserves the second song and
+        // shifts its current index to zero.
+        assert_eq!(
+            queue_removal_action(Some(1), 0, 1),
+            QueueRemovalAction::ShiftIndex(0)
         );
     }
 
