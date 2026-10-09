@@ -372,7 +372,9 @@ fn validate_update_entry(
         EntryTypes::CapabilityAuditLog(_) => Ok(ValidateCallbackResult::Invalid(
             "Audit logs cannot be modified".to_string(),
         )),
-        _ => Ok(ValidateCallbackResult::Valid),
+        _ => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported capability entry update".to_string(),
+        )),
     }
 }
 
