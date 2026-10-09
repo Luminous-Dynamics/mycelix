@@ -53,7 +53,7 @@ impl PlayerState {
         let source_changed = self
             .current_song
             .get_untracked()
-            .map_or(true, |current| current.song_hash != next_song.song_hash);
+            .is_none_or(|current| current.song_hash != next_song.song_hash);
         if source_changed {
             self.duration.set(0.0);
         }
@@ -63,7 +63,7 @@ impl PlayerState {
         let same_source = self
             .current_song
             .get_untracked()
-            .map_or(false, |current| current.song_hash == song.song_hash);
+            .is_some_and(|current| current.song_hash == song.song_hash);
         let mut q = self.queue.get_untracked();
         let idx = q
             .iter()
@@ -97,11 +97,17 @@ impl PlayerState {
             return;
         }
         let first = songs[0].clone();
+        let same_source = self
+            .current_song
+            .get_untracked()
+            .is_some_and(|current| current.song_hash == first.song_hash);
         self.queue.set(songs);
         self.queue_index.set(Some(0));
         self.prepare_track_change(&first);
         self.current_song.set(Some(first));
-        self.progress.set(0.0);
+        if !same_source {
+            self.progress.set(0.0);
+        }
         self.is_playing.set(true);
     }
 
@@ -177,7 +183,7 @@ impl PlayerState {
         let same_source = self
             .current_song
             .get_untracked()
-            .map_or(false, |current| current.song_hash == song.song_hash);
+            .is_some_and(|current| current.song_hash == song.song_hash);
         self.queue_index.set(Some(index));
         self.prepare_track_change(&song);
         self.current_song.set(Some(song));
@@ -207,9 +213,18 @@ impl PlayerState {
             QueueRemovalAction::Select(index) => {
                 self.queue_index.set(Some(index));
                 let next_song = updated[index].clone();
+                let same_source = self
+                    .current_song
+                    .get_untracked()
+                    .is_some_and(|current| current.song_hash == next_song.song_hash);
                 self.prepare_track_change(&next_song);
                 self.current_song.set(Some(next_song));
-                self.progress.set(0.0);
+                // When another occurrence of the same song is selected, the
+                // persistent audio element keeps its real playhead. Do not
+                // reset only the UI progress signal in that case.
+                if !same_source {
+                    self.progress.set(0.0);
+                }
             }
             QueueRemovalAction::ClearPlayback => {
                 self.queue_index.set(None);
