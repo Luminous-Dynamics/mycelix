@@ -10,6 +10,7 @@ on:
       - ".github/workflows/fpm-trusted-qualification.yml"
       - ".github/workflows/fpm-reference-verifier-selftest.yml"
       - ".github/workflows/fpm-wasm-artifact-identity.yml"
+      - ".github/workflows/d6u-exact-head-runtime-executor.yml"
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
@@ -59,7 +60,7 @@ jobs:
           assert "types: [opened, synchronize, reopened, ready_for_review]" in text
           PY
 
-      - name: Validate FPM workflows with checksum-pinned actionlint
+      - name: Validate qualification workflows with checksum-pinned actionlint
         run: |
           set -euo pipefail
           archive="$RUNNER_TEMP/actionlint_1.7.12_linux_amd64.tar.gz"
@@ -75,7 +76,8 @@ jobs:
             .github/workflows/fpm-wasm-artifact-identity.yml \
             .github/workflows/fpm-trusted-qualification.yml \
             .github/workflows/fpm-trusted-qualification-independent-verify.yml \
-            .github/workflows/fpm-reference-verifier-selftest.yml
+            .github/workflows/fpm-reference-verifier-selftest.yml \
+            .github/workflows/d6u-exact-head-runtime-executor.yml
 
       - name: Parse every embedded sandbox program
         run: |
