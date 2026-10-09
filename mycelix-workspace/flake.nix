@@ -93,6 +93,20 @@
           nodePackages.typescript-language-server
         ];
 
+        # Keep this focused SDK shell self-contained within the flake source.
+        # The general Holochain shells intentionally reuse ../nix/modules, which
+        # is outside this nested flake root; the SDK shell must not require
+        # impure evaluation just to obtain its toolchain.
+        sdkRustToolchain = pkgs.rust-bin.stable."1.96.0".default.override {
+          targets = [ "wasm32-unknown-unknown" ];
+          extensions = [ "rust-src" "rust-analyzer" "clippy" "rustfmt" ];
+        };
+        sdkClangResourceDir = "${pkgs.llvmPackages.clang.cc}/lib/clang/${pkgs.lib.versions.major pkgs.llvmPackages.clang.version}/include";
+        sdkBindgenArgs = builtins.concatStringsSep " " [
+          "-I${pkgs.glibc.dev}/include"
+          "-I${sdkClangResourceDir}"
+        ];
+
       in {
         devShells = {
           # Full development environment (all tools)
@@ -159,22 +173,28 @@
           };
 
           # Focused SDK CI environment: pinned Rust and Node, without the full
-          # Holochain/Python ML development closure used by .#ci.
+          # Holochain/Python ML development closure used by .#ci. This output
+          # deliberately avoids the parent-directory module import so pure
+          # flake evaluation works when this nested flake is used directly.
           sdk-ci = pkgs.mkShell {
             name = "mycelix-sdk-ci";
             buildInputs = [
-              holochainBase.rustToolchain
+              sdkRustToolchain
               pkgs.nodejs_24
               pkgs.pkg-config
               pkgs.openssl
               pkgs.openssl.dev
+              pkgs.llvmPackages.libclang
+              pkgs.llvmPackages.clang
+              pkgs.glibc.dev
+              pkgs.stdenv.cc
             ];
 
-            inherit (holochainBase.envVars)
-              LIBCLANG_PATH BINDGEN_EXTRA_CLANG_ARGS
-              OPENSSL_DIR OPENSSL_LIB_DIR OPENSSL_INCLUDE_DIR;
-            # Keep this focused shell's pkg-config search limited to OpenSSL;
-            # the shared Holochain shell's PKG_CONFIG_PATH includes GUI/ML deps.
+            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+            BINDGEN_EXTRA_CLANG_ARGS = sdkBindgenArgs;
+            OPENSSL_DIR = "${pkgs.openssl.dev}";
+            OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
+            OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
             PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
           };
 
