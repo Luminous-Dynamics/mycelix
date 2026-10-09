@@ -1,0 +1,138 @@
+name: CIV-014 Independent Fork-Witness Conformance
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - ".github/workflows/civ014-independent-fork-witness-conformance.yml"
+      - "docs/integral/civ-014-independent-fork-witness-conformance-v1*"
+      - "scripts/integral/verify_civ014_independent_fork_witness_v1.py"
+  push:
+    branches:
+      - research/civ-014-independent-fork-witness-profile-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ014-independent-fork-witness-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Independent fork-witness exact-head reference check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert exact qualification subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$QUALIFIED_SHA"
+          printf 'qualified_sha=%s\n' "$actual"
+
+      - name: Validate JSON syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m json.tool docs/integral/civ-014-independent-fork-witness-conformance-v1.json >/dev/null
+          python3 -m json.tool docs/integral/civ-014-independent-fork-witness-conformance-v1-manifest.json >/dev/null
+
+      - name: Verify pinned checker and producer source
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest=docs/integral/civ-014-independent-fork-witness-conformance-v1-manifest.json
+          checker_commit="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["checker_commit_sha"])')"
+          expected_checker_blob="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["checker_git_blob_sha"])')"
+          git merge-base --is-ancestor "$checker_commit" "$QUALIFIED_SHA"
+          actual_checker_blob="$(git hash-object scripts/integral/verify_civ014_independent_fork_witness_v1.py)"
+          test "$actual_checker_blob" = "$expected_checker_blob"
+
+          source_commit="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["source_commit"])')"
+          git init symthaea-source
+          git -C symthaea-source fetch --depth=1 https://github.com/Luminous-Dynamics/symthaea.git "$source_commit"
+          git -C symthaea-source checkout --detach FETCH_HEAD
+          test "$(git -C symthaea-source rev-parse HEAD)" = "$source_commit"
+
+          source_event_blob="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["source_event_module_blob_sha"])')"
+          source_lib_blob="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["source_lib_blob_sha"])')"
+          source_crate_manifest_blob="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["source_crate_manifest_blob_sha"])')"
+          source_workspace_manifest_blob="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["source_workspace_manifest_blob_sha"])')"
+          source_lock_blob="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["source_lockfile_blob_sha"])')"
+          source_toolchain_blob="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["source_toolchain_blob_sha"])')"
+
+          test "$(git -C symthaea-source hash-object crates/domains/symthaea-civ-witness/src/fork_witness.rs)" = "$source_event_blob"
+          test "$(git -C symthaea-source hash-object crates/domains/symthaea-civ-witness/src/lib.rs)" = "$source_lib_blob"
+          test "$(git -C symthaea-source hash-object crates/domains/symthaea-civ-witness/Cargo.toml)" = "$source_crate_manifest_blob"
+          test "$(git -C symthaea-source hash-object Cargo.toml)" = "$source_workspace_manifest_blob"
+          test "$(git -C symthaea-source hash-object Cargo.lock)" = "$source_lock_blob"
+          test "$(git -C symthaea-source hash-object rust-toolchain.toml)" = "$source_toolchain_blob"
+
+          expected_rust="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["source_rust_version"])')"
+          expected_rusqlite="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["source_rusqlite_version"])')"
+          expected_sqlite_sys="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["source_libsqlite3_sys_version"])')"
+          expected_sqlite_bundle="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["source_bundled_sqlite_version"])')"
+          actual_rust="$(sed -nE 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' symthaea-source/rust-toolchain.toml)"
+          test "$actual_rust" = "$expected_rust"
+          grep -Fqx "rusqlite = { version = \"$expected_rusqlite\", features = [\"bundled\", \"fallible_uint\"] }" symthaea-source/Cargo.toml
+          grep -Fq "version = \"$expected_rusqlite\"" symthaea-source/Cargo.lock
+          grep -Fq "version = \"$expected_sqlite_sys\"" symthaea-source/Cargo.lock
+          grep -Fq "$expected_sqlite_bundle" docs/integral/civ-014-independent-fork-witness-conformance-v1-manifest.json
+
+          printf 'checker_commit_sha=%s\nchecker_blob_sha=%s\nsource_commit=%s\nsource_event_module_blob=%s\nsource_lib_blob=%s\nsource_rust_version=%s\nsource_rusqlite_version=%s\nsource_libsqlite3_sys_version=%s\nsource_bundled_sqlite_version=%s\n' \
+            "$checker_commit" "$actual_checker_blob" "$source_commit" \
+            "$source_event_blob" "$source_lib_blob" "$actual_rust" \
+            "$expected_rusqlite" "$expected_sqlite_sys" "$expected_sqlite_bundle"
+
+      - name: Run independent canonical event verifier
+        id: vectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/integral/verify_civ014_independent_fork_witness_v1.py | tee civ014-independent-fork-witness.txt
+
+      - name: Emit qualification record
+        if: always()
+        env:
+          VECTOR_OUTCOME: ${{ steps.vectors.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "CIV-014 INDEPENDENT FORK-WITNESS REFERENCE PROFILE"
+            echo "status=fork-witness-reference-$VECTOR_OUTCOME"
+            echo "verification_step_outcome=$VECTOR_OUTCOME"
+            echo "commit=$QUALIFIED_SHA"
+            echo "workflow=$GITHUB_WORKFLOW"
+            echo "workflow_ref=$GITHUB_WORKFLOW_REF"
+            echo "workflow_sha=$(git hash-object .github/workflows/civ014-independent-fork-witness-conformance.yml)"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "runner_os=$RUNNER_OS"
+            echo "python=$(python3 --version)"
+            echo "profile_id=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-014-independent-fork-witness-conformance-v1-manifest.json"))["profile_id"])')"
+            echo "manifest_sha256=$(sha256sum docs/integral/civ-014-independent-fork-witness-conformance-v1-manifest.json | cut -d' ' -f1)"
+            echo "fixture_sha256=$(sha256sum docs/integral/civ-014-independent-fork-witness-conformance-v1.json | cut -d' ' -f1)"
+            echo "checker_sha256=$(sha256sum scripts/integral/verify_civ014_independent_fork_witness_v1.py | cut -d' ' -f1)"
+            echo "claim_ceiling=ForkEventFrontierReceiptReferenceConformanceOnly"
+          } | tee -a civ014-independent-fork-witness.txt
+
+      - name: Upload qualification record
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: civ014-independent-fork-witness-${{ env.QUALIFIED_SHA }}
+          path: civ014-independent-fork-witness.txt
