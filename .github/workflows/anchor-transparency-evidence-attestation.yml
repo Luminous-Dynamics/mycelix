@@ -28,10 +28,10 @@ jobs:
       attestations: write
       artifact-metadata: write
     steps:
-      - name: Check out the exact successful source commit
+      - name: Check out trusted policy code from the attestation workflow commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.workflow_sha }}
           persist-credentials: false
 
       - name: Download the exact source-run evidence artifact
