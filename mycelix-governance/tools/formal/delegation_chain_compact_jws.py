@@ -79,8 +79,8 @@ def parse_json_object(raw: bytes, code: str) -> dict[str, Any]:
                                VerificationError("json-invalid-constant", f"invalid JSON constant {value}")))
     except VerificationError:
         raise
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise VerificationError(code, "invalid UTF-8 JSON object") from error
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as error:
+        raise VerificationError(code, "invalid or excessively nested UTF-8 JSON object") from error
     if not isinstance(value, dict):
         raise VerificationError(code, "JWT header/payload must be a JSON object")
     return value
@@ -169,7 +169,10 @@ def verify_ed25519_signature(signing_input: bytes, signature: bytes, jwk: dict[s
 def _safe_uri(value: Any) -> bool:
     if not isinstance(value, str) or not value or any(ord(ch) < 0x20 for ch in value):
         return False
-    parsed = urlsplit(value)
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return False
     return bool(parsed.scheme) and not any(ch.isspace() for ch in value)
 
 
