@@ -1001,15 +1001,28 @@ async fn test_capability_grant_and_revocation_lifecycle() {
         "the identical remote call must be Unauthorized after conductor grant deletion"
     );
 
+    // Querying by the ORIGINAL action hash must also resolve the latest update.
     let app_projection: bool = conductor
         .call_fallible(
             &bob.zome("mail_capabilities"),
             "verify_capability",
-            (revoked_hash, AuditActionInput::ReadEmail),
+            (capability_hash.clone(), AuditActionInput::ReadEmail),
         )
         .await
-        .expect("updated application record should remain readable");
+        .expect("latest application state should remain readable");
     assert!(!app_projection, "application-level projection must also deny access");
+
+    // Replaying revoke against the original hash must be idempotent. A second
+    // system-grant deletion is neither attempted nor reported as a fresh success.
+    let repeated_revoke: ActionHash = conductor
+        .call_fallible(
+            &alice.zome("mail_capabilities"),
+            "revoke_capability",
+            (capability_hash, Some("replayed revoke".to_string())),
+        )
+        .await
+        .expect("repeated revoke against original hash must be idempotent");
+    assert_eq!(repeated_revoke, revoked_hash);
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
