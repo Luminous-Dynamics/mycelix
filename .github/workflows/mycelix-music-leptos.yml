@@ -63,3 +63,40 @@ jobs:
       - name: Browser-target compilation
         working-directory: mycelix-workspace/mycelix-music/apps/leptos
         run: cargo check --manifest-path Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Install pinned browser-test tooling
+        run: |
+          cargo install trunk --version 0.21.14 --locked
+          npm install --global playwright@1.64.0
+          playwright install --with-deps chromium
+
+      - name: Deterministic Leptos browser smoke
+        working-directory: mycelix-workspace/mycelix-music/apps/leptos
+        env:
+          BASE_URL: http://127.0.0.1:8121
+        run: |
+          set -euo pipefail
+          trunk serve --features fixtures --address 127.0.0.1 --port 8121 > /tmp/mycelix-leptos-trunk.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=0
+          for attempt in $(seq 1 600); do
+            if curl --fail --silent http://127.0.0.1:8121/discover >/dev/null; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat /tmp/mycelix-leptos-trunk.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/mycelix-leptos-trunk.log
+            echo "Leptos fixture server did not become ready within 10 minutes" >&2
+            exit 1
+          fi
+
+          NODE_PATH="$(npm root -g)" node e2e/player-smoke.cjs
