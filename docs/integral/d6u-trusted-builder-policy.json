@@ -1,5 +1,5 @@
 {
-  "policy_version": 61,
+  "policy_version": 62,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -225,7 +225,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "23b19fb40d10004b7dad7844ca9f58e35b8afba6"
+    "blob_sha": "652f81c65cdf6d6138ff2c7f4be5b0bd74ae3d61"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -381,7 +381,7 @@
     "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
     "retain_canonical_predicate": true
   },
-  "attestation_integrity_revision": 61,
+  "attestation_integrity_revision": 62,
   "attestation_commitment": {
     "schema": "d6u-trusted-runtime-evidence-attestation/v2",
     "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
