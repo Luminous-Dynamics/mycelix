@@ -2,7 +2,7 @@
   "spec_version": "civ-013-durable-adapter-v1",
   "profile_id": "civ-013-durable-adapter-v1",
   "source_repository": "Luminous-Dynamics/symthaea",
-  "source_adapter_commit": "44252bba3fd550732cef424b5e8a59b6bcbbfc1c",
+  "source_adapter_commit": "0c8ae581b8a753415b56d53a9b65cef62e552913",
   "encoding": {
     "digest": "SHA-256",
     "integer_encoding": "unsigned big-endian",
@@ -310,7 +310,7 @@
       "id": "DA022-generation-signed-range-overflow",
       "kind": "sqlite_integer_range",
       "expected_outcome": "RejectSqliteIntegerRange",
-      "record_generation": 9223372036854775808,
+      "record_generation": 9223372036854776000,
       "receipt_sequence": 0
     },
     {
@@ -318,7 +318,7 @@
       "kind": "sqlite_integer_range",
       "expected_outcome": "RejectSqliteIntegerRange",
       "record_generation": 1,
-      "receipt_sequence": 9223372036854775808
+      "receipt_sequence": 9223372036854776000
     },
     {
       "id": "DA024-recovery-equal-generation-missing-local-digest",
@@ -688,8 +688,8 @@
       "id": "DA044-receipt-sequence-overflow-is-state-mutation-free",
       "kind": "receipt_sequence_range_guard",
       "expected_outcome": "RejectBeforeStateMutation",
-      "receipt_sequence": 9223372036854775808,
-      "sqlite_integer_max": 9223372036854775807,
+      "receipt_sequence": 9223372036854776000,
+      "sqlite_integer_max": 9223372036854776000,
       "expected_error": "receipt sequence exceeds SQLite INTEGER range",
       "input_validation_before_recovery": true,
       "anchor_reads_after_attempt": 0,
@@ -702,8 +702,8 @@
       "id": "DA045-generation-overflow-before-anchor-read",
       "kind": "generation_range_guard",
       "expected_outcome": "RejectBeforeStateMutation",
-      "expected_generation": 9223372036854775807,
-      "sqlite_integer_max": 9223372036854775807,
+      "expected_generation": 9223372036854776000,
+      "sqlite_integer_max": 9223372036854776000,
       "expected_error": "GenerationOverflow",
       "input_validation_before_recovery": true,
       "anchor_reads_after_attempt": 0,
@@ -711,6 +711,28 @@
       "local_accepted_records_after": 0,
       "local_prepared_records_after": 0,
       "integrity_check_after": "ok"
+    },
+    {
+      "id": "DA046-integrity-check-uses-one-snapshot-during-concurrent-advance",
+      "kind": "integrity_check_snapshot_consistency",
+      "expected_outcome": "ConsistentSnapshotMaintained",
+      "sqlite_journal_mode": "wal",
+      "snapshot_generation": 1,
+      "snapshot_established_before_writer": true,
+      "concurrent_writer_commit": true,
+      "committed_generation": 2,
+      "snapshot_integrity_result": "ok",
+      "snapshot_visible_record_generations": [
+        1
+      ],
+      "same_snapshot_for_integrity_fk_logs_and_semantic_checks": true,
+      "fresh_integrity_result": "ok",
+      "fresh_snapshot_visible_record_generations": [
+        1,
+        2
+      ],
+      "integrity_check_uses_deferred_read_transaction": true,
+      "claim_is_power_loss_durability": false
     }
   ],
   "claim_ceiling": "Durable-adapter golden-reference and abstract-transition conformance only. Local fork-evidence count/tail metadata detects inconsistent surviving state but is not independently anchored; coordinated erasure or rollback of both fork-evidence rows and local metadata is outside this claim. Does not establish actual SQLite tests passed, filesystem crash/power-loss durability, a genuine independent external anchor, bootstrap caller authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback."
