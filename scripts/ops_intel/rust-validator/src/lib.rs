@@ -744,6 +744,10 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     }
 
     let f0_frontier = match f0.get("frontier") {
+        Some(value) if !value.is_object() => {
+            errors.push("F0: frontier must be an object".to_owned());
+            None
+        }
         Some(value) => match serde_json::from_value::<F0Frontier>(value.clone()) {
             Ok(frontier) => {
                 if frontier.frontier_ref != "frontier:F0" {
