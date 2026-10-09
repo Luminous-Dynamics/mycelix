@@ -16,6 +16,8 @@ PAR_HASH_SCHEMA = "mycelix.delegation-chain-par-hash.v1"
 RESULT_SCHEMA = "mycelix.delegation-chain-par-hash-result.v1"
 _B64URL_SEGMENT = re.compile(r"^[A-Za-z0-9_-]+$")
 MAX_TOKEN_COUNT = 9
+MAX_SIGNING_INPUT_BYTES = 64 * 1024
+MAX_CHAIN_SIGNING_INPUT_BYTES = 256 * 1024
 
 
 def _is_canonical_segment(value: Any) -> bool:
@@ -45,6 +47,8 @@ def signing_input_bytes(value: Any) -> bytes:
         encoded = value.encode("ascii")
     except UnicodeEncodeError as error:
         raise ValueError("JWS signing input must be ASCII") from error
+    if len(encoded) > MAX_SIGNING_INPUT_BYTES:
+        raise ValueError(f"JWS signing input exceeds {MAX_SIGNING_INPUT_BYTES} bytes")
     parts = value.split(".")
     if len(parts) != 2 or not all(_is_canonical_segment(part) for part in parts):
         raise ValueError("JWS signing input must be canonical BASE64URL(header).BASE64URL(payload)")
@@ -69,6 +73,18 @@ def evaluate_par_hash_chain(raw: dict[str, Any]) -> dict[str, Any]:
                 "hop_count": len(hops),
                 "findings": [{"code": "implementation-chain-depth-exceeded",
                               "max_token_count": MAX_TOKEN_COUNT}],
+                "qualification": "NOT_CLAIMED"}
+
+    total_input_bytes = sum(
+        len(hop["signing_input"].encode("utf-8"))
+        for hop in hops
+        if isinstance(hop, dict) and isinstance(hop.get("signing_input"), str)
+    )
+    if total_input_bytes > MAX_CHAIN_SIGNING_INPUT_BYTES:
+        return {"schema": RESULT_SCHEMA, "status": "UNSUPPORTED_OR_UNDECIDABLE",
+                "hop_count": len(hops), "total_signing_input_bytes": total_input_bytes,
+                "findings": [{"code": "chain-signing-input-size-exceeded",
+                              "limit": MAX_CHAIN_SIGNING_INPUT_BYTES}],
                 "qualification": "NOT_CLAIMED"}
 
     findings: list[dict[str, Any]] = []
