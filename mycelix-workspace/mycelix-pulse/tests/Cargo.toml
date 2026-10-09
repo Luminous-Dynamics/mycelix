@@ -23,7 +23,7 @@ path = "sweettest_mail_security.rs"
 # Holochain 0.7 Sweettest must track the exact conductor/HDK generation.
 # See the official 0.6 -> 0.7 upgrade guide for the new feature names and
 # the action-model / FlatOp compatibility work required by this migration.
-holochain = { version = "=0.7.0", default-features = false, features = ["wasmer-sys-cranelift", "test_utils"] }
+holochain = { version = "=0.7.0", features = ["sweettest"] }
 holochain_types = { version = "=0.7.0" }
 holo_hash = { version = "=0.7.0" }
 
