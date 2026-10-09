@@ -186,7 +186,19 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         },
         FlatOp::Link(OpLink::CreateLink { .. }) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::AuditEntry(entry) => validate_create_audit_entry(action.into(), entry),
+                EntryTypes::AuditSummary(_) => Ok(ValidateCallbackResult::Valid),
+            },
+            OpRecord::UpdateEntry { app_entry, .. } => match app_entry {
+                EntryTypes::AuditEntry(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Audit entries cannot be updated".to_string(),
+                )),
+                EntryTypes::AuditSummary(_) => Ok(ValidateCallbackResult::Valid),
+            },
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Update(OpUpdate::Entry { app_entry, .. }) => match app_entry {
             EntryTypes::AuditEntry(_) => Ok(ValidateCallbackResult::Invalid(
