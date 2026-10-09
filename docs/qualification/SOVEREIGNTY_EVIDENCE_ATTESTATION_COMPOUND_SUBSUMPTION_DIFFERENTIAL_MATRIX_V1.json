@@ -1,0 +1,171 @@
+{
+  "schema": "mycelix.compound-subsumption-differential-matrix.v1",
+  "finite_universe": {
+    "targets": [
+      "alice",
+      "bob"
+    ],
+    "purposes": [
+      "business",
+      "refund"
+    ],
+    "contexts": [
+      "trusted",
+      "untrusted"
+    ],
+    "amounts": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "request_count": 32,
+    "order": "declared dimension order; target × purpose × context × amount"
+  },
+  "corpus": {
+    "atom_count": 8,
+    "max_clauses_per_compound": 2,
+    "compound_kinds": [
+      "all",
+      "any"
+    ],
+    "generation": "all ordered permutations of distinct atoms with clause counts 1 and 2",
+    "expression_count": 128,
+    "ordered_parent_child_pairs": 16384,
+    "randomness": "none",
+    "ordered_pair_request_combinations": 524288
+  },
+  "required_invariants": [
+    "independent_denotation_matches_classifier",
+    "structural_matcher_matches_bruteforce_injective_reference",
+    "authority_expansion_has_minimal_ordered_request_witness",
+    "structural_false_negative_has_no_child_minus_parent_witness",
+    "structural_and_denotational_disagreement_are_reported_as_distinct_classes",
+    "clause_permutation_preserves_decision_and_id_mapped_witness",
+    "counterexample_reducer_preserves_failure_class",
+    "authority_expansion_diagnostics_match_independent_replay",
+    "minimized_witness_core_preserves_admission_and_rejection"
+  ],
+  "atoms": [
+    {
+      "id": "atom-universe",
+      "target": [
+        "alice",
+        "bob"
+      ],
+      "purpose": [
+        "business",
+        "refund"
+      ],
+      "context": [
+        "trusted",
+        "untrusted"
+      ],
+      "max_amount": 3
+    },
+    {
+      "id": "atom-alice",
+      "target": [
+        "alice"
+      ],
+      "purpose": [
+        "business",
+        "refund"
+      ],
+      "context": [
+        "trusted",
+        "untrusted"
+      ],
+      "max_amount": 3
+    },
+    {
+      "id": "atom-bob",
+      "target": [
+        "bob"
+      ],
+      "purpose": [
+        "business",
+        "refund"
+      ],
+      "context": [
+        "trusted",
+        "untrusted"
+      ],
+      "max_amount": 3
+    },
+    {
+      "id": "atom-business",
+      "target": [
+        "alice",
+        "bob"
+      ],
+      "purpose": [
+        "business"
+      ],
+      "context": [
+        "trusted",
+        "untrusted"
+      ],
+      "max_amount": 3
+    },
+    {
+      "id": "atom-refund",
+      "target": [
+        "alice",
+        "bob"
+      ],
+      "purpose": [
+        "refund"
+      ],
+      "context": [
+        "trusted",
+        "untrusted"
+      ],
+      "max_amount": 3
+    },
+    {
+      "id": "atom-trusted",
+      "target": [
+        "alice",
+        "bob"
+      ],
+      "purpose": [
+        "business",
+        "refund"
+      ],
+      "context": [
+        "trusted"
+      ],
+      "max_amount": 3
+    },
+    {
+      "id": "atom-narrow",
+      "target": [
+        "alice"
+      ],
+      "purpose": [
+        "business"
+      ],
+      "context": [
+        "trusted"
+      ],
+      "max_amount": 1
+    },
+    {
+      "id": "atom-low-amount",
+      "target": [
+        "alice",
+        "bob"
+      ],
+      "purpose": [
+        "business",
+        "refund"
+      ],
+      "context": [
+        "trusted",
+        "untrusted"
+      ],
+      "max_amount": 1
+    }
+  ]
+}

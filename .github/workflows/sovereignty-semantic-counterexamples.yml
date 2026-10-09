@@ -1,0 +1,148 @@
+name: Sovereignty semantic counterexamples candidate
+on:
+  push:
+    branches:
+      - sov-ai-auth-v20-semantic-counterexamples
+  pull_request:
+    branches:
+      - sov-ai-auth-v19-compound-constraint-witness-matching
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  semantic-counterexamples:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Assert exact head
+        env:
+          EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Compile and validate exact oracle
+        run: |
+          set -euo pipefail
+          export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
+          python3 -m py_compile \
+            mycelix-governance/tools/formal/compound_subsumption_counterexamples.py \
+            mycelix-governance/tools/formal/test_compound_subsumption_counterexamples.py \
+            mycelix-governance/tools/formal/differential_compound_subsumption.py \
+            mycelix-governance/tools/formal/test_differential_matrix_freeze.py \
+            mycelix-governance/tools/formal/test_oracle_mutation_sensitivity.py \
+            mycelix-governance/tools/formal/test_effective_policy_mutation_sensitivity.py \
+            mycelix-governance/tools/formal/delegation_chain_counterexamples.py \
+            mycelix-governance/tools/formal/test_delegation_chain_counterexamples.py \
+            mycelix-governance/tools/formal/delegation_chain_claims.py \
+            mycelix-governance/tools/formal/test_delegation_chain_claims.py \
+            mycelix-governance/tools/formal/delegation_chain_key_linkage.py \
+            mycelix-governance/tools/formal/test_delegation_chain_key_linkage.py \
+            mycelix-governance/tools/formal/delegation_chain_par_hash.py \
+            mycelix-governance/tools/formal/test_delegation_chain_par_hash.py \
+            mycelix-governance/tools/formal/aggregate_auth_v20_evidence.py \
+            mycelix-governance/tools/formal/aat_capability_subsumption.py \
+            mycelix-governance/tools/formal/test_aat_capability_subsumption.py \
+            mycelix-governance/tools/formal/delegation_chain_compact_jws.py \
+            mycelix-governance/tools/formal/test_delegation_chain_compact_jws.py \
+            mycelix-governance/tools/formal/test_aggregate_auth_v20_evidence.py \
+            mycelix-governance/tools/formal/delegation_chain_pop.py \
+            mycelix-governance/tools/formal/test_delegation_chain_pop.py
+          python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json >/dev/null
+          python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json >/dev/null
+      - name: Execute controls and independently replay witnesses
+        run: |
+          set -euo pipefail
+          export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
+          mkdir -p "$RUNNER_TEMP/auth-v20-evidence"
+          python3 mycelix-governance/tools/formal/test_compound_subsumption_counterexamples.py \
+            --evidence-dir "$RUNNER_TEMP/auth-v20-evidence"
+          mkdir -p "$RUNNER_TEMP/auth-v20-differential-evidence"
+          python3 mycelix-governance/tools/formal/differential_compound_subsumption.py \
+            --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json \
+            --evidence-dir "$RUNNER_TEMP/auth-v20-differential-evidence"
+          python3 mycelix-governance/tools/formal/test_differential_matrix_freeze.py \
+            --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json \
+            --output "$RUNNER_TEMP/auth-v20-differential-evidence/matrix-mutation-guard.json"
+      - name: Inject oracle mutants and require detection
+        run: |
+          set -euo pipefail
+          export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
+          mkdir -p "$RUNNER_TEMP/auth-v20-mutation-evidence"
+          python3 mycelix-governance/tools/formal/test_oracle_mutation_sensitivity.py \
+            --output "$RUNNER_TEMP/auth-v20-mutation-evidence/oracle-mutation-sensitivity.json"
+          mkdir -p "$RUNNER_TEMP/auth-v20-policy-mutation-evidence"
+          python3 mycelix-governance/tools/formal/test_effective_policy_mutation_sensitivity.py \
+            --output "$RUNNER_TEMP/auth-v20-policy-mutation-evidence/effective-policy-mutation-sensitivity.json"
+          mkdir -p "$RUNNER_TEMP/auth-v20-chain-evidence"
+          python3 mycelix-governance/tools/formal/test_delegation_chain_counterexamples.py \
+            --output "$RUNNER_TEMP/auth-v20-chain-evidence/delegation-chain-differential.json"
+          mkdir -p "$RUNNER_TEMP/auth-v20-chain-claims-evidence"
+          python3 mycelix-governance/tools/formal/test_delegation_chain_claims.py \
+            --output "$RUNNER_TEMP/auth-v20-chain-claims-evidence/delegation-chain-claims-differential.json"
+          mkdir -p "$RUNNER_TEMP/auth-v20-key-link-evidence"
+          python3 mycelix-governance/tools/formal/test_delegation_chain_key_linkage.py \
+            --output "$RUNNER_TEMP/auth-v20-key-link-evidence/delegation-chain-key-linkage.json"
+          mkdir -p "$RUNNER_TEMP/auth-v20-par-hash-evidence"
+          python3 mycelix-governance/tools/formal/test_delegation_chain_par_hash.py \
+            --output "$RUNNER_TEMP/auth-v20-par-hash-evidence/delegation-chain-par-hash.json"
+          mkdir -p "$RUNNER_TEMP/auth-v20-capability-evidence"
+          python3 mycelix-governance/tools/formal/test_aat_capability_subsumption.py \
+            --output "$RUNNER_TEMP/auth-v20-capability-evidence/aat-capability-subsumption.json"
+          mkdir -p "$RUNNER_TEMP/auth-v20-compact-jws-evidence"
+          python3 mycelix-governance/tools/formal/test_delegation_chain_compact_jws.py \
+            --output "$RUNNER_TEMP/auth-v20-compact-jws-evidence/compact-jws-chain.json"
+      - name: Run PoP invocation controls and mutation-test receipt aggregate
+        run: |
+          set -euo pipefail
+          export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
+          mkdir -p "$RUNNER_TEMP/auth-v20-final-evidence"
+          mkdir -p "$RUNNER_TEMP/auth-v20-pop-evidence"
+          python3 mycelix-governance/tools/formal/test_delegation_chain_pop.py \
+            --output "$RUNNER_TEMP/auth-v20-pop-evidence/delegation-chain-pop-differential.json"
+          python3 mycelix-governance/tools/formal/test_aggregate_auth_v20_evidence.py \
+            --output "$RUNNER_TEMP/auth-v20-final-evidence/aggregate-mutation-guard.json"
+      - name: Aggregate exact-head bounded evidence receipts
+        env:
+          EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
+          mkdir -p "$RUNNER_TEMP/auth-v20-final-evidence"
+          python3 mycelix-governance/tools/formal/aggregate_auth_v20_evidence.py \
+            --evidence-root "$RUNNER_TEMP" \
+            --expected-head "$EXPECTED_SHA" \
+            --output "$RUNNER_TEMP/auth-v20-final-evidence/aggregate-receipt.json"
+      - name: Verify repository postflight
+        if: always()
+        run: |
+          set -euo pipefail
+          test "$(git status --porcelain)" = ""
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sovereignty-semantic-counterexamples-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/auth-v20-evidence
+            ${{ runner.temp }}/auth-v20-differential-evidence
+            ${{ runner.temp }}/auth-v20-mutation-evidence
+            ${{ runner.temp }}/auth-v20-policy-mutation-evidence
+            ${{ runner.temp }}/auth-v20-chain-evidence
+            ${{ runner.temp }}/auth-v20-chain-claims-evidence
+            ${{ runner.temp }}/auth-v20-key-link-evidence
+            ${{ runner.temp }}/auth-v20-par-hash-evidence
+            ${{ runner.temp }}/auth-v20-pop-evidence
+            ${{ runner.temp }}/auth-v20-compact-jws-evidence
+            ${{ runner.temp }}/auth-v20-capability-evidence
+            ${{ runner.temp }}/auth-v20-final-evidence
+          if-no-files-found: warn
+          retention-days: 30

@@ -1,0 +1,93 @@
+{
+  "schema": "mycelix.compound-subsumption-counterexample-control-matrix.v1",
+  "finite_universe": {
+    "targets": [
+      "alice",
+      "bob"
+    ],
+    "purposes": [
+      "business",
+      "refund"
+    ],
+    "contexts": [
+      "trusted",
+      "untrusted"
+    ],
+    "amounts": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "request_count": 32,
+    "request_order": "declared array order for categorical dimensions, then declared amount order"
+  },
+  "controls": [
+    {
+      "id": "actual-authority-expansion",
+      "expected_status": "AUTHORITY_EXPANSION",
+      "kind": "negative",
+      "marker": "ACTUAL AUTHORITY EXPANSION PASS"
+    },
+    {
+      "id": "structural-false-negative",
+      "expected_status": "STRUCTURAL_FALSE_NEGATIVE",
+      "kind": "semantic-boundary",
+      "marker": "STRUCTURAL FALSE NEGATIVE PASS"
+    },
+    {
+      "id": "clause-order-forward",
+      "expected_status": "STRUCTURAL_SUBSUMPTION_PASS",
+      "kind": "positive",
+      "marker": "CLAUSE ORDER FORWARD PASS"
+    },
+    {
+      "id": "clause-order-reverse",
+      "expected_status": "STRUCTURAL_SUBSUMPTION_PASS",
+      "kind": "positive",
+      "marker": "CLAUSE ORDER REVERSE PASS"
+    },
+    {
+      "id": "unsupported-extension",
+      "expected_status": "UNSUPPORTED_OR_UNDECIDABLE",
+      "kind": "fail-closed",
+      "marker": "UNSUPPORTED EXTENSION PASS"
+    },
+    {
+      "id": "deny-deletion-expansion",
+      "expected_status": "AUTHORITY_EXPANSION",
+      "kind": "negative",
+      "marker": "DENY DELETION EXPANSION PASS"
+    },
+    {
+      "id": "deny-addition-restriction",
+      "expected_status": "EFFECTIVE_POLICY_CONTAINMENT_PASS",
+      "kind": "positive",
+      "marker": "DENY ADDITION RESTRICTION PASS"
+    },
+    {
+      "id": "deny-removal-no-effective-expansion",
+      "expected_status": "POLICY_ATTENUATION_VIOLATION",
+      "kind": "attenuation-component",
+      "marker": "DENY REMOVAL NO EFFECTIVE EXPANSION PASS"
+    },
+    {
+      "id": "allow-expansion-masked-by-deny",
+      "expected_status": "POLICY_ATTENUATION_VIOLATION",
+      "kind": "attenuation-component",
+      "marker": "ALLOW EXPANSION MASKED BY DENY PASS"
+    },
+    {
+      "id": "conflict-rule-substitution",
+      "expected_status": "AUTHORITY_EXPANSION",
+      "kind": "negative",
+      "marker": "CONFLICT RULE SUBSTITUTION PASS"
+    },
+    {
+      "id": "unsupported-extension-in-deny",
+      "expected_status": "UNSUPPORTED_OR_UNDECIDABLE",
+      "kind": "fail-closed",
+      "marker": "UNSUPPORTED EXTENSION IN DENY PASS"
+    }
+  ]
+}
