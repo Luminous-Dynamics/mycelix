@@ -32,17 +32,18 @@ fn request_playback(
     if !player.is_playing.get_untracked() {
         return;
     }
-    // Invalidate all older play promises as soon as this selection requests
-    // playback, even when the media element still points at a previous source.
-    // Otherwise a late rejection for A could stop a re-selected A after an
-    // intermediate B request returned early while B was loading.
-    let generation = attempt_generation.get_untracked().wrapping_add(1);
-    attempt_generation.set(generation);
-
-    // Never call play against an empty or stale currentSrc. The matching
-    // canplay event will retry once the selected resource is actually active.
+    // Invalidates previous pending attempts even when this request must wait
+    // for a new media source to become active.
     let current_src = audio.current_src();
-    if !media_source_matches_expected(&current_src, &expected_audio_url) {
+    let (generation, source_ready) = prepare_play_attempt(
+        attempt_generation.get_untracked(),
+        &current_src,
+        &expected_audio_url,
+    );
+    attempt_generation.set(generation);
+    if !source_ready {
+        // Never call play against an empty or stale currentSrc. The matching
+        // canplay event will retry once the selected resource is actually active.
         return;
     }
     let expected_hash_for_result = expected_song_hash.clone();
@@ -88,6 +89,18 @@ fn audio_matches_selected_source(audio: &web_sys::HtmlAudioElement, player: &Pla
     player.current_song.get_untracked().is_some_and(|song| {
         media_source_matches_expected(&current_src, &song.audio_url())
     })
+}
+
+/// Advance the request generation and report whether the selected media URL is active.
+fn prepare_play_attempt(
+    current_generation: u64,
+    current_src: &str,
+    expected_url: &str,
+) -> (u64, bool) {
+    (
+        current_generation.wrapping_add(1),
+        media_source_matches_expected(current_src, expected_url),
+    )
 }
 
 /// Return a bounded seek target only when the active resource has a known finite duration.
@@ -456,6 +469,32 @@ mod media_source_guard_tests {
             "https://ipfs.io/ipfs/QmSong",
             "https://ipfs.io/ipfs/QmSong"
         ));
+    }
+}
+
+#[cfg(test)]
+mod play_attempt_admission_tests {
+    use super::prepare_play_attempt;
+
+    #[test]
+    fn waiting_for_empty_source_still_invalidates_older_attempts() {
+        let (generation, source_ready) =
+            prepare_play_attempt(41, "", "https://ipfs.io/ipfs/QmSong");
+
+        assert_eq!(generation, 42);
+        assert!(!source_ready);
+    }
+
+    #[test]
+    fn waiting_for_stale_source_still_invalidates_older_attempts() {
+        let (generation, source_ready) = prepare_play_attempt(
+            41,
+            "https://ipfs.io/ipfs/QmOld",
+            "https://ipfs.io/ipfs/QmNew",
+        );
+
+        assert_eq!(generation, 42);
+        assert!(!source_ready);
     }
 }
 
