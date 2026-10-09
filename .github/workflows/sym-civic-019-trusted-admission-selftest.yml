@@ -56,6 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
+          import hashlib
           import json
           from pathlib import Path
 
@@ -136,6 +137,75 @@ jobs:
           trusted_roots = trusted_matrix["expected_root_sha256_by_tree_size"]
           require(set(trusted_roots) == {str(size) for size in range(1, 17)},
                   "trusted root vector keys must be exact")
+          semantic = trusted_manifest["semantic_expectations"]
+          require(report.get("profile") == semantic["profile"], "synthetic semantic profile binding")
+          require(report.get("vds_id") == semantic["vds_id"], "VDS selector binding")
+          require(report.get("vdp_id") == semantic["vdp_id"], "VDP selector binding")
+          require(report.get("statement_sha256") == semantic["statement_sha256"],
+                  "Signed Statement digest binding")
+          require(report.get("entry_sha256") == semantic["entry_sha256"], "VDS entry digest binding")
+          require(report.get("independent_merkle_fixture") == "PASS",
+                  "independent three-entry Merkle fixture")
+          require(report.get("tree_size_max_inclusive") == trusted_oracle["tree_size_max_inclusive"],
+                  "tree-size profile bound binding")
+          require(report.get("negative_control_count") == trusted_oracle["negative_control_count"],
+                  "negative-control count binding")
+          require(report.get("tree_size_limit_scope") == "LOCAL_SYNTHETIC_PROFILE_NOT_RFC_REQUIREMENT",
+                  "local tree-size bound claim ceiling")
+          identities = semantic["identities"]
+          receipt_expectations = (
+              ("receipt_a", "A", "receipt_a_sha256"),
+              ("receipt_b", "B", "receipt_b_sha256"),
+          )
+          receipt_keys = {
+              "receipt_sha256", "protected_sha256", "kid_hex", "issuer", "subject",
+              "tree_size", "leaf_index", "root_hash", "proof_sha256",
+          }
+          for report_key, identity_key, digest_key in receipt_expectations:
+              receipt = report.get(report_key)
+              identity = identities[identity_key]
+              require(
+                  isinstance(receipt, dict) and set(receipt) == receipt_keys,
+                  report_key + " exact schema",
+              )
+              require(receipt["receipt_sha256"] == semantic[digest_key],
+                      report_key + " exact receipt digest")
+              require(receipt["kid_hex"] == identity["kid_hex"], report_key + " trusted KID")
+              require(receipt["issuer"] == identity["issuer"], report_key + " trusted issuer")
+              require(receipt["subject"] == semantic["subject"], report_key + " subject binding")
+              require(type(receipt["tree_size"]) is int and receipt["tree_size"] == semantic["tree_size"],
+                      report_key + " tree size binding")
+              require(type(receipt["leaf_index"]) is int and receipt["leaf_index"] == semantic["leaf_index"],
+                      report_key + " leaf index binding")
+              require(receipt["root_hash"] == semantic["root_hash"], report_key + " root binding")
+
+          corpus_rel = "mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_v1.json"
+          candidate_manifest_rel = "mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_manifest_v1.json"
+          expected_blobs = trusted_manifest["expected_blob_sha"]
+          require(set(expected_blobs) == set(trusted_manifest["expected_changed_files"]),
+                  "trusted candidate blob inventory must be exact")
+          candidate_corpus_bytes = (Path("candidate") / corpus_rel).read_bytes()
+          candidate_manifest_bytes = (Path("candidate") / candidate_manifest_rel).read_bytes()
+          def git_blob_sha(raw):
+              header = f"blob {len(raw)}".encode("ascii") + b"\\x00"
+              return hashlib.sha1(header + raw).hexdigest()
+          require(
+              git_blob_sha(candidate_corpus_bytes) == expected_blobs[corpus_rel],
+              "candidate corpus must match trusted Git blob identity",
+          )
+          require(
+              git_blob_sha(candidate_manifest_bytes) == expected_blobs[candidate_manifest_rel],
+              "candidate qualification manifest must match trusted Git blob identity",
+          )
+          require(
+              report.get("candidate_corpus_git_blob_sha") == git_blob_sha(candidate_corpus_bytes),
+              "report candidate corpus provenance binding",
+          )
+          require(
+              report.get("candidate_qualification_manifest_sha256")
+              == hashlib.sha256(candidate_manifest_bytes).hexdigest(),
+              "report candidate qualification manifest digest binding",
+          )
           require(
               matrix.get("trusted_expected_roots_sha256_by_tree_size") == trusted_roots,
               "report root commitments must equal trusted manifest",
