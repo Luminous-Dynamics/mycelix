@@ -90,6 +90,8 @@ pub(crate) fn escape_field(value: &str) -> String {
     for character in value.chars() {
         match character {
             '%' => output.push_str("%25"),
+            '"' => output.push_str("%22"),
+            '\\' => output.push_str("%5C"),
             ',' => output.push_str("%2C"),
             '\t' => output.push_str("%09"),
             '\n' => output.push_str("%0A"),
@@ -847,14 +849,14 @@ mod tests {
     #[test]
     fn canonical_decision_encoding_escapes_nested_delimiters_and_controls() {
         let decisions = vec![ReservationDecision {
-            reservation_id: "order,a\t\0\n%".into(),
+            reservation_id: "order,a\t\0\n%\"\\tail".into(),
             outcome: ReservationOutcome::DuplicateOf {
-                primary_id: "primary,one".into(),
+                primary_id: "primary,one\"\\tail".into(),
             },
         }];
         let canonical = canonical_decisions(&decisions);
-        assert!(canonical.contains("order%2Ca%09%00%0A%25"));
-        assert!(canonical.contains("DUPLICATE_OF:primary%2Cone"));
+        assert!(canonical.contains("order%2Ca%09%00%0A%25%22%5Ctail"));
+        assert!(canonical.contains("DUPLICATE_OF:primary%2Cone%22%5Ctail"));
     }
 
     #[test]
