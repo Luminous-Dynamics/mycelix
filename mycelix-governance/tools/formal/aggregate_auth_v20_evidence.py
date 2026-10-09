@@ -466,8 +466,8 @@ def main() -> int:
         pop_summary = pop_result.get("summary", {})
         require(pop_summary.get("positive_controls") == 2,
                 "AAT PoP harness did not execute both positive invocation profiles")
-        require(pop_summary.get("negative_controls") == 22,
-                "AAT PoP harness did not execute all 22 denial/replay controls")
+        require(pop_summary.get("negative_controls") == 23,
+                "AAT PoP harness did not execute all 23 denial/replay controls")
         require(pop_summary.get("mutants_detected") == 4,
                 "AAT PoP harness did not detect all four omitted-check mutants")
         require(pop_summary.get("replay_jti_consumed") is True,
@@ -499,7 +499,7 @@ def main() -> int:
             "aat_capability_subsumption_controls": 34,
             "aat_capability_runtime_invocation_controls": 21,
             "aat_invocation_pop_mutants_detected": 4,
-            "aat_invocation_pop_negative_controls": 22,
+            "aat_invocation_pop_negative_controls": 23,
             "qualification": "NOT_CLAIMED",
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
