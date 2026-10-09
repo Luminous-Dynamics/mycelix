@@ -44,6 +44,8 @@ jobs:
             mycelix-governance/tools/formal/test_delegation_chain_counterexamples.py \
             mycelix-governance/tools/formal/delegation_chain_claims.py \
             mycelix-governance/tools/formal/test_delegation_chain_claims.py
+            mycelix-governance/tools/formal/delegation_chain_key_linkage.py \
+            mycelix-governance/tools/formal/test_delegation_chain_key_linkage.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json >/dev/null
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json >/dev/null
       - name: Execute controls and independently replay witnesses
@@ -76,6 +78,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/auth-v20-chain-claims-evidence"
           python3 mycelix-governance/tools/formal/test_delegation_chain_claims.py \
             --output "$RUNNER_TEMP/auth-v20-chain-claims-evidence/delegation-chain-claims-differential.json"
+          mkdir -p "$RUNNER_TEMP/auth-v20-key-link-evidence"
+          python3 mycelix-governance/tools/formal/test_delegation_chain_key_linkage.py \
+            --output "$RUNNER_TEMP/auth-v20-key-link-evidence/delegation-chain-key-linkage.json"
       - name: Verify repository postflight
         if: always()
         run: |
@@ -93,5 +98,6 @@ jobs:
             ${{ runner.temp }}/auth-v20-policy-mutation-evidence
             ${{ runner.temp }}/auth-v20-chain-evidence
             ${{ runner.temp }}/auth-v20-chain-claims-evidence
+            ${{ runner.temp }}/auth-v20-key-link-evidence
           if-no-files-found: warn
           retention-days: 30
