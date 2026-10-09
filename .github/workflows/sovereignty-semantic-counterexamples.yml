@@ -32,8 +32,10 @@ jobs:
           export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
           python3 -m py_compile \
             mycelix-governance/tools/formal/compound_subsumption_counterexamples.py \
-            mycelix-governance/tools/formal/test_compound_subsumption_counterexamples.py
+            mycelix-governance/tools/formal/test_compound_subsumption_counterexamples.py \
+            mycelix-governance/tools/formal/differential_compound_subsumption.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json >/dev/null
+          python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json >/dev/null
       - name: Execute controls and independently replay witnesses
         run: |
           set -euo pipefail
@@ -41,6 +43,10 @@ jobs:
           mkdir -p "$RUNNER_TEMP/auth-v20-evidence"
           python3 mycelix-governance/tools/formal/test_compound_subsumption_counterexamples.py \
             --evidence-dir "$RUNNER_TEMP/auth-v20-evidence"
+          mkdir -p "$RUNNER_TEMP/auth-v20-differential-evidence"
+          python3 mycelix-governance/tools/formal/differential_compound_subsumption.py \
+            --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json \
+            --evidence-dir "$RUNNER_TEMP/auth-v20-differential-evidence"
       - name: Verify repository postflight
         if: always()
         run: |
