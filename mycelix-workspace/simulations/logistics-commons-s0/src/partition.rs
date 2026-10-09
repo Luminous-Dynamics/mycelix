@@ -75,6 +75,16 @@ pub fn canonical_reconciliation(decisions: &[ReconciliationDecision]) -> String 
     output
 }
 
+fn structurally_valid_reservation(request: &OfflineReservation) -> bool {
+    !request.participant_id.trim().is_empty()
+        && !request.node_id.trim().is_empty()
+        && !request.reservation_id.trim().is_empty()
+        && !request.idempotency_key.trim().is_empty()
+        && !request.hub_id.trim().is_empty()
+        && !request.sku_id.trim().is_empty()
+        && request.quantity > 0
+}
+
 fn valid_at_reconciliation(request: &OfflineReservation, now_ms: u64) -> Option<&'static str> {
     if request.participant_id.trim().is_empty() { return Some("empty-participant-id"); }
     if request.node_id.trim().is_empty() { return Some("empty-node-id"); }
@@ -158,14 +168,22 @@ pub fn reconcile_offline_reservations(
     for indices in by_idempotency.values_mut() {
         indices.sort_by(|a, b| requests[*a].reservation_id.cmp(&requests[*b].reservation_id)
             .then_with(|| requests[*a].node_id.cmp(&requests[*b].node_id)));
-        let primary_index = indices[0];
-        let primary = &requests[primary_index];
-        if indices.iter().all(|index| same_effect_payload(primary, &requests[*index])) {
-            primaries.push(primary_index);
-            for duplicate_index in indices.iter().skip(1) {
-                outcomes[*duplicate_index] = Some(ReconciliationDisposition::DuplicateOf {
-                    primary_id: primary.reservation_id.clone(),
-                });
+        let first = &requests[indices[0]];
+        if indices.iter().all(|index| same_effect_payload(first, &requests[*index])) {
+            // Malformed identity/resource envelopes must not become the primary action merely
+            // because their reservation ID sorts first. They remain rejected and cannot suppress
+            // a structurally valid replay of the same participant-scoped operation.
+            let structurally_valid = indices.iter().copied()
+                .filter(|index| structurally_valid_reservation(&requests[*index]))
+                .collect::<Vec<_>>();
+            if let Some(primary_index) = structurally_valid.first().copied() {
+                let primary = &requests[primary_index];
+                primaries.push(primary_index);
+                for duplicate_index in structurally_valid.iter().copied().skip(1) {
+                    outcomes[duplicate_index] = Some(ReconciliationDisposition::DuplicateOf {
+                        primary_id: primary.reservation_id.clone(),
+                    });
+                }
             }
         } else {
             for index in indices.iter() {
@@ -319,7 +337,21 @@ pub fn verify_reconciliation(
                 let primary = request_by_reservation_id.get(primary_id).copied()
                     .filter(|candidate| candidate.participant_id == request.participant_id);
                 match primary {
-                    Some(candidate) if candidate.reservation_id != request.reservation_id
+                    Some(candidate) if !request.participant_id.trim().is_empty()
+                        && !request.node_id.trim().is_empty()
+                        && !request.reservation_id.trim().is_empty()
+                        && !request.idempotency_key.trim().is_empty()
+                        && !request.hub_id.trim().is_empty()
+                        && !request.sku_id.trim().is_empty()
+                        && request.quantity > 0
+                        && !candidate.participant_id.trim().is_empty()
+                        && !candidate.node_id.trim().is_empty()
+                        && !candidate.reservation_id.trim().is_empty()
+                        && !candidate.idempotency_key.trim().is_empty()
+                        && !candidate.hub_id.trim().is_empty()
+                        && !candidate.sku_id.trim().is_empty()
+                        && candidate.quantity > 0
+                        && candidate.reservation_id != request.reservation_id
                         && candidate.idempotency_key == request.idempotency_key
                         && candidate.hub_id == request.hub_id && candidate.sku_id == request.sku_id
                         && candidate.quantity == request.quantity
@@ -591,6 +623,48 @@ mod tests {
         )));
         assert!(!decisions.iter().any(|decision|
             decision.disposition == ReconciliationDisposition::AwaitingAuthoritativeRecheck));
+        assert!(verify_reconciliation(&requests, 120, &decisions).is_empty());
+    }
+
+    #[test]
+    fn malformed_sorted_first_replay_cannot_suppress_valid_request() {
+        let requests = vec![
+            {
+                let mut malformed = offline("coop-a", "edge-a", "a-invalid", "same-op", 1, 4);
+                malformed.node_id.clear();
+                malformed
+            },
+            offline("coop-a", "edge-b", "z-valid", "same-op", 1, 4),
+        ];
+        let decisions = reconcile_offline_reservations(&requests, 120);
+        assert!(decisions.iter().any(|decision|
+            decision.reservation_id == "a-invalid"
+                && matches!(&decision.disposition, ReconciliationDisposition::Rejected {
+                    reason: "empty-node-id"
+                })));
+        assert!(decisions.iter().any(|decision|
+            decision.reservation_id == "z-valid"
+                && decision.disposition == ReconciliationDisposition::AwaitingAuthoritativeRecheck));
+        assert!(!decisions.iter().any(|decision|
+            decision.reservation_id == "z-valid"
+                && matches!(&decision.disposition, ReconciliationDisposition::DuplicateOf { .. })));
+        assert!(verify_reconciliation(&requests, 120, &decisions).is_empty());
+    }
+
+    #[test]
+    fn empty_reservation_id_cannot_become_alias_primary() {
+        let invalid = offline("coop-a", "edge-a", "", "same-op", 1, 4);
+        let valid = offline("coop-a", "edge-b", "reserve-valid", "same-op", 1, 4);
+        let requests = vec![invalid, valid];
+        let decisions = reconcile_offline_reservations(&requests, 120);
+        assert!(decisions.iter().any(|decision|
+            decision.reservation_id.is_empty()
+                && matches!(&decision.disposition, ReconciliationDisposition::Rejected {
+                    reason: "empty-reservation-id"
+                })));
+        assert!(decisions.iter().any(|decision|
+            decision.reservation_id == "reserve-valid"
+                && decision.disposition == ReconciliationDisposition::AwaitingAuthoritativeRecheck));
         assert!(verify_reconciliation(&requests, 120, &decisions).is_empty());
     }
 
