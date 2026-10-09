@@ -44,6 +44,33 @@ FROZEN_POLICY_CONTROL_IDS = (
     "deny-removal-no-effective-expansion", "allow-expansion-masked-by-deny",
     "conflict-rule-substitution", "unsupported-extension-in-deny",
 )
+FROZEN_POP_CONTROL_IDS = (
+    "valid-constrained-invocation",
+    "one-time-pop-jti-replay-rejected",
+    "fresh-pop-cannot-reuse-old-jti",
+    "concurrent-pop-jti-race",
+    "replay-store-unavailable-fails-closed",
+    "caller-supplied-clock-cannot-resurrect-expired-chain",
+    "audience-optional-when-unconfigured-and-absent",
+    "tampered-pop-signature",
+    "wrong-aat-id",
+    "wrong-tool-claim",
+    "wrong-hta",
+    "iat-too-old",
+    "iat-too-future",
+    "missing-audience",
+    "wrong-audience",
+    "noncanonical-payload",
+    "unsupported-extra-claim",
+    "empty-pop-jti",
+    "wrong-pop-header-alg",
+    "wrong-pop-header-type",
+    "unauthorized-invocation-tool",
+    "leaf-capability-constraint-violation",
+    "unverified-aat-chain",
+    "audience-policy-unconfigured",
+    "restricted-jcs-float",
+)
 FROZEN_MUTATIONS = {
     "auth-v20-mutation-evidence/oracle-mutation-sensitivity.json": (
         "mutations", "mutant_detected", (
@@ -102,7 +129,7 @@ FROZEN_AGGREGATE_MUTATIONS = (
     "mutant-detection-count-weakened", "mutation-identity-substituted",
     "duplicate-mutation-id", "compact-jws-mutant-count-weakened",
     "missing-capability-receipt", "capability-mutant-count-weakened",
-    "missing-pop-receipt", "pop-mutant-count-weakened",
+    "missing-pop-receipt", "pop-mutant-count-weakened", "pop-control-identity-substituted",
     "expected-head-malformed", "missing-aggregate-mutation-guard",
     "aggregate-guard-head-mismatch", "aggregate-guard-count-weakened",
     "aggregate-guard-identity-substituted", "missing-control-artifact",
@@ -256,6 +283,7 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
                 "mutants_detected": 4,
                 "replay_jti_consumed": True,
             })
+            data["controls"] = [{"id": name} for name in FROZEN_POP_CONTROL_IDS]
         if relative in FROZEN_MUTATIONS:
             rows_key, detected_key, names = FROZEN_MUTATIONS[relative]
             data[rows_key] = [{"id": name, detected_key: True} for name in names]
@@ -381,6 +409,10 @@ def apply_mutation(root: Path, name: str) -> None:
         data = json.loads(pop_receipt.read_text(encoding="utf-8"))
         data["summary"]["mutants_detected"] = 3
         pop_receipt.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "pop-control-identity-substituted":
+        data = json.loads(pop_receipt.read_text(encoding="utf-8"))
+        data["controls"][0]["id"] = "fabricated-pop-control"
+        pop_receipt.write_text(json.dumps(data), encoding="utf-8")
     elif name == "missing-aggregate-mutation-guard":
         aggregate_guard.unlink()
     elif name == "aggregate-guard-head-mismatch":
@@ -493,6 +525,7 @@ def main() -> int:
                 "capability-mutant-count-weakened",
                 "missing-pop-receipt",
                 "pop-mutant-count-weakened",
+                "pop-control-identity-substituted",
                 "expected-head-malformed",
                 "missing-aggregate-mutation-guard",
                 "aggregate-guard-head-mismatch",
@@ -531,7 +564,7 @@ def main() -> int:
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 29 weakening mutations rejected")
+        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 30 weakening mutations rejected")
         print("QUALIFICATION NOT CLAIMED: synthetic receipt checks do not establish semantic correctness")
         return 0
     except Exception as error:
