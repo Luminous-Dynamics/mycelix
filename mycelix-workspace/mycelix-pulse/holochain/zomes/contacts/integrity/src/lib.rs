@@ -217,13 +217,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 EntryTypes::BlockedContact(_) => Ok(ValidateCallbackResult::Valid),
             },
-            OpEntry::UpdateEntry {
-                app_entry,
-                action,
-                original_action_hash,
-                original_entry_hash: _,
-            } => match app_entry {
+            OpEntry::UpdateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Contact(contact) => {
+                    let original_action_hash = action.original_action_address.clone();
                     validate_update_contact(action, original_action_hash, contact)
                 }
                 _ => Ok(ValidateCallbackResult::Valid),
