@@ -75,3 +75,19 @@ These are research references, not certification of this implementation. The dif
 The hosted exact-head workflow now injects four deterministic defects into in-memory oracle functions and requires the separate differential checker to detect each one: opening atom subsumption, forcing denotations empty, reusing one child witness for two parent obligations, and retaining a redundant constraint in a reported witness core. The guard first verifies that each unmutated fixture agrees with independent replay, checks the expected mismatch category for each mutant, restores the original function in a `finally` path, and records a receipt bound to source hashes.
 
 This is a mutation-sensitivity smoke test, not a proof that the checker detects all possible defects. It complements—rather than replaces—the bounded exhaustive corpus, raw-fixture replay, and frozen manifest mutation guard. Any hosted result remains bounded research/specification evidence; production qualification is not claimed.
+
+
+## Effective-policy independent replay and mutation sensitivity
+
+The policy-level checker is separate from compound-clause matching. It evaluates the four-dimensional request universe directly from raw JSON, computes allow and deny sets independently, applies the explicit conflict rule, and independently derives effective access plus the three attenuation-component obligations:
+
+- child effective access must be a subset of parent effective access;
+- child allow denotation must be a subset of parent allow denotation, even when a deny happens to mask the difference;
+- every parent-denied request must remain denied, even when the allow policy happens not to overlap that request;
+- the conflict rule must remain unchanged in this profile.
+
+The hosted guard first independently replays four baseline cases over all 32 requests. It then injects six deterministic policy-layer defects: erase deny denotations, skip deny-overrides in effective access, reinterpret allow-overrides as deny-overrides, accept an allow expansion masked by deny, bypass the deny-preservation rejection, and forge the conflict-rule-preserved receipt field. Each mutant must produce the expected independent mismatch category; baseline and mutant receipts include relevant source hashes.
+
+The independent request-set replay is intentionally finite and raw-fixture based. It is evidence against these identified defect classes only. It is not a formal proof of the checker, arbitrary policies, an infinite argument domain, or production enforcement. Qualification remains NOT_CLAIMED pending exact-head hosted runs and artifact inspection.
+
+This follows the general verification-guided pattern described by Cedar's research: separately model semantics and compare implementation behavior while testing properties that a model may not fully capture (Disselkoen et al., *How We Built Cedar: A Verification-Guided Approach*, 2024, https://arxiv.org/abs/2407.01688). The current AAT document is still an individual Internet-Draft, not an endorsed IETF standard; its requirement that subsumption checks be decidable, sound, and deterministic is a design reference, not a certification claim (revision -01, updated 2026-06-15, https://datatracker.ietf.org/doc/draft-niyikiza-oauth-attenuating-agent-tokens/).
