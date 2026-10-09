@@ -49,6 +49,36 @@ async function main() {
     page = await browser.newPage();
     page.on('pageerror', error => pageErrors.push(error.message));
 
+    // Hold one real play() promise open while allowing Chromium's native media
+    // element to play. We reject it only after a later play attempt has resumed
+    // the same logical source, exercising the generation guard independently
+    // of the song-hash/URL identity check.
+    await page.addInitScript(() => {
+      const nativePlay = HTMLMediaElement.prototype.play;
+      const probe = { captured: false, rejected: false, reject: null };
+      Object.defineProperty(window, '__stalePlayProbe', {
+        value: probe,
+        configurable: false,
+      });
+
+      HTMLMediaElement.prototype.play = function (...args) {
+        const declaredSource = this.getAttribute('src') || '';
+        if (
+          this instanceof HTMLAudioElement
+          && !probe.captured
+          && declaredSource.endsWith('/QmDemo1')
+        ) {
+          probe.captured = true;
+          const nativePromise = nativePlay.apply(this, args);
+          nativePromise.catch(() => {});
+          return new Promise((_resolve, reject) => {
+            probe.reject = reject;
+          });
+        }
+        return nativePlay.apply(this, args);
+      };
+    });
+
     await page.route(`${MEDIA_ORIGIN}**`, async route => {
       const url = route.request().url();
       const cid = url.slice(MEDIA_ORIGIN.length).split(/[?#]/, 1)[0];
@@ -120,6 +150,25 @@ async function main() {
       const audio = document.querySelector('audio');
       return audio && !audio.paused && Math.abs(audio.currentTime - expectedTime) < 0.35;
     }, pausedAt, { timeout: 5000 });
+
+    // The earlier play() promise is still unresolved. Reject it late after
+    // pause/resume has issued a newer attempt for the exact same track/source;
+    // the obsolete rejection must not flip the current UI to stopped.
+    await page.evaluate(() => {
+      const probe = window.__stalePlayProbe;
+      if (!probe.captured || typeof probe.reject !== 'function' || probe.rejected) {
+        throw new Error('the superseded play() promise was not captured exactly once');
+      }
+      probe.rejected = true;
+      probe.reject(new DOMException('superseded playback attempt', 'AbortError'));
+    });
+    await new Promise(resolve => setTimeout(resolve, 150));
+    assert.equal(await page.locator('.btn-player').getAttribute('aria-label'), 'Pause');
+    assert.equal(
+      await page.locator('audio').evaluate(audio => audio.paused),
+      false,
+      'a stale play() rejection must not pause the newer attempt on the same source',
+    );
 
     // Exercise the real range input against finite media metadata. Dispatching
     // input through the DOM keeps the test deterministic while still invoking
@@ -285,6 +334,7 @@ async function main() {
       scenarios: [
         'catalog play selects and starts exact media URL',
         'pause and resume preserve the physical playhead',
+        'late rejection from a superseded play() promise cannot stop a newer same-source attempt',
         'seek applies a finite target to the real media element',
         'Repeat One restarts after natural end',
         'Repeat One does not block manual Next',
