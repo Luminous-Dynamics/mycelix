@@ -187,7 +187,7 @@ jobs:
           candidate_corpus_bytes = (Path("candidate") / corpus_rel).read_bytes()
           candidate_manifest_bytes = (Path("candidate") / candidate_manifest_rel).read_bytes()
           def git_blob_sha(raw):
-              header = f"blob {len(raw)}".encode("ascii") + b"\\x00"
+              header = f"blob {len(raw)}".encode("ascii") + bytes([0])
               return hashlib.sha1(header + raw).hexdigest()
           require(
               git_blob_sha(candidate_corpus_bytes) == expected_blobs[corpus_rel],
