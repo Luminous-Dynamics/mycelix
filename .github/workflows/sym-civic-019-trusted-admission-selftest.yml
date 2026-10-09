@@ -99,6 +99,36 @@ jobs:
               all(isinstance(row, dict) and row.get("verdict") == "PASS" for row in cases),
               "every positive inclusion case must pass",
           )
+          expected_pairs = [
+              (tree_size, leaf_index)
+              for tree_size in range(1, 17)
+              for leaf_index in range(tree_size)
+          ]
+          observed_pairs = []
+          for row in cases:
+              require(type(row.get("tree_size")) is int, "tree_size must be an integer")
+              require(type(row.get("leaf_index")) is int, "leaf_index must be an integer")
+              observed_pairs.append((row["tree_size"], row["leaf_index"]))
+          require(
+              observed_pairs == expected_pairs,
+              "matrix must cover each tree-size/leaf-index pair exactly once in canonical order",
+          )
+          def reference_path_length(tree_size, leaf_index):
+              if tree_size == 1:
+                  return 0
+              split = 1 << ((tree_size - 1).bit_length() - 1)
+              if leaf_index < split:
+                  return reference_path_length(split, leaf_index) + 1
+              return reference_path_length(tree_size - split, leaf_index - split) + 1
+          require(
+              all(
+                  type(row.get("path_length")) is int
+                  and row["path_length"] == reference_path_length(row["tree_size"], row["leaf_index"])
+                  and row["path_length"] <= 4
+                  for row in cases
+              ),
+              "every proof path length must match the canonical recursive tree shape",
+          )
           require(
               all(
                   row.get("expected_root_sha256") == trusted_roots.get(str(row.get("tree_size")))
@@ -114,8 +144,36 @@ jobs:
                   "local profile cap must not be claimed as RFC requirement")
           require(report.get("negative_controls_all_rejected") is True, "negative-control verdict")
           require(report.get("issuer_signature_verification") == "NOT_EVALUATED", "issuer signature non-claim")
-          require(len(report.get("negative_controls", [])) == 11, "negative-control rows")
-          require(all(row.get("verdict") == "REJECT" for row in report["negative_controls"]),
-                  "all negative controls must explicitly reject")
+          expected_negative_reasons = {
+              "WRONG_ENTRY_BYTES": "inclusion root mismatch",
+              "RECEIPT_SIGNATURE_MUTATION": "Receipt signature verification failed",
+              "LEAF_INDEX_EQUALS_TREE_SIZE": "leaf_index out of range",
+              "PROOF_PATH_EXTRA_NODE": "unused inclusion path nodes",
+              "EMBEDDED_ROOT_PAYLOAD_MUTATION": "inclusion root mismatch",
+              "VDS_SELECTOR_MUTATION": "Receipt VDS mismatch",
+              "MALFORMED_VDP_SHAPE": "Receipt VDP schema mismatch",
+              "DUPLICATE_COSE_HEADER_LABEL": "duplicate CBOR map key",
+              "NON_MINIMAL_CBOR": "non-minimal CBOR",
+              "PATH_NODE_WRONG_LENGTH": "path node must be 32 bytes",
+              "TREE_SIZE_ABOVE_LIMIT": "tree_size exceeds local synthetic profile limit",
+          }
+          negative_controls = report.get("negative_controls")
+          require(
+              isinstance(negative_controls, list) and len(negative_controls) == 11,
+              "negative-control rows",
+          )
+          require(
+              [row.get("name") for row in negative_controls if isinstance(row, dict)]
+              == list(expected_negative_reasons),
+              "negative-control names must be unique and in the exact trusted sequence",
+          )
+          require(
+              all(
+                  row.get("verdict") == "REJECT"
+                  and row.get("reason") == expected_negative_reasons[row["name"]]
+                  for row in negative_controls
+              ),
+              "each negative control must reach its exact expected rejection reason",
+          )
           print("non-authoritative trusted-oracle self-test contract: PASS")
           PY
