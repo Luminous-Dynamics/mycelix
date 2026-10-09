@@ -113,6 +113,12 @@ def require(condition: bool, message: str) -> None:
         raise ValueError(message)
 
 
+def canonical_json_bytes(value: Any) -> bytes:
+    """Match the control runner's canonical_json serialization exactly."""
+    return (json.dumps(value, sort_keys=True, separators=(",", ":"),
+                       ensure_ascii=False) + "\\n").encode("utf-8")
+
+
 def validate_receipt(data: dict[str, Any], expected_schema: str,
                      expected_head: str, relative_path: str) -> None:
     require(data.get("schema") == expected_schema,
@@ -137,6 +143,7 @@ def main() -> int:
         "source_head": args.expected_head,
         "qualification": "NOT_CLAIMED",
         "receipts": [],
+        "artifacts": [],
         "failures": [],
     }
     try:
@@ -274,6 +281,50 @@ def main() -> int:
         ]
         require(observed_policy_control_ids == list(expected_policy_control_ids),
                 "bounded policy oracle control identities/order differ from the frozen inventory")
+        control_dir = args.evidence_root / "auth-v20-evidence"
+        expected_control_files = {"receipt.json"}
+        for control_id in expected_policy_control_ids:
+            expected_control_files.add(f"{control_id}.input.json")
+            expected_control_files.add(f"{control_id}.json")
+        actual_control_files = {item.name for item in control_dir.iterdir() if item.is_file()}
+        require(actual_control_files == expected_control_files,
+                "raw control artifact inventory incomplete or contains unexpected files; "
+                f"missing={sorted(expected_control_files - actual_control_files)}, "
+                f"extra={sorted(actual_control_files - expected_control_files)}")
+        for row in control_raw["controls"]:
+            control_id = row["id"]
+            input_path = control_dir / f"{control_id}.input.json"
+            result_path = control_dir / f"{control_id}.json"
+            input_bytes = input_path.read_bytes()
+            result_bytes = result_path.read_bytes()
+            try:
+                input_value = json.loads(input_bytes.decode("utf-8"))
+                result_value = json.loads(result_bytes.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise ValueError(f"{control_id}: raw evidence is not valid UTF-8 JSON: {error}") from error
+            computed_input_sha256 = hashlib.sha256(canonical_json_bytes(input_value)).hexdigest()
+            require(computed_input_sha256 == row.get("input_sha256"),
+                    f"{control_id}: raw scenario does not match receipt input_sha256")
+            require(result_value.get("input_sha256") == row.get("input_sha256"),
+                    f"{control_id}: result input hash differs from receipt")
+            stored_result_sha256 = result_value.pop("result_sha256", None)
+            require(stored_result_sha256 == row.get("result_sha256"),
+                    f"{control_id}: result hash differs from receipt")
+            computed_result_sha256 = hashlib.sha256(canonical_json_bytes(result_value)).hexdigest()
+            require(computed_result_sha256 == stored_result_sha256,
+                    f"{control_id}: result contents do not match result_sha256")
+            require(result_value.get("status") == row.get("observed_status"),
+                    f"{control_id}: result status differs from control receipt")
+            require(row.get("independent_replay") == "PASS",
+                    f"{control_id}: independent replay marker is missing")
+            for artifact_path, artifact_bytes in (
+                (input_path, input_bytes), (result_path, result_bytes)
+            ):
+                receipt["artifacts"].append({
+                    "path": str(artifact_path.relative_to(args.evidence_root)),
+                    "sha256": hashlib.sha256(artifact_bytes).hexdigest(),
+                    "bytes": len(artifact_bytes),
+                })
         chain_policy = json.loads((args.evidence_root /
             "auth-v20-chain-evidence/delegation-chain-differential.json").read_text(encoding="utf-8"))
         chain_policy_summary = chain_policy.get("summary", {})
@@ -320,6 +371,7 @@ def main() -> int:
             "required_specialist_receipts": len(REQUIRED_RECEIPTS),
             "aggregate_self_test_receipt_included": True,
             "total_receipts_hashed": len(receipt["receipts"]),
+            "raw_control_artifacts_verified": len(receipt["artifacts"]),
             "all_receipts_status_pass": True,
             "all_receipts_exact_head_match": True,
             "all_receipts_qualification_not_claimed": True,
