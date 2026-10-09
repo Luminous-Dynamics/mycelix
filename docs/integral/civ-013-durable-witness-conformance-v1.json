@@ -13,8 +13,8 @@
     },
     "byte_string_encoding": "u64 byte length, big-endian, followed by raw UTF-8 bytes",
     "option_digest_encoding": "0x00 for None; 0x01 followed by exactly 32 digest bytes for Some",
-    "record_domain_utf8": "mycelix-civ013-durable-record-v1\\u0000",
-    "fork_domain_utf8": "mycelix-civ013-durable-fork-v1\\u0000",
+    "record_domain_utf8": "mycelix-civ013-durable-record-v1\u0000",
+    "fork_domain_utf8": "mycelix-civ013-durable-fork-v1\u0000",
     "durable_commit_boundary": "SQLite transaction commits record status and accepted-head metadata; no separate model commit-marker digest in this profile"
   },
   "vectors": [
@@ -102,7 +102,7 @@
       "candidate_previous_record_digest": "0000000000000000000000000000000000000000000000000000000000000000"
     },
     {
-      "id": "DA007-generation-gap",
+      "id": "DA007-stale-expected-generation",
       "kind": "transition",
       "expected_outcome": "StalePredecessor",
       "accepted_generation": 1,
