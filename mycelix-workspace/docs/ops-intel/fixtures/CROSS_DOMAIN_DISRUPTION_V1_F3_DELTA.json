@@ -23,7 +23,9 @@
         "The observation supports the bounded statement that arrival was not observed by the specified deadline.",
         "It does not establish why the shipment failed to arrive.",
         "It does not establish malicious intent or responsibility."
-      ]
+      ],
+      "artifact_ref": "artifact:arrival-audit-B-01-20260601T1630Z",
+      "receipt_time_utc": "2026-06-01T16:32:00Z"
     }
   ],
   "reconciliation_expectations": [
