@@ -7,6 +7,17 @@
 **Golden vectors:** [civ-013-witness-conformance-v1.json](civ-013-witness-conformance-v1.json)  
 **Independent reference checker:** [verify_civ013_witness_conformance_v1.py](../../scripts/integral/verify_civ013_witness_conformance_v1.py)
 
+## Profile boundary
+
+This version is the **in-memory model-smoke profile**, derived from Symthaea's standalone CIV-013 model at commit `5c4b0c8b2c8ea2f66b97e9741c32b01c7a294ce7`. It is not yet the conformance profile for the host-local SQLite adapter added later in Symthaea PR [#7280](https://github.com/Luminous-Dynamics/symthaea/pull/7280), current head observed during review: `559fd1a92d413465d99f66ae5bd29570d12dcedd`.
+
+The two implementations are not byte-compatible at present:
+
+- This fixture uses record domain `mycelix-civ013-witness-record-v1\\0` and fork-evidence domain `mycelix-civ013-fork-evidence-v1\\0`; the SQLite adapter uses `mycelix-civ013-durable-record-v1\\0` and `mycelix-civ013-durable-fork-v1\\0`.
+- This model profile hashes a separate commit marker. The SQLite adapter uses an atomic SQLite transaction, a row status, and the accepted-head metadata as its local commit boundary.
+
+That may be a deliberate separation between the simulation and durable implementation, but it must remain explicit. **Passing these vectors does not qualify the SQLite adapter.** A separate durable-adapter profile should freeze its exact canonical record/fork encodings and map transactional prepare/accept/recovery behavior to the same abstract outcomes, or the two implementations should be intentionally harmonized with a reviewed compatibility rule.
+
 ## Purpose
 
 These deterministic vectors establish a shared reference for canonical witness-record encoding and selected protocol outcomes across Symthaea and Mycelix. Version 1 now covers 22 vectors, including cross-log successor rejection, monotonic receipt-tail history, invalid candidate-tail shape, explicit bootstrap-anchor binding, and external-anchor recovery conflicts. The checker is intentionally implemented separately from the Rust producer model, using only Python's standard library. It consumes serialized fixture bytes/fields and expected results; it does not import or execute the Rust reducer.
