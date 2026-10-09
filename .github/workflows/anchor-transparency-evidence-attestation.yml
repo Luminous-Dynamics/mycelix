@@ -107,6 +107,8 @@ jobs:
             --predicate-type "$PREDICATE_TYPE" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/anchor-transparency-evidence-attestation.yml" \
             --cert-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --source-ref "refs/heads/main" \
+            --deny-self-hosted-runners \
             --format json > execution-evidence/attestation-verification-result.json
           test -s execution-evidence/attestation-verification-result.json
 
