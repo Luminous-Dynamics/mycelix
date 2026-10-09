@@ -63,8 +63,35 @@ jobs:
               if not condition:
                   raise SystemExit("self-test report reject: " + message)
 
-          report = json.loads(Path("trusted-oracle-selftest-report.json").read_text(encoding="utf-8"))
+          def reject_duplicate_members(items):
+              result = {}
+              for key, value in items:
+                  if key in result:
+                      raise ValueError("duplicate JSON member: " + key)
+                  result[key] = value
+              return result
+
+          def strict_json(path):
+              return json.loads(Path(path).read_text(encoding="utf-8"),
+                                object_pairs_hook=reject_duplicate_members)
+
+          report = strict_json("trusted-oracle-selftest-report.json")
+          require(isinstance(report, dict), "report must be a JSON object")
+          require(
+              set(report) == {
+                  "schema", "claim_ceiling", "candidate_input_only", "candidate_code_executed",
+                  "profile", "vds_id", "vdp_id", "receipt_a", "receipt_b",
+                  "statement_sha256", "statement_issuer", "statement_subject", "entry_sha256",
+                  "independent_merkle_fixture", "positive_inclusion_matrix", "negative_controls",
+                  "negative_control_count", "tree_size_max_inclusive", "tree_size_limit_scope",
+                  "negative_controls_all_rejected", "candidate_qualification_manifest_sha256",
+                  "candidate_corpus_git_blob_sha", "issuer_signature_verification", "result",
+              },
+              "report top-level schema must be exact",
+          )
           require(report.get("schema") == "MYCELIX-SYM-CIVIC-019-TRUSTED-SEMANTIC-ORACLE-V6", "schema")
+          require(report.get("claim_ceiling") == "TRUSTED_SEMANTIC_ORACLE_RESEARCH_ONLY",
+                  "claim ceiling")
           require(report.get("candidate_input_only") is True, "candidate-input-only claim")
           require(report.get("candidate_code_executed") is False, "candidate code execution claim")
           require(report.get("result") == "PASS", "overall result")
@@ -78,12 +105,37 @@ jobs:
           require(matrix.get("tree_sizes_tested") == list(range(1, 17)), "positive inclusion tree sizes")
           require(matrix.get("case_count") == 136, "positive inclusion case count")
           require(matrix.get("all_pass") is True, "positive inclusion matrix all pass")
-          trusted_manifest = json.loads(Path(
+          trusted_manifest = strict_json(
               "mycelix-workspace/docs/civic-resilience/sym_civic_019_trusted_admission_v1.json"
-          ).read_text(encoding="utf-8"))
-          trusted_roots = trusted_manifest["trusted_semantic_oracle"]["positive_inclusion_matrix"][
-              "expected_root_sha256_by_tree_size"
-          ]
+          )
+          require(isinstance(trusted_manifest, dict), "trusted manifest must be a JSON object")
+          require(
+              set(trusted_manifest) == {
+                  "schema", "qualification_workflow", "trusted_admission_workflow",
+                  "pr_number", "parent_subject", "candidate_subject", "expected_changed_files",
+                  "expected_blob_sha", "required_successful_jobs", "semantic_expectations",
+                  "trusted_semantic_oracle",
+              },
+              "trusted manifest top-level schema must be exact",
+          )
+          trusted_oracle = trusted_manifest["trusted_semantic_oracle"]
+          require(
+              set(trusted_oracle) == {
+                  "path", "claim_ceiling", "candidate_code_executed", "negative_control_count",
+                  "tree_size_max_inclusive", "positive_inclusion_matrix",
+              },
+              "trusted oracle schema must be exact",
+          )
+          trusted_matrix = trusted_oracle["positive_inclusion_matrix"]
+          require(
+              set(trusted_matrix) == {
+                  "tree_sizes", "expected_case_count", "expected_root_sha256_by_tree_size",
+              },
+              "trusted matrix schema must be exact",
+          )
+          trusted_roots = trusted_matrix["expected_root_sha256_by_tree_size"]
+          require(set(trusted_roots) == {str(size) for size in range(1, 17)},
+                  "trusted root vector keys must be exact")
           require(
               matrix.get("trusted_expected_roots_sha256_by_tree_size") == trusted_roots,
               "report root commitments must equal trusted manifest",
@@ -96,8 +148,17 @@ jobs:
           require(isinstance(cases, list) and len(cases) == 136,
                   "positive inclusion matrix rows")
           require(
-              all(isinstance(row, dict) and row.get("verdict") == "PASS" for row in cases),
-              "every positive inclusion case must pass",
+              all(
+                  isinstance(row, dict)
+                  and set(row) == {
+                      "tree_size", "leaf_index", "path_length", "expected_root_sha256",
+                      "independently_computed_root_sha256", "reference_root_matches_trusted",
+                      "observed_root_sha256", "verdict",
+                  }
+                  and row.get("verdict") == "PASS"
+                  for row in cases
+              ),
+              "every positive inclusion case must have the exact schema and pass",
           )
           expected_pairs = [
               (tree_size, leaf_index)
@@ -169,11 +230,12 @@ jobs:
           )
           require(
               all(
-                  row.get("verdict") == "REJECT"
+                  set(row) == {"name", "verdict", "reason"}
+                  and row.get("verdict") == "REJECT"
                   and row.get("reason") == expected_negative_reasons[row["name"]]
                   for row in negative_controls
               ),
-              "each negative control must reach its exact expected rejection reason",
+              "each negative control must have exact schema and reach its expected rejection reason",
           )
           print("non-authoritative trusted-oracle self-test contract: PASS")
           PY
