@@ -14,6 +14,7 @@ Use one coherent Holochain 0.7 generation across the Pulse Rust workspace and it
 - `holochain_serialized_bytes`: `0.0.57`
 - Lair: `0.7.1`
 - JavaScript client, where used: `@holochain/client 0.21.0`
+- Node.js development/runtime tooling: `24` (per the official 0.7 Holonix migration example)
 
 Primary migration source: https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/
 
