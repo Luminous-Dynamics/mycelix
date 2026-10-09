@@ -154,7 +154,7 @@ class TrustedSelfTestReportCheckerTests(unittest.TestCase):
 
     def test_duplicate_positive_pair_is_rejected(self):
         report = copy.deepcopy(self.report)
-        report["positive_inclusion_matrix"]["cases"][1]["leaf_index"] = 0
+        report["positive_inclusion_matrix"]["cases"][2]["leaf_index"] = 0
         self.rejected(report)
 
     def test_boolean_does_not_count_as_integer_leaf_index(self):
