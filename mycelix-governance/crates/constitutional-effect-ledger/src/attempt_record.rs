@@ -130,6 +130,7 @@ pub struct TerminalEvidenceV1 {
     provider_environment: String,
     provider_audience: String,
     adapter_identity: String,
+    provider_idempotency_key: String,
     outcome: TerminalOutcomeV1,
     evidence_commitment: String,
     verifier_identity: String,
@@ -140,10 +141,12 @@ impl TerminalEvidenceV1 {
     pub fn from_attempt(
         action_key: &ActionKeyV1,
         attempt: &AttemptRecordV1,
+        provider_idempotency_key: impl Into<String>,
         outcome: TerminalOutcomeV1,
         evidence_commitment: impl Into<String>,
         verifier_identity: impl Into<String>,
     ) -> Result<Self, String> {
+        let provider_idempotency_key = provider_idempotency_key.into();
         let evidence_commitment = evidence_commitment.into();
         let verifier_identity = verifier_identity.into();
         require_tagged_hash("action_key_digest", action_key.digest(), crate::ACTION_KEY_PREFIX)?;
@@ -152,11 +155,16 @@ impl TerminalEvidenceV1 {
         if attempt.action_key_digest != action_key.digest() {
             return Err("terminal evidence action key does not match attempt".into());
         }
+        require_opaque(
+            "provider_idempotency_key",
+            &provider_idempotency_key,
+            MAX_REF_LEN,
+        )?;
         require_opaque("evidence_commitment", &evidence_commitment, MAX_REF_LEN)?;
         require_opaque("verifier_identity", &verifier_identity, MAX_REF_LEN)?;
 
         let mut hasher = blake3::Hasher::new();
-        hasher.update(b"MYCELIX-CONSTITUTIONAL-TERMINAL-EVIDENCE\0V2\0");
+        hasher.update(b"MYCELIX-CONSTITUTIONAL-TERMINAL-EVIDENCE\0V3\0");
         hasher.update(&ATTEMPT_RECORD_SCHEMA_VERSION.to_be_bytes());
         push_str(&mut hasher, action_key.digest());
         push_str(&mut hasher, &attempt.attempt_identity);
@@ -166,6 +174,7 @@ impl TerminalEvidenceV1 {
         push_str(&mut hasher, &attempt.provider_environment);
         push_str(&mut hasher, &attempt.provider_audience);
         push_str(&mut hasher, &attempt.adapter_identity);
+        push_str(&mut hasher, &provider_idempotency_key);
         hasher.update(&[terminal_outcome_tag(outcome)]);
         push_str(&mut hasher, &evidence_commitment);
         push_str(&mut hasher, &verifier_identity);
@@ -179,10 +188,11 @@ impl TerminalEvidenceV1 {
             provider_environment: attempt.provider_environment.clone(),
             provider_audience: attempt.provider_audience.clone(),
             adapter_identity: attempt.adapter_identity.clone(),
+            provider_idempotency_key,
             outcome,
             evidence_commitment,
             verifier_identity,
-            digest: tagged("constitutional-terminal-evidence-v2:", hasher.finalize()),
+            digest: tagged("constitutional-terminal-evidence-v3:", hasher.finalize()),
         })
     }
 
@@ -196,6 +206,10 @@ impl TerminalEvidenceV1 {
 
     pub fn outcome(&self) -> TerminalOutcomeV1 {
         self.outcome
+    }
+
+    pub fn provider_idempotency_key(&self) -> &str {
+        &self.provider_idempotency_key
     }
     pub fn operation_id(&self) -> &str { &self.operation_id }
     pub fn native_replay_identity(&self) -> &str { &self.native_replay_identity }
@@ -1763,12 +1777,45 @@ mod tests {
         TerminalEvidenceV1::from_attempt(
             &action,
             &record,
+            format!("provider-idempotency-{attempt_id}"),
             outcome,
             format!("provider-evidence-{attempt_id}"),
             "qualified-verifier-v1",
         )
         .unwrap()
     }
+    #[test]
+    fn terminal_evidence_digest_commits_to_provider_idempotency_key() {
+        let action = key();
+        let owner = attempt("terminal-evidence-key");
+        let record = record(
+            "terminal-evidence-key",
+            "operation-terminal-evidence-key",
+            AttemptRecordState::Invoked,
+        );
+        let first = TerminalEvidenceV1::from_attempt(
+            &action,
+            &record,
+            "provider-idempotency-key-a",
+            TerminalOutcomeV1::Executed,
+            "provider-evidence",
+            "qualified-verifier-v1",
+        )
+        .unwrap();
+        let second = TerminalEvidenceV1::from_attempt(
+            &action,
+            &record,
+            "provider-idempotency-key-b",
+            TerminalOutcomeV1::Executed,
+            "provider-evidence",
+            "qualified-verifier-v1",
+        )
+        .unwrap();
+
+        assert_eq!(first.provider_idempotency_key(), "provider-idempotency-key-a");
+        assert_ne!(first.digest(), second.digest());
+    }
+
     fn record(id: &str, operation: &str, state: AttemptRecordState) -> AttemptRecordV1 {
         let key = key();
         AttemptRecordV1::new(
