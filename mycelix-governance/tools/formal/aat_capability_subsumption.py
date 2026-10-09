@@ -20,6 +20,8 @@ MAX_CONSTRAINTS_PER_TOOL = 64
 MAX_CONSTRAINT_VALUE_DEPTH = 32
 MAX_CONSTRAINT_VALUE_NODES = 512
 MAX_TOOL_NAME_BYTES = 256
+MAX_INVOCATION_VALUE_DEPTH = 32
+MAX_INVOCATION_VALUE_NODES = 4096
 
 CORE_TYPES = {
     "exact", "range", "one_of", "not_one_of", "contains",
@@ -52,23 +54,30 @@ def _kind(value: Any) -> str:
 
 
 def strict_equal(left: Any, right: Any) -> bool:
-    """JSON-semantic equality without Python's bool-is-int equality pitfall."""
-    left_kind, right_kind = _kind(left), _kind(right)
-    if left_kind != right_kind:
-        return False
-    if left_kind == "object":
-        if set(left) != set(right):
+    """Iterative JSON-semantic equality without bool/int or recursion pitfalls."""
+    pending: list[tuple[Any, Any]] = [(left, right)]
+    while pending:
+        left_value, right_value = pending.pop()
+        left_kind, right_kind = _kind(left_value), _kind(right_value)
+        if left_kind != right_kind:
             return False
-        return all(strict_equal(left[key], right[key]) for key in left)
-    if left_kind == "array":
-        return len(left) == len(right) and all(
-            strict_equal(a, b) for a, b in zip(left, right)
-        )
-    if left_kind == "number":
-        return left == right
-    if left_kind == "unsupported":
-        return False
-    return left == right
+        if left_kind == "object":
+            if set(left_value) != set(right_value):
+                return False
+            pending.extend((left_value[key], right_value[key]) for key in left_value)
+            continue
+        if left_kind == "array":
+            if len(left_value) != len(right_value):
+                return False
+            pending.extend(zip(left_value, right_value))
+            continue
+        if left_kind == "number":
+            if left_value != right_value:
+                return False
+            continue
+        if left_kind == "unsupported" or left_value != right_value:
+            return False
+    return True
 
 
 def _has_nonfinite_number(value: Any) -> bool:
@@ -85,23 +94,26 @@ def _has_nonfinite_number(value: Any) -> bool:
     return False
 
 
-def _validate_constraint_value_tree(value: Any, *, path: str, constraint_type: str) -> None:
-    """Bound nested JSON values embedded in list-valued core constraints."""
+def _validate_constraint_value_tree(value: Any, *, path: str, constraint_type: str,
+                                   max_depth: int = MAX_CONSTRAINT_VALUE_DEPTH,
+                                   max_nodes: int = MAX_CONSTRAINT_VALUE_NODES,
+                                   error_prefix: str = "constraint") -> None:
+    """Bound JSON values embedded in constraints or supplied invocation arguments."""
     stack: list[tuple[Any, int, str]] = [(value, 1, path)]
     nodes = 0
     while stack:
         current, depth, current_path = stack.pop()
         nodes += 1
-        if nodes > MAX_CONSTRAINT_VALUE_NODES:
+        if nodes > max_nodes:
             raise CapabilityError(
-                "constraint-value-node-limit-exceeded",
-                f"constraint values exceed {MAX_CONSTRAINT_VALUE_NODES} JSON nodes",
+                f"{error_prefix}-value-node-limit-exceeded",
+                f"{error_prefix} JSON values exceed {max_nodes} nodes",
                 current_path,
             )
-        if depth > MAX_CONSTRAINT_VALUE_DEPTH:
+        if depth > max_depth:
             raise CapabilityError(
-                "constraint-value-depth-exceeded",
-                f"constraint values exceed depth {MAX_CONSTRAINT_VALUE_DEPTH}",
+                f"{error_prefix}-value-depth-exceeded",
+                f"{error_prefix} JSON values exceed depth {max_depth}",
                 current_path,
             )
         if current is None or type(current) in (bool, int, str):
@@ -528,6 +540,14 @@ def validate_invocation(tools: dict[str, Any], tool_name: Any, args: Any) -> Non
         raise CapabilityError("tool-not-authorized", f"tool {tool_name!r} is not authorized")
     if not isinstance(args, dict):
         raise CapabilityError("invocation-args-invalid", "invocation args must be an object")
+    _validate_constraint_value_tree(
+        args,
+        path="$.invocation.args",
+        constraint_type="invocation",
+        max_depth=MAX_INVOCATION_VALUE_DEPTH,
+        max_nodes=MAX_INVOCATION_VALUE_NODES,
+        error_prefix="invocation",
+    )
     constraints = tools[tool_name]
     if constraints:
         if set(args) != set(constraints):
