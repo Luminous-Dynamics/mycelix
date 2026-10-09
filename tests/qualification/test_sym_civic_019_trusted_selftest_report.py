@@ -263,6 +263,16 @@ class TrustedSelfTestReportCheckerTests(unittest.TestCase):
         report["negative_controls"][0]["reason"] = "some other reason"
         self.rejected(report)
 
+    def test_float_does_not_count_as_integer_case_count(self):
+        report = copy.deepcopy(self.report)
+        report["positive_inclusion_matrix"]["case_count"] = 136.0
+        self.rejected(report)
+
+    def test_float_does_not_count_as_integer_tree_size_cap(self):
+        report = copy.deepcopy(self.report)
+        report["tree_size_max_inclusive"] = float(2**62)
+        self.rejected(report)
+
     def test_receipt_issuer_must_match_trusted_identity(self):
         report = copy.deepcopy(self.report)
         report["receipt_a"]["issuer"] = "https://attacker.invalid"
