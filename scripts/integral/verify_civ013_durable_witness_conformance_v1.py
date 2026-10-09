@@ -358,6 +358,14 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         return "IdempotentAcceptedHistory"
 
     if kind == "anchor_ahead_after_prepare":
+        if (
+            type(vector.get("accepted_generation")) is not int
+            or type(vector.get("candidate_generation")) is not int
+            or vector["candidate_generation"] != vector["accepted_generation"] + 1
+            or vector.get("stage") != "after_prepare"
+            or vector.get("expected_fork_evidence") is not False
+        ):
+            return "InvalidInput"
         if vector["observed_anchor_log_id"] != vector["log_id"]:
             return "ExternalAnchorMismatch"
         if vector["observed_anchor_generation"] > vector["candidate_generation"]:
