@@ -102,6 +102,30 @@ jobs:
           require(report.get("negative_control_count") == 11, "negative-control count")
           matrix = report.get("positive_inclusion_matrix")
           require(isinstance(matrix, dict), "positive inclusion matrix report")
+          require(
+              set(matrix) == {
+                  "tree_sizes_tested", "case_count", "all_pass",
+                  "trusted_expected_roots_sha256_by_tree_size",
+                  "reference_roots_all_match_trusted", "cases",
+              },
+              "positive inclusion matrix schema must be exact",
+          )
+          for digest_field in (
+              "statement_sha256", "entry_sha256",
+              "candidate_qualification_manifest_sha256",
+          ):
+              require(
+                  isinstance(report.get(digest_field), str)
+                  and len(report[digest_field]) == 64
+                  and all(ch in "0123456789abcdef" for ch in report[digest_field]),
+                  digest_field + " must be a lowercase SHA-256 digest",
+              )
+          require(
+              isinstance(report.get("candidate_corpus_git_blob_sha"), str)
+              and len(report["candidate_corpus_git_blob_sha"]) == 40
+              and all(ch in "0123456789abcdef" for ch in report["candidate_corpus_git_blob_sha"]),
+              "candidate corpus blob identity must be a lowercase Git SHA-1",
+          )
           require(matrix.get("tree_sizes_tested") == list(range(1, 17)), "positive inclusion tree sizes")
           require(matrix.get("case_count") == 136, "positive inclusion case count")
           require(matrix.get("all_pass") is True, "positive inclusion matrix all pass")
@@ -136,6 +160,15 @@ jobs:
           trusted_roots = trusted_matrix["expected_root_sha256_by_tree_size"]
           require(set(trusted_roots) == {str(size) for size in range(1, 17)},
                   "trusted root vector keys must be exact")
+          require(
+              all(
+                  isinstance(digest, str)
+                  and len(digest) == 64
+                  and all(ch in "0123456789abcdef" for ch in digest)
+                  for digest in trusted_roots.values()
+              ),
+              "every trusted root commitment must be a lowercase SHA-256 digest",
+          )
           require(
               matrix.get("trusted_expected_roots_sha256_by_tree_size") == trusted_roots,
               "report root commitments must equal trusted manifest",
