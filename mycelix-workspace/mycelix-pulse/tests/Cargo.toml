@@ -25,6 +25,7 @@ path = "sweettest_mail_security.rs"
 # the action-model / FlatOp compatibility work required by this migration.
 holochain = { version = "=0.7.0", features = ["sweettest"] }
 holochain_types = { version = "=0.7.0" }
+holochain_keystore = { version = "=0.7.0" }
 holo_hash = { version = "=0.7.0" }
 
 # hdi for integrity-zome types imported into tests (Timestamp, AgentPubKey, etc.)
