@@ -383,6 +383,7 @@ async function main() {
         'queue dialog traps Tab and Shift+Tab, Escape closes it, and focus returns',
         'queue selection and current-row removal preserve exact next source',
         'Clear releases src and resets actual currentTime',
+        'different song records on the same URL reset the physical playhead and retain duration',
       ],
       mediaRequests: Object.fromEntries(requestCounts),
       pageErrors: pageErrors.length,
