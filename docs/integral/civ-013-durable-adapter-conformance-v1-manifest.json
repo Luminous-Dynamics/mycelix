@@ -5,7 +5,7 @@
   "source_adapter_commit": "d4ddfee77a6c6f4851913be0dae965d31807aabd",
   "fixture_path": "docs/integral/civ-013-durable-adapter-conformance-v1.json",
   "verifier_path": "scripts/integral/verify_civ013_durable_adapter_conformance_v1.py",
-  "checker_commit_sha": "PENDING_FREEZE",
+  "checker_commit_sha": "da89de79a39f028ea97511829da8aa6e43847ce5",
   "fixture_sha256": "dff9fe3e1b85cf470c56fb238a8731b172b90e5120a957de92e0c824f36e971d",
   "verifier_sha256": "f51e8cfef0d1eb6458fbb71c74abe9f56b6a05127fe31f7fd1c6ad1048a7b8f1",
   "expected_record_count": 2,
