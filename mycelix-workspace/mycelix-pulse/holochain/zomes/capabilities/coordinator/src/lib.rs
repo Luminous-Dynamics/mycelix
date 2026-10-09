@@ -1023,7 +1023,21 @@ fn find_cap_claim(grantor: &AgentPubKey, tag: &str) -> ExternResult<Option<CapCl
 #[hdk_extern]
 pub fn probe_remote_capability(capability_hash: ActionHash) -> ExternResult<CapabilityProbeResult> {
     let local_agent = agent_info()?.agent_initial_pubkey;
-    let (_latest_hash, capability) = resolve_latest_capability(capability_hash)?;
+
+    // Deliberately load the original capability identity, not the latest
+    // application projection. This probe exists to test actual conductor
+    // enforcement even while the caller's DHT view of later updates is stale
+    // or incomplete. Mutable status fields are not used to authorize the call.
+    let record = get(capability_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Capability record not found".to_string())
+    ))?;
+    let capability: MailboxCapability = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Unexpected entry type for capability record".to_string()
+        )))?;
 
     if capability.grantee != local_agent {
         return Err(wasm_error!(WasmErrorInner::Guest(
