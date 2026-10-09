@@ -2316,7 +2316,7 @@ async fn phase0_two_conductor_harness_smoke() {
 
 async fn phase0_two_conductor_harness_smoke_inner() {
     eprintln!("pulse-smoke: starting two local conductors");
-    let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+    let mut conductors = SweetConductorBatch::standard(2).await;
     eprintln!("pulse-smoke: loading packed DNA");
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
         .await
@@ -2394,7 +2394,7 @@ async fn phase0_two_conductor_harness_smoke_inner() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Phase 0.5 — requires running Holochain conductor; env prereqs in Appendix A"]
 async fn phase0_forged_inbox_link_rejected() {
-    let mut conductors = SweetConductorBatch::from_standard_config_rendezvous(2).await;
+    let mut conductors = SweetConductorBatch::standard(2).await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
         .await
         .expect("DNA bundle must load");
@@ -2814,7 +2814,7 @@ where
 async fn phase0_v2_hybrid_pqc_transport() {
     tokio::time::timeout(std::time::Duration::from_secs(1500), async {
         eprintln!("pulse-v2: starting two local conductors");
-        let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+        let mut conductors = SweetConductorBatch::standard(2).await;
         eprintln!("pulse-v2: loading alpha DNA");
         let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
             .await
@@ -3008,7 +3008,7 @@ async fn phase0_v2_hybrid_pqc_transport() {
 async fn phase0_v2_negative_paths() {
     tokio::time::timeout(std::time::Duration::from_secs(1500), async {
         eprintln!("pulse-v2-neg: starting two local conductors");
-        let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+        let mut conductors = SweetConductorBatch::standard(2).await;
         let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
             .await
             .expect("fresh DNA bundle must load");
@@ -3197,7 +3197,7 @@ async fn phase0_v2_negative_paths() {
 async fn phase0_v2_conductor_restart_recovery() {
     tokio::time::timeout(std::time::Duration::from_secs(2700), async {
         eprintln!("pulse-v2-restart: starting two local conductors");
-        let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+        let mut conductors = SweetConductorBatch::standard(2).await;
         let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
             .await
             .expect("fresh DNA bundle must load");
@@ -3455,7 +3455,7 @@ async fn phase0_v2_conductor_restart_recovery() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Phase 0.2 — requires running Holochain conductor; env prereqs in Appendix A"]
 async fn phase0_alice_sends_bob_receives() {
-    let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+    let mut conductors = SweetConductorBatch::standard(2).await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
         .await
         .expect("DNA bundle must load");
@@ -3706,7 +3706,7 @@ fn compute_delivery_receipt_signing_content(
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Phase 1.1 — requires running Holochain conductor; env prereqs in Appendix A"]
 async fn phase1_delivery_receipt_roundtrip() {
-    let mut conductors = SweetConductorBatch::from_standard_config_rendezvous(2).await;
+    let mut conductors = SweetConductorBatch::standard(2).await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
         .await
         .expect("DNA bundle must load");
