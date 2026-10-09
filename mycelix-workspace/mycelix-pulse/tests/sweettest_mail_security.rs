@@ -1001,7 +1001,7 @@ async fn test_capability_probe_reports_function_not_granted_for_send_only_capabi
 }
 
 /// Capability grant/revoke lifecycle: prove conductor authorization changes,
-/// not merely an application-level revoked flag.
+/// not merely an application-level revoked flag. The no-data probe avoids fetching inbox content.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain 0.7 conductor (nix develop)"]
 async fn test_capability_grant_and_revocation_lifecycle() {
@@ -1083,11 +1083,11 @@ async fn test_capability_grant_and_revocation_lifecycle() {
             capability_hash.clone(),
         )
         .await
-        .expect("the grantee should be able to make the remote inbox call");
+        .expect("the grantee should be able to make the assigned no-data probe call");
     assert_eq!(
         before,
         CapabilityProbeResult::Authorized,
-        "same authenticated remote call should succeed before revocation"
+        "same authenticated no-data probe call should succeed before revocation"
     );
 
     let revoked_hash: ActionHash = conductor
@@ -1110,7 +1110,7 @@ async fn test_capability_grant_and_revocation_lifecycle() {
     assert_eq!(
         after,
         CapabilityProbeResult::Unauthorized,
-        "the identical remote call must be Unauthorized after conductor grant deletion"
+        "the identical no-data probe call must be Unauthorized after conductor grant deletion"
     );
 
     // The conductor-level check above is synchronous; DHT projection convergence
