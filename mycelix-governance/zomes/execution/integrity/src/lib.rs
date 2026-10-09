@@ -762,6 +762,20 @@ fn validate_create_timelock(
 }
 
 /// Validate timelock update
+pub fn check_prepared_timelock_predecessor(
+    updated: &Timelock,
+    original_action_hash: &ActionHash,
+) -> Result<(), String> {
+    if updated.status == TimelockStatus::Prepared
+        && updated.prepared_from_action_hash.as_ref() != Some(original_action_hash)
+    {
+        return Err(
+            "Prepared Timelock predecessor must equal the exact original action hash".into(),
+        );
+    }
+    Ok(())
+}
+
 fn validate_update_timelock(
     action: Update,
     timelock: Timelock,
@@ -782,12 +796,8 @@ fn validate_update_timelock(
             "Only the timelock creator can update the timelock".into(),
         ));
     }
-    if timelock.status == TimelockStatus::Prepared
-        && timelock.prepared_from_action_hash.as_ref() != Some(&original_action_hash)
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Prepared Timelock predecessor must equal the exact original action hash".into(),
-        ));
+    if let Err(reason) = check_prepared_timelock_predecessor(&timelock, &original_action_hash) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
     }
 
     match check_update_timelock(&original_timelock, &timelock) {
@@ -1334,7 +1344,18 @@ mod tests {
 
         let mut prepared = ready.clone();
         prepared.status = TimelockStatus::Prepared;
+        prepared.prepared_from_action_hash = Some(ActionHash::from_raw_36(vec![2; 36]));
         assert!(check_update_timelock(&ready, &prepared).is_ok());
+        assert!(check_prepared_timelock_predecessor(
+            &prepared,
+            &ActionHash::from_raw_36(vec![2; 36]),
+        )
+        .is_ok());
+        assert!(check_prepared_timelock_predecessor(
+            &prepared,
+            &ActionHash::from_raw_36(vec![3; 36]),
+        )
+        .is_err());
 
         let mut executed = ready.clone();
         executed.status = TimelockStatus::Executed;
@@ -1424,7 +1445,13 @@ mod tests {
 
         let mut timelock = make_timelock();
         timelock.status = TimelockStatus::Prepared;
+        timelock.prepared_from_action_hash = Some(ActionHash::from_raw_36(vec![2; 36]));
         assert!(check_resolution_timelock_scope(&valid, &timelock).is_ok());
+        assert!(check_resolution_source_action_linkage(&execution, &timelock).is_ok());
+        let mut mismatched_predecessor = timelock.clone();
+        mismatched_predecessor.prepared_from_action_hash =
+            Some(ActionHash::from_raw_36(vec![3; 36]));
+        assert!(check_resolution_source_action_linkage(&execution, &mismatched_predecessor).is_err());
         let mut wrong_timelock_status = timelock.clone();
         wrong_timelock_status.status = TimelockStatus::Cancelled;
         assert!(check_resolution_timelock_scope(&valid, &wrong_timelock_status).is_err());
