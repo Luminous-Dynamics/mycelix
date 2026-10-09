@@ -219,6 +219,74 @@ def verify_candidate_policy_blob(content: bytes) -> str:
     return observed
 
 
+def candidate_regular_file(
+    candidate_root: pathlib.Path,
+    relative_path: str,
+    label: str,
+) -> pathlib.Path:
+    """Resolve one expected candidate file without following any tree symlink."""
+    relative = pathlib.PurePosixPath(relative_path)
+    assert (
+        relative_path
+        and not relative.is_absolute()
+        and ".." not in relative.parts
+        and relative.as_posix() == relative_path
+        and "\\\\" not in relative_path
+    ), f"candidate path is not canonical relative path: {relative_path!r}"
+
+    root = candidate_root.resolve(strict=True)
+    current = root
+    for index, part in enumerate(relative.parts):
+        current = current / part
+        assert not current.is_symlink(), (
+            f"candidate path component is symlinked: {relative_path}; component={part}"
+        )
+        if index < len(relative.parts) - 1:
+            assert current.is_dir(), (
+                f"candidate path parent is missing or not a directory: {relative_path}"
+            )
+        else:
+            assert current.is_file(), (
+                f"candidate regular file is missing or not a file: {relative_path}"
+            )
+
+    resolved = current.resolve(strict=True)
+    assert resolved.is_relative_to(root), (
+        f"candidate path escapes candidate root: {relative_path}"
+    )
+    return current
+
+
+def exercise_candidate_path_guard() -> None:
+    """Negative controls for path traversal and symlinked intermediate directories."""
+    with tempfile.TemporaryDirectory() as scratch:
+        scratch_root = pathlib.Path(scratch)
+        candidate_root = scratch_root / "candidate"
+        outside_root = scratch_root / "outside"
+        candidate_root.mkdir()
+        outside_root.mkdir()
+        outside_file = outside_root / "program.py"
+        outside_file.write_text("trusted-looking bytes\\n", encoding="utf-8")
+        (candidate_root / "scripts").symlink_to(
+            outside_root, target_is_directory=True
+        )
+
+        assert_rejected(
+            lambda: candidate_regular_file(
+                candidate_root, "scripts/program.py", "path-containment fixture"
+            ),
+            "candidate path component is symlinked",
+            "candidate path guard accepted a symlinked intermediate directory",
+        )
+        assert_rejected(
+            lambda: candidate_regular_file(
+                candidate_root, "../outside/program.py", "path-traversal fixture"
+            ),
+            "candidate path is not canonical relative path",
+            "candidate path guard accepted parent-directory traversal",
+        )
+
+
 def verify_candidate_trusted_program_blobs(
     candidate_root: pathlib.Path,
     candidate_policy: dict,
@@ -240,9 +308,8 @@ def verify_candidate_trusted_program_blobs(
         assert entry.get("path") == path, (
             f"candidate trusted program path mismatch: {path}"
         )
-        source_path = candidate_root / path
-        assert source_path.is_file() and not source_path.is_symlink(), (
-            f"candidate trusted program missing or symlinked: {path}"
+        source_path = candidate_regular_file(
+            candidate_root, path, "trusted program"
         )
         observed_blob = git_blob_sha1(source_path.read_bytes())
         expected_blob = entry.get("blob_sha")
@@ -1198,21 +1265,20 @@ def exercise_main_record_guards(
 
 
 def run(candidate_root: pathlib.Path) -> None:
-    verifier_path = candidate_root / "scripts/integral/verify_d6u_trusted_artifacts.py"
-    fetcher_path = candidate_root / "scripts/integral/fetch_d6u_trusted_artifact.py"
-    workflow_path = candidate_root / ".github/workflows/d6u-trusted-evidence-attestation.yml"
-    policy_path = candidate_root / "docs/integral/d6u-trusted-builder-policy.json"
-    assert policy_path.is_file() and not policy_path.is_symlink(), (
-        f"candidate trusted policy missing or symlinked: {policy_path}"
+    exercise_candidate_path_guard()
+    policy_path = candidate_regular_file(
+        candidate_root, "docs/integral/d6u-trusted-builder-policy.json", "policy"
     )
-    assert verifier_path.is_file() and not verifier_path.is_symlink(), (
-        f"candidate verifier missing or symlinked: {verifier_path}"
+    verifier_path = candidate_regular_file(
+        candidate_root, "scripts/integral/verify_d6u_trusted_artifacts.py", "verifier"
     )
-    assert fetcher_path.is_file() and not fetcher_path.is_symlink(), (
-        f"candidate artifact fetcher missing or symlinked: {fetcher_path}"
+    fetcher_path = candidate_regular_file(
+        candidate_root, "scripts/integral/fetch_d6u_trusted_artifact.py", "artifact fetcher"
     )
-    assert workflow_path.is_file() and not workflow_path.is_symlink(), (
-        f"candidate trusted workflow missing or symlinked: {workflow_path}"
+    workflow_path = candidate_regular_file(
+        candidate_root,
+        ".github/workflows/d6u-trusted-evidence-attestation.yml",
+        "trusted workflow",
     )
 
     p = policy()
