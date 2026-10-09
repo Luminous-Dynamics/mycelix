@@ -97,6 +97,23 @@ impl PlayerState {
         });
     }
 
+    /// Clear playback selection and reset all state tied to the active track.
+    /// Shared by the explicit queue-clear action and final-item removal.
+    fn clear_playback(&self) {
+        self.queue_index.set(None);
+        self.current_song.set(None);
+        self.is_playing.set(false);
+        self.progress.set(0.0);
+        self.duration.set(0.0);
+    }
+
+    /// Clear the queue and all playback state derived from it.
+    pub fn clear_queue(&self) {
+        self.queue.set(Vec::new());
+        self.clear_playback();
+        self.show_queue.set(false);
+    }
+
     pub fn play_all(&self, songs: Vec<Song>) {
         if songs.is_empty() {
             return;
@@ -231,13 +248,7 @@ impl PlayerState {
                     self.progress.set(0.0);
                 }
             }
-            QueueRemovalAction::ClearPlayback => {
-                self.queue_index.set(None);
-                self.current_song.set(None);
-                self.is_playing.set(false);
-                self.progress.set(0.0);
-                self.duration.set(0.0);
-            }
+            QueueRemovalAction::ClearPlayback => self.clear_playback(),
         }
     }
 }
@@ -388,6 +399,32 @@ mod player_queue_tests {
             assert_eq!(queue.len(), 2);
             assert_eq!(queue[0].audio_url(), "https://ipfs.io/ipfs/QmOld");
             assert_eq!(queue[1].audio_url(), "https://ipfs.io/ipfs/QmNew");
+        });
+    }
+
+    #[test]
+    fn clear_queue_resets_selection_timing_and_visibility_together() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let player = PlayerState::new();
+            let song = test_song("clear-me", "QmClear");
+            player.queue.set(vec![song.clone()]);
+            player.current_song.set(Some(song));
+            player.queue_index.set(Some(0));
+            player.is_playing.set(true);
+            player.progress.set(42.5);
+            player.duration.set(180.0);
+            player.show_queue.set(true);
+
+            player.clear_queue();
+
+            assert!(player.queue.get_untracked().is_empty());
+            assert_eq!(player.current_song.get_untracked().map(|song| song.song_hash), None);
+            assert_eq!(player.queue_index.get_untracked(), None);
+            assert!(!player.is_playing.get_untracked());
+            assert_eq!(player.progress.get_untracked(), 0.0);
+            assert_eq!(player.duration.get_untracked(), 0.0);
+            assert!(!player.show_queue.get_untracked());
         });
     }
 
