@@ -48,12 +48,16 @@ The candidate now includes an exhaustive, deterministic differential corpus:
 For each supported same-operator pair, the production reference is compared with two separate implementations: a raw-JSON denotation evaluator that does not call the oracle's atom matcher, and a brute-force injective matching reference that enumerates candidate injections instead of using the oracle's augmenting-path algorithm. Cross-operator compound pairs are required to return unsupported/fail-closed.
 
 The corpus checks:
-1. the reported authority-expansion status against independently computed child-minus-parent denotation;
+1. the reported authority-expansion status and denotation cardinalities against independently computed child-minus-parent denotation;
 2. that any authority-expansion witness is the first request under the frozen total order;
 3. that structural matching agrees with brute-force existence of the declared structural witness;
-4. that clause-order permutations preserve status, witness and ID-mapped matching;
-5. that a structural false negative has no request in child-minus-parent;
-6. that a mismatch is reduced deterministically by deleting clauses and then reducing atom dimensions while preserving the mismatch category.
+4. that emitted conjunction witness maps use known clause IDs, use each child witness at most once, and contain only independently valid edges;
+5. that first-divergence diagnostics, rejected parent constraints, child-supporting clauses, and minimal witness cores match independent replay;
+6. that clause-order permutations preserve status, witness and ID-mapped matching;
+7. that a structural false negative has no request in child-minus-parent;
+8. that a mismatch is reduced deterministically by deleting clauses and then reducing atom dimensions while preserving the failure category.
+
+A second mutation guard deliberately tries 14 changes to the frozen differential manifest, including universe shrinkage, weaker atoms, dropped operators, reduced pair counts, changed generation semantics and missing invariants. Each mutation must be rejected by the checker; its result is recorded in a hash-bound JSON receipt.
 
 When a differential mismatch occurs, the job emits the original scenario, minimized scenario, observed output and minimized mismatch to the evidence artifact. The shrinker is a deterministic delta reducer; minimality is relative to its reduction operations, not a claim of globally minimum representation.
 
