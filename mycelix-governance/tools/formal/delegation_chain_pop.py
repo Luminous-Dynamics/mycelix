@@ -203,6 +203,9 @@ def _consume_pop_jti(database_path: Path, scope: str, jti: str, iat: int,
     if not isinstance(scope, str) or not scope:
         raise PopVerificationError("pop-replay-scope-invalid",
                                    "replay_scope must identify the enforcement-point replay domain")
+    if not isinstance(database_path, Path):
+        raise PopVerificationError("pop-replay-store-unavailable",
+                                   "replay_database must be an explicitly configured pathlib.Path")
     database_path.parent.mkdir(parents=True, exist_ok=True)
     try:
         connection = sqlite3.connect(str(database_path), timeout=5.0, isolation_level=None)
