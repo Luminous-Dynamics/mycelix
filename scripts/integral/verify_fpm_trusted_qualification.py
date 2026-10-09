@@ -520,6 +520,7 @@ def verify_sandbox_policy(policy_file: dict[str, Any], expected_image_digest: st
         "--mount type=bind,src=\"${FPM_TARGET_DIR}\",dst=/target",
         "--user \"${CANDIDATE_UID}:${CANDIDATE_GID}\"",
         "CARGO_NET_OFFLINE=true",
+        "export PATH=/opt/fpm-rust/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin",
         "test ! -L /.cargo",
         "test ! -e /.cargo/config",
         "test ! -e /.cargo/config.toml",
