@@ -32,7 +32,13 @@ pub struct MailboxCapability {
     pub revoked: bool,
     /// Revocation reason if revoked
     pub revocation_reason: Option<String>,
-    /// Secret for capability verification
+    /// Action hash of the local Holochain capability grant that authorizes remote calls.
+    /// Absent only on records created before this binding existed; those cannot be
+    /// declared conductor-revoked without a separate audited migration.
+    #[serde(default)]
+    pub system_grant_action_hash: Option<ActionHash>,
+    /// SHA-256 fingerprint of the grant secret. The secret itself must never be stored
+    /// in this public application entry; it belongs in the recipient's private CapClaim.
     pub secret_hash: Vec<u8>,
 }
 
