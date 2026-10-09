@@ -8,6 +8,7 @@
 
 use hdk::prelude::*;
 use mail_capabilities_integrity::*;
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeSet, HashSet};
 
 /// Signal types for capability events
@@ -43,6 +44,17 @@ pub enum CapabilitySignal {
         action: AuditAction,
     },
 }
+/// Private wire envelope used only to deliver a newly issued capability secret to
+/// the intended grantee. The secret is deliberately excluded from CapabilitySignal,
+/// which is emitted to local UI listeners.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct CapabilityGrantDelivery {
+    capability_hash: ActionHash,
+    capability_id: String,
+    grantor: AgentPubKey,
+    access_type: MailboxAccessType,
+    secret: CapSecret,
+}
 
 // ==================== GRANT CAPABILITY ====================
 
@@ -61,11 +73,28 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
     let my_agent = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
-    // Generate unique ID and secret
+    // Holochain's host-generated 512-bit secret is the only supported source of
+    // capability secrets. Never persist it in the application/DHT entry.
     let id = format!("cap_{}_{}", my_agent, now.as_micros());
-    let secret = random_bytes(32)?;
-    // Use secret bytes directly as the hash (32 bytes from random source is sufficient)
-    let secret_hash = secret.to_vec();
+    let secret = generate_cap_secret()?;
+    let secret_hash = Sha256::digest(secret.as_ref()).to_vec();
+    let functions = determine_granted_functions(
+        &input.access_type,
+        &input.permissions,
+        input.restrictions.as_ref(),
+    )?;
+
+    // The private grant's exact action hash is required to revoke conductor-level
+    // authorization later. The entire zome call is atomic, so later failures roll
+    // back this grant rather than leaving an untracked authorization behind.
+    let system_grant_action_hash = create_cap_grant(CapGrantEntry {
+        tag: id.clone(),
+        access: CapAccess::Assigned {
+            secret: secret.clone(),
+            assignees: BTreeSet::from([input.grantee.clone()]),
+        },
+        functions,
+    })?;
 
     let capability = MailboxCapability {
         id: id.clone(),
@@ -78,6 +107,7 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
         expires_at: input.expires_at,
         revoked: false,
         revocation_reason: None,
+        system_grant_action_hash: Some(system_grant_action_hash),
         secret_hash,
     };
 
@@ -99,31 +129,17 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
         LinkTag::new(format!("from:{}", my_agent)),
     )?;
 
-    // Also create Holochain capability grant for zome function access
-    let functions = determine_granted_functions(&input.access_type)?;
-    let secret_arr: [u8; 64] = {
-        let mut arr = [0u8; 64];
-        let bytes = secret.into_vec();
-        arr[..bytes.len().min(64)].copy_from_slice(&bytes[..bytes.len().min(64)]);
-        arr
-    };
-    create_cap_grant(CapGrantEntry {
-        tag: id,
-        access: CapAccess::Assigned {
-            secret: CapSecret::from(secret_arr),
-            assignees: BTreeSet::from([input.grantee.clone()]),
-        },
-        functions,
-    })?;
-
-    // Signal to grantee
-    let signal = CapabilitySignal::CapabilityGranted {
+    // Deliver the secret only to the assigned grantee. The receiver validates the
+    // source agent + capability entry, then stores it as a private CapClaim.
+    let delivery = CapabilityGrantDelivery {
         capability_hash: cap_hash.clone(),
+        capability_id: id,
         grantor: my_agent,
         access_type: input.access_type,
+        secret,
     };
     let encoded =
-        ExternIO::encode(signal).map_err(|e| wasm_error!(WasmErrorInner::Serialize(e)))?;
+        ExternIO::encode(delivery).map_err(|e| wasm_error!(WasmErrorInner::Serialize(e)))?;
     let _ = send_remote_signal(encoded, vec![input.grantee]);
 
     // Audit log
@@ -132,23 +148,153 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
     Ok(cap_hash)
 }
 
-fn determine_granted_functions(access_type: &MailboxAccessType) -> ExternResult<GrantedFunctions> {
-    let zome_name = zome_info()?.name;
+fn determine_granted_functions(
+    access_type: &MailboxAccessType,
+    permissions: &MailboxPermissions,
+    restrictions: Option<&AccessRestrictions>,
+) -> ExternResult<GrantedFunctions> {
+    // This grant targets mail_messages, not the current mail_capabilities zome.
+    // Never use GrantedFunctions::All: a capability must not accidentally expose
+    // unrelated identity, key, trust, federation, backup, or capability functions.
+    const MESSAGE_ZOME: &str = "mail_messages";
 
-    Ok(match access_type {
-        MailboxAccessType::FullAccess => GrantedFunctions::All,
-        MailboxAccessType::ReadOnly => GrantedFunctions::Listed(HashSet::from([
-            (zome_name.clone(), "get_emails".into()),
-            (zome_name.clone(), "get_email".into()),
-            (zome_name.clone(), "get_folders".into()),
-            (zome_name, "get_attachments".into()),
-        ])),
-        MailboxAccessType::SendAs => GrantedFunctions::Listed(HashSet::from([
-            (zome_name.clone(), "send_email_as".into()),
-            (zome_name, "get_drafts".into()),
-        ])),
-        _ => GrantedFunctions::Listed(HashSet::new()),
-    })
+    if restrictions.is_some_and(|r| {
+        r.folder_whitelist.is_some()
+            || r.folder_blacklist.is_some()
+            || r.sender_whitelist.is_some()
+            || r.max_emails.is_some()
+            || r.date_from.is_some()
+            || r.date_to.is_some()
+            || r.network_restrictions.is_some()
+            || r.require_2fa
+            || r.audit_required
+    }) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Capability restrictions are not yet enforced by remote message entrypoints; refusing a broader grant".to_string(),
+        )));
+    }
+
+    if permissions.can_manage_labels
+        || permissions.can_manage_rules
+        || permissions.can_delegate
+        || permissions.can_modify_settings
+        || permissions.can_view_trust
+        || permissions.can_modify_trust
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Requested permission is not backed by a capability-scoped remote entrypoint".to_string(),
+        )));
+    }
+
+    if permissions.can_view_attachments != permissions.can_download_attachments {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Attachment access currently requires view and download permissions to agree".to_string(),
+        )));
+    }
+
+    let (read_allowed, write_allowed) = match access_type {
+        MailboxAccessType::FullAccess => (true, true),
+        MailboxAccessType::ReadOnly => {
+            if permissions.can_send
+                || permissions.can_delete
+                || permissions.can_move
+                || permissions.can_create_folders
+            {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "ReadOnly capability cannot include mail-write permissions".to_string(),
+                )));
+            }
+            (true, false)
+        }
+        MailboxAccessType::SendAs => {
+            if permissions.can_read
+                || permissions.can_delete
+                || permissions.can_move
+                || permissions.can_create_folders
+                || permissions.can_view_attachments
+                || permissions.can_download_attachments
+            {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "SendAs capability cannot include read, delete, move, folder, or attachment permissions".to_string(),
+                )));
+            }
+            (false, true)
+        }
+        // These types require resource-level or non-mail authorization checks
+        // that the current remote message entrypoints do not yet implement.
+        MailboxAccessType::FolderAccess { .. }
+        | MailboxAccessType::ThreadAccess { .. }
+        | MailboxAccessType::OutOfOffice
+        | MailboxAccessType::OrganizationAdmin
+        | MailboxAccessType::Custom(_) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "This capability access type is not yet enforced end-to-end; refusing to issue it".to_string(),
+            )));
+        }
+    };
+
+    let zome: ZomeName = MESSAGE_ZOME.into();
+    let mut functions: HashSet<(ZomeName, FunctionName)> = HashSet::new();
+    let mut add = |name: &str| {
+        functions.insert((zome.clone(), FunctionName::from(name)));
+    };
+
+    if read_allowed && permissions.can_read {
+        for name in [
+            "get_inbox_v2",
+            "get_inbox",
+            "get_sent",
+            "get_email",
+            "get_delivery_receipts",
+            "get_drafts",
+            "get_folders",
+        ] {
+            add(name);
+        }
+        if permissions.can_view_attachments {
+            add("get_attachments");
+        }
+    }
+
+    if write_allowed && permissions.can_send {
+        add("send_email_v2");
+        add("send_email");
+    }
+    if write_allowed && permissions.can_delete {
+        add("delete_draft");
+    }
+    if write_allowed && permissions.can_move {
+        add("move_to_folder");
+    }
+    if write_allowed && permissions.can_create_folders {
+        add("create_folder");
+    }
+
+    if functions.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Capability permissions grant no supported remote mail functions".to_string(),
+        )));
+    }
+
+    Ok(GrantedFunctions::Listed(functions))
+}
+
+fn is_action_permitted(permissions: &MailboxPermissions, action: &AuditAction) -> bool {
+    match action {
+        AuditAction::ReadEmail => permissions.can_read,
+        AuditAction::SendEmail => permissions.can_send,
+        AuditAction::DeleteEmail => permissions.can_delete,
+        AuditAction::MoveEmail => permissions.can_move,
+        AuditAction::CreateFolder => permissions.can_create_folders,
+        AuditAction::AccessAttachment => {
+            permissions.can_view_attachments && permissions.can_download_attachments
+        }
+        AuditAction::ModifySettings => permissions.can_modify_settings,
+        AuditAction::GrantCapability => permissions.can_delegate,
+        AuditAction::ModifyTrust => permissions.can_modify_trust,
+        // Unknown/future actions deny by default.
+        _ => false,
+    }
 }
 
 // ==================== REVOKE CAPABILITY ====================
@@ -179,7 +325,21 @@ pub fn revoke_capability(input: (ActionHash, Option<String>)) -> ExternResult<Ac
         )));
     }
 
-    // Mark as revoked
+    if capability.revoked {
+        return Ok(cap_hash);
+    }
+
+    let system_grant_action_hash = capability.system_grant_action_hash.clone().ok_or(
+        wasm_error!(WasmErrorInner::Guest(
+            "Legacy capability has no bound Holochain grant hash; conductor-level revocation cannot be proven".to_string(),
+        )),
+    )?;
+
+    // Delete the conductor's private CapGrant first. This is what makes subsequent
+    // capability-authenticated remote calls fail Unauthorized; the public app-entry
+    // boolean is only an application projection and is not the authorization source.
+    delete_cap_grant(system_grant_action_hash)?;
+
     capability.revoked = true;
     capability.revocation_reason = reason.clone();
 
@@ -187,10 +347,6 @@ pub fn revoke_capability(input: (ActionHash, Option<String>)) -> ExternResult<Ac
         cap_hash.clone(),
         EntryTypes::MailboxCapability(capability.clone()),
     )?;
-
-    // NOTE: delete_cap_grant in HDK 0.6 takes ActionHash, not CapSecret.
-    // The capability is already marked revoked=true above, which is the authoritative check.
-    // TODO: Track cap grant ActionHash at creation time to enable proper deletion here.
 
     // Signal to grantee
     let signal = CapabilitySignal::CapabilityRevoked {
@@ -245,21 +401,46 @@ pub fn verify_capability(input: (ActionHash, AuditAction)) -> ExternResult<bool>
         }
     }
 
-    // Check if action is permitted
-    let permitted = match action {
-        AuditAction::ReadEmail => capability.permissions.can_read,
-        AuditAction::SendEmail => capability.permissions.can_send,
-        AuditAction::DeleteEmail => capability.permissions.can_delete,
-        AuditAction::MoveEmail => capability.permissions.can_move,
-        AuditAction::CreateFolder => capability.permissions.can_create_folders,
-        AuditAction::AccessAttachment => capability.permissions.can_view_attachments,
-        AuditAction::ModifySettings => capability.permissions.can_modify_settings,
-        AuditAction::GrantCapability => capability.permissions.can_delegate,
-        AuditAction::ModifyTrust => capability.permissions.can_modify_trust,
-        _ => true, // Default allow for non-specific actions
-    };
+    Ok(is_action_permitted(&capability.permissions, &action))
+}
 
-    Ok(permitted)
+#[cfg(test)]
+mod capability_policy_tests {
+    use super::*;
+
+    #[test]
+    fn future_actions_fail_closed() {
+        let permissions = MailboxPermissions::default();
+        assert!(!is_action_permitted(
+            &permissions,
+            &AuditAction::Custom("future-action".to_string()),
+        ));
+    }
+
+    #[test]
+    fn attachment_access_requires_both_view_and_download() {
+        let mut permissions = MailboxPermissions::default();
+        permissions.can_view_attachments = true;
+        assert!(!is_action_permitted(&permissions, &AuditAction::AccessAttachment));
+
+        permissions.can_download_attachments = true;
+        assert!(is_action_permitted(&permissions, &AuditAction::AccessAttachment));
+    }
+
+    #[test]
+    fn restricted_resource_scopes_are_not_issued_as_broad_grants() {
+        let permissions = MailboxPermissions {
+            can_read: true,
+            ..MailboxPermissions::default()
+        };
+        assert!(determine_granted_functions(
+            &MailboxAccessType::FolderAccess {
+                folder_hash: ActionHash::from_raw_36(vec![0; 36]),
+            },
+            &permissions,
+            None,
+        ).is_err());
+    }
 }
 
 // ==================== SHARED MAILBOXES ====================
@@ -595,15 +776,72 @@ pub fn get_received_capabilities(_: ()) -> ExternResult<Vec<(ActionHash, Mailbox
 
 #[hdk_extern]
 pub fn recv_remote_signal(signal: ExternIO) -> ExternResult<()> {
-    let cap_signal: CapabilitySignal = signal.decode().map_err(|e| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "Failed to decode signal: {}",
-            e
-        )))
-    })?;
+    // Grant delivery is a separate wire type so the secret can be consumed into a
+    // private CapClaim without ever being forwarded to local UI listeners.
+    let cap_signal = match signal.decode::<CapabilityGrantDelivery>() {
+        Ok(delivery) => {
+            let caller = call_info()?.provenance;
+            let local_agent = agent_info()?.agent_initial_pubkey;
+            if caller != delivery.grantor {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Capability grant delivery source does not match grantor".to_string(),
+                )));
+            }
+
+            let record = get(delivery.capability_hash.clone(), GetOptions::default())?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Capability grant record unavailable to recipient".to_string(),
+                )))?;
+            let capability: MailboxCapability = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Capability grant record has an unexpected entry type".to_string(),
+                )))?;
+
+            if capability.grantor != caller
+                || capability.grantee != local_agent
+                || capability.id != delivery.capability_id
+                || capability.secret_hash != Sha256::digest(delivery.secret.as_ref()).to_vec()
+            {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Capability secret does not match the authorized grant record".to_string(),
+                )));
+            }
+
+            create_cap_claim(CapClaimEntry {
+                tag: delivery.capability_id,
+                grantor: delivery.grantor.clone(),
+                secret: delivery.secret,
+            })?;
+
+            CapabilitySignal::CapabilityGranted {
+                capability_hash: delivery.capability_hash,
+                grantor: delivery.grantor,
+                access_type: delivery.access_type,
+            }
+        }
+        Err(_) => {
+            let cap_signal: CapabilitySignal = signal.decode().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode capability signal: {}",
+                    e
+                )))
+            })?;
+
+            if let CapabilitySignal::CapabilityRevoked { grantor, .. } = &cap_signal {
+                if call_info()?.provenance != *grantor {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Capability revocation source does not match grantor".to_string(),
+                    )));
+                }
+            }
+            cap_signal
+        }
+    };
 
     emit_signal(cap_signal)?;
-
     Ok(())
 }
 
