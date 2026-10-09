@@ -10,7 +10,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: \${{ github.workflow }}-\${{ github.ref }}
   cancel-in-progress: true
 jobs:
   semantic-counterexamples:
@@ -20,12 +20,12 @@ jobs:
       - name: Checkout exact head
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: \${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
       - name: Assert exact head
         env:
-          EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          EXPECTED_SHA: \${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
@@ -37,7 +37,8 @@ jobs:
             mycelix-governance/tools/formal/compound_subsumption_counterexamples.py \
             mycelix-governance/tools/formal/test_compound_subsumption_counterexamples.py \
             mycelix-governance/tools/formal/differential_compound_subsumption.py \
-            mycelix-governance/tools/formal/test_differential_matrix_freeze.py
+            mycelix-governance/tools/formal/test_differential_matrix_freeze.py \
+            mycelix-governance/tools/formal/test_oracle_mutation_sensitivity.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json >/dev/null
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json >/dev/null
       - name: Execute controls and independently replay witnesses
@@ -54,6 +55,13 @@ jobs:
           python3 mycelix-governance/tools/formal/test_differential_matrix_freeze.py \
             --matrix docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json \
             --output "$RUNNER_TEMP/auth-v20-differential-evidence/matrix-mutation-guard.json"
+      - name: Inject oracle mutants and require detection
+        run: |
+          set -euo pipefail
+          export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
+          mkdir -p "$RUNNER_TEMP/auth-v20-mutation-evidence"
+          python3 mycelix-governance/tools/formal/test_oracle_mutation_sensitivity.py \
+            --output "$RUNNER_TEMP/auth-v20-mutation-evidence/oracle-mutation-sensitivity.json"
       - name: Verify repository postflight
         if: always()
         run: |
@@ -63,9 +71,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: sovereignty-semantic-counterexamples-${{ github.sha }}
+          name: sovereignty-semantic-counterexamples-\${{ github.sha }}
           path: |
-            ${{ runner.temp }}/auth-v20-evidence
-            ${{ runner.temp }}/auth-v20-differential-evidence
+            \${{ runner.temp }}/auth-v20-evidence
+            \${{ runner.temp }}/auth-v20-differential-evidence
+            \${{ runner.temp }}/auth-v20-mutation-evidence
           if-no-files-found: warn
           retention-days: 30
