@@ -71,7 +71,7 @@ jobs:
       - name: Assert independent evaluator commit and blob
         env:
           EXPECTED_EVALUATOR_COMMIT: 505a367d55b940d7a818c8aa65b73d4173a1cb20
-          EXPECTED_EVALUATOR_BLOB: 6e6ab3b8880ef324c03de6f175dcab2937b57a4e
+          EXPECTED_EVALUATOR_BLOB: 0e79fcd1292fa67f3ad4749e69353605dc1c0a6d
         run: |
           observed_commit="$(git -C _independent-evaluator rev-parse HEAD)"
           test "$observed_commit" = "$EXPECTED_EVALUATOR_COMMIT"
