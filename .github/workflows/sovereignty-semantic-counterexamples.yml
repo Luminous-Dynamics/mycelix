@@ -45,7 +45,7 @@ jobs:
             mycelix-governance/tools/formal/delegation_chain_claims.py \
             mycelix-governance/tools/formal/test_delegation_chain_claims.py \
             mycelix-governance/tools/formal/delegation_chain_key_linkage.py \
-            mycelix-governance/tools/formal/test_delegation_chain_key_linkage.py
+            mycelix-governance/tools/formal/test_delegation_chain_key_linkage.py \
             mycelix-governance/tools/formal/delegation_chain_par_hash.py \
             mycelix-governance/tools/formal/test_delegation_chain_par_hash.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json >/dev/null
