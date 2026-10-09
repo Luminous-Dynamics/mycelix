@@ -51,6 +51,33 @@ pub struct CreateMachineTransitionApprovalInput {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct CreateMachineTimeAuthorityProfileInput {
+    pub machine_hash: ActionHash,
+    pub authority_agent: AgentPubKey,
+    pub profile_id: String,
+    pub source_profile: String,
+    pub source_authority_commitment: Vec<u8>,
+    pub source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
+    pub source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget,
+    pub commitment_algorithm: MachineTemporalCommitmentAlgorithm,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+    pub max_accuracy_micros: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CreateMachineTemporalAttestationInput {
+    pub machine_hash: ActionHash,
+    pub profile_hash: ActionHash,
+    pub subject_hash: ActionHash,
+    pub evidence_kind: MachineTemporalEvidenceKind,
+    pub attested_at: Timestamp,
+    pub accuracy_micros: i64,
+    pub source_reference: String,
+    pub source_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
+    pub source_commitment: Vec<u8>,
+}
+#[derive(Serialize, Deserialize, Debug)]
 pub struct GetMachinesByTypeInput {
     pub machine_type: MachineType,
 }
@@ -331,6 +358,305 @@ pub fn create_machine_transition_approval(
     create_link(path.path_entry_hash()?, hash.clone(), LinkTypes::AllMachineTransitionApprovals, ())?;
     Ok(hash)
 }
+/// Register a registrant-approved source/policy for temporal evidence on one machine.
+#[hdk_extern]
+pub fn create_machine_time_authority_profile(
+    input: CreateMachineTimeAuthorityProfileInput,
+) -> ExternResult<ActionHash> {
+    let machine_record = get(input.machine_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Machine not found".into())))?;
+    let machine: Option<MachineEntry> = machine_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    if !matches!(machine_record.action(), Action::Create(_)) || machine.is_none() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "time authority profile must target a machine root entry".into(),
+        )));
+    }
+    if machine_record.action().author() != agent_info()?.agent_initial_pubkey {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "only the machine registrant may create a time authority profile".into(),
+        )));
+    }
+    if input.valid_until < input.valid_from
+        || input.profile_id.trim().is_empty()
+        || input.profile_id.len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || input.source_profile.trim().is_empty()
+        || input.source_profile.len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || input.source_authority_commitment.is_empty()
+        || input.source_authority_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
+        || input.max_accuracy_micros < 0
+        || input.max_accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "time authority profile has invalid identity or accuracy bounds".into(),
+        )));
+    }
+    let profile_payload = MachineTimeAuthorityProfilePayload {
+        schema_id: MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID.to_string(),
+        machine_hash: input.machine_hash.clone(),
+        authority_agent: input.authority_agent.clone(),
+        profile_id: input.profile_id.clone(),
+        source_profile: input.source_profile.clone(),
+        source_authority_commitment: input.source_authority_commitment.clone(),
+        source_authority_commitment_algorithm: input.source_authority_commitment_algorithm.clone(),
+        source_authority_commitment_target: input.source_authority_commitment_target.clone(),
+        commitment_algorithm: input.commitment_algorithm.clone(),
+        valid_from: input.valid_from,
+        valid_until: input.valid_until,
+        max_accuracy_micros: input.max_accuracy_micros,
+    };
+    let profile_signature = sign(machine_record.action().author().clone(), profile_payload)?;
+    let profile = MachineTimeAuthorityProfileEntry {
+        machine_hash: input.machine_hash.clone(),
+        authority_agent: input.authority_agent,
+        profile_id: input.profile_id,
+        source_profile: input.source_profile,
+        source_authority_commitment: input.source_authority_commitment,
+        source_authority_commitment_algorithm: input.source_authority_commitment_algorithm,
+        source_authority_commitment_target: input.source_authority_commitment_target,
+        commitment_algorithm: input.commitment_algorithm,
+        valid_from: input.valid_from,
+        valid_until: input.valid_until,
+        max_accuracy_micros: input.max_accuracy_micros,
+        registrant_signature: profile_signature,
+    };
+    let hash = create_entry(EntryTypes::MachineTimeAuthorityProfile(profile))?;
+    create_link(input.machine_hash.clone(), hash.clone(), LinkTypes::MachineToTimeAuthorityProfiles, ())?;
+    let path = Path::from("all_machine_time_authority_profiles")
+        .typed(LinkTypes::AllMachineTimeAuthorityProfiles)?;
+    path.ensure()?;
+    create_link(path.path_entry_hash()?, hash.clone(), LinkTypes::AllMachineTimeAuthorityProfiles, ())?;
+    Ok(hash)
+}
+
+/// Record an authority-signed temporal attestation for an exact immutable subject.
+#[hdk_extern]
+pub fn create_machine_temporal_attestation(
+    input: CreateMachineTemporalAttestationInput,
+) -> ExternResult<ActionHash> {
+    let profile_record = get(input.profile_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Time authority profile not found".into())))?;
+    let profile: MachineTimeAuthorityProfileEntry = profile_record.entry().to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Could not deserialize time authority profile".into())))?;
+    if profile.machine_hash != input.machine_hash {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "temporal attestation profile is bound to a different machine".into(),
+        )));
+    }
+    if profile.authority_agent != agent_info()?.agent_initial_pubkey {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "current agent is not the designated time authority".into(),
+        )));
+    }
+    if !temporal_profile_contains_interval(
+            &profile,
+            input.attested_at,
+            input.accuracy_micros,
+        )
+        || input.source_reference.trim().is_empty()
+        || input.source_reference.len() > MAX_MACHINE_TEMPORAL_SOURCE_REFERENCE_BYTES
+        || input.source_commitment.is_empty()
+        || input.source_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
+        || input.accuracy_micros < 0
+        || input.accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
+        || input.accuracy_micros > profile.max_accuracy_micros
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "temporal attestation is outside profile validity or lacks bounded source evidence".into(),
+        )));
+    }
+    let attestation_payload = MachineTemporalAttestationPayload {
+        schema_id: MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID.to_string(),
+        machine_hash: input.machine_hash.clone(),
+        profile_hash: input.profile_hash.clone(),
+        subject_hash: input.subject_hash.clone(),
+        evidence_kind: input.evidence_kind.clone(),
+        attested_at: input.attested_at,
+        accuracy_micros: input.accuracy_micros,
+        source_reference: input.source_reference.clone(),
+        source_commitment_algorithm: input.source_commitment_algorithm.clone(),
+        source_commitment: input.source_commitment.clone(),
+    };
+    let attestation_signature = sign(profile.authority_agent.clone(), attestation_payload)?;
+    let attestation = MachineTemporalAttestationEntry {
+        machine_hash: input.machine_hash.clone(),
+        profile_hash: input.profile_hash,
+        subject_hash: input.subject_hash,
+        evidence_kind: input.evidence_kind,
+        attested_at: input.attested_at,
+        accuracy_micros: input.accuracy_micros,
+        source_reference: input.source_reference,
+        source_commitment_algorithm: input.source_commitment_algorithm,
+        source_commitment: input.source_commitment,
+        authority_signature: attestation_signature,
+    };
+    let hash = create_entry(EntryTypes::MachineTemporalAttestation(attestation))?;
+    create_link(input.machine_hash.clone(), hash.clone(), LinkTypes::MachineToTemporalAttestations, ())?;
+    create_link(input.subject_hash.clone(), hash.clone(), LinkTypes::SubjectToTemporalAttestations, ())?;
+    let path = Path::from("all_machine_temporal_attestations")
+        .typed(LinkTypes::AllMachineTemporalAttestations)?;
+    path.ensure()?;
+    create_link(path.path_entry_hash()?, hash.clone(), LinkTypes::AllMachineTemporalAttestations, ())?;
+    Ok(hash)
+}
+/// Fetch one temporal attestation by action hash.
+#[hdk_extern]
+pub fn get_machine_temporal_attestation(hash: ActionHash) -> ExternResult<Option<Record>> {
+    get(hash, GetOptions::default())
+}
+
+/// Resolve the temporal attestations observable through the current DHT link query.
+///
+/// The result is explicitly observational, not a proof of global DHT completeness.
+/// NoEvidenceObserved means this query returned no evidence; UniqueObserved means
+/// the returned witnesses agree, not that no unseen witness can disagree.
+#[hdk_extern]
+pub fn resolve_machine_temporal_attestations(
+    subject_hash: ActionHash,
+) -> ExternResult<MachineTemporalEvidenceResolution> {
+    let links = get_links(
+        GetLinksInputBuilder::try_new(
+            subject_hash.clone(),
+            LinkTypes::SubjectToTemporalAttestations,
+        )?
+        .build(),
+    )?;
+    if temporal_evidence_link_set_exceeds_limit(links.len()) {
+        return Ok(MachineTemporalEvidenceResolution::EvidenceLinkSetLimitExceeded {
+            limit: MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS as u32,
+        });
+    }
+
+    let mut seen_attestations = std::collections::HashSet::new();
+    let mut evidence = Vec::with_capacity(links.len().min(MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS));
+    for link in links {
+        let Some(hash) = link.target.into_action_hash() else {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        };
+        if seen_attestations.contains(&hash) {
+            continue;
+        }
+        if seen_attestations.len() >= MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS {
+            return Ok(MachineTemporalEvidenceResolution::EvidenceSetLimitExceeded {
+                limit: MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS as u32,
+            });
+        }
+        seen_attestations.insert(hash.clone());
+        let Some(Details::Record(record_details)) = get_details(hash.clone(), GetOptions::default())? else {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        };
+        if record_details.validation_status != ValidationStatus::Valid
+            || !matches!(record_details.record.action(), Action::Create(_))
+        {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
+
+        let record = record_details.record;
+        let Some(attestation): Option<MachineTemporalAttestationEntry> = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        };
+        if attestation.subject_hash != subject_hash {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
+
+        let Some(Details::Record(profile_details)) =
+            get_details(attestation.profile_hash.clone(), GetOptions::default())?
+        else {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        };
+        if profile_details.validation_status != ValidationStatus::Valid
+            || !matches!(profile_details.record.action(), Action::Create(_))
+        {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
+        let Some(profile_record) = profile_details.record.entry().to_app_option::<MachineTimeAuthorityProfileEntry>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        };
+
+        // Derive the registrant from the root record; do not trust a copied signer
+        // in a portable receipt or profile field.
+        let Some(Details::Record(machine_details)) =
+            get_details(profile_record.machine_hash.clone(), GetOptions::default())?
+        else {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        };
+        if machine_details.validation_status != ValidationStatus::Valid
+            || !matches!(machine_details.record.action(), Action::Create(_))
+        {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
+        let machine_root: Option<MachineEntry> = machine_details.record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+        if machine_root.is_none() {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
+        let machine_registrant = machine_details.record.action().author().clone();
+        if machine_registrant != profile_details.record.action().author().clone() {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
+
+        if profile_record.machine_hash != attestation.machine_hash
+            || profile_record.authority_agent != record.action().author()
+            || attestation.accuracy_micros > profile_record.max_accuracy_micros
+            || attestation.source_commitment_algorithm != profile_record.commitment_algorithm
+            || !temporal_interval_contains_interval(
+                profile_record.valid_from,
+                profile_record.valid_until,
+                attestation.attested_at,
+                attestation.accuracy_micros,
+            )
+        {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
+
+        let profile_statement = MachineTemporalSignedProfileStatement {
+            action_hash: attestation.profile_hash.clone(),
+            signer: machine_registrant.clone(),
+            payload: profile_record.signed_payload(),
+            signature: profile_record.registrant_signature.clone(),
+        };
+        let attestation_statement = MachineTemporalSignedAttestationStatement {
+            action_hash: hash.clone(),
+            signer: record.action().author().clone(),
+            payload: attestation.signed_payload(),
+            signature: attestation.authority_signature.clone(),
+        };
+
+        evidence.push(MachineTemporalEvidenceObservation {
+            receipt_schema_id: MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V2.to_string(),
+            machine_registrant,
+            attestation_hash: hash,
+            authority_agent: profile_record.authority_agent,
+            profile_hash: attestation.profile_hash,
+            source_authority_commitment: profile_record.source_authority_commitment,
+            source_authority_commitment_algorithm: profile_record.source_authority_commitment_algorithm,
+            source_authority_commitment_target: profile_record.source_authority_commitment_target,
+            subject_hash: attestation.subject_hash,
+            evidence_kind: attestation.evidence_kind,
+            attested_at: attestation.attested_at,
+            accuracy_micros: attestation.accuracy_micros,
+            source_reference: attestation.source_reference,
+            source_commitment_algorithm: attestation.source_commitment_algorithm,
+            source_commitment: attestation.source_commitment,
+            profile_statement,
+            attestation_statement,
+        });
+    }
+
+    Ok(resolve_temporal_evidence(evidence))
+}
+
 /// Get a controller authority by action hash.
 #[hdk_extern]
 pub fn get_machine_controller_authority(

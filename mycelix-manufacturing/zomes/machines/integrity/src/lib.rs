@@ -19,6 +19,375 @@ pub const MACHINE_CONTROLLER_TRANSITION_APPROVAL_SCHEMA_ID: &str =
     "mycelix-manufacturing-machine-transition-approval-v1";
 pub const MAX_MACHINE_TRANSITION_APPROVAL_MICROS: i64 = 300_000_000;
 
+pub const MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID: &str =
+    "mycelix-manufacturing-machine-time-authority-profile-v5";
+pub const MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID: &str =
+    "mycelix-manufacturing-machine-temporal-attestation-v4";
+pub const MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V2: &str =
+    "mycelix-manufacturing-machine-temporal-evidence-receipt-v2";
+/// Hard upper bound used to keep temporal uncertainty arithmetic bounded.
+pub const MAX_MACHINE_TEMPORAL_ACCURACY_MICROS: i64 = 86_400_000_000;
+/// Maximum encoded size for the opaque external evidence commitment.
+pub const MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES: usize = 128;
+/// Bounded textual identifiers carried by temporal profiles.
+pub const MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES: usize = 128;
+/// Bounded external evidence locator size.
+pub const MAX_MACHINE_TEMPORAL_SOURCE_REFERENCE_BYTES: usize = 512;
+/// Maximum distinct temporal-attestation targets hydrated and retained in one resolution.
+pub const MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS: usize = 256;
+/// Maximum raw subject-to-attestation link actions to iterate in one resolution.
+/// This limits application-level duplicate-link processing; get_links has already materialized
+/// the vector before this bound can be enforced.
+pub const MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS: usize = 1_024;
+
+/// Pure boundary predicate shared by the coordinator and its exact-limit regression tests.
+pub fn temporal_evidence_link_set_exceeds_limit(link_count: usize) -> bool {
+    link_count > MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineTemporalEvidenceObservation {
+    /// Versioned outer archive format; inner signed statements retain their own schema IDs.
+    pub receipt_schema_id: String,
+    /// Author of the machine-root Create action that owns the selected profile.
+    /// The original root record/action is still required for durable action-hash verification.
+    pub machine_registrant: AgentPubKey,
+    pub attestation_hash: ActionHash,
+    pub authority_agent: AgentPubKey,
+    pub profile_hash: ActionHash,
+    pub source_authority_commitment: Vec<u8>,
+    pub source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
+    pub source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget,
+    pub subject_hash: ActionHash,
+    pub evidence_kind: MachineTemporalEvidenceKind,
+    pub attested_at: Timestamp,
+    pub accuracy_micros: i64,
+    pub source_reference: String,
+    pub source_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
+    pub source_commitment: Vec<u8>,
+    /// Exact signed profile payload and its application-level signer statement.
+    ///
+    /// This permits offline verification of the registrant signature. It does not,
+    /// by itself, prove that profile_hash resolves to this action: a durable archive
+    /// must also retain the original Holochain record/header for action-hash binding.
+    pub profile_statement: MachineTemporalSignedProfileStatement,
+    /// Exact signed attestation payload and its application-level signer statement.
+    ///
+    /// This permits offline verification of the authority signature. It does not,
+    /// by itself, prove that attestation_hash resolves to this action: a durable
+    /// archive must also retain the original Holochain record/header for action-hash binding.
+    pub attestation_statement: MachineTemporalSignedAttestationStatement,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum MachineTemporalEvidenceResolution {
+    /// No evidence was returned by this query.
+    ///
+    /// This is not proof that no evidence exists elsewhere in the DHT.
+    NoEvidenceObserved,
+
+    /// All evidence returned by this query agrees on attested time and accuracy.
+    ///
+    /// This is observational agreement only, not a complete network census,
+    /// trust score, quorum, or assertion of witness independence.
+    UniqueObserved {
+        /// Authority-reported central timestamp, not an exact physical-event time.
+        time: Timestamp,
+        /// Declared uncertainty radius around the timestamp; consumers must preserve it.
+        accuracy_micros: i64,
+        evidence: Vec<MachineTemporalEvidenceObservation>,
+    },
+
+    /// Evidence returned by this query disagrees on attested time or accuracy.
+    /// No winner is selected.
+    ConflictingObserved(Vec<MachineTemporalEvidenceObservation>),
+
+    /// At least one validation-critical dependency or semantic invariant failed.
+    InvalidEvidence,
+
+    /// The observed evidence set exceeded the distinct-attestation processing bound.
+    /// No partial set is reported as unique or conflict-free.
+    EvidenceSetLimitExceeded {
+        limit: u32,
+    },
+
+    /// The subject's raw link collection exceeded the coordinator's iteration bound.
+    /// The host has already materialized the link vector; no attestations are hydrated.
+    EvidenceLinkSetLimitExceeded {
+        limit: u32,
+    },
+}
+
+impl MachineTemporalEvidenceObservation {
+    fn signed_statements_match_observation(&self) -> bool {
+        let profile = &self.profile_statement;
+        let attestation = &self.attestation_statement;
+        self.receipt_schema_id == MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V2
+            && profile.signer == self.machine_registrant
+            && !profile.payload.profile_id.trim().is_empty()
+            && profile.payload.profile_id.len() <= MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+            && !profile.payload.source_profile.trim().is_empty()
+            && profile.payload.source_profile.len() <= MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+            && !profile.payload.source_authority_commitment.is_empty()
+            && profile.payload.source_authority_commitment.len()
+                <= MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
+            && !profile.payload.source_authority_commitment_algorithm.is_empty()
+            && profile.payload.source_authority_commitment_algorithm.text_len()
+                <= MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+            && digest_length_matches(
+                &profile.payload.source_authority_commitment_algorithm,
+                profile.payload.source_authority_commitment.len(),
+            )
+            && !profile.payload.source_authority_commitment_target.is_empty()
+            && profile.payload.source_authority_commitment_target.text_len()
+                <= MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+            && !profile.payload.commitment_algorithm.is_empty()
+            && profile.payload.commitment_algorithm.text_len()
+                <= MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+            && profile.payload.valid_until >= profile.payload.valid_from
+            && profile.payload.max_accuracy_micros >= 0
+            && profile.payload.max_accuracy_micros <= MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
+            && self.accuracy_micros >= 0
+            && self.accuracy_micros <= MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
+            && self.accuracy_micros <= profile.payload.max_accuracy_micros
+            && temporal_interval_contains_interval(
+                profile.payload.valid_from,
+                profile.payload.valid_until,
+                self.attested_at,
+                self.accuracy_micros,
+            )
+            && !self.source_reference.trim().is_empty()
+            && self.source_reference.len() <= MAX_MACHINE_TEMPORAL_SOURCE_REFERENCE_BYTES
+            && !self.source_commitment_algorithm.is_empty()
+            && self.source_commitment_algorithm.text_len() <= MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+            && !self.source_commitment.is_empty()
+            && self.source_commitment.len() <= MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
+            && digest_length_matches(
+                &self.source_commitment_algorithm,
+                self.source_commitment.len(),
+            )
+            && profile.action_hash == self.profile_hash
+            && attestation.action_hash == self.attestation_hash
+            && profile.payload.schema_id == MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID
+            && attestation.payload.schema_id == MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID
+            && profile.payload.machine_hash == attestation.payload.machine_hash
+            && profile.payload.authority_agent == self.authority_agent
+            && attestation.signer == self.authority_agent
+            && profile.payload.source_authority_commitment == self.source_authority_commitment
+            && profile.payload.source_authority_commitment_algorithm
+                == self.source_authority_commitment_algorithm
+            && profile.payload.source_authority_commitment_target
+                == self.source_authority_commitment_target
+            && profile.payload.commitment_algorithm == attestation.payload.source_commitment_algorithm
+            && attestation.payload.profile_hash == self.profile_hash
+            && attestation.payload.subject_hash == self.subject_hash
+            && attestation.payload.evidence_kind == self.evidence_kind
+            && attestation.payload.attested_at == self.attested_at
+            && attestation.payload.accuracy_micros == self.accuracy_micros
+            && attestation.payload.source_reference == self.source_reference
+            && attestation.payload.source_commitment_algorithm == self.source_commitment_algorithm
+            && attestation.payload.source_commitment == self.source_commitment
+    }
+}
+
+/// Deterministically reduce observations whose source records were already validated by the
+/// coordinator. Every observation in one resolution must share the exact subject, machine root,
+/// and evidence kind; independently valid receipts from different scopes must never be combined
+/// into a synthetic agreement/conflict result. This checks internal payload/observation
+/// consistency, but intentionally does not re-run cryptographic verification or prove that an
+/// ActionHash resolves to the payload; archive consumers must verify signatures and retain the
+/// original Holochain records/actions for that stronger binding.
+pub fn resolve_temporal_evidence(
+    evidence: Vec<MachineTemporalEvidenceObservation>,
+) -> MachineTemporalEvidenceResolution {
+    let mut by_attestation = std::collections::HashMap::new();
+    let mut expected_scope = None;
+    for observation in evidence {
+        if !observation.signed_statements_match_observation() {
+            return MachineTemporalEvidenceResolution::InvalidEvidence;
+        }
+
+        let scope = (
+            observation.attestation_statement.payload.machine_hash.clone(),
+            observation.machine_registrant.clone(),
+            observation.subject_hash.clone(),
+            observation.evidence_kind.clone(),
+        );
+        if let Some(expected) = &expected_scope {
+            if expected != &scope {
+                return MachineTemporalEvidenceResolution::InvalidEvidence;
+            }
+        } else {
+            expected_scope = Some(scope);
+        }
+
+        match by_attestation.get(&observation.attestation_hash) {
+            Some(existing) if existing != &observation => {
+                return MachineTemporalEvidenceResolution::InvalidEvidence;
+            }
+            Some(_) => {}
+            None => {
+                if by_attestation.len() >= MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS {
+                    return MachineTemporalEvidenceResolution::EvidenceSetLimitExceeded {
+                        limit: MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS as u32,
+                    };
+                }
+                by_attestation.insert(observation.attestation_hash.clone(), observation);
+            }
+        }
+    }
+
+    let mut evidence: Vec<MachineTemporalEvidenceObservation> =
+        by_attestation.into_values().collect();
+    evidence.sort_by(|left, right| {
+        left.attested_at
+            .as_micros()
+            .cmp(&right.attested_at.as_micros())
+            .then_with(|| left.attestation_hash.get_raw_36().cmp(right.attestation_hash.get_raw_36()))
+    });
+    match evidence.as_slice() {
+        [] => MachineTemporalEvidenceResolution::NoEvidenceObserved,
+        [first, rest @ ..]
+            if rest.iter().all(|observation| {
+                observation.attested_at == first.attested_at
+                    && observation.accuracy_micros == first.accuracy_micros
+            }) =>
+        {
+            MachineTemporalEvidenceResolution::UniqueObserved {
+                time: first.attested_at,
+                accuracy_micros: first.accuracy_micros,
+                evidence,
+            }
+        }
+        _ => MachineTemporalEvidenceResolution::ConflictingObserved(evidence),
+    }
+}
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum MachineTemporalEvidenceKind {
+    /// Time evidence attached to an exact, immutable transition approval.
+    ///
+    /// The temporal claim is about the approval datum and its signed validity
+    /// interval. It is not an external proof that the authorized physical work
+    /// occurred at attested_at.
+    TransitionApproval,
+
+    /// Time evidence attached to an exact machine action/record.
+    ///
+    /// The temporal claim is that the referenced datum was presented to the
+    /// selected temporal authority at the attested time, subject to declared
+    /// accuracy. It is not proof that a physical/business event occurred then.
+    MachineActionExistence,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum MachineTemporalCommitmentAlgorithm {
+    Sha256,
+    Sha384,
+    Sha512,
+    Sha3_256,
+    Sha3_384,
+    Sha3_512,
+    Blake3_256,
+    ProfileDefined(String),
+}
+
+impl MachineTemporalCommitmentAlgorithm {
+    fn is_empty(&self) -> bool {
+        matches!(self, Self::ProfileDefined(value) if value.trim().is_empty())
+    }
+
+    fn text_len(&self) -> usize {
+        match self {
+            Self::ProfileDefined(value) => value.len(),
+            _ => 0,
+        }
+    }
+
+    fn expected_digest_len(&self) -> Option<usize> {
+        match self {
+            Self::Sha256 | Self::Sha3_256 | Self::Blake3_256 => Some(32),
+            Self::Sha384 | Self::Sha3_384 => Some(48),
+            Self::Sha512 | Self::Sha3_512 => Some(64),
+            Self::ProfileDefined(_) => None,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum MachineTemporalAuthorityCommitmentTarget {
+    CertificateDer,
+    SubjectPublicKeyInfo,
+    PublicKey,
+    ProfileDefined(String),
+}
+
+impl MachineTemporalAuthorityCommitmentTarget {
+    fn is_empty(&self) -> bool {
+        matches!(self, Self::ProfileDefined(value) if value.trim().is_empty())
+    }
+
+    fn text_len(&self) -> usize {
+        match self {
+            Self::ProfileDefined(value) => value.len(),
+            _ => 0,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineTimeAuthorityProfilePayload {
+    pub schema_id: String,
+    pub machine_hash: ActionHash,
+    pub authority_agent: AgentPubKey,
+    pub profile_id: String,
+    pub source_profile: String,
+    pub source_authority_commitment: Vec<u8>,
+    pub source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
+    pub source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget,
+    pub commitment_algorithm: MachineTemporalCommitmentAlgorithm,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+    pub max_accuracy_micros: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineTemporalAttestationPayload {
+    pub schema_id: String,
+    pub machine_hash: ActionHash,
+    pub profile_hash: ActionHash,
+    pub subject_hash: ActionHash,
+    pub evidence_kind: MachineTemporalEvidenceKind,
+    pub attested_at: Timestamp,
+    pub accuracy_micros: i64,
+    pub source_reference: String,
+    pub source_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
+    pub source_commitment: Vec<u8>,
+}
+
+/// Portable application-level signed statement for a time-authority profile.
+///
+/// The original Holochain record/action must still be archived to bind action_hash
+/// to this statement and preserve the action's own signature/header.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineTemporalSignedProfileStatement {
+    pub action_hash: ActionHash,
+    pub signer: AgentPubKey,
+    pub payload: MachineTimeAuthorityProfilePayload,
+    pub signature: Signature,
+}
+
+/// Portable application-level signed statement for a temporal attestation.
+///
+/// The original Holochain record/action must still be archived to bind action_hash
+/// to this statement and preserve the action's own signature/header.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineTemporalSignedAttestationStatement {
+    pub action_hash: ActionHash,
+    pub signer: AgentPubKey,
+    pub payload: MachineTemporalAttestationPayload,
+    pub signature: Signature,
+}
+
 fn default_lease_schema_version() -> u8 {
     1
 }
@@ -69,6 +438,74 @@ pub struct MachineEntry {
     #[serde(default)]
     pub last_status_transition_approval_hash: Option<ActionHash>,
     pub registered_at: Timestamp,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct MachineTimeAuthorityProfileEntry {
+    pub machine_hash: ActionHash,
+    pub authority_agent: AgentPubKey,
+    pub profile_id: String,
+    pub source_profile: String,
+    pub source_authority_commitment: Vec<u8>,
+    pub source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
+    pub source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget,
+    pub commitment_algorithm: MachineTemporalCommitmentAlgorithm,
+    pub valid_from: Timestamp,
+    pub valid_until: Timestamp,
+    pub max_accuracy_micros: i64,
+    pub registrant_signature: Signature,
+}
+
+impl MachineTimeAuthorityProfileEntry {
+    pub fn signed_payload(&self) -> MachineTimeAuthorityProfilePayload {
+        MachineTimeAuthorityProfilePayload {
+            schema_id: MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID.to_string(),
+            machine_hash: self.machine_hash.clone(),
+            authority_agent: self.authority_agent.clone(),
+            profile_id: self.profile_id.clone(),
+            source_profile: self.source_profile.clone(),
+            source_authority_commitment: self.source_authority_commitment.clone(),
+            source_authority_commitment_algorithm: self.source_authority_commitment_algorithm.clone(),
+            source_authority_commitment_target: self.source_authority_commitment_target.clone(),
+            commitment_algorithm: self.commitment_algorithm.clone(),
+            valid_from: self.valid_from,
+            valid_until: self.valid_until,
+            max_accuracy_micros: self.max_accuracy_micros,
+        }
+    }
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct MachineTemporalAttestationEntry {
+    pub machine_hash: ActionHash,
+    pub profile_hash: ActionHash,
+    pub subject_hash: ActionHash,
+    pub evidence_kind: MachineTemporalEvidenceKind,
+    pub attested_at: Timestamp,
+    pub accuracy_micros: i64,
+    pub source_reference: String,
+    pub source_commitment_algorithm: MachineTemporalCommitmentAlgorithm,
+    pub source_commitment: Vec<u8>,
+    pub authority_signature: Signature,
+}
+
+impl MachineTemporalAttestationEntry {
+    pub fn signed_payload(&self) -> MachineTemporalAttestationPayload {
+        MachineTemporalAttestationPayload {
+            schema_id: MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID.to_string(),
+            machine_hash: self.machine_hash.clone(),
+            profile_hash: self.profile_hash.clone(),
+            subject_hash: self.subject_hash.clone(),
+            evidence_kind: self.evidence_kind.clone(),
+            attested_at: self.attested_at,
+            accuracy_micros: self.accuracy_micros,
+            source_reference: self.source_reference.clone(),
+            source_commitment_algorithm: self.source_commitment_algorithm.clone(),
+            source_commitment: self.source_commitment.clone(),
+        }
+    }
 }
 
 #[hdk_entry_helper]
@@ -163,6 +600,8 @@ pub enum EntryTypes {
     StatusLog(MachineStatusLog),
     MachineControllerAuthority(MachineControllerAuthorityEntry),
     MachineControllerTransitionApproval(MachineControllerTransitionApprovalEntry),
+    MachineTimeAuthorityProfile(MachineTimeAuthorityProfileEntry),
+    MachineTemporalAttestation(MachineTemporalAttestationEntry),
 }
 
 #[hdk_link_types]
@@ -175,6 +614,11 @@ pub enum LinkTypes {
     AllMachineControllerAuthorities,
     MachineToTransitionApprovals,
     AllMachineTransitionApprovals,
+    MachineToTimeAuthorityProfiles,
+    AllMachineTimeAuthorityProfiles,
+    MachineToTemporalAttestations,
+    AllMachineTemporalAttestations,
+    SubjectToTemporalAttestations,
     LocationToMachines,
 }
 
@@ -200,6 +644,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::MachineControllerTransitionApproval(approval) => {
                     validate_create_transition_approval(action, approval)
                 }
+                EntryTypes::MachineTimeAuthorityProfile(profile) => {
+                    validate_create_time_authority_profile(action, profile)
+                }
+                EntryTypes::MachineTemporalAttestation(attestation) => {
+                    validate_create_temporal_attestation(action, attestation)
+                }
                 other => validate_create_entry(other),
             }
         }
@@ -215,8 +665,215 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
             "Machine registry records are immutable".into(),
         )),
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => match link_type {
+            LinkTypes::SubjectToTemporalAttestations => {
+                validate_create_temporal_attestation_link(action)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::Link(OpLink::DeleteLink { link_type, .. }) => match link_type {
+            LinkTypes::SubjectToTemporalAttestations => Ok(ValidateCallbackResult::Invalid(
+                "Temporal attestation subject links are append-only".into(),
+            )),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         _ => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+fn validate_create_temporal_attestation_link(
+    action: TypedAction<CreateLinkData>,
+) -> ExternResult<ValidateCallbackResult> {
+    let Some(subject_hash) = action.data.base_address.clone().into_action_hash() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Temporal attestation subject link base must be an action hash".into(),
+        ));
+    };
+    let Some(attestation_hash) = action.data.target_address.clone().into_action_hash() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Temporal attestation subject link target must be an action hash".into(),
+        ));
+    };
+
+    let attestation_record = must_get_valid_record(attestation_hash)?;
+    let Some(attestation) = attestation_record
+        .entry()
+        .to_app_option::<MachineTemporalAttestationEntry>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+    else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Temporal attestation subject link target is not a temporal attestation".into(),
+        ));
+    };
+
+    if attestation.subject_hash != subject_hash
+        || attestation_record.action().author() != action.author()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Temporal attestation subject link must match its exact attestation and author".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_time_authority_profile(
+    action: TypedAction<CreateData>,
+    profile: MachineTimeAuthorityProfileEntry,
+) -> ExternResult<ValidateCallbackResult> {
+    if profile.profile_id.trim().is_empty()
+        || profile.profile_id.len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || profile.source_profile.trim().is_empty()
+        || profile.source_profile.len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || profile.source_authority_commitment.is_empty()
+        || profile.source_authority_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
+        || profile.max_accuracy_micros < 0
+        || profile.max_accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
+        || profile.source_authority_commitment_algorithm.is_empty()
+        || profile.source_authority_commitment_algorithm.text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || !digest_length_matches(
+            &profile.source_authority_commitment_algorithm,
+            profile.source_authority_commitment.len(),
+        )
+        || profile.commitment_algorithm.is_empty()
+        || profile.commitment_algorithm.text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || profile.source_authority_commitment_target.is_empty()
+        || profile.source_authority_commitment_target.text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "time authority profile has invalid identity or accuracy bounds".into(),
+        ));
+    }
+    if profile.valid_until < profile.valid_from {
+        return Ok(ValidateCallbackResult::Invalid(
+            "time authority profile validity window is inverted".into(),
+        ));
+    }
+    let machine_record = must_get_valid_record(profile.machine_hash.clone())?;
+    let machine: Option<MachineEntry> = machine_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    if !matches!(machine_record.action(), Action::Create(_)) || machine.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "time authority profile must bind to a machine root entry".into(),
+        ));
+    }
+    if machine_record.action().author() != action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "only the machine registrant may establish a time authority profile".into(),
+        ));
+    }
+    if !verify_signature(
+        action.author().clone(),
+        profile.registrant_signature.clone(),
+        profile.signed_payload(),
+    )? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "time authority profile registrant signature is invalid".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_temporal_attestation(
+    action: TypedAction<CreateData>,
+    attestation: MachineTemporalAttestationEntry,
+) -> ExternResult<ValidateCallbackResult> {
+    if attestation.source_reference.trim().is_empty()
+        || attestation.source_reference.len() > MAX_MACHINE_TEMPORAL_SOURCE_REFERENCE_BYTES
+        || attestation.source_commitment_algorithm.is_empty()
+        || attestation.source_commitment_algorithm.text_len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES
+        || !digest_length_matches(
+            &attestation.source_commitment_algorithm,
+            attestation.source_commitment.len(),
+        )
+        || attestation.source_commitment.is_empty()
+        || attestation.source_commitment.len() > MAX_MACHINE_TEMPORAL_SOURCE_COMMITMENT_BYTES
+        || attestation.accuracy_micros < 0
+        || attestation.accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "temporal attestation requires bounded source reference and commitment".into(),
+        ));
+    }
+    let profile_record = must_get_valid_record(attestation.profile_hash.clone())?;
+    let profile: Option<MachineTimeAuthorityProfileEntry> = profile_record
+        .entry().to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let Some(profile) = profile else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "temporal attestation profile reference is not a time authority profile".into(),
+        ));
+    };
+    if profile.machine_hash != attestation.machine_hash
+        || profile.authority_agent != action.author()
+        || attestation.accuracy_micros > profile.max_accuracy_micros
+        || attestation.source_commitment_algorithm != profile.commitment_algorithm
+        || !temporal_profile_contains_interval(
+            &profile,
+            attestation.attested_at,
+            attestation.accuracy_micros,
+        )
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "temporal attestation is outside its exact machine/authority profile".into(),
+        ));
+    }
+    let subject_record = must_get_valid_record(attestation.subject_hash.clone())?;
+    match attestation.evidence_kind {
+        MachineTemporalEvidenceKind::TransitionApproval => {
+            let approval: Option<MachineControllerTransitionApprovalEntry> = subject_record
+                .entry().to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            let Some(approval) = approval else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "temporal approval evidence subject is not a transition approval".into(),
+                ));
+            };
+            if approval.machine_hash != attestation.machine_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "temporal approval evidence subject belongs to a different machine".into(),
+                ));
+            }
+            if !temporal_interval_contains_interval(
+                approval.valid_from,
+                approval.valid_until,
+                attestation.attested_at,
+                attestation.accuracy_micros,
+            ) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "temporal approval evidence falls outside approval validity".into(),
+                ));
+            }
+        }
+        MachineTemporalEvidenceKind::MachineActionExistence => {
+            let machine: Option<MachineEntry> = subject_record
+                .entry().to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            let Some(_) = machine else {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "machine action temporal evidence subject is not a machine record".into(),
+                ));
+            };
+            let root = resolve_machine_root_action_hash(attestation.subject_hash.clone())?;
+            if root != attestation.machine_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "machine action temporal evidence subject belongs to a different machine".into(),
+                ));
+            }
+        }
+    }
+    if !verify_signature(
+        profile.authority_agent.clone(),
+        attestation.authority_signature.clone(),
+        attestation.signed_payload(),
+    )? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "temporal attestation authority signature is invalid".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_transition_approval(
@@ -533,6 +1190,8 @@ fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResu
         }
         EntryTypes::MachineControllerAuthority(_) => unreachable!(),
         EntryTypes::MachineControllerTransitionApproval(_) => unreachable!(),
+        EntryTypes::MachineTimeAuthorityProfile(_) => unreachable!(),
+        EntryTypes::MachineTemporalAttestation(_) => unreachable!(),
     }
 }
 
@@ -599,6 +1258,67 @@ fn transition_approval_matches_update(
         && approval.new_status == *new_status
         && approval.work_order_hash.as_ref() == work_order_hash
         && approval_valid_at(approval, action_timestamp)
+}
+fn temporal_interval_contains(
+    valid_from: Timestamp,
+    valid_until: Timestamp,
+    timestamp: Timestamp,
+) -> bool {
+    valid_from <= timestamp && timestamp <= valid_until
+}
+
+fn digest_length_matches(
+    algorithm: &MachineTemporalCommitmentAlgorithm,
+    digest_len: usize,
+) -> bool {
+    algorithm
+        .expected_digest_len()
+        .map(|expected| expected == digest_len)
+        .unwrap_or(true)
+}
+
+fn temporal_interval_bounds(
+    timestamp: Timestamp,
+    accuracy_micros: i64,
+) -> Option<(Timestamp, Timestamp)> {
+    if accuracy_micros < 0 || accuracy_micros > MAX_MACHINE_TEMPORAL_ACCURACY_MICROS {
+        return None;
+    }
+    let micros = timestamp.as_micros();
+    let lower = micros.checked_sub(accuracy_micros)?;
+    let upper = micros.checked_add(accuracy_micros)?;
+    Some((Timestamp::from_micros(lower), Timestamp::from_micros(upper)))
+}
+
+fn temporal_interval_contains_interval(
+    valid_from: Timestamp,
+    valid_until: Timestamp,
+    timestamp: Timestamp,
+    accuracy_micros: i64,
+) -> bool {
+    temporal_interval_bounds(timestamp, accuracy_micros)
+        .map(|(lower, upper)| valid_from <= lower && upper <= valid_until)
+        .unwrap_or(false)
+}
+
+fn temporal_profile_contains_interval(
+    profile: &MachineTimeAuthorityProfileEntry,
+    timestamp: Timestamp,
+    accuracy_micros: i64,
+) -> bool {
+    temporal_interval_contains_interval(
+        profile.valid_from,
+        profile.valid_until,
+        timestamp,
+        accuracy_micros,
+    )
+}
+
+fn temporal_profile_contains(
+    profile: &MachineTimeAuthorityProfileEntry,
+    timestamp: Timestamp,
+) -> bool {
+    temporal_interval_contains(profile.valid_from, profile.valid_until, timestamp)
 }
 fn authority_valid_at(
     authority: &MachineControllerAuthorityEntry,
@@ -756,6 +1476,15 @@ fn validate_update_entry(
         EntryTypes::MachineControllerAuthority(_) => Ok(ValidateCallbackResult::Invalid(
             "Machine controller authorities are immutable".into(),
         )),
+        EntryTypes::MachineControllerTransitionApproval(_) => Ok(ValidateCallbackResult::Invalid(
+            "Machine transition approvals are immutable".into(),
+        )),
+        EntryTypes::MachineTimeAuthorityProfile(_) => Ok(ValidateCallbackResult::Invalid(
+            "Machine time authority profiles are immutable".into(),
+        )),
+        EntryTypes::MachineTemporalAttestation(_) => Ok(ValidateCallbackResult::Invalid(
+            "Machine temporal attestations are immutable".into(),
+        )),
     }
 }
 
@@ -827,6 +1556,551 @@ mod content_restriction_tests {
             &approval, &machine, &authority, &controller, &predecessor,
             &MachineStatus::Running, Some(&work_order), Timestamp::from_micros(201)
         ));
+    }
+    #[test]
+    fn temporal_evidence_kind_serde_round_trips() {
+        for kind in [
+            MachineTemporalEvidenceKind::TransitionApproval,
+            MachineTemporalEvidenceKind::MachineActionExistence,
+        ] {
+            let encoded = serde_json::to_string(&kind).unwrap();
+            let decoded: MachineTemporalEvidenceKind = serde_json::from_str(&encoded).unwrap();
+            assert_eq!(decoded, kind);
+        }
+    }
+
+    fn temporal_observation(
+        attestation_byte: u8,
+        authority_byte: u8,
+        time: i64,
+    ) -> MachineTemporalEvidenceObservation {
+        let attestation_hash = ActionHash::from_raw_36(vec![attestation_byte; 36]);
+        let profile_hash = ActionHash::from_raw_36(vec![3; 36]);
+        let machine_hash = ActionHash::from_raw_36(vec![1; 36]);
+        let authority_agent = AgentPubKey::from_raw_32(vec![authority_byte; 32]);
+        let source_reference = format!("tsa://example/{attestation_byte}");
+        let source_commitment = vec![attestation_byte; 32];
+        let profile_payload = MachineTimeAuthorityProfilePayload {
+            schema_id: MACHINE_TIME_AUTHORITY_PROFILE_SCHEMA_ID.to_string(),
+            machine_hash: machine_hash.clone(),
+            authority_agent: authority_agent.clone(),
+            profile_id: "profile-1".into(),
+            source_profile: "rfc3161".into(),
+            source_authority_commitment: vec![9; 32],
+            source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget::CertificateDer,
+            commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            valid_from: Timestamp::from_micros(0),
+            valid_until: Timestamp::from_micros(1_000),
+            max_accuracy_micros: 10,
+        };
+        let attestation_payload = MachineTemporalAttestationPayload {
+            schema_id: MACHINE_TEMPORAL_ATTESTATION_SCHEMA_ID.to_string(),
+            machine_hash,
+            profile_hash: profile_hash.clone(),
+            subject_hash: ActionHash::from_raw_36(vec![4; 36]),
+            evidence_kind: MachineTemporalEvidenceKind::TransitionApproval,
+            attested_at: Timestamp::from_micros(time),
+            accuracy_micros: 5,
+            source_reference: source_reference.clone(),
+            source_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            source_commitment: source_commitment.clone(),
+        };
+        let machine_registrant = AgentPubKey::from_raw_32(vec![6; 32]);
+        MachineTemporalEvidenceObservation {
+            receipt_schema_id: MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V2.to_string(),
+            machine_registrant: machine_registrant.clone(),
+            attestation_hash: attestation_hash.clone(),
+            authority_agent: authority_agent.clone(),
+            profile_hash: profile_hash.clone(),
+            source_authority_commitment: vec![9; 32],
+            source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget::CertificateDer,
+            subject_hash: ActionHash::from_raw_36(vec![4; 36]),
+            evidence_kind: MachineTemporalEvidenceKind::TransitionApproval,
+            attested_at: Timestamp::from_micros(time),
+            accuracy_micros: 5,
+            source_reference,
+            source_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            source_commitment,
+            profile_statement: MachineTemporalSignedProfileStatement {
+                action_hash: profile_hash,
+                signer: machine_registrant,
+                payload: profile_payload,
+                signature: Signature(vec![0; 64]),
+            },
+            attestation_statement: MachineTemporalSignedAttestationStatement {
+                action_hash: attestation_hash,
+                signer: authority_agent,
+                payload: attestation_payload,
+                signature: Signature(vec![0; 64]),
+            },
+        }
+    }
+
+    #[test]
+    fn temporal_commitment_identifiers_reject_empty_profile_defined_values() {
+        assert!(MachineTemporalCommitmentAlgorithm::ProfileDefined("".into()).is_empty());
+        assert!(!MachineTemporalCommitmentAlgorithm::Sha256.is_empty());
+        assert!(MachineTemporalAuthorityCommitmentTarget::ProfileDefined("".into()).is_empty());
+        assert!(!MachineTemporalAuthorityCommitmentTarget::CertificateDer.is_empty());
+    }
+
+    #[test]
+    fn temporal_digest_lengths_match_known_algorithms() {
+        assert!(digest_length_matches(&MachineTemporalCommitmentAlgorithm::Sha256, 32));
+        assert!(!digest_length_matches(&MachineTemporalCommitmentAlgorithm::Sha256, 31));
+        assert!(digest_length_matches(&MachineTemporalCommitmentAlgorithm::Sha384, 48));
+        assert!(digest_length_matches(&MachineTemporalCommitmentAlgorithm::Sha512, 64));
+        assert!(digest_length_matches(
+            &MachineTemporalCommitmentAlgorithm::ProfileDefined("future".into()),
+            17,
+        ));
+    }
+
+    #[test]
+    fn temporal_profile_signed_payload_binds_accuracy_bound() {
+        let mut profile = MachineTimeAuthorityProfileEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            authority_agent: AgentPubKey::from_raw_32(vec![2; 32]),
+            profile_id: "profile-1".into(),
+            source_profile: "rfc3161".into(),
+            source_authority_commitment: vec![9; 32],
+            source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget::CertificateDer,
+            commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            valid_from: Timestamp::from_micros(0),
+            valid_until: Timestamp::from_micros(1_000),
+            max_accuracy_micros: 5,
+            registrant_signature: Signature(vec![0; 64]),
+        };
+        let before = profile.signed_payload();
+        profile.max_accuracy_micros += 1;
+        assert_ne!(profile.signed_payload(), before);
+
+        let before_source = profile.signed_payload();
+        profile.source_authority_commitment[0] ^= 1;
+        assert_ne!(profile.signed_payload(), before_source);
+
+        let encoded_profile_id = "p".repeat(MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES + 1);
+        assert!(encoded_profile_id.len() > MAX_MACHINE_TEMPORAL_PROFILE_TEXT_BYTES);
+    }
+
+    #[test]
+    fn temporal_profile_signs_authority_commitment_target() {
+        let mut profile = MachineTimeAuthorityProfileEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            authority_agent: AgentPubKey::from_raw_32(vec![2; 32]),
+            profile_id: "profile-1".into(),
+            source_profile: "rfc3161".into(),
+            source_authority_commitment: vec![9; 32],
+            source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget::CertificateDer,
+            commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            valid_from: Timestamp::from_micros(0),
+            valid_until: Timestamp::from_micros(1_000),
+            max_accuracy_micros: 5,
+            registrant_signature: Signature(vec![0; 64]),
+        };
+        let before = profile.signed_payload();
+        profile.source_authority_commitment_target =
+            MachineTemporalAuthorityCommitmentTarget::SubjectPublicKeyInfo;
+        assert_ne!(profile.signed_payload(), before);
+    }
+
+    #[test]
+    fn temporal_profile_signs_authority_commitment_algorithm() {
+        let mut profile = MachineTimeAuthorityProfileEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            authority_agent: AgentPubKey::from_raw_32(vec![2; 32]),
+            profile_id: "profile-1".into(),
+            source_profile: "rfc3161".into(),
+            source_authority_commitment: vec![9; 32],
+            source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget::CertificateDer,
+            commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            valid_from: Timestamp::from_micros(0),
+            valid_until: Timestamp::from_micros(1_000),
+            max_accuracy_micros: 5,
+            registrant_signature: Signature(vec![0; 64]),
+        };
+        let before = profile.signed_payload();
+        profile.source_authority_commitment_algorithm = MachineTemporalCommitmentAlgorithm::Sha512;
+        assert_ne!(profile.signed_payload(), before);
+    }
+
+    #[test]
+    fn temporal_profile_commitment_algorithm_is_signed() {
+        let mut profile = MachineTimeAuthorityProfileEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            authority_agent: AgentPubKey::from_raw_32(vec![2; 32]),
+            profile_id: "profile-1".into(),
+            source_profile: "rfc3161".into(),
+            source_authority_commitment: vec![9; 32],
+            source_authority_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            source_authority_commitment_target: MachineTemporalAuthorityCommitmentTarget::CertificateDer,
+            commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            valid_from: Timestamp::from_micros(0),
+            valid_until: Timestamp::from_micros(1_000),
+            max_accuracy_micros: 5,
+            registrant_signature: Signature(vec![0; 64]),
+        };
+        let before = profile.signed_payload();
+        profile.commitment_algorithm = MachineTemporalCommitmentAlgorithm::Sha512;
+        assert_ne!(profile.signed_payload(), before);
+    }
+
+    #[test]
+    fn temporal_attestation_signed_payload_binds_source_commitment() {
+        let mut attestation = MachineTemporalAttestationEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            profile_hash: ActionHash::from_raw_36(vec![2; 36]),
+            subject_hash: ActionHash::from_raw_36(vec![3; 36]),
+            evidence_kind: MachineTemporalEvidenceKind::TransitionApproval,
+            attested_at: Timestamp::from_micros(100),
+            accuracy_micros: 5,
+            source_reference: "tsa://example/1".into(),
+            source_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            source_commitment: vec![7; 32],
+            authority_signature: Signature(vec![0; 64]),
+        };
+        let before = attestation.signed_payload();
+        attestation.source_commitment[0] ^= 1;
+        assert_ne!(attestation.signed_payload(), before);
+    }
+
+    #[test]
+    fn temporal_attestation_signed_payload_binds_commitment_algorithm() {
+        let mut attestation = MachineTemporalAttestationEntry {
+            machine_hash: ActionHash::from_raw_36(vec![1; 36]),
+            profile_hash: ActionHash::from_raw_36(vec![2; 36]),
+            subject_hash: ActionHash::from_raw_36(vec![3; 36]),
+            evidence_kind: MachineTemporalEvidenceKind::TransitionApproval,
+            attested_at: Timestamp::from_micros(100),
+            accuracy_micros: 5,
+            source_reference: "tsa://example/1".into(),
+            source_commitment_algorithm: MachineTemporalCommitmentAlgorithm::Sha256,
+            source_commitment: vec![7; 32],
+            authority_signature: Signature(vec![0; 64]),
+        };
+        let before = attestation.signed_payload();
+        attestation.source_commitment_algorithm = MachineTemporalCommitmentAlgorithm::Sha512;
+        assert_ne!(attestation.signed_payload(), before);
+    }
+
+    #[test]
+    fn temporal_evidence_receipt_round_trips_both_signed_statements() {
+        let observation = temporal_observation(1, 7, 100);
+        let encoded = serde_json::to_vec(&observation).unwrap();
+        let decoded: MachineTemporalEvidenceObservation =
+            serde_json::from_slice(&encoded).unwrap();
+        assert_eq!(decoded, observation);
+        assert_eq!(decoded.profile_statement, observation.profile_statement);
+        assert_eq!(decoded.attestation_statement, observation.attestation_statement);
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_preserves_agreeing_provenance() {
+        let a = temporal_observation(1, 7, 100);
+        let b = temporal_observation(2, 8, 100);
+        assert_eq!(
+            resolve_temporal_evidence(vec![b.clone(), a.clone()]),
+            MachineTemporalEvidenceResolution::UniqueObserved {
+                time: Timestamp::from_micros(100),
+                accuracy_micros: 5,
+                evidence: vec![a, b],
+            }
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_accuracy_disagreement_fails_closed() {
+        let a = temporal_observation(1, 7, 100);
+        let mut b = temporal_observation(2, 8, 100);
+        b.accuracy_micros = 6;
+        b.attestation_statement.payload.accuracy_micros = 6;
+        assert!(matches!(
+            resolve_temporal_evidence(vec![a, b]),
+            MachineTemporalEvidenceResolution::ConflictingObserved(_)
+        ));
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_deduplicates_identical_attestation_hashes() {
+        let a = temporal_observation(1, 7, 100);
+        assert_eq!(
+            resolve_temporal_evidence(vec![a.clone(), a.clone()]),
+            MachineTemporalEvidenceResolution::UniqueObserved {
+                time: Timestamp::from_micros(100),
+                accuracy_micros: 5,
+                evidence: vec![a],
+            }
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_receipt_rejects_time_outside_profile_uncertainty_window() {
+        let mut observation = temporal_observation(1, 7, 100);
+        observation.attested_at = Timestamp::from_micros(1_001);
+        observation.attestation_statement.payload.attested_at = observation.attested_at;
+        assert_eq!(
+            resolve_temporal_evidence(vec![observation]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_receipt_rejects_accuracy_above_profile_bound() {
+        let mut observation = temporal_observation(1, 7, 100);
+        observation.accuracy_micros = 11;
+        observation.attestation_statement.payload.accuracy_micros = 11;
+        assert_eq!(
+            resolve_temporal_evidence(vec![observation]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_receipt_rejects_known_digest_length_mismatch() {
+        let mut observation = temporal_observation(1, 7, 100);
+        observation.source_commitment.pop();
+        observation.attestation_statement.payload.source_commitment =
+            observation.source_commitment.clone();
+        assert_eq!(
+            resolve_temporal_evidence(vec![observation]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_receipt_rejects_profile_signer_not_machine_registrant() {
+        let mut observation = temporal_observation(1, 7, 100);
+        observation.profile_statement.signer = AgentPubKey::from_raw_32(vec![9; 32]);
+        assert_eq!(
+            resolve_temporal_evidence(vec![observation]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_rejects_mixed_subjects() {
+        let a = temporal_observation(1, 7, 100);
+        let mut b = temporal_observation(2, 8, 100);
+        b.subject_hash = ActionHash::from_raw_36(vec![5; 36]);
+        b.attestation_statement.payload.subject_hash = b.subject_hash.clone();
+        assert_eq!(
+            resolve_temporal_evidence(vec![a, b]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_rejects_mixed_machine_roots() {
+        let a = temporal_observation(1, 7, 100);
+        let mut b = temporal_observation(2, 8, 100);
+        b.profile_statement.payload.machine_hash = ActionHash::from_raw_36(vec![9; 36]);
+        b.attestation_statement.payload.machine_hash = ActionHash::from_raw_36(vec![9; 36]);
+        assert_eq!(
+            resolve_temporal_evidence(vec![a, b]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_rejects_mixed_machine_registrants() {
+        let a = temporal_observation(1, 7, 100);
+        let mut b = temporal_observation(2, 8, 100);
+        b.machine_registrant = AgentPubKey::from_raw_32(vec![9; 32]);
+        b.profile_statement.signer = b.machine_registrant.clone();
+        assert_eq!(
+            resolve_temporal_evidence(vec![a, b]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_rejects_mixed_evidence_kinds() {
+        let a = temporal_observation(1, 7, 100);
+        let mut b = temporal_observation(2, 8, 100);
+        b.evidence_kind = MachineTemporalEvidenceKind::MachineActionExistence;
+        b.attestation_statement.payload.evidence_kind =
+            MachineTemporalEvidenceKind::MachineActionExistence;
+        assert_eq!(
+            resolve_temporal_evidence(vec![a, b]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_rejects_unknown_receipt_schema() {
+        let mut observation = temporal_observation(1, 7, 100);
+        observation.receipt_schema_id = "unknown-receipt-v99".into();
+        assert_eq!(
+            resolve_temporal_evidence(vec![observation]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_rejects_observation_statement_mismatch() {
+        let mut observation = temporal_observation(1, 7, 100);
+        observation.source_commitment[0] ^= 1;
+        assert_eq!(
+            resolve_temporal_evidence(vec![observation]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_rejects_divergent_duplicate_hashes() {
+        let a = temporal_observation(1, 7, 100);
+        let mut divergent = a.clone();
+        divergent.source_reference = "tsa://different-reference".into();
+        divergent.attestation_statement.payload.source_reference =
+            "tsa://different-reference".into();
+        assert_eq!(
+            resolve_temporal_evidence(vec![a, divergent]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_link_count_accepts_exact_limit() {
+        assert!(!temporal_evidence_link_set_exceeds_limit(0));
+        assert!(!temporal_evidence_link_set_exceeds_limit(
+            MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS - 1
+        ));
+        assert!(!temporal_evidence_link_set_exceeds_limit(
+            MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS
+        ));
+    }
+
+    #[test]
+    fn temporal_evidence_link_count_rejects_first_item_over_limit() {
+        assert!(temporal_evidence_link_set_exceeds_limit(
+            MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS + 1
+        ));
+        assert!(temporal_evidence_link_set_exceeds_limit(usize::MAX));
+    }
+
+    #[test]
+    fn temporal_evidence_link_limit_outcome_round_trips() {
+        let outcome = MachineTemporalEvidenceResolution::EvidenceLinkSetLimitExceeded {
+            limit: MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS as u32,
+        };
+        let encoded = serde_json::to_vec(&outcome).unwrap();
+        let decoded: MachineTemporalEvidenceResolution =
+            serde_json::from_slice(&encoded).unwrap();
+        assert_eq!(decoded, outcome);
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_accepts_exact_distinct_observation_limit() {
+        let evidence = (0..MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS)
+            .map(|index| {
+                let mut observation = temporal_observation((index % 250) as u8, 7, 100);
+                let mut raw = vec![0u8; 36];
+                raw[..4].copy_from_slice(&(index as u32).to_le_bytes());
+                observation.attestation_hash = ActionHash::from_raw_36(raw);
+                observation.attestation_statement.action_hash =
+                    observation.attestation_hash.clone();
+                observation
+            })
+            .collect::<Vec<_>>();
+        match resolve_temporal_evidence(evidence) {
+            MachineTemporalEvidenceResolution::UniqueObserved { evidence, .. } => {
+                assert_eq!(evidence.len(), MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS);
+            }
+            other => panic!("expected bounded complete set at exact limit, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_bounds_distinct_observation_work() {
+        let evidence = (0..=MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS)
+            .map(|index| {
+                let mut observation = temporal_observation((index % 250) as u8, 7, 100);
+                let mut raw = vec![0u8; 36];
+                raw[..4].copy_from_slice(&(index as u32).to_le_bytes());
+                observation.attestation_hash = ActionHash::from_raw_36(raw);
+                observation.attestation_statement.action_hash = observation.attestation_hash.clone();
+                observation
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            resolve_temporal_evidence(evidence),
+            MachineTemporalEvidenceResolution::EvidenceSetLimitExceeded {
+                limit: MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS as u32,
+            }
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_conflicts_fail_closed_with_provenance() {
+        let a = temporal_observation(1, 7, 100);
+        let b = temporal_observation(2, 8, 200);
+        assert_eq!(
+            resolve_temporal_evidence(vec![b.clone(), a.clone()]),
+            MachineTemporalEvidenceResolution::ConflictingObserved(vec![a, b])
+        );
+        assert_eq!(
+            resolve_temporal_evidence(vec![]),
+            MachineTemporalEvidenceResolution::NoEvidenceObserved
+        );
+    }
+    #[test]
+    fn temporal_uncertainty_must_fit_whole_approval_window() {
+        assert!(temporal_interval_contains_interval(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(150),
+            50,
+        ));
+        assert!(!temporal_interval_contains_interval(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(150),
+            51,
+        ));
+        assert!(!temporal_interval_contains_interval(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(99),
+            0,
+        ));
+    }
+
+    #[test]
+    fn temporal_approval_evidence_must_overlap_approval_window() {
+        assert!(temporal_interval_contains(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(100),
+        ));
+        assert!(temporal_interval_contains(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(200),
+        ));
+        assert!(!temporal_interval_contains(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(99),
+        ));
+        assert!(!temporal_interval_contains(
+            Timestamp::from_micros(100),
+            Timestamp::from_micros(200),
+            Timestamp::from_micros(201),
+        ));
+    }
+    #[test]
+    fn temporal_profile_boundaries_are_inclusive() {
+        let from = Timestamp::from_micros(100);
+        let until = Timestamp::from_micros(200);
+        assert!(temporal_interval_contains(from, until, Timestamp::from_micros(100)));
+        assert!(temporal_interval_contains(from, until, Timestamp::from_micros(200)));
+        assert!(!temporal_interval_contains(from, until, Timestamp::from_micros(99)));
+        assert!(!temporal_interval_contains(from, until, Timestamp::from_micros(201)));
     }
     #[test]
     fn controller_lease_duration_is_bounded() {
