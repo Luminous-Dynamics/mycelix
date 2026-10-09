@@ -221,6 +221,8 @@ jobs:
           nix develop --command bash -lc '
             cargo test --manifest-path tests/Cargo.toml --test sweettest_mail_security \
               test_capability_grant_and_revocation_lifecycle -- --ignored --exact --test-threads=1
+            cargo test --manifest-path tests/Cargo.toml --test sweettest_mail_security \
+              test_capability_probe_reports_function_not_granted_for_send_only_capability -- --ignored --exact --test-threads=1
           '
 
       - name: Build standalone DNA distribution
