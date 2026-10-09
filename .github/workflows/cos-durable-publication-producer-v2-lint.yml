@@ -122,10 +122,10 @@ jobs:
           assert "'main_ruleset_governance_sha256'" in text and "'main_ruleset_governance_sha256'" in verifier
           assert "'bypass_actors' in data and isinstance(data['bypass_actors'],list)" in text
           assert "if applicable and item['enforcement']=='active':" in text
-          assert "assert not actors, f"active main-applicable ruleset has bypass actors:" in text
+          assert 'assert not actors, f"active main-applicable ruleset has bypass actors:' in text
           assert "ruleset_applies_to_main(ruleset['conditions'])" in verifier
           assert "if ruleset['applicable_to_main'] and ruleset['enforcement']=='active':" in verifier
-          assert "assert not actors, f"active main-applicable ruleset has bypass actors:" in verifier
+          assert 'assert not actors, f"active main-applicable ruleset has bypass actors:' in verifier
           assert "durable_manifest['files']['main-ruleset-governance-v1.json']" in verifier
           assert "m['files']==expected_files" in text
           assert "'allow_fork_syncing'" in text
