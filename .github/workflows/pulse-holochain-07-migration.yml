@@ -231,6 +231,7 @@ jobs:
           MAIL_DNA_PATH: ${{ github.workspace }}/mycelix-workspace/mycelix-pulse/holochain/dna-alpha/mycelix_pulse_alpha.dna
         run: |
           nix develop --command bash -lc '
+            set -euo pipefail
             cargo test --manifest-path tests/Cargo.toml --test sweettest_mail_security \
               test_capability_grant_and_revocation_lifecycle -- --ignored --exact --test-threads=1
             cargo test --manifest-path tests/Cargo.toml --test sweettest_mail_security \
