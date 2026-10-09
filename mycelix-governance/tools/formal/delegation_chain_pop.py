@@ -16,6 +16,7 @@ This is not a production authorization/dispatch adapter.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sqlite3
 import sys
@@ -213,16 +214,17 @@ def _consume_pop_jti(database_path: Path, scope: str, jti: str, iat: int,
             connection.execute("PRAGMA busy_timeout=5000")
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS aat_pop_replay ("
-                "scope TEXT NOT NULL, jti TEXT NOT NULL, iat INTEGER NOT NULL, "
-                "PRIMARY KEY(scope, jti))"
+                "scope TEXT NOT NULL, jti_sha256 TEXT NOT NULL, iat INTEGER NOT NULL, "
+                "PRIMARY KEY(scope, jti_sha256))"
             )
             connection.execute("BEGIN IMMEDIATE")
             # Keep consumed JTIs durably: deleting old entries would allow the
             # same identifier to be reused later, contrary to the one-time proof
             # profile. Retention must be managed without making old JTIs reusable.
+            jti_digest = hashlib.sha256(jti.encode("utf-8")).hexdigest()
             connection.execute(
-                "INSERT INTO aat_pop_replay(scope, jti, iat) VALUES (?, ?, ?)",
-                (scope, jti, iat),
+                "INSERT INTO aat_pop_replay(scope, jti_sha256, iat) VALUES (?, ?, ?)",
+                (scope, jti_digest, iat),
             )
             connection.execute("COMMIT")
         except sqlite3.IntegrityError as error:
