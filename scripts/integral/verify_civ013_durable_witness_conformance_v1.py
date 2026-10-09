@@ -49,6 +49,8 @@ REQUIRED_IDS = {
     "DA022-generation-signed-range-overflow",
     "DA023-receipt-sequence-signed-range-overflow",
     "DA024-recovery-equal-generation-missing-local-digest",
+    "DA025-late-finalize-current-head-pointer-valid",
+    "DA026-late-finalize-current-head-pointer-mismatch",
 }
 
 
@@ -273,6 +275,28 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
             return "RejectCorruptForkEvidence"
         reordered = [chain[index] for index in vector["order"]]
         return "RejectCorruptForkEvidence" if not valid_fork_chain(reordered) else "VALID_FORK_CHAIN"
+
+    if kind == "late_finalize_head_pointer":
+        exact_predecessor = (
+            vector["candidate_generation"] == vector["expected_predecessor_generation"] + 1
+            and vector["candidate_previous_digest"] == vector["expected_predecessor_digest"]
+        )
+        if (
+            not exact_predecessor
+            or vector["current_head_generation"] <= vector["candidate_generation"]
+            or vector["stored_candidate_status"] != "accepted"
+        ):
+            return "StalePredecessor"
+        if vector.get("stored_current_head_status") != "accepted":
+            return "CorruptCurrentHeadMetadata"
+        try:
+            metadata_digest = parse_digest(vector["metadata_head_digest"], "metadata_head_digest")
+            stored_digest = parse_digest(vector["stored_current_head_digest"], "stored_current_head_digest")
+        except (KeyError, TypeError, ValueError):
+            return "CorruptCurrentHeadMetadata"
+        if metadata_digest != stored_digest:
+            return "CorruptCurrentHeadMetadata"
+        return "IdempotentAcceptedHistory"
 
     if kind == "sqlite_integer_range":
         generation = vector["record_generation"]
