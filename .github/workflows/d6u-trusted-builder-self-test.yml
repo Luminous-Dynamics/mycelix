@@ -78,19 +78,32 @@ jobs:
           observed_blob="$(git -C _independent-evaluator rev-parse HEAD:scripts/integral/evaluate_d6u_trusted_verifier_independently.py)"
           test "$observed_blob" = "$EXPECTED_EVALUATOR_BLOB"
 
-      - name: Run immutable independent evaluator in a sanitized environment
+      - name: Run immutable independent evaluator in a restricted container
         run: |
           set -euo pipefail
-          scratch="$(mktemp -d)"
-          trap 'rm -rf "$scratch"' EXIT
-          mkdir "$scratch/home" "$scratch/tmp"
-          env -i \
-            PATH="$PATH" \
-            HOME="$scratch/home" \
-            TMPDIR="$scratch/tmp" \
-            LANG=C.UTF-8 \
-            python3 _independent-evaluator/scripts/integral/evaluate_d6u_trusted_verifier_independently.py \
-              --candidate-root "$GITHUB_WORKSPACE"
+          image='python:3.12-slim-bookworm@sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4'
+          docker pull "$image"
+          docker image inspect "$image" --format '{{json .RepoDigests}}' | grep -Fq 'sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4'
+          docker run --rm \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit=64 \
+            --memory=512m \
+            --cpus=1 \
+            --user 65534:65534 \
+            --tmpfs /tmp:rw,noexec,nosuid,size=32m,mode=1777 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/candidate,readonly" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/_independent-evaluator,dst=/evaluator,readonly" \
+            --workdir /evaluator \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            --env LANG=C.UTF-8 \
+            --env PYTHONDONTWRITEBYTECODE=1 \
+            "$image" \
+            python3 scripts/integral/evaluate_d6u_trusted_verifier_independently.py \
+              --candidate-root /candidate
 
       - name: Compile trusted verifier
         run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py scripts/integral/verify_d6u_trusted_attestation_retention.py scripts/integral/test_d6u_trusted_artifacts.py
