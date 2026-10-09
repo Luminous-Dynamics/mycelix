@@ -497,7 +497,7 @@ jobs:
           pages=json.loads(Path('ruleset-index-pages.json').read_text())
           listed=[item for page in pages for item in page]
           listed_ids={item['id'] for item in listed}
-          actor_types={'Integration','OrganizationAdmin','RepositoryRole','Team','DeployKey','User'}
+          actor_types={'Integration','OrganizationAdmin','RepositoryRole','Team','DeployKey','User','EnterpriseOwner','EnterpriseRole'}
           bypass_modes={'always','pull_request','exempt'}
           def applies_to_main(conditions):
               if not isinstance(conditions,dict):
@@ -543,7 +543,7 @@ jobs:
                   actor_id=actor['actor_id']
                   if actor_type=='DeployKey':
                       assert actor_id is None and bypass_mode!='pull_request'
-                  elif actor_type=='OrganizationAdmin':
+                  elif actor_type in ('OrganizationAdmin','EnterpriseOwner'):
                       assert actor_id is None or (type(actor_id) is int and actor_id>0)
                   else:
                       assert type(actor_id) is int and actor_id>0
