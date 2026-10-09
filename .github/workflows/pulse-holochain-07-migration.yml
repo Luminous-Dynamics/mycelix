@@ -169,6 +169,30 @@ jobs:
         working-directory: mycelix-workspace/mycelix-pulse
         run: nix develop --command bash -lc 'holochain --version && hc --version && lair-keystore --version && node --version'
 
-      - name: Build standalone DNA with Holochain 0.7 hc
+      - name: Build active Pulse alpha zomes for wasm32
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: |
+          nix develop --command bash -lc '
+            cargo build --manifest-path holochain/Cargo.toml --workspace --release --target wasm32-unknown-unknown
+          '
+
+      - name: Pack the exact Holochain 0.7 Sweettest DNA
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: |
+          rm -f holochain/dna-alpha/mycelix_pulse_alpha.dna
+          nix develop --command hc dna pack holochain/dna-alpha
+          test -s holochain/dna-alpha/mycelix_pulse_alpha.dna
+
+      - name: Prove assigned capability succeeds then becomes Unauthorized
+        working-directory: mycelix-workspace/mycelix-pulse
+        env:
+          MAIL_DNA_PATH: ${{ github.workspace }}/mycelix-workspace/mycelix-pulse/holochain/dna-alpha/mycelix_pulse_alpha.dna
+        run: |
+          nix develop --command bash -lc '
+            cargo test --manifest-path tests/Cargo.toml --test sweettest_mail_security \
+              test_capability_grant_and_revocation_lifecycle -- --ignored --exact --test-threads=1
+          '
+
+      - name: Build standalone DNA distribution
         working-directory: mycelix-workspace/mycelix-pulse
         run: nix build .#dna --no-link
