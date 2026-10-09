@@ -44,37 +44,49 @@ jobs:
         with:
           filters: |
             commons:
+              - '.github/workflows/ci.yml'
               - 'mycelix-commons/**'
               - 'crates/mycelix-bridge-*/**'
             civic:
+              - '.github/workflows/ci.yml'
               - 'mycelix-civic/**'
               - 'crates/mycelix-bridge-*/**'
             hearth:
+              - '.github/workflows/ci.yml'
               - 'mycelix-hearth/**'
               - 'crates/mycelix-bridge-*/**'
             finance:
+              - '.github/workflows/ci.yml'
               - 'mycelix-finance/**'
               - 'crates/mycelix-bridge-*/**'
             governance:
+              - '.github/workflows/ci.yml'
               - 'mycelix-governance/**'
               - 'crates/mycelix-bridge-*/**'
             identity:
+              - '.github/workflows/ci.yml'
               - 'mycelix-identity/**'
               - 'crates/mycelix-bridge-*/**'
             personal:
+              - '.github/workflows/ci.yml'
               - 'mycelix-personal/**'
               - 'crates/mycelix-bridge-*/**'
             attribution:
+              - '.github/workflows/ci.yml'
               - 'mycelix-attribution/**'
               - 'crates/mycelix-bridge-*/**'
             bridge:
+              - '.github/workflows/ci.yml'
               - 'crates/mycelix-bridge-*/**'
             sdk:
+              - '.github/workflows/ci.yml'
               - 'mycelix-workspace/sdk/**'
               - 'mycelix-workspace/sdk-ts/**'
             prism:
+              - '.github/workflows/ci.yml'
               - 'mycelix-workspace/mycelix-prism/**'
             cos_conformance:
+              - '.github/workflows/ci.yml'
               - 'mycelix-manufacturing/crates/cos_conformance/**'
               - 'mycelix-manufacturing/Cargo.toml'
               - 'mycelix-manufacturing/Cargo.lock'
