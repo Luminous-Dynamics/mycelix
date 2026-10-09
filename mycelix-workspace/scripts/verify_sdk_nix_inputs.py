@@ -279,10 +279,10 @@ def main() -> int:
 
     package_path = args.workspace / "sdk-ts" / "package.json"
     lock_path = args.workspace / "sdk-ts" / "package-lock.json"
-    package_raw = package_path.read_text(encoding="utf-8")
-    lock_raw = lock_path.read_text(encoding="utf-8")
 
     try:
+        package_raw = package_path.read_text(encoding="utf-8")
+        lock_raw = lock_path.read_text(encoding="utf-8")
         report = verify_contract(package_raw, lock_raw)
         report.update(
             {
@@ -298,7 +298,7 @@ def main() -> int:
             )
         print(json.dumps(report, sort_keys=True, indent=2))
         return 0
-    except (InputContractError, OSError) as exc:
+    except (InputContractError, OSError, UnicodeError) as exc:
         print(f"SDK Nix input contract FAIL: {exc}", file=sys.stderr)
         return 1
 
