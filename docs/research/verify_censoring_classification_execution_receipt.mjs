@@ -95,7 +95,8 @@ function validateReceipt(receiptPath,root,eventPath){
   for(const[name,rel,count]of SUPPORTING){
     const file=path.join(root,rel);if(!fs.existsSync(file))return[null,"supporting-input-missing:"+name];
     const raw=fs.readFileSync(file);let obj;try{obj=JSON.parse(raw.toString("utf8"));}catch{return[null,"supporting-input-json:"+name];}
-    if(!Array.isArray(obj.cases)||obj.cases.length!==count)return[null,"supporting-input-case-count:"+name];
+    const cases=Array.isArray(obj)?obj:(obj&&typeof obj==="object"?obj.cases:null);
+    if(!Array.isArray(cases)||cases.length!==count)return[null,"supporting-input-case-count:"+name];
     const pin=support.find(x=>x.name===name);
     if(!pin||pin.file!==rel||pin.sha256!==sha(raw)||pin.case_count!==count)return[null,"supporting-input-pin:"+name];
   }
