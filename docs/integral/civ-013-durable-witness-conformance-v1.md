@@ -97,6 +97,7 @@ The profile's transition vectors are an independent abstract reference for these
 | DA034 | MigrateLegacyForkMetadata | A valid legacy fork chain is validated and atomically seeded with its count/tail commitment; schema version advances only after success |
 | DA035 | CorruptForkEvidence | A corrupted legacy fork chain blocks migration and leaves schema version unchanged |
 | DA036 | CorruptForkEvidence | Startup-style semantic integrity validation detects a truncated fork tail before the store can be used |
+| DA037 | RecoverExactPreparedSuccessor | Abrupt child exit after anchor commit leaves the predecessor accepted and exact successor prepared; a fresh process recovers it without fork evidence |
 
 ## Late-finalization metadata binding
 
@@ -135,3 +136,8 @@ It does not establish:
 - truth of the log's underlying claims or governance legitimacy.
 
 SQLite documents that WAL with `synchronous=FULL` performs an additional WAL sync at each transaction commit to improve power-loss durability, while that guarantee still depends on the VFS and storage stack honoring synchronization requests: https://www.sqlite.org/pragma.html. `BEGIN IMMEDIATE` acquires write intent up front and can return `SQLITE_BUSY` if another writer is active: https://www.sqlite.org/lang_transaction.html. These documented behaviors support the adapter design; they are not evidence that this particular crate has completed its required tests.
+
+
+## Subprocess recovery split-state contract
+
+DA037 describes the source-level integration test's decisive pre-recovery observation, not hardware durability. After the first child exits with code 86, the independent test anchor must be at generation two while local metadata still accepts generation one and generation two remains prepared (status zero); no fork evidence is written. A distinct recovery process then succeeds at generation two with the exact externally anchored digest. The fixture uses a second SQLite file on the same host and must not be described as a production independent trust domain.
