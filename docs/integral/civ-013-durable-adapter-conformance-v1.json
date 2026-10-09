@@ -1,7 +1,7 @@
 {
   "profile_id": "civ-013-durable-adapter-v1",
   "spec_version": "civ-013-durable-adapter-conformance-v1",
-  "source_adapter_commit": "d4ddfee77a6c6f4851913be0dae965d31807aabd",
+  "source_adapter_commit": "19b58d053073a121c8f2cd5378dcd4644cf036ec",
   "encoding": {
     "digest": "SHA-256",
     "record_domain_hex": "6d7963656c69782d6369763031332d64757261626c652d7265636f72642d763100",

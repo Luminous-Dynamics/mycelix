@@ -7,7 +7,7 @@ This profile is distinct from the civ-013-model-smoke-v1 profile. It pins canoni
 ## Source and profile identity
 
 - Profile: civ-013-durable-adapter-v1
-- Producer: Symthaea adapter commit d4ddfee77a6c6f4851913be0dae965d31807aabd
+- Producer: Symthaea adapter commit 19b58d053073a121c8f2cd5378dcd4644cf036ec
 - Durable record domain: mycelix-civ013-durable-record-v1 followed by one NUL byte
 - Fork evidence domain: mycelix-civ013-durable-fork-v1 followed by one NUL byte
 - Hash: SHA-256.
