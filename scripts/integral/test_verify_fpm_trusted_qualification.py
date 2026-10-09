@@ -31,10 +31,28 @@ COLLECTOR = Path(__file__).with_name("collect_fpm_trusted_artifacts.py")
 COLLECTOR_MODULE = "collect_fpm_trusted_artifacts"
 MANIFEST = "crates/fpm-wasm-artifact-identity/Cargo.toml"
 MANIFEST_SHA = "c94b53f61ed8a9bfb6249b1b339550dddd074d6c"
+REPO_ROOT = SCRIPT.resolve().parents[2]
+
+
+def git_blob_sha1(path: Path) -> str:
+    raw = path.read_bytes()
+    return hashlib.sha1(
+        b"blob " + str(len(raw)).encode("ascii") + b"\\0" + raw
+    ).hexdigest()
+
+
+def current_git_head_sha() -> str:
+    return subprocess.check_output(
+        ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+        cwd=REPO_ROOT,
+        text=True,
+    ).strip()
+
 
 SUBJECT, TREE, BASE = "1" * 40, "2" * 40, "3" * 40
 POLICY = "4" * 40
-IVERIFY, IVERIFY_BLOB = "6" * 40, "7" * 40
+IVERIFY = current_git_head_sha()
+IVERIFY_BLOB = git_blob_sha1(WORKFLOW_PATH.resolve())
 LOCK_SHA = "8" * 64
 CANDIDATE_RUN, TRUSTED_RUN = 1001, 2002
 RECEIPT_ARTIFACT, INDEX_ARTIFACT = 3003, 4004
@@ -211,9 +229,9 @@ def snapshot(root: Path) -> None:
                "workflow_ref": f"{REPO}/{IW_PATH}@refs/heads/main",
                "workflow_sha": IVERIFY, "workflow_blob_sha": IVERIFY_BLOB,
                "reference_verifier_path": "scripts/integral/verify_fpm_trusted_qualification.py",
-               "reference_verifier_blob_sha": "8" * 40,
+               "reference_verifier_blob_sha": git_blob_sha1(SCRIPT.resolve()),
                "artifact_collector_path": "scripts/integral/collect_fpm_trusted_artifacts.py",
-               "artifact_collector_blob_sha": "9" * 40}
+               "artifact_collector_blob_sha": git_blob_sha1(COLLECTOR.resolve())}
     files = {
         "qualification-receipt.json": receipt, "artifact-binding-index.json": index,
         "artifacts.json": artifacts, "trusted-run.json": trusted,
