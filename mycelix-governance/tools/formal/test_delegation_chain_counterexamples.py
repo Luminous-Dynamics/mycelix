@@ -245,11 +245,24 @@ def audit_chain(raw: dict[str, Any], observed: dict[str, Any]) -> dict[str, Any]
         for field, value in independent.items():
             if field == "status":
                 continue
-            if observed_result.get(field) != (list(value) if isinstance(value, tuple) else value):
+            if field == "first_expansion_witness":
+                observed_witness = observed_result.get("counterexample", {}).get("request")
+                expected_witness = {
+                    "target": value[0], "purpose": value[1], "context": value[2], "amount": value[3],
+                }
+                if observed_witness != expected_witness:
+                    return {
+                        "kind": "policy-pair-witness-disagrees-with-independent-replay",
+                        "parent_id": parent_id, "child_id": child_id,
+                        "expected": expected_witness, "observed": observed_witness,
+                    }
+                continue
+            expected_value = list(value) if isinstance(value, tuple) else value
+            if observed_result.get(field) != expected_value:
                 return {
                     "kind": "policy-pair-field-disagrees-with-independent-replay",
                     "parent_id": parent_id, "child_id": child_id,
-                    "field": field, "expected": list(value) if isinstance(value, tuple) else value,
+                    "field": field, "expected": expected_value,
                     "observed": observed_result.get(field),
                 }
         statuses.append(independent["status"])
