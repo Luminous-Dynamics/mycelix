@@ -231,7 +231,7 @@ def candidate_regular_file(
         and not relative.is_absolute()
         and ".." not in relative.parts
         and relative.as_posix() == relative_path
-        and "\\\\" not in relative_path
+        and "\\" not in relative_path
     ), f"candidate path is not canonical relative path: {relative_path!r}"
 
     root = candidate_root.resolve(strict=True)
@@ -266,7 +266,7 @@ def exercise_candidate_path_guard() -> None:
         candidate_root.mkdir()
         outside_root.mkdir()
         outside_file = outside_root / "program.py"
-        outside_file.write_text("trusted-looking bytes\\n", encoding="utf-8")
+        outside_file.write_text("trusted-looking bytes\n", encoding="utf-8")
         (candidate_root / "scripts").symlink_to(
             outside_root, target_is_directory=True
         )
