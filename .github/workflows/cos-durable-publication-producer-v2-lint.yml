@@ -75,8 +75,8 @@ jobs:
           next_step=tag_gate_tail.split('\n      - name:',1)[1]
           assert next_step.lstrip().startswith('Publish immutable release')
           assert 'recheck-ruleset-pages.json' in publish and 'recheck-rulesets/' in publish
-          observation_step=publish.split('- name: Record durable publication observation',1)[1].split('\\n      - name:',1)[0]
-          preserve_step=publish.split('- name: Preserve publication observation',1)[1].split('\\n      - name:',1)[0]
+          observation_step=publish.split('- name: Record durable publication observation',1)[1].split('\n      - name:',1)[0]
+          preserve_step=publish.split('- name: Preserve publication observation',1)[1].split('\n      - name:',1)[0]
           assert "'main_ruleset_governance_sha256':ruleset_policy['sha256']" in observation_step
           for evidence_path in ('main-ruleset-governance-v1.json','ruleset-index-pages.json','ruleset-details/','ruleset-ids.txt','recheck-environment.json','recheck-effective-rules.json','recheck-main-protection.json','recheck-ruleset-pages.json','recheck-immutable-releases.json','recheck-rulesets/'):
               assert evidence_path in preserve_step, evidence_path
