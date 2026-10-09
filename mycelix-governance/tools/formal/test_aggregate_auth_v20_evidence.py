@@ -531,7 +531,7 @@ def main() -> int:
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 27 weakening mutations rejected")
+        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 29 weakening mutations rejected")
         print("QUALIFICATION NOT CLAIMED: synthetic receipt checks do not establish semantic correctness")
         return 0
     except Exception as error:
