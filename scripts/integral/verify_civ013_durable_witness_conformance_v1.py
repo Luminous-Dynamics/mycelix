@@ -340,6 +340,22 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
     raise ValueError(f"unknown vector kind: {kind!r}")
 
 
+def verify_manifest_file_bindings(manifest: dict[str, Any]) -> None:
+    bound_paths = {
+        "fixture_git_blob_sha": FIXTURE,
+        "checker_git_blob_sha": Path(__file__).resolve(),
+        "spec_git_blob_sha": ROOT / "docs/integral/civ-013-durable-witness-conformance-v1.md",
+        "workflow_git_blob_sha": ROOT / ".github/workflows/civ013-durable-witness-conformance.yml",
+    }
+    for key, path in bound_paths.items():
+        expected = manifest.get(key)
+        if not isinstance(expected, str) or len(expected) != 40:
+            raise SystemExit(f"FAIL: manifest {key} is missing or malformed")
+        actual = git_blob_sha(path)
+        if actual != expected:
+            raise SystemExit(f"FAIL: {key} mismatch for {path.relative_to(ROOT)}; expected={expected} actual={actual}")
+
+
 def main() -> int:
     with FIXTURE.open("r", encoding="utf-8") as handle:
         corpus = json.load(handle)
@@ -358,6 +374,7 @@ def main() -> int:
         raise SystemExit("FAIL: source adapter commit mismatch")
     if manifest.get("schema_version") != 1:
         raise SystemExit("FAIL: unsupported manifest schema_version")
+    verify_manifest_file_bindings(manifest)
     if manifest.get("fixture_path") != "docs/integral/civ-013-durable-witness-conformance-v1.json":
         raise SystemExit("FAIL: manifest fixture path mismatch")
     if manifest.get("verifier_path") != "scripts/integral/verify_civ013_durable_witness_conformance_v1.py":
