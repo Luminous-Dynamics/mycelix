@@ -904,7 +904,9 @@ version = "1.0.0"
             fresh_root = Path(tempfile.mkdtemp(prefix="fpm-ref-snapshot-duplicate-"))
             try:
                 for src in root.iterdir():
-                    if src.is_file():
+                    if src.is_dir():
+                        shutil.copytree(src, fresh_root / src.name)
+                    else:
                         (fresh_root / src.name).write_bytes(src.read_bytes())
                 (fresh_root / file_name).write_bytes(mutated)
                 result = run(fresh_root)
