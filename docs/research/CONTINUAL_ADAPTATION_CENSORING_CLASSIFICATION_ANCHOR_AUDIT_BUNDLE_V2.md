@@ -12,7 +12,7 @@ Version 2 therefore pins both artifact inputs and verifier source files by Git b
 ## Exact inventory
 
 The manifest pins:
-- the deterministic execution-receipt builder and independent Python/Node receipt verifiers;
+- the deterministic execution-receipt builder and independent Python/Node receipt verifiers, including checks that reported expected verdicts match actual verdicts;
 - the read-only report workflow and the separately permissioned main-branch attestation workflow;
 - the full prior research fixture set;
 - COSE receipt registry, signed receipt bytes, and adversarial corpus;
