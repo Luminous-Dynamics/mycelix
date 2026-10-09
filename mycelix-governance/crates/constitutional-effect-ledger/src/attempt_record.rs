@@ -102,7 +102,7 @@ fn fence_state_tag(state: ActionFenceState) -> u8 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TerminalOutcomeV1 {
     Executed,
     Failed,
@@ -733,51 +733,6 @@ pub trait DurableActionFenceStore {
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
     ) -> Result<String, ActionFenceMutationError>;
-
-    fn atomically_claim_provider_entry(
-        &mut self,
-        action_key: &ActionKeyV1,
-        attempt_identity: &AttemptIdentityV1,
-        owner_token_digest: &str,
-        claim_token_digest: &str,
-    ) -> Result<ProviderEntryClaimV1, ActionFenceMutationError> {
-        self.claim_provider_entry(
-            action_key,
-            attempt_identity,
-            owner_token_digest,
-            claim_token_digest,
-        )
-    }
-
-    fn atomically_mark_invoked(
-        &mut self,
-        action_key: &ActionKeyV1,
-        attempt_identity: &AttemptIdentityV1,
-        owner_token_digest: &str,
-        claim_token_digest: &str,
-    ) -> Result<(), ActionFenceMutationError> {
-        self.mark_invoked_with_claim(
-            action_key,
-            attempt_identity,
-            owner_token_digest,
-            claim_token_digest,
-        )
-    }
-
-    fn atomically_recover_provider_entry_claim(
-        &mut self,
-        action_key: &ActionKeyV1,
-        attempt_identity: &AttemptIdentityV1,
-        owner_token_digest: &str,
-        claim_token_digest: &str,
-    ) -> Result<String, ActionFenceMutationError> {
-        self.recover_provider_entry_claim(
-            action_key,
-            attempt_identity,
-            owner_token_digest,
-            claim_token_digest,
-        )
-    }
 
     fn atomically_release_after_failed(
         &mut self,
@@ -1509,7 +1464,11 @@ impl AtomicActionFenceModelV1 {
             }
 
             match record.state {
-                state if state.occupies_action_fence() => {
+                AttemptRecordState::Consumed
+                | AttemptRecordState::Reserved
+                | AttemptRecordState::DispatchPending
+                | AttemptRecordState::Invoked
+                | AttemptRecordState::Indeterminate => {
                     let fence = self
                         .fences
                         .get(&record.action_key_digest)
