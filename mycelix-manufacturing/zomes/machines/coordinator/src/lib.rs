@@ -524,7 +524,7 @@ pub fn resolve_machine_temporal_attestations(
         )?
         .build(),
     )?;
-    if links.len() > MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS {
+    if temporal_evidence_link_set_exceeds_limit(links.len()) {
         return Ok(MachineTemporalEvidenceResolution::EvidenceLinkSetLimitExceeded {
             limit: MAX_MACHINE_TEMPORAL_EVIDENCE_LINK_ACTIONS as u32,
         });
