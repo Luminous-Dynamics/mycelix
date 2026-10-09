@@ -17,7 +17,7 @@ def reject_duplicate_members(items):
     result = {}
     for key, value in items:
         if key in result:
-            raise ValueError("duplicate JSON member: " + key)
+            raise Reject("duplicate JSON member: " + key)
         result[key] = value
     return result
 
@@ -26,8 +26,14 @@ def reject_non_json_constant(value):
 
 
 def strict_json(path):
-    return json.loads(Path(path).read_text(encoding="utf-8"),
-                      object_pairs_hook=reject_duplicate_members,\n                      parse_constant=reject_non_json_constant)
+    try:
+        return json.loads(
+            Path(path).read_text(encoding="utf-8"),
+            object_pairs_hook=reject_duplicate_members,
+            parse_constant=reject_non_json_constant,
+        )
+    except json.JSONDecodeError as exc:
+        raise Reject("invalid JSON: " + str(exc)) from exc
 
 
 def validate_report(report, trusted_manifest):
