@@ -196,7 +196,37 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
         FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(OpUpdate::Entry { app_entry, action }) => match app_entry {
+            EntryTypes::ScheduledEmail(scheduled) => {
+                match scheduled.status {
+                    ScheduleStatus::Sent if scheduled.recurrence.is_none() => {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Cannot modify sent non-recurring schedule".to_string(),
+                        ));
+                    }
+                    _ => {}
+                }
+                let original_action = must_get_action(action.original_action_address.clone())?;
+                if original_action.action().author() != action.author() {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Only the original owner can update a scheduled email".to_string(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
+            EntryTypes::SnoozeReminder(_) => {
+                let original_action = must_get_action(action.original_action_address.clone())?;
+                if original_action.action().author() != action.author() {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Only the original owner can update a snooze reminder".to_string(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
+        },
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported schedule update variant".to_string(),
+        )),
         FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
