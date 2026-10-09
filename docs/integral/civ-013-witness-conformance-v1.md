@@ -9,7 +9,7 @@
 
 ## Purpose
 
-These deterministic vectors establish a shared reference for canonical witness-record encoding and selected protocol outcomes across Symthaea and Mycelix. The checker is intentionally implemented separately from the Rust producer model, using only Python's standard library. It consumes serialized fixture bytes/fields and expected results; it does not import or execute the Rust reducer.
+These deterministic vectors establish a shared reference for canonical witness-record encoding and selected protocol outcomes across Symthaea and Mycelix. Version 1 now covers 17 vectors, including cross-log successor rejection and monotonic receipt-tail history. The checker is intentionally implemented separately from the Rust producer model, using only Python's standard library. It consumes serialized fixture bytes/fields and expected results; it does not import or execute the Rust reducer.
 
 This is a compatibility starting point. Before treating v1 as normative production wire format, both projects must review and accept its field semantics, compatibility policy, and trust assumptions. No production storage implementation should be assumed from this fixture suite alone.
 
@@ -49,6 +49,11 @@ The canonical record digest binds the accepted-record fields. It is not a digita
 | V010 | REJECT_REORDERED_FORK_CHAIN | Reordered evidence breaks the predecessor-evidence chain |
 | V011 | IDEMPOTENT_SAME_RECEIPT | Exact duplicate transition returns the same terminal outcome |
 | V012 | REJECT_CAS_LOST | A competing successor already won the same generation |
+| V013 | REJECT_RECEIPT_ROLLBACK | A candidate receipt sequence regresses |
+| V014 | REJECT_RECEIPT_TAIL_EQUIVOCATION | Same sequence with a different digest is an equivocation |
+| V015 | REJECT_LOG_ID_MISMATCH | A successor attempts to cross into another log identity |
+| V016 | REJECT_RECEIPT_TAIL_HISTORY_INVALID | A rehashed committed chain regresses its receipt sequence |
+| V017 | REJECT_RECEIPT_TAIL_HISTORY_INVALID | A rehashed committed chain changes the digest at the same sequence |
 
 ## Required interpretation rules
 
