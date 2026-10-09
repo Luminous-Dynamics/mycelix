@@ -306,7 +306,27 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         },
         FlatOp::Link(OpLink::CreateLink { .. }) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::PreKeyBundle(bundle) => validate_create_pre_key_bundle(action.into(), bundle),
+                EntryTypes::HybridKeyBundleV2(bundle) => validate_create_hybrid_key_bundle_v2(action.into(), bundle),
+                EntryTypes::UsedPreKey(used) => validate_create_used_pre_key(action.into(), used),
+                EntryTypes::KeyRotation(rotation) => validate_create_key_rotation(action.into(), rotation),
+            },
+            OpRecord::UpdateEntry { app_entry, action } => match app_entry {
+                EntryTypes::PreKeyBundle(bundle) => validate_update_pre_key_bundle(
+                    bundle,
+                    action.original_action_address.clone(),
+                ),
+                EntryTypes::HybridKeyBundleV2(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Hybrid V2 bundles are immutable; publish a successor bundle".into(),
+                )),
+                _ => Ok(ValidateCallbackResult::Invalid(
+                    "Unsupported key update in CreateRecord".to_string(),
+                )),
+            },
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Update(OpUpdate::Entry { app_entry, action }) => match app_entry {
             EntryTypes::PreKeyBundle(bundle) => validate_update_pre_key_bundle(
