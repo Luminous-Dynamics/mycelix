@@ -9,6 +9,7 @@ use serde_json::{Map, Number, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::fs;
+use std::io::Read;
 use std::path::Path;
 
 pub const FIXTURE_FILES: [(&str, &str); 6] = [
@@ -369,6 +370,26 @@ fn check_resource_limits(
     Ok(())
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum FixtureFileReadError {
+    Io,
+    TooLarge,
+}
+
+/// Read no more than the limit plus one byte, so the size check also bounds
+/// memory use for an oversized or attacker-controlled fixture path.
+fn read_limited_fixture_file(path: &Path) -> Result<Vec<u8>, FixtureFileReadError> {
+    let file = fs::File::open(path).map_err(|_| FixtureFileReadError::Io)?;
+    let mut bytes = Vec::with_capacity(8192);
+    file.take((MAX_FILE_BYTES as u64).saturating_add(1))
+        .read_to_end(&mut bytes)
+        .map_err(|_| FixtureFileReadError::Io)?;
+    if bytes.len() > MAX_FILE_BYTES {
+        return Err(FixtureFileReadError::TooLarge);
+    }
+    Ok(bytes)
+}
+
 /// Load all six files with byte limits and duplicate-key rejection.
 pub fn load_fixture_documents(directory: &Path) -> Result<BTreeMap<String, Value>, Vec<String>> {
     let mut errors = Vec::new();
@@ -377,18 +398,18 @@ pub fn load_fixture_documents(directory: &Path) -> Result<BTreeMap<String, Value
 
     for (key, filename) in FIXTURE_FILES {
         let path = directory.join(filename);
-        let bytes = match fs::read(&path) {
+        let bytes = match read_limited_fixture_file(&path) {
             Ok(bytes) => bytes,
-            Err(_) => {
+            Err(FixtureFileReadError::Io) => {
                 errors.push(format!("{filename}: required fixture file could not be read"));
+                continue;
+            }
+            Err(FixtureFileReadError::TooLarge) => {
+                errors.push(format!("{filename}: input exceeds per-file byte limit"));
                 continue;
             }
         };
         total_bytes = total_bytes.saturating_add(bytes.len());
-        if bytes.len() > MAX_FILE_BYTES {
-            errors.push(format!("{filename}: input exceeds per-file byte limit"));
-            continue;
-        }
         match parse_strict_json(&bytes) {
             Ok(value) => {
                 if !value.is_object() {
@@ -1445,6 +1466,26 @@ mod tests {
         assert!(parse_strict_json(br#"{"ok":true} trailing"#).is_err());
         assert!(parse_strict_json(br#"{"n":1e9999}"#).is_err());
         assert!(parse_strict_json(&vec![b' '; MAX_FILE_BYTES + 1]).is_err());
+    }
+
+    #[test]
+    fn bounded_fixture_reader_rejects_oversized_files() {
+        let dir = std::env::temp_dir().join(format!(
+            "mycelix-fixture-validator-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("temporary directory should be created");
+        let path = dir.join("oversized.json");
+        fs::write(&path, vec![b'x'; MAX_FILE_BYTES + 4096])
+            .expect("oversized fixture should be written");
+
+        assert_eq!(
+            read_limited_fixture_file(&path),
+            Err(FixtureFileReadError::TooLarge)
+        );
+        fs::remove_dir_all(&dir).expect("temporary directory should be cleaned up");
     }
 
     #[test]
