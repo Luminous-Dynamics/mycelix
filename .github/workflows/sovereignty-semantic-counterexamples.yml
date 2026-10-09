@@ -49,6 +49,8 @@ jobs:
             mycelix-governance/tools/formal/delegation_chain_par_hash.py \
             mycelix-governance/tools/formal/test_delegation_chain_par_hash.py \
             mycelix-governance/tools/formal/aggregate_auth_v20_evidence.py \
+            mycelix-governance/tools/formal/delegation_chain_compact_jws.py \
+            mycelix-governance/tools/formal/test_delegation_chain_compact_jws.py \
             mycelix-governance/tools/formal/test_aggregate_auth_v20_evidence.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json >/dev/null
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json >/dev/null
@@ -88,6 +90,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/auth-v20-par-hash-evidence"
           python3 mycelix-governance/tools/formal/test_delegation_chain_par_hash.py \
             --output "$RUNNER_TEMP/auth-v20-par-hash-evidence/delegation-chain-par-hash.json"
+          mkdir -p "$RUNNER_TEMP/auth-v20-compact-jws-evidence"
+          python3 mycelix-governance/tools/formal/test_delegation_chain_compact_jws.py \
+            --output "$RUNNER_TEMP/auth-v20-compact-jws-evidence/compact-jws-chain.json"
       - name: Mutation-test the receipt aggregate
         run: |
           set -euo pipefail
@@ -125,6 +130,7 @@ jobs:
             ${{ runner.temp }}/auth-v20-chain-claims-evidence
             ${{ runner.temp }}/auth-v20-key-link-evidence
             ${{ runner.temp }}/auth-v20-par-hash-evidence
+            ${{ runner.temp }}/auth-v20-compact-jws-evidence
             ${{ runner.temp }}/auth-v20-final-evidence
           if-no-files-found: warn
           retention-days: 30
