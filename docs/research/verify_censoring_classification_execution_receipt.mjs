@@ -22,7 +22,7 @@ const PAIRS=[
 ["audit-bundle-v1","audit-bundle-python.json","audit-bundle-node.json",18],
 ["cose-receipts","cose-receipt-python.json","cose-receipt-node.json",22],
 ["partitioned-gossip-simulation","gossip-simulation-python.json","gossip-simulation-node.json",8],
-["audit-bundle-v2","audit-bundle-v2-python.json","audit-bundle-v2-node.json",32]
+["audit-bundle-v2","audit-bundle-v2-python.json","audit-bundle-v2-node.json",34]
 ];
 const SUPPORTING=[["generated-corpus-a","supporting/generated-a.json",168],["generated-corpus-b","supporting/generated-b.json",168]];
 const canonical=v=>v===null||typeof v!=="object"?JSON.stringify(v):Array.isArray(v)?"["+v.map(canonical).join(",")+"]":"{"+Object.keys(v).sort().map(k=>JSON.stringify(k)+":"+canonical(v[k]))+"}";
