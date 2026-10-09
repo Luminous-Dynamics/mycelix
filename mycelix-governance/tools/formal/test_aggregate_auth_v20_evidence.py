@@ -228,7 +228,7 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
         elif relative == "auth-v20-par-hash-evidence/delegation-chain-par-hash.json":
             data["summary"].update({"mutants_detected": 3, "negative_controls": 12})
         elif relative == "auth-v20-compact-jws-evidence/compact-jws-chain.json":
-            data["summary"].update({"mutants_detected": 4, "negative_controls": 33, "positive_controls": 3, "signatures_verified": 9})
+            data["summary"].update({"mutants_detected": 4, "negative_controls": 36, "positive_controls": 3, "signatures_verified": 9})
         elif relative == "auth-v20-capability-evidence/aat-capability-subsumption.json":
             data["summary"].update({
                 "constraint_subsumption_controls": 34,
