@@ -40,7 +40,7 @@ An item is not considered replayable because a filename exists or a verifier sou
 
 ## Campaign
 
-The 32-case campaign covers:
+The 34-case campaign covers:
 - positive exact-input bundle;
 - artifact substitutions for every major layer;
 - verifier-source substitutions across the stack, including the two v2 audit verifiers and execution-receipt tools;
