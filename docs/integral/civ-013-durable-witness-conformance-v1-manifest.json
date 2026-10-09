@@ -40,7 +40,7 @@
   ],
   "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback.",
   "fixture_git_blob_sha": "c94f5b69df88b9d9723020c08d64a09ee0082cb7",
-  "checker_git_blob_sha": "adf04eafffec44168f045e70eb616173476808d6",
+  "checker_git_blob_sha": "f05f195f608dca0c7e22d3fe999c0b500d465776",
   "spec_git_blob_sha": "6ab54cea72950f5d395377f58d623e9f37366953",
   "workflow_git_blob_sha": "c9c9dbf5a8ddea8bc4d0c347414433661f4135e5"
 }
