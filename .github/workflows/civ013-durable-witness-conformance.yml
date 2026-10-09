@@ -61,6 +61,11 @@ jobs:
           expected_source_blob="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_adapter_blob_sha"])')"
           expected_toolchain_blob="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_toolchain_blob_sha"])')"
           expected_rust_version="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_rust_version"])')"
+          expected_workspace_manifest_blob="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_workspace_manifest_blob_sha"])')"
+          expected_lockfile_blob="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_lockfile_blob_sha"])')"
+          expected_rusqlite_version="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_rusqlite_version"])')"
+          expected_libsqlite3_sys_version="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_libsqlite3_sys_version"])')"
+          expected_sqlite_min_version_number="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_bundled_sqlite_min_version_number"])')"
           git init symthaea-source
           git -C symthaea-source fetch --depth=1 https://github.com/Luminous-Dynamics/symthaea.git "$source_commit"
           git -C symthaea-source checkout --detach FETCH_HEAD
@@ -70,9 +75,45 @@ jobs:
           test "$actual_source_blob" = "$expected_source_blob"
           actual_toolchain_blob="$(git -C symthaea-source hash-object rust-toolchain.toml)"
           test "$actual_toolchain_blob" = "$expected_toolchain_blob"
+          actual_workspace_manifest_blob="$(git -C symthaea-source hash-object Cargo.toml)"
+          test "$actual_workspace_manifest_blob" = "$expected_workspace_manifest_blob"
+          actual_lockfile_blob="$(git -C symthaea-source hash-object Cargo.lock)"
+          test "$actual_lockfile_blob" = "$expected_lockfile_blob"
           actual_rust_version="$(sed -nE 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' symthaea-source/rust-toolchain.toml)"
           test "$actual_rust_version" = "$expected_rust_version"
-          printf 'checker_commit_sha=%s\nchecker_blob_sha=%s\nsource_adapter_commit=%s\nsource_adapter_blob_sha=%s\nsource_toolchain_blob_sha=%s\nsource_rust_version=%s\n' "$checker_commit" "$actual_checker_blob" "$actual_source_commit" "$actual_source_blob" "$actual_toolchain_blob" "$actual_rust_version"
+
+          # Validate the dependency graph pinned by the same exact source commit,
+          # not just the adapter's Rust source. The WAL-reset fix requires the
+          # bundled SQLite version introduced by rusqlite 0.39.0 / libsqlite3-sys 0.37.0.
+          python3 - "$expected_rusqlite_version" "$expected_libsqlite3_sys_version" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          expected_rusqlite, expected_sys = sys.argv[1:]
+          cargo = Path("symthaea-source/Cargo.toml").read_text(encoding="utf-8")
+          required_line = f'rusqlite = {{ version = "{expected_rusqlite}", features = ["bundled", "fallible_uint"] }}'
+          if cargo.count(required_line) != 1:
+              raise SystemExit("workspace rusqlite dependency/features do not match the qualified profile")
+
+          lock = Path("symthaea-source/Cargo.lock").read_text(encoding="utf-8")
+          packages = re.split(r"\n(?=\[\[package\]\]\n)", lock)
+          def package_version(name):
+              found = []
+              for block in packages:
+                  match = re.search(rf'^name = "{re.escape(name)}"\nversion = "([^"]+)"', block, re.MULTILINE)
+                  if match:
+                      found.append(match.group(1))
+              if len(found) != 1:
+                  raise SystemExit(f"expected exactly one locked package named {name}, found {found}")
+              return found[0]
+
+          if package_version("rusqlite") != expected_rusqlite:
+              raise SystemExit("Cargo.lock rusqlite version does not match the manifest")
+          if package_version("libsqlite3-sys") != expected_sys:
+              raise SystemExit("Cargo.lock libsqlite3-sys version does not match the manifest")
+          PY
+          printf 'checker_commit_sha=%s\nchecker_blob_sha=%s\nsource_adapter_commit=%s\nsource_adapter_blob_sha=%s\nsource_toolchain_blob_sha=%s\nsource_workspace_manifest_blob_sha=%s\nsource_lockfile_blob_sha=%s\nsource_rust_version=%s\nsource_rusqlite_version=%s\nsource_libsqlite3_sys_version=%s\nsource_bundled_sqlite_min_version_number=%s\n' "$checker_commit" "$actual_checker_blob" "$actual_source_commit" "$actual_source_blob" "$actual_toolchain_blob" "$actual_workspace_manifest_blob" "$actual_lockfile_blob" "$actual_rust_version" "$expected_rusqlite_version" "$expected_libsqlite3_sys_version" "$expected_sqlite_min_version_number"
 
       - name: Run independent durable-profile checker
         id: vectors
@@ -114,6 +155,11 @@ jobs:
             echo "source_adapter_blob_sha=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_adapter_blob_sha"])')"
             echo "source_toolchain_blob_sha=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_toolchain_blob_sha"])')"
             echo "source_rust_version=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_rust_version"])')"
+            echo "source_workspace_manifest_blob_sha=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_workspace_manifest_blob_sha"])')"
+            echo "source_lockfile_blob_sha=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_lockfile_blob_sha"])')"
+            echo "source_rusqlite_version=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_rusqlite_version"])')"
+            echo "source_libsqlite3_sys_version=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_libsqlite3_sys_version"])')"
+            echo "source_bundled_sqlite_min_version_number=$(python3 -c 'import json; print(json.load(open("docs/integral/civ-013-durable-witness-conformance-v1-manifest.json"))["source_bundled_sqlite_min_version_number"])')"
             if test -f symthaea-source/crates/domains/symthaea-civ-witness/src/lib.rs; then
               echo "fetched_source_adapter_git_blob=$(git -C symthaea-source hash-object crates/domains/symthaea-civ-witness/src/lib.rs)"
               echo "fetched_source_toolchain_git_blob=$(git -C symthaea-source hash-object rust-toolchain.toml)"
