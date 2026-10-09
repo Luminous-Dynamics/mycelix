@@ -34,6 +34,16 @@ FROZEN_CAPABILITY_VALIDATION_IDS = (
     "tool-name-limit-exceeded",
 )
 
+FROZEN_CAPABILITY_INVOCATION_IDS = (
+    "exact-match", "exact-reject", "range-match", "range-reject-boundary",
+    "one-of-match", "not-one-of-reject", "contains-match", "contains-reject",
+    "subset-match", "subset-reject", "wildcard-match", "all-match", "all-reject",
+    "any-match", "any-reject", "allowed-invocation", "value-rejected",
+    "extra-argument-rejected", "missing-argument-rejected", "unknown-tool-rejected",
+    "open-world-tool-allows-args", "invocation-value-depth-overflow",
+    "invocation-value-node-overflow",
+)
+
 FROZEN_REQUIRED_RECEIPTS = (
     ("auth-v20-evidence/receipt.json", "mycelix.compound-subsumption-counterexample-controls.v1"),
     ("auth-v20-differential-evidence/receipt.json", "mycelix.compound-subsumption-differential-receipt.v1"),
@@ -296,7 +306,7 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
                 "constraint_subsumption_controls": 34,
                 "malformed_or_bound_controls": 15,
                 "capability_attenuation_controls": 8,
-                "runtime_and_invocation_controls": 21,
+                "runtime_and_invocation_controls": 23,
                 "mutants_detected": 4,
                 "resource_limits": {
                     "max_constraint_depth": 32,
@@ -307,11 +317,18 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
                     "max_constraint_value_depth": 32,
                     "max_constraint_value_nodes": 512,
                     "max_tool_name_bytes": 256,
+                    "max_invocation_value_depth": 32,
+                    "max_invocation_value_nodes": 4096,
                 },
             })
             data["validation_controls"] = [
                 {"id": name, "rejected": True, "finding": "synthetic-expected-finding"}
                 for name in FROZEN_CAPABILITY_VALIDATION_IDS
+            ]
+            data["invocation_controls"] = [
+                {"id": name, "expected_accept": False, "observed_accept": False,
+                 "independent_replay": "PASS"}
+                for name in FROZEN_CAPABILITY_INVOCATION_IDS
             ]
         elif relative == "auth-v20-pop-evidence/delegation-chain-pop-differential.json":
             data["summary"].update({
