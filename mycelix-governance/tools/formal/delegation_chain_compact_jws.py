@@ -131,7 +131,8 @@ def parse_and_validate_header(header_bytes: bytes) -> dict[str, Any]:
     header = parse_json_object(header_bytes, "protected-header-invalid")
     if header.get("alg") != "EdDSA":
         raise VerificationError("algorithm-not-allowed", "only EdDSA/Ed25519 is allowed")
-    if header.get("typ") not in {"JWT", "application/aat+jwt"}:
+    token_type = header.get("typ")
+    if not isinstance(token_type, str) or token_type not in {"JWT", "application/aat+jwt"}:
         raise VerificationError("token-type-invalid", "JWT type header is required by this profile")
     if "b64" in header:
         raise VerificationError("b64-header-not-allowed",
@@ -246,6 +247,9 @@ def _token_signing_input(token: str) -> bytes:
 
 def evaluate_compact_chain(raw: dict[str, Any], trusted_anchors: list[dict[str, Any]],
                            openssl_binary: str = "openssl") -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        return {"schema": RESULT_SCHEMA, "status": "UNSUPPORTED_OR_UNDECIDABLE",
+                "findings": [{"code": "top-level-input-not-object"}], "qualification": "NOT_CLAIMED"}
     if raw.get("schema") != SCHEMA:
         return {"schema": RESULT_SCHEMA, "status": "UNSUPPORTED_OR_UNDECIDABLE",
                 "findings": [{"code": "unsupported-schema"}], "qualification": "NOT_CLAIMED"}
