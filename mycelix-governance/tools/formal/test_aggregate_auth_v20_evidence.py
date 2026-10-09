@@ -25,6 +25,7 @@ FROZEN_REQUIRED_RECEIPTS = (
     ("auth-v20-chain-claims-evidence/delegation-chain-claims-differential.json", "mycelix.delegation-chain-claims-differential-receipt.v1"),
     ("auth-v20-key-link-evidence/delegation-chain-key-linkage.json", "mycelix.delegation-chain-key-linkage-differential-receipt.v1"),
     ("auth-v20-par-hash-evidence/delegation-chain-par-hash.json", "mycelix.par-hash-differential-receipt.v1"),
+    ("auth-v20-compact-jws-evidence/compact-jws-chain.json", "mycelix.compact-jws-aat-chain-differential-receipt.v1"),
 )
 HEAD = "a" * 40
 
@@ -63,6 +64,8 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
             data["summary"].update({"checker_mutants_detected": 3, "adversarial_controls": 8})
         elif relative == "auth-v20-par-hash-evidence/delegation-chain-par-hash.json":
             data["summary"].update({"mutants_detected": 3, "negative_controls": 12})
+        elif relative == "auth-v20-compact-jws-evidence/compact-jws-chain.json":
+            data["summary"].update({"mutants_detected": 3, "negative_controls": 19, "signatures_verified": 4})
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, sort_keys=True, indent=2) + "\n", encoding="utf-8")
