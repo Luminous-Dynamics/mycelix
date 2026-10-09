@@ -1,0 +1,76 @@
+name: logistics-commons-s0
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/simulations/logistics-commons-s0/**"
+      - ".github/workflows/logistics-commons-s0.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "mycelix-workspace/simulations/logistics-commons-s0/**"
+      - ".github/workflows/logistics-commons-s0.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-twin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact tested source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.99.0 --profile minimal
+      - name: Validate frozen manifest JSON
+        run: python3 -m json.tool mycelix-workspace/simulations/logistics-commons-s0/scenario-manifest.json > /dev/null
+      - name: Run unit and invariant tests
+        run: cargo +1.99.0 test --locked --manifest-path mycelix-workspace/simulations/logistics-commons-s0/Cargo.toml
+      - name: Reproduce the frozen multi-organization corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="mycelix-workspace/simulations/logistics-commons-s0/Cargo.toml"
+          output="$RUNNER_TEMP/logistics-commons-s0-canonical.txt"
+          first="$(mktemp)"
+          second="$(mktemp)"
+          trap 'rm -f "$first" "$second"' EXIT
+          cargo +1.99.0 run --quiet --locked --manifest-path "$manifest" -- --canonical > "$first"
+          cargo +1.99.0 run --quiet --locked --manifest-path "$manifest" -- --canonical > "$second"
+          if ! cmp -s "$first" "$second"; then
+            echo "FAIL: frozen scenario artifacts are not byte-identical"
+            diff -u "$first" "$second" | head -200 || true
+            exit 1
+          fi
+          if ! grep -q '"model_invariants_hold":true' "$first"; then
+            echo "FAIL: frozen scenario did not report model invariants held"
+            tail -n 5 "$first"
+            exit 1
+          fi
+          if ! grep -q '"independent_verifier_violations":0' "$first"; then
+            echo "FAIL: independent verifier reported one or more violations"
+            tail -n 5 "$first"
+            exit 1
+          fi
+          tail -n 1 "$first" | python3 -m json.tool > /dev/null
+          cp "$first" "$output"
+          artifact_sha="$(sha256sum "$output" | cut -d' ' -f1)"
+          manifest_sha="$(sha256sum mycelix-workspace/simulations/logistics-commons-s0/scenario-manifest.json | cut -d' ' -f1)"
+          echo "scenario-artifact-sha256=$artifact_sha"
+          tail -n 1 "$output"
+          echo "deterministic-replay=PASS"
+          cat > "$RUNNER_TEMP/logistics-commons-s0-qualification.json" <<EOF
+          {"schema":"logistics-commons-s0/qualification-receipt-v1","source_commit":"$GITHUB_SHA","workflow_run_id":"$GITHUB_RUN_ID","workflow_run_attempt":"$GITHUB_RUN_ATTEMPT","runner_image":"ubuntu-24.04","rust_toolchain":"1.99.0","scenario_manifest_sha256":"$manifest_sha","scenario_artifact_sha256":"$artifact_sha","deterministic_replay":true,"model_invariants_hold":true,"independent_verifier_violations":0}
+          EOF
+          python3 -m json.tool "$RUNNER_TEMP/logistics-commons-s0-qualification.json" > /dev/null
+      - name: Upload frozen corpus and verification receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: logistics-commons-s0-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/logistics-commons-s0-canonical.txt
+            ${{ runner.temp }}/logistics-commons-s0-qualification.json
+          if-no-files-found: error
+          retention-days: 30
