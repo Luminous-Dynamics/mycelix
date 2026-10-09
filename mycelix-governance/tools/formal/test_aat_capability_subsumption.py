@@ -21,6 +21,8 @@ FROZEN_MAX_NODES = 512
 FROZEN_MAX_CLAUSES = 128
 FROZEN_MAX_TOOLS = 256
 FROZEN_MAX_ARGUMENT_KEYS = 64
+FROZEN_MAX_CONSTRAINT_VALUE_DEPTH = 32
+FROZEN_MAX_CONSTRAINT_VALUE_NODES = 512
 
 
 def exact(value: Any) -> dict[str, Any]:
@@ -196,6 +198,10 @@ def validation_cases() -> list[tuple[str, Any, str]]:
     node_tree: dict[str, Any] = wildcard()
     for _ in range(9):
         node_tree = all_c(node_tree, copy.deepcopy(node_tree))
+    deep_value: Any = "leaf"
+    for _ in range(FROZEN_MAX_CONSTRAINT_VALUE_DEPTH):
+        deep_value = [deep_value]
+    oversized_value_array = [f"value-{index}" for index in range(FROZEN_MAX_CONSTRAINT_VALUE_NODES)]
     return [
         ("unknown-constraint-extension", {"constraint_type": "regex", "pattern": ".*"}, "constraint-type-unsupported"),
         ("unexpected-exact-member", {"constraint_type": "exact", "value": "a", "ignored": True}, "constraint-member-unsupported"),
@@ -207,6 +213,8 @@ def validation_cases() -> list[tuple[str, Any, str]]:
         ("constraint-depth-overflow", depth_tree, "constraint-depth-exceeded"),
         ("constraint-clause-overflow", broad_tree, "constraint-clause-limit-exceeded"),
         ("constraint-node-overflow", node_tree, "constraint-node-limit-exceeded"),
+        ("constraint-value-depth-overflow", contains(deep_value), "constraint-value-depth-exceeded"),
+        ("constraint-value-node-overflow", contains(*oversized_value_array), "constraint-value-node-limit-exceeded"),
     ]
 
 
@@ -249,6 +257,10 @@ def main() -> int:
         require(aat.MAX_TOOLS_PER_TOKEN == FROZEN_MAX_TOOLS, "per-token tool-count limit drifted")
         require(aat.MAX_CONSTRAINTS_PER_TOOL == FROZEN_MAX_ARGUMENT_KEYS,
                 "per-tool argument-constraint limit drifted")
+        require(aat.MAX_CONSTRAINT_VALUE_DEPTH == FROZEN_MAX_CONSTRAINT_VALUE_DEPTH,
+                "nested constraint-value depth limit drifted")
+        require(aat.MAX_CONSTRAINT_VALUE_NODES == FROZEN_MAX_CONSTRAINT_VALUE_NODES,
+                "nested constraint-value node limit drifted")
         receipt["source_head"] = subprocess.run(
             ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
             check=True, timeout=15,
@@ -434,6 +446,8 @@ def main() -> int:
                 "max_composite_clauses": FROZEN_MAX_CLAUSES,
                 "max_tools_per_token": FROZEN_MAX_TOOLS,
                 "max_constraints_per_tool": FROZEN_MAX_ARGUMENT_KEYS,
+                "max_constraint_value_depth": FROZEN_MAX_CONSTRAINT_VALUE_DEPTH,
+                "max_constraint_value_nodes": FROZEN_MAX_CONSTRAINT_VALUE_NODES,
             },
             "bounded_denotation_soundness": "PASS_FOR_RETURNED_SUBSUMPTION_PASSES",
             "qualification": "NOT_CLAIMED",
