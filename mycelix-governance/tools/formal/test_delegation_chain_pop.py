@@ -14,6 +14,7 @@ import copy
 import hashlib
 from concurrent.futures import ThreadPoolExecutor
 import json
+import os
 import shutil
 import sqlite3
 import stat
@@ -398,6 +399,28 @@ def main() -> int:
                 "id": "replay-store-unavailable-fails-closed",
                 "status": unavailable["status"],
                 "finding": expected_code(unavailable),
+                "fail_closed": True,
+            })
+
+            unsafe_parent = root / "world-writable-replay-parent"
+            unsafe_parent.mkdir()
+            unsafe_parent.chmod(0o777)
+            unsafe_proof = make_pop(
+                root / "valid-positive", keys[3]["private_path"],
+                "aat-leaf-chain-2", jti="pop-unsafe-parent",
+            )
+            unsafe_result = invoke(
+                raw, anchors, unsafe_proof, unsafe_parent / "replay.sqlite3",
+            )
+            unsafe_parent.chmod(0o700)
+            require(unsafe_result.get("status") == "INVOCATION_DENIED"
+                    and expected_code(unsafe_result) == "pop-replay-store-unavailable",
+                    "group/world-writable replay-store parent must fail closed: " +
+                    json.dumps(unsafe_result, sort_keys=True))
+            receipt["controls"].append({
+                "id": "replay-store-unsafe-parent-fails-closed",
+                "status": unsafe_result["status"],
+                "finding": expected_code(unsafe_result),
                 "fail_closed": True,
             })
 
