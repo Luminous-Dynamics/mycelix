@@ -11,6 +11,7 @@ import posixpath
 import re
 import shlex
 import stat
+import subprocess
 import sys
 import tomllib
 import zipfile
@@ -263,6 +264,49 @@ def require_sha256_prefixed(value: Any, field: str) -> str:
     if not isinstance(value, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", value):
         fail(f"{field} is not sha256:<64 lowercase hex>")
     return value
+
+def git_blob_sha1(path: Path, field: str) -> str:
+    """Compute the Git blob object ID for the exact bytes on disk."""
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        fail(f"unable to read trusted source {field}: {exc}")
+    header = b"blob " + str(len(raw)).encode("ascii") + b"\\0"
+    return hashlib.sha1(header + raw).hexdigest()
+
+
+def git_head_sha(repo_root: Path) -> str:
+    """Read the checked-out commit identity without trusting snapshot claims."""
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+            cwd=repo_root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        fail(f"unable to inspect trusted checkout HEAD: {exc}")
+    if proc.returncode != 0:
+        fail("unable to resolve trusted checkout HEAD")
+    return require_hex(proc.stdout.strip(), 40, "trusted checkout HEAD SHA")
+
+
+def git_head_blob_sha(repo_root: Path, relative_path: str, field: str) -> str:
+    """Resolve a path's immutable blob ID from the checked-out commit tree."""
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", f"HEAD:{relative_path}"],
+            cwd=repo_root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        fail(f"unable to resolve trusted {field} blob: {exc}")
+    if proc.returncode != 0:
+        fail(f"unable to resolve trusted {field} blob")
+    return require_hex(proc.stdout.strip(), 40, f"trusted {field} Git blob SHA")
 
 
 def verify_raw_artifact_archive(
@@ -994,16 +1038,48 @@ def verify_receipt(
         fail("independent verifier path mismatch")
     if verifier_control["ref"] != "refs/heads/main":
         fail("independent verifier ref mismatch")
+    if require_json_int(verifier_control["repository_id"], "verifier-control.repository_id", minimum=1) != BASE_REPOSITORY_ID:
+        fail("independent verifier repository ID mismatch")
     verifier_sha = require_hex(verifier_control["workflow_sha"], 40, "independent verifier workflow_sha")
     verifier_blob_sha = require_hex(
         verifier_control["workflow_blob_sha"], 40, "independent verifier workflow_blob_sha"
     )
     if verifier_control["reference_verifier_path"] != "scripts/integral/verify_fpm_trusted_qualification.py":
         fail("reference verifier path mismatch")
-    require_hex(verifier_control["reference_verifier_blob_sha"], 40, "reference verifier blob SHA")
+    reference_verifier_blob_sha = require_hex(
+        verifier_control["reference_verifier_blob_sha"], 40, "reference verifier blob SHA"
+    )
     if verifier_control["artifact_collector_path"] != "scripts/integral/collect_fpm_trusted_artifacts.py":
         fail("artifact collector path mismatch")
-    require_hex(verifier_control["artifact_collector_blob_sha"], 40, "artifact collector blob SHA")
+    artifact_collector_blob_sha = require_hex(
+        verifier_control["artifact_collector_blob_sha"], 40, "artifact collector blob SHA"
+    )
+
+    # The control record describes the verifier checkout that produced this
+    # result. Validate that claim against both the checked-out tree and the
+    # exact on-disk files, rather than accepting syntactically valid but
+    # unrelated 40-character strings as provenance.
+    repo_root = Path(__file__).resolve().parents[2]
+    if verifier_sha != git_head_sha(repo_root):
+        fail("independent verifier workflow SHA does not match checkout HEAD")
+    workflow_path = repo_root / INDEPENDENT_WORKFLOW_PATH
+    verifier_path = Path(__file__).resolve()
+    collector_path = verifier_path.with_name("collect_fpm_trusted_artifacts.py")
+    actual_workflow_blob = git_head_blob_sha(
+        repo_root, INDEPENDENT_WORKFLOW_PATH, "independent verifier workflow"
+    )
+    actual_verifier_blob = git_head_blob_sha(
+        repo_root, "scripts/integral/verify_fpm_trusted_qualification.py", "reference verifier"
+    )
+    actual_collector_blob = git_head_blob_sha(
+        repo_root, "scripts/integral/collect_fpm_trusted_artifacts.py", "artifact collector"
+    )
+    if verifier_blob_sha != actual_workflow_blob or git_blob_sha1(workflow_path, "independent verifier workflow") != actual_workflow_blob:
+        fail("independent verifier workflow blob does not match checkout")
+    if reference_verifier_blob_sha != actual_verifier_blob or git_blob_sha1(verifier_path, "reference verifier") != actual_verifier_blob:
+        fail("reference verifier blob does not match checkout")
+    if artifact_collector_blob_sha != actual_collector_blob or git_blob_sha1(collector_path, "artifact collector") != actual_collector_blob:
+        fail("artifact collector blob does not match checkout")
     expected_workflow_ref = f"{BASE_REPOSITORY}/{INDEPENDENT_WORKFLOW_PATH}@refs/heads/main"
     if verifier_control["workflow_ref"] != expected_workflow_ref:
         fail("independent verifier workflow_ref mismatch")
