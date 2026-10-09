@@ -340,6 +340,7 @@ def main() -> int:
             "unexpected-control-artifact", "aggregate-guard-aggregator-hash-forged",
             "aggregate-guard-test-hash-forged",
             "capability-bound-control-count-weakened", "capability-resource-limit-weakened",
+            "capability-tool-name-limit-weakened",
         )
         aggregate_guard_mutations = aggregate_guard.get("mutations")
         require(isinstance(aggregate_guard_mutations, list),
