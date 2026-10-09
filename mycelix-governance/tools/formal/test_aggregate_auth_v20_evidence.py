@@ -29,6 +29,65 @@ FROZEN_REQUIRED_RECEIPTS = (
     ("auth-v20-compact-jws-evidence/compact-jws-chain.json", "mycelix.compact-jws-aat-chain-differential-receipt.v1"),
     ("auth-v20-capability-evidence/aat-capability-subsumption.json", "mycelix.aat-capability-subsumption-differential-receipt.v1"),
 )
+FROZEN_MATRIX_MUTATIONS = (
+    "remove-request-value", "reorder-request-values", "widen-amount-domain",
+    "weaken-atom-target", "widen-atom-numeric-bound", "remove-atom",
+    "change-generation-rule", "lower-expression-count", "lower-pair-count",
+    "lower-pair-request-count", "remove-compound-operator", "remove-required-invariant",
+    "enable-randomized-generation", "duplicate-atom-identifier",
+)
+FROZEN_POLICY_CONTROL_IDS = (
+    "actual-authority-expansion", "structural-false-negative",
+    "clause-order-forward", "clause-order-reverse", "unsupported-extension",
+    "deny-deletion-expansion", "deny-addition-restriction",
+    "deny-removal-no-effective-expansion", "allow-expansion-masked-by-deny",
+    "conflict-rule-substitution", "unsupported-extension-in-deny",
+)
+FROZEN_MUTATIONS = {
+    "auth-v20-mutation-evidence/oracle-mutation-sensitivity.json": (
+        "mutations", "mutant_detected", (
+            "atom-subsumption-opened", "denotation-forced-empty",
+            "injective-matcher-reuses-child", "witness-core-keeps-redundant-clause",
+        )),
+    "auth-v20-policy-mutation-evidence/effective-policy-mutation-sensitivity.json": (
+        "mutations", "mutant_detected", (
+            "deny-set-erased", "deny-overrides-skipped", "allow-overrides-misread",
+            "masked-allow-expansion-accepted", "deny-removal-gate-bypassed",
+            "conflict-rule-flag-forged",
+        )),
+    "auth-v20-chain-evidence/delegation-chain-differential.json": (
+        "mutations", "detected", (
+            "adjacent-edge-validation-skipped", "root-anchor-validation-skipped",
+            "masked-attenuation-violation-accepted", "chain-expansion-status-downgraded",
+        )),
+    "auth-v20-chain-claims-evidence/delegation-chain-claims-differential.json": (
+        "checker_mutations", "independent_detection", (
+            "expiry-check-omitted", "depth-check-omitted",
+            "jti-uniqueness-check-omitted", "parent-link-check-omitted",
+        )),
+    "auth-v20-key-link-evidence/delegation-chain-key-linkage.json": (
+        "mutations", "detected", (
+            "issuer-link-check-omitted", "private-jwk-rejection-omitted",
+            "root-issuer-shape-check-omitted",
+        )),
+    "auth-v20-par-hash-evidence/delegation-chain-par-hash.json": (
+        "mutations", "detected", (
+            "par-hash-comparison-omitted", "root-par-hash-rejection-omitted",
+            "canonical-signing-input-rejection-omitted",
+        )),
+    "auth-v20-compact-jws-evidence/compact-jws-chain.json": (
+        "mutations", "mutant_acceptance_observed", (
+            "signature-check-omitted", "issuer-thumbprint-check-omitted",
+            "par-hash-check-omitted",
+        )),
+    "auth-v20-capability-evidence/aat-capability-subsumption.json": (
+        "mutations", "mutant_was_observable", (
+            "constraint-subsumption-bypassed", "tool-set-attenuation-bypassed",
+            "runtime-constraint-bypassed", "invocation-shape-bypassed",
+        )),
+}
+
+
 HEAD = "a" * 40
 
 
@@ -48,18 +107,19 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
             "summary": {},
         }
         if relative == "auth-v20-evidence/receipt.json":
-            data["controls"] = [{} for _ in range(11)]
+            data["controls"] = [{"id": name} for name in FROZEN_POLICY_CONTROL_IDS]
         elif relative == "auth-v20-differential-evidence/receipt.json":
             data.update({"ordered_pairs_expected": 16384, "ordered_pairs_evaluated": 16384})
             data["summary"]["ordered_pair_request_combinations"] = 524288
         elif relative == "auth-v20-differential-evidence/matrix-mutation-guard.json":
             data["mutation_count"] = 14
+            data["mutations_rejected"] = list(FROZEN_MATRIX_MUTATIONS)
         elif relative == "auth-v20-mutation-evidence/oracle-mutation-sensitivity.json":
             data["summary"]["mutants_detected"] = 4
         elif relative == "auth-v20-policy-mutation-evidence/effective-policy-mutation-sensitivity.json":
             data["summary"]["mutants_detected"] = 6
         elif relative == "auth-v20-chain-evidence/delegation-chain-differential.json":
-            data["summary"]["mutants_detected"] = 4
+            data["summary"].update({"mutants_detected": 4, "baseline_chains": 5, "baseline_relations": 24})
         elif relative == "auth-v20-chain-claims-evidence/delegation-chain-claims-differential.json":
             data["summary"].update({"checker_mutants_detected": 4, "invalid_claim_controls": 13})
         elif relative == "auth-v20-key-link-evidence/delegation-chain-key-linkage.json":
@@ -76,6 +136,9 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
                 "runtime_and_invocation_controls": 21,
                 "mutants_detected": 4,
             })
+        if relative in FROZEN_MUTATIONS:
+            rows_key, detected_key, names = FROZEN_MUTATIONS[relative]
+            data[rows_key] = [{"id": name, detected_key: True} for name in names]
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, sort_keys=True, indent=2) + "\n", encoding="utf-8")
@@ -135,9 +198,21 @@ def apply_mutation(root: Path, name: str) -> None:
         data = json.loads(matrix.read_text(encoding="utf-8"))
         data["mutation_count"] = 13
         matrix.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "matrix-mutation-inventory-substituted":
+        data = json.loads(matrix.read_text(encoding="utf-8"))
+        data["mutations_rejected"][0] = "fabricated-mutation"
+        matrix.write_text(json.dumps(data), encoding="utf-8")
     elif name == "mutant-detection-count-weakened":
         data = json.loads(keylink.read_text(encoding="utf-8"))
         data["summary"]["checker_mutants_detected"] = 2
+        keylink.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "mutation-identity-substituted":
+        data = json.loads(keylink.read_text(encoding="utf-8"))
+        data["mutations"][0]["id"] = "fabricated-mutation-id"
+        keylink.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "duplicate-mutation-id":
+        data = json.loads(keylink.read_text(encoding="utf-8"))
+        data["mutations"][1]["id"] = data["mutations"][0]["id"]
         keylink.write_text(json.dumps(data), encoding="utf-8")
     elif name == "compact-jws-mutant-count-weakened":
         data = json.loads(compact_jws.read_text(encoding="utf-8"))
@@ -199,7 +274,10 @@ def main() -> int:
                 "schema-downgraded",
                 "corpus-count-weakened",
                 "matrix-mutation-count-weakened",
+                "matrix-mutation-inventory-substituted",
                 "mutant-detection-count-weakened",
+                "mutation-identity-substituted",
+                "duplicate-mutation-id",
                 "compact-jws-mutant-count-weakened",
                 "missing-capability-receipt",
                 "capability-mutant-count-weakened",
@@ -229,7 +307,7 @@ def main() -> int:
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 12 weakening mutations rejected")
+        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 15 weakening mutations rejected")
         print("QUALIFICATION NOT CLAIMED: synthetic receipt checks do not establish semantic correctness")
         return 0
     except Exception as error:
