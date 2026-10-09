@@ -48,6 +48,11 @@ def validate_report(path:Path,expected:int|None):
     ids=[x.get("case_id",x.get("id")) if isinstance(x,dict) else None for x in cases]
     if any(not isinstance(x,str) or not x for x in ids):return None,"case-identity-missing"
     if len(ids)!=len(set(ids)):return None,"duplicate-case-id"
+    for row in cases:
+        if isinstance(row,dict) and "expected_verdict" in row:
+            actual=row.get("actual_verdict",row.get("verdict"))
+            if actual is None:return None,"actual-verdict-missing"
+            if actual!=row["expected_verdict"]:return None,"verdict-mismatch"
     if not isinstance(obj.get("schema"),str) or not obj["schema"]:return None,"report-schema-missing"
     return {"sha256":sha(raw),"case_count":count,"schema":obj["schema"],"case_ids_sha256":sha(canonical(ids))},None
 
