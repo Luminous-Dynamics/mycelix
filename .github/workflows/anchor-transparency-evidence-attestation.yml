@@ -95,6 +95,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --predicate-type "$PREDICATE_TYPE" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/anchor-transparency-evidence-attestation.yml" \
+            --cert-oidc-issuer "https://token.actions.githubusercontent.com" \
             --format json > execution-evidence/attestation-verification-result.json
           test -s execution-evidence/attestation-verification-result.json
 
@@ -136,6 +137,9 @@ jobs:
           const statement = verification[0]?.verificationResult?.statement;
           if (!statement || typeof statement !== 'object') {
             throw new Error('verified-statement-missing');
+          }
+          if (statement._type !== 'https://in-toto.io/Statement/v1') {
+            throw new Error('signed-statement-type-mismatch');
           }
           if (statement.predicateType !== 'https://luminousdynamics.io/attestations/mycelix-anchor-research-execution/v1') {
             throw new Error('signed-predicate-type-mismatch');
