@@ -27,6 +27,7 @@ FROZEN_REQUIRED_RECEIPTS = (
     ("auth-v20-key-link-evidence/delegation-chain-key-linkage.json", "mycelix.delegation-chain-key-linkage-differential-receipt.v1"),
     ("auth-v20-par-hash-evidence/delegation-chain-par-hash.json", "mycelix.par-hash-differential-receipt.v1"),
     ("auth-v20-compact-jws-evidence/compact-jws-chain.json", "mycelix.compact-jws-aat-chain-differential-receipt.v1"),
+    ("auth-v20-capability-evidence/aat-capability-subsumption.json", "mycelix.aat-capability-subsumption-differential-receipt.v1"),
 )
 HEAD = "a" * 40
 
@@ -67,6 +68,14 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
             data["summary"].update({"mutants_detected": 3, "negative_controls": 12})
         elif relative == "auth-v20-compact-jws-evidence/compact-jws-chain.json":
             data["summary"].update({"mutants_detected": 3, "negative_controls": 30, "positive_controls": 2, "signatures_verified": 5})
+        elif relative == "auth-v20-capability-evidence/aat-capability-subsumption.json":
+            data["summary"].update({
+                "constraint_subsumption_controls": 34,
+                "malformed_or_bound_controls": 9,
+                "capability_attenuation_controls": 8,
+                "runtime_and_invocation_controls": 21,
+                "mutants_detected": 4,
+            })
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, sort_keys=True, indent=2) + "\n", encoding="utf-8")
@@ -99,6 +108,7 @@ def apply_mutation(root: Path, name: str) -> None:
     policy = root / FROZEN_REQUIRED_RECEIPTS[4][0]
     keylink = root / FROZEN_REQUIRED_RECEIPTS[7][0]
     compact_jws = root / FROZEN_REQUIRED_RECEIPTS[9][0]
+    capability_receipt = root / FROZEN_REQUIRED_RECEIPTS[10][0]
     if name == "missing-required-receipt":
         (root / FROZEN_REQUIRED_RECEIPTS[5][0]).unlink()
     elif name == "wrong-source-head":
@@ -133,6 +143,12 @@ def apply_mutation(root: Path, name: str) -> None:
         data = json.loads(compact_jws.read_text(encoding="utf-8"))
         data["summary"]["mutants_detected"] = 2
         compact_jws.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "missing-capability-receipt":
+        capability_receipt.unlink()
+    elif name == "capability-mutant-count-weakened":
+        data = json.loads(capability_receipt.read_text(encoding="utf-8"))
+        data["summary"]["mutants_detected"] = 3
+        capability_receipt.write_text(json.dumps(data), encoding="utf-8")
     elif name == "expected-head-malformed":
         # Applied via run_aggregate rather than altering any synthetic receipt.
         return
@@ -185,6 +201,8 @@ def main() -> int:
                 "matrix-mutation-count-weakened",
                 "mutant-detection-count-weakened",
                 "compact-jws-mutant-count-weakened",
+                "missing-capability-receipt",
+                "capability-mutant-count-weakened",
                 "expected-head-malformed",
             )
             for name in mutations:
@@ -211,7 +229,7 @@ def main() -> int:
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 10 weakening mutations rejected")
+        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 12 weakening mutations rejected")
         print("QUALIFICATION NOT CLAIMED: synthetic receipt checks do not establish semantic correctness")
         return 0
     except Exception as error:
