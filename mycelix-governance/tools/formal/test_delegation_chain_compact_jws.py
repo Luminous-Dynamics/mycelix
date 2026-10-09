@@ -222,6 +222,15 @@ def cases(directory: Path) -> dict[str, dict[str, Any]]:
     return {name: build_chain(directory, name) for name in names}
 
 
+def invoke_fixture(raw: dict[str, Any], openssl: str,
+                   trusted_anchors: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    # Exclude any trust configuration from the token-chain input. Trusted keys
+    # are supplied through a distinct caller-controlled parameter.
+    anchors = trusted_anchors if trusted_anchors is not None else raw.get("trust_anchors")
+    token_input = {key: raw[key] for key in ("schema", "now", "chain") if key in raw}
+    return verifier.evaluate_compact_chain(token_input, anchors, openssl_binary=openssl)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
@@ -243,7 +252,7 @@ def main() -> int:
         with tempfile.TemporaryDirectory(prefix="mycelix-compact-jws-test-") as temporary:
             root = Path(temporary)
             valid = build_chain(root, "valid-four-token-chain")
-            observed = verifier.evaluate_compact_chain(valid, openssl_binary=openssl)
+            observed = invoke_fixture(valid, openssl)
             require(observed.get("status") == "COMPACT_JWS_CHAIN_VERIFIED",
                     "valid signed chain rejected: " + json.dumps(observed, sort_keys=True))
             receipt["controls"].append({
@@ -251,9 +260,28 @@ def main() -> int:
                 "independent_fixture": "OpenSSL Ed25519 signatures verified",
                 "token_count": len(valid["chain"]),
             })
+            # Reject attempts to smuggle trust roots in the same object as
+            # untrusted token-chain data. Real trust configuration stays outside.
+            wrong_anchor = generate_keypair(root, 30)
+            malicious_input = {
+                "schema": valid["schema"],
+                "now": valid["now"],
+                "chain": valid["chain"],
+                "trust_anchors": [{"issuer_uri": ISSUER, "jwk": wrong_anchor["public_jwk"]}],
+            }
+            rejected_embedded_config = verifier.evaluate_compact_chain(
+                malicious_input, valid["trust_anchors"], openssl_binary=openssl
+            )
+            require(rejected_embedded_config.get("status") == "UNSUPPORTED_OR_UNDECIDABLE",
+                    "chain input was allowed to carry its own trust-anchor configuration")
+            receipt["controls"].append({
+                "id": "embedded-trust-anchor-field-rejected",
+                "status": rejected_embedded_config["status"],
+                "finding": rejected_embedded_config.get("findings", [{}])[0].get("code"),
+            })
             bad_cases = cases(root)
             for name, raw in bad_cases.items():
-                observed = verifier.evaluate_compact_chain(raw, openssl_binary=openssl)
+                observed = invoke_fixture(raw, openssl)
                 expected = "UNSUPPORTED_OR_UNDECIDABLE" if name in {
                     "duplicate-trust-anchor-issuer", "malformed-top-level", "unknown-schema"
                 } else "INVALID_CHAIN"
@@ -280,9 +308,7 @@ def main() -> int:
                 original = getattr(verifier, attribute)
                 try:
                     setattr(verifier, attribute, mutant)
-                    mutated_result = verifier.evaluate_compact_chain(
-                        bad_cases[fixture_name], openssl_binary=openssl
-                    )
+                    mutated_result = invoke_fixture(bad_cases[fixture_name], openssl)
                 finally:
                     setattr(verifier, attribute, original)
                 require(mutated_result.get("status") == "COMPACT_JWS_CHAIN_VERIFIED",
