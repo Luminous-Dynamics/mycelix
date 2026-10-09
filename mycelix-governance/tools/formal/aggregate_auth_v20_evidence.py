@@ -111,6 +111,33 @@ EXPECTED_CAPABILITY_VALIDATION_CONTROL_IDS = (
 )
 
 
+EXPECTED_CAPABILITY_INVOCATION_CONTROL_IDS = (
+    "exact-match",
+    "exact-reject",
+    "range-match",
+    "range-reject-boundary",
+    "one-of-match",
+    "not-one-of-reject",
+    "contains-match",
+    "contains-reject",
+    "subset-match",
+    "subset-reject",
+    "wildcard-match",
+    "all-match",
+    "all-reject",
+    "any-match",
+    "any-reject",
+    "allowed-invocation",
+    "value-rejected",
+    "extra-argument-rejected",
+    "missing-argument-rejected",
+    "unknown-tool-rejected",
+    "open-world-tool-allows-args",
+    "invocation-value-depth-overflow",
+    "invocation-value-node-overflow",
+)
+
+
 EXPECTED_POP_CONTROL_IDS = (
     "valid-constrained-invocation",
     "one-time-pop-jti-replay-rejected",
@@ -525,11 +552,19 @@ def main() -> int:
             "max_constraint_value_depth": 32,
             "max_constraint_value_nodes": 512,
             "max_tool_name_bytes": 256,
+            "max_invocation_value_depth": 32,
+            "max_invocation_value_nodes": 4096,
         }, "AAT capability resource limits differ from the frozen profile")
         require(capability_summary.get("capability_attenuation_controls") == 8,
                 "AAT capability harness did not execute all 8 capability attenuation controls")
-        require(capability_summary.get("runtime_and_invocation_controls") == 21,
-                "AAT capability harness did not execute all 21 runtime/invocation controls")
+        require(capability_summary.get("runtime_and_invocation_controls") == 23,
+                "AAT capability harness did not execute all 23 runtime/invocation controls")
+        observed_capability_invocation_ids = [
+            row.get("id") for row in capability_result.get("invocation_controls", [])
+            if isinstance(row, dict)
+        ]
+        require(observed_capability_invocation_ids == list(EXPECTED_CAPABILITY_INVOCATION_CONTROL_IDS),
+                "AAT runtime/invocation control identities/order differ from the frozen inventory")
 
         pop_result = json.loads((args.evidence_root /
             "auth-v20-pop-evidence/delegation-chain-pop-differential.json").read_text(encoding="utf-8"))
