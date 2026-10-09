@@ -129,7 +129,7 @@ def validate_receipt(receipt_path:Path,artifact_root:Path,event_path:Path):
     }
     for k,v in expected_src.items():
         if source.get(k)!=v:return None,"source-metadata-binding:"+k
-    if not str(source.get("workflow_ref","")).endswith(WORKFLOW_PATH+"@refs/heads/main"):return None,"source-workflow-ref-binding"
+    if source.get("workflow_ref")!=REPOSITORY+"/"+WORKFLOW_PATH+"@refs/heads/main":return None,"source-workflow-ref-binding"
     if source.get("pull_request_head_sha") is not None or source.get("pull_request_number") is not None:return None,"unexpected-pr-head"
     if not str(source.get("workflow_ref","")).endswith(WORKFLOW_PATH+"@refs/heads/main"):return None,"source-workflow-ref-binding"
     if ceiling.get("prior_verifier_steps_succeeded_at_receipt_creation") is not True or ceiling.get("overall_workflow_conclusion")!="pending-downstream-observation":return None,"claim-ceiling-context"
