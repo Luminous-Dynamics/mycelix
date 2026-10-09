@@ -87,6 +87,8 @@ def _string_refs(value: Any, label: str, errors: list[str]) -> list[str]:
             errors.append(f"{label}[{index}]: expected a non-empty string ref")
             continue
         refs.append(item)
+    if len(refs) != len(set(refs)):
+        errors.append(f"{label}: duplicate refs are forbidden")
     return refs
 
 
