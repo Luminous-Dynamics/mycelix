@@ -173,7 +173,6 @@ jobs:
             echo "durable archive contains unsafe path entries" >&2
             exit 1
           fi
-          expected=''
           python - <<'PY'
           from pathlib import Path
           required={
