@@ -162,6 +162,8 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain", count: in
             claims["jti"] = "token-0"
         elif case == "private-holder-key" and index == 0:
             claims["cnf"]["jwk"]["d"] = "private-material-must-not-appear"
+        elif case == "valid-four-token-chain" and index == 0:
+            raw_payload = compact_json(claims).replace(b'"jti":"token-0"', b'"jti":"token-0","unrecognized_extension":1e999')
         elif case == "duplicate-payload-member" and index == 0:
             raw_payload = compact_json(claims).replace(b'"jti":"token-0"', b'"jti":"token-x","jti":"token-0"')
         else:
