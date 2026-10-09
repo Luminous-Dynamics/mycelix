@@ -16,6 +16,21 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import aggregate_auth_v20_evidence as aggregator  # noqa: E402
 
+FROZEN_CAPABILITY_VALIDATION_IDS = (
+    "unknown-constraint-extension",
+    "unexpected-exact-member",
+    "exact-object-value",
+    "exact-nonfinite-value",
+    "range-bool-bound",
+    "range-exclusive-empty",
+    "any-empty",
+    "constraint-depth-overflow",
+    "constraint-clause-overflow",
+    "constraint-node-overflow",
+    "tool-count-limit-exceeded",
+    "argument-key-limit-exceeded",
+)
+
 FROZEN_REQUIRED_RECEIPTS = (
     ("auth-v20-evidence/receipt.json", "mycelix.compound-subsumption-counterexample-controls.v1"),
     ("auth-v20-differential-evidence/receipt.json", "mycelix.compound-subsumption-differential-receipt.v1"),
@@ -274,11 +289,22 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
         elif relative == "auth-v20-capability-evidence/aat-capability-subsumption.json":
             data["summary"].update({
                 "constraint_subsumption_controls": 34,
-                "malformed_or_bound_controls": 9,
+                "malformed_or_bound_controls": 12,
                 "capability_attenuation_controls": 8,
                 "runtime_and_invocation_controls": 21,
                 "mutants_detected": 4,
+                "resource_limits": {
+                    "max_constraint_depth": 32,
+                    "max_constraint_nodes": 512,
+                    "max_composite_clauses": 128,
+                    "max_tools_per_token": 256,
+                    "max_constraints_per_tool": 64,
+                },
             })
+            data["validation_controls"] = [
+                {"id": name, "rejected": True, "finding": "synthetic-expected-finding"}
+                for name in FROZEN_CAPABILITY_VALIDATION_IDS
+            ]
         elif relative == "auth-v20-pop-evidence/delegation-chain-pop-differential.json":
             data["summary"].update({
                 "positive_controls": 2,
