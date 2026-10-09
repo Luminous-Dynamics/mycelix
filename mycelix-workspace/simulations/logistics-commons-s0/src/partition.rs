@@ -628,6 +628,32 @@ mod tests {
     }
 
     #[test]
+    fn independent_verifier_rejects_alias_to_malformed_primary() {
+        let mut malformed = offline("coop-a", "edge-a", "a-invalid", "same-op", 1, 4);
+        malformed.node_id.clear();
+        let valid = offline("coop-a", "edge-b", "z-valid", "same-op", 1, 4);
+        let requests = vec![malformed.clone(), valid.clone()];
+        let injected = vec![
+            ReconciliationDecision {
+                participant_id: malformed.participant_id.clone(),
+                node_id: malformed.node_id.clone(),
+                reservation_id: malformed.reservation_id.clone(),
+                disposition: ReconciliationDisposition::Rejected { reason: "empty-node-id" },
+            },
+            ReconciliationDecision {
+                participant_id: valid.participant_id.clone(),
+                node_id: valid.node_id.clone(),
+                reservation_id: valid.reservation_id.clone(),
+                disposition: ReconciliationDisposition::DuplicateOf {
+                    primary_id: malformed.reservation_id.clone(),
+                },
+            },
+        ];
+        assert!(verify_reconciliation(&requests, 120, &injected)
+            .iter().any(|violation| violation == "invalid-idempotency-alias:z-valid"));
+    }
+
+    #[test]
     fn malformed_sorted_first_replay_cannot_suppress_valid_request() {
         let requests = vec![
             {
