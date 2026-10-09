@@ -92,6 +92,22 @@ EXPECTED_MUTATION_IDS = {
 }
 
 
+EXPECTED_CAPABILITY_VALIDATION_CONTROL_IDS = (
+    "unknown-constraint-extension",
+    "unexpected-exact-member",
+    "exact-object-value",
+    "exact-nonfinite-value",
+    "range-bool-bound",
+    "range-exclusive-empty",
+    "any-empty",
+    "constraint-depth-overflow",
+    "constraint-clause-overflow",
+    "constraint-node-overflow",
+    "tool-count-limit-exceeded",
+    "argument-key-limit-exceeded",
+)
+
+
 EXPECTED_POP_CONTROL_IDS = (
     "valid-constrained-invocation",
     "one-time-pop-jti-replay-rejected",
@@ -487,8 +503,21 @@ def main() -> int:
         capability_summary = capability_result.get("summary", {})
         require(capability_summary.get("constraint_subsumption_controls") == 34,
                 "AAT capability harness did not execute all 34 frozen subsumption controls")
-        require(capability_summary.get("malformed_or_bound_controls") == 9,
-                "AAT capability harness did not execute all 9 malformed/bounded controls")
+        require(capability_summary.get("malformed_or_bound_controls") == 12,
+                "AAT capability harness did not execute all 12 malformed/bounded controls")
+        observed_capability_validation_ids = [
+            row.get("id") for row in capability_result.get("validation_controls", [])
+            if isinstance(row, dict)
+        ]
+        require(observed_capability_validation_ids == list(EXPECTED_CAPABILITY_VALIDATION_CONTROL_IDS),
+                "AAT malformed/bound control identities/order differ from the frozen inventory")
+        require(capability_summary.get("resource_limits") == {
+            "max_constraint_depth": 32,
+            "max_constraint_nodes": 512,
+            "max_composite_clauses": 128,
+            "max_tools_per_token": 256,
+            "max_constraints_per_tool": 64,
+        }, "AAT capability resource limits differ from the frozen profile")
         require(capability_summary.get("capability_attenuation_controls") == 8,
                 "AAT capability harness did not execute all 8 capability attenuation controls")
         require(capability_summary.get("runtime_and_invocation_controls") == 21,
