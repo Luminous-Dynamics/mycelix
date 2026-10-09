@@ -132,7 +132,7 @@ def parse_and_validate_header(header_bytes: bytes) -> dict[str, Any]:
     if header.get("alg") != "EdDSA":
         raise VerificationError("algorithm-not-allowed", "only EdDSA/Ed25519 is allowed")
     token_type = header.get("typ")
-    if not isinstance(token_type, str) or token_type not in {"JWT", "application/aat+jwt"}:
+    if not isinstance(token_type, str) or token_type.lower() not in {"aat+jwt", "application/aat+jwt"}:
         raise VerificationError("token-type-invalid", "JWT type header is required by this profile")
     if "b64" in header:
         raise VerificationError("b64-header-not-allowed",
@@ -385,7 +385,7 @@ def evaluate_compact_chain(raw: dict[str, Any], trusted_anchors: list[dict[str, 
 
         return {
             "schema": RESULT_SCHEMA,
-            "status": "COMPACT_JWS_CHAIN_VERIFIED",
+            "status": "COMPACT_JWS_CRYPTO_LINKAGE_PASS",
             "token_count": len(chain),
             "root_issuer": root_anchor["issuer_uri"],
             "leaf_jti": claims_by_index[-1]["jti"],
