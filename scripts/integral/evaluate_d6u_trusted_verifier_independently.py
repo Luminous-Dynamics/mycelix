@@ -613,6 +613,111 @@ def run(candidate_root: pathlib.Path) -> None:
             "candidate verifier accepted nested artifact directories",
         )
 
+        zip_expected = set(fetcher.EXPECTED_FILES)
+        valid_zip = scratch_path / "valid-artifact.zip"
+        with zipfile.ZipFile(
+            valid_zip, "w", compression=zipfile.ZIP_STORED
+        ) as archive:
+            for name in sorted(zip_expected):
+                archive.writestr(name, b"safe fixture\\n")
+        valid_infos = fetcher.verify_zip_members(valid_zip, candidate_policy)
+        extracted = scratch_path / "valid-extracted"
+        fetcher.extract_members(valid_zip, extracted, valid_infos, candidate_policy)
+        assert {path.name for path in extracted.iterdir()} == zip_expected
+
+        assert_rejected(
+            lambda: fetcher.preflight_zip_entry_count(valid_zip, 2),
+            "trusted artifact ZIP entry count exceeds trusted maximum",
+            "candidate fetcher accepted an archive over the entry-count limit",
+        )
+
+        zero_limits = {name: 0 for name in zip_expected}
+        assert_rejected(
+            lambda: fetcher.verify_zip_members(
+                valid_zip, candidate_policy, maximums=zero_limits
+            ),
+            "trusted artifact member is too large",
+            "candidate fetcher accepted members over the per-file size limit",
+        )
+
+        total_limit_rejection = False
+        try:
+            fetcher.verify_zip_members(
+                valid_zip, candidate_policy, maximum_total=0
+            )
+        except AssertionError as exc:
+            total_limit_rejection = "uncompressed size is too large" in str(exc)
+        assert total_limit_rejection, (
+            "candidate fetcher accepted total uncompressed bytes over the limit"
+        )
+
+        duplicate_zip = scratch_path / "duplicate-members.zip"
+        duplicate_names_expected = zip_expected | {"unlisted-extra.txt"}
+        with zipfile.ZipFile(
+            duplicate_zip, "w", compression=zipfile.ZIP_STORED
+        ) as archive:
+            for name in sorted(zip_expected):
+                archive.writestr(name, b"safe\\n")
+            archive.writestr(sorted(zip_expected)[0], b"duplicate\\n")
+        assert_rejected(
+            lambda: fetcher.verify_zip_members(
+                duplicate_zip,
+                candidate_policy,
+                expected_files=duplicate_names_expected,
+            ),
+            "duplicate ZIP members",
+            "candidate fetcher accepted duplicate archive member names",
+        )
+
+        symlink_zip = scratch_path / "symlink-member.zip"
+        with zipfile.ZipFile(
+            symlink_zip, "w", compression=zipfile.ZIP_STORED
+        ) as archive:
+            for name in sorted(zip_expected):
+                if name == "d6u-runtime-evidence.txt":
+                    info = zipfile.ZipInfo(name)
+                    info.create_system = 3
+                    info.external_attr = (stat.S_IFLNK | 0o777) << 16
+                    archive.writestr(info, b"../../outside.txt")
+                else:
+                    archive.writestr(name, b"safe\\n")
+        assert_rejected(
+            lambda: fetcher.verify_zip_members(symlink_zip, candidate_policy),
+            "trusted artifact contains symlink member",
+            "candidate fetcher accepted a symlink ZIP member",
+        )
+
+        bzip_zip = scratch_path / "bzip2-members.zip"
+        with zipfile.ZipFile(
+            bzip_zip, "w", compression=zipfile.ZIP_BZIP2
+        ) as archive:
+            for name in sorted(zip_expected):
+                archive.writestr(name, b"safe fixture\\n")
+        assert_rejected(
+            lambda: fetcher.verify_zip_members(bzip_zip, candidate_policy),
+            "unsupported ZIP compression method",
+            "candidate fetcher accepted an unapproved ZIP compression method",
+        )
+
+        traversal_zip = scratch_path / "nested-path.zip"
+        with zipfile.ZipFile(
+            traversal_zip, "w", compression=zipfile.ZIP_STORED
+        ) as archive:
+            archive.writestr("nested/escape.txt", b"no extraction\\n")
+        with zipfile.ZipFile(traversal_zip) as archive:
+            traversal_infos = archive.infolist()
+        assert_rejected(
+            lambda: fetcher.extract_members(
+                traversal_zip,
+                scratch_path / "traversal-extract",
+                traversal_infos,
+                candidate_policy,
+                maximums={"nested/escape.txt": 1024},
+            ),
+            "trusted artifact member is not a root file",
+            "candidate fetcher extracted a nested member path",
+        )
+
     tampered = dict(record)
     tampered["workflow_run_id"] = "201"
     assert_rejected(
