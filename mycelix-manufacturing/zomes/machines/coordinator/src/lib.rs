@@ -571,6 +571,30 @@ pub fn resolve_machine_temporal_attestations(
             return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
         };
 
+        // Derive the registrant from the root record; do not trust a copied signer
+        // in a portable receipt or profile field.
+        let Some(Details::Record(machine_details)) =
+            get_details(profile_record.machine_hash.clone(), GetOptions::default())?
+        else {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        };
+        if machine_details.validation_status != ValidationStatus::Valid
+            || !matches!(machine_details.record.action(), Action::Create(_))
+        {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
+        let machine_root: Option<MachineEntry> = machine_details.record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+        if machine_root.is_none() {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
+        let machine_registrant = machine_details.record.action().author().clone();
+        if machine_registrant != profile_details.record.action().author().clone() {
+            return Ok(MachineTemporalEvidenceResolution::InvalidEvidence);
+        }
+
         if profile_record.machine_hash != attestation.machine_hash
             || profile_record.authority_agent != record.action().author()
             || attestation.accuracy_micros > profile_record.max_accuracy_micros
@@ -587,7 +611,7 @@ pub fn resolve_machine_temporal_attestations(
 
         let profile_statement = MachineTemporalSignedProfileStatement {
             action_hash: attestation.profile_hash.clone(),
-            signer: profile_details.record.action().author().clone(),
+            signer: machine_registrant.clone(),
             payload: profile_record.signed_payload(),
             signature: profile_record.registrant_signature.clone(),
         };
@@ -599,7 +623,8 @@ pub fn resolve_machine_temporal_attestations(
         };
 
         evidence.push(MachineTemporalEvidenceObservation {
-            receipt_schema_id: MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V1.to_string(),
+            receipt_schema_id: MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V2.to_string(),
+            machine_registrant,
             attestation_hash: hash,
             authority_agent: profile_record.authority_agent,
             profile_hash: attestation.profile_hash,
