@@ -2,7 +2,7 @@
   "spec_version": "civ-013-durable-adapter-v1",
   "profile_id": "civ-013-durable-adapter-v1",
   "source_repository": "Luminous-Dynamics/symthaea",
-  "source_adapter_commit": "2b3ea63771fb9f24c131b05ee9d69b81c085d8dc",
+  "source_adapter_commit": "6e7ecb488c7fe5988b19c475588b69a3d45750b8",
   "encoding": {
     "digest": "SHA-256",
     "integer_encoding": "unsigned big-endian",
@@ -436,6 +436,50 @@
       "stage": "before_prepare",
       "expected_candidate_persisted": false,
       "expected_fork_evidence": false
+    },
+    {
+      "id": "DA031-fork-evidence-tail-truncated",
+      "kind": "fork_evidence_tail_integrity",
+      "expected_outcome": "CorruptForkEvidence",
+      "stored_chain": [
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 2,
+          "first_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+          "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+          "previous_evidence_digest": null,
+          "digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035"
+        }
+      ],
+      "stored_count": 1,
+      "metadata_count": 2,
+      "metadata_tail_digest": "e0a8d34a9b3f5459899a7f27ffec322aedf9bc15403a1085148f758539135df9"
+    },
+    {
+      "id": "DA032-fork-evidence-tail-pointer-tampered",
+      "kind": "fork_evidence_tail_integrity",
+      "expected_outcome": "CorruptForkEvidence",
+      "stored_chain": [
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 2,
+          "first_record_digest": "e8e99832f2803557549a55a27ce95cb95f88f13fdef96b49fa00548f08498520",
+          "conflicting_record_digest": "c84753b7cab52ac43aa71591af2e6fde96cd8b82b3f6584f662336d3fc7d891a",
+          "previous_evidence_digest": null,
+          "digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035"
+        },
+        {
+          "log_id": "durable-fixture-log-001",
+          "generation": 3,
+          "first_record_digest": "932ba4de57b32f8a1419205617f14678b166681039c5d2b0bc3523163889d5a7",
+          "conflicting_record_digest": "a1165f37515ed9c4794dd93dfb91d43115fe362350fec2529694b26023ebdeea",
+          "previous_evidence_digest": "9e2915b090ef37dce9f63a11f9f4f54185325f467b8cac2b3dbe9e3db5c33035",
+          "digest": "e0a8d34a9b3f5459899a7f27ffec322aedf9bc15403a1085148f758539135df9"
+        }
+      ],
+      "stored_count": 2,
+      "metadata_count": 2,
+      "metadata_tail_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
     }
   ],
   "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback."
