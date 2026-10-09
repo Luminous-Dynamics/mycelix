@@ -35,6 +35,10 @@ STATE_IDS = [
     "DA013-anchor-ahead-without-candidate", "DA014-anchor-same-generation-digest-mismatch",
     "DA015-local-history-behind-anchor", "DA016-conflicting-prepared-candidate",
     "DA017-late-finalize-historical-candidate",
+    "DA018-same-generation-retry-tampered-head",
+    "DA019-late-finalize-corrupt-head-metadata",
+    "DA020-late-finalize-tampered-head-record",
+    "DA021-anchor-ahead-after-candidate-cas",
 ]
 OUTCOMES = {
     "ACCEPT_AFTER_EXTERNAL_CAS", "IDEMPOTENT_ACCEPT", "REJECT_STALE",
@@ -43,6 +47,9 @@ OUTCOMES = {
     "PROMOTE_PREPARED", "REJECT_ROLLBACK_OR_MISSING_HISTORY",
     "REJECT_EXTERNAL_MISMATCH", "REJECT_CONFLICT_PRESERVE_EVIDENCE",
     "IDEMPOTENT_HISTORICAL_SUCCESS_NO_HEAD_REGRESSION",
+    "REJECT_TAMPERED_CURRENT_HEAD",
+    "REJECT_CORRUPT_HEAD_METADATA",
+    "REJECT_AHEAD_ANCHOR_NO_FALSE_FORK",
 }
 
 def fail(message: str) -> None:
@@ -106,7 +113,11 @@ def fork_bytes(vector: dict[str, Any]) -> bytes:
 def exact_ids(vectors: Any, expected: list[str], label: str) -> None:
     if not isinstance(vectors, list):
         fail(f"{label} must be an array")
-    ids = [item.get("id") for item in vectors if isinstance(item, dict)]
+    if len(vectors) != len(expected):
+        fail(f"{label} count mismatch: expected {len(expected)}, got {len(vectors)}")
+    if any(not isinstance(item, dict) for item in vectors):
+        fail(f"{label} contains a non-object vector")
+    ids = [item.get("id") for item in vectors]
     if ids != expected:
         fail(f"{label} IDs/order mismatch: got {ids!r}")
 
@@ -117,6 +128,18 @@ def main() -> int:
         fail("fixture profile/version mismatch")
     if manifest.get("profile_id") != PROFILE_ID or manifest.get("spec_version") != SPEC_VERSION:
         fail("manifest profile/version mismatch")
+    expected_encoding = {
+        "digest": "SHA-256",
+        "record_domain_hex": RECORD_DOMAIN.hex(),
+        "fork_domain_hex": FORK_DOMAIN.hex(),
+        "protocol_version": "u16 big-endian",
+        "generation": "u64 big-endian",
+        "byte_string": "u64 byte length big-endian followed by UTF-8 bytes",
+        "receipt_sequence": "u64 big-endian",
+        "optional_digest": "0x00 for None; 0x01 followed by exactly 32 bytes for Some",
+    }
+    if fixture.get("encoding") != expected_encoding:
+        fail("fixture encoding declaration does not match checker implementation")
     source_sha = fixture.get("source_adapter_commit")
     if not isinstance(source_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", source_sha):
         fail("source_adapter_commit must be an exact 40-hex SHA")

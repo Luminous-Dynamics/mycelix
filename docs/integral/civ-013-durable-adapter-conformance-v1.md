@@ -29,7 +29,7 @@ Fork evidence covers log ID, generation, both competing record digests, and the 
 
 The independent Python checker reconstructs canonical bytes and checks all four frozen SHA-256 results. It does not import the Rust crate, invoke its reducer, or label adapter outcomes as passing tests.
 
-Thirteen DA005-DA017 state expectations cover bootstrap, idempotent retry, stale predecessor, receipt-tail rollback/equivocation, anchor outages, prepared-state recovery, anchor-ahead/local-history-behind, digest mismatch, competing prepared candidates, and late finalization. These are declarative expectations. The adapter's Rust tests and exact-head CI must independently exercise them.
+Seventeen DA005-DA021 state expectations cover bootstrap, idempotent retry, stale predecessor, receipt-tail rollback/equivocation, anchor outages, prepared-state recovery, anchor-ahead/local-history-behind, digest mismatch, competing prepared candidates, and late finalization, tampered same-generation retry heads, corrupt current-head metadata/records, and an external anchor that advances beyond a candidate. These are declarative expectations. The adapter's Rust tests and exact-head CI must independently exercise them.
 
 ## Operational state ordering
 
