@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "d1715640fe2e1005631072b9cca629a027d08f9e"
+SOURCE_COMMIT = "57d0c21ff54f2374a69037c08f168a0171dbb46f"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 
 REQUIRED_IDS = {
@@ -396,6 +396,8 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
             return "CorruptForkEvidence"
         if tail != actual_tail:
             return "CorruptForkEvidence"
+        if "append_must_reject" in vector and vector["append_must_reject"] is not True:
+            return "InvalidInput"
         return "VALID_FORK_EVIDENCE_TAIL"
 
     if kind == "anchor_ahead_before_prepare":
