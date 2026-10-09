@@ -197,7 +197,6 @@ def validate_report(report, trusted_manifest):
         "trusted candidate Git blob IDs must be lowercase SHA-1 hex",
     )
     corpus_relpath = "mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_v1.json"
-    qualification_manifest_relpath = "mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_manifest_v1.json"
     require(report.get("candidate_corpus_git_blob_sha") == expected_blobs[corpus_relpath],
             "candidate corpus Git blob identity must equal the trusted manifest pin")
     require(
@@ -335,6 +334,33 @@ def validate_report(report, trusted_manifest):
     )
 
 
+def git_blob_sha(raw: bytes) -> str:
+    return hashlib.sha1(
+        b"blob " + str(len(raw)).encode("ascii") + b"\0" + raw
+    ).hexdigest()
+
+
+def verify_candidate_input_bindings(report, trusted_manifest, candidate_root: Path):
+    expected_blobs = trusted_manifest["expected_blob_sha"]
+    corpus_relpath = "mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_v1.json"
+    qualification_manifest_relpath = "mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_manifest_v1.json"
+    try:
+        corpus_raw = (candidate_root / corpus_relpath).read_bytes()
+        manifest_raw = (candidate_root / qualification_manifest_relpath).read_bytes()
+    except OSError as exc:
+        raise Reject("candidate qualification input unavailable") from exc
+    corpus_blob_sha = git_blob_sha(corpus_raw)
+    require(corpus_blob_sha == report.get("candidate_corpus_git_blob_sha"),
+            "candidate corpus Git blob identity differs from its actual bytes")
+    require(corpus_blob_sha == expected_blobs[corpus_relpath],
+            "candidate corpus Git blob identity differs from trusted pin")
+    manifest_sha256 = hashlib.sha256(manifest_raw).hexdigest()
+    require(manifest_sha256 == report.get("candidate_qualification_manifest_sha256"),
+            "candidate qualification manifest SHA-256 differs from its actual bytes")
+    require(git_blob_sha(manifest_raw) == expected_blobs[qualification_manifest_relpath],
+            "candidate qualification manifest Git blob identity differs from trusted pin")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--report", required=True)
@@ -344,31 +370,8 @@ def main():
     try:
         report = strict_json(args.report)
         trusted_manifest = strict_json(args.trusted_manifest)
-        candidate_root = Path(args.candidate_root)
-        expected_blobs = trusted_manifest.get("expected_blob_sha", {})
-        candidate_files = {
-            "mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_v1.json":
-                "candidate_corpus_git_blob_sha",
-            "mycelix-workspace/docs/civic-resilience/sym_civic_019_receipt_proof_binding_manifest_v1.json":
-                "candidate_qualification_manifest_sha256",
-        }
-        for relative_path, report_field in candidate_files.items():
-            try:
-                raw = (candidate_root / relative_path).read_bytes()
-            except OSError as exc:
-                raise Reject("candidate input unavailable: " + relative_path) from exc
-            if report_field == "candidate_corpus_git_blob_sha":
-                blob = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\\0" + raw).hexdigest()
-                if blob != report.get(report_field) or blob != expected_blobs.get(relative_path):
-                    raise Reject("candidate corpus identity differs from pinned input")
-            else:
-                digest = hashlib.sha256(raw).hexdigest()
-                if digest != report.get(report_field):
-                    raise Reject("candidate qualification manifest digest differs from input")
-                blob = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\\0" + raw).hexdigest()
-                if blob != expected_blobs.get(relative_path):
-                    raise Reject("candidate qualification manifest blob differs from trusted pin")
         validate_report(report, trusted_manifest)
+        verify_candidate_input_bindings(report, trusted_manifest, Path(args.candidate_root))
     except (Reject, KeyError, TypeError, ValueError) as exc:
         raise SystemExit("self-test report reject: " + str(exc)) from exc
     print("non-authoritative trusted-oracle self-test contract: PASS")
