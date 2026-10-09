@@ -31,9 +31,14 @@ pub struct PlayerState {
     pub show_queue: RwSignal<bool>,
 }
 
-/// Source identity must bind the song record and the actual media resource.
+/// Logical track identity binds the song record and the actual media resource.
 pub(crate) fn same_audio_source(left: &Song, right: &Song) -> bool {
-    left.song_hash == right.song_hash && left.audio_url() == right.audio_url()
+    left.song_hash == right.song_hash && same_media_resource(left, right)
+}
+
+/// The browser's persistent audio element is keyed by its resolved media URL.
+pub(crate) fn same_media_resource(left: &Song, right: &Song) -> bool {
+    left.audio_url() == right.audio_url()
 }
 
 impl PlayerState {
@@ -52,14 +57,14 @@ impl PlayerState {
         }
     }
 
-    /// Reset duration only when the selected audio source actually changes.
-    /// The persistent audio element retains metadata when the source is unchanged.
+    /// Reset media duration only when the actual audio resource changes.
+    /// A new song record can point to the same URL, whose metadata remains valid.
     fn prepare_track_change(&self, next_song: &Song) {
-        let source_changed = self
+        let media_changed = self
             .current_song
             .get_untracked()
-            .is_none_or(|current| !same_audio_source(&current, next_song));
-        if source_changed {
+            .is_none_or(|current| !same_media_resource(&current, next_song));
+        if media_changed {
             self.duration.set(0.0);
         }
     }
@@ -319,7 +324,7 @@ fn queue_next_index(
 mod player_queue_tests {
     use super::{
         PlayerState, QueueRemovalAction, queue_next_index, queue_removal_action,
-        same_audio_source,
+        same_audio_source, same_media_resource,
     };
     use crate::types::{AgentPubKey, RepeatMode, Song, Timestamp};
     use leptos::prelude::Owner;
@@ -349,6 +354,38 @@ mod player_queue_tests {
         assert!(same_audio_source(&same, &same_again));
         assert!(!same_audio_source(&same, &changed_url));
         assert!(!same_audio_source(&same, &changed_record));
+    }
+
+    #[test]
+    fn media_resource_identity_tracks_url_independently_of_record_hash() {
+        let first_record = test_song("record-a", "QmSame");
+        let second_record = test_song("record-b", "QmSame");
+        let changed_url = test_song("record-a", "QmOther");
+
+        assert!(same_media_resource(&first_record, &second_record));
+        assert!(!same_media_resource(&first_record, &changed_url));
+        assert!(!same_audio_source(&first_record, &second_record));
+    }
+
+    #[test]
+    fn selecting_new_record_for_same_url_resets_playhead_but_keeps_duration() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let player = PlayerState::new();
+            let first = test_song("record-a", "QmSame");
+            let second = test_song("record-b", "QmSame");
+            player.queue.set(vec![first.clone(), second]);
+            player.current_song.set(Some(first));
+            player.queue_index.set(Some(0));
+            player.progress.set(42.5);
+            player.duration.set(180.0);
+
+            player.play_queued_song_at(1);
+
+            assert_eq!(player.queue_index.get_untracked(), Some(1));
+            assert_eq!(player.progress.get_untracked(), 0.0);
+            assert_eq!(player.duration.get_untracked(), 180.0);
+        });
     }
 
     #[test]
