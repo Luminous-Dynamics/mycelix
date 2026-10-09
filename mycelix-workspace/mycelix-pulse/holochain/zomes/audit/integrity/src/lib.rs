@@ -236,19 +236,22 @@ mod tests {
         }
     }
 
-    fn test_action(author: AgentPubKey) -> Create {
-        Create {
-            author,
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
-            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
-            weight: Default::default(),
+    fn test_action(author: AgentPubKey) -> TypedAction<EntryCreationData> {
+        TypedAction {
+            header: ActionHeader {
+                author,
+                timestamp: Timestamp::from_micros(0),
+                action_seq: 3,
+                prev_action: Some(ActionHash::from_raw_36(vec![0; 36])),
+            },
+            data: EntryCreationData::Create(CreateData {
+                entry_type: EntryType::App(AppEntryDef::new(
+                    EntryDefIndex(0),
+                    ZomeIndex(0),
+                    EntryVisibility::Public,
+                )),
+                entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            }),
         }
     }
 
