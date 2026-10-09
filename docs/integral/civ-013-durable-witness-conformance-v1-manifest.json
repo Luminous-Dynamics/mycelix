@@ -6,7 +6,7 @@
   "source_adapter_commit": "9d1ebc6fca584f5a9e2f2c641c87d062c2f35f77",
   "fixture_path": "docs/integral/civ-013-durable-witness-conformance-v1.json",
   "verifier_path": "scripts/integral/verify_civ013_durable_witness_conformance_v1.py",
-  "expected_vector_count": 32,
+  "expected_vector_count": 33,
   "required_vector_ids": [
     "DA001-bootstrap-record",
     "DA002-successor-record",
@@ -39,12 +39,13 @@
     "DA029-anchor-advances-past-candidate",
     "DA030-anchor-advances-before-prepare",
     "DA031-fork-evidence-tail-truncated",
-    "DA032-fork-evidence-tail-pointer-tampered"
+    "DA032-fork-evidence-tail-pointer-tampered",
+    "DA033-fork-evidence-append-refuses-corrupt-tail"
   ],
   "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback.",
-  "fixture_git_blob_sha": "95c6a579e029e887c190724af9bcb3943fe873bb",
-  "checker_git_blob_sha": "c5c11c9dbed664610bf2fc792be49201d5b1a00f",
-  "spec_git_blob_sha": "8a696f7b5e78330609c8d57b184277a452819930",
+  "fixture_git_blob_sha": "54537d7a273a6c864cdb34f42f50fdd7a9a05ac3",
+  "checker_git_blob_sha": "06048159b290ac87c2b0b73ec8527aa1c4652f46",
+  "spec_git_blob_sha": "69bcca5105d715f8508557cb7b0ee5594d4d0d8a",
   "workflow_git_blob_sha": "f5d021a983aa0d9f2377f1e7eaba2ca53abe9f89",
   "source_adapter_blob_sha": "f10770116f7e4da645913050e2b3618057e39fa4"
 }
