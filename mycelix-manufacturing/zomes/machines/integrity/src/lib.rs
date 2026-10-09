@@ -191,6 +191,11 @@ pub fn resolve_temporal_evidence(
             }
             Some(_) => {}
             None => {
+                if by_attestation.len() >= MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS {
+                    return MachineTemporalEvidenceResolution::EvidenceSetLimitExceeded {
+                        limit: MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS as u32,
+                    };
+                }
                 by_attestation.insert(observation.attestation_hash.clone(), observation);
             }
         }
@@ -198,11 +203,6 @@ pub fn resolve_temporal_evidence(
 
     let mut evidence: Vec<MachineTemporalEvidenceObservation> =
         by_attestation.into_values().collect();
-    if evidence.len() > MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS {
-        return MachineTemporalEvidenceResolution::EvidenceSetLimitExceeded {
-            limit: MAX_MACHINE_TEMPORAL_EVIDENCE_OBSERVATIONS as u32,
-        };
-    }
     evidence.sort_by(|left, right| {
         left.attested_at
             .as_micros()
