@@ -29,9 +29,9 @@ const canonical=v=>v===null||typeof v!=="object"?JSON.stringify(v):Array.isArray
 const sha=b=>crypto.createHash("sha256").update(b).digest("hex");
 const readJson=p=>JSON.parse(fs.readFileSync(p,"utf8"));
 function validateReport(file,expected){
-  const raw=fs.readFileSync(file),obj=JSON.parse(raw.toString("utf8")),cases=obj.cases,failures=obj.failures,n=obj.case_count;
+  const raw=fs.readFileSync(file),obj=JSON.parse(raw.toString("utf8")),cases=obj.cases,failures=obj.failures,explicitCount=Object.hasOwn(obj,"case_count"),n=explicitCount?obj.case_count:(Array.isArray(cases)?cases.length:null);
   if(!Array.isArray(cases)||!cases.length)return[null,"empty-or-missing-cases"];
-  if(!Number.isInteger(n)||n!==cases.length)return[null,"case-count-mismatch"];
+  if(explicitCount&&(!Number.isInteger(n)||n!==cases.length))return[null,"case-count-mismatch"];
   if(expected!==null&&n!==expected)return[null,"unexpected-case-count"];
   if(!Array.isArray(failures)||failures.length!==0)return[null,"reported-failures"];
   const ids=cases.map(x=>x&&typeof x==="object"?(x.case_id??x.id):null);
@@ -116,14 +116,17 @@ function validateReceipt(receiptPath,root,eventPath){
 function selfTest(){
   const sample={schema:"test.v1",case_count:2,cases:[{case_id:"a"},{case_id:"b"}],failures:[]};
   const valid=Buffer.from(canonical(sample));if(!validateReportBytes(valid,2)[0])throw Error("valid-report-rejected");
+  const legacy={schema:"test.v1",cases:[{case_id:"a"},{case_id:"b"}],failures:[]};
+  const [legacyMeta,legacyErr]=validateReportBytes(Buffer.from(canonical(legacy)),2);if(legacyErr||legacyMeta.case_count!==2)throw Error("legacy-report-without-count-rejected");
+  const badLegacy={...legacy,case_count:3};if(validateReportBytes(Buffer.from(canonical(badLegacy)),2)[1]!=="case-count-mismatch")throw Error("incorrect-explicit-count-accepted");
   const fail=structuredClone(sample);fail.failures=[{case_id:"a"}];if(validateReportBytes(Buffer.from(canonical(fail)),2)[1]!=="reported-failures")throw Error("failures-accepted");
   const dup=structuredClone(sample);dup.cases=[{case_id:"a"},{case_id:"a"}];if(validateReportBytes(Buffer.from(canonical(dup)),2)[1]!=="duplicate-case-id")throw Error("duplicate-IDs-accepted");
   console.log("execution-evidence-verifier-self-test=pass");
 }
 function validateReportBytes(raw,expected){
-  const obj=JSON.parse(raw.toString("utf8")),cases=obj.cases,failures=obj.failures,n=obj.case_count;
+  const obj=JSON.parse(raw.toString("utf8")),cases=obj.cases,failures=obj.failures,explicitCount=Object.hasOwn(obj,"case_count"),n=explicitCount?obj.case_count:(Array.isArray(cases)?cases.length:null);
   if(!Array.isArray(cases)||!cases.length)return[null,"empty-or-missing-cases"];
-  if(!Number.isInteger(n)||n!==cases.length)return[null,"case-count-mismatch"];
+  if(explicitCount&&(!Number.isInteger(n)||n!==cases.length))return[null,"case-count-mismatch"];
   if(expected!==null&&n!==expected)return[null,"unexpected-case-count"];
   if(!Array.isArray(failures)||failures.length)return[null,"reported-failures"];
   const ids=cases.map(x=>x&&typeof x==="object"?(x.case_id??x.id):null);
