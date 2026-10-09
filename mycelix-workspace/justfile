@@ -199,14 +199,15 @@ build-sdk:
     @echo "🔨 Building mycelix-sdk (Rust)..."
     cd sdk && cargo build --release
 
-# Build the TypeScript SDK through the flake-pinned Node.js toolchain.
-# package-lock.json remains the SDK's committed dependency lockfile.
+# Build, typecheck, lint, and test the TypeScript SDK from the Nix store.
+# package-lock.json remains the dependency graph; importNpmLock materializes it.
 build-sdk-ts:
-    @echo "🔨 Building @mycelix/sdk (TypeScript) in Nix..."
+    @echo "🔨 Building @mycelix/sdk (TypeScript) with Nix..."
     @if [ -f "sdk-ts/package.json" ]; then \
-        nix develop .#sdk-ci --command bash -euo pipefail -c 'cd sdk-ts && npm ci && npm run build'; \
+        nix build .#sdk-ts; \
     else \
         echo "⚠️  sdk-ts not found"; \
+        exit 1; \
     fi
 
 # Build Commons cluster (split into land + care sub-cluster DNAs)
