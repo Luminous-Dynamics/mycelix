@@ -109,9 +109,9 @@ fn QueuePanelInner() -> impl IntoView {
                                         "queue-item"
                                     };
                                     let player_for_play = player.clone();
-                                    let song_for_play = song.clone();
+                                    let play_index = i;
                                     let play_this = move |_| {
-                                        player_for_play.play_song(song_for_play.clone());
+                                        player_for_play.play_queued_song_at(play_index);
                                     };
 
                                     let player_for_remove = player.clone();
