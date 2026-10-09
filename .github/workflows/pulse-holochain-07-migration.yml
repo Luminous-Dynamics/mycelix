@@ -6,7 +6,7 @@ on:
       - "mycelix-workspace/mycelix-pulse/**"
       - ".github/workflows/pulse-holochain-07-migration.yml"
   push:
-    branches: ["**"]
+    branches: [main]
     paths:
       - "mycelix-workspace/mycelix-pulse/**"
       - ".github/workflows/pulse-holochain-07-migration.yml"
