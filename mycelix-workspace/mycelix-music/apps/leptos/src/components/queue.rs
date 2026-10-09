@@ -25,13 +25,7 @@ fn QueuePanelInner() -> impl IntoView {
 
     let clear_player = player.clone();
     let clear_queue = move |_| {
-        clear_player.queue.set(Vec::new());
-        clear_player.queue_index.set(None);
-        clear_player.current_song.set(None);
-        clear_player.is_playing.set(false);
-        clear_player.progress.set(0.0);
-        clear_player.duration.set(0.0);
-        clear_player.show_queue.set(false);
+        clear_player.clear_queue();
     };
 
     let show_q = player.show_queue;
