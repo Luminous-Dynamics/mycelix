@@ -4,6 +4,7 @@
 import hashlib
 import json
 import os
+import re
 import pathlib
 import stat
 import struct
@@ -130,7 +131,7 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
     assert workflow_artifact_run["head_sha"] == workflow_run["head_sha"]
 
     digest = artifact.get("digest", "")
-    assert digest.startswith("sha256:") and len(digest) == 71, (
+    assert isinstance(digest, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", digest), (
         f"missing or malformed GitHub artifact digest: {digest!r}"
     )
     maximum = int(policy["artifact_max_total_bytes"])
