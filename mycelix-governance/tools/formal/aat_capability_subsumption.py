@@ -1,0 +1,454 @@
+#!/usr/bin/env python3
+"""Bounded AAT core capability and argument-constraint semantics.
+
+This module implements the core attenuation relation and invocation predicate
+for AAT authorization_details. It is intentionally fail-closed for unknown
+constraint types and uses finite implementation limits for constraint depth,
+node count, and composite clause fan-out. It is a research candidate, not a
+claim of full AAT implementation or production qualification.
+"""
+from __future__ import annotations
+
+import math
+from typing import Any
+
+MAX_CONSTRAINT_DEPTH = 32
+MAX_CONSTRAINT_NODES = 512
+MAX_COMPOSITE_CLAUSES = 128
+
+CORE_TYPES = {
+    "exact", "range", "one_of", "not_one_of", "contains",
+    "subset", "wildcard", "all", "any",
+}
+
+
+class CapabilityError(ValueError):
+    def __init__(self, code: str, detail: str, path: str = "$"):
+        super().__init__(detail)
+        self.code = code
+        self.detail = detail
+        self.path = path
+
+
+def _kind(value: Any) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return "unsupported"
+
+
+def strict_equal(left: Any, right: Any) -> bool:
+    """JSON-semantic equality without Python's bool-is-int equality pitfall."""
+    left_kind, right_kind = _kind(left), _kind(right)
+    if left_kind != right_kind:
+        return False
+    if left_kind == "object":
+        if set(left) != set(right):
+            return False
+        return all(strict_equal(left[key], right[key]) for key in left)
+    if left_kind == "array":
+        return len(left) == len(right) and all(
+            strict_equal(a, b) for a, b in zip(left, right)
+        )
+    if left_kind == "number":
+        return left == right
+    if left_kind == "unsupported":
+        return False
+    return left == right
+
+
+def _is_scalar(value: Any) -> bool:
+    return _kind(value) in {"null", "boolean", "string", "number"}
+
+
+def _is_finite_number(value: Any) -> bool:
+    return type(value) in (int, float) and math.isfinite(value)
+
+
+def _require_exact_members(raw: dict[str, Any], permitted: set[str], path: str) -> None:
+    unexpected = sorted(set(raw) - permitted)
+    if unexpected:
+        raise CapabilityError(
+            "constraint-member-unsupported",
+            f"unsupported members for constraint at {path}: {unexpected}",
+            path,
+        )
+
+
+def validate_constraint(constraint: Any, *, path: str = "$",
+                        max_depth: int = MAX_CONSTRAINT_DEPTH,
+                        max_nodes: int = MAX_CONSTRAINT_NODES) -> None:
+    """Validate one complete constraint tree, including recursive bounds."""
+    count = 0
+
+    def visit(node: Any, current_path: str, depth: int) -> None:
+        nonlocal count
+        count += 1
+        if count > max_nodes:
+            raise CapabilityError(
+                "constraint-node-limit-exceeded",
+                f"constraint tree exceeds {max_nodes} nodes",
+                current_path,
+            )
+        if depth > max_depth:
+            raise CapabilityError(
+                "constraint-depth-exceeded",
+                f"constraint tree exceeds depth {max_depth}",
+                current_path,
+            )
+        if not isinstance(node, dict):
+            raise CapabilityError("constraint-not-object", "constraint must be an object", current_path)
+        ctype = node.get("constraint_type")
+        if not isinstance(ctype, str) or ctype not in CORE_TYPES:
+            raise CapabilityError(
+                "constraint-type-unsupported",
+                f"unknown or invalid constraint_type {ctype!r}",
+                current_path,
+            )
+
+        if ctype == "exact":
+            _require_exact_members(node, {"constraint_type", "value"}, current_path)
+            if "value" not in node or not _is_scalar(node["value"]):
+                raise CapabilityError("exact-value-invalid", "exact.value must be a JSON scalar", current_path)
+            return
+
+        if ctype == "range":
+            _require_exact_members(
+                node,
+                {"constraint_type", "min", "max", "min_inclusive", "max_inclusive"},
+                current_path,
+            )
+            for bound in ("min", "max"):
+                if bound in node and not _is_finite_number(node[bound]):
+                    raise CapabilityError(
+                        "range-bound-invalid",
+                        f"range.{bound} must be a finite JSON number",
+                        current_path,
+                    )
+            for flag in ("min_inclusive", "max_inclusive"):
+                if flag in node and type(node[flag]) is not bool:
+                    raise CapabilityError(
+                        "range-inclusivity-invalid",
+                        f"range.{flag} must be a boolean",
+                        current_path,
+                    )
+            lo, hi = node.get("min"), node.get("max")
+            if lo is not None and hi is not None:
+                if lo > hi:
+                    raise CapabilityError("range-bounds-inverted", "range.min exceeds range.max", current_path)
+                if lo == hi and (
+                    node.get("min_inclusive", True) is False
+                    or node.get("max_inclusive", True) is False
+                ):
+                    raise CapabilityError("range-empty", "equal range bounds cannot exclude an endpoint", current_path)
+            return
+
+        if ctype in {"one_of", "not_one_of", "contains", "subset"}:
+            member = {
+                "one_of": "values",
+                "not_one_of": "excluded",
+                "contains": "required",
+                "subset": "allowed",
+            }[ctype]
+            _require_exact_members(node, {"constraint_type", member}, current_path)
+            if not isinstance(node.get(member), list):
+                raise CapabilityError(f"{ctype}-array-invalid", f"{ctype}.{member} must be an array", current_path)
+            if ctype in {"one_of", "not_one_of"} and any(
+                not _is_scalar(value) for value in node[member]
+            ):
+                raise CapabilityError(
+                    f"{ctype}-value-invalid",
+                    f"{ctype}.{member} members must be JSON scalars",
+                    current_path,
+                )
+            return
+
+        if ctype == "wildcard":
+            _require_exact_members(node, {"constraint_type"}, current_path)
+            return
+
+        if ctype in {"all", "any"}:
+            _require_exact_members(node, {"constraint_type", "constraints"}, current_path)
+            clauses = node.get("constraints")
+            if not isinstance(clauses, list):
+                raise CapabilityError(
+                    f"{ctype}-clauses-invalid",
+                    f"{ctype}.constraints must be an array",
+                    current_path,
+                )
+            if len(clauses) > MAX_COMPOSITE_CLAUSES:
+                raise CapabilityError(
+                    "constraint-clause-limit-exceeded",
+                    f"{ctype} has more than {MAX_COMPOSITE_CLAUSES} clauses",
+                    current_path,
+                )
+            if ctype == "any" and not clauses:
+                raise CapabilityError("any-empty", "any.constraints must contain at least one clause", current_path)
+            for index, child in enumerate(clauses):
+                visit(child, f"{current_path}.constraints[{index}]", depth + 1)
+            return
+
+        raise CapabilityError("constraint-type-unsupported", f"unsupported constraint type {ctype!r}", current_path)
+
+    visit(constraint, path, 1)
+
+
+def _contains_member(values: list[Any], wanted: Any) -> bool:
+    return any(strict_equal(value, wanted) for value in values)
+
+
+def _range_contains(constraint: dict[str, Any], value: Any) -> bool:
+    if not _is_finite_number(value):
+        return False
+    lo, hi = constraint.get("min"), constraint.get("max")
+    if lo is not None:
+        if value < lo or (value == lo and constraint.get("min_inclusive", True) is False):
+            return False
+    if hi is not None:
+        if value > hi or (value == hi and constraint.get("max_inclusive", True) is False):
+            return False
+    return True
+
+
+def constraint_accepts(constraint: Any, value: Any) -> bool:
+    """Deterministic runtime predicate for a previously or freshly validated tree."""
+    validate_constraint(constraint)
+    ctype = constraint["constraint_type"]
+    if ctype == "exact":
+        return strict_equal(value, constraint["value"])
+    if ctype == "range":
+        return _range_contains(constraint, value)
+    if ctype == "one_of":
+        return _contains_member(constraint["values"], value)
+    if ctype == "not_one_of":
+        return not _contains_member(constraint["excluded"], value)
+    if ctype == "contains":
+        required = constraint["required"]
+        return isinstance(value, list) and all(_contains_member(value, item) for item in required)
+    if ctype == "subset":
+        allowed = constraint["allowed"]
+        return isinstance(value, list) and all(_contains_member(allowed, item) for item in value)
+    if ctype == "wildcard":
+        return True
+    if ctype == "all":
+        return all(constraint_accepts(child, value) for child in constraint["constraints"])
+    if ctype == "any":
+        return any(constraint_accepts(child, value) for child in constraint["constraints"])
+    return False
+
+
+def _numeric_value_in_range(value: Any, parent: dict[str, Any]) -> bool:
+    return _range_contains(parent, value)
+
+
+def _bound_min_at_least(derived: dict[str, Any], parent: dict[str, Any]) -> bool:
+    parent_min, derived_min = parent.get("min"), derived.get("min")
+    if parent_min is None:
+        return True
+    if derived_min is None or derived_min < parent_min:
+        return False
+    if derived_min > parent_min:
+        return True
+    parent_inclusive = parent.get("min_inclusive", True)
+    derived_inclusive = derived.get("min_inclusive", True)
+    return (not derived_inclusive) or parent_inclusive
+
+
+def _bound_max_at_most(derived: dict[str, Any], parent: dict[str, Any]) -> bool:
+    parent_max, derived_max = parent.get("max"), derived.get("max")
+    if parent_max is None:
+        return True
+    if derived_max is None or derived_max > parent_max:
+        return False
+    if derived_max < parent_max:
+        return True
+    parent_inclusive = parent.get("max_inclusive", True)
+    derived_inclusive = derived.get("max_inclusive", True)
+    return (not derived_inclusive) or parent_inclusive
+
+
+def constraint_subsumes(derived: Any, parent: Any) -> bool:
+    """Return whether the derived constraint denotes a subset of the parent."""
+    validate_constraint(derived)
+    validate_constraint(parent)
+    d_type, p_type = derived["constraint_type"], parent["constraint_type"]
+
+    # Any valid concrete rule narrows the unconstrained wildcard domain.
+    if p_type == "wildcard":
+        return True
+
+    if d_type == "exact":
+        value = derived["value"]
+        if p_type == "exact":
+            return strict_equal(value, parent["value"])
+        if p_type == "range":
+            return _numeric_value_in_range(value, parent)
+        if p_type == "one_of":
+            return _contains_member(parent["values"], value)
+        return False
+
+    if d_type == "range":
+        if p_type != "range":
+            return False
+        return _bound_min_at_least(derived, parent) and _bound_max_at_most(derived, parent)
+
+    if d_type == "one_of":
+        if p_type != "one_of":
+            return False
+        return all(_contains_member(parent["values"], value) for value in derived["values"])
+
+    if d_type == "not_one_of":
+        if p_type != "not_one_of":
+            return False
+        return all(_contains_member(derived["excluded"], value) for value in parent["excluded"])
+
+    if d_type == "contains":
+        if p_type != "contains":
+            return False
+        return all(_contains_member(derived["required"], value) for value in parent["required"])
+
+    if d_type == "subset":
+        if p_type != "subset":
+            return False
+        return all(_contains_member(parent["allowed"], value) for value in derived["allowed"])
+
+    if d_type == "wildcard":
+        return p_type == "wildcard"
+
+    if d_type == "all":
+        if p_type != "all":
+            return False
+        derived_clauses = derived["constraints"]
+        parent_clauses = parent["constraints"]
+        if len(derived_clauses) < len(parent_clauses):
+            return False
+        # Independent bounded bipartite matching; each parent obligation must
+        # map to a distinct derived clause that subsumes it.
+        candidates = [
+            [j for j, d_clause in enumerate(derived_clauses)
+             if constraint_subsumes(d_clause, p_clause)]
+            for p_clause in parent_clauses
+        ]
+        matched_derived: dict[int, int] = {}
+
+        def augment(parent_index: int, seen: set[int]) -> bool:
+            for derived_index in candidates[parent_index]:
+                if derived_index in seen:
+                    continue
+                seen.add(derived_index)
+                prior_parent = matched_derived.get(derived_index)
+                if prior_parent is None or augment(prior_parent, seen):
+                    matched_derived[derived_index] = parent_index
+                    return True
+            return False
+
+        for parent_index in range(len(parent_clauses)):
+            if not augment(parent_index, set()):
+                return False
+        return True
+
+    if d_type == "any":
+        if p_type != "any":
+            return False
+        return all(
+            any(constraint_subsumes(d_clause, p_clause) for p_clause in parent["constraints"])
+            for d_clause in derived["constraints"]
+        )
+
+    return False
+
+
+def validate_authorization_details(details: Any, *, require_one: bool,
+                                   label: str = "token") -> dict[str, dict[str, Any]]:
+    """Validate AAT details and return the tools map (empty when entry is absent)."""
+    if not isinstance(details, list):
+        raise CapabilityError("authorization-details-invalid",
+                              f"{label}.authorization_details must be an array")
+    aat_entries = [
+        entry for entry in details if isinstance(entry, dict)
+        and entry.get("type") == "attenuating_agent_token"
+    ]
+    if len(aat_entries) > 1 or (require_one and len(aat_entries) != 1):
+        raise CapabilityError(
+            "aat-entry-count-invalid",
+            f"{label} requires {'exactly one' if require_one else 'at most one'} attenuating_agent_token entry",
+        )
+    if not aat_entries:
+        return {}
+    tools = aat_entries[0].get("tools")
+    if not isinstance(tools, dict):
+        raise CapabilityError("aat-tools-invalid", f"{label} AAT tools must be an object")
+    for tool_name, arg_constraints in tools.items():
+        if not isinstance(tool_name, str) or not tool_name:
+            raise CapabilityError("tool-name-invalid", f"{label} tool identifiers must be non-empty strings")
+        if not isinstance(arg_constraints, dict):
+            raise CapabilityError("tool-constraints-invalid",
+                                  f"{label} tool {tool_name!r} constraint map must be an object",
+                                  f"$.tools.{tool_name}")
+        if len(arg_constraints) > 256:
+            raise CapabilityError("argument-key-limit-exceeded",
+                                  f"{label} tool {tool_name!r} exceeds 256 argument keys",
+                                  f"$.tools.{tool_name}")
+        for arg_name, constraint in arg_constraints.items():
+            if not isinstance(arg_name, str) or not arg_name:
+                raise CapabilityError("argument-name-invalid",
+                                      f"{label} argument names must be non-empty strings",
+                                      f"$.tools.{tool_name}")
+            validate_constraint(constraint, path=f"$.tools.{tool_name}.{arg_name}")
+    return tools
+
+
+def check_capability_attenuation(parent_tools: dict[str, Any],
+                                 child_tools: dict[str, Any]) -> None:
+    """Raise CapabilityError unless child tools/constraints monotonically narrow parent."""
+    if not set(child_tools).issubset(parent_tools):
+        added = sorted(set(child_tools) - set(parent_tools))
+        raise CapabilityError("tool-capability-expanded",
+                              f"derived token adds tool(s) absent from parent: {added}")
+
+    for tool_name, child_constraints in child_tools.items():
+        parent_constraints = parent_tools[tool_name]
+        if parent_constraints and set(child_constraints) != set(parent_constraints):
+            raise CapabilityError(
+                "argument-shape-changed",
+                f"tool {tool_name!r} changes constrained argument keys under closed-world semantics",
+                f"$.tools.{tool_name}",
+            )
+        for arg_name in set(parent_constraints).intersection(child_constraints):
+            if not constraint_subsumes(child_constraints[arg_name], parent_constraints[arg_name]):
+                raise CapabilityError(
+                    "argument-constraint-expanded",
+                    f"derived constraint for {tool_name!r}.{arg_name} does not subsume its parent",
+                    f"$.tools.{tool_name}.{arg_name}",
+                )
+
+
+def validate_invocation(tools: dict[str, Any], tool_name: Any, args: Any) -> None:
+    """Validate an invocation map with AAT closed-world argument semantics."""
+    if not isinstance(tool_name, str) or tool_name not in tools:
+        raise CapabilityError("tool-not-authorized", f"tool {tool_name!r} is not authorized")
+    if not isinstance(args, dict):
+        raise CapabilityError("invocation-args-invalid", "invocation args must be an object")
+    constraints = tools[tool_name]
+    if constraints:
+        if set(args) != set(constraints):
+            raise CapabilityError(
+                "invocation-argument-shape-invalid",
+                "argument keys must exactly match the non-empty constraint map under closed-world semantics",
+            )
+        for arg_name, constraint in constraints.items():
+            if not constraint_accepts(constraint, args[arg_name]):
+                raise CapabilityError(
+                    "invocation-constraint-failed",
+                    f"argument {arg_name!r} violates its constraint",
+                    f"$.tools.{tool_name}.{arg_name}",
+                )
