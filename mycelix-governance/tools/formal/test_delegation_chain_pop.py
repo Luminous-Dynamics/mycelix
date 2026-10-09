@@ -424,6 +424,24 @@ def main() -> int:
                 "fail_closed": True,
             })
 
+            symlink_path = root / "replay-store-symlink.sqlite3"
+            os.symlink(database, symlink_path)
+            symlink_proof = make_pop(
+                root / "valid-positive", keys[3]["private_path"],
+                "aat-leaf-chain-2", jti="pop-symlink-store",
+            )
+            symlink_result = invoke(raw, anchors, symlink_proof, symlink_path)
+            require(symlink_result.get("status") == "INVOCATION_DENIED"
+                    and expected_code(symlink_result) == "pop-replay-store-unavailable",
+                    "a symlinked replay-store path must fail closed: " +
+                    json.dumps(symlink_result, sort_keys=True))
+            receipt["controls"].append({
+                "id": "replay-store-symlink-fails-closed",
+                "status": symlink_result["status"],
+                "finding": expected_code(symlink_result),
+                "fail_closed": True,
+            })
+
             clock_raw, clock_anchors, clock_keys = make_chain(root / "untrusted-clock")
             # The caller-supplied fixture clock makes the chain claims look
             # valid; the proof itself is freshly signed for the trusted current
