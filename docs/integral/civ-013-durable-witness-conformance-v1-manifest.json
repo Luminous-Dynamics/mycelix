@@ -54,7 +54,7 @@
     "DA044-receipt-sequence-overflow-is-state-mutation-free"
   ],
   "claim_ceiling": "Durable-adapter golden-reference and abstract-transition conformance only. Local fork-evidence count/tail metadata detects inconsistent surviving state but is not independently anchored; coordinated erasure or rollback of both fork-evidence rows and local metadata is outside this claim. Does not establish actual SQLite tests passed, filesystem crash/power-loss durability, a genuine independent external anchor, bootstrap caller authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback.",
-  "fixture_git_blob_sha": "1ac88a027c1f416d5e4a2faec21b7983f299d249",
+  "fixture_git_blob_sha": "445fe71b55bd939eea4abbfc42ab59e8650559be",
   "checker_git_blob_sha": "b35fe6929ff611ea82e6b67fd56aee54a1a2b340",
   "spec_git_blob_sha": "df08fa2a4e8604d9be243fbf1a96ab3cfc871ad4",
   "workflow_git_blob_sha": "dffcfded6ed9859ae5f00bcf174b9b6eee484be8",
