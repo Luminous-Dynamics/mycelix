@@ -2,7 +2,7 @@
 
 Status: **candidate implementation; not qualified**.
 
-This plan applies to `mldsa65_verify::verify_with_empty_context` and any consumer adapter, including Symthaea PR #7238. It is deliberately independent from key authorization and protocol transcript qualification.
+This plan applies to `mldsa65_verify::verify_with_empty_context` under the narrow `mldsa-verify-rc` Cargo feature and to any consumer adapter, including Symthaea PR #7238. That feature enables only the RustCrypto `ml-dsa` primitive, rather than pulling in the unrelated Ed25519, KEM, and AEAD dependencies of `hybrid-rc`. The plan is deliberately independent from key authorization and protocol transcript qualification.
 
 ## 1. Immutable implementation inputs
 
@@ -73,7 +73,7 @@ The normal provider seam test stays offline/lock-preserving:
 
 ```sh
 cd mycelix-identity
-cargo test --locked -p mycelix-crypto --features hybrid-rc
+cargo test --locked -p mycelix-crypto --features mldsa-verify-rc
 ```
 
-The independent corpus target should be added only with a committed lockfile and committed fixture digests; do not generate or silently modify a lockfile during the qualification job. Keep the differential verifier as a dev-only dependency and use a separate, explicit feature/test target so the production dependency graph does not acquire Libcrux merely to gain assurance evidence.
+The independent corpus target should be added only with a committed lockfile and committed fixture digests; do not generate or silently modify a lockfile during the qualification job. Keep the differential verifier as a dev-only dependency and use a separate, explicit qualification target so the production dependency graph does not acquire Libcrux merely to gain assurance evidence. The standalone provider tests should run with `mldsa-verify-rc`; test the high-level `hybrid-rc` composition separately.
