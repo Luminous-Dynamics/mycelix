@@ -323,6 +323,45 @@ async function main() {
     assert.equal(await page.locator('.player-empty').count(), 1);
     assert.equal(await page.getByRole('button', { name: 'Toggle playback queue' }).getAttribute('aria-expanded'), 'false');
 
+    // Two different song records resolve to QmDemo1. A record change must
+    // rewind the actual persistent media element, while retaining metadata
+    // for the unchanged resource. This catches a regression that resetting
+    // only the reactive progress signal would miss.
+    await page.getByRole('button', { name: 'Play Decentralized Dreams' }).click();
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      return audio
+        && audio.currentSrc === 'https://ipfs.io/ipfs/QmDemo1'
+        && !audio.paused
+        && audio.currentTime > 3.5
+        && Number.isFinite(audio.duration)
+        && audio.duration > 0;
+    }, null, { timeout: 15000 });
+    const sharedResourceDuration = await page.locator('.player-seek').getAttribute('max');
+    assert.ok(Number(sharedResourceDuration) > 0, 'first record should establish valid duration metadata');
+    const playheadBeforeRecordSwitch = await page.locator('audio').evaluate(audio => audio.currentTime);
+    assert.ok(playheadBeforeRecordSwitch > 3.5);
+
+    await page.getByRole('button', { name: 'Play Shared Source Encore' }).click();
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      const title = document.querySelector('.player-title');
+      const seek = document.querySelector('.player-seek');
+      return audio
+        && title
+        && title.textContent === 'Shared Source Encore'
+        && audio.currentSrc === 'https://ipfs.io/ipfs/QmDemo1'
+        && !audio.paused
+        && audio.currentTime < 1.5
+        && seek
+        && Number(seek.max) > 0;
+    }, null, { timeout: 10000 });
+    assert.equal(
+      await page.locator('.player-seek').getAttribute('max'),
+      sharedResourceDuration,
+      'same-URL record change must retain valid media duration',
+    );
+
     if (pageErrors.length > 0) {
       throw new Error(`Browser page errors:\n${pageErrors.join('\n')}`);
     }
