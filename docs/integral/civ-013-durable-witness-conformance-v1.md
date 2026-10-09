@@ -2,7 +2,7 @@
 
 **Profile ID:** `civ-013-durable-adapter-v1`  
 **Status:** experimental reference profile; not production qualification.  
-**Source adapter revision:** [Symthaea commit `cf0db00db3a377402b557665fffe4f63d2fe1dbd`](https://github.com/Luminous-Dynamics/symthaea/commit/cf0db00db3a377402b557665fffe4f63d2fe1dbd)  
+**Source adapter revision:** [Symthaea commit `37fdf714319a86d7539ee2ca7c80f641ee98ade2`](https://github.com/Luminous-Dynamics/symthaea/commit/37fdf714319a86d7539ee2ca7c80f641ee98ade2)  
 **Golden vectors:** [civ-013-durable-witness-conformance-v1.json](civ-013-durable-witness-conformance-v1.json)  
 **Manifest:** [civ-013-durable-witness-conformance-v1-manifest.json](civ-013-durable-witness-conformance-v1-manifest.json)  
 **Independent checker:** [verify_civ013_durable_witness_conformance_v1.py](../../scripts/integral/verify_civ013_durable_witness_conformance_v1.py)  
@@ -141,3 +141,8 @@ SQLite documents that WAL with `synchronous=FULL` performs an additional WAL syn
 ## Subprocess recovery split-state contract
 
 DA037 describes the source-level integration test's decisive pre-recovery observation, not hardware durability. After the first child exits with code 86, the independent test anchor must be at generation two while local metadata still accepts generation one and generation two remains prepared (status zero); no fork evidence is written. A distinct recovery process then succeeds at generation two with the exact externally anchored digest. The fixture uses a second SQLite file on the same host and must not be described as a production independent trust domain.
+
+
+## Missing persistent anchor state
+
+DA038 specifies that absence of a persistent test-anchor row is not equivalent to a provisioned generation-zero state. The test anchor now returns unavailable for a missing row and only returns genesis when a row was explicitly provisioned. This is a test-fixture invariant that prevents a missing anchor from silently resetting anti-rollback state; it does not qualify a production anchor.
