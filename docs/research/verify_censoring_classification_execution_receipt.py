@@ -154,17 +154,72 @@ def validate_receipt(receipt_path:Path,artifact_root:Path,event_path:Path):
     return predicate,None
 
 def self_test():
-    sample={"schema":"test.v1","case_count":2,"cases":[{"case_id":"a"},{"case_id":"b"}],"failures":[]}
     import tempfile
+    sample={"schema":"test.v1","case_count":2,"cases":[{"case_id":"a"},{"case_id":"b"}],"failures":[]}
     with tempfile.TemporaryDirectory() as td:
-        path=Path(td)/"r.json";path.write_bytes(canonical(sample))
-        _,err=validate_report(path,2)
-        assert err is None
+        root=Path(td);report_path=root/"report.json";report_path.write_bytes(canonical(sample))
+        _,err=validate_report(report_path,2);assert err is None
         legacy={"schema":"test.v1","cases":[{"case_id":"a"},{"case_id":"b"}],"failures":[]}
-        path.write_bytes(canonical(legacy));meta,err=validate_report(path,2);assert err is None and meta["case_count"]==2
-        legacy_bad=dict(legacy);legacy_bad["case_count"]=3;path.write_bytes(canonical(legacy_bad));_,err=validate_report(path,2);assert err=="case-count-mismatch"
-        x=dict(sample);x["failures"]=[{"case_id":"a"}];path.write_bytes(canonical(x));_,err=validate_report(path,2);assert err=="reported-failures"
-        x=dict(sample);x["cases"]=[{"case_id":"a"},{"case_id":"a"}];path.write_bytes(canonical(x));_,err=validate_report(path,2);assert err=="duplicate-case-id"
+        report_path.write_bytes(canonical(legacy));meta,err=validate_report(report_path,2);assert err is None and meta["case_count"]==2
+        legacy_bad=dict(legacy);legacy_bad["case_count"]=3;report_path.write_bytes(canonical(legacy_bad));_,err=validate_report(report_path,2);assert err=="case-count-mismatch"
+        invalid=dict(sample);invalid["failures"]=[{"case_id":"a"}];report_path.write_bytes(canonical(invalid));_,err=validate_report(report_path,2);assert err=="reported-failures"
+        invalid=dict(sample);invalid["cases"]=[{"case_id":"a"},{"case_id":"a"}];report_path.write_bytes(canonical(invalid));_,err=validate_report(report_path,2);assert err=="duplicate-case-id"
+
+    with tempfile.TemporaryDirectory() as td:
+        base=Path(td);artifact=base/"artifact";reports=artifact/"reports";support=artifact/"supporting"
+        reports.mkdir(parents=True);support.mkdir()
+        report_pairs=[]
+        for layer,pyname,nodename,count in REPORT_PAIRS:
+            assert count is not None, "self-test needs fixed expected report count: "+layer
+            ids=[f"{layer}-{i:03d}" for i in range(count)]
+            value={"schema":"self-test."+layer,"status":"research-evidence-only","case_count":count,
+                   "cases":[{"case_id":x,"expected_verdict":"qualified","actual_verdict":"qualified"} for x in ids],"failures":[]}
+            raw=canonical(value)+b"\n"
+            for filename in (pyname,nodename):(reports/filename).write_bytes(raw)
+            meta,_=validate_report(reports/pyname,count)
+            report_pairs.append({"name":layer,"python_file":"reports/"+pyname,"node_file":"reports/"+nodename,
+              "sha256":meta["sha256"],"schema":meta["schema"],"case_count":meta["case_count"],
+              "case_ids_sha256":meta["case_ids_sha256"],"failure_count":0,"python_node_byte_identical":True})
+        support_pins=[]
+        for name,rel,count in SUPPORTING:
+            value={"schema":"self-test.generated-corpus.v1","cases":[{"case_id":f"generated-{i:03d}"} for i in range(count)]}
+            raw=canonical(value)+b"\n";(artifact/rel).write_bytes(raw)
+            support_pins.append({"name":name,"file":rel,"sha256":sha(raw),"case_count":count})
+        head="a"*40
+        wr={"repository":{"full_name":REPOSITORY},"head_repository":{"full_name":REPOSITORY},
+            "name":WORKFLOW_NAME,"path":WORKFLOW_PATH,"event":"push","head_branch":"main","conclusion":"success",
+            "head_sha":head,"id":12345,"run_number":77,"run_attempt":2,"workflow_id":888}
+        event={"repository":{"full_name":REPOSITORY},"workflow_run":wr}
+        event_path=base/"event.json";event_path.write_bytes(canonical(event)+b"\n")
+        receipt={
+          "schema":RECEIPT_SCHEMA,"status":"research-evidence-only",
+          "source":{"repository":REPOSITORY,"workflow":WORKFLOW_NAME,
+            "workflow_ref":REPOSITORY+"/"+WORKFLOW_PATH+"@refs/heads/main","event_name":"push","ref":"refs/heads/main",
+            "checked_out_commit_sha":head,"event_sha":head,"pull_request_head_sha":None,"pull_request_number":None,
+            "run_id":12345,"run_number":77,"run_attempt":2},
+          "evidence":{"report_pair_count":len(report_pairs),"report_file_count":2*len(report_pairs),
+            "report_pairs":report_pairs,"supporting_inputs":support_pins,"generated_corpus_a_equals_b":True},
+          "claim_ceiling":{"prior_verifier_steps_succeeded_at_receipt_creation":True,
+            "overall_workflow_conclusion":"pending-downstream-observation","hosted_qualification_pass_claimed":False,
+            "qualification_authority":False,"scitt_interoperability_claimed":False,"live_network_convergence_claimed":False}
+        }
+        receipt_path=base/"receipt.json"
+        def write_receipt(value):receipt_path.write_bytes(canonical(value)+b"\n")
+        write_receipt(receipt)
+        _,err=validate_receipt(receipt_path,artifact,event_path);assert err is None, "valid synthetic receipt rejected: "+str(err)
+        bad_event=dict(event);bad_event["workflow_run"]=dict(wr,conclusion="failure")
+        event_path.write_bytes(canonical(bad_event)+b"\n")
+        _,err=validate_receipt(receipt_path,artifact,event_path);assert err=="source-workflow-not-success"
+        event_path.write_bytes(canonical(event)+b"\n")
+        tampered=reports/"python-fixed.json";tampered.write_bytes(tampered.read_bytes()+b" ")
+        _,err=validate_receipt(receipt_path,artifact,event_path);assert err=="report-sha:python-fixed.json"
+        raw=canonical({"schema":"self-test.fixed-classification","status":"research-evidence-only","case_count":52,
+          "cases":[{"case_id":f"fixed-classification-{i:03d}","expected_verdict":"qualified","actual_verdict":"qualified"} for i in range(52)],"failures":[]})+b"\n"
+        tampered.write_bytes(raw)
+        changed=copy.deepcopy(receipt);changed["claim_ceiling"]["hosted_qualification_pass_claimed"]=True;write_receipt(changed)
+        _,err=validate_receipt(receipt_path,artifact,event_path);assert err=="qualification-claim-injection"
+        extra=copy.deepcopy(receipt);extra["untrusted_extra_field"]="present";write_receipt(extra)
+        _,err=validate_receipt(receipt_path,artifact,event_path);assert err=="receipt-envelope"
     print("execution-evidence-verifier-self-test=pass")
     return 0
 
