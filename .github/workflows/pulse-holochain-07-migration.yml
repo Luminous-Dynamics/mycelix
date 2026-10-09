@@ -14,7 +14,7 @@ on:
 # Updated commits supersede old queued builds. Keep one exact-head migration
 # attempt per PR/branch so stale queued jobs cannot pile up behind newer heads.
 concurrency:
-  group: pulse-holochain-07-${{ github.event.pull_request.number || github.ref }}
+  group: pulse-holochain-07-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
