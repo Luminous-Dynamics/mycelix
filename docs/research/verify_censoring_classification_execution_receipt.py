@@ -38,9 +38,11 @@ def validate_report(path:Path,expected:int|None):
     raw=path.read_bytes()
     obj,err=read_json(path)
     if err:return None,err
-    cases=obj.get("cases");failures=obj.get("failures");count=obj.get("case_count")
+    cases=obj.get("cases");failures=obj.get("failures")
+    explicit_count="case_count" in obj
+    count=obj.get("case_count",len(cases) if isinstance(cases,list) else None)
     if not isinstance(cases,list) or not cases:return None,"empty-or-missing-cases"
-    if not isinstance(count,int) or count!=len(cases):return None,"case-count-mismatch"
+    if explicit_count and (not isinstance(count,int) or count!=len(cases)):return None,"case-count-mismatch"
     if expected is not None and count!=expected:return None,"unexpected-case-count"
     if not isinstance(failures,list) or failures:return None,"reported-failures"
     ids=[x.get("case_id",x.get("id")) if isinstance(x,dict) else None for x in cases]
@@ -146,6 +148,9 @@ def self_test():
         path=Path(td)/"r.json";path.write_bytes(canonical(sample))
         _,err=validate_report(path,2)
         assert err is None
+        legacy={"schema":"test.v1","cases":[{"case_id":"a"},{"case_id":"b"}],"failures":[]}
+        path.write_bytes(canonical(legacy));meta,err=validate_report(path,2);assert err is None and meta["case_count"]==2
+        legacy_bad=dict(legacy);legacy_bad["case_count"]=3;path.write_bytes(canonical(legacy_bad));_,err=validate_report(path,2);assert err=="case-count-mismatch"
         x=dict(sample);x["failures"]=[{"case_id":"a"}];path.write_bytes(canonical(x));_,err=validate_report(path,2);assert err=="reported-failures"
         x=dict(sample);x["cases"]=[{"case_id":"a"},{"case_id":"a"}];path.write_bytes(canonical(x));_,err=validate_report(path,2);assert err=="duplicate-case-id"
     print("execution-evidence-verifier-self-test=pass")
