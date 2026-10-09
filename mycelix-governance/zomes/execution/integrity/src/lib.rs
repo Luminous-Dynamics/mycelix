@@ -1319,6 +1319,16 @@ mod tests {
     }
 
     #[test]
+    fn test_new_timelock_cannot_self_assert_preparation_predecessor() {
+        let mut forged = make_timelock();
+        forged.prepared_from_action_hash = Some(ActionHash::from_raw_36(vec![4; 36]));
+        assert_eq!(
+            check_create_timelock(&forged).unwrap_err(),
+            "Initial timelock cannot claim a prepared predecessor action"
+        );
+    }
+
+    #[test]
     fn test_timelock_material_is_immutable() {
         let original = make_timelock();
 
@@ -1360,6 +1370,16 @@ mod tests {
         let mut executed = ready.clone();
         executed.status = TimelockStatus::Executed;
         assert!(check_update_timelock(&ready, &executed).is_err());
+    }
+
+    #[test]
+    fn test_execution_requires_exact_authorized_timelock_hash() {
+        let mut execution = make_execution();
+        execution.authorized_timelock_action_hash = None;
+        assert_eq!(
+            check_create_execution(&execution).unwrap_err(),
+            "Prepared execution must bind the exact Ready timelock action"
+        );
     }
 
     #[test]
@@ -1436,6 +1456,24 @@ mod tests {
         let mut execution = make_execution();
         execution.executor = valid.executor.clone();
         assert!(check_resolution_execution_scope(&valid, &execution).is_ok());
+
+        let mut authorized_timelock = make_timelock();
+        authorized_timelock.status = TimelockStatus::Ready;
+        assert!(
+            check_execution_authorized_timelock_scope(&execution, &authorized_timelock).is_ok()
+        );
+        let mut unavailable_authorization = authorized_timelock.clone();
+        unavailable_authorization.status = TimelockStatus::Cancelled;
+        assert!(
+            check_execution_authorized_timelock_scope(&execution, &unavailable_authorization)
+                .is_err()
+        );
+        let mut wrong_authorization_proposal = authorized_timelock.clone();
+        wrong_authorization_proposal.proposal_id = "other-proposal".into();
+        assert!(
+            check_execution_authorized_timelock_scope(&execution, &wrong_authorization_proposal)
+                .is_err()
+        );
         let mut wrong_execution_status = execution.clone();
         wrong_execution_status.status = ExecutionStatus::Failed;
         assert!(check_resolution_execution_scope(&valid, &wrong_execution_status).is_err());
