@@ -6,7 +6,7 @@
   "source_adapter_commit": "cf0db00db3a377402b557665fffe4f63d2fe1dbd",
   "fixture_path": "docs/integral/civ-013-durable-witness-conformance-v1.json",
   "verifier_path": "scripts/integral/verify_civ013_durable_witness_conformance_v1.py",
-  "expected_vector_count": 36,
+  "expected_vector_count": 37,
   "required_vector_ids": [
     "DA001-bootstrap-record",
     "DA002-successor-record",
@@ -43,18 +43,19 @@
     "DA033-fork-evidence-append-refuses-corrupt-tail",
     "DA034-legacy-fork-meta-migration-valid",
     "DA035-legacy-fork-meta-migration-rejects-corruption",
-    "DA036-startup-integrity-detects-fork-tail-truncation"
+    "DA036-startup-integrity-detects-fork-tail-truncation",
+    "DA037-subprocess-crash-after-anchor-commit-recovers-exact-prepared"
   ],
   "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback.",
-  "fixture_git_blob_sha": "870a72bea67a983abd82b56f438e2dfc52c1925b",
-  "checker_git_blob_sha": "532a58cb4f00252d2d25816a66c7781e4ca2566f",
-  "spec_git_blob_sha": "8b2adbffcc1fbcc8a9392be90dcc2a9dfc185af3",
+  "fixture_git_blob_sha": "6cc1014ae8dae68fffec3043072c0d81e480d84a",
+  "checker_git_blob_sha": "1905b4743011ac11e380f11c7de1d219826fd2d7",
+  "spec_git_blob_sha": "2d4867355c6c4f7f53f74e45c73c4d54cd28811c",
   "workflow_git_blob_sha": "f1454412875ea1984edae04814edaa4b84d4a255",
   "source_adapter_blob_sha": "f8607818337843ae9c326b05152a91e81048f911",
   "source_toolchain_path": "rust-toolchain.toml",
   "source_toolchain_blob_sha": "4f0430eac96d545bcfaa0df23ce475faf4aee96a",
   "source_rust_version": "1.96.0",
-  "checker_commit_sha": "19f43f9ad0b87f946a4e9edc024ac397779e66d1",
+  "checker_commit_sha": "9be2924c4291e9df9d75a003f413ce15d3c730cc",
   "checker_runtime": {
     "implementation": "CPython",
     "minimum_version": "3.10",
