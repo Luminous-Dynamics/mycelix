@@ -177,18 +177,35 @@ impl MachineTemporalEvidenceObservation {
 }
 
 /// Deterministically reduce observations whose source records were already validated by the
-/// coordinator. This checks internal payload/observation consistency, but intentionally does
-/// not re-run cryptographic verification or prove that an ActionHash resolves to the payload;
-/// archive consumers should verify the included signatures and retain the original Holochain
-/// records/actions when they need that stronger binding.
+/// coordinator. Every observation in one resolution must share the exact subject, machine root,
+/// and evidence kind; independently valid receipts from different scopes must never be combined
+/// into a synthetic agreement/conflict result. This checks internal payload/observation
+/// consistency, but intentionally does not re-run cryptographic verification or prove that an
+/// ActionHash resolves to the payload; archive consumers must verify signatures and retain the
+/// original Holochain records/actions for that stronger binding.
 pub fn resolve_temporal_evidence(
     evidence: Vec<MachineTemporalEvidenceObservation>,
 ) -> MachineTemporalEvidenceResolution {
     let mut by_attestation = std::collections::HashMap::new();
+    let mut expected_scope = None;
     for observation in evidence {
         if !observation.signed_statements_match_observation() {
             return MachineTemporalEvidenceResolution::InvalidEvidence;
         }
+
+        let scope = (
+            observation.attestation_statement.payload.machine_hash.clone(),
+            observation.subject_hash.clone(),
+            observation.evidence_kind.clone(),
+        );
+        if let Some(expected) = &expected_scope {
+            if expected != &scope {
+                return MachineTemporalEvidenceResolution::InvalidEvidence;
+            }
+        } else {
+            expected_scope = Some(scope);
+        }
+
         match by_attestation.get(&observation.attestation_hash) {
             Some(existing) if existing != &observation => {
                 return MachineTemporalEvidenceResolution::InvalidEvidence;
@@ -1846,6 +1863,43 @@ mod content_restriction_tests {
         observation.profile_statement.signer = AgentPubKey::from_raw_32(vec![9; 32]);
         assert_eq!(
             resolve_temporal_evidence(vec![observation]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_rejects_mixed_subjects() {
+        let a = temporal_observation(1, 7, 100);
+        let mut b = temporal_observation(2, 8, 100);
+        b.subject_hash = ActionHash::from_raw_36(vec![5; 36]);
+        b.attestation_statement.payload.subject_hash = b.subject_hash.clone();
+        assert_eq!(
+            resolve_temporal_evidence(vec![a, b]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_rejects_mixed_machine_roots() {
+        let a = temporal_observation(1, 7, 100);
+        let mut b = temporal_observation(2, 8, 100);
+        b.profile_statement.payload.machine_hash = ActionHash::from_raw_36(vec![9; 36]);
+        b.attestation_statement.payload.machine_hash = ActionHash::from_raw_36(vec![9; 36]);
+        assert_eq!(
+            resolve_temporal_evidence(vec![a, b]),
+            MachineTemporalEvidenceResolution::InvalidEvidence
+        );
+    }
+
+    #[test]
+    fn temporal_evidence_resolution_rejects_mixed_evidence_kinds() {
+        let a = temporal_observation(1, 7, 100);
+        let mut b = temporal_observation(2, 8, 100);
+        b.evidence_kind = MachineTemporalEvidenceKind::MachineActionExistence;
+        b.attestation_statement.payload.evidence_kind =
+            MachineTemporalEvidenceKind::MachineActionExistence;
+        assert_eq!(
+            resolve_temporal_evidence(vec![a, b]),
             MachineTemporalEvidenceResolution::InvalidEvidence
         );
     }
