@@ -862,6 +862,7 @@ async fn test_delivery_receipt_signature_verified() {
 // =============================================================================
 
 /// Mirrors the capability coordinator types so Sweettest can exercise the wire contract.
+#[allow(dead_code)]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 enum MailboxAccessTypeInput {
     FullAccess,
@@ -874,6 +875,7 @@ enum MailboxAccessTypeInput {
     Custom(String),
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MailboxCapabilityWire {
@@ -891,6 +893,7 @@ struct MailboxCapabilityWire {
     secret_hash: Vec<u8>,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
 struct MailboxPermissionsInput {
     can_read: bool,
@@ -917,6 +920,7 @@ struct GrantCapabilityInput {
     expires_at: Option<Timestamp>,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 enum CapabilityProbeResult {
     Authorized,
@@ -1061,6 +1065,7 @@ async fn test_capability_grant_and_revocation_lifecycle() {
     assert_eq!(repeated_revoke, revoked_hash);
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 enum AuditActionInput {
     ReadEmail,
