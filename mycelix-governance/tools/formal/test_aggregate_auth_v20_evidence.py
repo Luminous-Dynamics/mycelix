@@ -125,6 +125,7 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
         }
         if relative == "auth-v20-evidence/receipt.json":
             control_dir = root / "auth-v20-evidence"
+            control_dir.mkdir(parents=True, exist_ok=True)
             controls = []
             for name in FROZEN_POLICY_CONTROL_IDS:
                 raw_scenario = {"fixture_id": name, "bounded": True}
