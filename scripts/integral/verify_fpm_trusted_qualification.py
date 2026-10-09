@@ -271,7 +271,7 @@ def git_blob_sha1(path: Path, field: str) -> str:
         raw = path.read_bytes()
     except OSError as exc:
         fail(f"unable to read trusted source {field}: {exc}")
-    header = b"blob " + str(len(raw)).encode("ascii") + b"\\0"
+    header = b"blob " + str(len(raw)).encode("ascii") + b"\0"
     return hashlib.sha1(header + raw).hexdigest()
 
 
