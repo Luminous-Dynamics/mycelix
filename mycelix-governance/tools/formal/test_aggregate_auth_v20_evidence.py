@@ -104,7 +104,7 @@ HEAD = "a" * 40
 
 def canonical_json_bytes(value: Any) -> bytes:
     return (json.dumps(value, sort_keys=True, separators=(",", ":"),
-                       ensure_ascii=False) + "\\n").encode("utf-8")
+                       ensure_ascii=False) + "\n").encode("utf-8")
 
 
 def require(condition: bool, message: str) -> None:
@@ -137,11 +137,11 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
                 result_sha = hashlib.sha256(canonical_json_bytes(result_value)).hexdigest()
                 result_value["result_sha256"] = result_sha
                 (control_dir / f"{name}.input.json").write_text(
-                    json.dumps(raw_scenario, sort_keys=True, indent=2, ensure_ascii=False) + "\\n",
+                    json.dumps(raw_scenario, sort_keys=True, indent=2, ensure_ascii=False) + "\n",
                     encoding="utf-8",
                 )
                 (control_dir / f"{name}.json").write_text(
-                    json.dumps(result_value, sort_keys=True, indent=2, ensure_ascii=False) + "\\n",
+                    json.dumps(result_value, sort_keys=True, indent=2, ensure_ascii=False) + "\n",
                     encoding="utf-8",
                 )
                 controls.append({
