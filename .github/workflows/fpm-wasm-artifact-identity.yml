@@ -5,6 +5,11 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
 
+# Keep only the newest candidate beacon for each PR; stale dispatch requests are not evidence.
+concurrency:
+  group: fpm-wasm-artifact-identity-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # This workflow is only an untrusted execution-request beacon.
 # It deliberately does not execute candidate code. The trusted qualification
 # workflow re-checks out the exact candidate and runs it inside the sandbox.
