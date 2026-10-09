@@ -210,7 +210,12 @@ async function main() {
 
     // Keyboard focus belongs to the opened dialog; Escape should close it.
     await page.keyboard.press('Escape');
-    await page.waitForFunction(() => !document.querySelector('.queue-panel'));
+    await page.waitForFunction(() => {
+      const active = document.activeElement;
+      return !document.querySelector('.queue-panel')
+        && active
+        && active.classList.contains('queue-toggle');
+    });
     await page.getByRole('button', { name: 'Toggle playback queue' }).click();
     await queueDialog.waitFor({ state: 'visible' });
 
@@ -275,7 +280,7 @@ async function main() {
         'queue Next handles deterministic media failure',
         'explicit Play retries the same failed resource',
         'mobile player controls stay within the viewport',
-        'queue dialog receives focus and Escape closes it',
+        'queue dialog receives focus, Escape closes it, and focus returns',
         'queue selection and current-row removal preserve exact next source',
         'Clear releases src and resets actual currentTime',
       ],
