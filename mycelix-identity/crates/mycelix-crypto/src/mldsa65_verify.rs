@@ -82,43 +82,55 @@ pub fn verify_with_empty_context(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hybrid_sig::HybridSigner;
+    use ml_dsa::{Generate as _, Keypair as _, MlDsa65, SigningKey};
+
+    fn signed_fixture(message: &[u8], context: &[u8]) -> (Vec<u8>, Vec<u8>) {
+        let signing_key = SigningKey::<MlDsa65>::generate();
+        let verifying_key = signing_key
+            .verifying_key()
+            .encode()
+            .as_slice()
+            .to_vec();
+        let signature = signing_key
+            .expanded_key()
+            .sign_deterministic(message, context)
+            .expect("test context length is within the ML-DSA limit")
+            .encode()
+            .as_slice()
+            .to_vec();
+
+        (verifying_key, signature)
+    }
 
     #[test]
     fn accepts_valid_empty_context_ml_dsa_65_signature() {
-        let signer = HybridSigner::generate();
-        let keys = signer.verifying_keys();
         let message = b"standalone ML-DSA-65 verifier";
-        let signature = signer.sign(message);
+        let (public_key, signature) = signed_fixture(message, ML_DSA_65_EMPTY_CONTEXT);
 
-        assert_eq!(keys.ml_dsa.len(), ML_DSA_65_PUBLIC_KEY_BYTES);
-        assert_eq!(signature.ml_dsa.len(), ML_DSA_65_SIGNATURE_BYTES);
-        assert!(verify_with_empty_context(&keys.ml_dsa, message, &signature.ml_dsa).is_ok());
+        assert_eq!(public_key.len(), ML_DSA_65_PUBLIC_KEY_BYTES);
+        assert_eq!(signature.len(), ML_DSA_65_SIGNATURE_BYTES);
+        assert!(verify_with_empty_context(&public_key, message, &signature).is_ok());
     }
 
     #[test]
     fn rejects_modified_message() {
-        let signer = HybridSigner::generate();
-        let keys = signer.verifying_keys();
-        let signature = signer.sign(b"original message");
+        let (public_key, signature) = signed_fixture(b"original message", ML_DSA_65_EMPTY_CONTEXT);
 
         assert!(verify_with_empty_context(
-            &keys.ml_dsa,
+            &public_key,
             b"modified message",
-            &signature.ml_dsa
+            &signature
         )
         .is_err());
     }
 
     #[test]
     fn rejects_modified_signature() {
-        let signer = HybridSigner::generate();
-        let keys = signer.verifying_keys();
         let message = b"message";
-        let mut signature = signer.sign(message).ml_dsa;
+        let (public_key, mut signature) = signed_fixture(message, ML_DSA_65_EMPTY_CONTEXT);
         signature[0] ^= 0x01;
 
-        assert!(verify_with_empty_context(&keys.ml_dsa, message, &signature).is_err());
+        assert!(verify_with_empty_context(&public_key, message, &signature).is_err());
     }
 
     #[test]
@@ -129,18 +141,9 @@ mod tests {
 
     #[test]
     fn rejects_signature_made_with_nonempty_context() {
-        use ml_dsa::{Generate, Keypair as _, MlDsa65, SigningKey};
-
-        let signing_key = SigningKey::<MlDsa65>::generate();
         let message = b"context contract";
-        let nonempty_context = b"must-not-be-accepted";
-        let signature = signing_key
-            .expanded_key()
-            .sign_deterministic(message, nonempty_context)
-            .expect("short context is valid for signing");
-        let verifying_key = signing_key.verifying_key().encode().as_slice().to_vec();
-        let signature_bytes = signature.encode().as_slice().to_vec();
+        let (public_key, signature) = signed_fixture(message, b"must-not-be-accepted");
 
-        assert!(verify_with_empty_context(&verifying_key, message, &signature_bytes).is_err());
+        assert!(verify_with_empty_context(&public_key, message, &signature).is_err());
     }
 }
