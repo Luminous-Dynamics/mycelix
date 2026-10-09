@@ -109,7 +109,7 @@ function validateReceipt(receiptPath,root,eventPath){
   };
   for(const[k,v]of Object.entries(expectedSource))if(src[k]!==v)return[null,"source-metadata-binding:"+k];
   if(src.pull_request_head_sha!==null||src.pull_request_number!==null)return[null,"unexpected-pr-head"];
-  if(typeof src.workflow_ref!=="string"||!src.workflow_ref.endsWith(WORKFLOW_PATH+"@refs/heads/main"))return[null,"source-workflow-ref-binding"];
+  if(src.workflow_ref!==REPOSITORY+"/"+WORKFLOW_PATH+"@refs/heads/main")return[null,"source-workflow-ref-binding"];
   if(ceiling.prior_verifier_steps_succeeded_at_receipt_creation!==true||ceiling.overall_workflow_conclusion!=="pending-downstream-observation")return[null,"claim-ceiling-context"];
   for(const key of ["hosted_qualification_pass_claimed","qualification_authority","scitt_interoperability_claimed","live_network_convergence_claimed"])if(ceiling[key]!==false)return[null,"qualification-claim-injection"];
   const predicate={
