@@ -18,6 +18,8 @@ import delegation_chain_par_hash as checker  # noqa: E402
 
 SCHEMA = "mycelix.delegation-chain-par-hash.v1"
 FROZEN_MAX_TOKEN_COUNT = 9
+FROZEN_MAX_SIGNING_INPUT_BYTES = 64 * 1024
+FROZEN_MAX_CHAIN_SIGNING_INPUT_BYTES = 256 * 1024
 
 
 def b64u(value: bytes) -> str:
@@ -41,8 +43,10 @@ def independently_valid_signing_input(value: Any) -> bool:
     if not isinstance(value, str):
         return False
     try:
-        value.encode("ascii")
+        encoded = value.encode("ascii")
     except UnicodeEncodeError:
+        return False
+    if len(encoded) > FROZEN_MAX_SIGNING_INPUT_BYTES:
         return False
     parts = value.split(".")
     if len(parts) != 2:
@@ -121,6 +125,22 @@ def cases() -> dict[str, dict[str, Any]]:
     out["non-ascii-signing-input"] = raw
 
     raw = valid_chain()
+    oversized_payload = segment({"blob": "x" * 50000})
+    raw["hops"][2]["signing_input"] = segment({"alg": "EdDSA"}) + "." + oversized_payload
+    out["oversized-signing-input"] = raw
+
+    raw = valid_chain(count=9)
+    for index, hop in enumerate(raw["hops"]):
+        hop["signing_input"] = segment({"alg": "EdDSA", "kid": f"large-{index}"}) + "." + segment(
+            {"blob": "x" * 23000, "index": index}
+        )
+    for index in range(1, len(raw["hops"])):
+        raw["hops"][index]["claims"]["par_hash"] = independent_par_hash(
+            raw["hops"][index - 1]["signing_input"]
+        )
+    out["aggregate-signing-input-size"] = raw
+
+    raw = valid_chain()
     raw["hops"] = raw["hops"] * 3
     out["over-depth-chain"] = raw
 
@@ -142,6 +162,11 @@ def independently_expected(raw: dict[str, Any]) -> set[tuple[str, int | None]]:
         return {("malformed-chain", None)}
     if len(hops) > FROZEN_MAX_TOKEN_COUNT:
         return {("implementation-chain-depth-exceeded", None)}
+    total_input_bytes = sum(len(hop["signing_input"].encode("utf-8"))
+                            for hop in hops
+                            if isinstance(hop, dict) and isinstance(hop.get("signing_input"), str))
+    if total_input_bytes > FROZEN_MAX_CHAIN_SIGNING_INPUT_BYTES:
+        return {("chain-signing-input-size-exceeded", None)}
     findings: set[tuple[str, int | None]] = set()
     ids: list[str] = []
     for index, hop in enumerate(hops):
@@ -197,7 +222,11 @@ def audit(raw: dict[str, Any], observed: dict[str, Any]) -> dict[str, Any] | Non
         return {"kind":"finding-set-disagrees-with-independent-replay",
                 "expected":sorted((code,-1 if idx is None else idx) for code,idx in expected),
                 "observed":sorted((code,-1 if idx is None else idx) for code,idx in found)}
-    if raw.get("schema") != SCHEMA or len(raw.get("hops", [])) > FROZEN_MAX_TOKEN_COUNT:
+    total_input_bytes = sum(len(hop["signing_input"].encode("utf-8"))
+                            for hop in raw.get("hops", [])
+                            if isinstance(hop, dict) and isinstance(hop.get("signing_input"), str))
+    if (raw.get("schema") != SCHEMA or len(raw.get("hops", [])) > FROZEN_MAX_TOKEN_COUNT
+            or total_input_bytes > FROZEN_MAX_CHAIN_SIGNING_INPUT_BYTES):
         expected_status="UNSUPPORTED_OR_UNDECIDABLE"
     else:
         expected_status="PARENT_SIGNING_INPUT_LINKAGE_PASS" if not expected else "INVALID_CHAIN"
@@ -223,6 +252,10 @@ def main() -> int:
     try:
         require(checker.MAX_TOKEN_COUNT==FROZEN_MAX_TOKEN_COUNT,
                 "maximum chain token count differs from independently frozen value")
+        require(checker.MAX_SIGNING_INPUT_BYTES==FROZEN_MAX_SIGNING_INPUT_BYTES,
+                "per-token signing-input limit differs from independently frozen value")
+        require(checker.MAX_CHAIN_SIGNING_INPUT_BYTES==FROZEN_MAX_CHAIN_SIGNING_INPUT_BYTES,
+                "aggregate signing-input limit differs from independently frozen value")
         valid=valid_chain()
         baseline=checker.evaluate_par_hash_chain(valid)
         mismatch=audit(valid,baseline)
@@ -276,7 +309,7 @@ def main() -> int:
                             "independent_hash":"SHA256_OVER_EXACT_ASCII_JWS_SIGNING_INPUT",
                             "qualification":"NOT_CLAIMED"}
         args.output.write_text(json.dumps(receipt,sort_keys=True,indent=2)+"\n",encoding="utf-8")
-        print("PAR_HASH DIFFERENTIAL PASS: 1 positive + 10 negative controls")
+        print("PAR_HASH DIFFERENTIAL PASS: 1 positive + 12 negative controls")
         print("PAR_HASH MUTATION SENSITIVITY PASS: 3 of 3 omitted checks detected")
         print("QUALIFICATION NOT CLAIMED: no compact JWS parsing or signature verification")
         return 0
