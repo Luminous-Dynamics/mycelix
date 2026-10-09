@@ -873,8 +873,7 @@ jobs:
           for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.nix-sdk-shell.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
-          echo "All checks passed!"
- security-nix-sdk/changed-paths.txt; then
+          echo "All checks passed!" security-nix-sdk/changed-paths.txt; then
             relevant=true
           fi
           if [[ "$EVENT_NAME" == "workflow_dispatch" || ( "$EVENT_NAME" == "push" && ( -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ) ) ]]; then
