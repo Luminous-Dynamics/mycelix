@@ -23,6 +23,7 @@ FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
 SOURCE_COMMIT = "9a5b9498669af2af7c03f1f00351b707540b0bfe"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
+SQLITE_MINIMUM_VERSION_NUMBER = 3_051_003
 
 REQUIRED_IDS = {
     "DA001-bootstrap-record",
@@ -607,6 +608,16 @@ def main() -> int:
     source_toolchain_blob = manifest.get("source_toolchain_blob_sha")
     if not isinstance(source_toolchain_blob, str) or not re.fullmatch(r"[0-9a-f]{40}", source_toolchain_blob):
         raise SystemExit("FAIL: source toolchain blob pin is missing or malformed")
+    for field in ("source_workspace_manifest_blob_sha", "source_lockfile_blob_sha"):
+        value = manifest.get(field)
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{40}", value):
+            raise SystemExit(f"FAIL: {field} is missing or malformed")
+    if manifest.get("source_rusqlite_version") != "0.39.0":
+        raise SystemExit("FAIL: rusqlite must remain at the SQLite-WAL-reset-fixed 0.39.0 release")
+    if manifest.get("source_libsqlite3_sys_version") != "0.37.0":
+        raise SystemExit("FAIL: libsqlite3-sys bundled SQLite dependency is not the qualified 0.37.0 release")
+    if manifest.get("source_bundled_sqlite_min_version_number") != SQLITE_MINIMUM_VERSION_NUMBER:
+        raise SystemExit("FAIL: required bundled SQLite runtime floor is not 3.51.3")
     runtime = manifest.get("checker_runtime")
     if not isinstance(runtime, dict):
         raise SystemExit("FAIL: checker runtime policy is missing")
