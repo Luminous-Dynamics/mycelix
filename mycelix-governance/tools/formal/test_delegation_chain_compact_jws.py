@@ -293,12 +293,14 @@ def cases(directory: Path) -> dict[str, dict[str, Any]]:
 
 
 def invoke_fixture(raw: dict[str, Any], openssl: str,
-                   trusted_anchors: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+                   trusted_anchors: list[dict[str, Any]] | None = None,
+                   trusted_now: int = NOW) -> dict[str, Any]:
     # Exclude any trust configuration from the token-chain input. Trusted keys
-    # are supplied through a distinct caller-controlled parameter.
+    # and the enforcement clock are separate, explicit inputs.
     anchors = trusted_anchors if trusted_anchors is not None else raw.get("trust_anchors")
     token_input = {key: raw[key] for key in ("schema", "now", "chain") if key in raw}
-    return verifier.evaluate_compact_chain(token_input, anchors, openssl_binary=openssl)
+    return verifier.evaluate_compact_chain(token_input, anchors,
+                                           openssl_binary=openssl, trusted_now=trusted_now)
 
 
 def main() -> int:
@@ -352,6 +354,38 @@ def main() -> int:
                 "independent_fixture": "OpenSSL Ed25519; use=sig, alg=EdDSA, key_ops=verify",
                 "token_count": len(valid_metadata["chain"]),
             })
+
+            no_clock = verifier.evaluate_compact_chain(
+                {"schema": valid["schema"], "now": valid["now"], "chain": valid["chain"]},
+                valid["trust_anchors"], openssl_binary=openssl,
+            )
+            require(no_clock.get("status") == "UNSUPPORTED_OR_UNDECIDABLE"
+                    and no_clock.get("findings", [{}])[0].get("code") == "trusted-clock-invalid",
+                    "compact chain verifier accepted an embedded time without a trusted clock")
+            receipt["controls"].append({
+                "id": "missing-trusted-clock-rejected",
+                "status": no_clock["status"],
+                "finding": no_clock.get("findings", [{}])[0].get("code"),
+            })
+
+            forged_clock_input = {
+                "schema": valid["schema"], "now": NOW - 30, "chain": valid["chain"],
+            }
+            forged_clock_result = invoke_fixture(
+                forged_clock_input, openssl, valid["trust_anchors"], trusted_now=NOW + 11000,
+            )
+            require(forged_clock_result.get("status") == "INVALID_CHAIN"
+                    and any(item.get("code") == "token-expired"
+                            for item in forged_clock_result.get("findings", [])),
+                    "compact chain verifier let bundle time resurrect an expired chain: " +
+                    json.dumps(forged_clock_result, sort_keys=True))
+            receipt["controls"].append({
+                "id": "caller-supplied-clock-cannot-resurrect-expired-chain",
+                "status": forged_clock_result["status"],
+                "trusted_now": NOW + 11000,
+                "untrusted_bundle_now": NOW - 30,
+                "expiry_rejected": True,
+            })
             # Reject attempts to smuggle trust roots in the same object as
             # untrusted token-chain data. Real trust configuration stays outside.
             wrong_anchor = generate_keypair(root, 30)
@@ -362,7 +396,7 @@ def main() -> int:
                 "trust_anchors": [{"issuer_uri": ISSUER, "jwk": wrong_anchor["public_jwk"]}],
             }
             rejected_embedded_config = verifier.evaluate_compact_chain(
-                malicious_input, valid["trust_anchors"], openssl_binary=openssl
+                malicious_input, valid["trust_anchors"], openssl_binary=openssl, trusted_now=NOW
             )
             require(rejected_embedded_config.get("status") == "UNSUPPORTED_OR_UNDECIDABLE",
                     "chain input was allowed to carry its own trust-anchor configuration")
@@ -374,7 +408,7 @@ def main() -> int:
                 "finding": rejected_embedded_config.get("findings", [{}])[0].get("code"),
             })
             non_object = verifier.evaluate_compact_chain(
-                ["not", "an", "object"], valid["trust_anchors"], openssl_binary=openssl
+                ["not", "an", "object"], valid["trust_anchors"], openssl_binary=openssl, trusted_now=NOW
             )
             require(non_object.get("status") == "UNSUPPORTED_OR_UNDECIDABLE",
                     "non-object chain request did not fail closed")
