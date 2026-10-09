@@ -68,3 +68,10 @@ This uses the same broad verification-guided pattern described by the Cedar proj
 The IETF Attenuating Authorization Tokens Internet-Draft (June 2026, version -01) requires extension subsumption to be decidable, sound and deterministic, and permits conservative false negatives rather than unsound positives: https://datatracker.ietf.org/doc/draft-niyikiza-oauth-attenuating-agent-tokens/.
 
 These are research references, not certification of this implementation. The differential corpus establishes evidence only for the frozen finite grammar and universe. It does not prove completeness for arbitrary constraints, infinite numeric domains, extension predicates, or production enforcement.
+
+
+## Oracle mutation sensitivity
+
+The hosted exact-head workflow now injects four deterministic defects into in-memory oracle functions and requires the separate differential checker to detect each one: opening atom subsumption, forcing denotations empty, reusing one child witness for two parent obligations, and retaining a redundant constraint in a reported witness core. The guard first verifies that each unmutated fixture agrees with independent replay, checks the expected mismatch category for each mutant, restores the original function in a `finally` path, and records a receipt bound to source hashes.
+
+This is a mutation-sensitivity smoke test, not a proof that the checker detects all possible defects. It complements—rather than replaces—the bounded exhaustive corpus, raw-fixture replay, and frozen manifest mutation guard. Any hosted result remains bounded research/specification evidence; production qualification is not claimed.
