@@ -47,8 +47,18 @@
   ],
   "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback.",
   "fixture_git_blob_sha": "97eae57760cf2036bc3ef0edb46c08074d9f55e2",
-  "checker_git_blob_sha": "d4c9cc95bc6ac5e105190514bda1e2f40ad7825f",
+  "checker_git_blob_sha": "93ad09078777acdf5bf8342ba78e919f2c84bb40",
   "spec_git_blob_sha": "d75ef3bb0ebe3612f013f8a1dc4dd29fd9a973ac",
-  "workflow_git_blob_sha": "f5d021a983aa0d9f2377f1e7eaba2ca53abe9f89",
-  "source_adapter_blob_sha": "b16593bf74b52947376e7b6257ca423a1c7003fb"
+  "workflow_git_blob_sha": "5101200105b8036213c9b3e5b23ccad07623fa13",
+  "source_adapter_blob_sha": "b16593bf74b52947376e7b6257ca423a1c7003fb",
+  "source_toolchain_path": "rust-toolchain.toml",
+  "source_toolchain_blob_sha": "4f0430eac96d545bcfaa0df23ce475faf4aee96a",
+  "source_rust_version": "1.96.0",
+  "checker_commit_sha": "0f833a3ecf6cdbe9425910e9f282c29b3ff2a77c",
+  "checker_runtime": {
+    "implementation": "CPython",
+    "minimum_version": "3.10",
+    "runner": "ubuntu-24.04",
+    "records_exact_version_in_artifact": true
+  }
 }
