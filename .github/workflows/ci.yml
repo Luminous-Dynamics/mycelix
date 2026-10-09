@@ -395,7 +395,7 @@ jobs:
           nix develop ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c '
             node --version
             npm --version
-            node --version | grep -Eq "^v24\\."
+            node --version | grep -Eq '^v24[.]'
           '
       - name: Install TypeScript SDK dependencies
         run: nix develop ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c 'cd mycelix-workspace/sdk-ts && npm ci'
