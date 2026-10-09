@@ -1025,7 +1025,7 @@ fn find_cap_claim(
             Entry::CapClaim(claim)
                 if claim.grantor == *grantor
                     && claim.tag == tag
-                    && Sha256::digest(claim.secret.as_ref()).as_slice() == expected_secret_hash =>
+                    && Sha256::digest(claim.secret.as_ref()).iter().eq(expected_secret_hash.iter()) =>
             {
                 Some(claim.clone())
             }
