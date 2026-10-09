@@ -49,10 +49,10 @@
     "DA039-sqlite-runtime-minimum-accepted",
     "DA040-sqlite-runtime-below-minimum-rejected"
   ],
-  "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback.",
-  "fixture_git_blob_sha": "7b7e9f579930aad65903451dec03eab3d7dd4573",
+  "claim_ceiling": "Durable-adapter golden-reference and abstract-transition conformance only. Local fork-evidence count/tail metadata detects inconsistent surviving state but is not independently anchored; coordinated erasure or rollback of both fork-evidence rows and local metadata is outside this claim. Does not establish actual SQLite tests passed, filesystem crash/power-loss durability, a genuine independent external anchor, bootstrap caller authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback.",
+  "fixture_git_blob_sha": "1ac0e48c564ddcc33eea55a34ec831f38ccddcd1",
   "checker_git_blob_sha": "2894794427ebc83fdea83b7c9cd383742cb64ae0",
-  "spec_git_blob_sha": "2cff3082ef04371da7c86bbc471c248c7642e005",
+  "spec_git_blob_sha": "2299b8bba3b5704d94aba55bf0300c2da56c72c8",
   "workflow_git_blob_sha": "66c7255220bb61f657cb9194718c0a86dff4a4be",
   "source_adapter_blob_sha": "1312fc39f7817f94de074a6deb73d76941a4d178",
   "source_toolchain_path": "rust-toolchain.toml",
