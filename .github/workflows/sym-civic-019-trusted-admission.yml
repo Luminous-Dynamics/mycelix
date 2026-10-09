@@ -61,7 +61,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "${{ github.workflow_sha }}"
           test "$(git rev-parse HEAD:.github/workflows/sym-civic-019-trusted-admission.yml)" != ""
           test "$(git rev-parse HEAD:mycelix-workspace/docs/civic-resilience/sym_civic_019_trusted_admission_v1.json)" = "0ca04842bec68207297c0dcc8e039ef022df3310"
-          test "$(git rev-parse HEAD:scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py)" = "b2c1ee9a669b4b8cb1478ce0a944a293ede6cec0"
+          test "$(git rev-parse HEAD:scripts/qualification/verify_sym_civic_019_trusted_semantics_v1.py)" = "f5f686ccd41591b85fb97d0ace9d4a5da6685599"
 
       - name: Validate trusted workflow security invariants
         run: |
