@@ -315,21 +315,9 @@ fn is_action_permitted(permissions: &MailboxPermissions, action: &AuditAction) -
 /// Revoke a granted capability
 #[hdk_extern]
 pub fn revoke_capability(input: (ActionHash, Option<String>)) -> ExternResult<ActionHash> {
-    let (cap_hash, reason) = input;
+    let (requested_hash, reason) = input;
     let my_agent = agent_info()?.agent_initial_pubkey;
-
-    // Get capability
-    let record = get(cap_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Capability not found".to_string())
-    ))?;
-
-    let mut capability: MailboxCapability = record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid capability".to_string()
-        )))?;
+    let (cap_hash, mut capability) = resolve_latest_capability(requested_hash)?;
 
     // Verify ownership
     if capability.grantor != my_agent {
@@ -384,18 +372,7 @@ pub fn revoke_capability(input: (ActionHash, Option<String>)) -> ExternResult<Ac
 pub fn verify_capability(input: (ActionHash, AuditAction)) -> ExternResult<bool> {
     let (cap_hash, action) = input;
     let caller = agent_info()?.agent_initial_pubkey;
-
-    let record = get(cap_hash, GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Capability not found".to_string())
-    ))?;
-
-    let capability: MailboxCapability = record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid capability".to_string()
-        )))?;
+    let (_latest_hash, capability) = resolve_latest_capability(cap_hash)?;
 
     // Check if revoked
     if capability.revoked {
@@ -727,19 +704,14 @@ pub fn get_granted_capabilities(_: ()) -> ExternResult<Vec<(ActionHash, MailboxC
     )?;
 
     let mut capabilities = Vec::new();
+    let mut seen = HashSet::new();
 
     for link in links {
         let hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid target".to_string())))?;
-
-        if let Some(record) = get(hash.clone(), GetOptions::default())? {
-            if let Some(cap) = record
-                .entry()
-                .to_app_option::<MailboxCapability>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-            {
-                capabilities.push((hash, cap));
-            }
+        let (latest_hash, capability) = resolve_latest_capability(hash)?;
+        if seen.insert(capability.id.clone()) {
+            capabilities.push((latest_hash, capability));
         }
     }
 
@@ -756,30 +728,21 @@ pub fn get_received_capabilities(_: ()) -> ExternResult<Vec<(ActionHash, Mailbox
         GetStrategy::default(),
     )?;
 
+    let now = sys_time()?;
     let mut capabilities = Vec::new();
+    let mut seen = HashSet::new();
 
     for link in links {
         let hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid target".to_string())))?;
-
-        if let Some(record) = get(hash.clone(), GetOptions::default())? {
-            if let Some(cap) = record
-                .entry()
-                .to_app_option::<MailboxCapability>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-            {
-                // Only return non-revoked, non-expired
-                if !cap.revoked {
-                    if let Some(expires) = cap.expires_at {
-                        if expires > sys_time()? {
-                            capabilities.push((hash, cap));
-                        }
-                    } else {
-                        capabilities.push((hash, cap));
-                    }
-                }
-            }
+        let (latest_hash, capability) = resolve_latest_capability(hash)?;
+        if !seen.insert(capability.id.clone()) || capability.revoked {
+            continue;
         }
+        if capability.expires_at.is_some_and(|expires| expires <= now) {
+            continue;
+        }
+        capabilities.push((latest_hash, capability));
     }
 
     Ok(capabilities)
@@ -791,18 +754,9 @@ pub fn get_received_capabilities(_: ()) -> ExternResult<Vec<(ActionHash, Mailbox
 /// separate invocation from grant_capability so both the public record and private
 /// system grant have committed before the receiver validates and claims them.
 #[hdk_extern]
-pub fn deliver_capability_grant(capability_hash: ActionHash) -> ExternResult<()> {
+pub fn deliver_capability_grant(requested_hash: ActionHash) -> ExternResult<()> {
     let local_agent = agent_info()?.agent_initial_pubkey;
-    let record = get(capability_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Capability record not found".to_string())
-    ))?;
-    let capability: MailboxCapability = record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Unexpected entry type for capability delivery".to_string()
-        )))?;
+    let (capability_hash, capability) = resolve_latest_capability(requested_hash)?;
 
     if capability.grantor != local_agent {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -962,6 +916,68 @@ pub enum CapabilityProbeResult {
 }
 
 /// Find the private source-chain claim corresponding to one grantor + capability tag.
+/// Resolve a capability's current application state by walking valid update actions.
+/// A get(original_hash) returns the original record; it does not automatically follow
+/// updates, so all security decisions and list projections must use this resolver.
+fn resolve_latest_capability(
+    capability_hash: ActionHash,
+) -> ExternResult<(ActionHash, MailboxCapability)> {
+    let record = get(capability_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Capability record not found".to_string())
+    ))?;
+    let capability: MailboxCapability = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Unexpected entry type for capability record".to_string()
+        )))?;
+
+    let mut latest = (
+        record.action().timestamp(),
+        capability_hash.clone(),
+        capability,
+    );
+    let mut frontier = vec![capability_hash];
+    let mut visited = HashSet::new();
+
+    while let Some(parent_hash) = frontier.pop() {
+        let Some(details) = get_details(parent_hash, GetOptions::default())? else {
+            continue;
+        };
+        let Details::Record(details) = details else {
+            continue;
+        };
+
+        for update in details.updates {
+            let update_hash = update.hashed.hash.clone();
+            if !visited.insert(update_hash.clone()) {
+                continue;
+            }
+            let Some(update_record) = get(update_hash.clone(), GetOptions::default())? else {
+                continue;
+            };
+            let Some(updated_capability) = update_record
+                .entry()
+                .to_app_option::<MailboxCapability>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            else {
+                continue;
+            };
+
+            let timestamp = update_record.action().timestamp();
+            if timestamp > latest.0
+                || (timestamp == latest.0 && update_hash.to_string() > latest.1.to_string())
+            {
+                latest = (timestamp, update_hash.clone(), updated_capability);
+            }
+            frontier.push(update_hash);
+        }
+    }
+
+    Ok((latest.1, latest.2))
+}
+
 fn find_cap_claim(grantor: &AgentPubKey, tag: &str) -> ExternResult<Option<CapClaim>> {
     let filter = ChainQueryFilter::new()
         .action_type(ActionType::Create)
@@ -988,16 +1004,7 @@ fn find_cap_claim(grantor: &AgentPubKey, tag: &str) -> ExternResult<Option<CapCl
 #[hdk_extern]
 pub fn probe_remote_capability(capability_hash: ActionHash) -> ExternResult<CapabilityProbeResult> {
     let local_agent = agent_info()?.agent_initial_pubkey;
-    let record = get(capability_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Capability record not found".to_string())
-    ))?;
-    let capability: MailboxCapability = record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Unexpected entry type for capability probe".to_string()
-        )))?;
+    let (_latest_hash, capability) = resolve_latest_capability(capability_hash)?;
 
     if capability.grantee != local_agent {
         return Err(wasm_error!(WasmErrorInner::Guest(
