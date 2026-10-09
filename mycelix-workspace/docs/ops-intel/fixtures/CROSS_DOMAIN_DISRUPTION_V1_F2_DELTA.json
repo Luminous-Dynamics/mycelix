@@ -1,0 +1,33 @@
+{
+  "fixture_profile": "OPS-INTEL-TEST-001",
+  "fixture_version": "CrossDomainDisruptionV1",
+  "frontier_ref": "frontier:F2",
+  "parent_frontier_ref": "frontier:F1",
+  "data_class": "synthetic",
+  "visibility": "solver-visible-only-when-F2-is-the-requested-frontier",
+  "immutable": true,
+  "phase": "post-decision-simulated-attempt",
+  "attempt": {
+    "attempt_ref": "attempt:reroute-B-01",
+    "candidate_ref": "candidate:RerouteToSupplierB",
+    "subject_ref": "subject:shipment-A-17",
+    "decision_frontier_ref": "frontier:F1",
+    "attempt_time_utc": "2026-06-01T12:30:00Z",
+    "execution_mode": "SimulationOnly",
+    "mock_authority_requirement_ref": "authority-requirement:logistics-reroute",
+    "live_capability_present": false,
+    "reported_attempt_disposition": "DispatchAccepted",
+    "effect_state": "Unobserved",
+    "receipt_ref": "receipt:simulated-dispatch-01",
+    "limitations": [
+      "This is a synthetic record and does not represent a real shipment or dispatch.",
+      "A dispatch acknowledgement establishes neither arrival nor beneficial effect.",
+      "The record carries no bearer credential, permit, token or live execution authority."
+    ]
+  },
+  "required_interpretation": [
+    "attempt exists != effect observed",
+    "dispatch accepted != shipment arrived",
+    "scenario/attempt data do not mutate prior frontiers"
+  ]
+}
