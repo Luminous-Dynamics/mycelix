@@ -122,6 +122,11 @@
           src = ./sdk-ts;
           npmDeps = sdkTsDependencies;
           npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+          # Pin the runtime used by the builder and fail closed on missing local deps.
+          nodejs = pkgs.nodejs_24;
+          npm_config_offline = "true";
+          npm_config_audit = "false";
+          npm_config_fund = "false";
 
           # Run the quality gates before the normal npm build hook runs "build".
           preBuild = ''
