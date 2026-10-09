@@ -49,6 +49,8 @@ fn request_playback(
     // Reload the already-selected URL before retrying; the new generation makes
     // any rejection from the previous load unable to stop this attempt.
     if audio.error().is_some() {
+        player.progress.set(0.0);
+        player.duration.set(0.0);
         audio.load();
     }
     let expected_hash_for_result = expected_song_hash.clone();
@@ -248,6 +250,8 @@ pub fn Player() -> impl IntoView {
                 media_error_matches_source(&current_src, expected_url, error_present)
             }) {
                 player_for_error.is_playing.set(false);
+                player_for_error.progress.set(0.0);
+                player_for_error.duration.set(0.0);
             }
         }
     };
