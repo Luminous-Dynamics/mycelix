@@ -378,13 +378,14 @@ enum FixtureFileReadError {
 
 /// Read no more than the limit plus one byte, so the size check also bounds
 /// memory use for an oversized or attacker-controlled fixture path.
-fn read_limited_fixture_file(path: &Path) -> Result<Vec<u8>, FixtureFileReadError> {
+fn read_limited_fixture_file(path: &Path, limit: usize) -> Result<Vec<u8>, FixtureFileReadError> {
+    let limit = limit.min(MAX_FILE_BYTES);
     let file = fs::File::open(path).map_err(|_| FixtureFileReadError::Io)?;
-    let mut bytes = Vec::with_capacity(8192);
-    file.take((MAX_FILE_BYTES as u64).saturating_add(1))
+    let mut bytes = Vec::with_capacity(8192.min(limit.saturating_add(1)));
+    file.take((limit as u64).saturating_add(1))
         .read_to_end(&mut bytes)
         .map_err(|_| FixtureFileReadError::Io)?;
-    if bytes.len() > MAX_FILE_BYTES {
+    if bytes.len() > limit {
         return Err(FixtureFileReadError::TooLarge);
     }
     Ok(bytes)
@@ -398,11 +399,22 @@ pub fn load_fixture_documents(directory: &Path) -> Result<BTreeMap<String, Value
 
     for (key, filename) in FIXTURE_FILES {
         let path = directory.join(filename);
-        let bytes = match read_limited_fixture_file(&path) {
+        let remaining_total = MAX_TOTAL_BYTES.saturating_sub(total_bytes);
+        if remaining_total == 0 {
+            errors.push("fixture package exceeds total byte limit".to_owned());
+            break;
+        }
+        let read_limit = MAX_FILE_BYTES.min(remaining_total);
+        let package_limit_applies = remaining_total < MAX_FILE_BYTES;
+        let bytes = match read_limited_fixture_file(&path, read_limit) {
             Ok(bytes) => bytes,
             Err(FixtureFileReadError::Io) => {
                 errors.push(format!("{filename}: required fixture file could not be read"));
                 continue;
+            }
+            Err(FixtureFileReadError::TooLarge) if package_limit_applies => {
+                errors.push("fixture package exceeds total byte limit".to_owned());
+                break;
             }
             Err(FixtureFileReadError::TooLarge) => {
                 errors.push(format!("{filename}: input exceeds per-file byte limit"));
@@ -1482,7 +1494,26 @@ mod tests {
             .expect("oversized fixture should be written");
 
         assert_eq!(
-            read_limited_fixture_file(&path),
+            read_limited_fixture_file(&path, MAX_FILE_BYTES),
+            Err(FixtureFileReadError::TooLarge)
+        );
+        fs::remove_dir_all(&dir).expect("temporary directory should be cleaned up");
+    }
+
+    #[test]
+    fn bounded_fixture_reader_respects_a_smaller_remaining_package_budget() {
+        let dir = std::env::temp_dir().join(format!(
+            "mycelix-fixture-validator-budget-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("temporary directory should be created");
+        let path = dir.join("over-budget.json");
+        fs::write(&path, vec![b'x'; 65]).expect("fixture bytes should be written");
+
+        assert_eq!(
+            read_limited_fixture_file(&path, 64),
             Err(FixtureFileReadError::TooLarge)
         );
         fs::remove_dir_all(&dir).expect("temporary directory should be cleaned up");
