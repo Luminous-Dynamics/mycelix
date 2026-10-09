@@ -74,6 +74,7 @@ The normal provider seam test stays offline/lock-preserving:
 ```sh
 cd mycelix-identity
 cargo test --locked -p mycelix-crypto --no-default-features --features mldsa-verify-rc --lib
+cargo test --locked -p mycelix-crypto --no-default-features --features hybrid-rc --lib hybrid_sig::tests
 ```
 
-The independent corpus target should be added only with a committed lockfile and committed fixture digests; do not generate or silently modify a lockfile during the qualification job. Keep the differential verifier as a dev-only dependency and use a separate, explicit qualification target so the production dependency graph does not acquire Libcrux merely to gain assurance evidence. The standalone provider tests should run with `mldsa-verify-rc`; test the high-level `hybrid-rc` composition separately.
+The first command isolates the provider seam; the second protects the high-level hybrid consumer that delegates to it. Both must pass on the exact head. The independent corpus target should be added only with a committed lockfile and committed fixture digests; do not generate or silently modify a lockfile during the qualification job. Keep the differential verifier as a dev-only dependency and use a separate, explicit qualification target so the production dependency graph does not acquire Libcrux merely to gain assurance evidence.
