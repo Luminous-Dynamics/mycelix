@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "9d1ebc6fca584f5a9e2f2c641c87d062c2f35f77"
+SOURCE_COMMIT = "f1f0b474f2e5dcf45b1d14948bca85c02cd0e6ef"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 
 REQUIRED_IDS = {
@@ -58,6 +58,9 @@ REQUIRED_IDS = {
     "DA031-fork-evidence-tail-truncated",
     "DA032-fork-evidence-tail-pointer-tampered",
     "DA033-fork-evidence-append-refuses-corrupt-tail",
+    "DA034-legacy-fork-meta-migration-valid",
+    "DA035-legacy-fork-meta-migration-rejects-corruption",
+    "DA036-startup-integrity-detects-fork-tail-truncation",
 }
 
 
@@ -381,6 +384,46 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
                 else "ExternalAnchorMismatch"
             )
         return "AnchorNotAhead"
+
+    if kind == "legacy_fork_meta_migration":
+        chain = vector.get("stored_chain")
+        if (
+            type(vector.get("schema_user_version")) is not int
+            or vector.get("has_existing_adapter_schema") is not True
+            or vector.get("metadata_present") is not False
+            or type(vector.get("expected_schema_user_version_after")) is not int
+        ):
+            return "InvalidInput"
+        if not isinstance(chain, list) or not valid_fork_chain(chain):
+            return "CorruptForkEvidence"
+        if vector.get("stored_count") != len(chain):
+            return "CorruptForkEvidence"
+        if vector["schema_user_version"] not in (0, 1):
+            return "UnsupportedSchemaVersion"
+        if vector.get("expected_outcome") == "MigrateLegacyForkMetadata":
+            if vector["expected_schema_user_version_after"] != 2:
+                return "InvalidInput"
+            return "MigrateLegacyForkMetadata"
+        if vector["expected_schema_user_version_after"] != vector["schema_user_version"]:
+            return "InvalidInput"
+        return "CorruptForkEvidence"
+
+    if kind == "semantic_integrity_check_fork_tail":
+        chain = vector.get("stored_chain")
+        if not isinstance(chain, list) or not valid_fork_chain(chain):
+            return "CorruptForkEvidence"
+        if vector.get("stored_count") != len(chain):
+            return "CorruptForkEvidence"
+        if vector.get("metadata_count") != vector.get("stored_count"):
+            return "CorruptForkEvidence"
+        try:
+            tail = parse_digest(vector["metadata_tail_digest"], "metadata_tail_digest")
+            actual_tail = parse_digest(chain[-1]["digest"], "stored chain tail")
+        except (KeyError, IndexError, TypeError, ValueError):
+            return "CorruptForkEvidence"
+        if tail != actual_tail or vector.get("checks_all_log_tables") is not True:
+            return "CorruptForkEvidence"
+        return "VALID_SEMANTIC_INTEGRITY"
 
     if kind in {"fork_evidence_tail_integrity", "fork_evidence_append_after_corruption"}:
         chain = vector.get("stored_chain")
