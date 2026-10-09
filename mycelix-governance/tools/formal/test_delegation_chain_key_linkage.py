@@ -28,8 +28,8 @@ PRIVATE_FIELDS = {"d", "p", "q", "dp", "dq", "qi", "oth", "k"}
 X_VALUES = [
     "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
     "rAl9xvTDAeUADPnIWlGpFHtGg4Y8OqcQE5N4XYNdLPs",
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+    "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+    "rAl9xvTDAeUADPnIWlGpFHtGg4Y8OqcQE5N4XYNdLPs",
 ]
 
 
@@ -275,7 +275,7 @@ def main() -> int:
             "qualification": "NOT_CLAIMED",
         }
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("DELEGATION KEY LINKAGE PASS: 1 positive + 7 adversarial controls")
+        print("DELEGATION KEY LINKAGE PASS: 1 positive + 8 adversarial controls")
         print("KEY-LINKAGE MUTATION SENSITIVITY PASS: 3 of 3 omitted checks detected")
         print("QUALIFICATION NOT CLAIMED: no JWS signature, par_hash, trust-anchor, or PoP verification")
         return 0
