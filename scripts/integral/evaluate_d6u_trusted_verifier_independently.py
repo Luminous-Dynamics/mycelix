@@ -12,10 +12,12 @@ import argparse
 import hashlib
 import json
 import importlib.util
+import os
 import pathlib
 import subprocess
 import tempfile
 import sys
+from unittest.mock import patch
 
 
 def load_module(path: pathlib.Path):
@@ -220,6 +222,116 @@ def verify_candidate_policy(
     )
 
 
+def exercise_main_record_guards(
+    verifier,
+    candidate_root: pathlib.Path,
+    candidate_policy: dict,
+    record: dict[str, str],
+) -> None:
+    repository = candidate_policy["repository_identity"]["full_name"]
+    valid_record = dict(record)
+    valid_record["status"] = "runtime-reference-evidence"
+    valid_record["attestation_status"] = "deferred-to-trusted-builder"
+
+    with tempfile.TemporaryDirectory() as scratch:
+        scratch_path = pathlib.Path(scratch)
+        policy_path = scratch_path / "policy.json"
+        policy_path.write_text(
+            json.dumps(candidate_policy, sort_keys=True), encoding="utf-8"
+        )
+        event_path = scratch_path / "event.json"
+        executor_cfg = candidate_policy["executor_workflow"]
+        repo_id = candidate_policy["repository_identity"]["repository_id"]
+        event_path.write_text(
+            json.dumps(
+                {
+                    "repository": {"full_name": repository},
+                    "workflow_run": {
+                        "name": executor_cfg["name"],
+                        "path": executor_cfg["path"],
+                        "event": "workflow_run",
+                        "conclusion": "success",
+                        "repository": {"full_name": repository, "id": repo_id},
+                        "head_repository": {"full_name": repository, "id": repo_id},
+                        "head_branch": "main",
+                        "head_sha": valid_record["executor_workflow_commit_sha"],
+                        "id": int(valid_record["executor_run_id"]),
+                        "run_attempt": int(valid_record["executor_run_attempt"]),
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        artifact_dir = scratch_path / "artifacts"
+        artifact_dir.mkdir()
+        evidence_path = artifact_dir / "d6u-runtime-evidence.txt"
+        test_log_path = artifact_dir / "d6u-runtime-test.log"
+        lock_path = artifact_dir / "Cargo.lock"
+        for path in (evidence_path, test_log_path, lock_path):
+            path.write_text("fixture\\n", encoding="utf-8")
+
+        manifest_bytes = b"[package]\\nname='fixture'\\nversion='0.1.0'\\nedition='2021'\\n"
+        expected_manifest_blob = candidate_policy["required_source_blobs"][
+            candidate_policy["lock_graph"]["manifest_path"]
+        ]
+
+        def invoke_main(observed_record: dict[str, str]) -> None:
+            with (
+                patch.object(verifier, "POLICY", policy_path),
+                patch.dict(
+                    os.environ,
+                    {
+                        "GITHUB_EVENT_PATH": str(event_path),
+                        "GITHUB_REPOSITORY": repository,
+                        "GITHUB_TOKEN": "fixture-token",
+                        "GITHUB_WORKFLOW_REF": (
+                            f"{repository}/.github/workflows/"
+                            "d6u-trusted-evidence-attestation.yml@refs/heads/main"
+                        ),
+                        "GITHUB_WORKFLOW_SHA": "c" * 40,
+                    },
+                    clear=True,
+                ),
+                patch.object(sys, "argv", [str(candidate_root), str(artifact_dir)]),
+                patch.object(verifier, "verify_trusted_workflow_identity"),
+                patch.object(verifier, "verify_executor_workflow_against_run_head"),
+                patch.object(verifier, "verify_artifact_layout"),
+                patch.object(verifier, "verify_artifact_size_limits"),
+                patch.object(verifier, "load_record", return_value=observed_record),
+                patch.object(verifier, "verify_record_metadata"),
+                patch.object(verifier, "verify_executor_workflow_identity"),
+                patch.object(
+                    verifier,
+                    "verify_trigger_run",
+                    return_value={"head_sha": observed_record["source_commit"]},
+                ),
+                patch.object(verifier, "sha256", return_value="b" * 64),
+                patch.object(verifier, "verify_cases"),
+                patch.object(verifier, "contents_bytes_from_api", return_value=manifest_bytes),
+                patch.object(verifier, "_git_blob_sha1", return_value=expected_manifest_blob),
+                patch.object(verifier, "verify_lock"),
+            ):
+                verifier.main()
+
+        invoke_main(valid_record)
+
+        bad_status = dict(valid_record)
+        bad_status["status"] = "passed"
+        assert_rejected(
+            lambda: invoke_main(bad_status),
+            "runtime evidence status mismatch",
+            "candidate verifier accepted a record with the wrong main-path status",
+        )
+
+        bad_handoff = dict(valid_record)
+        bad_handoff["attestation_status"] = "passed"
+        assert_rejected(
+            lambda: invoke_main(bad_handoff),
+            "trusted-builder handoff status mismatch",
+            "candidate verifier accepted an incorrect trusted-builder handoff status",
+        )
+
+
 def run(candidate_root: pathlib.Path) -> None:
     verifier_path = candidate_root / "scripts/integral/verify_d6u_trusted_artifacts.py"
     assert verifier_path.is_file(), f"candidate verifier missing: {verifier_path}"
@@ -272,6 +384,8 @@ def run(candidate_root: pathlib.Path) -> None:
 
     record = valid_record()
     verifier.verify_record_metadata(record, p)
+
+    exercise_main_record_guards(verifier, candidate_root, candidate_policy, record)
 
     repository = "Luminous-Dynamics/mycelix"
     trigger_run = {
