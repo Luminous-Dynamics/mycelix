@@ -81,13 +81,13 @@ def verify_contract(package_raw: str, lock_raw: str) -> dict:
         resolved = entry.get("resolved")
         if not isinstance(resolved, str) or not resolved:
             raise InputContractError(f"package entry lacks resolved source URL: {key}")
-        parsed_url = urlsplit(resolved)
+        try:
+            parsed_url = urlsplit(resolved)
+        except ValueError as exc:
+            raise InputContractError(f"package entry has a malformed source URL: {key}") from exc
         if (
             parsed_url.scheme != "https"
-            or parsed_url.hostname != EXPECTED_REGISTRY
-            or parsed_url.username is not None
-            or parsed_url.password is not None
-            or parsed_url.port is not None
+            or parsed_url.netloc != EXPECTED_REGISTRY
             or not parsed_url.path
             or parsed_url.query
             or parsed_url.fragment
