@@ -1045,17 +1045,27 @@ async fn test_capability_grant_and_revocation_lifecycle() {
     // is not. Retry only the app-state assertion while the update integrates.
     let mut projection_denies = false;
     for attempt in 0..30 {
-        let app_projection: bool = conductor
+        let app_projection: Result<bool, _> = conductor
             .call_fallible(
                 &bob.zome("mail_capabilities"),
                 "verify_capability",
                 (capability_hash.clone(), AuditActionInput::ReadEmail),
             )
-            .await
-            .expect("application capability projection should be readable");
-        if !app_projection {
-            projection_denies = true;
-            break;
+            .await;
+        match app_projection {
+            Ok(false) => {
+                projection_denies = true;
+                break;
+            }
+            Ok(true) => {
+                // A positive projection is still not an authority proof; the
+                // remote conductor call above has already established Unauthorized.
+            }
+            Err(error) if format!("{error:?}").contains("Capability state is unknown") => {
+                // Delayed/missing DHT update evidence must remain unknown, not be
+                // collapsed into an active result. Retry until the projection resolves.
+            }
+            Err(error) => panic!("Unexpected capability projection error: {error:?}"),
         }
         if attempt < 29 {
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
