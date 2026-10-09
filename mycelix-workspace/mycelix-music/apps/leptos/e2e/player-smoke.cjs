@@ -95,6 +95,13 @@ async function main() {
 
     assert.equal(await page.locator('.player-title').innerText(), 'Decentralized Dreams');
 
+    // Observe natural end independently of the app handler so Repeat One
+    // must demonstrate that it really restarted the media element.
+    await page.locator('audio').evaluate(audio => {
+      window.__naturalEndedCount = 0;
+      audio.addEventListener('ended', () => { window.__naturalEndedCount += 1; });
+    });
+
     // Exercise the real range input against finite media metadata. Dispatching
     // input through the DOM keeps the test deterministic while still invoking
     // the same handler as a user-driven slider interaction.
@@ -116,6 +123,20 @@ async function main() {
     await page.getByRole('button', { name: 'Repeat off' }).click();
     await page.getByRole('button', { name: 'Repeat all' }).click();
     await page.getByRole('button', { name: 'Repeat one' }).click();
+
+    // Force the active resource close to its real end, then require the
+    // natural-ended event to trigger an actual restart under Repeat One.
+    await page.locator('audio').evaluate(audio => {
+      audio.currentTime = Math.max(0, audio.duration - 0.2);
+    });
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      return window.__naturalEndedCount > 0
+        && audio
+        && !audio.paused
+        && audio.currentTime > 0
+        && audio.currentTime < 2;
+    }, null, { timeout: 10000 });
 
     // The first attempt for track two returns HTTP 503. The UI should settle
     // into its stopped/error state with the seek duration invalidated.
@@ -229,6 +250,7 @@ async function main() {
       scenarios: [
         'catalog play selects and starts exact media URL',
         'seek applies a finite target to the real media element',
+        'Repeat One restarts after natural end',
         'Repeat One does not block manual Next',
         'queue Next handles deterministic media failure',
         'explicit Play retries the same failed resource',
