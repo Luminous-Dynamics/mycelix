@@ -6,7 +6,7 @@
   "source_adapter_commit": "19b58d053073a121c8f2cd5378dcd4644cf036ec",
   "fixture_path": "docs/integral/civ-013-durable-witness-conformance-v1.json",
   "verifier_path": "scripts/integral/verify_civ013_durable_witness_conformance_v1.py",
-  "expected_vector_count": 24,
+  "expected_vector_count": 26,
   "required_vector_ids": [
     "DA001-bootstrap-record",
     "DA002-successor-record",
@@ -31,7 +31,9 @@
     "DA021-fork-chain-cross-log",
     "DA022-generation-signed-range-overflow",
     "DA023-receipt-sequence-signed-range-overflow",
-    "DA024-recovery-equal-generation-missing-local-digest"
+    "DA024-recovery-equal-generation-missing-local-digest",
+    "DA025-late-finalize-current-head-pointer-valid",
+    "DA026-late-finalize-current-head-pointer-mismatch"
   ],
   "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback."
 }
