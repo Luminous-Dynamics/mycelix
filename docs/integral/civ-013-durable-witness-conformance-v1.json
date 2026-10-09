@@ -2,7 +2,7 @@
   "spec_version": "civ-013-durable-adapter-v1",
   "profile_id": "civ-013-durable-adapter-v1",
   "source_repository": "Luminous-Dynamics/symthaea",
-  "source_adapter_commit": "e0050a60679aac7b737a7eb4d92c263fabd7aad7",
+  "source_adapter_commit": "144a75ddf607b1194e8c9e0e255e060fca1c47f3",
   "encoding": {
     "digest": "SHA-256",
     "integer_encoding": "unsigned big-endian",
@@ -683,6 +683,20 @@
       "accepted_head_unchanged": true,
       "prepared_candidate_created": false,
       "expected_fork_row_inserted": false
+    },
+    {
+      "id": "DA044-receipt-sequence-overflow-is-state-mutation-free",
+      "kind": "receipt_sequence_range_guard",
+      "expected_outcome": "RejectBeforeStateMutation",
+      "receipt_sequence": 9223372036854775808,
+      "sqlite_integer_max": 9223372036854776000,
+      "expected_error": "receipt sequence exceeds SQLite INTEGER range",
+      "input_validation_before_recovery": true,
+      "anchor_reads_after_attempt": 0,
+      "external_anchor_unchanged": true,
+      "local_accepted_records_after": 0,
+      "local_prepared_records_after": 0,
+      "integrity_check_after": "ok"
     }
   ],
   "claim_ceiling": "Durable-adapter golden-reference and abstract-transition conformance only. Local fork-evidence count/tail metadata detects inconsistent surviving state but is not independently anchored; coordinated erasure or rollback of both fork-evidence rows and local metadata is outside this claim. Does not establish actual SQLite tests passed, filesystem crash/power-loss durability, a genuine independent external anchor, bootstrap caller authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback."
