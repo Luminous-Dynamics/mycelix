@@ -595,36 +595,36 @@ jobs:
           if [[ "$status" -eq 0 ]]; then
             set +e
             graph_summary="$(python3 - security-nix-sdk/sdk-derivation-graph.json <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as handle:
-    graph = json.load(handle)
-if not isinstance(graph, dict) or not graph:
-    raise SystemExit("recursive derivation graph is empty or malformed")
-root_matches = [
-    (store_path, drv)
-    for store_path, drv in graph.items()
-    if isinstance(drv, dict) and drv.get("name") == "mycelix-sdk-ts-0.6.0"
-]
-if len(root_matches) != 1:
-    raise SystemExit(f"expected exactly one SDK root derivation; found {len(root_matches)}")
-root_path, root = root_matches[0]
-root_inputs = root.get("inputDrvs", {})
-if not isinstance(root_inputs, dict) or not root_inputs:
-    raise SystemExit("SDK root derivation has no recorded input derivations")
-if not all(isinstance(key, str) and key.endswith(".drv") for key in graph):
-    raise SystemExit("recursive derivation graph contains a non-derivation key")
-transitive_input_edges = sum(
-    len(drv.get("inputDrvs", {}))
-    for drv in graph.values()
-    if isinstance(drv, dict) and isinstance(drv.get("inputDrvs", {}), dict)
-)
-print(f"sdk_ts_drv_path={root_path}")
-print(f"sdk_ts_derivation_count={len(graph)}")
-print(f"sdk_ts_root_input_derivation_count={len(root_inputs)}")
-print(f"sdk_ts_transitive_input_edge_count={transitive_input_edges}")
-PY
+          import json
+          import sys
+          
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              graph = json.load(handle)
+          if not isinstance(graph, dict) or not graph:
+              raise SystemExit("recursive derivation graph is empty or malformed")
+          root_matches = [
+              (store_path, drv)
+              for store_path, drv in graph.items()
+              if isinstance(drv, dict) and drv.get("name") == "mycelix-sdk-ts-0.6.0"
+          ]
+          if len(root_matches) != 1:
+              raise SystemExit(f"expected exactly one SDK root derivation; found {len(root_matches)}")
+          root_path, root = root_matches[0]
+          root_inputs = root.get("inputDrvs", {})
+          if not isinstance(root_inputs, dict) or not root_inputs:
+              raise SystemExit("SDK root derivation has no recorded input derivations")
+          if not all(isinstance(key, str) and key.endswith(".drv") for key in graph):
+              raise SystemExit("recursive derivation graph contains a non-derivation key")
+          transitive_input_edges = sum(
+              len(drv.get("inputDrvs", {}))
+              for drv in graph.values()
+              if isinstance(drv, dict) and isinstance(drv.get("inputDrvs", {}), dict)
+          )
+          print(f"sdk_ts_drv_path={root_path}")
+          print(f"sdk_ts_derivation_count={len(graph)}")
+          print(f"sdk_ts_root_input_derivation_count={len(root_inputs)}")
+          print(f"sdk_ts_transitive_input_edge_count={transitive_input_edges}")
+          PY
 )"
             summary_status=$?
             set -e
