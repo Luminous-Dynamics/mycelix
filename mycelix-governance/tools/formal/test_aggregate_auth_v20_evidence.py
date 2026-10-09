@@ -476,6 +476,8 @@ def main() -> int:
         receipt["test_sha256"] = hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest()
         require(tuple(aggregator.REQUIRED_RECEIPTS) == FROZEN_REQUIRED_RECEIPTS,
                 "aggregator required receipt inventory differs from independently frozen inventory")
+        require(tuple(aggregator.EXPECTED_POP_CONTROL_IDS) == FROZEN_POP_CONTROL_IDS,
+                "aggregator PoP control identity inventory differs from independent frozen inventory")
         require(aggregator.EXPECTED_SOURCE_HASH_FIELDS == FROZEN_SOURCE_HASH_FIELDS,
                 "aggregator source-hash field/path inventory differs from independent frozen inventory")
         with tempfile.TemporaryDirectory(prefix="mycelix-auth-v20-aggregate-") as temporary:
