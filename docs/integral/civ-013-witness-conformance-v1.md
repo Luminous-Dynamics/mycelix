@@ -9,7 +9,7 @@
 
 ## Purpose
 
-These deterministic vectors establish a shared reference for canonical witness-record encoding and selected protocol outcomes across Symthaea and Mycelix. Version 1 now covers 19 vectors, including cross-log successor rejection, monotonic receipt-tail history, invalid candidate-tail shape, and explicit bootstrap-anchor binding. The checker is intentionally implemented separately from the Rust producer model, using only Python's standard library. It consumes serialized fixture bytes/fields and expected results; it does not import or execute the Rust reducer.
+These deterministic vectors establish a shared reference for canonical witness-record encoding and selected protocol outcomes across Symthaea and Mycelix. Version 1 now covers 22 vectors, including cross-log successor rejection, monotonic receipt-tail history, invalid candidate-tail shape, explicit bootstrap-anchor binding, and external-anchor recovery conflicts. The checker is intentionally implemented separately from the Rust producer model, using only Python's standard library. It consumes serialized fixture bytes/fields and expected results; it does not import or execute the Rust reducer.
 
 This is a compatibility starting point. Before treating v1 as normative production wire format, both projects must review and accept its field semantics, compatibility policy, and trust assumptions. No production storage implementation should be assumed from this fixture suite alone.
 
@@ -56,6 +56,9 @@ The canonical record digest binds the accepted-record fields. It is not a digita
 | V017 | REJECT_RECEIPT_TAIL_HISTORY_INVALID | A rehashed committed chain changes the digest at the same sequence |
 | V018 | REJECT_BAD_RECEIPT_TAIL | Sequence zero cannot carry a tail digest |
 | V019 | REJECT_UNTRUSTED_BOOTSTRAP | A valid record/marker cannot override a separately supplied trust anchor |
+| V020 | REJECT_EXTERNAL_ANCHOR_MISMATCH | Same generation but different local/anchor digests is a conflict |
+| V021 | PENDING_EXTERNAL_ANCHOR | Local commit exists but the external anchor has not advanced |
+| V022 | REJECT_EXTERNAL_ANCHOR_MISMATCH | Anchor for a different log identity cannot authorize recovery |
 
 ## Required interpretation rules
 
