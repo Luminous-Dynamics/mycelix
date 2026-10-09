@@ -299,7 +299,7 @@ jobs:
         with:
           workspaces: mycelix-identity
       - name: Test standalone ML-DSA-65 verifier (RustCrypto feature)
-        run: cd mycelix-identity && cargo test --locked -p mycelix-crypto --features hybrid-rc
+        run: cd mycelix-identity && cargo test --locked -p mycelix-crypto --features mldsa-verify-rc
       - name: Test identity
         run: cd mycelix-identity && cargo test --workspace
 
