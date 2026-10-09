@@ -13,6 +13,7 @@ import { MessagesZomeClient } from './zomes/messages';
 import { TrustZomeClient } from './zomes/trust';
 import { SyncZomeClient } from './zomes/sync';
 import { FederationZomeClient } from './zomes/federation';
+import { CapabilitiesZomeClient } from './zomes/capabilities';
 
 // Signal handling
 import { SignalHub, createSignalEmitter } from './signals/SignalHub';
@@ -23,6 +24,7 @@ export { MessagesZomeClient } from './zomes/messages';
 export { TrustZomeClient } from './zomes/trust';
 export { SyncZomeClient } from './zomes/sync';
 export { FederationZomeClient } from './zomes/federation';
+export { CapabilitiesZomeClient } from './zomes/capabilities';
 export { SignalHub, createSignalEmitter } from './signals/SignalHub';
 
 /**
@@ -33,6 +35,7 @@ export class MycelixMailClient {
   public readonly trust: TrustZomeClient;
   public readonly sync: SyncZomeClient;
   public readonly federation: FederationZomeClient;
+  public readonly capabilities: CapabilitiesZomeClient;
   public readonly signals: SignalHub;
 
   private _myAgentPubKey: AgentPubKey | null = null;
@@ -45,6 +48,7 @@ export class MycelixMailClient {
     this.trust = new TrustZomeClient(client, roleName);
     this.sync = new SyncZomeClient(client, roleName);
     this.federation = new FederationZomeClient(client, roleName);
+    this.capabilities = new CapabilitiesZomeClient(client, roleName);
     this.signals = new SignalHub(client);
   }
 
