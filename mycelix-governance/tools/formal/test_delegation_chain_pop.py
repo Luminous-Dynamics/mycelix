@@ -159,7 +159,7 @@ def invoke(raw: dict[str, Any], anchors: list[dict[str, Any]], pop_token: str,
            db_path: Path, *, tool: Any = TOOL, args: Any = ARGS,
            expected_audience: str | None = AUDIENCE,
            trusted_now: int | None = None) -> dict[str, Any]:
-    enforcement_now = raw["now"] if trusted_now is None else trusted_now
+    enforcement_now = NOW if trusted_now is None else trusted_now
     return pop_verifier.verify_chain_invocation(
         raw, anchors, tool, args, pop_token,
         replay_database=db_path, replay_scope="tools.example.test",
@@ -337,7 +337,7 @@ def main() -> int:
                 root / "valid-positive", keys[3]["private_path"],
                 "aat-leaf-chain-2", jti="pop-valid-0001", iat=NOW + 1000,
             )
-            later_replay = invoke(later_raw, anchors, later_proof, database)
+            later_replay = invoke(later_raw, anchors, later_proof, database, trusted_now=NOW + 1000)
             require(later_replay.get("status") == "INVOCATION_DENIED"
                     and expected_code(later_replay) == "pop-jti-replay",
                     "fresh proof reused a consumed jti after the original clock window")
