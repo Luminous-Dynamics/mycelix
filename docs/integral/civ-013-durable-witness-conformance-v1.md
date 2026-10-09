@@ -86,6 +86,7 @@ The profile's transition vectors are an independent abstract reference for these
 | DA022–DA023 | RejectSqliteIntegerRange | Adapter rejection of generation or receipt sequence above SQLite's signed-integer maximum |
 | DA044 | RejectBeforeStateMutation | An oversized receipt sequence is rejected during input validation, before any anchor read, prepared/accepted row write, or external-anchor change; SQLite integrity remains `ok` |
 | DA045 | RejectBeforeStateMutation | An unrepresentable successor generation is rejected before recovery performs any anchor read or local state mutation; SQLite integrity remains `ok` |
+| DA046 | ConsistentSnapshotMaintained | Integrity queries observe one WAL snapshot while a concurrent writer commits, then a fresh snapshot verifies the successor |
 | DA024 | ExternalAnchorMismatch | Equal-generation recovery fails closed when the local accepted-head digest is absent |
 | DA025 | IdempotentAcceptedHistory | Late finalization confirms that the metadata pointer matches the accepted current-head row |
 | DA026 | CorruptCurrentHeadMetadata | Late finalization rejects a well-formed but incorrect metadata head digest |
@@ -199,3 +200,8 @@ DA044 is backed by a Rust regression that supplies `i64::MAX + 1` on an otherwis
 ## Generation integer boundary
 
 DA045 is backed by a Rust regression that supplies `i64::MAX` as the expected generation. Its successor would exceed SQLite's signed-integer range, so the adapter returns `GenerationOverflow` before calling recovery or reading the independent anchor. The regression asserts zero anchor reads, unchanged genesis anchor state, zero accepted/prepared records, and successful physical/semantic integrity checking.
+
+
+## Consistent-snapshot integrity validation
+
+DA046 covers two legitimate database views, not corruption. The integrity reader establishes a WAL read snapshot at generation one; a second connection commits generation two; all integrity, foreign-key, log-enumeration, and semantic-history checks within the original transaction must still see generation one and return `ok`. After that read transaction ends, the public integrity check takes a fresh snapshot and sees generations one and two, also returning `ok`. This prevents a healthy concurrent commit from producing a mixed-view false corruption report; it is not a power-loss durability claim.
