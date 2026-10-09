@@ -169,7 +169,7 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
             "qualification": "NOT_CLAIMED",
         },
     }
-    aggregate_guard_path.write_text(json.dumps(guard, sort_keys=True, indent=2) + "\\n", encoding="utf-8")
+    aggregate_guard_path.write_text(json.dumps(guard, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     return objects
 
 
