@@ -923,9 +923,12 @@ pub enum CapabilityProbeResult {
 }
 
 /// Find the private source-chain claim corresponding to one grantor + capability tag.
-/// Resolve a capability's current application state by walking valid update actions.
+/// Resolve the latest capability update visible to this cell by walking update actions.
 /// A get(original_hash) returns the original record; it does not automatically follow
-/// updates, so all security decisions and list projections must use this resolver.
+/// updates. This is an application projection, NOT proof of globally current DHT state:
+/// conductor CapGrant enforcement remains authoritative for protected remote calls.
+/// If an update is referenced but its evidence is unavailable/incomplete, return an
+/// explicit error rather than silently treating the older projection as current.
 fn resolve_latest_capability(
     capability_hash: ActionHash,
 ) -> ExternResult<(ActionHash, MailboxCapability)> {
@@ -953,10 +956,14 @@ fn resolve_latest_capability(
 
     while let Some(parent_hash) = frontier.pop() {
         let Some(details) = get_details(parent_hash, GetOptions::default())? else {
-            continue;
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Capability state is unknown: update details are unavailable; refusing a potentially stale projection".to_string(),
+            )));
         };
         let Details::Record(details) = details else {
-            continue;
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Capability state is unknown: update details did not resolve to record details".to_string(),
+            )));
         };
 
         for update in details.updates {
@@ -965,14 +972,18 @@ fn resolve_latest_capability(
                 continue;
             }
             let Some(update_record) = get(update_hash.clone(), GetOptions::default())? else {
-                continue;
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Capability state is unknown: a referenced update record is unavailable".to_string(),
+                )));
             };
             let Some(updated_capability) = update_record
                 .entry()
                 .to_app_option::<MailboxCapability>()
                 .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
             else {
-                continue;
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Capability state is unknown: a referenced update does not contain a readable MailboxCapability entry".to_string(),
+                )));
             };
 
             let action_seq = update_record.action().action_seq();
