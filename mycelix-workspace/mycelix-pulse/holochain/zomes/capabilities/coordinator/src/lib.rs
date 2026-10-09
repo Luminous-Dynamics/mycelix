@@ -415,6 +415,58 @@ mod capability_policy_tests {
     use super::*;
 
     #[test]
+    fn no_data_probe_is_included_only_for_read_capabilities() {
+        let probe = (
+            ZomeName::from("mail_messages"),
+            FunctionName::from("capability_probe_v1"),
+        );
+
+        let read_permissions = MailboxPermissions {
+            can_read: true,
+            ..MailboxPermissions::default()
+        };
+        let read_grant = determine_granted_functions(
+            &MailboxAccessType::ReadOnly,
+            &read_permissions,
+            None,
+        )
+        .expect("read-only grant should be supported");
+        match read_grant {
+            GrantedFunctions::Listed(functions) => {
+                assert!(
+                    functions.contains(&probe),
+                    "read grant must include the no-data authorization probe"
+                );
+            }
+            GrantedFunctions::All => {
+                panic!("capability must not receive an unrestricted function grant");
+            }
+        }
+
+        let send_permissions = MailboxPermissions {
+            can_send: true,
+            ..MailboxPermissions::default()
+        };
+        let send_grant = determine_granted_functions(
+            &MailboxAccessType::SendAs,
+            &send_permissions,
+            None,
+        )
+        .expect("send-only grant should be supported");
+        match send_grant {
+            GrantedFunctions::Listed(functions) => {
+                assert!(
+                    !functions.contains(&probe),
+                    "send-only grant must not include the read capability probe"
+                );
+            }
+            GrantedFunctions::All => {
+                panic!("capability must not receive an unrestricted function grant");
+            }
+        }
+    }
+
+    #[test]
     fn future_actions_fail_closed() {
         let permissions = MailboxPermissions::default();
         assert!(!is_action_permitted(
