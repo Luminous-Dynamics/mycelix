@@ -308,7 +308,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
         FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(OpUpdate::Entry { app_entry, action }) => match app_entry {
+            EntryTypes::PreKeyBundle(bundle) => validate_update_pre_key_bundle(
+                bundle,
+                action.original_action_address.clone(),
+            ),
+            _ => Ok(ValidateCallbackResult::Invalid(
+                "Only pre-key bundles have a supported update path".to_string(),
+            )),
+        },
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported key update variant".to_string(),
+        )),
         FlatOp::Delete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
