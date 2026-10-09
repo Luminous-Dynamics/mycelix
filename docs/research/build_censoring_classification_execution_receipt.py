@@ -19,7 +19,7 @@ REPORT_PAIRS=[
  ("audit-bundle-v1","audit-bundle-python.json","audit-bundle-node.json",18),
  ("cose-receipts","cose-receipt-python.json","cose-receipt-node.json",22),
  ("partitioned-gossip-simulation","gossip-simulation-python.json","gossip-simulation-node.json",8),
- ("audit-bundle-v2","audit-bundle-v2-python.json","audit-bundle-v2-node.json",32),
+ ("audit-bundle-v2","audit-bundle-v2-python.json","audit-bundle-v2-node.json",34),
 ]
 SUPPORTING=[("generated-corpus-a","generated-a.json",168),("generated-corpus-b","generated-b.json",168)]
 
