@@ -115,7 +115,8 @@ def validate_receipt(receipt_path:Path,artifact_root:Path,event_path:Path):
         if not path.is_file():return None,"supporting-input-missing:"+name
         raw=path.read_bytes();obj,err=read_json(path)
         if err:return None,"supporting-input-"+err
-        if not isinstance(obj,dict) or not isinstance(obj.get("cases"),list) or len(obj["cases"])!=count:return None,"supporting-input-case-count:"+name
+        cases=obj if isinstance(obj,list) else (obj.get("cases") if isinstance(obj,dict) else None)
+        if not isinstance(cases,list) or len(cases)!=count:return None,"supporting-input-case-count:"+name
         entries=support
         pin=next((x for x in entries if x.get("name")==name),None)
         if not pin or pin.get("file")!=rel or pin.get("sha256")!=sha(raw) or pin.get("case_count")!=count:return None,"supporting-input-pin:"+name
