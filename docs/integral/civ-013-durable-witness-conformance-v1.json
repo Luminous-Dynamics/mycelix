@@ -663,7 +663,8 @@
       "expected_fork_evidence_count_after": 1,
       "accepted_head_unchanged": true,
       "prepared_candidate_created": false,
-      "expected_identical_retry_count": 2
+      "expected_identical_retry_count": 2,
+      "expected_recovery_error": "ExternalAnchorMismatch"
     }
   ],
   "claim_ceiling": "Durable-adapter golden-reference and abstract-transition conformance only. Local fork-evidence count/tail metadata detects inconsistent surviving state but is not independently anchored; coordinated erasure or rollback of both fork-evidence rows and local metadata is outside this claim. Does not establish actual SQLite tests passed, filesystem crash/power-loss durability, a genuine independent external anchor, bootstrap caller authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback."
