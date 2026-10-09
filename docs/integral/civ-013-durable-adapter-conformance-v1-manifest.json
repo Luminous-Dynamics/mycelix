@@ -2,15 +2,15 @@
   "schema_version": 1,
   "spec_version": "civ-013-durable-adapter-conformance-v1",
   "profile_id": "civ-013-durable-adapter-v1",
-  "source_adapter_commit": "19b58d053073a121c8f2cd5378dcd4644cf036ec",
+  "source_adapter_commit": "e259becc6cbb516b0750efd13464793f27f74f16",
   "fixture_path": "docs/integral/civ-013-durable-adapter-conformance-v1.json",
   "verifier_path": "scripts/integral/verify_civ013_durable_adapter_conformance_v1.py",
-  "checker_commit_sha": "da89de79a39f028ea97511829da8aa6e43847ce5",
-  "fixture_sha256": "e1b7ed10d9d1573d32ab0bdc999d7df5905d7415e4a38f44afb3664762ff775b",
-  "verifier_sha256": "f51e8cfef0d1eb6458fbb71c74abe9f56b6a05127fe31f7fd1c6ad1048a7b8f1",
+  "checker_commit_sha": "d562dd69556fb73a141fad6aca8590a5e3ea1e05",
+  "fixture_sha256": "94277a3cc4a74343db5c01ef48f98bb1e30f35ddb4b1081ca16f124eedeb5dcd",
+  "verifier_sha256": "845289561246ab8d97d9a53a37186d72ef19bc99b3ed8e2c93fe9378dde90fc5",
   "expected_record_count": 2,
   "expected_fork_evidence_count": 2,
-  "expected_state_vector_count": 13,
+  "expected_state_vector_count": 17,
   "required_vector_ids": [
     "DA001-bootstrap-record",
     "DA002-successor-record",
@@ -28,7 +28,11 @@
     "DA014-anchor-same-generation-digest-mismatch",
     "DA015-local-history-behind-anchor",
     "DA016-conflicting-prepared-candidate",
-    "DA017-late-finalize-historical-candidate"
+    "DA017-late-finalize-historical-candidate",
+    "DA018-same-generation-retry-tampered-head",
+    "DA019-late-finalize-corrupt-head-metadata",
+    "DA020-late-finalize-tampered-head-record",
+    "DA021-anchor-ahead-after-candidate-cas"
   ],
   "toolchain": "Python 3 standard library only; producer source commit pinned separately",
   "claim_ceiling": "Golden canonical-byte conformance and declared state expectations only; not proof that the Rust adapter tests passed, SQLite survives power loss, an independent anchor is implemented, signatures are authentic, or quorum/anti-rollback is production-qualified."
