@@ -75,5 +75,44 @@
     "F1 does not mutate F0.",
     "The new inventory observation does not make all of Supplier B inventory known outside its declared coverage.",
     "A newer calibrated energy observation does not by itself establish the uniquely true capacity."
+  ],
+  "frontier_cutoff_utc": "2026-06-01T12:20:00Z",
+  "added_sources": [
+    {
+      "source_ref": "source:warehouse-inspection-B-refresh",
+      "source_kind": "warehouse-inspection",
+      "source_scope": "supplier-B named facilities",
+      "trust_status": "UnassessedUnderProfile",
+      "source_dependency_status": "Unknown"
+    }
+  ],
+  "added_artifacts": [
+    {
+      "artifact_ref": "artifact:warehouse-inspection-B-refresh-20260601T1210Z",
+      "source_ref": "source:warehouse-inspection-B-refresh",
+      "captured_at_utc": "2026-06-01T12:12:00Z",
+      "media_type": "application/json",
+      "content_digest_ref": "digest:synthetic-warehouse-B-refresh-01",
+      "exact_selector": "$.inventory.available_pallet_positions",
+      "selector_profile": "jsonpath-subset-v1"
+    },
+    {
+      "artifact_ref": "artifact:energy-E1-calibration-refresh-20260601T1215Z",
+      "source_ref": "source:energy-E1",
+      "captured_at_utc": "2026-06-01T12:17:00Z",
+      "media_type": "application/json",
+      "content_digest_ref": "digest:synthetic-energy-E1-refresh-01",
+      "exact_selector": "$.capacity.available_mw",
+      "selector_profile": "jsonpath-subset-v1"
+    },
+    {
+      "artifact_ref": "artifact:energy-E2-refresh-20260601T1218Z",
+      "source_ref": "source:energy-E2",
+      "captured_at_utc": "2026-06-01T12:20:00Z",
+      "media_type": "application/json",
+      "content_digest_ref": "digest:synthetic-energy-E2-refresh-01",
+      "exact_selector": "$.capacity.available_mw",
+      "selector_profile": "jsonpath-subset-v1"
+    }
   ]
 }
