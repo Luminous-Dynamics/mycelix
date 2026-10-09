@@ -401,7 +401,18 @@ fn validate_update_entry(
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        _ => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::TrustIntroduction(_) => {
+            let original_action = must_get_action(action.original_action_address.clone())?;
+            if original_action.action().author() != action.author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original author can update a trust introduction".to_string(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        _ => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported trust entry update".to_string(),
+        )),
     }
 }
 
