@@ -1526,7 +1526,6 @@ mod tests {
                 EntryVisibility::Public,
             )),
                 entry_hash: entry_hash,
-                weight: Default::default(),
             }),
         };
         let signed_action = SignedActionHashed::new_unchecked(action, Signature([0; 64]));
@@ -1554,7 +1553,6 @@ mod tests {
                 EntryVisibility::Public,
             )),
                 entry_hash: entry_hash,
-                weight: Default::default(),
             }),
         };
         let signed_action = SignedActionHashed::new_unchecked(action, Signature([0; 64]));
@@ -1591,18 +1589,21 @@ mod tests {
         });
 
         let attachment = test_attachment(email_hash);
-        let action = Create {
-            author: impostor,
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
-            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
-            weight: Default::default(),
+        let action = TypedAction {
+            header: ActionHeader {
+                author: impostor,
+                timestamp: Timestamp::from_micros(0),
+                action_seq: 3,
+                prev_action: Some(ActionHash::from_raw_36(vec![0; 36])),
+            },
+            data: EntryCreationData::Create(CreateData {
+                entry_type: EntryType::App(AppEntryDef::new(
+                    EntryDefIndex(0),
+                    ZomeIndex(0),
+                    EntryVisibility::Public,
+                )),
+                entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            }),
         };
         let result = validate_attachment(&attachment, &action).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
@@ -1620,18 +1621,21 @@ mod tests {
         });
 
         let attachment = test_attachment(email_hash);
-        let action = Create {
-            author: sender,
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
-            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
-            weight: Default::default(),
+        let action = TypedAction {
+            header: ActionHeader {
+                author: sender,
+                timestamp: Timestamp::from_micros(0),
+                action_seq: 3,
+                prev_action: Some(ActionHash::from_raw_36(vec![0; 36])),
+            },
+            data: EntryCreationData::Create(CreateData {
+                entry_type: EntryType::App(AppEntryDef::new(
+                    EntryDefIndex(0),
+                    ZomeIndex(0),
+                    EntryVisibility::Public,
+                )),
+                entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            }),
         };
         let result = validate_attachment(&attachment, &action).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Valid));
