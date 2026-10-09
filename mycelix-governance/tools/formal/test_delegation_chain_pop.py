@@ -399,13 +399,13 @@ def main() -> int:
             })
 
             clock_raw, clock_anchors, clock_keys = make_chain(root / "untrusted-clock")
-            # The caller-supplied fixture clock is within the allowed future-iAT
-            # skew for this chain, but the trusted enforcement clock is after
-            # the intermediate and leaf tokens have expired.
+            # The caller-supplied fixture clock makes the chain claims look
+            # valid; the proof itself is freshly signed for the trusted current
+            # time. The trusted enforcement clock is after token expiry.
             clock_raw["now"] = NOW - 30
             clock_proof = make_pop(
                 root / "untrusted-clock", clock_keys[3]["private_path"],
-                "aat-leaf-chain-2", jti="pop-forged-clock", iat=NOW - 30,
+                "aat-leaf-chain-2", jti="pop-forged-clock", iat=NOW + 3500,
             )
             clock_result = invoke(
                 clock_raw, clock_anchors, clock_proof,
@@ -507,6 +507,42 @@ def main() -> int:
                 "rejected_if_unmutated": True, "mutant_acceptance_observed": True,
             })
 
+            # Mutant: ignore the trusted clock injected by verify_chain_invocation
+            # and restore the untrusted bundle time just before chain validation.
+            # The PoP itself has a fresh iat at trusted_now, so without the chain
+            # expiry check this would accept an expired leaf.
+            clock_raw, clock_anchors, clock_keys = make_chain(root / "trusted-clock-mutant")
+            clock_raw["now"] = NOW - 30
+            clock_proof = make_pop(
+                root / "trusted-clock-mutant", clock_keys[3]["private_path"],
+                "aat-leaf-chain-2", jti="pop-clock-mutant", iat=NOW + 3500,
+            )
+            original_clock_check = chain_verifier.evaluate_compact_chain
+
+            def ignore_trusted_clock(candidate: dict[str, Any], anchors: list[dict[str, Any]],
+                                     openssl_binary: str = "openssl") -> dict[str, Any]:
+                mutated = dict(candidate)
+                mutated["now"] = clock_raw["now"]
+                return original_clock_check(mutated, anchors, openssl_binary=openssl_binary)
+
+            try:
+                chain_verifier.evaluate_compact_chain = ignore_trusted_clock
+                clock_mutant_result = invoke(
+                    clock_raw, clock_anchors, clock_proof,
+                    root / "trusted-clock-mutant" / "replay.sqlite3",
+                    trusted_now=NOW + 3500,
+                )
+            finally:
+                chain_verifier.evaluate_compact_chain = original_clock_check
+            require(clock_mutant_result.get("status") == "INVOCATION_POP_VERIFIED_CANDIDATE_PASS",
+                    "clock mutation did not accept the expired-chain fixture: " +
+                    json.dumps(clock_mutant_result, sort_keys=True))
+            receipt["mutations"].append({
+                "id": "pop-trusted-clock-check-omitted",
+                "rejected_if_unmutated": True,
+                "mutant_acceptance_observed": True,
+            })
+
         receipt["source_head"] = subprocess.run(
             ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
             check=True, timeout=15,
@@ -530,7 +566,7 @@ def main() -> int:
         }
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
         print("AAT PoP INVOCATION CHECK PASS: signed leaf-bound proof, capability, argument, time, audience and replay controls")
-        print("AAT PoP MUTATION SENSITIVITY PASS: 4 of 4 omitted checks detected")
+        print("AAT PoP MUTATION SENSITIVITY PASS: 5 of 5 omitted checks detected")
         print("QUALIFICATION NOT CLAIMED: restricted JCS subset, deployment replay storage, and tool dispatch need further validation")
         return 0
     except Exception as error:
