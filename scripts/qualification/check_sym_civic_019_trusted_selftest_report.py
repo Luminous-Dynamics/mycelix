@@ -65,7 +65,9 @@ def validate_report(report, trusted_manifest):
             "trusted Signed Statement issuer binding")
     require(report.get("statement_subject") == "stmt-019-001",
             "trusted Signed Statement subject binding")
-    require(report.get("negative_control_count") == 11, "negative-control count")
+    require(type(report.get("negative_control_count")) is int
+            and report["negative_control_count"] == 11,
+            "negative-control count must be the exact integer 11")
     matrix = report.get("positive_inclusion_matrix")
     require(isinstance(matrix, dict), "positive inclusion matrix report")
     require(
@@ -98,7 +100,8 @@ def validate_report(report, trusted_manifest):
         and matrix["tree_sizes_tested"] == list(range(1, 17)),
         "positive inclusion tree sizes must be exact integers",
     )
-    require(matrix.get("case_count") == 136, "positive inclusion case count")
+    require(type(matrix.get("case_count")) is int and matrix["case_count"] == 136,
+            "positive inclusion case count must be the exact integer 136")
     require(matrix.get("all_pass") is True, "positive inclusion matrix all pass")
     require(isinstance(trusted_manifest, dict), "trusted manifest must be a JSON object")
     require(trusted_manifest.get("schema") == "MYCELIX-SYM-CIVIC-019-TRUSTED-ADMISSION-V1",
@@ -196,8 +199,9 @@ def validate_report(report, trusted_manifest):
     require(report.get("statement_sha256") == report.get("entry_sha256"),
             "Signed Statement bytes and entry digest must be bound")
     require(
-        report.get("tree_size_max_inclusive") == trusted_oracle["tree_size_max_inclusive"],
-        "report tree-size cap must equal trusted profile",
+        type(report.get("tree_size_max_inclusive")) is int
+        and report["tree_size_max_inclusive"] == trusted_oracle["tree_size_max_inclusive"],
+        "report tree-size cap must equal trusted profile as an integer",
     )
     expected_blob_paths = {
         ".github/workflows/sym-civic-019-receipt-proof-binding.yml",
