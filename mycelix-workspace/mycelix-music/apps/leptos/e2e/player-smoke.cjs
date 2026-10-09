@@ -166,7 +166,20 @@ async function main() {
     await page.getByRole('button', { name: 'Toggle playback queue' }).click();
     const queueDialog = page.getByRole('dialog', { name: 'Playback queue' });
     await queueDialog.waitFor({ state: 'visible' });
+    await page.waitForFunction(() => document.activeElement === document.querySelector('.queue-panel'));
+
+    // Keyboard focus belongs to the opened dialog; Escape should close it.
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.queue-panel'));
+    await page.getByRole('button', { name: 'Toggle playback queue' }).click();
+    await queueDialog.waitFor({ state: 'visible' });
+
     assert.equal(await queueDialog.locator('.queue-item').count(), 3);
+    assert.equal(
+      await queueDialog.locator('.queue-item.current .queue-title').innerText(),
+      'Zero-Cost Serenade',
+      'manual Next must leave the correct occurrence selected in the queue',
+    );
 
     await queueDialog.getByRole('button', { name: 'Play Decentralized Dreams', exact: true }).click();
     await page.waitForFunction(() => {
@@ -215,11 +228,12 @@ async function main() {
       baseURL: BASE_URL,
       scenarios: [
         'catalog play selects and starts exact media URL',
-        'seek clamps and applies a finite target to the real media element',
+        'seek applies a finite target to the real media element',
         'Repeat One does not block manual Next',
         'queue Next handles deterministic media failure',
         'explicit Play retries the same failed resource',
         'mobile player controls stay within the viewport',
+        'queue dialog receives focus and Escape closes it',
         'queue selection and current-row removal preserve exact next source',
         'Clear releases src and resets actual currentTime',
       ],
