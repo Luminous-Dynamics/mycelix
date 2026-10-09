@@ -528,6 +528,17 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         return "RecoverExactPreparedSuccessor"
 
     if kind == "recovery_same_generation_fork":
+        local_generation = vector.get("local_accepted_generation")
+        anchor_generation = vector.get("external_anchor_generation")
+        fork_count = vector.get("expected_fork_evidence_count_after")
+        retry_count = vector.get("expected_identical_retry_count")
+        if (
+            type(local_generation) is not int or local_generation <= 0
+            or type(anchor_generation) is not int
+            or type(fork_count) is not int
+            or type(retry_count) is not int
+        ):
+            return "InvalidInput"
         try:
             local_digest = parse_digest(vector.get("local_accepted_digest"), "local_accepted_digest")
             anchor_digest = parse_digest(vector.get("external_anchor_digest"), "external_anchor_digest")
@@ -536,13 +547,15 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         except (TypeError, ValueError):
             return "InvalidInput"
         if (
-            vector.get("external_anchor_log_id") != vector.get("log_id")
-            or vector.get("external_anchor_generation") != vector.get("local_accepted_generation")
+            not isinstance(vector.get("log_id"), str) or not vector["log_id"]
+            or vector.get("external_anchor_log_id") != vector.get("log_id")
+            or anchor_generation != local_generation
             or anchor_digest == local_digest
             or first_digest != anchor_digest
             or conflicting_digest != local_digest
-            or vector.get("expected_fork_evidence_count_after") != 1
-            or vector.get("expected_identical_retry_count") != 2
+            or vector.get("expected_recovery_error") != "ExternalAnchorMismatch"
+            or fork_count != 1
+            or retry_count != 2
             or vector.get("accepted_head_unchanged") is not True
             or vector.get("prepared_candidate_created") is not False
         ):
