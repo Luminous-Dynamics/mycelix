@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -27,8 +29,10 @@ def rejected(name: str, candidate: dict[str, Any]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--matrix", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    baseline = json.loads(args.matrix.read_text(encoding="utf-8"))
+    matrix_bytes = args.matrix.read_bytes()
+    baseline = json.loads(matrix_bytes.decode("utf-8"))
     validate_matrix(baseline)
 
     mutations: list[tuple[str, Any]] = [
@@ -54,6 +58,22 @@ def main() -> int:
         rejected(name, candidate)
         rejected_names.append(name)
 
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
+        check=True, timeout=15,
+    ).stdout.strip()
+    receipt = {
+        "schema": "mycelix.differential-matrix-mutation-guard-receipt.v1",
+        "status": "PASS",
+        "source_head": head,
+        "matrix_sha256": hashlib.sha256(matrix_bytes).hexdigest(),
+        "mutation_count": len(rejected_names),
+        "mutations_rejected": rejected_names,
+        "baseline_manifest_validation": "PASS",
+        "qualification": "NOT_CLAIMED",
+    }
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     print(f"DIFFERENTIAL MATRIX MUTATION GUARD PASS: {len(rejected_names)} weakening mutations rejected")
     for name in rejected_names:
         print(f"MATRIX MUTATION REJECTED: {name}")
