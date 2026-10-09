@@ -185,7 +185,6 @@ jobs:
               "environment-policy-v1.json",
               "effective-main-rules-v1.json",
               "main-branch-policy-v1.json",
-              "main-ruleset-governance-v1.json",
               "SHA256SUMS",
           }
           members={line.strip().rstrip('/') for line in Path("durable-members.txt").read_text().splitlines() if line.strip()}
@@ -365,7 +364,6 @@ jobs:
           environment_policy,environment_policy_sha=verify_self_hashed_projection(root/'environment-policy-v1.json','MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1')
           effective_rules,effective_rules_sha=verify_self_hashed_projection(root/'effective-main-rules-v1.json','MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1')
           main_branch_policy,main_branch_policy_sha=verify_self_hashed_projection(root/'main-branch-policy-v1.json','MYCELIX-COS-PROTECTED-MAIN-POLICY-V1')
-          main_ruleset_governance,main_ruleset_governance_sha=verify_self_hashed_projection(root/'main-ruleset-governance-v1.json','MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1')
           release=json.loads(Path('release.json').read_text())
           manifest_path=root/'qualification-manifest-v1.json'
           predicate_path=root/'qualification-attestation-predicate-v3.json'
@@ -383,7 +381,7 @@ jobs:
               'trust_root_main_snapshot_sha','publication_handoff_sha256',
               'attestor_run_id','attestor_run_attempt','attestor_artifact_id','attestor_artifact_digest',
               'verifier_run_id','verifier_run_attempt','signing_input_artifact_id','signing_input_artifact_digest',
-              'environment_policy_sha256','effective_main_rules_sha256','main_branch_policy_sha256','main_ruleset_governance_sha256',
+              'environment_policy_sha256','effective_main_rules_sha256','main_branch_policy_sha256',
               'attestor_workflow_path','attestor_workflow_sha','attestor_workflow_git_blob_sha1','attestor_workflow_content_sha256',
               'signed_attestation_bundle_sha256','publication_handoff_basis','files'
           }
@@ -391,7 +389,6 @@ jobs:
           assert durable_manifest['environment_policy_sha256']==environment_policy_sha
           assert durable_manifest['effective_main_rules_sha256']==effective_rules_sha
           assert durable_manifest['main_branch_policy_sha256']==main_branch_policy_sha
-          assert durable_manifest['main_ruleset_governance_sha256']==main_ruleset_governance_sha
           assert environment_policy['name']=='cos-durable-publication'
           assert environment_policy['prevent_self_review'] is True
           assert environment_policy['required_reviewers']
@@ -413,21 +410,12 @@ jobs:
           assert environment_policy['schema']=='MYCELIX-COS-DURABLE-ENVIRONMENT-POLICY-V1'
           assert effective_rules['schema']=='MYCELIX-COS-EFFECTIVE-MAIN-RULES-V1'
           assert main_branch_policy['schema']=='MYCELIX-COS-PROTECTED-MAIN-POLICY-V1'
-          assert main_ruleset_governance['repository']==os.environ['GITHUB_REPOSITORY']
-          assert main_ruleset_governance['repository_id']==int(os.environ['EXPECTED_REPOSITORY_ID'])
-          assert main_ruleset_governance['branch']=='refs/heads/main'
-          assert main_ruleset_governance['schema']=='MYCELIX-COS-MAIN-RULESET-GOVERNANCE-V1'
-          assert isinstance(main_ruleset_governance['rulesets'],list)
-          assert all(isinstance(x.get('bypass_actors'),list) for x in main_ruleset_governance['rulesets'])
-          assert all(not x['bypass_actors'] for x in main_ruleset_governance['rulesets'] if x['applicable_to_main'] and x['enforcement']=='active')
           assert durable_manifest['environment_policy_sha256']==environment_policy_sha
           assert durable_manifest['effective_main_rules_sha256']==effective_rules_sha
           assert durable_manifest['main_branch_policy_sha256']==main_branch_policy_sha
-          assert durable_manifest['main_ruleset_governance_sha256']==main_ruleset_governance_sha
           assert durable_manifest['files']['environment-policy-v1.json']==hashlib.sha256((root/'environment-policy-v1.json').read_bytes()).hexdigest()
           assert durable_manifest['files']['effective-main-rules-v1.json']==hashlib.sha256((root/'effective-main-rules-v1.json').read_bytes()).hexdigest()
           assert durable_manifest['files']['main-branch-policy-v1.json']==hashlib.sha256((root/'main-branch-policy-v1.json').read_bytes()).hexdigest()
-          assert durable_manifest['files']['main-ruleset-governance-v1.json']==hashlib.sha256((root/'main-ruleset-governance-v1.json').read_bytes()).hexdigest()
           assert durable_manifest['repository'] == os.environ['GITHUB_REPOSITORY']
           assert durable_manifest['repository_id'] == int(os.environ['EXPECTED_REPOSITORY_ID'])
           assert durable_manifest['release_tag'] == os.environ['RELEASE_TAG']
@@ -506,12 +494,11 @@ jobs:
               'environment-policy-v1.json': hashlib.sha256((root/'environment-policy-v1.json').read_bytes()).hexdigest(),
               'effective-main-rules-v1.json': hashlib.sha256((root/'effective-main-rules-v1.json').read_bytes()).hexdigest(),
               'main-branch-policy-v1.json': hashlib.sha256((root/'main-branch-policy-v1.json').read_bytes()).hexdigest(),
-               'main-ruleset-governance-v1.json': hashlib.sha256((root/'main-ruleset-governance-v1.json').read_bytes()).hexdigest(),
           }
           assert set(durable_manifest['files']) == {
               'qualification-manifest-v1.json','qualification-attestation-predicate-v3.json',
               'attestor-run-receipt.json','qualification-attestation-bundle.json',
-              'environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json','main-ruleset-governance-v1.json',
+              'environment-policy-v1.json','effective-main-rules-v1.json','main-branch-policy-v1.json',
           }
           assert durable_manifest['attestor_workflow_path'] == f"{os.environ['GITHUB_REPOSITORY']}/.github/workflows/cos-conformance-qualification-attestor.yml@refs/heads/main"
           assert durable_manifest['attestor_workflow_sha'] == os.environ['EXPECTED_ATTESTOR_WORKFLOW_SHA']
