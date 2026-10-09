@@ -197,9 +197,21 @@ jobs:
           set -euo pipefail
           export PATH="${FPM_TOOLCHAIN_ROOT}/bin:/usr/bin:/bin"
           export CARGO_HOME="${FPM_RESOLVER_CARGO_HOME}"
-          rm -rf "${CARGO_HOME}"
-          mkdir -p "${CARGO_HOME}"
-          chmod 700 "${CARGO_HOME}"
+          export HOME="$RUNNER_TEMP/fpm-lock-home"
+          export GIT_CONFIG_GLOBAL=/dev/null
+          export GIT_CONFIG_NOSYSTEM=true
+          export GIT_TERMINAL_PROMPT=0
+          export CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+          export CARGO_NET_OFFLINE=false
+          export CARGO_NET_GIT_FETCH_WITH_CLI=false
+          rm -rf "${CARGO_HOME}" "$HOME"
+          mkdir -p "${CARGO_HOME}" "$HOME"
+          chmod 700 "${CARGO_HOME}" "$HOME"
+          test ! -e "$HOME/.gitconfig"
+          test ! -e "${CARGO_HOME}/config"
+          test ! -e "${CARGO_HOME}/config.toml"
+          test ! -L "${CARGO_HOME}/config"
+          test ! -L "${CARGO_HOME}/config.toml"
           if git ls-files --error-unmatch crates/fpm-wasm-artifact-identity/Cargo.lock >/dev/null 2>&1; then
             lock_mode=tracked
           else
