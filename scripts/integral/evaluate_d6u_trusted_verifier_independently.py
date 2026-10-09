@@ -419,6 +419,21 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
             "candidate fetcher accepted a malformed artifact digest",
         )
 
+        nonhex_digest = copy.deepcopy(artifact)
+        nonhex_digest["digest"] = "sha256:" + "g" * 64
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [current_run, {"artifacts": [nonhex_digest]}],
+            ),
+            "missing or malformed GitHub artifact digest",
+            "candidate fetcher accepted a non-hex SHA-256 digest",
+        )
+
         oversized = copy.deepcopy(artifact)
         oversized["size_in_bytes"] = int(candidate_policy["artifact_max_total_bytes"]) + 1
         assert_rejected(
