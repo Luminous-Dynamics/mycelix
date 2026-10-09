@@ -102,7 +102,7 @@ fn fence_state_tag(state: ActionFenceState) -> u8 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TerminalOutcomeV1 {
     Executed,
     Failed,
@@ -130,6 +130,7 @@ pub struct TerminalEvidenceV1 {
     provider_environment: String,
     provider_audience: String,
     adapter_identity: String,
+    provider_idempotency_key: String,
     outcome: TerminalOutcomeV1,
     evidence_commitment: String,
     verifier_identity: String,
@@ -140,10 +141,12 @@ impl TerminalEvidenceV1 {
     pub fn from_attempt(
         action_key: &ActionKeyV1,
         attempt: &AttemptRecordV1,
+        provider_idempotency_key: impl Into<String>,
         outcome: TerminalOutcomeV1,
         evidence_commitment: impl Into<String>,
         verifier_identity: impl Into<String>,
     ) -> Result<Self, String> {
+        let provider_idempotency_key = provider_idempotency_key.into();
         let evidence_commitment = evidence_commitment.into();
         let verifier_identity = verifier_identity.into();
         require_tagged_hash("action_key_digest", action_key.digest(), crate::ACTION_KEY_PREFIX)?;
@@ -152,11 +155,16 @@ impl TerminalEvidenceV1 {
         if attempt.action_key_digest != action_key.digest() {
             return Err("terminal evidence action key does not match attempt".into());
         }
+        require_opaque(
+            "provider_idempotency_key",
+            &provider_idempotency_key,
+            MAX_REF_LEN,
+        )?;
         require_opaque("evidence_commitment", &evidence_commitment, MAX_REF_LEN)?;
         require_opaque("verifier_identity", &verifier_identity, MAX_REF_LEN)?;
 
         let mut hasher = blake3::Hasher::new();
-        hasher.update(b"MYCELIX-CONSTITUTIONAL-TERMINAL-EVIDENCE\0V2\0");
+        hasher.update(b"MYCELIX-CONSTITUTIONAL-TERMINAL-EVIDENCE\0V3\0");
         hasher.update(&ATTEMPT_RECORD_SCHEMA_VERSION.to_be_bytes());
         push_str(&mut hasher, action_key.digest());
         push_str(&mut hasher, &attempt.attempt_identity);
@@ -166,6 +174,7 @@ impl TerminalEvidenceV1 {
         push_str(&mut hasher, &attempt.provider_environment);
         push_str(&mut hasher, &attempt.provider_audience);
         push_str(&mut hasher, &attempt.adapter_identity);
+        push_str(&mut hasher, &provider_idempotency_key);
         hasher.update(&[terminal_outcome_tag(outcome)]);
         push_str(&mut hasher, &evidence_commitment);
         push_str(&mut hasher, &verifier_identity);
@@ -179,10 +188,11 @@ impl TerminalEvidenceV1 {
             provider_environment: attempt.provider_environment.clone(),
             provider_audience: attempt.provider_audience.clone(),
             adapter_identity: attempt.adapter_identity.clone(),
+            provider_idempotency_key,
             outcome,
             evidence_commitment,
             verifier_identity,
-            digest: tagged("constitutional-terminal-evidence-v2:", hasher.finalize()),
+            digest: tagged("constitutional-terminal-evidence-v3:", hasher.finalize()),
         })
     }
 
@@ -196,6 +206,10 @@ impl TerminalEvidenceV1 {
 
     pub fn outcome(&self) -> TerminalOutcomeV1 {
         self.outcome
+    }
+
+    pub fn provider_idempotency_key(&self) -> &str {
+        &self.provider_idempotency_key
     }
     pub fn operation_id(&self) -> &str { &self.operation_id }
     pub fn native_replay_identity(&self) -> &str { &self.native_replay_identity }
@@ -486,6 +500,11 @@ impl AttemptRecordV1 {
         }
 
         if let Some(evidence) = &self.terminal_evidence_digest {
+            require_tagged_hash(
+                "terminal_evidence_digest",
+                evidence,
+                "constitutional-terminal-evidence-v3:",
+            )?;
             require_opaque("terminal_evidence_digest", evidence, MAX_REF_LEN)?;
         }
 
@@ -660,6 +679,8 @@ pub enum ActionFenceMutationError {
     AlreadyClosed,
     InvalidTransition,
     TerminalEvidenceMismatch,
+    ProviderEntryClaimed,
+    ProviderEntryClaimMismatch,
     /// The durable storage layer failed. This is deliberately distinct from a
     /// semantic denial so callers cannot reinterpret infrastructure failure as a
     /// successful release/transition.
@@ -693,12 +714,37 @@ pub trait DurableActionFenceStore {
         owner_token_digest: &str,
     ) -> Result<(), ActionFenceMutationError>;
 
+    /// Establish a durable single-winner claim between DISPATCH_PENDING and
+    /// provider entry. A live claim blocks reconciliation and every other
+    /// provider-entry claimant for this exact attempt.
+    fn atomically_claim_provider_entry(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<ProviderEntryClaimV1, ActionFenceMutationError>;
+
+    /// Complete the provider-entry claim and durably record INVOKED in the
+    /// same transaction. The claim itself is consumed and cannot be replayed.
     fn atomically_mark_invoked(
         &mut self,
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
+        claim_token_digest: &str,
     ) -> Result<(), ActionFenceMutationError>;
+
+    /// Explicitly abandon a stranded provider-entry claim and atomically move
+    /// the attempt to INDETERMINATE. This is a recovery operation, not a lease
+    /// timeout: callers must supply externally authenticated recovery authority.
+    fn atomically_recover_provider_entry_claim(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<String, ActionFenceMutationError>;
 
     fn atomically_mark_indeterminate(
         &mut self,
@@ -748,6 +794,11 @@ pub trait DurableActionFenceStore {
         &self,
         native_replay_identity: &str,
     ) -> Result<Option<NativeReplayBindingV1>, String>;
+
+    fn durably_read_provider_entry_claim(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<ProviderEntryClaimV1>, String>;
 }
 
 /// Durable binding for one native replay identity.
@@ -808,6 +859,74 @@ impl NativeReplayBindingV1 {
     }
 }
 
+/// Durable coordination claim that serializes the final step before
+/// provider entry. It is deliberately separate from the attempt lifecycle state:
+/// a claim can be held while the provider call is in progress without relabeling
+/// the observation as INVOKED before the call has actually begun.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProviderEntryClaimV1 {
+    pub schema_version: u16,
+    pub attempt_identity: String,
+    pub action_key_digest: String,
+    pub owner_token_digest: String,
+    pub claim_token_digest: String,
+    record_digest: String,
+}
+
+impl ProviderEntryClaimV1 {
+    pub fn new(
+        attempt_identity: impl Into<String>,
+        action_key_digest: impl Into<String>,
+        owner_token_digest: impl Into<String>,
+        claim_token_digest: impl Into<String>,
+    ) -> Result<Self, String> {
+        let out = Self {
+            schema_version: 1,
+            attempt_identity: attempt_identity.into(),
+            action_key_digest: action_key_digest.into(),
+            owner_token_digest: owner_token_digest.into(),
+            claim_token_digest: claim_token_digest.into(),
+            record_digest: String::new(),
+        };
+        require_tagged_hash("attempt_identity", &out.attempt_identity, crate::ATTEMPT_IDENTITY_PREFIX)?;
+        require_tagged_hash("action_key_digest", &out.action_key_digest, crate::ACTION_KEY_PREFIX)?;
+        require_opaque("owner_token_digest", &out.owner_token_digest, MAX_REF_LEN)?;
+        require_opaque("claim_token_digest", &out.claim_token_digest, MAX_REF_LEN)?;
+        let mut out = out;
+        out.record_digest = out.compute_digest();
+        Ok(out)
+    }
+
+    fn compute_digest(&self) -> String {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"MYCELIX-CONSTITUTIONAL-PROVIDER-ENTRY-CLAIM\0V1\0");
+        hasher.update(&self.schema_version.to_be_bytes());
+        push_str(&mut hasher, &self.attempt_identity);
+        push_str(&mut hasher, &self.action_key_digest);
+        push_str(&mut hasher, &self.owner_token_digest);
+        push_str(&mut hasher, &self.claim_token_digest);
+        tagged("constitutional-provider-entry-claim-v1:", hasher.finalize())
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        if self.schema_version != 1 {
+            return Err("unsupported provider entry claim schema version".into());
+        }
+        require_tagged_hash("attempt_identity", &self.attempt_identity, crate::ATTEMPT_IDENTITY_PREFIX)?;
+        require_tagged_hash("action_key_digest", &self.action_key_digest, crate::ACTION_KEY_PREFIX)?;
+        require_opaque("owner_token_digest", &self.owner_token_digest, MAX_REF_LEN)?;
+        require_opaque("claim_token_digest", &self.claim_token_digest, MAX_REF_LEN)?;
+        if self.record_digest != self.compute_digest() {
+            return Err("provider entry claim digest mismatch".into());
+        }
+        Ok(())
+    }
+
+    pub fn record_digest(&self) -> &str {
+        &self.record_digest
+    }
+}
+
 /// Reference model for the required atomic admission transition.
 ///
 /// The method `admit` is deliberately one mutation over the combined durable
@@ -819,6 +938,7 @@ pub struct AtomicActionFenceModelV1 {
     attempts: BTreeMap<String, AttemptRecordV1>,
     fences: BTreeMap<String, ActionFenceRecordV1>,
     replay_bindings: BTreeMap<String, NativeReplayBindingV1>,
+    provider_entry_claims: BTreeMap<String, ProviderEntryClaimV1>,
 }
 
 impl AtomicActionFenceModelV1 {
@@ -1042,12 +1162,50 @@ impl AtomicActionFenceModelV1 {
         )
     }
 
+    pub fn claim_provider_entry(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<ProviderEntryClaimV1, ActionFenceMutationError> {
+        let current = self
+            .attempts
+            .get(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::NotOwner)?;
+        if current.ownership_token_digest != owner_token_digest {
+            return Err(ActionFenceMutationError::OwnershipTokenMismatch);
+        }
+        if current.action_key_digest != action_key.digest() {
+            return Err(ActionFenceMutationError::NotOwner);
+        }
+        if current.state != AttemptRecordState::DispatchPending {
+            return Err(ActionFenceMutationError::InvalidTransition);
+        }
+        if self.provider_entry_claims.contains_key(attempt_identity.digest()) {
+            return Err(ActionFenceMutationError::ProviderEntryClaimed);
+        }
+        let claim = ProviderEntryClaimV1::new(
+            attempt_identity.digest(),
+            action_key.digest(),
+            owner_token_digest,
+            claim_token_digest,
+        )
+        .map_err(ActionFenceMutationError::StorageFailure)?;
+        self.provider_entry_claims
+            .insert(attempt_identity.digest().to_owned(), claim.clone());
+        Ok(claim)
+    }
+
     pub fn mark_invoked(
         &mut self,
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
     ) -> Result<(), ActionFenceMutationError> {
+        if self.provider_entry_claims.contains_key(attempt_identity.digest()) {
+            return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+        }
         self.transition_state(
             action_key,
             attempt_identity,
@@ -1056,12 +1214,85 @@ impl AtomicActionFenceModelV1 {
         )
     }
 
+    pub fn mark_invoked_with_claim(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        let claim = self
+            .provider_entry_claims
+            .get(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::ProviderEntryClaimMismatch)?;
+        if claim.action_key_digest != action_key.digest()
+            || claim.owner_token_digest != owner_token_digest
+            || claim.claim_token_digest != claim_token_digest
+        {
+            return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+        }
+        self.transition_state(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            AttemptRecordState::Invoked,
+        )?;
+        self.provider_entry_claims.remove(attempt_identity.digest());
+        Ok(())
+    }
+
+    pub fn recover_provider_entry_claim(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<String, ActionFenceMutationError> {
+        let claim = self
+            .provider_entry_claims
+            .get(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::ProviderEntryClaimMismatch)?;
+        if claim.action_key_digest != action_key.digest()
+            || claim.owner_token_digest != owner_token_digest
+            || claim.claim_token_digest != claim_token_digest
+        {
+            return Err(ActionFenceMutationError::ProviderEntryClaimMismatch);
+        }
+
+        let current = self
+            .attempts
+            .get_mut(attempt_identity.digest())
+            .ok_or(ActionFenceMutationError::NotOwner)?;
+        if current.action_key_digest != action_key.digest()
+            || current.ownership_token_digest != owner_token_digest
+            || current.state != AttemptRecordState::DispatchPending
+        {
+            return Err(ActionFenceMutationError::InvalidTransition);
+        }
+
+        current.state = AttemptRecordState::Indeterminate;
+        current.reconciliation_token_digest = Some(reconciliation_token(
+            owner_token_digest,
+            attempt_identity.digest(),
+            action_key.digest(),
+        ));
+        let token = current
+            .reconciliation_token_digest
+            .clone()
+            .ok_or(ActionFenceMutationError::InvalidTransition)?;
+        self.provider_entry_claims.remove(attempt_identity.digest());
+        Ok(token)
+    }
+
     pub fn mark_indeterminate(
         &mut self,
         action_key: &ActionKeyV1,
         attempt_identity: &AttemptIdentityV1,
         owner_token_digest: &str,
     ) -> Result<String, ActionFenceMutationError> {
+        if self.provider_entry_claims.contains_key(attempt_identity.digest()) {
+            return Err(ActionFenceMutationError::ProviderEntryClaimed);
+        }
         self.transition_state(
             action_key,
             attempt_identity,
@@ -1252,7 +1483,11 @@ impl AtomicActionFenceModelV1 {
             }
 
             match record.state {
-                state if state.occupies_action_fence() => {
+                AttemptRecordState::Consumed
+                | AttemptRecordState::Reserved
+                | AttemptRecordState::DispatchPending
+                | AttemptRecordState::Invoked
+                | AttemptRecordState::Indeterminate => {
                     let fence = self
                         .fences
                         .get(&record.action_key_digest)
@@ -1316,6 +1551,35 @@ impl AtomicActionFenceModelV1 {
             }
         }
 
+        for (attempt_id, claim) in &self.provider_entry_claims {
+            claim.validate()?;
+            if attempt_id != &claim.attempt_identity {
+                return Err("provider entry claim map key mismatch".into());
+            }
+            let attempt = self
+                .attempts
+                .get(attempt_id)
+                .ok_or_else(|| "provider entry claim references unknown attempt".to_string())?;
+            if attempt.state != AttemptRecordState::DispatchPending {
+                return Err("provider entry claim requires DISPATCH_PENDING attempt".into());
+            }
+            if attempt.action_key_digest != claim.action_key_digest
+                || attempt.ownership_token_digest != claim.owner_token_digest
+            {
+                return Err("provider entry claim does not match attempt owner/action".into());
+            }
+            let fence = self
+                .fences
+                .get(&claim.action_key_digest)
+                .ok_or_else(|| "provider entry claim is missing its action fence".to_string())?;
+            if fence.owner_attempt_identity != claim.attempt_identity
+                || fence.owner_token_digest != claim.owner_token_digest
+                || fence.state != ActionFenceState::Occupied
+            {
+                return Err("provider entry claim does not match occupied action fence".into());
+            }
+        }
+
         for (action_key, fence) in &self.fences {
             fence.validate()?;
             if action_key != &fence.action_key_digest {
@@ -1353,6 +1617,77 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
         record: AttemptRecordV1,
     ) -> Result<AtomicAdmissionDecision, String> {
         self.admit(action_key, attempt_identity, record)
+    }
+
+    fn atomically_mark_dispatch_pending(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.mark_dispatch_pending(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+        )
+    }
+
+    fn atomically_claim_provider_entry(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<ProviderEntryClaimV1, ActionFenceMutationError> {
+        self.claim_provider_entry(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            claim_token_digest,
+        )
+    }
+
+    fn atomically_mark_invoked(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<(), ActionFenceMutationError> {
+        self.mark_invoked_with_claim(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            claim_token_digest,
+        )
+    }
+
+    fn atomically_recover_provider_entry_claim(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+        claim_token_digest: &str,
+    ) -> Result<String, ActionFenceMutationError> {
+        self.recover_provider_entry_claim(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+            claim_token_digest,
+        )
+    }
+
+    fn atomically_mark_indeterminate(
+        &mut self,
+        action_key: &ActionKeyV1,
+        attempt_identity: &AttemptIdentityV1,
+        owner_token_digest: &str,
+    ) -> Result<String, ActionFenceMutationError> {
+        self.mark_indeterminate(
+            action_key,
+            attempt_identity,
+            owner_token_digest,
+        )
     }
 
     fn atomically_release_after_failed(
@@ -1394,6 +1729,34 @@ impl DurableActionFenceStore for AtomicActionFenceModelV1 {
     ) -> Result<(), ActionFenceMutationError> {
         self.release_not_entered(action_key, attempt_identity, owner_token_digest, marker)
     }
+
+    fn durably_read_attempt(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<AttemptRecordV1>, String> {
+        Ok(self.attempts.get(attempt_identity.digest()).cloned())
+    }
+
+    fn durably_read_fence(
+        &self,
+        action_key: &ActionKeyV1,
+    ) -> Result<Option<ActionFenceRecordV1>, String> {
+        Ok(self.fences.get(action_key.digest()).cloned())
+    }
+
+    fn durably_read_replay_binding(
+        &self,
+        native_replay_identity: &str,
+    ) -> Result<Option<NativeReplayBindingV1>, String> {
+        Ok(self.replay_bindings.get(native_replay_identity).cloned())
+    }
+
+    fn durably_read_provider_entry_claim(
+        &self,
+        attempt_identity: &AttemptIdentityV1,
+    ) -> Result<Option<ProviderEntryClaimV1>, String> {
+        Ok(self.provider_entry_claims.get(attempt_identity.digest()).cloned())
+    }
 }
 
 #[cfg(test)]
@@ -1410,7 +1773,6 @@ mod tests {
 
     fn terminal_evidence(outcome: TerminalOutcomeV1, attempt_id: &str) -> TerminalEvidenceV1 {
         let action = key();
-        let owner = attempt(attempt_id);
         let record = record(
             attempt_id,
             "operation-1",
@@ -1419,12 +1781,62 @@ mod tests {
         TerminalEvidenceV1::from_attempt(
             &action,
             &record,
+            format!("provider-idempotency-{attempt_id}"),
             outcome,
             format!("provider-evidence-{attempt_id}"),
             "qualified-verifier-v1",
         )
         .unwrap()
     }
+    #[test]
+    fn terminal_evidence_digest_commits_to_provider_idempotency_key() {
+        let action = key();
+        let record = record(
+            "terminal-evidence-key",
+            "operation-terminal-evidence-key",
+            AttemptRecordState::Invoked,
+        );
+        let first = TerminalEvidenceV1::from_attempt(
+            &action,
+            &record,
+            "provider-idempotency-key-a",
+            TerminalOutcomeV1::Executed,
+            "provider-evidence",
+            "qualified-verifier-v1",
+        )
+        .unwrap();
+        let second = TerminalEvidenceV1::from_attempt(
+            &action,
+            &record,
+            "provider-idempotency-key-b",
+            TerminalOutcomeV1::Executed,
+            "provider-evidence",
+            "qualified-verifier-v1",
+        )
+        .unwrap();
+
+        assert_eq!(first.provider_idempotency_key(), "provider-idempotency-key-a");
+        assert!(first.digest().starts_with("constitutional-terminal-evidence-v3:"));
+        assert_ne!(first.digest(), second.digest());
+    }
+
+    #[test]
+    fn legacy_terminal_evidence_digest_fails_closed() {
+        let mut legacy = record(
+            "legacy-terminal-evidence",
+            "operation-legacy-terminal-evidence",
+            AttemptRecordState::Invoked,
+        );
+        legacy.state = AttemptRecordState::Executed;
+        legacy.terminal_evidence_digest =
+            Some("constitutional-terminal-evidence-v2:old-record".into());
+
+        assert!(legacy
+            .validate()
+            .unwrap_err()
+            .contains("terminal_evidence_digest"));
+    }
+
     fn record(id: &str, operation: &str, state: AttemptRecordState) -> AttemptRecordV1 {
         let key = key();
         AttemptRecordV1::new(

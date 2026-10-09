@@ -9,6 +9,7 @@ description = "Durable SQLite adapter for the constitutional effect ledger fence
 [dependencies]
 constitutional-effect-ledger = { path = "../../mycelix-governance/crates/constitutional-effect-ledger" }
 rusqlite = { version = "0.32", features = ["bundled"] }
+blake3 = "1"
 
 [dev-dependencies]
 tempfile = "3.13"
