@@ -944,7 +944,7 @@ jobs:
               return json.loads(Path(path).read_text(),object_pairs_hook=reject_pairs,parse_constant=lambda value: (_ for _ in ()).throw(ValueError(f'non-standard JSON constant: {value}')))
 
           def canonical(value):
-              return json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False)
+              return json.dumps(value,sort_keys=True,separators=(',',':'))
 
           def frozen_projection(path,schema):
               value=strict(path)
