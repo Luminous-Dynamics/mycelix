@@ -372,6 +372,30 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
                 "candidate fetcher accepted a boolean trigger run ID",
             )
 
+        boolean_event_attempt = copy.deepcopy(event)
+        boolean_event_attempt["workflow_run"]["run_attempt"] = True
+        with patch.dict(os.environ, environment, clear=True):
+            assert_rejected(
+                lambda: fetcher.expected_artifact(
+                    repository, boolean_event_attempt, candidate_policy
+                ),
+                "trigger workflow run attempt must be a positive integer",
+                "candidate fetcher accepted a boolean trigger attempt",
+            )
+
+        noncanonical_repository_env = {
+            **environment,
+            "D6U_TRUSTED_REPOSITORY_ID": "01176351975",
+        }
+        with patch.dict(os.environ, noncanonical_repository_env, clear=True):
+            assert_rejected(
+                lambda: fetcher.expected_artifact(
+                    repository, event, candidate_policy
+                ),
+                "D6U_TRUSTED_REPOSITORY_ID is not a canonical positive decimal integer",
+                "candidate fetcher accepted a noncanonical repository ID environment value",
+            )
+
         boolean_repo = copy.deepcopy(current_run)
         boolean_repo["repository"]["id"] = True
         assert_rejected(
@@ -503,6 +527,21 @@ def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
             ),
             "missing or malformed GitHub artifact digest",
             "candidate fetcher accepted a non-hex SHA-256 digest",
+        )
+
+        boolean_size = copy.deepcopy(artifact)
+        boolean_size["size_in_bytes"] = True
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [current_run, {"artifacts": [boolean_size]}],
+            ),
+            "artifact archive size is not a nonnegative integer",
+            "candidate fetcher accepted a boolean runtime-artifact size",
         )
 
         oversized = copy.deepcopy(artifact)
@@ -702,6 +741,12 @@ def exercise_fetcher_current_run_handoff(fetcher, candidate_policy: dict) -> Non
         message="candidate fetcher accepted a noncanonical run ID environment value",
     )
 
+    expect_rejection(
+        env_overrides={"GITHUB_RUN_ATTEMPT": "03"},
+        expected="GITHUB_RUN_ATTEMPT is not a canonical positive decimal integer",
+        message="candidate fetcher accepted a noncanonical attempt environment value",
+    )
+
     bad_attempt = copy.deepcopy(current_run)
     bad_attempt["run_attempt"] = run_attempt - 1
     expect_rejection(
@@ -714,7 +759,7 @@ def exercise_fetcher_current_run_handoff(fetcher, candidate_policy: dict) -> Non
     bad_repository["repository"]["id"] = repository_id + 1
     expect_rejection(
         mutated_run=bad_repository,
-        expected='int(current_run["repository"]["id"]) == expected_repository_id',
+        expected='positive_json_int(current_run["repository"]["id"], "current repository ID") == expected_repository_id',
         message="candidate fetcher accepted a current-run repository ID mismatch",
     )
 
@@ -758,7 +803,7 @@ def exercise_fetcher_current_run_handoff(fetcher, candidate_policy: dict) -> Non
     bad_artifact_run_id["workflow_run"]["id"] = run_id + 1
     expect_rejection(
         response={"artifacts": [bad_artifact_run_id]},
-        expected='workflow_artifact_run["id"] == run_id',
+        expected='positive_json_int(workflow_artifact_run["id"], "handoff artifact run ID") == run_id',
         message="candidate fetcher accepted a handoff artifact from another run ID",
     )
 
@@ -766,7 +811,7 @@ def exercise_fetcher_current_run_handoff(fetcher, candidate_policy: dict) -> Non
     bad_artifact_repo_id["workflow_run"]["repository_id"] = repository_id + 1
     expect_rejection(
         response={"artifacts": [bad_artifact_repo_id]},
-        expected='workflow_artifact_run["repository_id"] == current_run["repository"]["id"]',
+        expected='positive_json_int(workflow_artifact_run["repository_id"], "handoff artifact repository ID") == expected_repository_id',
         message="candidate fetcher accepted a handoff artifact from another repository",
     )
 
