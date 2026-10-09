@@ -1714,15 +1714,17 @@ def run(candidate_root: pathlib.Path) -> None:
     )
 
     probe = "import runpy, sys; runpy.run_path(sys.argv[1], run_name='__independent_opt_probe__')"
-    for label, trusted_path in (
-        ("verifier", verifier_path),
-        ("artifact fetcher", fetcher_path),
-    ):
+    for trusted_program_path in EXPECTED_TRUSTED_PROGRAM_PATHS:
+        trusted_path = candidate_root / trusted_program_path
+        label = trusted_program_path
         source = trusted_path.read_text(encoding="utf-8")
         assert "if not __debug__:" in source, (
-            f"candidate trusted {label} lacks optimized-mode guard"
+            f"candidate trusted program lacks optimized-mode guard: {label}"
         )
-        assert "trusted D6U program must not run with Python optimization enabled" in source
+        assert (
+            "trusted D6U program must not run with Python optimization enabled"
+            in source
+        ), f"candidate trusted program lacks the required guard message: {label}"
         completed = subprocess.run(
             [sys.executable, "-O", "-c", probe, str(trusted_path)],
             capture_output=True,
@@ -1730,14 +1732,14 @@ def run(candidate_root: pathlib.Path) -> None:
             check=False,
         )
         assert completed.returncode != 0, (
-            f"candidate trusted {label} executed under optimized Python"
+            f"candidate trusted program executed under optimized Python: {label}"
         )
         assert (
             "trusted D6U program must not run with Python optimization enabled"
             in completed.stderr
-        ), f"candidate trusted {label} did not fail at its optimized-mode guard"
+        ), f"candidate trusted program did not fail at its optimized-mode guard: {label}"
 
-    print("independent D6U verifier and fetcher evaluator: PASS")
+    print("independent D6U five-program closure and optimized-mode evaluator: PASS")
 
 
 def main() -> int:
