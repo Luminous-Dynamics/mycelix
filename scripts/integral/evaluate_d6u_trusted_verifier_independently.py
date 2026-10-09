@@ -19,6 +19,8 @@ import traceback
 import tempfile
 import stat
 import zipfile
+import urllib.request
+import copy
 import sys
 from unittest.mock import patch
 
@@ -248,6 +250,196 @@ def verify_candidate_policy(
     )
 
 
+def exercise_fetcher_api_binding(fetcher, candidate_policy: dict) -> None:
+    repository = candidate_policy["repository_identity"]["full_name"]
+    repository_id = int(candidate_policy["repository_identity"]["repository_id"])
+    branch = candidate_policy["source_branch"]
+    subject_sha = "a" * 40
+    run_id = 300
+    run_attempt = 2
+    expected_name = f"d6u-runtime-evidence-run-{run_id}-attempt-{run_attempt}"
+
+    event = {
+        "repository": {"full_name": repository, "id": repository_id},
+        "workflow_run": {
+            "id": run_id,
+            "run_attempt": run_attempt,
+            "name": candidate_policy["workflow_name"],
+            "path": candidate_policy["workflow_path"],
+            "event": "workflow_run",
+            "conclusion": "success",
+            "repository": {"full_name": repository, "id": repository_id},
+            "head_repository": {"full_name": repository, "id": repository_id},
+            "head_branch": branch,
+            "head_sha": subject_sha,
+        },
+    }
+    current_run = {
+        "id": run_id,
+        "run_attempt": run_attempt,
+        "repository": {"full_name": repository, "id": repository_id},
+        "head_repository": {"full_name": repository, "id": repository_id},
+        "head_branch": branch,
+        "head_sha": subject_sha,
+    }
+    artifact = {
+        "name": expected_name,
+        "expired": False,
+        "workflow_run": {
+            "id": run_id,
+            "repository_id": repository_id,
+            "head_repository_id": repository_id,
+            "head_branch": branch,
+            "head_sha": subject_sha,
+        },
+        "digest": "sha256:" + "d" * 64,
+        "size_in_bytes": 1024,
+    }
+    environment = {
+        "D6U_TRUSTED_REPOSITORY_ID": str(repository_id),
+        "D6U_TRIGGER_HEAD_BRANCH": branch,
+        "D6U_TRIGGER_HEAD_SHA": subject_sha,
+        "GITHUB_TOKEN": "fixture-token",
+    }
+    artifact_response = {"artifacts": [artifact]}
+
+    with patch.dict(os.environ, environment, clear=True):
+        with patch.object(
+            fetcher, "github_get", side_effect=[current_run, artifact_response]
+        ) as api:
+            observed = fetcher.expected_artifact(repository, event, candidate_policy)
+        assert observed == artifact
+        assert api.call_count == 2
+        assert api.call_args_list[0].args[1] == f"/actions/runs/{run_id}"
+        assert api.call_args_list[1].args[1] == (
+            f"/actions/runs/{run_id}/artifacts?name={expected_name}"
+        )
+
+        bad_run = copy.deepcopy(current_run)
+        bad_run["id"] = run_id + 1
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [bad_run, artifact_response],
+            ),
+            'current_run["id"] == run_id',
+            "candidate fetcher accepted mismatched current-run identity",
+        )
+
+        bad_artifact = copy.deepcopy(artifact)
+        bad_artifact["workflow_run"]["head_sha"] = "0" * 40
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [current_run, {"artifacts": [bad_artifact]}],
+            ),
+            'workflow_artifact_run["head_sha"] == workflow_run["head_sha"]',
+            "candidate fetcher accepted an artifact from a different head SHA",
+        )
+
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [current_run, {"artifacts": []}],
+            ),
+            "expected exactly one trusted artifact",
+            "candidate fetcher accepted a missing attempt-bound artifact",
+        )
+
+        bad_digest = copy.deepcopy(artifact)
+        bad_digest["digest"] = "sha512:" + "d" * 128
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [current_run, {"artifacts": [bad_digest]}],
+            ),
+            "missing or malformed GitHub artifact digest",
+            "candidate fetcher accepted a malformed artifact digest",
+        )
+
+        oversized = copy.deepcopy(artifact)
+        oversized["size_in_bytes"] = int(candidate_policy["artifact_max_total_bytes"]) + 1
+        assert_rejected(
+            lambda: _expect_fetcher_result(
+                fetcher,
+                repository,
+                event,
+                candidate_policy,
+                environment,
+                [current_run, {"artifacts": [oversized]}],
+            ),
+            "artifact archive exceeds trusted maximum",
+            "candidate fetcher accepted an oversized artifact archive",
+        )
+
+    handler = fetcher.NoAuthorizationRedirectHandler()
+    request = urllib.request.Request(
+        "https://api.github.com/repos/Luminous-Dynamics/mycelix/actions/artifacts/1/zip",
+        headers={"Authorization": "Bearer fixture-token"},
+    )
+    signed_url = "https://artifact-storage.example/signed/object"
+    redirected = handler.redirect_request(
+        request, None, 302, "Found", {"Location": signed_url}, signed_url
+    )
+    assert redirected is not None
+    assert redirected.full_url == signed_url
+    assert redirected.get_header("Authorization") is None, (
+        "artifact redirect retained the GitHub bearer token"
+    )
+
+    http_url = "http://artifact-storage.example/object"
+    assert_rejected(
+        lambda: handler.redirect_request(
+            request, None, 302, "Found", {"Location": http_url}, http_url
+        ),
+        "trusted artifact redirect must remain on HTTPS",
+        "candidate fetcher accepted an HTTP redirect",
+    )
+
+    credentialed_url = "https://user:password@artifact-storage.example/object"
+    assert_rejected(
+        lambda: handler.redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {"Location": credentialed_url},
+            credentialed_url,
+        ),
+        "trusted artifact redirect must not introduce URL credentials",
+        "candidate fetcher accepted a credentialed redirect URL",
+    )
+
+
+def _expect_fetcher_result(
+    fetcher,
+    repository: str,
+    event: dict,
+    policy: dict,
+    environment: dict,
+    api_responses: list[dict],
+) -> dict:
+    with patch.dict(os.environ, environment, clear=True):
+        with patch.object(fetcher, "github_get", side_effect=api_responses):
+            return fetcher.expected_artifact(repository, event, policy)
+
+
 def exercise_main_record_guards(
     verifier,
     candidate_root: pathlib.Path,
@@ -375,6 +567,8 @@ def run(candidate_root: pathlib.Path) -> None:
     verify_candidate_policy(
         candidate_policy, p["record_fields"], observed_verifier_blob, observed_fetcher_blob
     )
+
+    exercise_fetcher_api_binding(fetcher, candidate_policy)
 
     tampered_policy = dict(candidate_policy)
     tampered_policy["record_fields"] = list(candidate_policy["record_fields"]) + ["extra"]
