@@ -2,7 +2,7 @@
 
 **Profile ID:** `civ-013-durable-adapter-v1`  
 **Status:** experimental reference profile; not production qualification.  
-**Source adapter revision:** [Symthaea commit `fab5db151d8c27dfa6179131c267252a4d6e301d`](https://github.com/Luminous-Dynamics/symthaea/commit/fab5db151d8c27dfa6179131c267252a4d6e301d)  
+**Source adapter revision:** [Symthaea commit `78e6087a4513e876c074f661ffd803b1e05bb49e`](https://github.com/Luminous-Dynamics/symthaea/commit/78e6087a4513e876c074f661ffd803b1e05bb49e)  
 **Golden vectors:** [civ-013-durable-witness-conformance-v1.json](civ-013-durable-witness-conformance-v1.json)  
 **Manifest:** [civ-013-durable-witness-conformance-v1-manifest.json](civ-013-durable-witness-conformance-v1-manifest.json)  
 **Independent checker:** [verify_civ013_durable_witness_conformance_v1.py](../../scripts/integral/verify_civ013_durable_witness_conformance_v1.py)  
@@ -173,6 +173,7 @@ The adapter refuses to open a store unless `rusqlite::version_number()` is at le
 | DA041 | UnanchoredForkEvidenceErasure | Coordinated deletion of local fork rows and same-database tail metadata is outside the current claim because the external anchor tracks accepted-head state only |
 
 | DA042 | ExternalAnchorMismatchAndForkEvidenceRecorded | Recovery seeing a same-generation, different external-anchor digest records the competing pair locally, leaves accepted head unchanged, creates no prepared candidate, still fails closed, and repeated identical retries do not duplicate the fork event |
+| DA043 | ExternalAnchorMismatchWithoutForkEvidence | A same-generation mismatch at generation zero remains an anchor mismatch but creates no fork row because genesis is not a record |
 
 ## Fork-evidence trust boundary and follow-on
 
@@ -182,3 +183,8 @@ Therefore the profile does not qualify fork evidence against a hostile actor abl
 
 
 The adapter makes fork-report append idempotent for an exact `(log_id, generation, first_digest, conflicting_digest)` tuple after validating the existing chain and tail commitment. DA042 explicitly repeats the same non-genesis recovery mismatch twice, requires the returned error to remain `ExternalAnchorMismatch`, and requires exactly one local fork event. The checker rejects generation zero and malformed numeric fields for this record-level fork case. This prevents retry loops from inflating the local evidence chain; it still does not make that chain externally anchored.
+
+
+## Genesis recovery mismatch boundary
+
+DA043 covers generation zero specifically: if the external anchor claims genesis but carries a nonzero digest, recovery returns `ExternalAnchorMismatch` and fails closed without accepting a record, preparing a candidate, or inserting fork evidence at generation zero. The fork-evidence schema models conflicts between actual record generations only.
