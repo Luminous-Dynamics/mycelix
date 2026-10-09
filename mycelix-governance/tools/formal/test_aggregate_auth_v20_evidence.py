@@ -153,6 +153,7 @@ FROZEN_AGGREGATE_MUTATIONS = (
     "aggregate-guard-identity-substituted", "missing-control-artifact",
     "tampered-control-result", "tampered-control-input", "unexpected-control-artifact",
     "aggregate-guard-aggregator-hash-forged", "aggregate-guard-test-hash-forged",
+    "capability-bound-control-count-weakened", "capability-resource-limit-weakened",
 )
 FROZEN_SOURCE_HASH_FIELDS = {
     "auth-v20-evidence/receipt.json": (
@@ -464,6 +465,14 @@ def apply_mutation(root: Path, name: str) -> None:
         data = json.loads(aggregate_guard.read_text(encoding="utf-8"))
         data["test_sha256"] = "0" * 64
         aggregate_guard.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "capability-bound-control-count-weakened":
+        data = json.loads(capability_receipt.read_text(encoding="utf-8"))
+        data["validation_controls"] = data["validation_controls"][:-1]
+        capability_receipt.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "capability-resource-limit-weakened":
+        data = json.loads(capability_receipt.read_text(encoding="utf-8"))
+        data["summary"]["resource_limits"]["max_constraints_per_tool"] = 256
+        capability_receipt.write_text(json.dumps(data), encoding="utf-8")
     elif name == "missing-control-artifact":
         control_input.unlink()
     elif name == "tampered-control-result":
@@ -568,6 +577,8 @@ def main() -> int:
                 "unexpected-control-artifact",
                 "aggregate-guard-aggregator-hash-forged",
                 "aggregate-guard-test-hash-forged",
+                "capability-bound-control-count-weakened",
+                "capability-resource-limit-weakened",
             )
             require(tuple(mutations) == FROZEN_AGGREGATE_MUTATIONS,
                     "executed aggregate mutations differ from independently frozen inventory")
