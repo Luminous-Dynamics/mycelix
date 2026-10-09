@@ -298,10 +298,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-identity
-      - name: Test identity
-        run: cd mycelix-identity && cargo test --workspace
       - name: Test standalone ML-DSA-65 verifier (RustCrypto feature)
         run: cd mycelix-identity && cargo test --locked -p mycelix-crypto --features hybrid-rc
+      - name: Test identity
+        run: cd mycelix-identity && cargo test --workspace
 
   test-personal:
     needs: changes
