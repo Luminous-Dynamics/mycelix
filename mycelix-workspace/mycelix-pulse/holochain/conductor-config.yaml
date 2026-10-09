@@ -21,7 +21,7 @@ network:
   # Verify that these endpoints support the Holochain 0.7 Kitsune2/Iroh transport.
   # The legacy 0.6 signal/WebRTC configuration has been removed.
   bootstrap_url: "https://bootstrap.holo.host"
-  relay_url: "https://bootstrap.holo.host"
+  relay_url: "https://bootstrap.holo.host/relay"
   base64_auth_material_bootstrap: ~
   base64_auth_material_relay: ~
   request_timeout_s: 60
