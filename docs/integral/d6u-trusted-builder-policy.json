@@ -245,7 +245,7 @@
   },
   "trusted_artifact_fetcher": {
     "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-    "blob_sha": "103a658dff58d05971896096024d4a797ac4f96f"
+    "blob_sha": "8dc4b4822a43aed17e8a18aad0ce2925adc4634a"
   },
   "attestation_publication": {
     "push_to_registry": false,
@@ -302,7 +302,7 @@
     },
     "scripts/integral/fetch_d6u_trusted_artifact.py": {
       "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-      "blob_sha": "103a658dff58d05971896096024d4a797ac4f96f"
+      "blob_sha": "8dc4b4822a43aed17e8a18aad0ce2925adc4634a"
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
