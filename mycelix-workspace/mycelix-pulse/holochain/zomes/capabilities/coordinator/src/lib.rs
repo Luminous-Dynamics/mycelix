@@ -73,6 +73,15 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
     let my_agent = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
+    // A Holochain CapGrant has no native expires_at field. Issuing an expiring
+    // application record while leaving the conductor grant alive would be a
+    // security lie, so refuse expiry until a qualified revocation scheduler exists.
+    if input.expires_at.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Expiring remote capabilities are disabled until conductor-level timed revocation is qualified".to_string(),
+        )));
+    }
+
     // Holochain's host-generated 512-bit secret is the only supported source of
     // capability secrets. Never persist it in the application/DHT entry.
     let id = format!("cap_{}_{}", my_agent, now.as_micros());
@@ -189,6 +198,19 @@ fn determine_granted_functions(
     if permissions.can_view_attachments != permissions.can_download_attachments {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Attachment access currently requires view and download permissions to agree".to_string(),
+        )));
+    }
+    if permissions.can_view_attachments && !permissions.can_read {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Attachment access requires read permission".to_string(),
+        )));
+    }
+
+    // The current remote-mail API has no general message-deletion entrypoint.
+    // Do not pretend delete_draft implements the broader can_delete contract.
+    if permissions.can_delete {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "can_delete is disabled for delegated capabilities until a scoped delete entrypoint exists".to_string(),
         )));
     }
 
