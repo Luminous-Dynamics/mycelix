@@ -27,6 +27,8 @@ FROZEN_CAPABILITY_VALIDATION_IDS = (
     "constraint-depth-overflow",
     "constraint-clause-overflow",
     "constraint-node-overflow",
+    "constraint-value-depth-overflow",
+    "constraint-value-node-overflow",
     "tool-count-limit-exceeded",
     "argument-key-limit-exceeded",
 )
@@ -290,7 +292,7 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
         elif relative == "auth-v20-capability-evidence/aat-capability-subsumption.json":
             data["summary"].update({
                 "constraint_subsumption_controls": 34,
-                "malformed_or_bound_controls": 12,
+                "malformed_or_bound_controls": 14,
                 "capability_attenuation_controls": 8,
                 "runtime_and_invocation_controls": 21,
                 "mutants_detected": 4,
@@ -300,6 +302,8 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
                     "max_composite_clauses": 128,
                     "max_tools_per_token": 256,
                     "max_constraints_per_tool": 64,
+                    "max_constraint_value_depth": 32,
+                    "max_constraint_value_nodes": 512,
                 },
             })
             data["validation_controls"] = [
