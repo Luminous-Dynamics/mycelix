@@ -378,35 +378,42 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Nix for the SDK toolchain
+        uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31.10.6
         with:
-          targets: wasm32-unknown-unknown
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Export and verify the flake-pinned SDK toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix develop ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c '
+            rustc --version
+            cargo --version
+            node --version | grep -Eq "^v24[.]"
+            npm --version
+
+            # Make the exact Nix-provided binaries/env available to following
+            # steps (including rust-cache) without selecting a second toolchain.
+            printf "%s\n" "$PATH" | tr ":" "\n" >> "$GITHUB_PATH"
+            for name in LIBCLANG_PATH BINDGEN_EXTRA_CLANG_ARGS OPENSSL_DIR OPENSSL_LIB_DIR OPENSSL_INCLUDE_DIR; do
+              printf "%s=%s\n" "$name" "${!name}" >> "$GITHUB_ENV"
+            done
+          '
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-workspace/sdk
       - name: Test Rust SDK
         run: cd mycelix-workspace/sdk && cargo test --workspace
-      - name: Install Nix for the TypeScript SDK toolchain
-        uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31.10.6
-        with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Verify Nix-pinned Node.js toolchain
-        run: |
-          nix develop ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c '
-            node --version
-            npm --version
-            node --version | grep -Eq '^v24[.]'
-          '
       - name: Install TypeScript SDK dependencies
-        run: nix develop ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c 'cd mycelix-workspace/sdk-ts && npm ci'
+        run: cd mycelix-workspace/sdk-ts && npm ci
       - name: Audit TypeScript SDK dependencies
-        run: nix develop ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c 'cd mycelix-workspace/sdk-ts && npm audit --audit-level=high'
+        run: cd mycelix-workspace/sdk-ts && npm audit --audit-level=high
       - name: Typecheck TypeScript SDK
-        run: nix develop ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c 'cd mycelix-workspace/sdk-ts && npm run typecheck'
+        run: cd mycelix-workspace/sdk-ts && npm run typecheck
       - name: Lint TypeScript SDK
-        run: nix develop ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c 'cd mycelix-workspace/sdk-ts && npm run lint'
+        run: cd mycelix-workspace/sdk-ts && npm run lint
       - name: Test TypeScript SDK
-        run: nix develop ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c 'cd mycelix-workspace/sdk-ts && npm test'
+        run: cd mycelix-workspace/sdk-ts && npm test
 
   test-prism:
     needs: changes
