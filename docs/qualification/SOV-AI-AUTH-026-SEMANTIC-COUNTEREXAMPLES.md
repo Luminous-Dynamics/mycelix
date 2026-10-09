@@ -105,3 +105,16 @@ The workflow now compiles and runs this separate checker and uploads `delegation
 
 
 The chain evaluator has an explicit eight-hop ceiling (root included), independently frozen by the test harness. Over-depth chains fail closed as unsupported, and duplicate hop IDs are rejected before relations are evaluated. These bounds constrain candidate work; they are not a negotiated protocol limit and must not be presented as one.
+
+
+## Delegation-chain claims: depth, lifetime, and fixture linkage
+
+The new `delegation_chain_claims.py` checker evaluates parsed, deterministic fixture claims independently from policy denotation. It checks unique token IDs, the root depth being zero, exactly-one depth increments, descendant depth within the parent's budget, non-increasing depth ceilings, child expiry not exceeding parent expiry, non-decreasing `iat`, expiry after both current time and issuance, a finite per-token lifetime, a future-issued-at skew bound, and a parent-envelope SHA-256 commitment over the preceding fixture node.
+
+The independent harness repeats all numeric limits in its own frozen constants, computes the canonical JSON digest without importing the implementation's helper, independently derives the set of expected invariant findings, and tests ten malformed/violating cases plus four injected omissions of required finding codes. The workflow emits `delegation-chain-claims-differential.json` alongside the policy-semantic chain evidence.
+
+**Important protocol boundary:** the fixture's `parent_envelope_sha256` is a custom canonical-JSON commitment. It is not the AAT draft's `par_hash` wire representation, is not derived from a compact signed JWT, and provides no authentication. This checker does not parse or verify token signatures, issuer authority, derived-key thumbprints, proof-of-possession, audience semantics, or revocation. It checks only the supplied parsed fixture claims. A claim-level PASS must never be treated as a cryptographic-chain PASS.
+
+The published AAT draft -01 (dated 15 June 2026, expiring 17 December 2026) supplies useful independent design context: its depth invariant increments `del_depth` by exactly one at each link and bounds `del_max_depth`; its TTL invariant requires child expiry no later than the parent, issued-at no earlier than the parent, an unexpired token, and a bounded lifetime. It recommends finite maximum-depth enforcement and documents a 30-second maximum future-issued-at skew and 90-day maximum-token-lifetime upper bound. This candidate adopts those last two values as frozen *test-profile values*, not as a claim that the draft is an endorsed standard or that the entire AAT profile is implemented. See https://datatracker.ietf.org/doc/draft-niyikiza-oauth-attenuating-agent-tokens/ and RFC 8693's express distinction between token exchange and deployment-specific token validity/trust semantics: https://www.rfc-editor.org/rfc/rfc8693.
+
+All evidence remains research/specification only. The exact-head workflow must complete and its artifacts must be reviewed before any bounded-test PASS can be reported; cryptographic enforcement qualification remains explicitly outside this candidate.
