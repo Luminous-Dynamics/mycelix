@@ -198,6 +198,7 @@ def validation_cases() -> list[tuple[str, Any, str]]:
         ("unknown-constraint-extension", {"constraint_type": "regex", "pattern": ".*"}, "constraint-type-unsupported"),
         ("unexpected-exact-member", {"constraint_type": "exact", "value": "a", "ignored": True}, "constraint-member-unsupported"),
         ("exact-object-value", exact({"k": "v"}), "exact-value-invalid"),
+        ("exact-nonfinite-value", exact(float("inf")), "exact-value-invalid"),
         ("range-bool-bound", range_c(min=True), "range-bound-invalid"),
         ("range-exclusive-empty", range_c(min=1, max=1, min_inclusive=False), "range-empty"),
         ("any-empty", any_c(), "any-empty"),
