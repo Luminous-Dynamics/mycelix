@@ -27,6 +27,13 @@ from unittest.mock import patch
 
 
 EXPECTED_TRUSTED_POLICY_BLOB = "f7c7581017cc5773243a2d25093e5de3cd522e2e"
+EXPECTED_TRUSTED_PROGRAM_PATHS = (
+    "scripts/integral/verify_d6u_trusted_artifacts.py",
+    "scripts/integral/fetch_d6u_trusted_artifact.py",
+    "scripts/integral/verify_d6u_trusted_attestation.py",
+    "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
+    "scripts/integral/verify_d6u_trusted_attestation_retention.py",
+)
 
 
 def load_module(path: pathlib.Path):
@@ -209,6 +216,57 @@ def verify_candidate_policy_blob(content: bytes) -> str:
         "candidate trusted policy blob mismatch: "
         f"expected={EXPECTED_TRUSTED_POLICY_BLOB}, observed={observed}"
     )
+    return observed
+
+
+def verify_candidate_trusted_program_blobs(
+    candidate_root: pathlib.Path,
+    candidate_policy: dict,
+) -> dict[str, str]:
+    trusted_programs = candidate_policy.get("trusted_programs")
+    assert isinstance(trusted_programs, dict), (
+        "candidate trusted programs mapping is missing"
+    )
+    assert set(trusted_programs) == set(EXPECTED_TRUSTED_PROGRAM_PATHS), (
+        "candidate trusted program path set mismatch"
+    )
+
+    observed: dict[str, str] = {}
+    for path in EXPECTED_TRUSTED_PROGRAM_PATHS:
+        entry = trusted_programs.get(path)
+        assert isinstance(entry, dict), (
+            f"candidate trusted program pin is missing: {path}"
+        )
+        assert entry.get("path") == path, (
+            f"candidate trusted program path mismatch: {path}"
+        )
+        source_path = candidate_root / path
+        assert source_path.is_file() and not source_path.is_symlink(), (
+            f"candidate trusted program missing or symlinked: {path}"
+        )
+        observed_blob = git_blob_sha1(source_path.read_bytes())
+        expected_blob = entry.get("blob_sha")
+        assert expected_blob == observed_blob, (
+            f"candidate trusted program blob mismatch: {path}; "
+            f"expected={expected_blob!r}, observed={observed_blob!r}"
+        )
+        observed[path] = observed_blob
+
+    aliases = (
+        ("trusted_artifact_fetcher", "scripts/integral/fetch_d6u_trusted_artifact.py"),
+        ("trusted_attestation_verifier", "scripts/integral/verify_d6u_trusted_attestation.py"),
+    )
+    for alias_name, path in aliases:
+        alias = candidate_policy.get(alias_name)
+        assert isinstance(alias, dict), (
+            f"candidate trusted-program alias missing: {alias_name}"
+        )
+        assert alias.get("path") == path, (
+            f"candidate trusted-program alias path mismatch: {alias_name}"
+        )
+        assert alias.get("blob_sha") == observed[path], (
+            f"candidate trusted-program alias blob mismatch: {alias_name}"
+        )
     return observed
 
 
@@ -1178,6 +1236,31 @@ def run(candidate_root: pathlib.Path) -> None:
         observed_verifier_blob,
         observed_fetcher_blob,
         observed_workflow_blob,
+    )
+    observed_program_blobs = verify_candidate_trusted_program_blobs(
+        candidate_root, candidate_policy
+    )
+
+    altered_program_policy = copy.deepcopy(candidate_policy)
+    altered_program_policy["trusted_programs"][
+        "scripts/integral/verify_d6u_trusted_attestation_retention.py"
+    ]["blob_sha"] = "0" * 40
+    assert_rejected(
+        lambda: verify_candidate_trusted_program_blobs(
+            candidate_root, altered_program_policy
+        ),
+        "candidate trusted program blob mismatch: scripts/integral/verify_d6u_trusted_attestation_retention.py",
+        "candidate evaluator accepted an altered trusted-program blob pin",
+    )
+
+    altered_alias_policy = copy.deepcopy(candidate_policy)
+    altered_alias_policy["trusted_attestation_verifier"]["blob_sha"] = "0" * 40
+    assert_rejected(
+        lambda: verify_candidate_trusted_program_blobs(
+            candidate_root, altered_alias_policy
+        ),
+        "candidate trusted-program alias blob mismatch: trusted_attestation_verifier",
+        "candidate evaluator accepted an altered trusted-program alias pin",
     )
 
     exercise_fetcher_api_binding(fetcher, candidate_policy)
