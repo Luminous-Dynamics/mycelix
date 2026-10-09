@@ -71,6 +71,37 @@ jobs:
             .github/workflows/fpm-trusted-qualification-independent-verify.yml \
             .github/workflows/fpm-reference-verifier-selftest.yml
 
+      - name: Parse every embedded sandbox program
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import textwrap
+          from pathlib import Path
+
+          source = Path(".github/workflows/fpm-trusted-qualification.yml").read_text(encoding="utf-8")
+          lines = source.splitlines()
+          starts = [i for i, line in enumerate(lines) if '-ceu "$(cat <<\'FPM_SANDBOX_SCRIPT\'' in line]
+          if len(starts) != 4:
+              raise SystemExit(f"expected exactly four embedded sandbox programs, found {len(starts)}")
+
+          out = Path(os.environ["RUNNER_TEMP"]) / "fpm-sandbox-programs"
+          out.mkdir(mode=0o700)
+          for index, start in enumerate(starts):
+              try:
+                  end = next(i for i in range(start + 1, len(lines)) if lines[i] == "          FPM_SANDBOX_SCRIPT")
+              except StopIteration as exc:
+                  raise SystemExit(f"sandbox program {index} has no terminator") from exc
+              body = textwrap.dedent("\n".join(lines[start + 1:end])) + "\n"
+              if not body.strip():
+                  raise SystemExit(f"sandbox program {index} is empty")
+              (out / f"program-{index}.sh").write_text(body, encoding="utf-8")
+          PY
+          for script in "$RUNNER_TEMP"/fpm-sandbox-programs/program-*.sh; do
+            bash -n "$script"
+            shellcheck --severity=error "$script"
+          done
+
       - name: Python syntax check
         run: |
           set -euo pipefail
