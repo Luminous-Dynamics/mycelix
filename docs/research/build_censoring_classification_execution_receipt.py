@@ -27,6 +27,11 @@ def canonical(value):
     return json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(",",":")).encode("utf-8")
 def sha(data:bytes)->str:
     return hashlib.sha256(data).hexdigest()
+def case_items(obj):
+    if isinstance(obj,list): return obj
+    if isinstance(obj,dict): return obj.get("cases")
+    return None
+
 def load_report(path:Path,expected:int|None):
     raw=path.read_bytes()
     obj=json.loads(raw)
@@ -67,8 +72,8 @@ def build(root:Path,out:Path):
     for name,filename,count in SUPPORTING:
         source=root/filename
         if not source.is_file():raise ValueError("missing-supporting-input:"+filename)
-        raw=source.read_bytes();obj=json.loads(raw)
-        if not isinstance(obj,dict) or not isinstance(obj.get("cases"),list) or len(obj["cases"])!=count:raise ValueError("supporting-corpus-count:"+filename)
+        raw=source.read_bytes();obj=json.loads(raw);cases=case_items(obj)
+        if not isinstance(cases,list) or len(cases)!=count:raise ValueError("supporting-corpus-count:"+filename)
         shutil.copyfile(source,supporting_dir/filename)
         corpus_hashes.append({"name":name,"file":"supporting/"+filename,"sha256":sha(raw),"case_count":count})
     a=(supporting_dir/"generated-corpus-a.json").read_bytes()
