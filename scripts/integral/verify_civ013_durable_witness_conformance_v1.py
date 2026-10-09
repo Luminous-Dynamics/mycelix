@@ -48,6 +48,7 @@ REQUIRED_IDS = {
     "DA021-fork-chain-cross-log",
     "DA022-generation-signed-range-overflow",
     "DA023-receipt-sequence-signed-range-overflow",
+    "DA024-recovery-equal-generation-missing-local-digest",
 }
 
 
@@ -219,7 +220,18 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         if external_generation < local_generation:
             return "RollbackDetected"
         if external_generation == local_generation:
-            if local_digest is not None and external.get("record_digest") != local_digest:
+            # Equal generation is not sufficient: the local accepted-head digest
+            # must be present (unless this is the generation-zero genesis state),
+            # well-formed, and byte-identical to the externally retained digest.
+            expected_local_digest = "0" * 64 if local_generation == 0 else local_digest
+            if not isinstance(expected_local_digest, str):
+                return "ExternalAnchorMismatch"
+            try:
+                external_digest = parse_digest(external.get("record_digest"), "external record digest")
+                accepted_digest = parse_digest(expected_local_digest, "local record digest")
+            except (TypeError, ValueError):
+                return "ExternalAnchorMismatch"
+            if external_digest != accepted_digest:
                 return "ExternalAnchorMismatch"
             return "ACCEPT_RECOVERY"
         prepared_generation = vector.get("prepared_generation")
