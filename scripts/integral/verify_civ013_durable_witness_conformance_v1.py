@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "a8e16a7877043114d4fe98fbc47df91c448d9665"
+SOURCE_COMMIT = "fab5db151d8c27dfa6179131c267252a4d6e301d"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 SQLITE_MINIMUM_VERSION_NUMBER = 3_051_003
 
@@ -542,6 +542,7 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
             or first_digest != anchor_digest
             or conflicting_digest != local_digest
             or vector.get("expected_fork_evidence_count_after") != 1
+            or vector.get("expected_identical_retry_count") != 2
             or vector.get("accepted_head_unchanged") is not True
             or vector.get("prepared_candidate_created") is not False
         ):
