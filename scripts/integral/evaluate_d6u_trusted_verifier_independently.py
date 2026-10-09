@@ -268,9 +268,9 @@ def exercise_main_record_guards(
         test_log_path = artifact_dir / "d6u-runtime-test.log"
         lock_path = artifact_dir / "Cargo.lock"
         for path in (evidence_path, test_log_path, lock_path):
-            path.write_text("fixture\\n", encoding="utf-8")
+            path.write_text("fixture\n", encoding="utf-8")
 
-        manifest_bytes = b"[package]\\nname='fixture'\\nversion='0.1.0'\\nedition='2021'\\n"
+        manifest_bytes = b"[package]\nname='fixture'\nversion='0.1.0'\nedition='2021'\n"
         expected_manifest_blob = candidate_policy["required_source_blobs"][
             candidate_policy["lock_graph"]["manifest_path"]
         ]
