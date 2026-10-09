@@ -52,7 +52,7 @@
   "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback.",
   "fixture_git_blob_sha": "7b7e9f579930aad65903451dec03eab3d7dd4573",
   "checker_git_blob_sha": "2894794427ebc83fdea83b7c9cd383742cb64ae0",
-  "spec_git_blob_sha": "d633225847f50d1167e2b2402c17009cc24fbe75",
+  "spec_git_blob_sha": "6b7ce7bd96c883b388d99ca2a72649c4e9416e8d",
   "workflow_git_blob_sha": "197a6e19dd788c44a8606918ef784ee7ffced126",
   "source_adapter_blob_sha": "1312fc39f7817f94de074a6deb73d76941a4d178",
   "source_toolchain_path": "rust-toolchain.toml",
