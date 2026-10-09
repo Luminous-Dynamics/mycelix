@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "f3def874aa868c5cb1e0997f601096bc33b0df45"
+SOURCE_COMMIT = "e259becc6cbb516b0750efd13464793f27f74f16"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 
 REQUIRED_IDS = {
@@ -53,6 +53,7 @@ REQUIRED_IDS = {
     "DA026-late-finalize-current-head-pointer-mismatch",
     "DA027-late-finalize-current-head-record-tampered",
     "DA028-same-generation-finalize-tampered-current-head",
+    "DA029-anchor-advances-past-candidate",
 }
 
 
@@ -355,6 +356,19 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         if row_digest != stored_digest or calculated_digest != stored_digest:
             return "CorruptCurrentHeadRecord"
         return "IdempotentAcceptedHistory"
+
+    if kind == "anchor_ahead_after_prepare":
+        if vector["observed_anchor_log_id"] != vector["log_id"]:
+            return "ExternalAnchorMismatch"
+        if vector["observed_anchor_generation"] > vector["candidate_generation"]:
+            return "RollbackDetected"
+        if vector["observed_anchor_generation"] == vector["candidate_generation"]:
+            return (
+                "ACCEPT_ALREADY_ANCHORED"
+                if vector["observed_anchor_digest"] == vector.get("candidate_digest")
+                else "ExternalAnchorMismatch"
+            )
+        return "AnchorNotAhead"
 
     if kind == "sqlite_integer_range":
         generation = vector["record_generation"]
