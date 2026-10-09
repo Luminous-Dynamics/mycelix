@@ -487,6 +487,7 @@ jobs:
             echo "relevant=false" >> "$GITHUB_OUTPUT"
             sed -i 's/^scope_status=.*/scope_status=SKIPPED_PATHS/' security-nix-sdk/receipt.txt
             sed -i 's/^nix_sdk_status=.*/nix_sdk_status=SKIPPED_PATHS/' security-nix-sdk/receipt.txt
+            sed -i 's/^sdk_ts_nix_build_status=.*/sdk_ts_nix_build_status=SKIPPED_PATHS/' security-nix-sdk/receipt.txt
           fi
           echo "changed_paths_sha256=$(sha256sum security-nix-sdk/changed-paths.txt | cut -d ' ' -f1)" >> security-nix-sdk/receipt.txt
       - name: Install Nix
@@ -555,15 +556,11 @@ jobs:
           cat security-nix-sdk/sdk-build.stdout.txt
           cat security-nix-sdk/sdk-build.stderr.txt >&2
           lock_after="$(sha256sum mycelix-workspace/flake.lock | cut -d ' ' -f1)"
-          if [[ "$lock_before" != "$lock_after" ]]; then
+          if [[ "$lock_before" != "$lock_after" && "$status" -eq 0 ]]; then
             echo "FAIL: flake.lock changed while building the SDK" >&2
             status=22
           fi
-          {
-            echo "sdk_ts_nix_build_exit_code=$status"
-            echo "sdk_ts_nix_build_flake_lock_sha256_before=$lock_before"
-            echo "sdk_ts_nix_build_flake_lock_sha256_after=$lock_after"
-          } >> security-nix-sdk/receipt.txt
+          output_path=""
           if [[ "$status" -eq 0 ]]; then
             output_path="$(tail -n 1 security-nix-sdk/sdk-build.stdout.txt)"
             case "$output_path" in
@@ -573,19 +570,33 @@ jobs:
                 status=23
                 ;;
             esac
-            if [[ "$status" -eq 0 ]]; then
-              printf '%s\n' "$output_path" > security-nix-sdk/sdk-output-path.txt
-              nix path-info --json "$output_path" > security-nix-sdk/sdk-output-path-info.json
-              nix path-info --recursive "$output_path" > security-nix-sdk/sdk-closure-paths.txt
-              {
-                echo "sdk_ts_nix_build_status=PASS"
-                echo "sdk_ts_output_path=$output_path"
-                echo "sdk_ts_output_path_info_sha256=$(sha256sum security-nix-sdk/sdk-output-path-info.json | cut -d ' ' -f1)"
-                echo "sdk_ts_closure_manifest_sha256=$(sha256sum security-nix-sdk/sdk-closure-paths.txt | cut -d ' ' -f1)"
-              } >> security-nix-sdk/receipt.txt
+          fi
+          if [[ "$status" -eq 0 ]]; then
+            printf '%s\n' "$output_path" > security-nix-sdk/sdk-output-path.txt
+            set +e
+            nix path-info --json "$output_path" > security-nix-sdk/sdk-output-path-info.json
+            info_status=$?
+            nix path-info --recursive "$output_path" > security-nix-sdk/sdk-closure-paths.txt
+            closure_status=$?
+            set -e
+            if [[ "$info_status" -ne 0 || "$closure_status" -ne 0 ]]; then
+              echo "FAIL: unable to collect Nix output/closure metadata" >&2
+              status=24
             fi
           fi
-          if [[ "$status" -ne 0 ]]; then
+          {
+            echo "sdk_ts_nix_build_exit_code=$status"
+            echo "sdk_ts_nix_build_flake_lock_sha256_before=$lock_before"
+            echo "sdk_ts_nix_build_flake_lock_sha256_after=$lock_after"
+          } >> security-nix-sdk/receipt.txt
+          if [[ "$status" -eq 0 ]]; then
+            {
+              echo "sdk_ts_nix_build_status=PASS"
+              echo "sdk_ts_output_path=$output_path"
+              echo "sdk_ts_output_path_info_sha256=$(sha256sum security-nix-sdk/sdk-output-path-info.json | cut -d ' ' -f1)"
+              echo "sdk_ts_closure_manifest_sha256=$(sha256sum security-nix-sdk/sdk-closure-paths.txt | cut -d ' ' -f1)"
+            } >> security-nix-sdk/receipt.txt
+          else
             sed -i 's/^sdk_ts_nix_build_status=.*/sdk_ts_nix_build_status=FAIL/' security-nix-sdk/receipt.txt
             echo "sdk_ts_nix_build_failure=The Nix SDK derivation, check commands, lock immutability, or output identity failed" >> security-nix-sdk/receipt.txt
           fi
