@@ -25,6 +25,44 @@ import compound_subsumption_counterexamples as oracle  # noqa: E402
 MATRIX_SCHEMA = "mycelix.compound-subsumption-differential-matrix.v1"
 RECEIPT_SCHEMA = "mycelix.compound-subsumption-differential-receipt.v1"
 
+# Frozen independently of the JSON matrix: changing the matrix alone cannot
+# narrow the language, request space, or generated corpus while keeping CI green.
+FROZEN_UNIVERSE = {
+    "targets": ["alice", "bob"],
+    "purposes": ["business", "refund"],
+    "contexts": ["trusted", "untrusted"],
+    "amounts": [0, 1, 2, 3],
+    "request_count": 32,
+    "order": "declared dimension order; target × purpose × context × amount",
+}
+FROZEN_ATOMS = [
+    {"id": "atom-universe", "target": ["alice", "bob"], "purpose": ["business", "refund"],
+     "context": ["trusted", "untrusted"], "max_amount": 3},
+    {"id": "atom-alice", "target": ["alice"], "purpose": ["business", "refund"],
+     "context": ["trusted", "untrusted"], "max_amount": 3},
+    {"id": "atom-bob", "target": ["bob"], "purpose": ["business", "refund"],
+     "context": ["trusted", "untrusted"], "max_amount": 3},
+    {"id": "atom-business", "target": ["alice", "bob"], "purpose": ["business"],
+     "context": ["trusted", "untrusted"], "max_amount": 3},
+    {"id": "atom-refund", "target": ["alice", "bob"], "purpose": ["refund"],
+     "context": ["trusted", "untrusted"], "max_amount": 3},
+    {"id": "atom-trusted", "target": ["alice", "bob"], "purpose": ["business", "refund"],
+     "context": ["trusted"], "max_amount": 3},
+    {"id": "atom-narrow", "target": ["alice"], "purpose": ["business"],
+     "context": ["trusted"], "max_amount": 1},
+    {"id": "atom-low-amount", "target": ["alice", "bob"], "purpose": ["business", "refund"],
+     "context": ["trusted", "untrusted"], "max_amount": 1},
+]
+FROZEN_REQUIRED_INVARIANTS = [
+    "independent_denotation_matches_classifier",
+    "structural_matcher_matches_bruteforce_injective_reference",
+    "authority_expansion_has_minimal_ordered_request_witness",
+    "structural_false_negative_has_no_child_minus_parent_witness",
+    "structural_and_denotational_disagreement_are_reported_as_distinct_classes",
+    "clause_permutation_preserves_decision_and_id_mapped_witness",
+    "counterexample_reducer_preserves_failure_class",
+]
+
 
 def canonical_bytes(value: Any) -> bytes:
     return (json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
@@ -357,17 +395,24 @@ def control_signature(result: dict[str, Any]) -> dict[str, Any]:
 def validate_matrix(matrix: dict[str, Any]) -> None:
     require(matrix.get("schema") == MATRIX_SCHEMA, "unexpected differential matrix schema")
     universe = matrix.get("finite_universe", {})
-    require(universe.get("request_count") == 32, "request_count must be exactly 32")
-    require(len(declared_requests(universe)) == 32, "declared universe does not contain 32 requests")
+    require(universe == FROZEN_UNIVERSE, "finite universe differs from the in-code frozen definition")
+    require(len(declared_requests(universe)) == 32, "frozen universe does not contain exactly 32 requests")
+
     corpus = matrix.get("corpus", {})
-    require(corpus.get("atom_count") == 8, "corpus atom count is not 8")
-    require(corpus.get("max_clauses_per_compound") == 2, "max clause count is not 2")
-    require(corpus.get("expression_count") == 128, "expected 128 generated expressions")
-    require(corpus.get("ordered_parent_child_pairs") == 16384, "expected 16,384 ordered pairs")
-    require(corpus.get("ordered_pair_request_combinations") == 524288, "expected 524,288 pair-request combinations")
-    atoms = matrix.get("atoms", [])
-    require(len(atoms) == 8 and len({atom.get("id") for atom in atoms}) == 8,
-            "frozen atom catalogue is incomplete or has duplicate IDs")
+    expected_corpus = {
+        "atom_count": 8,
+        "max_clauses_per_compound": 2,
+        "compound_kinds": ["all", "any"],
+        "generation": "all ordered permutations of distinct atoms with clause counts 1 and 2",
+        "expression_count": 128,
+        "ordered_parent_child_pairs": 16384,
+        "ordered_pair_request_combinations": 524288,
+        "randomness": "none",
+    }
+    require(corpus == expected_corpus, "corpus configuration differs from the in-code frozen definition")
+    require(matrix.get("atoms") == FROZEN_ATOMS, "atom catalogue differs from the in-code frozen definition")
+    require(matrix.get("required_invariants") == FROZEN_REQUIRED_INVARIANTS,
+            "required invariant list differs from the in-code frozen definition")
 
 
 def main() -> int:
