@@ -19,7 +19,10 @@ grep -Fq 'holo_hash = "=0.7.0"' "$manifest" || fail "Governance holo_hash is not
 grep -Fq 'hdk_derive = "=0.7.0"' "$manifest" || fail "Governance hdk_derive is not pinned to 0.7.0"
 grep -Fq 'holochain_serialized_bytes = "=0.0.57"' "$manifest" || fail "Governance serialized bytes are not pinned to 0.0.57"
 
-if grep -RInE 'FlatOp::(StoreEntry|StoreRecord|RegisterUpdate|RegisterDelete|RegisterCreateLink|RegisterDeleteLink|RegisterAgentActivity)|Action::(Create|Update|Delete|CreateLink|DeleteLink)'   "$root/mycelix-governance/zomes" >/tmp/governance-legacy-action-model.txt; then
+# Match complete Rust enum paths and variant tokens. Without identifier
+# boundaries, Action::Update also matches the suffix of GovernanceAction::UpdateParameter.
+legacy_pattern='(^|[^[:alnum:]_])(FlatOp::(StoreEntry|StoreRecord|RegisterUpdate|RegisterDelete|RegisterCreateLink|RegisterDeleteLink|RegisterAgentActivity)|Action::(Create|Update|Delete|CreateLink|DeleteLink))([^[:alnum:]_]|$)'
+if grep -RInE "$legacy_pattern" "$root/mycelix-governance/zomes" >/tmp/governance-legacy-action-model.txt; then
   cat /tmp/governance-legacy-action-model.txt >&2
   fail "legacy Holochain 0.6 action/FlatOp forms remain in Governance integrity/coordinator sources"
 fi
