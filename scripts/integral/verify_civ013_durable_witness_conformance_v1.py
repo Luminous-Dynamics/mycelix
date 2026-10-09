@@ -387,26 +387,26 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
 
     if kind == "legacy_fork_meta_migration":
         chain = vector.get("stored_chain")
+        before = vector.get("schema_user_version")
+        after = vector.get("expected_schema_user_version_after")
         if (
-            type(vector.get("schema_user_version")) is not int
+            type(before) is not int
             or vector.get("has_existing_adapter_schema") is not True
             or vector.get("metadata_present") is not False
-            or type(vector.get("expected_schema_user_version_after")) is not int
+            or type(after) is not int
         ):
             return "InvalidInput"
-        if not isinstance(chain, list) or not valid_fork_chain(chain):
-            return "CorruptForkEvidence"
-        if vector.get("stored_count") != len(chain):
-            return "CorruptForkEvidence"
-        if vector["schema_user_version"] not in (0, 1):
+        if before not in (0, 1):
             return "UnsupportedSchemaVersion"
-        if vector.get("expected_outcome") == "MigrateLegacyForkMetadata":
-            if vector["expected_schema_user_version_after"] != 2:
-                return "InvalidInput"
-            return "MigrateLegacyForkMetadata"
-        if vector["expected_schema_user_version_after"] != vector["schema_user_version"]:
+        chain_valid = isinstance(chain, list) and valid_fork_chain(chain)
+        count_matches = isinstance(chain, list) and vector.get("stored_count") == len(chain)
+        if not chain_valid or not count_matches:
+            if after != before:
+                return "SchemaVersionChangedOnFailedMigration"
+            return "CorruptForkEvidence"
+        if after != 2:
             return "InvalidInput"
-        return "CorruptForkEvidence"
+        return "MigrateLegacyForkMetadata"
 
     if kind == "semantic_integrity_check_fork_tail":
         chain = vector.get("stored_chain")
