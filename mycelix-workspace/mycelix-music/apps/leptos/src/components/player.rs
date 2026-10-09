@@ -119,8 +119,29 @@ pub fn Player() -> impl IntoView {
     // reliably control an existing media element. Drive the media API from
     // the reactive playback state instead.
     let player_for_effect = player.clone();
+    // Keep logical selection identity separately from the media URL. If a
+    // different record points at the same URL, src will not change, so reset
+    // the real playhead here instead of only resetting the reactive progress.
+    let last_selected_identity = RwSignal::new(None::<(String, String)>);
     Effect::new(move |_| {
-        let has_song = current.get().is_some();
+        let selected_song = current.get();
+        let selected_identity = selected_song
+            .as_ref()
+            .map(|song| (song.song_hash.clone(), song.audio_url()));
+        if let (Some((previous_hash, previous_url)), Some(song)) =
+            (last_selected_identity.get_untracked(), selected_song.as_ref())
+        {
+            let selected_url = song.audio_url();
+            if previous_hash != song.song_hash && previous_url == selected_url {
+                if let Some(audio) = audio_ref.get() {
+                    if audio.current_src() == selected_url {
+                        audio.set_current_time(0.0);
+                    }
+                }
+            }
+        }
+        last_selected_identity.set(selected_identity);
+        let has_song = selected_song.is_some();
         let should_play = is_playing.get();
         if let Some(audio) = audio_ref.get() {
             if has_song && should_play {
