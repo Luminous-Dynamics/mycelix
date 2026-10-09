@@ -107,6 +107,7 @@ EXPECTED_CAPABILITY_VALIDATION_CONTROL_IDS = (
     "constraint-value-node-overflow",
     "tool-count-limit-exceeded",
     "argument-key-limit-exceeded",
+    "tool-name-limit-exceeded",
 )
 
 
@@ -506,8 +507,8 @@ def main() -> int:
         capability_summary = capability_result.get("summary", {})
         require(capability_summary.get("constraint_subsumption_controls") == 34,
                 "AAT capability harness did not execute all 34 frozen subsumption controls")
-        require(capability_summary.get("malformed_or_bound_controls") == 14,
-                "AAT capability harness did not execute all 14 malformed/bounded controls")
+        require(capability_summary.get("malformed_or_bound_controls") == 15,
+                "AAT capability harness did not execute all 15 malformed/bounded controls")
         observed_capability_validation_ids = [
             row.get("id") for row in capability_result.get("validation_controls", [])
             if isinstance(row, dict)
@@ -522,6 +523,7 @@ def main() -> int:
             "max_constraints_per_tool": 64,
             "max_constraint_value_depth": 32,
             "max_constraint_value_nodes": 512,
+            "max_tool_name_bytes": 256,
         }, "AAT capability resource limits differ from the frozen profile")
         require(capability_summary.get("capability_attenuation_controls") == 8,
                 "AAT capability harness did not execute all 8 capability attenuation controls")
