@@ -332,6 +332,54 @@
         "record_digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b",
         "digest": "ffd4eb2e1cd61aac467f63895026e313559b95844ad011723e39c2b26e58d47e"
       }
+    },
+    {
+      "id": "V020-anchor-same-generation-digest-mismatch",
+      "kind": "recovery",
+      "expected_outcome": "REJECT_EXTERNAL_ANCHOR_MISMATCH",
+      "local_generation": 2,
+      "local_log_id": "civ013-fixture-log-001",
+      "local_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "external_generation": 2,
+      "external_log_id": "civ013-fixture-log-001",
+      "external_record_digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b",
+      "external_anchor": {
+        "log_id": "civ013-fixture-log-001",
+        "generation": 2,
+        "record_digest": "f7e28c260cc34a30d8b2740e6897a5849f75b98de8106d0cfdce0e40a21f989b"
+      }
+    },
+    {
+      "id": "V021-local-commit-awaiting-anchor",
+      "kind": "recovery",
+      "expected_outcome": "PENDING_EXTERNAL_ANCHOR",
+      "local_generation": 3,
+      "local_log_id": "civ013-fixture-log-001",
+      "local_record_digest": "8e0f9e6a4eb1c5fa9cde1f23de7837c3d6aaf7b2c3f8a1e4d9e7b6c5a4f30129",
+      "external_generation": 2,
+      "external_log_id": "civ013-fixture-log-001",
+      "external_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "external_anchor": {
+        "log_id": "civ013-fixture-log-001",
+        "generation": 2,
+        "record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439"
+      }
+    },
+    {
+      "id": "V022-anchor-wrong-log",
+      "kind": "recovery",
+      "expected_outcome": "REJECT_EXTERNAL_ANCHOR_MISMATCH",
+      "local_generation": 2,
+      "local_log_id": "civ013-fixture-log-001",
+      "local_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "external_generation": 2,
+      "external_log_id": "civ013-different-log",
+      "external_record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439",
+      "external_anchor": {
+        "log_id": "civ013-different-log",
+        "generation": 2,
+        "record_digest": "81951b369428257b8a3af8758e3951b003a21ae294be53f917677966aee71439"
+      }
     }
   ],
   "claim_ceiling": "Reference conformance vectors only. These vectors do not establish filesystem crash consistency, genuine signatures, operational witness independence, quorum safety, or production anti-rollback."
