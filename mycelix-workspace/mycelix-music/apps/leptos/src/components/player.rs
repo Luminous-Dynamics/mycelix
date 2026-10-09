@@ -159,9 +159,9 @@ pub fn Player() -> impl IntoView {
                 let expected_url = song.audio_url();
                 if media_source_needs_load(&audio.src(), &expected_url) {
                     // Imperatively own source selection before requesting play.
-                    // This avoids depending on the order of two reactive effects.
+                    // Changing src initiates resource selection; do not call load()
+                    // again here, which would abort/restart that just-started selection.
                     audio.set_src(&expected_url);
-                    audio.load();
                 }
                 if should_play {
                     request_playback(audio, player_for_effect.clone(), play_attempt_generation);
