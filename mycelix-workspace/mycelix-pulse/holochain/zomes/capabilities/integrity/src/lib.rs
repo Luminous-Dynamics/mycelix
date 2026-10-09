@@ -357,6 +357,47 @@ fn validate_update_entry(
                     "Only grantor can update capability".to_string(),
                 ));
             }
+
+            // Resolve the source entry and permit exactly one monotonic transition:
+            // active -> revoked. The grant binding, grantee, permissions, restrictions,
+            // timestamps, and secret fingerprint are immutable; a revoked capability
+            // can never be reactivated or edited.
+            let original_record = must_get_valid_record(action.original_action_address.clone())?;
+            let original: MailboxCapability = original_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Original capability update points to another entry type".to_string()
+                )))?;
+
+            if original.grantor != action.author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Original capability must belong to the updating grantor".to_string(),
+                ));
+            }
+
+            if cap.id != original.id
+                || cap.grantor != original.grantor
+                || cap.grantee != original.grantee
+                || cap.access_type != original.access_type
+                || cap.permissions != original.permissions
+                || cap.restrictions != original.restrictions
+                || cap.granted_at != original.granted_at
+                || cap.expires_at != original.expires_at
+                || cap.system_grant_action_hash != original.system_grant_action_hash
+                || cap.secret_hash != original.secret_hash
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Capability authority fields are immutable".to_string(),
+                ));
+            }
+
+            if original.revoked || !cap.revoked {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Capability updates may only transition active -> revoked once".to_string(),
+                ));
+            }
             Ok(ValidateCallbackResult::Valid)
         }
         // Shared mailboxes can be updated by owner or admin
