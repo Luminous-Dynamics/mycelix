@@ -81,6 +81,11 @@ jobs:
           assert tag_gate < archive_gate < upload_gate
           assert 'git ls-remote origin "refs/tags/${RELEASE_TAG}^{}"' in publish
           assert 'test "${tag_sha}" = "${EXPECTED_MAIN_SHA}"' in publish
+          assert publish.count('git ls-remote origin "refs/tags/${RELEASE_TAG}^{}"') == 2
+          recheck_gate=publish.index('Recheck release tag target immediately before immutable publication')
+          draft_asset_gate=publish.index('Revalidate draft and asset digest')
+          publish_gate=publish.index('Publish immutable release')
+          assert draft_asset_gate < recheck_gate < publish_gate
           final_proof=publish.split('- name: Prove immutable release and asset',1)[1].split('\n      - name:',1)[0]
           assert "assert d['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']" in final_proof
           assert 'MYCELIX-COS-PROTECTED-MAIN-POLICY-V1' in text
