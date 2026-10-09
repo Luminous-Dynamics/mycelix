@@ -48,7 +48,8 @@ jobs:
             mycelix-governance/tools/formal/test_delegation_chain_key_linkage.py \
             mycelix-governance/tools/formal/delegation_chain_par_hash.py \
             mycelix-governance/tools/formal/test_delegation_chain_par_hash.py \
-            mycelix-governance/tools/formal/aggregate_auth_v20_evidence.py
+            mycelix-governance/tools/formal/aggregate_auth_v20_evidence.py \
+            mycelix-governance/tools/formal/test_aggregate_auth_v20_evidence.py
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json >/dev/null
           python3 -m json.tool docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json >/dev/null
       - name: Execute controls and independently replay witnesses
@@ -87,6 +88,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/auth-v20-par-hash-evidence"
           python3 mycelix-governance/tools/formal/test_delegation_chain_par_hash.py \
             --output "$RUNNER_TEMP/auth-v20-par-hash-evidence/delegation-chain-par-hash.json"
+      - name: Mutation-test the receipt aggregate
+        run: |
+          set -euo pipefail
+          export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
+          mkdir -p "$RUNNER_TEMP/auth-v20-final-evidence"
+          python3 mycelix-governance/tools/formal/test_aggregate_auth_v20_evidence.py \
+            --output "$RUNNER_TEMP/auth-v20-final-evidence/aggregate-mutation-guard.json"
       - name: Aggregate exact-head bounded evidence receipts
         env:
           EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
