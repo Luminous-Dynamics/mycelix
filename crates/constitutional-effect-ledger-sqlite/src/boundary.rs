@@ -276,8 +276,9 @@ pub trait RecoveryAuthorizer {
 ///
 /// This is deliberately distinct from pre-entry recovery: the attempt already
 /// reached DISPATCH_PENDING, so abandonment can only move it to INDETERMINATE.
-/// Deployment policy must ensure the original claimant has been fenced before
-/// this authorization is issued; there is no unsafe timeout-based lease.
+/// The evidence fields must identify externally authenticated fencing of the
+/// concrete dispatch capability represented by this claim. A timeout or an
+/// unauthenticated assertion that the claimant is gone is not sufficient.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProviderEntryClaimRecoveryAuthorizationV1 {
     pub attempt_identity: String,
@@ -288,6 +289,8 @@ pub struct ProviderEntryClaimRecoveryAuthorizationV1 {
     pub native_replay_identity: String,
     pub action_key_digest: String,
     pub claim_token_digest: String,
+    pub fencing_authority_identity: String,
+    pub dispatch_fencing_evidence_commitment: String,
     pub authorization_commitment: String,
     pub authorizer_identity: String,
 }
@@ -299,6 +302,8 @@ impl ProviderEntryClaimRecoveryAuthorizationV1 {
         native_replay_identity: impl Into<String>,
         action_key: &ActionKeyV1,
         claim_token_digest: impl Into<String>,
+        fencing_authority_identity: impl Into<String>,
+        dispatch_fencing_evidence_commitment: impl Into<String>,
         authorization_commitment: impl Into<String>,
         authorizer_identity: impl Into<String>,
     ) -> Result<Self, String> {
@@ -311,16 +316,23 @@ impl ProviderEntryClaimRecoveryAuthorizationV1 {
             native_replay_identity: native_replay_identity.into(),
             action_key_digest: action_key.digest().to_owned(),
             claim_token_digest: claim_token_digest.into(),
+            fencing_authority_identity: fencing_authority_identity.into(),
+            dispatch_fencing_evidence_commitment: dispatch_fencing_evidence_commitment.into(),
             authorization_commitment: authorization_commitment.into(),
             authorizer_identity: authorizer_identity.into(),
         };
         if out.operation_id.trim().is_empty()
             || out.native_replay_identity.trim().is_empty()
             || out.claim_token_digest.trim().is_empty()
+            || out.fencing_authority_identity.trim().is_empty()
+            || out.dispatch_fencing_evidence_commitment.trim().is_empty()
             || out.authorization_commitment.trim().is_empty()
             || out.authorizer_identity.trim().is_empty()
         {
-            return Err("provider-entry claim recovery fields must be non-empty".into());
+            return Err(
+                "provider-entry claim recovery and dispatch-fencing fields must be non-empty"
+                    .into(),
+            );
         }
         let reconstructed = AttemptIdentityV1::new(
             &out.boundary_kind,
@@ -1122,6 +1134,12 @@ mod tests {
             if authorization.authorization_commitment != "authorized-claim-recovery-v1" {
                 return Err("claim recovery authorization rejected".into());
             }
+            if authorization.fencing_authority_identity != "provider-runtime-fencer-v1"
+                || authorization.dispatch_fencing_evidence_commitment
+                    != "fenced-claim-recovery-v1"
+            {
+                return Err("dispatch fencing evidence rejected".into());
+            }
             if authorization.claim_token_digest != claim.claim_token_digest {
                 return Err("claim recovery claim-token mismatch".into());
             }
@@ -1521,10 +1539,25 @@ mod tests {
             "native-operation-claim-recovery",
             &action_key,
             claim.claim_token_digest.clone(),
+            "provider-runtime-fencer-v1",
+            "fenced-claim-recovery-v1",
             "authorized-claim-recovery-v1",
             "recovery-authority-v1",
         )
         .unwrap();
+
+        let mut tampered_authorization = authorization.clone();
+        tampered_authorization.dispatch_fencing_evidence_commitment =
+            "unbound-fencing-assertion".into();
+        assert!(matches!(
+            boundary.recover_provider_entry_claim(
+                &action_key,
+                &tampered_authorization,
+                &AllowClaimRecovery,
+            ),
+            Err(BoundaryError::Semantic(message))
+                if message.contains("dispatch fencing evidence rejected")
+        ));
 
         let result = boundary.recover_provider_entry_claim(
             &action_key,
