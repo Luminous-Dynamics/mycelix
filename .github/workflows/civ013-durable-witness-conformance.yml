@@ -151,6 +151,8 @@ jobs:
               raise SystemExit("adapter is missing the mutation-free generation overflow regression")
           if "fn integrity_check_uses_a_consistent_snapshot_during_concurrent_advance()" not in source_lib:
               raise SystemExit("adapter is missing the concurrent integrity-snapshot regression")
+          if 'SqliteWitnessStore::integrity_check_from_transaction(&tx).expect("validate stable read snapshot")' not in source_lib:
+              raise SystemExit("snapshot regression must invoke the transaction helper by concrete type from the test module")
           if (
               "let tx = conn.transaction_with_behavior(TransactionBehavior::Deferred)?;" not in source_lib
               or "fn integrity_check_from_transaction(tx: &Transaction<'_>)" not in source_lib
