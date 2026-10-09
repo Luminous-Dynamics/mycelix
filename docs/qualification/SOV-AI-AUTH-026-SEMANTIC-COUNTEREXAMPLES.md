@@ -33,3 +33,34 @@ Receipts include input and result SHA-256 digests. The companion control runner 
 The finite evaluator is complete only for the supplied universe, its all/any grammar, the four atomic dimensions in this candidate, and the explicitly supported conflict rules. Unknown extension identifiers fail closed. The implementation does not establish completeness for infinite numeric domains, arbitrary predicates, or all policy compositions.
 
 Research/specification only. Hosted exact-head evidence and independent receipt review are required; no production authorization qualification is claimed.
+
+
+## Differential corpus
+
+The candidate now includes an exhaustive, deterministic differential corpus:
+
+- 8 frozen atomic constraint templates;
+- 2 compound operators: conjunction (all) and disjunction (any);
+- 1- and 2-clause ordered expressions, with no repeated atomic template within a single expression;
+- 128 syntactic expressions and 16,384 ordered parent/child pairs;
+- a finite request domain of 32 tuples, giving 524,288 ordered-pair/request combinations.
+
+For each supported same-operator pair, the production reference is compared with two separate implementations: a raw-JSON denotation evaluator that does not call the oracle's atom matcher, and a brute-force injective matching reference that enumerates candidate injections instead of using the oracle's augmenting-path algorithm. Cross-operator compound pairs are required to return unsupported/fail-closed.
+
+The corpus checks:
+1. the reported authority-expansion status against independently computed child-minus-parent denotation;
+2. that any authority-expansion witness is the first request under the frozen total order;
+3. that structural matching agrees with brute-force existence of the declared structural witness;
+4. that clause-order permutations preserve status, witness and ID-mapped matching;
+5. that a structural false negative has no request in child-minus-parent;
+6. that a mismatch is reduced deterministically by deleting clauses and then reducing atom dimensions while preserving the mismatch category.
+
+When a differential mismatch occurs, the job emits the original scenario, minimized scenario, observed output and minimized mismatch to the evidence artifact. The shrinker is a deterministic delta reducer; minimality is relative to its reduction operations, not a claim of globally minimum representation.
+
+## Research basis
+
+This uses the same broad verification-guided pattern described by the Cedar project: an executable reference/model checked against a separate implementation through differential testing, supplemented by property-based checks. Cedar's formalization and testing infrastructure is public at https://github.com/cedar-policy/cedar-spec and its verification-guided development paper is at https://arxiv.org/abs/2407.01688.
+
+The IETF Attenuating Authorization Tokens Internet-Draft (June 2026, version -01) requires extension subsumption to be decidable, sound and deterministic, and permits conservative false negatives rather than unsound positives: https://datatracker.ietf.org/doc/draft-niyikiza-oauth-attenuating-agent-tokens/.
+
+These are research references, not certification of this implementation. The differential corpus establishes evidence only for the frozen finite grammar and universe. It does not prove completeness for arbitrary constraints, infinite numeric domains, extension predicates, or production enforcement.
