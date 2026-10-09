@@ -72,7 +72,7 @@ impl PlayerState {
         let mut q = self.queue.get_untracked();
         let idx = q
             .iter()
-            .position(|s| s.song_hash == song.song_hash)
+            .position(|queued| same_audio_source(queued, &song))
             .unwrap_or_else(|| {
                 q.push(song.clone());
                 self.queue.set(q.clone());
@@ -91,7 +91,7 @@ impl PlayerState {
 
     pub fn enqueue(&self, song: Song) {
         self.queue.update(|q| {
-            if !q.iter().any(|s| s.song_hash == song.song_hash) {
+            if !q.iter().any(|queued| same_audio_source(queued, &song)) {
                 q.push(song);
             }
         });
@@ -338,6 +338,57 @@ mod player_queue_tests {
         assert!(same_audio_source(&same, &same_again));
         assert!(!same_audio_source(&same, &changed_url));
         assert!(!same_audio_source(&same, &changed_record));
+    }
+
+    #[test]
+    fn playing_changed_url_with_reused_record_hash_adds_correct_queue_occurrence() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let player = PlayerState::new();
+            let old_source = test_song("reused-record", "QmOld");
+            let revised_source = test_song("reused-record", "QmNew");
+            player.queue.set(vec![old_source.clone()]);
+            player.current_song.set(Some(old_source));
+            player.queue_index.set(Some(0));
+            player.progress.set(42.5);
+            player.duration.set(180.0);
+
+            player.play_song(revised_source);
+
+            let queue = player.queue.get_untracked();
+            assert_eq!(queue.len(), 2);
+            assert_eq!(player.queue_index.get_untracked(), Some(1));
+            assert_eq!(
+                queue[1].audio_url(),
+                "https://ipfs.io/ipfs/QmNew".to_string()
+            );
+            assert_eq!(
+                player.current_song.get_untracked().map(|song| song.audio_url()),
+                Some("https://ipfs.io/ipfs/QmNew".to_string())
+            );
+            assert_eq!(player.progress.get_untracked(), 0.0);
+            assert_eq!(player.duration.get_untracked(), 0.0);
+            assert!(player.is_playing.get_untracked());
+        });
+    }
+
+    #[test]
+    fn enqueue_deduplicates_same_source_but_not_reused_hash_with_changed_url() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let player = PlayerState::new();
+            let original = test_song("reused-record", "QmOld");
+            let revised_source = test_song("reused-record", "QmNew");
+
+            player.enqueue(original.clone());
+            player.enqueue(original);
+            player.enqueue(revised_source);
+
+            let queue = player.queue.get_untracked();
+            assert_eq!(queue.len(), 2);
+            assert_eq!(queue[0].audio_url(), "https://ipfs.io/ipfs/QmOld");
+            assert_eq!(queue[1].audio_url(), "https://ipfs.io/ipfs/QmNew");
+        });
     }
 
     #[test]
