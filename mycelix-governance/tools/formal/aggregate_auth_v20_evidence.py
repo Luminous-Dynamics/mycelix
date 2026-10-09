@@ -69,6 +69,7 @@ EXPECTED_MUTATION_IDS = {
             "signature-check-omitted",
             "issuer-thumbprint-check-omitted",
             "par-hash-check-omitted",
+            "jwk-usage-metadata-checks-omitted",
         ),
     ),
     "auth-v20-capability-evidence/aat-capability-subsumption.json": (
@@ -325,7 +326,7 @@ def main() -> int:
             "auth-v20-chain-claims-evidence/delegation-chain-claims-differential.json": 4,
             "auth-v20-key-link-evidence/delegation-chain-key-linkage.json": 3,
             "auth-v20-par-hash-evidence/delegation-chain-par-hash.json": 3,
-            "auth-v20-compact-jws-evidence/compact-jws-chain.json": 3,
+            "auth-v20-compact-jws-evidence/compact-jws-chain.json": 4,
             "auth-v20-capability-evidence/aat-capability-subsumption.json": 4,
         }
         for relative_path, count in expected_mutants.items():
@@ -425,11 +426,11 @@ def main() -> int:
 
         compact_jws = json.loads((args.evidence_root /
             "auth-v20-compact-jws-evidence/compact-jws-chain.json").read_text(encoding="utf-8"))
-        require(compact_jws.get("summary", {}).get("negative_controls") == 30,
+        require(compact_jws.get("summary", {}).get("negative_controls") == 33,
                 "compact-JWS harness did not execute all 30 negative controls")
-        require(compact_jws.get("summary", {}).get("positive_controls") == 2,
+        require(compact_jws.get("summary", {}).get("positive_controls") == 3,
                 "compact-JWS harness did not verify both four-token and single-token positive chains")
-        require(compact_jws.get("summary", {}).get("signatures_verified") == 5,
+        require(compact_jws.get("summary", {}).get("signatures_verified") == 9,
                 "compact-JWS harness did not verify all five positive-chain signatures")
         capability_result = json.loads((args.evidence_root /
             "auth-v20-capability-evidence/aat-capability-subsumption.json").read_text(encoding="utf-8"))
@@ -464,7 +465,7 @@ def main() -> int:
             "delegation_claim_mutants_detected": 4,
             "jwk_linkage_mutants_detected": 3,
             "par_hash_mutants_detected": 3,
-            "compact_jws_mutants_detected": 3,
+            "compact_jws_mutants_detected": 4,
             "aat_capability_mutants_detected": 4,
             "aat_capability_subsumption_controls": 34,
             "aat_capability_runtime_invocation_controls": 21,
