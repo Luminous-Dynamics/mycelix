@@ -294,6 +294,12 @@ def assert_evidence_archive_contract() -> None:
     assert "sandbox-system-closure.tsv" in trusted_workflow
     assert "FPM_SYSTEM_CLOSURE_PROFILE" in trusted_workflow
     assert "FPM_SANDBOX_IMAGE: gcc@sha256:603634c53d477dd94dd224a3dd5c008e996dd3ec8ccc54ac6af9344d990339e5" in trusted_workflow
+    assert trusted_workflow.count('-ceu "$(cat <<\'FPM_SANDBOX_SCRIPT\'') == 4
+    assert trusted_workflow.count("\n          FPM_SANDBOX_SCRIPT\n") == 4
+    assert "-ceu '" not in trusted_workflow
+    assert '|| ""' not in trusted_workflow
+    assert '"sandbox_system_closure_sha256": hashlib.sha256(' in trusted_workflow
+    assert '"sandbox_target_closure_sha256": hashlib.sha256(' in trusted_workflow
     assert "FPM_SYSTEM_CLOSURE_PROFILE: fpm-debian12-bookworm-gcc13.4-amd64-rust-1.96.1-v1" in trusted_workflow
     assert "rustc --crate-name fpm_toolchain_probe --edition 2024 -C linker=cc" in trusted_workflow
     assert "FPM_SANDBOX_IMAGE: gcc@{expected_image_digest}" in verifier
