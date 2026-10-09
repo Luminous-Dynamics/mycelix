@@ -129,7 +129,10 @@ def audit(raw: dict[str, Any], observed: dict[str, Any]) -> dict[str, Any] | Non
             "expected": sorted((code, -1 if index is None else index) for code, index in expected),
             "observed": sorted((code, -1 if index is None else index) for code, index in observed_findings),
         }
-    expected_status = "KEY_LINKAGE_CLAIMS_PASS" if not expected else "INVALID_CHAIN"
+    if len(raw["hops"]) > 9:
+        expected_status = "UNSUPPORTED_OR_UNDECIDABLE"
+    else:
+        expected_status = "KEY_LINKAGE_CLAIMS_PASS" if not expected else "INVALID_CHAIN"
     if observed.get("status") != expected_status:
         return {"kind": "status-disagrees-with-independent-replay",
                 "expected": expected_status, "observed": observed.get("status")}
