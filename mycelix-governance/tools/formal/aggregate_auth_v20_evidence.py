@@ -34,6 +34,8 @@ REQUIRED_RECEIPTS = (
      "mycelix.delegation-chain-key-linkage-differential-receipt.v1"),
     ("auth-v20-par-hash-evidence/delegation-chain-par-hash.json",
      "mycelix.par-hash-differential-receipt.v1"),
+    ("auth-v20-compact-jws-evidence/compact-jws-chain.json",
+     "mycelix.compact-jws-aat-chain-differential-receipt.v1"),
 )
 
 
@@ -116,6 +118,7 @@ def main() -> int:
             "auth-v20-chain-claims-evidence/delegation-chain-claims-differential.json": 4,
             "auth-v20-key-link-evidence/delegation-chain-key-linkage.json": 3,
             "auth-v20-par-hash-evidence/delegation-chain-par-hash.json": 3,
+            "auth-v20-compact-jws-evidence/compact-jws-chain.json": 3,
         }
         for relative_path, count in expected_mutants.items():
             data = json.loads((args.evidence_root / relative_path).read_text(encoding="utf-8"))
@@ -141,6 +144,13 @@ def main() -> int:
         require(par_hash.get("summary", {}).get("negative_controls") == 12,
                 "par-hash harness did not execute all 12 negative controls")
 
+        compact_jws = json.loads((args.evidence_root /
+            "auth-v20-compact-jws-evidence/compact-jws-chain.json").read_text(encoding="utf-8"))
+        require(compact_jws.get("summary", {}).get("negative_controls") == 19,
+                "compact-JWS harness did not execute all 19 negative controls")
+        require(compact_jws.get("summary", {}).get("signatures_verified") == 4,
+                "compact-JWS harness did not verify all four positive-chain signatures")
+
         receipt["status"] = "PASS_BOUNDED_RESEARCH_EVIDENCE"
         receipt["summary"] = {
             "required_receipts": len(REQUIRED_RECEIPTS),
@@ -157,11 +167,12 @@ def main() -> int:
             "delegation_claim_mutants_detected": 4,
             "jwk_linkage_mutants_detected": 3,
             "par_hash_mutants_detected": 3,
+            "compact_jws_mutants_detected": 3,
             "qualification": "NOT_CLAIMED",
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("EXACT-HEAD RECEIPT AGGREGATE PASS: 9 receipts, one source head")
+        print("EXACT-HEAD RECEIPT AGGREGATE PASS: 10 receipts, one source head")
         print("BOUNDED EVIDENCE ONLY: production qualification remains NOT_CLAIMED")
         return 0
     except Exception as error:
