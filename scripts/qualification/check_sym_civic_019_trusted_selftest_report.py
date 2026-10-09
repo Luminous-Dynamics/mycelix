@@ -92,7 +92,12 @@ def validate_report(report, trusted_manifest):
         and all(ch in "0123456789abcdef" for ch in report["candidate_corpus_git_blob_sha"]),
         "candidate corpus blob identity must be a lowercase Git SHA-1",
     )
-    require(matrix.get("tree_sizes_tested") == list(range(1, 17)), "positive inclusion tree sizes")
+    require(
+        isinstance(matrix.get("tree_sizes_tested"), list)
+        and all(type(size) is int for size in matrix["tree_sizes_tested"])
+        and matrix["tree_sizes_tested"] == list(range(1, 17)),
+        "positive inclusion tree sizes must be exact integers",
+    )
     require(matrix.get("case_count") == 136, "positive inclusion case count")
     require(matrix.get("all_pass") is True, "positive inclusion matrix all pass")
     require(isinstance(trusted_manifest, dict), "trusted manifest must be a JSON object")
@@ -136,8 +141,12 @@ def validate_report(report, trusted_manifest):
         },
         "trusted matrix schema must be exact",
     )
-    require(trusted_matrix.get("tree_sizes") == list(range(1, 17)),
-            "trusted matrix tree sizes must be exact")
+    require(
+        isinstance(trusted_matrix.get("tree_sizes"), list)
+        and all(type(size) is int for size in trusted_matrix["tree_sizes"])
+        and trusted_matrix["tree_sizes"] == list(range(1, 17)),
+        "trusted matrix tree sizes must be exact integers",
+    )
     require(type(trusted_matrix.get("expected_case_count")) is int
             and trusted_matrix["expected_case_count"] == 136,
             "trusted matrix case count must be exact")
@@ -165,6 +174,20 @@ def validate_report(report, trusted_manifest):
         },
         "semantic expectations schema must be exact",
     )
+    for integer_key in ("vds_id", "vdp_id", "tree_size", "leaf_index"):
+        require(type(semantic.get(integer_key)) is int,
+                "trusted semantic integer type: " + integer_key)
+    require(semantic["tree_size"] == 1 and semantic["leaf_index"] == 0,
+            "trusted receipt proof coordinates must match the single-entry synthetic profile")
+    for digest_key in ("entry_sha256", "statement_sha256", "receipt_a_sha256",
+                       "receipt_b_sha256", "root_hash", "merkle_root"):
+        digest = semantic.get(digest_key)
+        require(
+            isinstance(digest, str)
+            and len(digest) == 64
+            and all(ch in "0123456789abcdef" for ch in digest),
+            "trusted semantic digest must be lowercase SHA-256: " + digest_key,
+        )
     for key in ("profile", "vds_id", "vdp_id", "entry_sha256", "statement_sha256",
                 "statement_issuer", "subject"):
         require(report.get({
