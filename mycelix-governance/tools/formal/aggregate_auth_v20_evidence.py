@@ -258,7 +258,8 @@ def main() -> int:
                 "aggregator self-test receipt is not bound to the checked-out test source")
         expected_aggregate_guard_mutations = (
             "missing-required-receipt", "wrong-source-head", "qualification-laundered",
-            "failed-receipt-hidden", "schema-downgraded", "corpus-count-weakened",
+            "failed-receipt-hidden", "receipt-source-hash-forged", "receipt-source-hash-missing",
+            "schema-downgraded", "corpus-count-weakened",
             "matrix-mutation-count-weakened", "matrix-mutation-inventory-substituted",
             "mutant-detection-count-weakened", "mutation-identity-substituted",
             "duplicate-mutation-id", "compact-jws-mutant-count-weakened",
