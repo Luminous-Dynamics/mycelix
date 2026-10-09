@@ -625,7 +625,7 @@ jobs:
           print(f"sdk_ts_root_input_derivation_count={len(root_inputs)}")
           print(f"sdk_ts_transitive_input_edge_count={transitive_input_edges}")
           PY
-)"
+          )"
             summary_status=$?
             set -e
             if [[ "$summary_status" -ne 0 ]]; then
