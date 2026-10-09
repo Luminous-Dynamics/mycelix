@@ -7,10 +7,7 @@ use crate::types::RepeatMode;
 use leptos::prelude::*;
 use super::queue::QueuePanel;
 
-/// Attempt playback and observe the media promise instead of treating the
-/// synchronous JS call as proof that playback actually started. A stale reject
-/// from an older track/play attempt must not pause a newer selection.
-/// Require an actual selected media resource before calling play or accepting events.
+/// True only when the browser has selected the expected media URL.
 /// An empty currentSrc is a loading state, not proof that the selected URL is active.
 fn media_source_matches_expected(current_src: &str, expected_url: &str) -> bool {
     !current_src.is_empty() && current_src == expected_url
@@ -26,6 +23,9 @@ fn media_error_matches_source(
 }
 
 
+/// Attempt playback and observe the media promise instead of treating the
+/// synchronous JS call as proof that playback actually started. A stale reject
+/// from an older track/play attempt must not pause a newer selection.
 fn request_playback(
     audio: web_sys::HtmlAudioElement,
     player: PlayerState,
