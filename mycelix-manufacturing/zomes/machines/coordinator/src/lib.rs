@@ -599,6 +599,7 @@ pub fn resolve_machine_temporal_attestations(
         };
 
         evidence.push(MachineTemporalEvidenceObservation {
+            receipt_schema_id: MACHINE_TEMPORAL_EVIDENCE_RECEIPT_SCHEMA_ID_V1.to_string(),
             attestation_hash: hash,
             authority_agent: profile_record.authority_agent,
             profile_hash: attestation.profile_hash,
