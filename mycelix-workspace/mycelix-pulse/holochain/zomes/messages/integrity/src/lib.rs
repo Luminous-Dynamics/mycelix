@@ -551,7 +551,9 @@ fn validate_update_entry(
         EntryTypes::ReadReceipt(_) | EntryTypes::DeliveryReceipt(_) => Ok(
             ValidateCallbackResult::Invalid("Receipts cannot be modified".to_string()),
         ),
-        _ => Ok(ValidateCallbackResult::Valid),
+        _ => Ok(ValidateCallbackResult::Invalid(
+            "Unsupported or immutable message entry update".to_string(),
+        )),
     }
 }
 
