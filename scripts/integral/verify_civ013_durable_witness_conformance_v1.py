@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "e0050a60679aac7b737a7eb4d92c263fabd7aad7"
+SOURCE_COMMIT = "144a75ddf607b1194e8c9e0e255e060fca1c47f3"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 SQLITE_MINIMUM_VERSION_NUMBER = 3_051_003
 
@@ -69,6 +69,7 @@ REQUIRED_IDS = {
     "DA041-coordinated-local-fork-erasure-outside-claim",
     "DA042-recovery-records-same-generation-divergence",
     "DA043-recovery-genesis-mismatch-not-a-record",
+    "DA044-receipt-sequence-overflow-is-state-mutation-free",
 }
 
 
@@ -622,6 +623,27 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
             return "RuntimeVersionEncodingMismatch"
         return "AcceptSqliteRuntimeVersion" if actual >= minimum else "UnsupportedSqliteVersion"
 
+    if kind == "receipt_sequence_range_guard":
+        sequence = vector.get("receipt_sequence")
+        sqlite_max = vector.get("sqlite_integer_max")
+        if (
+            type(sequence) is not int or type(sqlite_max) is not int
+            or sqlite_max != SQLITE_INTEGER_MAX
+            or sequence <= sqlite_max
+        ):
+            return "InvalidInput"
+        if (
+            vector.get("expected_error") != "receipt sequence exceeds SQLite INTEGER range"
+            or vector.get("input_validation_before_recovery") is not True
+            or vector.get("anchor_reads_after_attempt") != 0
+            or vector.get("external_anchor_unchanged") is not True
+            or vector.get("local_accepted_records_after") != 0
+            or vector.get("local_prepared_records_after") != 0
+            or vector.get("integrity_check_after") != "ok"
+        ):
+            return "UnexpectedStateMutation"
+        return "RejectBeforeStateMutation"
+
     if kind == "sqlite_integer_range":
         generation = vector["record_generation"]
         sequence = vector["receipt_sequence"]
@@ -690,9 +712,9 @@ def main() -> int:
         value = manifest.get(field)
         if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{40}", value):
             raise SystemExit(f"FAIL: {field} is missing or malformed")
-    if manifest.get("source_rusqlite_version") != "0.39.0":
+    if manifest.get("source_rusqlite_version") != "0.40.2":
         raise SystemExit("FAIL: rusqlite must remain at the SQLite-WAL-reset-fixed 0.39.0 release")
-    if manifest.get("source_libsqlite3_sys_version") != "0.37.0":
+    if manifest.get("source_libsqlite3_sys_version") != "0.38.2":
         raise SystemExit("FAIL: libsqlite3-sys bundled SQLite dependency is not the qualified 0.37.0 release")
     if manifest.get("source_bundled_sqlite_min_version_number") != SQLITE_MINIMUM_VERSION_NUMBER:
         raise SystemExit("FAIL: required bundled SQLite runtime floor is not 3.51.3")
