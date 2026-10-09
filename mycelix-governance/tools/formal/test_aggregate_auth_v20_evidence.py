@@ -90,7 +90,8 @@ FROZEN_MUTATIONS = {
 
 FROZEN_AGGREGATE_MUTATIONS = (
     "missing-required-receipt", "wrong-source-head", "qualification-laundered",
-    "failed-receipt-hidden", "receipt-source-hash-forged", "receipt-source-hash-missing",\n    "schema-downgraded", "corpus-count-weakened",
+    "failed-receipt-hidden", "receipt-source-hash-forged", "receipt-source-hash-missing",
+    "schema-downgraded", "corpus-count-weakened",
     "matrix-mutation-count-weakened", "matrix-mutation-inventory-substituted",
     "mutant-detection-count-weakened", "mutation-identity-substituted",
     "duplicate-mutation-id", "compact-jws-mutant-count-weakened",
