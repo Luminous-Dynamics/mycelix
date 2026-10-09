@@ -107,6 +107,56 @@ REQUIRED_RECEIPTS = (
      "mycelix.aat-capability-subsumption-differential-receipt.v1"),
 )
 
+EXPECTED_SOURCE_HASH_FIELDS = {
+    "auth-v20-evidence/receipt.json": (
+        ("oracle_source_sha256", "mycelix-governance/tools/formal/compound_subsumption_counterexamples.py"),
+        ("control_matrix_sha256", "docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_COUNTEREXAMPLE_CONTROL_MATRIX_V1.json"),
+    ),
+    "auth-v20-differential-evidence/receipt.json": (
+        ("matrix_sha256", "docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json"),
+        ("oracle_sha256", "mycelix-governance/tools/formal/compound_subsumption_counterexamples.py"),
+        ("checker_sha256", "mycelix-governance/tools/formal/differential_compound_subsumption.py"),
+    ),
+    "auth-v20-differential-evidence/matrix-mutation-guard.json": (
+        ("matrix_sha256", "docs/qualification/SOVEREIGNTY_EVIDENCE_ATTESTATION_COMPOUND_SUBSUMPTION_DIFFERENTIAL_MATRIX_V1.json"),
+        ("checker_sha256", "mycelix-governance/tools/formal/test_differential_matrix_freeze.py"),
+    ),
+    "auth-v20-mutation-evidence/oracle-mutation-sensitivity.json": (
+        ("oracle_sha256", "mycelix-governance/tools/formal/compound_subsumption_counterexamples.py"),
+        ("differential_checker_sha256", "mycelix-governance/tools/formal/differential_compound_subsumption.py"),
+        ("mutation_guard_sha256", "mycelix-governance/tools/formal/test_oracle_mutation_sensitivity.py"),
+    ),
+    "auth-v20-policy-mutation-evidence/effective-policy-mutation-sensitivity.json": (
+        ("oracle_sha256", "mycelix-governance/tools/formal/compound_subsumption_counterexamples.py"),
+        ("mutation_guard_sha256", "mycelix-governance/tools/formal/test_effective_policy_mutation_sensitivity.py"),
+    ),
+    "auth-v20-chain-evidence/delegation-chain-differential.json": (
+        ("chain_evaluator_sha256", "mycelix-governance/tools/formal/delegation_chain_counterexamples.py"),
+        ("policy_oracle_sha256", "mycelix-governance/tools/formal/compound_subsumption_counterexamples.py"),
+        ("test_harness_sha256", "mycelix-governance/tools/formal/test_delegation_chain_counterexamples.py"),
+    ),
+    "auth-v20-chain-claims-evidence/delegation-chain-claims-differential.json": (
+        ("checker_sha256", "mycelix-governance/tools/formal/delegation_chain_claims.py"),
+        ("test_sha256", "mycelix-governance/tools/formal/test_delegation_chain_claims.py"),
+    ),
+    "auth-v20-key-link-evidence/delegation-chain-key-linkage.json": (
+        ("checker_sha256", "mycelix-governance/tools/formal/delegation_chain_key_linkage.py"),
+        ("test_sha256", "mycelix-governance/tools/formal/test_delegation_chain_key_linkage.py"),
+    ),
+    "auth-v20-par-hash-evidence/delegation-chain-par-hash.json": (
+        ("checker_sha256", "mycelix-governance/tools/formal/delegation_chain_par_hash.py"),
+        ("test_sha256", "mycelix-governance/tools/formal/test_delegation_chain_par_hash.py"),
+    ),
+    "auth-v20-compact-jws-evidence/compact-jws-chain.json": (
+        ("checker_sha256", "mycelix-governance/tools/formal/delegation_chain_compact_jws.py"),
+        ("test_sha256", "mycelix-governance/tools/formal/test_delegation_chain_compact_jws.py"),
+    ),
+    "auth-v20-capability-evidence/aat-capability-subsumption.json": (
+        ("module_sha256", "mycelix-governance/tools/formal/aat_capability_subsumption.py"),
+        ("test_sha256", "mycelix-governance/tools/formal/test_aat_capability_subsumption.py"),
+    ),
+}
+
 
 def require(condition: bool, message: str) -> None:
     if not condition:
@@ -162,12 +212,26 @@ def main() -> int:
                 raise ValueError(f"{relative_path}: invalid UTF-8 JSON: {error}") from error
             require(isinstance(data, dict), f"{relative_path}: receipt must be a JSON object")
             validate_receipt(data, schema, args.expected_head, relative_path)
+            source_hash_rows = []
+            for field_name, source_relative_path in EXPECTED_SOURCE_HASH_FIELDS.get(relative_path, ()):
+                source_path = Path(__file__).resolve().parents[3] / source_relative_path
+                require(source_path.is_file(),
+                        f"{relative_path}: referenced source file is missing: {source_relative_path}")
+                actual_source_sha256 = hashlib.sha256(source_path.read_bytes()).hexdigest()
+                require(data.get(field_name) == actual_source_sha256,
+                        f"{relative_path}: {field_name} does not match checked-out source {source_relative_path}")
+                source_hash_rows.append({
+                    "field": field_name,
+                    "path": source_relative_path,
+                    "sha256": actual_source_sha256,
+                })
             row = {
                 "path": relative_path,
                 "schema": data["schema"],
                 "status": data["status"],
                 "source_head": data["source_head"],
                 "qualification": data["qualification"],
+                "source_hashes": source_hash_rows,
                 "sha256": hashlib.sha256(raw_bytes).hexdigest(),
             }
             receipt["receipts"].append(row)
@@ -387,6 +451,7 @@ def main() -> int:
             "raw_control_artifacts_verified": len(receipt["artifacts"]),
             "all_receipts_status_pass": True,
             "all_receipts_exact_head_match": True,
+            "all_specialist_source_hashes_match_checkout": True,
             "all_receipts_qualification_not_claimed": True,
             "compound_policy_controls": 11,
             "differential_ordered_pairs": 16384,
