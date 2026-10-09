@@ -106,6 +106,28 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain", count: in
 
     for index in range(count):
         header: dict[str, Any] = {"alg": "EdDSA", "typ": "aat+jwt", "kid": f"fixture-{index}"}
+        tool_map: dict[str, Any] = {"read_file": {}}
+        if case == "child-adds-tool" and index == 1:
+            tool_map["delete_file"] = {}
+        elif case == "constraint-expansion":
+            tool_map = {
+                "read_file": {
+                    "path": {
+                        "constraint_type": "one_of",
+                        "values": ["/public.txt"] if index == 0 else ["/public.txt", "/private.txt"],
+                    }
+                }
+            }
+        elif case == "argument-key-added" and index in {0, 1}:
+            tool_map = {
+                "read_file": {"path": {"constraint_type": "exact", "value": "/public.txt"}}
+            }
+            if index == 1:
+                tool_map["read_file"]["admin"] = {"constraint_type": "wildcard"}
+        elif case == "unknown-constraint-type" and index == 0:
+            tool_map = {
+                "read_file": {"path": {"constraint_type": "regex", "pattern": ".*"}}
+            }
         claims: dict[str, Any] = {
             "jti": f"token-{index}",
             "iss": ISSUER if index == 0 else thumbprint_uri(holder_jwks[index]),
@@ -116,7 +138,7 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain", count: in
             "cnf": {"jwk": copy.deepcopy(holder_jwks[index + 1])},
             "authorization_details": [{
                 "type": "attenuating_agent_token",
-                "tools": {"read_file": {}},
+                "tools": tool_map,
             }],
         }
         if index:
@@ -225,6 +247,10 @@ def cases(directory: Path) -> dict[str, dict[str, Any]]:
         "b64-header-present",
         "critical-header-present",
         "wrong-token-type",
+        "child-adds-tool",
+        "constraint-expansion",
+        "argument-key-added",
+        "unknown-constraint-type",
         "unhashable-header-typ",
         "malformed-compact-token",
         "oversized-token",
@@ -344,6 +370,10 @@ def main() -> int:
                     "b64-header-present": "b64-header-not-allowed",
                     "critical-header-present": "critical-header-unsupported",
                     "wrong-token-type": "token-type-invalid",
+                    "child-adds-tool": "tool-capability-expanded",
+                    "constraint-expansion": "argument-constraint-expanded",
+                    "argument-key-added": "argument-shape-changed",
+                    "unknown-constraint-type": "constraint-type-unsupported",
                     "unhashable-header-typ": "token-type-invalid",
                     "malformed-compact-token": "compact-token-malformed",
                     "oversized-token": "token-size-exceeded",
