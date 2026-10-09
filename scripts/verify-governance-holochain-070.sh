@@ -22,6 +22,25 @@ grep -Fq 'holochain_serialized_bytes = "=0.0.57"' "$manifest" || fail "Governanc
 # Match complete Rust enum paths and variant tokens. Without identifier
 # boundaries, Action::Update also matches the suffix of GovernanceAction::UpdateParameter.
 legacy_pattern='(^|[^[:alnum:]_])(FlatOp::(StoreEntry|StoreRecord|RegisterUpdate|RegisterDelete|RegisterCreateLink|RegisterDeleteLink|RegisterAgentActivity)|Action::(Create|Update|Delete|CreateLink|DeleteLink))([^[:alnum:]_]|$)'
+
+# Regression fixtures for the guard itself: legacy Holochain tokens must be
+# found, while application-domain enum names must not be suffix-matched.
+for legacy_token in \
+  'Action::Create' 'Action::Update' 'Action::Delete' 'Action::CreateLink' \
+  'Action::DeleteLink' 'FlatOp::StoreEntry' 'FlatOp::StoreRecord' \
+  'FlatOp::RegisterUpdate' 'FlatOp::RegisterDelete' \
+  'FlatOp::RegisterCreateLink' 'FlatOp::RegisterDeleteLink' \
+  'FlatOp::RegisterAgentActivity'; do
+  if ! printf '%s\\n' "$legacy_token" | grep -Eq "$legacy_pattern"; then
+    fail "legacy-action guard regression: did not detect $legacy_token"
+  fi
+done
+for domain_token in 'GovernanceAction::UpdateParameter' 'GovernanceAction::CreateProposal'; do
+  if printf '%s\\n' "$domain_token" | grep -Eq "$legacy_pattern"; then
+    fail "legacy-action guard regression: false-positive matched $domain_token"
+  fi
+done
+
 if grep -RInE "$legacy_pattern" "$root/mycelix-governance/zomes" >/tmp/governance-legacy-action-model.txt; then
   cat /tmp/governance-legacy-action-model.txt >&2
   fail "legacy Holochain 0.6 action/FlatOp forms remain in Governance integrity/coordinator sources"
