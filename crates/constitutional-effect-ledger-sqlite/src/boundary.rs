@@ -18,6 +18,10 @@ pub enum ProviderObservation {
     Executed { evidence_commitment: String },
     Failed { evidence_commitment: String },
     Indeterminate { evidence_commitment: Option<String> },
+    /// A pre-entry lookup reports that the provider has not received the operation.
+    /// Once DISPATCH_PENDING exists, this is not terminal failure evidence because
+    /// an already-dispatched request may still arrive later.
+    PreEntryLookupAbsent { evidence_commitment: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -518,6 +522,12 @@ impl EffectBoundaryHostV1 {
                 owner_token_digest,
                 "provider outcome is indeterminate".into(),
             ),
+            ProviderObservation::PreEntryLookupAbsent { .. } => self.mark_indeterminate(
+                action_key,
+                attempt_identity,
+                owner_token_digest,
+                "pre-entry absence is not terminal evidence after DISPATCH_PENDING".into(),
+            ),
             ProviderObservation::Executed { .. } | ProviderObservation::Failed { .. } => {
                 match verifier.verify(
                     &invoked,
@@ -721,6 +731,12 @@ impl EffectBoundaryHostV1 {
             ProviderObservation::Indeterminate { .. } => Ok(BoundaryOutcome::IndeterminateHeld {
                 reason: "authoritative reconciliation remains indeterminate".into(),
             }),
+            ProviderObservation::PreEntryLookupAbsent { .. } => {
+                Ok(BoundaryOutcome::IndeterminateHeld {
+                    reason: "pre-entry absence is not terminal evidence after DISPATCH_PENDING"
+                        .into(),
+                })
+            }
             ProviderObservation::Executed { .. } | ProviderObservation::Failed { .. } => {
                 let provider_idempotency_key =
                     derive_provider_idempotency_key(&indeterminate, action_key);
@@ -977,8 +993,113 @@ mod tests {
                 ProviderObservation::Indeterminate { .. } => {
                     Err("indeterminate observation is not terminal".into())
                 }
+                ProviderObservation::PreEntryLookupAbsent { .. } => Err(
+                    "pre-entry absence is not terminal evidence after DISPATCH_PENDING".into(),
+                ),
             }
         }
+    }
+
+    #[test]
+    fn pre_entry_absence_from_dispatch_cannot_release_the_fence() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("pre-entry-absence-dispatch.db"))
+            .unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-pre-entry-absence-dispatch");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-pre-entry-absence-dispatch",
+                    "operation-pre-entry-absence-dispatch",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+
+        let mut provider = FakeProvider {
+            invocation: ProviderObservation::PreEntryLookupAbsent {
+                evidence_commitment: "absence-lookup".into(),
+            },
+            reconciliation: ProviderObservation::Indeterminate {
+                evidence_commitment: None,
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        };
+
+        assert!(matches!(
+            boundary
+                .dispatch(&action_key, &owner, "owner-attempt-pre-entry-absence-dispatch", &mut provider, &Verifier)
+                .unwrap(),
+            BoundaryOutcome::IndeterminateHeld { reason }
+                if reason.contains("pre-entry absence is not terminal evidence")
+        ));
+        assert_eq!(
+            boundary.store.durably_read_attempt(&owner).unwrap().unwrap().state,
+            AttemptRecordState::Indeterminate
+        );
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_some());
+    }
+
+    #[test]
+    fn pre_entry_absence_during_reconciliation_cannot_release_the_fence() {
+        let dir = tempdir().unwrap();
+        let store = SqliteActionFenceStore::open(dir.path().join("pre-entry-absence-reconcile.db"))
+            .unwrap();
+        let mut boundary = EffectBoundaryHostV1::new(store).unwrap();
+        let action_key = action();
+        let owner = identity("attempt-pre-entry-absence-reconcile");
+        boundary
+            .admit(
+                &action_key,
+                &owner,
+                attempt_record(
+                    "attempt-pre-entry-absence-reconcile",
+                    "operation-pre-entry-absence-reconcile",
+                    AttemptRecordState::Consumed,
+                ),
+            )
+            .unwrap();
+        boundary
+            .store
+            .atomically_mark_dispatch_pending(
+                &action_key,
+                &owner,
+                "owner-attempt-pre-entry-absence-reconcile",
+            )
+            .unwrap();
+
+        let mut provider = FakeProvider {
+            invocation: ProviderObservation::Indeterminate {
+                evidence_commitment: None,
+            },
+            reconciliation: ProviderObservation::PreEntryLookupAbsent {
+                evidence_commitment: "absence-lookup".into(),
+            },
+            invoked_states: Arc::new(Mutex::new(Vec::new())),
+        };
+
+        assert!(matches!(
+            boundary
+                .reconcile(
+                    &action_key,
+                    &owner,
+                    "owner-attempt-pre-entry-absence-reconcile",
+                    &mut provider,
+                    &Verifier,
+                )
+                .unwrap(),
+            BoundaryOutcome::IndeterminateHeld { reason }
+                if reason.contains("pre-entry absence is not terminal evidence")
+        ));
+        assert_eq!(
+            boundary.store.durably_read_attempt(&owner).unwrap().unwrap().state,
+            AttemptRecordState::Indeterminate
+        );
+        assert!(boundary.store.durably_read_fence(&action_key).unwrap().is_some());
     }
 
     struct AllowRecovery;
