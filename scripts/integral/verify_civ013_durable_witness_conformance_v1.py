@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "fab5db151d8c27dfa6179131c267252a4d6e301d"
+SOURCE_COMMIT = "78e6087a4513e876c074f661ffd803b1e05bb49e"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 SQLITE_MINIMUM_VERSION_NUMBER = 3_051_003
 
@@ -68,6 +68,7 @@ REQUIRED_IDS = {
     "DA040-sqlite-runtime-below-minimum-rejected",
     "DA041-coordinated-local-fork-erasure-outside-claim",
     "DA042-recovery-records-same-generation-divergence",
+    "DA043-recovery-genesis-mismatch-not-a-record",
 }
 
 
@@ -526,6 +527,34 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
         ):
             return "SubprocessCrashStateMismatch"
         return "RecoverExactPreparedSuccessor"
+
+    if kind == "recovery_genesis_mismatch":
+        local_generation = vector.get("local_accepted_generation")
+        anchor_generation = vector.get("external_anchor_generation")
+        count = vector.get("expected_fork_evidence_count_after")
+        if (
+            type(local_generation) is not int or local_generation != 0
+            or type(anchor_generation) is not int or anchor_generation != 0
+            or type(count) is not int or count != 0
+        ):
+            return "InvalidInput"
+        try:
+            local_digest = parse_digest(vector.get("local_accepted_digest"), "local_accepted_digest")
+            anchor_digest = parse_digest(vector.get("external_anchor_digest"), "external_anchor_digest")
+        except (TypeError, ValueError):
+            return "InvalidInput"
+        if (
+            not isinstance(vector.get("log_id"), str) or not vector["log_id"]
+            or vector.get("external_anchor_log_id") != vector.get("log_id")
+            or local_digest != bytes(32)
+            or anchor_digest == bytes(32)
+            or vector.get("expected_recovery_error") != "ExternalAnchorMismatch"
+            or vector.get("accepted_head_unchanged") is not True
+            or vector.get("prepared_candidate_created") is not False
+            or vector.get("expected_fork_row_inserted") is not False
+        ):
+            return "GenesisForkContractMismatch"
+        return "ExternalAnchorMismatchWithoutForkEvidence"
 
     if kind == "recovery_same_generation_fork":
         local_generation = vector.get("local_accepted_generation")
