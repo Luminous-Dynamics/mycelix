@@ -716,6 +716,21 @@ jobs:
           assert len(a)==1 and a[0].get('digest')=='sha256:'+os.environ['EXPECTED_SHA']
           PY
 
+      - name: Recheck release tag target immediately before immutable publication
+        env:
+          RELEASE_TAG: cos-qualification-${{ needs.prepare.outputs.claim_id }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          annotated="$(git ls-remote origin "refs/tags/${RELEASE_TAG}^{}" | awk 'NR==1 {print $1}')"
+          lightweight="$(git ls-remote origin "refs/tags/${RELEASE_TAG}" | awk 'NR==1 {print $1}')"
+          tag_sha="${annotated:-${lightweight}}"
+          printf '%s\n' "${tag_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${tag_sha}" = "${EXPECTED_MAIN_SHA}" || {
+            echo "release tag changed or resolves incorrectly before publication" >&2
+            exit 1
+          }
+
       - name: Publish immutable release
         env:
           COS_RELEASE_ADMIN_TOKEN: ${{ secrets.COS_RELEASE_ADMIN_TOKEN }}
