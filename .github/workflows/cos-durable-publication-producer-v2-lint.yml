@@ -63,6 +63,15 @@ jobs:
           first_secret=publish.index('COS_RELEASE_ADMIN_TOKEN:')
           publisher_gate=publish.index('Require protected publisher ref')
           assert publisher_gate < first_secret
+          governance_recheck=publish.index('Revalidate governance snapshots immediately before publication')
+          tag_recheck=publish.index('Recheck release tag target immediately before immutable publication')
+          irreversible_publish=publish.index('Publish immutable release')
+          assert governance_recheck < tag_recheck < irreversible_publish
+          assert 'recheck-ruleset-index-pages.json' in publish
+          assert 'current_environment==frozen_environment' in publish
+          assert 'current_effective==frozen_effective' in publish
+          assert 'current_main==frozen_main' in publish
+          assert 'current_ruleset==frozen_ruleset' in publish
           assert 'test "${GITHUB_REF}" = "refs/heads/main"' in publish
           assert 'COS_RELEASE_ADMIN_TOKEN:' in publish
           assert 'gh release create' in publish
