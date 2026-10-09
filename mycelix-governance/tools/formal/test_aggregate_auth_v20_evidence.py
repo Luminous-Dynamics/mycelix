@@ -50,6 +50,7 @@ FROZEN_POP_CONTROL_IDS = (
     "fresh-pop-cannot-reuse-old-jti",
     "concurrent-pop-jti-race",
     "replay-store-unavailable-fails-closed",
+    "replay-store-unsafe-parent-fails-closed",
     "caller-supplied-clock-cannot-resurrect-expired-chain",
     "audience-optional-when-unconfigured-and-absent",
     "tampered-pop-signature",
@@ -280,7 +281,7 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
         elif relative == "auth-v20-pop-evidence/delegation-chain-pop-differential.json":
             data["summary"].update({
                 "positive_controls": 2,
-                "negative_controls": 23,
+                "negative_controls": 24,
                 "mutants_detected": 5,
                 "replay_jti_consumed": True,
             })
