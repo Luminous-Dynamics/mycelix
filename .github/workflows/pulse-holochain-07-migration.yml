@@ -21,6 +21,8 @@ env:
 jobs:
   relock-and-push:
     name: Resolve and commit 0.7 lockfiles
+    outputs:
+      qualified_sha: ${{ steps.commit-lockfiles.outputs.qualified_sha }}
     if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'upgrade/pulse-holochain-0.7' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'push' && github.ref_name == 'upgrade/pulse-holochain-0.7') }}
     permissions:
       contents: write
@@ -29,7 +31,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
+          # Freeze generation to the event subject; downstream jobs consume
+          # the exact generated commit emitted by this job.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: true
 
       - uses: cachix/install-nix-action@v31
@@ -66,16 +70,18 @@ jobs:
           cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.toml
 
       - name: Commit generated lockfiles to this migration branch
+        id: commit-lockfiles
         run: |
           git add -A -- mycelix-workspace/mycelix-pulse
           if git diff --cached --quiet; then
             echo "Lockfiles are already current."
-            exit 0
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "build(pulse): regenerate Holochain 0.7 lockfiles"
+            git push origin "HEAD:${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "build(pulse): regenerate Holochain 0.7 lockfiles"
-          git push origin "HEAD:${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          echo "qualified_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   holochain-07:
     name: Holochain 0.7 compile, tests, and clients
@@ -86,7 +92,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
+          ref: ${{ needs.relock-and-push.outputs.qualified_sha || github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact qualification subject
+        env:
+          QUALIFIED_SHA: ${{ needs.relock-and-push.outputs.qualified_sha || github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
 
       - uses: dtolnay/rust-toolchain@1.96.0
         with:
@@ -105,7 +116,7 @@ jobs:
           grep -F 'holochain = { version = "=0.7.0"' mycelix-workspace/mycelix-pulse/tests/Cargo.toml
           grep -F 'holochain_client = "=0.9.0"' mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml
           grep -F 'holochain_client = "=0.9.0"' mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml
-          if grep -R -nE 'hdk[[:space:]]*=[[:space:]]*"0\.6|hdi[[:space:]]*=[[:space:]]*"0\.7' mycelix-workspace/mycelix-pulse/holochain/zomes mycelix-workspace/mycelix-pulse/happ/dna; then
+          if grep -R -nE 'hdk[[:space:]]*=[[:space:]]*"?=?0\.6|hdi[[:space:]]*=[[:space:]]*"?=?0\.7|hdk[[:space:]]*=[[:space:]]*\{[^}]*version[[:space:]]*=[[:space:]]*"=?0\.6|hdi[[:space:]]*=[[:space:]]*\{[^}]*version[[:space:]]*=[[:space:]]*"=?0\.7' mycelix-workspace/mycelix-pulse/holochain/zomes mycelix-workspace/mycelix-pulse/happ/dna; then
             echo "Found an old Holochain dependency pin"
             exit 1
           fi
@@ -167,7 +178,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
+          ref: ${{ needs.relock-and-push.outputs.qualified_sha || github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact qualification subject
+        env:
+          QUALIFIED_SHA: ${{ needs.relock-and-push.outputs.qualified_sha || github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
 
       - uses: cachix/install-nix-action@v31
         with:
