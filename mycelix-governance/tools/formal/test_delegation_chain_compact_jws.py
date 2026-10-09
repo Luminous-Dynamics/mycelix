@@ -187,6 +187,11 @@ def build_chain(directory: Path, case: str = "valid-four-token-chain", count: in
             raw_payload = compact_json(claims).replace(b'"jti":"token-0"', b'"jti":"token-0","unrecognized_extension":1e999')
         elif case == "duplicate-payload-member" and index == 0:
             raw_payload = compact_json(claims).replace(b'"jti":"token-0"', b'"jti":"token-x","jti":"token-0"')
+        elif case == "duplicate-nonjti-payload-member" and index == 0:
+            duplicate_iat = str(claims["iat"]).encode("ascii")
+            raw_payload = compact_json(claims).replace(
+                b'"jti":"token-0"', b'"jti":"token-0","iat":' + duplicate_iat
+            )
         else:
             raw_payload = None
 
@@ -272,6 +277,7 @@ def cases(directory: Path) -> dict[str, dict[str, Any]]:
         "jwk-key-ops-wrong-type",
         "jwk-key-ops-unrelated-operation",
         "duplicate-payload-member",
+        "duplicate-nonjti-payload-member",
         "none-algorithm",
         "b64-header-present",
         "critical-header-present",
@@ -421,7 +427,7 @@ def main() -> int:
             })
             bad_cases = cases(root)
             for name, raw in bad_cases.items():
-                if name == "duplicate-jti":
+                if name in {"duplicate-jti", "duplicate-payload-member"}:
                     # The verifier must reject a repeated untrusted token ID
                     # before doing any expensive public-key signature operation.
                     original_verify = verifier.verify_ed25519_signature
@@ -438,7 +444,7 @@ def main() -> int:
                     finally:
                         verifier.verify_ed25519_signature = original_verify
                     require(signature_calls == 0,
-                            "duplicate-jti was not rejected during the pre-signature cycle scan")
+                            name + " was not rejected during the pre-signature jti scan")
                 else:
                     observed = invoke_fixture(raw, openssl)
                 expected = "UNSUPPORTED_OR_UNDECIDABLE" if name in {
@@ -465,7 +471,8 @@ def main() -> int:
                     "jwk-key-ops-duplicate": "jwk-key-ops-invalid",
                     "jwk-key-ops-wrong-type": "jwk-key-ops-invalid",
                     "jwk-key-ops-unrelated-operation": "jwk-key-ops-invalid",
-                    "duplicate-payload-member": "json-duplicate-member",
+                    "duplicate-payload-member": "jti-preparse-duplicate",
+                    "duplicate-nonjti-payload-member": "json-duplicate-member",
                     "none-algorithm": "algorithm-not-allowed",
                     "b64-header-present": "b64-header-not-allowed",
                     "critical-header-present": "critical-header-unsupported",
