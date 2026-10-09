@@ -105,20 +105,37 @@ jobs:
             python3 scripts/integral/evaluate_d6u_trusted_verifier_independently.py \
               --candidate-root /candidate
 
-      - name: Compile trusted verifier
-        run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py scripts/integral/verify_d6u_trusted_attestation_retention.py scripts/integral/test_d6u_trusted_artifacts.py
-
-      - name: Run candidate-owned self-tests in a sanitized environment
-        working-directory: scripts/integral
+      - name: Compile and run candidate-owned tests in a restricted container
         run: |
           set -euo pipefail
-          scratch="$(mktemp -d)"
-          trap 'rm -rf "$scratch"' EXIT
-          mkdir "$scratch/home" "$scratch/tmp"
-          env -i \
-            PATH="$PATH" \
-            HOME="$scratch/home" \
-            TMPDIR="$scratch/tmp" \
-            LANG=C.UTF-8 \
-            D6U_TRUSTED_SOURCE_ROOT="$GITHUB_WORKSPACE/_trusted-main" \
-            python3 test_d6u_trusted_artifacts.py
+          image='python:3.12-slim-bookworm@sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4'
+          docker run --rm \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit=64 \
+            --memory=512m \
+            --cpus=1 \
+            --user 65534:65534 \
+            --tmpfs /tmp:rw,noexec,nosuid,size=32m,mode=1777 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/candidate,readonly" \
+            --workdir /candidate \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            --env LANG=C.UTF-8 \
+            --env PYTHONDONTWRITEBYTECODE=1 \
+            --env PYTHONPYCACHEPREFIX=/tmp/pycache \
+            "$image" \
+            sh -euc ' \
+              mkdir -p /tmp/pycache; \
+              python3 -m py_compile \
+                scripts/integral/verify_d6u_trusted_artifacts.py \
+                scripts/integral/fetch_d6u_trusted_artifact.py \
+                scripts/integral/verify_d6u_trusted_attestation.py \
+                scripts/integral/emit_d6u_trusted_attestation_predicate.py \
+                scripts/integral/verify_d6u_trusted_attestation_retention.py \
+                scripts/integral/test_d6u_trusted_artifacts.py; \
+              cd scripts/integral; \
+              D6U_TRUSTED_SOURCE_ROOT=/candidate/_trusted-main \
+                python3 test_d6u_trusted_artifacts.py'
