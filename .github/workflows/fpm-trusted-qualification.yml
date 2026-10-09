@@ -107,11 +107,13 @@ jobs:
           test "$(printf '%s' "$pr_api" | jq -r '.head.repo.full_name')" = "$GITHUB_REPOSITORY"
           test "$(printf '%s' "$pr_api" | jq -r '.head.sha')" = "$expected_head"
 
-          printf 'pr_number=%s\n' "$pr_number" >> "$GITHUB_OUTPUT"
-          printf 'expected_head_sha=%s\n' "$expected_head" >> "$GITHUB_OUTPUT"
-          printf 'expected_base_sha=%s\n' "$expected_base" >> "$GITHUB_OUTPUT"
-          printf 'upstream_run_attempt=%s\n' "$(printf '%s' "$run_api" | jq -r '.run_attempt // empty')" >> "$GITHUB_OUTPUT"
-          printf 'upstream_run_conclusion=%s\n' "$(printf '%s' "$run_api" | jq -r '.conclusion // empty')" >> "$GITHUB_OUTPUT"
+          {
+            printf 'pr_number=%s\n' "$pr_number"
+            printf 'expected_head_sha=%s\n' "$expected_head"
+            printf 'expected_base_sha=%s\n' "$expected_base"
+            printf 'upstream_run_attempt=%s\n' "$(printf '%s' "$run_api" | jq -r '.run_attempt // empty')"
+            printf 'upstream_run_conclusion=%s\n' "$(printf '%s' "$run_api" | jq -r '.conclusion // empty')"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Bind trusted policy identity
         id: policy
@@ -124,9 +126,11 @@ jobs:
           policy_blob_sha="$(printf '%s' "$policy_json" | jq -r '.sha')"
           test "$policy_blob_sha" != "null"
           test -n "$policy_blob_sha"
-          printf 'trusted_policy_sha=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
-          printf 'trusted_policy_blob_sha=%s\n' "$policy_blob_sha" >> "$GITHUB_OUTPUT"
-          printf 'trusted_policy_ref=%s\n' "$GITHUB_REF" >> "$GITHUB_OUTPUT"
+          {
+            printf 'trusted_policy_sha=%s\n' "$GITHUB_SHA"
+            printf 'trusted_policy_blob_sha=%s\n' "$policy_blob_sha"
+            printf 'trusted_policy_ref=%s\n' "$GITHUB_REF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Checkout exact candidate
         id: checkout
@@ -162,9 +166,11 @@ jobs:
           test "$actual_manifest_sha" = "$EXPECTED_MANIFEST_BLOB_SHA"
           grep -Fx 'holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }' crates/fpm-wasm-artifact-identity/Cargo.toml
           grep -Fx 'holochain_types = "=0.7.0"' crates/fpm-wasm-artifact-identity/Cargo.toml
-          printf 'candidate_head_sha=%s\n' "$actual_head" >> "$GITHUB_OUTPUT"
-          printf 'candidate_tree_sha=%s\n' "$subject_tree" >> "$GITHUB_OUTPUT"
-          printf 'candidate_manifest_blob_sha=%s\n' "$actual_manifest_sha" >> "$GITHUB_OUTPUT"
+          {
+            printf 'candidate_head_sha=%s\n' "$actual_head"
+            printf 'candidate_tree_sha=%s\n' "$subject_tree"
+            printf 'candidate_manifest_blob_sha=%s\n' "$actual_manifest_sha"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Install pinned Rust toolchain
         id: toolchain_install
@@ -185,9 +191,11 @@ jobs:
           test -x "${FPM_TOOLCHAIN_ROOT}/bin/cargo"
           test -x "${FPM_TOOLCHAIN_ROOT}/bin/rustfmt"
           "${FPM_TOOLCHAIN_ROOT}/bin/rustc" --version --verbose
-          printf 'rustc_version=%s\n' "$("${FPM_TOOLCHAIN_ROOT}/bin/rustc" --version)" >> "$GITHUB_OUTPUT"
-          printf 'rustc_commit=%s\n' "$("${FPM_TOOLCHAIN_ROOT}/bin/rustc" --version --verbose | sed -ne 's/^commit-hash: //p')" >> "$GITHUB_OUTPUT"
-          printf 'cargo_version=%s\n' "$("${FPM_TOOLCHAIN_ROOT}/bin/cargo" --version)" >> "$GITHUB_OUTPUT"
+          {
+            printf 'rustc_version=%s\n' "$("${FPM_TOOLCHAIN_ROOT}/bin/rustc" --version)"
+            printf 'rustc_commit=%s\n' "$("${FPM_TOOLCHAIN_ROOT}/bin/rustc" --version --verbose | sed -ne 's/^commit-hash: //p')"
+            printf 'cargo_version=%s\n' "$("${FPM_TOOLCHAIN_ROOT}/bin/cargo" --version)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Generate run-local locked dependency snapshot
         id: lock
@@ -232,8 +240,10 @@ jobs:
           fi
           test -f crates/fpm-wasm-artifact-identity/Cargo.lock
           lock_sha="$(sha256sum crates/fpm-wasm-artifact-identity/Cargo.lock | awk '{print $1}')"
-          printf 'lock_mode=%s\n' "$lock_mode" >> "$GITHUB_OUTPUT"
-          printf 'lock_sha256=%s\n' "$lock_sha" >> "$GITHUB_OUTPUT"
+          {
+            printf 'lock_mode=%s\n' "$lock_mode"
+            printf 'lock_sha256=%s\n' "$lock_sha"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Materialize dependency cache before hostile execution
         # The dependency phase is networked, so it receives a smaller, explicit
@@ -329,11 +339,13 @@ jobs:
           candidate_uid="$(sudo -n -u fpm-untrusted id -u)"
           test "$candidate_uid" != "0"
           test "$candidate_uid" != "$(id -u)"
-          printf 'candidate_uid=%s\n' "$candidate_uid" >> "$GITHUB_OUTPUT"
           candidate_gid="$(sudo -n -u fpm-untrusted id -g)"
           test "$candidate_gid" != "0"
-          printf 'candidate_gid=%s\n' "$candidate_gid" >> "$GITHUB_OUTPUT"
-          printf 'candidate_execution_profile=%s\n' "fpm-docker-offline-v1" >> "$GITHUB_OUTPUT"
+          {
+            printf 'candidate_uid=%s\n' "$candidate_uid"
+            printf 'candidate_gid=%s\n' "$candidate_gid"
+            printf 'candidate_execution_profile=%s\n' "fpm-docker-offline-v1"
+          } >> "$GITHUB_OUTPUT"
           chmod -R a-w candidate
           test -r candidate/crates/fpm-wasm-artifact-identity/Cargo.lock
 
@@ -765,8 +777,10 @@ jobs:
           test "$(printf '%s' "$pr_api" | jq -r '.head.repo.full_name')" = "$GITHUB_REPOSITORY"
           test "$(printf '%s' "$pr_api" | jq -r '.head.sha')" = "$EXPECTED_HEAD_SHA"
 
-          printf 'postflight_head=%s\n' "$actual_head" >> "$GITHUB_OUTPUT"
-          printf 'postflight_tree=%s\n' "$actual_tree" >> "$GITHUB_OUTPUT"
+          {
+            printf 'postflight_head=%s\n' "$actual_head"
+            printf 'postflight_tree=%s\n' "$actual_tree"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Emit canonical qualification receipt
         id: receipt
