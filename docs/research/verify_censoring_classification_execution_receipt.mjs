@@ -11,7 +11,7 @@ const WORKFLOW_PATH=".github/workflows/continual-adaptation-censoring-classifica
 const PAIRS=[
 ["fixed-classification","python-fixed.json","node-fixed.json",52],
 ["generated-classification","python-generated.json","node-generated.json",168],
-["anchor-governance","anchor-governance-python.json","anchor-governance-node.json",null],
+["anchor-governance","anchor-governance-python.json","anchor-governance-node.json",24],
 ["witness-non-equivocation","witness-python.json","witness-node.json",24],
 ["witness-cryptographic-authentication","witness-crypto-python.json","witness-crypto-node.json",22],
 ["append-only-vds","witness-vds-python.json","witness-vds-node.json",15],
