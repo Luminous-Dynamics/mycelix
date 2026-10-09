@@ -859,4 +859,37 @@ mod tests {
         assert!(valid_utc_timestamp("2024-02-29T12:00:00Z"));
         assert!(!valid_utc_timestamp("2026-13-01T12:00:00Z"));
     }
+
+    #[test]
+    fn rejects_duplicate_f1_facility_references() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f1").unwrap()["added_observations"][0]["coverage"]["facility_refs_observed"] =
+            serde_json::json!([
+                "subject:supplier-B-facility-D",
+                "subject:supplier-B-facility-D"
+            ]);
+        assert!(validate_documents(&docs).iter().any(|e|
+            e.contains("duplicate refs are forbidden")
+                || e.contains("must cover exactly facilities D/E")
+        ));
+    }
+
+    #[test]
+    fn rejects_non_object_f1_coverage() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f1").unwrap()["added_observations"][0]["coverage"] =
+            Value::String("not-an-object".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e|
+            e.contains("F1: inventory refresh coverage must be an object")
+        ));
+    }
+
+    #[test]
+    fn rejects_excessive_json_nesting() {
+        let mut nested = String::from("0");
+        for _ in 0..(MAX_JSON_DEPTH + 2) {
+            nested = format!(r#"{{"x":{nested}}}"#);
+        }
+        assert!(parse_strict_json(nested.as_bytes()).is_err());
+    }
 }
