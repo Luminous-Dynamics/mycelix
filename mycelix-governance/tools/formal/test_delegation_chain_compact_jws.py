@@ -434,7 +434,9 @@ def main() -> int:
                 "status": non_object["status"],
                 "finding": non_object.get("findings", [{}])[0].get("code"),
             })
-            escaped_jti = build_chain(root / "escaped-jti-key-positive", "escaped-jti-key-chain")
+            escaped_jti_directory = root / "escaped-jti-key-positive"
+            escaped_jti_directory.mkdir(parents=True, exist_ok=True)
+            escaped_jti = build_chain(escaped_jti_directory, "escaped-jti-key-chain")
             escaped_result = invoke_fixture(escaped_jti, openssl)
             require(escaped_result.get("status") == "COMPACT_JWS_CRYPTO_LINKAGE_PASS",
                     "JSON-escaped top-level jti key was not interpreted consistently: " +
