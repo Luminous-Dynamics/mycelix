@@ -137,6 +137,8 @@ function selfTest(){
   const badLegacy={...legacy,case_count:3};if(validateReportBytes(Buffer.from(canonical(badLegacy)),2)[1]!=="case-count-mismatch")throw Error("incorrect-explicit-count-accepted");
   const fail=structuredClone(sample);fail.failures=[{case_id:"a"}];if(validateReportBytes(Buffer.from(canonical(fail)),2)[1]!=="reported-failures")throw Error("failures-accepted");
   const dup=structuredClone(sample);dup.cases=[{case_id:"a"},{case_id:"a"}];if(validateReportBytes(Buffer.from(canonical(dup)),2)[1]!=="duplicate-case-id")throw Error("duplicate-IDs-accepted");
+  const mismatch=structuredClone(sample);mismatch.cases=[{case_id:"a",expected_verdict:"qualified",actual_verdict:"unresolved"},{case_id:"b"}];if(validateReportBytes(Buffer.from(canonical(mismatch)),2)[1]!=="verdict-mismatch")throw Error("mismatched-verdict-accepted");
+  const missingActual=structuredClone(sample);missingActual.cases=[{case_id:"a",expected_verdict:"qualified"},{case_id:"b"}];if(validateReportBytes(Buffer.from(canonical(missingActual)),2)[1]!=="actual-verdict-missing")throw Error("missing-actual-verdict-accepted");
   const base=fs.mkdtempSync(path.join(os.tmpdir(),"mycelix-receipt-selftest-"));
   try{
     const artifact=path.join(base,"artifact"),reports=path.join(artifact,"reports"),support=path.join(artifact,"supporting");
