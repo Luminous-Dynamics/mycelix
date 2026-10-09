@@ -406,6 +406,16 @@ mod tests {
     }
 
     #[test]
+    fn violation_record_escapes_json_quotes_and_backslashes() {
+        let mut run = FrozenScenarioRun::build();
+        run.independent_violations = vec![r#"quote":"\path"#.to_owned()];
+        let artifact = run.canonical_artifact();
+        assert!(artifact.lines().any(|line| {
+            line == r#"{"record":"violations","items":["quote%22:%22%5Cpath"]}"#
+        }));
+    }
+
+    #[test]
     fn canonical_artifact_contains_every_input_and_decision() {
         let run = FrozenScenarioRun::build();
         let artifact = run.canonical_artifact();
