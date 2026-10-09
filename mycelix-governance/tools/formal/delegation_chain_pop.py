@@ -18,7 +18,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sqlite3
+import stat
 import sys
 from pathlib import Path
 from typing import Any
@@ -36,6 +38,8 @@ POP_CLOCK_TOLERANCE_SECONDS = 30
 MAX_POP_TOKEN_BYTES = 64 * 1024
 MAX_POP_CLAIMS_BYTES = 64 * 1024
 MAX_SAFE_INTEGER = (1 << 53) - 1
+MAX_REPLAY_SCOPE_BYTES = 256
+MAX_POP_JTI_BYTES = 256
 
 
 class PopVerificationError(ValueError):
@@ -198,16 +202,78 @@ def _decode_pop(pop_token: Any, leaf_jwk: dict[str, Any],
     return claims
 
 
+def _prepare_replay_database(database_path: Path) -> None:
+    """Open/create the replay file without following symlinks; force mode 0600."""
+    database_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        parent_info = database_path.parent.stat()
+        if not stat.S_ISDIR(parent_info.st_mode):
+            raise PopVerificationError("pop-replay-store-unavailable",
+                                       "replay store parent is not a directory")
+        if parent_info.st_mode & 0o022:
+            raise PopVerificationError(
+                "pop-replay-store-unavailable",
+                "replay store parent must not be group/world writable",
+            )
+
+        nofollow = getattr(os, "O_NOFOLLOW", 0)
+        close_on_exec = getattr(os, "O_CLOEXEC", 0)
+        try:
+            descriptor = os.open(
+                str(database_path),
+                os.O_RDWR | os.O_CREAT | os.O_EXCL | nofollow | close_on_exec,
+                0o600,
+            )
+        except FileExistsError:
+            descriptor = os.open(
+                str(database_path),
+                os.O_RDWR | nofollow | close_on_exec,
+            )
+        try:
+            file_info = os.fstat(descriptor)
+            if not stat.S_ISREG(file_info.st_mode):
+                raise PopVerificationError(
+                    "pop-replay-store-unavailable",
+                    "replay store must be a regular file, not a symlink or special file",
+                )
+            os.fchmod(descriptor, 0o600)
+            secured_info = os.fstat(descriptor)
+            if stat.S_IMODE(secured_info.st_mode) != 0o600:
+                raise PopVerificationError(
+                    "pop-replay-store-unavailable",
+                    "replay store permissions could not be secured to owner-only",
+                )
+        finally:
+            os.close(descriptor)
+    except PopVerificationError:
+        raise
+    except OSError as error:
+        raise PopVerificationError(
+            "pop-replay-store-unavailable",
+            "replay store path could not be secured; invocation must fail closed",
+        ) from error
+
+
 def _consume_pop_jti(database_path: Path, scope: str, jti: str, iat: int,
                      now: int, tolerance: int) -> None:
     """Consume a proof jti once within a shared SQLite transaction."""
     if not isinstance(scope, str) or not scope:
         raise PopVerificationError("pop-replay-scope-invalid",
                                    "replay_scope must identify the enforcement-point replay domain")
+    try:
+        if len(scope.encode("utf-8")) > MAX_REPLAY_SCOPE_BYTES:
+            raise PopVerificationError("pop-replay-scope-invalid",
+                                       "replay_scope exceeds the configured byte limit")
+    except UnicodeEncodeError as error:
+        raise PopVerificationError("pop-replay-scope-invalid",
+                                   "replay_scope must be valid Unicode") from error
+    if not isinstance(jti, str) or not jti or len(jti.encode("utf-8")) > MAX_POP_JTI_BYTES:
+        raise PopVerificationError("pop-jti-invalid",
+                                   "PoP jti must be non-empty and within the configured byte limit")
     if not isinstance(database_path, Path):
         raise PopVerificationError("pop-replay-store-unavailable",
                                    "replay_database must be an explicitly configured pathlib.Path")
-    database_path.parent.mkdir(parents=True, exist_ok=True)
+    _prepare_replay_database(database_path)
     try:
         connection = sqlite3.connect(str(database_path), timeout=5.0, isolation_level=None)
         try:
@@ -267,12 +333,12 @@ def verify_chain_invocation(raw_chain: dict[str, Any],
     embedded raw_chain['now'] is caller-controlled fixture/input data and is
     overwritten before the compact-chain verifier is called.
     """
-    if type(trusted_now) is not int:
+    if type(trusted_now) is not int or not 0 <= trusted_now <= MAX_SAFE_INTEGER:
         return {
             "schema": POP_RESULT_SCHEMA,
             "status": "UNSUPPORTED_OR_UNDECIDABLE",
             "findings": [{"code": "trusted-clock-invalid",
-                          "detail": "trusted_now must be an integer Unix timestamp"}],
+                          "detail": "trusted_now must be a non-negative safe integer Unix timestamp"}],
             "qualification": "NOT_CLAIMED",
         }
     if not isinstance(raw_chain, dict):
