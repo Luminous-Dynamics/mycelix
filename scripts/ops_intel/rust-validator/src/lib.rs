@@ -438,6 +438,18 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
         None => errors.push("F0: explicit unobserved-facility coverage assertion is missing".to_owned()),
     }
 
+    match find_record(coverage_assertions, "coverage_ref", "coverage:service-demand-R2") {
+        Some(r2) => {
+            if r2.get("state").and_then(Value::as_str) != Some("OutsideCoverage")
+                || !r2.get("value").is_some_and(Value::is_null)
+                || !r2.get("source_ref").is_some_and(Value::is_null)
+            {
+                errors.push("F0: R2 demand must remain explicitly OutsideCoverage with no value/source".to_owned());
+            }
+        }
+        None => errors.push("F0: explicit R2 OutsideCoverage assertion is missing".to_owned()),
+    }
+
     let protected_fields = array_field(f0, "protected_fields", "F0 protected_fields", &mut errors);
     let protected_ids0 = record_refs_from_slice(protected_fields, "field_ref", "F0 protected_fields", &mut errors);
     if protected_ids0.is_empty() {
@@ -584,6 +596,18 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     {
         errors.push("F1: temporal reconciliation limit must be machine-readable".to_owned());
     }
+    for (index, assessment) in assessments.iter().enumerate() {
+        if assessment.get("coverage_ref").and_then(Value::as_str) == Some("coverage:supplier-B-facilities-D-E-at-F1") {
+            let observed = string_array(assessment.get("facility_refs_observed"), &format!("F1 coverage assessment[{index}] observed refs"), &mut errors);
+            require_set_eq(&observed, &facility_refs[3..], "F1: coverage assessment must identify exactly facilities D/E", &mut errors);
+            if assessment.get("complements_coverage_ref").and_then(Value::as_str) != Some("coverage:supplier-B-unobserved-facilities")
+                || assessment.get("state").and_then(Value::as_str) != Some("ObservedCoverageAtF1")
+                || assessment.get("currentness_relation").and_then(Value::as_str) != Some("DifferentObservationTime")
+            {
+                errors.push("F1: added coverage assessment must preserve lineage and different-time semantics".to_owned());
+            }
+        }
+    }
 
     let f1_time = field_owned_text(f1, "frontier_cutoff_utc", "F1 cutoff", &mut errors);
     let f2_time = field_owned_text(f2, "frontier_cutoff_utc", "F2 cutoff", &mut errors);
@@ -648,6 +672,13 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     }
 
     let sources3_new = unique_record_refs(f3.get("added_sources"), "source_ref", "F3 added_sources", &mut errors);
+    for (index, source) in f3.get("added_sources").and_then(Value::as_array).into_iter().flatten().enumerate() {
+        if source.get("trust_status").and_then(Value::as_str) != Some("UnassessedUnderProfile")
+            || source.get("source_dependency_status").and_then(Value::as_str) != Some("DeclaredIndependentUnderSyntheticProfile")
+        {
+            errors.push(format!("F3 added source[{index}]: independence declaration must not silently promote trust status"));
+        }
+    }
     let artifacts3_new = unique_record_refs(f3.get("added_artifacts"), "artifact_ref", "F3 added_artifacts", &mut errors);
     reject_identity_reuse(&sources3_new, &sources1, "F3 added_sources", &mut errors);
     reject_identity_reuse(&artifacts3_new, &artifacts1, "F3 added_artifacts", &mut errors);
@@ -1169,6 +1200,7 @@ mod tests {
     #[test]
     fn strict_parser_rejects_trailing_data_and_oversized_input() {
         assert!(parse_strict_json(br#"{"ok":true} trailing"#).is_err());
+        assert!(parse_strict_json(br#"{"n":1e9999}"#).is_err());
         assert!(parse_strict_json(&vec![b' '; MAX_FILE_BYTES + 1]).is_err());
     }
 
@@ -1364,7 +1396,8 @@ mod tests {
         let mut docs = load_real_fixture();
         let cases = docs.get_mut("f2").unwrap()["authority_effect_cases"].as_array_mut().unwrap();
         let case = cases.iter_mut().find(|v| v["case_ref"] == "authority-case:wrong-subject").unwrap();
-        case["permit_subject_ref"] = case["expected_subject_ref"].clone();
+        let expected_subject = case["expected_subject_ref"].clone();
+        case["permit_subject_ref"] = expected_subject;
         assert!(validate_documents(&docs).iter().any(|e| e.contains("wrong-subject control is not structurally mismatched")));
     }
 
@@ -1373,7 +1406,8 @@ mod tests {
         let mut docs = load_real_fixture();
         let cases = docs.get_mut("f2").unwrap()["authority_effect_cases"].as_array_mut().unwrap();
         let case = cases.iter_mut().find(|v| v["case_ref"] == "authority-case:wrong-candidate").unwrap();
-        case["permit_candidate_ref"] = case["expected_candidate_ref"].clone();
+        let expected_candidate = case["expected_candidate_ref"].clone();
+        case["permit_candidate_ref"] = expected_candidate;
         assert!(validate_documents(&docs).iter().any(|e| e.contains("wrong-candidate control is not structurally mismatched")));
     }
 
@@ -1382,7 +1416,8 @@ mod tests {
         let mut docs = load_real_fixture();
         let cases = docs.get_mut("f2").unwrap()["authority_effect_cases"].as_array_mut().unwrap();
         let case = cases.iter_mut().find(|v| v["case_ref"] == "authority-case:wrong-payload").unwrap();
-        case["permit_payload_commitment_ref"] = case["expected_payload_commitment_ref"].clone();
+        let expected_commitment = case["expected_payload_commitment_ref"].clone();
+        case["permit_payload_commitment_ref"] = expected_commitment;
         assert!(validate_documents(&docs).iter().any(|e| e.contains("wrong-payload control is not structurally mismatched")));
     }
 
