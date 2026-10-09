@@ -119,8 +119,8 @@ def expected_artifact(repo: str, event: dict, policy: dict) -> dict:
         f"/actions/runs/{run_id}",
         token,
     )
-    assert positive_json_int(current_run["id"], "current workflow run ID") == run_id
-    assert positive_json_int(current_run["run_attempt"], "current workflow run attempt") == run_attempt
+    assert positive_json_int(current_run["id"], "current workflow run ID") == run_id, 'current_run["id"] == run_id'
+    assert positive_json_int(current_run["run_attempt"], "current workflow run attempt") == run_attempt, 'current_run["run_attempt"] == run_attempt'
     assert current_run["repository"]["full_name"] == repo
     assert positive_json_int(current_run["repository"]["id"], "current repository ID") == expected_repository_id
     assert current_run["head_repository"]["full_name"] == repo
@@ -181,8 +181,8 @@ def expected_current_run_artifact(repo: str, policy: dict) -> dict:
         f"/actions/runs/{run_id}",
         token,
     )
-    assert positive_json_int(current_run["id"], "current workflow run ID") == run_id
-    assert positive_json_int(current_run["run_attempt"], "current workflow run attempt") == run_attempt
+    assert positive_json_int(current_run["id"], "current workflow run ID") == run_id, 'current_run["id"] == run_id'
+    assert positive_json_int(current_run["run_attempt"], "current workflow run attempt") == run_attempt, 'current_run["run_attempt"] == run_attempt'
     assert current_run["repository"]["full_name"] == repo
     assert current_run["head_repository"]["full_name"] == repo
     assert positive_json_int(current_run["repository"]["id"], "current repository ID") == expected_repository_id
@@ -216,9 +216,13 @@ def expected_current_run_artifact(repo: str, policy: dict) -> dict:
         f"missing or malformed GitHub artifact digest: {digest!r}"
     )
     maximum = int(policy["auditor_handoff"]["artifact_max_archive_bytes"])
-    assert artifact["size_in_bytes"] <= maximum, (
+    artifact_size = artifact["size_in_bytes"]
+    assert isinstance(artifact_size, int) and not isinstance(artifact_size, bool) and artifact_size >= 0, (
+        "auditor handoff archive size is not a nonnegative integer"
+    )
+    assert artifact_size <= maximum, (
         f"auditor handoff archive exceeds trusted maximum: "
-        f"{artifact['size_in_bytes']} > {maximum}"
+        f"{artifact_size} > {maximum}"
     )
     return artifact
 
