@@ -32,7 +32,7 @@ jobs:
       artifact-metadata: write
     steps:
       - name: Check out the exact successful source commit
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 release
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
