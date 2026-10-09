@@ -218,6 +218,18 @@ def main() -> int:
     with FIXTURE.open("r", encoding="utf-8") as handle:
         corpus = json.load(handle)
 
+    manifest_path = ROOT / "docs/integral/civ-013-witness-conformance-v1-manifest.json"
+    with manifest_path.open("r", encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    if manifest.get("spec_version") != corpus.get("spec_version"):
+        raise SystemExit("FAIL: manifest/fixture spec_version mismatch")
+    if manifest.get("source_model_commit") != corpus.get("source_model_commit"):
+        raise SystemExit("FAIL: manifest/fixture source commit mismatch")
+    if manifest.get("fixture_path") != "docs/integral/civ-013-witness-conformance-v1.json":
+        raise SystemExit("FAIL: unexpected fixture path in manifest")
+    if manifest.get("verifier_path") != "scripts/integral/verify_civ013_witness_conformance_v1.py":
+        raise SystemExit("FAIL: unexpected verifier path in manifest")
+
     if corpus.get("spec_version") != "civ-013-conformance-v1":
         raise SystemExit("FAIL: unexpected fixture spec_version")
     encoding = corpus.get("encoding", {})
