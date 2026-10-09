@@ -73,7 +73,9 @@ export class CapabilitiesZomeClient {
       return {
         capability_hash: capabilityHash,
         delivery_acknowledged: false,
-        delivery_error: error instanceof Error ? error.message : 'Capability delivery failed.',
+        // Remote/Holochain errors can echo serialized arguments. Do not surface raw
+        // error text at a secret-handling boundary.
+        delivery_error: 'Delivery was not acknowledged; retry deliverCapabilityGrant with this capability hash.',
       };
     }
   }
