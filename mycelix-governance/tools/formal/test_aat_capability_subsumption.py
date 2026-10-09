@@ -428,6 +428,13 @@ def main() -> int:
             "runtime_and_invocation_controls": len(receipt["invocation_controls"]),
             "mutants_injected": len(receipt["mutations"]),
             "mutants_detected": sum(bool(row["mutant_was_observable"]) for row in receipt["mutations"]),
+            "resource_limits": {
+                "max_constraint_depth": FROZEN_MAX_DEPTH,
+                "max_constraint_nodes": FROZEN_MAX_NODES,
+                "max_composite_clauses": FROZEN_MAX_CLAUSES,
+                "max_tools_per_token": FROZEN_MAX_TOOLS,
+                "max_constraints_per_tool": FROZEN_MAX_ARGUMENT_KEYS,
+            },
             "bounded_denotation_soundness": "PASS_FOR_RETURNED_SUBSUMPTION_PASSES",
             "qualification": "NOT_CLAIMED",
         }
