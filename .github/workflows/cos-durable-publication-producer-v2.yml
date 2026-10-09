@@ -547,6 +547,21 @@ jobs:
           assert d['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']
           PY
 
+      - name: Verify release tag resolves to exact main SHA before publishing
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.claim_id }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          annotated="$(git ls-remote origin "refs/tags/${RELEASE_TAG}^{}" | awk 'NR==1 {print $1}')"
+          lightweight="$(git ls-remote origin "refs/tags/${RELEASE_TAG}" | awk 'NR==1 {print $1}')"
+          tag_sha="${annotated:-${lightweight}}"
+          printf '%s\n' "${tag_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${tag_sha}" = "${EXPECTED_MAIN_SHA}" || {
+            echo "release tag resolves to unexpected commit: expected ${EXPECTED_MAIN_SHA}, got ${tag_sha}" >&2
+            exit 1
+          }
+
       - name: Build and prove deterministic durable archive
         run: |
           set -euo pipefail
