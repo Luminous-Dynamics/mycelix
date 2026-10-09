@@ -158,6 +158,23 @@
               OPENSSL_DIR OPENSSL_LIB_DIR OPENSSL_INCLUDE_DIR;
           };
 
+          # Focused SDK CI environment: pinned Rust and Node, without the full
+          # Holochain/Python ML development closure used by .#ci.
+          sdk-ci = pkgs.mkShell {
+            name = "mycelix-sdk-ci";
+            buildInputs = [
+              holochainBase.rustToolchain
+              pkgs.nodejs_24
+              pkgs.pkg-config
+              pkgs.openssl
+              pkgs.openssl.dev
+            ];
+
+            inherit (holochainBase.envVars)
+              LIBCLANG_PATH BINDGEN_EXTRA_CLANG_ARGS
+              OPENSSL_DIR OPENSSL_LIB_DIR OPENSSL_INCLUDE_DIR;
+          };
+
           # Holochain-only environment (focused zome development)
           holochain = holochainBase.mkHolochainShell {
             name = "mycelix-holochain";
