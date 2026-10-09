@@ -15,7 +15,7 @@ pub struct SpamReportInput {
     pub reason: String,
 }
 
-// === Path Helper for HDK 0.6.0 ===
+// === Path Helper for HDK 0.7.0 ===
 fn ensure_path(path: Path, link_type: LinkTypes) -> ExternResult<EntryHash> {
     let typed = path.clone().typed(link_type)?;
     typed.ensure()?;
@@ -38,12 +38,9 @@ pub fn check_sender_trust(did: String) -> ExternResult<f64> {
     let path = Path::from(format!("trust.{}", did));
     let path_hash = ensure_path(path, LinkTypes::TrustByDid)?;
 
-    // Query trust scores linked to this DID path (HDK 0.6.0 API)
+    // Query trust scores linked to this DID path (HDK 0.7.0 API)
     let links = get_links(
-        LinkQuery::new(
-            path_hash,
-            LinkTypeFilter::single_type(0.into(), (LinkTypes::TrustByDid as u8).into()),
-        ),
+        LinkQuery::try_new(path_hash, LinkTypes::TrustByDid)?,
         GetStrategy::default(),
     )?;
 
@@ -91,7 +88,7 @@ pub fn update_trust_score(trust_score: TrustScore) -> ExternResult<ActionHash> {
     // Create the trust score entry
     let score_hash = create_entry(EntryTypes::TrustScore(trust_score.clone()))?;
 
-    // Use a Path for DID-based lookup (HDK 0.6.0 typed paths)
+    // Use a Path for DID-based lookup (HDK 0.7.0 typed paths)
     let path = Path::from(format!("trust.{}", trust_score.did));
     let path_hash = ensure_path(path, LinkTypes::TrustByDid)?;
 
@@ -169,10 +166,7 @@ pub fn get_all_trust_scores(_: ()) -> ExternResult<Vec<TrustScore>> {
     };
 
     let links = get_links(
-        LinkQuery::new(
-            index_hash,
-            LinkTypeFilter::single_type(0.into(), (LinkTypes::TrustIndex as u8).into()),
-        ),
+        LinkQuery::try_new(index_hash, LinkTypes::TrustIndex)?,
         GetStrategy::default(),
     )?;
 
@@ -254,10 +248,7 @@ pub fn get_spam_reports(input: GetSpamReportsInput) -> ExternResult<Vec<SpamRepo
     };
 
     let links = get_links(
-        LinkQuery::new(
-            path_hash,
-            LinkTypeFilter::single_type(0.into(), (LinkTypes::SpamReports as u8).into()),
-        ),
+        LinkQuery::try_new(path_hash, LinkTypes::SpamReports)?,
         GetStrategy::default(),
     )?;
 
