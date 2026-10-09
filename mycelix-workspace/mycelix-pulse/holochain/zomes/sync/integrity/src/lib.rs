@@ -459,7 +459,7 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action.into()),
             // No entry type in this zome has a real update_entry call anywhere in the
             // coordinator (confirmed via direct grep -- every "update" is actually a fresh
             // create_entry, e.g. set_online_status) -- reject outright rather than leave the
