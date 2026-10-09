@@ -16,7 +16,7 @@ class InputContractError(ValueError):
     """The package manifest and lockfile do not satisfy the Nix import contract."""
 
 
-SRI_TOKEN = re.compile(r"^(?:sha512|sha384|sha256|sha1)-[A-Za-z0-9+/]+={0,2}(?:\?.*)?$")
+SRI_TOKEN = re.compile(r"^sha512-[A-Za-z0-9+/]+={0,2}(?:\?.*)?$")
 DEPENDENCY_SECTIONS = ("dependencies", "devDependencies", "optionalDependencies")
 EXPECTED_REGISTRY = "registry.npmjs.org"
 EXPECTED_INSTALL_LIFECYCLE_PACKAGES = {
@@ -67,6 +67,7 @@ def verify_contract(package_raw: str, lock_raw: str) -> dict:
             raise InputContractError(f"{section} drift between package.json and package-lock.json root")
 
     resolved_count = 0
+    sha512_integrity_count = 0
     lifecycle_packages: list[str] = []
     platform_packages = 0
     for key, entry in sorted(packages.items()):
@@ -100,7 +101,8 @@ def verify_contract(package_raw: str, lock_raw: str) -> dict:
             raise InputContractError(f"package entry lacks an integrity hash: {key}")
         tokens = integrity.split()
         if not tokens or any(not SRI_TOKEN.fullmatch(token) for token in tokens):
-            raise InputContractError(f"package entry has malformed integrity metadata: {key}")
+            raise InputContractError(f"package entry must have SHA-512 integrity metadata: {key}")
+        sha512_integrity_count += 1
 
         if entry.get("hasInstallScript") is True:
             lifecycle_packages.append(key)
@@ -127,7 +129,8 @@ def verify_contract(package_raw: str, lock_raw: str) -> dict:
         "package_node_count_including_root": len(packages),
         "resolved_package_count": resolved_count,
         "integrity_covered_package_count": resolved_count,
-        "integrity_coverage_complete": True,
+        "sha512_integrity_count": sha512_integrity_count,
+        "integrity_coverage_complete": sha512_integrity_count == resolved_count,
         "approved_registry": EXPECTED_REGISTRY,
         "install_lifecycle_script_packages": lifecycle_packages,
         "platform_constrained_package_count": platform_packages,
@@ -145,6 +148,10 @@ def run_self_tests(package_raw: str, lock_raw: str) -> list[dict]:
     resolved_key = next(k for k, v in missing_integrity["packages"].items() if k and v.get("resolved"))
     missing_integrity["packages"][resolved_key].pop("integrity", None)
     tests.append(("missing_integrity", package_raw, json.dumps(missing_integrity)))
+
+    weak_integrity = copy.deepcopy(lock)
+    weak_integrity["packages"][resolved_key]["integrity"] = "sha1-AbCdEf=="
+    tests.append(("weak_integrity_algorithm", package_raw, json.dumps(weak_integrity)))
 
     bad_registry = copy.deepcopy(lock)
     bad_registry["packages"][resolved_key]["resolved"] = (
