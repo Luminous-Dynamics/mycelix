@@ -44,6 +44,105 @@ const FORBIDDEN_EVALUATOR_KEYS: [&str; 4] = [
     "actual_world_truth_payload",
 ];
 
+const EXPECTED_SUPPLIER_B_FACILITIES: [&str; 5] = [
+    "subject:supplier-B-facility-A",
+    "subject:supplier-B-facility-B",
+    "subject:supplier-B-facility-C",
+    "subject:supplier-B-facility-D",
+    "subject:supplier-B-facility-E",
+];
+const EXPECTED_CANDIDATE_REFS: [&str; 6] = [
+    "candidate:RerouteToSupplierB",
+    "candidate:DeferEligibleDemand",
+    "candidate:AcquireTemporaryCapacity",
+    "candidate:CombinedBoundedResponse",
+    "candidate:GatherMoreEvidence",
+    "candidate:NoAction",
+];
+const EXPECTED_AUTHORITY_CASE_REFS: [&str; 6] = [
+    "authority-case:policy-allow-no-permit",
+    "authority-case:stale-permit",
+    "authority-case:wrong-subject",
+    "authority-case:wrong-candidate",
+    "authority-case:wrong-payload",
+    "authority-case:matching-mock-permit",
+];
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct F0Frontier {
+    frontier_ref: String,
+    parent_frontier_ref: Option<String>,
+    cutoff_utc: String,
+    temporal_profile_ref: String,
+    inclusion_rule: String,
+    immutable: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CandidateRecord {
+    candidate_ref: String,
+    label: String,
+    intervention_kind: String,
+    authority_ceiling: String,
+    execution_material_present: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProtectedFieldRecord {
+    field_ref: String,
+    subject_ref: String,
+    property_ref: String,
+    handling_state: String,
+    public_representation: String,
+    payload_included: bool,
+    policy_ref: String,
+    limitations: Vec<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AttemptRecord {
+    attempt_ref: String,
+    candidate_ref: String,
+    subject_ref: String,
+    decision_frontier_ref: String,
+    attempt_time_utc: String,
+    execution_mode: String,
+    mock_authority_requirement_ref: String,
+    live_capability_present: bool,
+    reported_attempt_disposition: String,
+    effect_state: String,
+    receipt_ref: String,
+    limitations: Vec<String>,
+    receipt_semantics: String,
+    actual_execution_authorized: bool,
+    valid_mock_permit_ref: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MockAuthorityCase {
+    case_ref: String,
+    policy_decision_ref: String,
+    permit_ref: Option<String>,
+    permit_state: Option<String>,
+    permit_subject_ref: Option<String>,
+    expected_subject_ref: Option<String>,
+    permit_candidate_ref: Option<String>,
+    expected_candidate_ref: Option<String>,
+    permit_payload_commitment_ref: Option<String>,
+    expected_payload_commitment_ref: Option<String>,
+    requested_attempt_ref: Option<String>,
+    requested_candidate_ref: Option<String>,
+    requested_subject_ref: Option<String>,
+    expected_disposition: String,
+    mode: String,
+    limitation: String,
+}
+
 #[derive(Debug)]
 struct StrictJson(Value);
 
@@ -282,9 +381,11 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
         errors.push("F0: unexpected authority ceiling".to_owned());
     }
 
+    let domains0 = unique_record_refs(f0.get("domains"), "domain_ref", "F0 domains", &mut errors);
     let sources0 = unique_record_refs(f0.get("source_registry"), "source_ref", "F0 source_registry", &mut errors);
     let artifacts0 = unique_record_refs(f0.get("artifacts"), "artifact_ref", "F0 artifacts", &mut errors);
     let subjects0 = unique_record_refs(f0.get("subjects"), "subject_ref", "F0 subjects", &mut errors);
+    check_record_refs(f0.get("subjects"), "domain_ref", &domains0, "F0 subjects", &mut errors);
     check_record_refs(f0.get("artifacts"), "source_ref", &sources0, "F0 artifacts", &mut errors);
     check_record_refs(f0.get("observations"), "source_ref", &sources0, "F0 observations", &mut errors);
     check_record_refs(f0.get("observations"), "artifact_ref", &artifacts0, "F0 observations", &mut errors);
@@ -314,6 +415,8 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     }
 
     let coverage_assertions = array_field(f0, "coverage_assertions", "F0 coverage_assertions", &mut errors);
+    let coverage_ids0 = record_refs_from_slice(coverage_assertions, "coverage_ref", "F0 coverage_assertions", &mut errors);
+    check_record_refs(Some(&Value::Array(coverage_assertions.to_vec())), "subject_ref", &subjects0, "F0 coverage_assertions", &mut errors);
     match find_record(coverage_assertions, "coverage_ref", "coverage:supplier-B-unobserved-facilities") {
         Some(assertion) => {
             let observed = string_array(assertion.get("facility_refs_observed"), "F0 coverage assertion observed refs", &mut errors);
@@ -325,41 +428,89 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     }
 
     let protected_fields = array_field(f0, "protected_fields", "F0 protected_fields", &mut errors);
+    let protected_ids0 = record_refs_from_slice(protected_fields, "field_ref", "F0 protected_fields", &mut errors);
+    check_record_refs(Some(&Value::Array(protected_fields.to_vec())), "subject_ref", &subjects0, "F0 protected_fields", &mut errors);
     if protected_fields.is_empty() {
         errors.push("F0: protected field boundary must be represented".to_owned());
     }
     for (index, field) in protected_fields.iter().enumerate() {
-        if field.get("handling_state").and_then(Value::as_str) != Some("OmittedUnderPolicy") {
+        let record = match serde_json::from_value::<ProtectedFieldRecord>(field.clone()) {
+            Ok(record) => record,
+            Err(_) => {
+                errors.push(format!("F0 protected field[{index}]: wrong shape, missing field, or unknown field"));
+                continue;
+            }
+        };
+        if record.field_ref.trim().is_empty() || record.property_ref.trim().is_empty()
+            || record.policy_ref.trim().is_empty() || record.limitations.is_empty()
+        {
+            errors.push(format!("F0 protected field[{index}]: required refs/limitations must be non-empty"));
+        }
+        if record.handling_state != "OmittedUnderPolicy" {
             errors.push(format!("F0 protected field[{index}]: omission state is missing"));
         }
-        if field.get("payload_included").and_then(Value::as_bool) != Some(false) {
+        if record.public_representation != "ProtectedOpaqueRef" {
+            errors.push(format!("F0 protected field[{index}]: public representation must remain opaque"));
+        }
+        if record.payload_included {
             errors.push(format!("F0 protected field[{index}]: payload must be explicitly absent"));
+        }
+        if !subjects0.contains(&record.subject_ref) {
+            errors.push(format!("F0 protected field[{index}]: subject ref does not resolve"));
         }
     }
 
     let candidates = array_field(f0, "candidate_interventions", "F0 candidate_interventions", &mut errors);
-    if candidates.is_empty() {
-        errors.push("F0: candidate intervention inventory must not be empty".to_owned());
+    let candidate_refs = record_refs_from_slice(candidates, "candidate_ref", "F0 candidate_interventions", &mut errors);
+    let expected_candidate_refs: BTreeSet<String> = EXPECTED_CANDIDATE_REFS.iter().map(|value| (*value).to_owned()).collect();
+    if candidate_refs != expected_candidate_refs || candidates.len() != EXPECTED_CANDIDATE_REFS.len() {
+        errors.push("F0: candidate inventory must contain the six expected unique candidate refs".to_owned());
     }
     for (index, candidate) in candidates.iter().enumerate() {
-        if candidate.get("authority_ceiling").and_then(Value::as_str) != Some("CandidateOnly") {
+        let record = match serde_json::from_value::<CandidateRecord>(candidate.clone()) {
+            Ok(record) => record,
+            Err(_) => {
+                errors.push(format!("F0 candidate[{index}]: wrong shape, missing field, or unknown field"));
+                continue;
+            }
+        };
+        if record.label.trim().is_empty() || record.intervention_kind.trim().is_empty() {
+            errors.push(format!("F0 candidate[{index}]: label/kind must be non-empty"));
+        }
+        if record.authority_ceiling != "CandidateOnly" {
             errors.push(format!("F0 candidate[{index}]: authority ceiling must be CandidateOnly"));
         }
-        if candidate.get("execution_material_present").and_then(Value::as_bool) != Some(false) {
+        if record.execution_material_present {
             errors.push(format!("F0 candidate[{index}]: execution material must be explicitly absent"));
+        }
+        if !expected_candidate_refs.contains(&record.candidate_ref) {
+            errors.push(format!("F0 candidate[{index}]: candidate ref is outside frozen inventory"));
         }
     }
 
-    let f0_frontier = match f0.get("frontier").and_then(Value::as_object) {
-        Some(frontier) => {
-            if frontier.get("frontier_ref").and_then(Value::as_str) != Some("frontier:F0") {
-                errors.push("F0: frontier ref must be frontier:F0".to_owned());
+    let f0_frontier = match f0.get("frontier") {
+        Some(value) => match serde_json::from_value::<F0Frontier>(value.clone()) {
+            Ok(frontier) => {
+                if frontier.frontier_ref != "frontier:F0" {
+                    errors.push("F0: frontier ref must be frontier:F0".to_owned());
+                }
+                if frontier.parent_frontier_ref.is_some()
+                    || !value.get("parent_frontier_ref").is_some_and(Value::is_null)
+                {
+                    errors.push("F0: parent frontier must be explicitly null".to_owned());
+                }
+                if !frontier.immutable || frontier.temporal_profile_ref.trim().is_empty()
+                    || frontier.inclusion_rule.trim().is_empty()
+                {
+                    errors.push("F0: frontier immutability/profile/inclusion rule is incomplete".to_owned());
+                }
+                Some(frontier.cutoff_utc)
             }
-            if !frontier.get("parent_frontier_ref").is_some_and(Value::is_null) {
-                errors.push("F0: parent frontier must be explicitly null".to_owned());
+            Err(_) => {
+                errors.push("F0: frontier has wrong shape, missing fields, or unknown fields".to_owned());
+                value.get("cutoff_utc").and_then(Value::as_str).map(str::to_owned)
             }
-            frontier.get("cutoff_utc").and_then(Value::as_str).map(str::to_owned)
-        }
+        },
         None => {
             errors.push("F0: frontier must be an object".to_owned());
             None
@@ -368,11 +519,14 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
 
     let sources1_new = unique_record_refs(f1.get("added_sources"), "source_ref", "F1 added_sources", &mut errors);
     let artifacts1_new = unique_record_refs(f1.get("added_artifacts"), "artifact_ref", "F1 added_artifacts", &mut errors);
+    reject_identity_reuse(&sources1_new, &sources0, "F1 added_sources", &mut errors);
+    reject_identity_reuse(&artifacts1_new, &artifacts0, "F1 added_artifacts", &mut errors);
     let sources1: BTreeSet<String> = sources0.union(&sources1_new).cloned().collect();
     let artifacts1: BTreeSet<String> = artifacts0.union(&artifacts1_new).cloned().collect();
     check_record_refs(f1.get("added_artifacts"), "source_ref", &sources1, "F1 added_artifacts", &mut errors);
     check_record_refs(f1.get("added_observations"), "source_ref", &sources1, "F1 added_observations", &mut errors);
     check_record_refs(f1.get("added_observations"), "artifact_ref", &artifacts1, "F1 added_observations", &mut errors);
+    check_record_refs(f1.get("added_observations"), "subject_ref", &subjects0, "F1 added_observations", &mut errors);
     if f1.get("parent_frontier_ref").and_then(Value::as_str) != Some("frontier:F0") {
         errors.push("F1: parent must be F0".to_owned());
     }
@@ -381,6 +535,8 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     }
 
     let observations1 = array_field(f1, "added_observations", "F1 added_observations", &mut errors);
+    let observation_ids1 = record_refs_from_slice(observations1, "observation_ref", "F1 added_observations", &mut errors);
+    reject_identity_reuse(&observation_ids1, &observation_ids, "F1 added_observations", &mut errors);
     match find_record(observations1, "observation_ref", "observation:supplier-B-inventory-refresh") {
         Some(inventory1) => {
             match inventory1.get("coverage").and_then(Value::as_object) {
@@ -407,6 +563,8 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     }
 
     let assessments = array_field(f1, "added_coverage_assessments", "F1 added_coverage_assessments", &mut errors);
+    let coverage_ids1 = record_refs_from_slice(assessments, "coverage_ref", "F1 added_coverage_assessments", &mut errors);
+    reject_identity_reuse(&coverage_ids1, &coverage_ids0, "F1 added_coverage_assessments", &mut errors);
     if !assessments.iter().any(|item| item.get("aggregate_inference").and_then(Value::as_str)
         == Some("NotPermittedWithoutTemporalReconciliation"))
     {
@@ -444,22 +602,87 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
         }
     }
 
-    validate_attempt_and_authority(f2, &mut errors);
+    let cutoff0 = parsed[0].as_deref();
+    let cutoff1 = parsed[1].as_deref();
+    let cutoff2 = parsed[2].as_deref();
+    let cutoff3 = parsed[3].as_deref();
+    if let Some(items) = f0.get("artifacts").and_then(Value::as_array) {
+        validate_artifact_times(items, "F0 artifacts", cutoff0, &mut errors);
+    }
+    validate_observation_times(observations0, "F0 observations", cutoff0, &mut errors);
+    if let Some(items) = f1.get("added_artifacts").and_then(Value::as_array) {
+        validate_artifact_times(items, "F1 added_artifacts", cutoff1, &mut errors);
+    }
+    validate_observation_times(observations1, "F1 added_observations", cutoff1, &mut errors);
+    if let Some(value) = f2.get("attempt") {
+        validate_attempt_time(value, "F2 attempt", cutoff2, &mut errors);
+    }
+    if let Some(items) = f3.get("added_artifacts").and_then(Value::as_array) {
+        validate_artifact_times(items, "F3 added_artifacts", cutoff3, &mut errors);
+    }
+    validate_observation_times(outcomes, "F3 outcomes", cutoff3, &mut errors);
+
+    let attempt = validate_attempt_and_authority(f2, &mut errors);
+    if let Some(attempt) = &attempt {
+        if !candidate_refs.contains(&attempt.candidate_ref) {
+            errors.push("F2: attempt candidate ref does not resolve to the F0 candidate inventory".to_owned());
+        }
+        if !subjects0.contains(&attempt.subject_ref) {
+            errors.push("F2: attempt subject ref does not resolve to F0 subjects".to_owned());
+        }
+        if attempt.decision_frontier_ref != "frontier:F1" {
+            errors.push("F2: attempt must bind decision frontier F1".to_owned());
+        }
+    }
 
     let sources3_new = unique_record_refs(f3.get("added_sources"), "source_ref", "F3 added_sources", &mut errors);
     let artifacts3_new = unique_record_refs(f3.get("added_artifacts"), "artifact_ref", "F3 added_artifacts", &mut errors);
+    reject_identity_reuse(&sources3_new, &sources1, "F3 added_sources", &mut errors);
+    reject_identity_reuse(&artifacts3_new, &artifacts1, "F3 added_artifacts", &mut errors);
     let sources3: BTreeSet<String> = sources1.union(&sources3_new).cloned().collect();
     let artifacts3: BTreeSet<String> = artifacts1.union(&artifacts3_new).cloned().collect();
     check_record_refs(f3.get("added_artifacts"), "source_ref", &sources3, "F3 added_artifacts", &mut errors);
     let outcomes = array_field(f3, "outcome_observations", "F3 outcome_observations", &mut errors);
+    let outcome_ids = record_refs_from_slice(outcomes, "outcome_ref", "F3 outcomes", &mut errors);
+    let outcome_observation_ids = record_refs_from_slice(outcomes, "observation_ref", "F3 outcomes", &mut errors);
     if outcomes.is_empty() {
         errors.push("F3: at least one outcome observation is required".to_owned());
     }
     check_record_refs(Some(&Value::Array(outcomes.to_vec())), "source_ref", &sources3, "F3 outcomes", &mut errors);
     check_record_refs(Some(&Value::Array(outcomes.to_vec())), "artifact_ref", &artifacts3, "F3 outcomes", &mut errors);
+    let attempt_ids: BTreeSet<String> = attempt.as_ref().map(|attempt| [attempt.attempt_ref.clone()].into_iter().collect()).unwrap_or_default();
+    check_record_refs(Some(&Value::Array(outcomes.to_vec())), "attempt_ref", &attempt_ids, "F3 outcomes", &mut errors);
+    reject_identity_reuse(&outcome_observation_ids, &observation_ids, "F3 outcome observation refs", &mut errors);
+    reject_identity_reuse(&outcome_observation_ids, &observation_ids1, "F3 outcome observation refs", &mut errors);
     for (index, outcome) in outcomes.iter().enumerate() {
         if outcome.get("causal_attribution").and_then(Value::as_str) != Some("NotEstablished") {
             errors.push(format!("F3 outcome[{index}]: causal attribution must remain NotEstablished"));
+        }
+        if outcome.get("outcome_disposition").and_then(Value::as_str) != Some("NotSuccessfulWithinWindow") {
+            errors.push(format!("F3 outcome[{index}]: outcome must not be promoted to success"));
+        }
+    }
+    let reconciliation = array_field(f3, "reconciliation_expectations", "F3 reconciliation_expectations", &mut errors);
+    let reconciliation_attempt_refs = record_refs_from_slice(reconciliation, "subject_ref", "F3 reconciliation_expectations", &mut errors);
+    if reconciliation.len() != 1 || reconciliation_attempt_refs.len() != 1 {
+        errors.push("F3: expected one unique attempt/outcome reconciliation record".to_owned());
+    }
+    check_record_refs(Some(&Value::Array(reconciliation.to_vec())), "subject_ref", &attempt_ids, "F3 reconciliation", &mut errors);
+    for (index, expected) in reconciliation.iter().enumerate() {
+        if expected.get("attempted_disposition").and_then(Value::as_str)
+            != attempt.as_ref().map(|attempt| attempt.reported_attempt_disposition.as_str())
+        {
+            errors.push(format!("F3 reconciliation[{index}]: attempted disposition must match the recorded attempt"));
+        }
+        if expected.get("independent_outcome_disposition").and_then(Value::as_str)
+            != outcomes.first().and_then(|outcome| outcome.get("outcome_disposition")).and_then(Value::as_str)
+        {
+            errors.push(format!("F3 reconciliation[{index}]: outcome disposition must match outcome evidence"));
+        }
+        if expected.get("required_result").and_then(Value::as_str)
+            != Some("PreserveAttemptOutcomeConflict;DoNotPromoteAttemptToEffectSuccess")
+        {
+            errors.push(format!("F3 reconciliation[{index}]: must preserve the attempt/outcome distinction"));
         }
     }
 
@@ -477,28 +700,52 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     errors
 }
 
-fn validate_attempt_and_authority(f2: &Value, errors: &mut Vec<String>) {
-    let attempt = match f2.get("attempt").and_then(Value::as_object) {
-        Some(attempt) => attempt,
-        None => {
-            errors.push("F2: attempt record must be an object".to_owned());
-            return;
+fn validate_attempt_and_authority(f2: &Value, errors: &mut Vec<String>) -> Option<AttemptRecord> {
+    let raw_attempt = f2.get("attempt").cloned().unwrap_or(Value::Null);
+    let attempt: AttemptRecord = match serde_json::from_value(raw_attempt.clone()) {
+        Ok(attempt) => attempt,
+        Err(_) => {
+            errors.push("F2: attempt has wrong shape, missing fields, or unknown fields".to_owned());
+            return None;
         }
     };
-    if attempt.get("execution_mode").and_then(Value::as_str) != Some("SimulationOnly") {
+
+    if attempt.execution_mode != "SimulationOnly" {
         errors.push("F2: attempt must be simulation-only".to_owned());
     }
-    if attempt.get("actual_execution_authorized").and_then(Value::as_bool) != Some(false) {
+    if attempt.actual_execution_authorized {
         errors.push("F2: actual execution must be explicitly false".to_owned());
     }
-    if attempt.get("live_capability_present").and_then(Value::as_bool) != Some(false) {
+    if attempt.live_capability_present {
         errors.push("F2: live capability must be explicitly absent".to_owned());
     }
-    if attempt.get("effect_state").and_then(Value::as_str) != Some("Unobserved") {
+    if attempt.effect_state != "Unobserved" {
         errors.push("F2: effect must remain Unobserved before outcome evidence".to_owned());
+    }
+    if attempt.receipt_semantics != "SimulationReceiptOnly" || attempt.receipt_ref.trim().is_empty()
+        || attempt.mock_authority_requirement_ref.trim().is_empty() || attempt.limitations.is_empty()
+        || attempt.reported_attempt_disposition.trim().is_empty()
+    {
+        errors.push("F2: attempt receipt/requirement/limitations semantics are incomplete".to_owned());
+    }
+    if attempt.valid_mock_permit_ref.is_some()
+        || !raw_attempt.get("valid_mock_permit_ref").is_some_and(Value::is_null)
+    {
+        errors.push("F2: no live or mock permit may be attached to the recorded simulated attempt".to_owned());
+    }
+    if attempt.attempt_ref.trim().is_empty() || attempt.subject_ref.trim().is_empty()
+        || attempt.candidate_ref.trim().is_empty()
+    {
+        errors.push("F2: attempt identity refs must be non-empty".to_owned());
     }
 
     let cases = array_field(f2, "authority_effect_cases", "F2 authority_effect_cases", errors);
+    let case_ids = record_refs_from_slice(cases, "case_ref", "F2 authority_effect_cases", errors);
+    let expected_case_ids: BTreeSet<String> = EXPECTED_AUTHORITY_CASE_REFS.iter().map(|value| (*value).to_owned()).collect();
+    if cases.len() != EXPECTED_AUTHORITY_CASE_REFS.len() || case_ids != expected_case_ids {
+        errors.push("F2: authority cases must contain the six expected unique cases".to_owned());
+    }
+
     let actual: BTreeSet<String> = cases
         .iter()
         .filter_map(|case| case.get("expected_disposition").and_then(Value::as_str).map(str::to_owned))
@@ -508,6 +755,85 @@ fn validate_attempt_and_authority(f2: &Value, errors: &mut Vec<String>) {
             errors.push(format!("F2: required mock permit disposition {disposition} is missing"));
         }
     }
+
+    for (index, value) in cases.iter().enumerate() {
+        let case: MockAuthorityCase = match serde_json::from_value(value.clone()) {
+            Ok(case) => case,
+            Err(_) => {
+                errors.push(format!("F2 authority case[{index}]: wrong shape, missing fields, or unknown fields"));
+                continue;
+            }
+        };
+        if case.case_ref.trim().is_empty() || case.policy_decision_ref.trim().is_empty()
+            || case.limitation.trim().is_empty()
+        {
+            errors.push(format!("F2 authority case[{index}]: case/policy/limitation refs must be non-empty"));
+        }
+        match case.case_ref.as_str() {
+            "authority-case:policy-allow-no-permit" => {
+                if !value.get("permit_ref").is_some_and(Value::is_null)
+                    || case.expected_disposition != "BlockedNoCurrentPermit"
+                    || case.mode != "SimulationOnly"
+                    || case.requested_attempt_ref.as_deref().is_none_or(str::is_empty)
+                {
+                    errors.push("F2 no-permit control is not actually a no-permit simulation case".to_owned());
+                }
+            }
+            "authority-case:stale-permit" => {
+                if case.permit_ref.as_deref().is_none_or(str::is_empty)
+                    || case.permit_state.as_deref() != Some("Stale")
+                    || case.expected_disposition != "RejectStalePermit"
+                    || case.mode != "ValidationOnly"
+                    || case.requested_attempt_ref.as_deref().is_none_or(str::is_empty)
+                {
+                    errors.push("F2 stale-permit control does not bind a stale permit to a rejection".to_owned());
+                }
+            }
+            "authority-case:wrong-subject" => {
+                if case.permit_subject_ref.as_deref().is_none_or(str::is_empty)
+                    || case.expected_subject_ref.as_deref() != Some(attempt.subject_ref.as_str())
+                    || case.permit_subject_ref == case.expected_subject_ref
+                    || case.expected_disposition != "RejectWrongSubject"
+                    || case.mode != "ValidationOnly"
+                {
+                    errors.push("F2 wrong-subject control is not structurally mismatched".to_owned());
+                }
+            }
+            "authority-case:wrong-candidate" => {
+                if case.permit_candidate_ref.as_deref().is_none_or(str::is_empty)
+                    || case.expected_candidate_ref.as_deref() != Some(attempt.candidate_ref.as_str())
+                    || case.permit_candidate_ref == case.expected_candidate_ref
+                    || case.expected_disposition != "RejectWrongCandidate"
+                    || case.mode != "ValidationOnly"
+                {
+                    errors.push("F2 wrong-candidate control is not structurally mismatched".to_owned());
+                }
+            }
+            "authority-case:wrong-payload" => {
+                if case.permit_payload_commitment_ref.as_deref().is_none_or(str::is_empty)
+                    || case.expected_payload_commitment_ref.as_deref().is_none_or(str::is_empty)
+                    || case.permit_payload_commitment_ref == case.expected_payload_commitment_ref
+                    || case.expected_disposition != "RejectWrongPayload"
+                    || case.mode != "ValidationOnly"
+                {
+                    errors.push("F2 wrong-payload control is not structurally mismatched".to_owned());
+                }
+            }
+            "authority-case:matching-mock-permit" => {
+                if case.permit_ref.as_deref().is_none_or(str::is_empty)
+                    || case.permit_state.as_deref() != Some("CurrentUnderSyntheticProfile")
+                    || case.requested_candidate_ref.as_deref() != Some(attempt.candidate_ref.as_str())
+                    || case.requested_subject_ref.as_deref() != Some(attempt.subject_ref.as_str())
+                    || case.expected_disposition != "PermitShapeAcceptedForSimulationOnly"
+                    || case.mode != "SimulationOnly"
+                {
+                    errors.push("F2 matching permit control does not bind the exact simulation candidate/subject".to_owned());
+                }
+            }
+            _ => errors.push("F2 authority case ref is not in the frozen fixture inventory".to_owned()),
+        }
+    }
+    Some(attempt)
 }
 
 fn validate_facility_registry(
@@ -515,24 +841,26 @@ fn validate_facility_registry(
     subjects: &BTreeSet<String>,
     errors: &mut Vec<String>,
 ) -> Vec<String> {
+    let expected: Vec<String> = EXPECTED_SUPPLIER_B_FACILITIES.iter().map(|value| (*value).to_owned()).collect();
     let registry = match f0.get("facility_registry").and_then(Value::as_object) {
         Some(registry) => registry,
         None => {
             errors.push("F0: facility_registry must be an object".to_owned());
-            return Vec::new();
+            return expected;
         }
     };
     let refs = string_array(registry.get("facility_refs_known"), "F0 facility_registry.facility_refs_known", errors);
-    let unique: BTreeSet<String> = refs.iter().cloned().collect();
-    if refs.len() != 5 || unique.len() != 5 {
-        errors.push("F0: expected five unique facility refs".to_owned());
+    let actual_set: BTreeSet<String> = refs.iter().cloned().collect();
+    let expected_set: BTreeSet<String> = expected.iter().cloned().collect();
+    if refs.len() != expected.len() || actual_set != expected_set || actual_set.len() != refs.len() {
+        errors.push("F0: facility registry must name the exact five unique Supplier B facilities".to_owned());
     }
-    for reference in &refs {
+    for reference in &expected {
         if !subjects.contains(reference) {
-            errors.push("F0: facility ref is not registered as a subject".to_owned());
+            errors.push("F0: expected facility ref is not registered as a subject".to_owned());
         }
     }
-    refs
+    expected
 }
 
 fn scan_forbidden_keys(value: &Value, path: &str, errors: &mut Vec<String>) {
@@ -723,6 +1051,78 @@ pub fn validate_fixture_dir(directory: &Path) -> Vec<String> {
     }
 }
 
+fn reject_identity_reuse(
+    additions: &BTreeSet<String>,
+    ancestors: &BTreeSet<String>,
+    label: &str,
+    errors: &mut Vec<String>,
+) {
+    for reference in additions.intersection(ancestors) {
+        errors.push(format!("{label}: added identity reuses an ancestor ref"));
+        let _ = reference;
+    }
+}
+
+fn record_timestamp(
+    value: &Value,
+    field: &str,
+    label: &str,
+    required: bool,
+    cutoff: Option<&str>,
+    errors: &mut Vec<String>,
+) -> Option<String> {
+    match value.get(field) {
+        None if !required => None,
+        None => {
+            errors.push(format!("{label}: required {field} is missing"));
+            None
+        }
+        Some(Value::String(timestamp)) => {
+            if !valid_utc_timestamp(timestamp) {
+                errors.push(format!("{label}: {field} is not a valid fixed-width UTC timestamp"));
+                return None;
+            }
+            if cutoff.is_some_and(|cutoff| timestamp.as_str() > cutoff) {
+                errors.push(format!("{label}: {field} is after frontier cutoff"));
+            }
+            Some(timestamp.clone())
+        }
+        Some(_) => {
+            errors.push(format!("{label}: {field} must be a UTC timestamp string"));
+            None
+        }
+    }
+}
+
+fn validate_artifact_times(items: &[Value], label: &str, cutoff: Option<&str>, errors: &mut Vec<String>) {
+    for (index, item) in items.iter().enumerate() {
+        let _ = record_timestamp(item, "captured_at_utc", &format!("{label}[{index}]"), true, cutoff, errors);
+    }
+}
+
+fn validate_observation_times(items: &[Value], label: &str, cutoff: Option<&str>, errors: &mut Vec<String>) {
+    for (index, item) in items.iter().enumerate() {
+        let item_label = format!("{label}[{index}]");
+        let event = record_timestamp(item, "event_time_utc", &item_label, false, cutoff, errors);
+        let observation = record_timestamp(item, "observation_time_utc", &item_label, true, cutoff, errors);
+        let receipt = record_timestamp(item, "receipt_time_utc", &item_label, true, cutoff, errors);
+        if let (Some(event), Some(observation)) = (event.as_deref(), observation.as_deref()) {
+            if event > observation {
+                errors.push(format!("{item_label}: event time is after observation time"));
+            }
+        }
+        if let (Some(observation), Some(receipt)) = (observation.as_deref(), receipt.as_deref()) {
+            if observation > receipt {
+                errors.push(format!("{item_label}: observation time is after receipt time"));
+            }
+        }
+    }
+}
+
+fn validate_attempt_time(value: &Value, label: &str, cutoff: Option<&str>, errors: &mut Vec<String>) {
+    let _ = record_timestamp(value, "attempt_time_utc", label, true, cutoff, errors);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -891,5 +1291,79 @@ mod tests {
             nested = format!(r#"{{"x":{nested}}}"#);
         }
         assert!(parse_strict_json(nested.as_bytes()).is_err());
+    }
+
+    #[test]
+    fn rejects_malformed_short_facility_registry_without_panicking() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f0").unwrap()["facility_registry"]["facility_refs_known"] = Value::Array(Vec::new());
+        let errors = validate_documents(&docs);
+        assert!(errors.iter().any(|e| e.contains("facility registry must name the exact five")));
+    }
+
+    #[test]
+    fn accepts_permutation_of_semantic_facility_registry_set() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f0").unwrap()["facility_registry"]["facility_refs_known"].as_array_mut().unwrap().reverse();
+        assert!(validate_documents(&docs).is_empty(), "registry order is not semantic: {:#?}", validate_documents(&docs));
+    }
+
+    #[test]
+    fn rejects_f1_observation_with_unknown_subject_ref() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f1").unwrap()["added_observations"][0]["subject_ref"] =
+            Value::String("subject:unknown".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("F1 added_observations") && e.contains("does not resolve")));
+    }
+
+    #[test]
+    fn rejects_f1_reuse_of_f0_source_identity() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f1").unwrap()["added_sources"][0]["source_ref"] =
+            Value::String("source:carrier-A".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("F1 added_sources: added identity reuses")));
+    }
+
+    #[test]
+    fn rejects_future_observations_after_frontier_cutoff() {
+        let mut docs = load_real_fixture();
+        let obs = docs.get_mut("f0").unwrap()["observations"].as_array_mut().unwrap();
+        let item = obs.iter_mut().find(|v| v["observation_ref"] == "observation:demand-R1-current").unwrap();
+        item["observation_time_utc"] = Value::String("2026-06-01T12:01:00Z".to_owned());
+        item["receipt_time_utc"] = Value::String("2026-06-01T12:02:00Z".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("after frontier cutoff")));
+    }
+
+    #[test]
+    fn rejects_unknown_fields_on_simulated_attempt() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f2").unwrap()["attempt"]["bearer_capability"] = Value::String("forbidden".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("F2: attempt has wrong shape")));
+    }
+
+    #[test]
+    fn rejects_semantically_validated_wrong_subject_case_if_mismatch_is_removed() {
+        let mut docs = load_real_fixture();
+        let cases = docs.get_mut("f2").unwrap()["authority_effect_cases"].as_array_mut().unwrap();
+        let case = cases.iter_mut().find(|v| v["case_ref"] == "authority-case:wrong-subject").unwrap();
+        case["permit_subject_ref"] = case["expected_subject_ref"].clone();
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("wrong-subject control is not structurally mismatched")));
+    }
+
+    #[test]
+    fn rejects_unknown_fields_on_candidate_records() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f0").unwrap()["candidate_interventions"][0]["live_authority"] = Value::Bool(true);
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("F0 candidate[0]: wrong shape")));
+    }
+
+    #[test]
+    fn rejects_f3_outcome_that_exceeds_its_frontier_cutoff() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f3").unwrap()["outcome_observations"][0]["observation_time_utc"] =
+            Value::String("2026-06-01T16:33:00Z".to_owned());
+        docs.get_mut("f3").unwrap()["outcome_observations"][0]["receipt_time_utc"] =
+            Value::String("2026-06-01T16:34:00Z".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("after frontier cutoff")));
     }
 }
