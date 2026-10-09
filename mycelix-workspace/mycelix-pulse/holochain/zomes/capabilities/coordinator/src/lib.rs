@@ -934,7 +934,6 @@ pub enum CapabilityProbeResult {
     FunctionNotGranted,
 }
 
-/// Find the private source-chain claim corresponding to one grantor + capability tag.
 /// Resolve the latest capability update visible to this cell by walking update actions.
 /// A get(original_hash) returns the original record; it does not automatically follow
 /// updates. This is an application projection, NOT proof of globally current DHT state:
@@ -1009,6 +1008,8 @@ fn resolve_latest_capability(
     Ok((latest.1, latest.2))
 }
 
+/// Find a private CapClaim only when its grantor, tag, and secret fingerprint
+/// match the public capability record. A tag-only match could select an unrelated claim.
 fn find_cap_claim(
     grantor: &AgentPubKey,
     tag: &str,
@@ -1025,7 +1026,9 @@ fn find_cap_claim(
             Entry::CapClaim(claim)
                 if claim.grantor == *grantor
                     && claim.tag == tag
-                    && Sha256::digest(claim.secret.as_ref()).iter().eq(expected_secret_hash.iter()) =>
+                    && Sha256::digest(claim.secret.as_ref())
+                        .iter()
+                        .eq(expected_secret_hash.iter()) =>
             {
                 Some(claim.clone())
             }
