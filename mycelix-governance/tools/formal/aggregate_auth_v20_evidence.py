@@ -91,6 +91,35 @@ EXPECTED_MUTATION_IDS = {
 }
 
 
+EXPECTED_POP_CONTROL_IDS = (
+    "valid-constrained-invocation",
+    "one-time-pop-jti-replay-rejected",
+    "fresh-pop-cannot-reuse-old-jti",
+    "concurrent-pop-jti-race",
+    "replay-store-unavailable-fails-closed",
+    "caller-supplied-clock-cannot-resurrect-expired-chain",
+    "audience-optional-when-unconfigured-and-absent",
+    "tampered-pop-signature",
+    "wrong-aat-id",
+    "wrong-tool-claim",
+    "wrong-hta",
+    "iat-too-old",
+    "iat-too-future",
+    "missing-audience",
+    "wrong-audience",
+    "noncanonical-payload",
+    "unsupported-extra-claim",
+    "empty-pop-jti",
+    "wrong-pop-header-alg",
+    "wrong-pop-header-type",
+    "unauthorized-invocation-tool",
+    "leaf-capability-constraint-violation",
+    "unverified-aat-chain",
+    "audience-policy-unconfigured",
+    "restricted-jcs-float",
+)
+
+
 REQUIRED_RECEIPTS = (
     ("auth-v20-evidence/receipt.json",
      "mycelix.compound-subsumption-counterexample-controls.v1"),
@@ -472,6 +501,11 @@ def main() -> int:
                 "AAT PoP harness did not detect all four omitted-check mutants")
         require(pop_summary.get("replay_jti_consumed") is True,
                 "AAT PoP harness did not verify one-time replay consumption")
+        observed_pop_control_ids = [
+            row.get("id") for row in pop_result.get("controls", []) if isinstance(row, dict)
+        ]
+        require(observed_pop_control_ids == list(EXPECTED_POP_CONTROL_IDS),
+                "AAT PoP control identities/order differ from the frozen inventory")
 
         receipt["status"] = "PASS_BOUNDED_RESEARCH_EVIDENCE"
         receipt["summary"] = {
