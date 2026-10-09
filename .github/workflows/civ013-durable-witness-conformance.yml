@@ -149,6 +149,10 @@ jobs:
               raise SystemExit("adapter is missing the mutation-free receipt integer-range regression")
           if "fn generation_overflow_is_rejected_before_anchor_read_or_state_mutation()" not in source_lib:
               raise SystemExit("adapter is missing the mutation-free generation overflow regression")
+          if "fn integrity_check_uses_a_consistent_snapshot_during_concurrent_advance()" not in source_lib:
+              raise SystemExit("adapter is missing the concurrent integrity-snapshot regression")
+          if "let tx = conn.transaction_with_behavior(TransactionBehavior::Deferred)?;" not in source_lib or "Self::integrity_check_from_connection(&tx)?" not in source_lib:
+              raise SystemExit("public integrity check must run all checks within one read transaction")
           PY
           printf 'checker_commit_sha=%s\nchecker_blob_sha=%s\nsource_adapter_commit=%s\nsource_adapter_blob_sha=%s\nsource_toolchain_blob_sha=%s\nsource_workspace_manifest_blob_sha=%s\nsource_lockfile_blob_sha=%s\nsource_rust_version=%s\nsource_rusqlite_version=%s\nsource_libsqlite3_sys_version=%s\nsource_bundled_sqlite_min_version_number=%s\nsource_bundled_sqlite_version=%s\nsource_bundled_sqlite_version_number=%s\n' "$checker_commit" "$actual_checker_blob" "$actual_source_commit" "$actual_source_blob" "$actual_toolchain_blob" "$actual_workspace_manifest_blob" "$actual_lockfile_blob" "$actual_rust_version" "$expected_rusqlite_version" "$expected_libsqlite3_sys_version" "$expected_sqlite_min_version_number" "$expected_bundled_sqlite_version" "$expected_bundled_sqlite_version_number"
 
