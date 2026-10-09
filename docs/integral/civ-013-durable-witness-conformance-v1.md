@@ -161,3 +161,10 @@ DA038 specifies that absence of a persistent test-anchor row is not equivalent t
 
 | DA039 | AcceptSqliteRuntimeVersion | A bundled SQLite 3.51.3 runtime meets the WAL-reset-fix minimum |
 | DA040 | UnsupportedSqliteVersion | A runtime at SQLite 3.51.2 is rejected before the adapter opens a store |
+
+
+## SQLite WAL-reset fixed-version floor
+
+The durable adapter now pins `rusqlite 0.39.0` and `libsqlite3-sys 0.37.0`, whose bundled SQLite version is 3.51.3 according to the [upstream rusqlite 0.39.0 README](https://github.com/rusqlite/rusqlite/blob/v0.39.0/README.md). SQLite's [WAL documentation](https://www.sqlite.org/wal.html) states that the WAL-reset corruption bug affects releases through 3.51.2 and is fixed in 3.51.3 and later; see also the [3.51.3 release notes](https://www.sqlite.org/releaselog/3_51_3.html).
+
+The adapter refuses to open a store unless `rusqlite::version_number()` is at least `3051003` (SQLite 3.51.3), and tests both the linked bundled runtime and rejection of a version just below the floor. DA039/DA040 are reference vectors for accepting the stated floor and rejecting a runtime below it. The Mycelix Actions workflow checks the exact pinned source's constant, runtime-gate call, and positive/negative regression names in addition to verifying the `rusqlite`/`libsqlite3-sys` versions in `Cargo.lock`. None of these static/reference checks substitutes for an exact-head Rust test PASS.
