@@ -3,7 +3,7 @@
   "profile_id": "civ-013-durable-adapter-v1",
   "spec_version": "civ-013-durable-adapter-v1",
   "source_repository": "Luminous-Dynamics/symthaea",
-  "source_adapter_commit": "57d0c21ff54f2374a69037c08f168a0171dbb46f",
+  "source_adapter_commit": "9d1ebc6fca584f5a9e2f2c641c87d062c2f35f77",
   "fixture_path": "docs/integral/civ-013-durable-witness-conformance-v1.json",
   "verifier_path": "scripts/integral/verify_civ013_durable_witness_conformance_v1.py",
   "expected_vector_count": 32,
@@ -42,9 +42,9 @@
     "DA032-fork-evidence-tail-pointer-tampered"
   ],
   "claim_ceiling": "Durable-profile golden reference and abstract transition conformance only. Does not establish actual SQLite tests passed, file-system crash/power-loss durability, genuine external anchor, caller bootstrap authorization, digital signatures, operational witness independence, quorum safety, or production anti-rollback.",
-  "fixture_git_blob_sha": "d770dae0e3c6ad75849802193eceb0b25d36cba5",
-  "checker_git_blob_sha": "f8b6083b69109067a98a8bfc9974d0b67deb34a9",
-  "spec_git_blob_sha": "06af6686a11fde958194295a1cbae072d65689d3",
+  "fixture_git_blob_sha": "95c6a579e029e887c190724af9bcb3943fe873bb",
+  "checker_git_blob_sha": "c5c11c9dbed664610bf2fc792be49201d5b1a00f",
+  "spec_git_blob_sha": "8a696f7b5e78330609c8d57b184277a452819930",
   "workflow_git_blob_sha": "f5d021a983aa0d9f2377f1e7eaba2ca53abe9f89",
-  "source_adapter_blob_sha": "f1b362a83982f618f39a53832963190667c48843"
+  "source_adapter_blob_sha": "f10770116f7e4da645913050e2b3618057e39fa4"
 }
