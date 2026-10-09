@@ -295,7 +295,11 @@ export type AuditAction =
   | 'Logout'
   | { Custom: string };
 
-export type CapabilityProbeResult = 'Authorized' | 'Unauthorized' | 'ClaimMissing';
+export type CapabilityProbeResult =
+  | 'Authorized'
+  | 'Unauthorized'
+  | 'ClaimMissing'
+  | 'FunctionNotGranted';
 
 export interface CapabilityGrantDeliveryOutcome {
   capability_hash: ActionHash;
