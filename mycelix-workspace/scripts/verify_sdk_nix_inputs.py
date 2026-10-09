@@ -87,12 +87,22 @@ def verify_contract(package_raw: str, lock_raw: str) -> dict:
     for key, entry in sorted(packages.items()):
         if key == "":
             continue
-        if not isinstance(key, str) or not key.startswith("node_modules/"):
+        if not isinstance(key, str):
             raise InputContractError(f"unsupported package-lock entry path: {key!r}")
+        path_segments = key.split("/")
+        if (
+            not key.startswith("node_modules/")
+            or "\\" in key
+            or any(segment in ("", ".", "..") for segment in path_segments)
+        ):
+            raise InputContractError(f"unsafe or unsupported package-lock entry path: {key!r}")
         if not isinstance(entry, dict):
             raise InputContractError(f"package entry {key} must be an object")
         if entry.get("link") is True:
             raise InputContractError(f"workspace/link entry is not allowed in the standalone SDK lock: {key}")
+        package_version = entry.get("version")
+        if not isinstance(package_version, str) or not package_version:
+            raise InputContractError(f"package entry lacks a non-empty version: {key}")
         resolved = entry.get("resolved")
         if not isinstance(resolved, str) or not resolved:
             raise InputContractError(f"package entry lacks resolved source URL: {key}")
@@ -158,6 +168,14 @@ def run_self_tests(package_raw: str, lock_raw: str) -> list[dict]:
 
     tests.append(("malformed_package_json", "{", lock_raw))
     tests.append(("malformed_lock_json", package_raw, "{"))
+
+    unsafe_path = copy.deepcopy(lock)
+    unsafe_path["packages"]["node_modules/../outside"] = unsafe_path["packages"].pop("node_modules/zod")
+    tests.append(("unsafe_package_entry_path", package_raw, json.dumps(unsafe_path)))
+
+    missing_version = copy.deepcopy(lock)
+    missing_version["packages"]["node_modules/zod"].pop("version", None)
+    tests.append(("missing_package_version", package_raw, json.dumps(missing_version)))
 
     missing_integrity = copy.deepcopy(lock)
     resolved_key = next(k for k, v in missing_integrity["packages"].items() if k and v.get("resolved"))
