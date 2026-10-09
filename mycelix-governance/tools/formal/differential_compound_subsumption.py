@@ -172,6 +172,28 @@ def mismatch_for(raw: dict[str, Any], result: dict[str, Any] | None = None) -> d
     parent_d = independent_denotation(parent, universe)
     child_d = independent_denotation(child, universe)
     independently_contained = child_d <= parent_d
+    if result.get("denotational_containment") is not independently_contained:
+        return {
+            "kind": "denotational-containment-flag-disagrees-with-independent-evaluator",
+            "expected": independently_contained,
+            "observed": result.get("denotational_containment"),
+            "parent_denotation_size": len(parent_d),
+            "child_denotation_size": len(child_d),
+        }
+    if result.get("finite_universe_size") != len(declared_requests(universe)):
+        return {
+            "kind": "finite-universe-cardinality-disagrees",
+            "expected": len(declared_requests(universe)),
+            "observed": result.get("finite_universe_size"),
+        }
+    if result.get("parent_denotation_size") != len(parent_d) or result.get("child_denotation_size") != len(child_d):
+        return {
+            "kind": "denotation-cardinality-disagrees-with-independent-evaluator",
+            "expected_parent_size": len(parent_d),
+            "observed_parent_size": result.get("parent_denotation_size"),
+            "expected_child_size": len(child_d),
+            "observed_child_size": result.get("child_denotation_size"),
+        }
     independent_structure_pass, independent_mapping = independent_structural(parent, child)
     observed_structure_pass = bool(result.get("structural", {}).get("pass"))
 
