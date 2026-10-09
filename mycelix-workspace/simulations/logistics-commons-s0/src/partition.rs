@@ -288,11 +288,65 @@ pub fn verify_reconciliation(
             .or_default()
             .push(request);
     }
-    for (reservation_id, count) in reservation_id_counts {
-        if count > 1 {
+    for (reservation_id, count) in &reservation_id_counts {
+        if *count > 1 {
             violations.insert(format!("duplicate-reservation-id:{reservation_id}"));
         }
     }
+
+    // Derive eligibility from source inputs rather than trusting the planner's dispositions.
+    // In particular, a planner must not hide an otherwise eligible contender by labelling it
+    // Rejected: conflict completeness is an input-side invariant, not an output-side vote.
+    let same_payload_for_verification = |a: &OfflineReservation, b: &OfflineReservation| {
+        a.participant_id == b.participant_id
+            && a.idempotency_key == b.idempotency_key
+            && a.hub_id == b.hub_id
+            && a.sku_id == b.sku_id
+            && a.quantity == b.quantity
+            && a.snapshot_revision == b.snapshot_revision
+            && a.snapshot_available_units == b.snapshot_available_units
+            && a.snapshot_observed_at_ms == b.snapshot_observed_at_ms
+            && a.snapshot_valid_until_ms == b.snapshot_valid_until_ms
+            && a.observed_at_ms == b.observed_at_ms
+            && a.lease_until_ms == b.lease_until_ms
+    };
+    let mut inputs_by_idempotency: BTreeMap<(String, String), Vec<&OfflineReservation>> = BTreeMap::new();
+    for request in requests {
+        if !request.participant_id.trim().is_empty() && !request.idempotency_key.trim().is_empty() {
+            inputs_by_idempotency
+                .entry((request.participant_id.clone(), request.idempotency_key.clone()))
+                .or_default()
+                .push(request);
+        }
+    }
+    let mut conflicting_idempotency_keys: BTreeSet<(String, String)> = BTreeSet::new();
+    for (key, grouped) in inputs_by_idempotency {
+        if let Some(first) = grouped.first() {
+            if grouped.iter().skip(1).any(|candidate| !same_payload_for_verification(first, candidate)) {
+                conflicting_idempotency_keys.insert(key);
+            }
+        }
+    }
+    let eligible_from_inputs = |request: &OfflineReservation| {
+        reservation_id_counts.get(&request.reservation_id).copied() == Some(1)
+            && !request.participant_id.trim().is_empty()
+            && !request.node_id.trim().is_empty()
+            && !request.reservation_id.trim().is_empty()
+            && !request.idempotency_key.trim().is_empty()
+            && !request.hub_id.trim().is_empty()
+            && !request.sku_id.trim().is_empty()
+            && request.quantity > 0
+            && request.snapshot_observed_at_ms <= request.snapshot_valid_until_ms
+            && request.snapshot_observed_at_ms <= now_ms
+            && now_ms <= request.snapshot_valid_until_ms
+            && request.observed_at_ms >= request.snapshot_observed_at_ms
+            && request.observed_at_ms <= now_ms
+            && now_ms <= request.lease_until_ms
+            && !conflicting_idempotency_keys.contains(&(
+                request.participant_id.clone(),
+                request.idempotency_key.clone(),
+            ))
+    };
 
     let mut decision_by_id: BTreeMap<Identity, &ReconciliationDecision> = BTreeMap::new();
     for decision in decisions {
@@ -406,20 +460,25 @@ pub fn verify_reconciliation(
                     .map(Vec::as_slice)
                     .unwrap_or(&[]);
                 let mut expected_contenders = resource_requests.iter().filter_map(|candidate| {
+                    if !eligible_from_inputs(candidate) {
+                        return None;
+                    }
                     let candidate_identity = (
                         candidate.participant_id.clone(),
                         candidate.node_id.clone(),
                         candidate.reservation_id.clone(),
                     );
-                    let candidate_decision = decision_by_id.get(&candidate_identity)?;
-                    match &candidate_decision.disposition {
-                        ReconciliationDisposition::AwaitingAuthoritativeRecheck
-                        | ReconciliationDisposition::UnresolvedConflict { .. } => {
-                            Some(candidate.reservation_id.clone())
-                        }
-                        ReconciliationDisposition::Rejected { .. }
-                        | ReconciliationDisposition::DuplicateOf { .. } => None,
+                    // A verified idempotent alias is not a second logical contender. Do not
+                    // exclude a request merely because the planner says it was Rejected.
+                    if decision_by_id.get(&candidate_identity).is_some_and(|candidate_decision| {
+                        matches!(
+                            &candidate_decision.disposition,
+                            ReconciliationDisposition::DuplicateOf { .. }
+                        )
+                    }) {
+                        return None;
                     }
+                    Some(candidate.reservation_id.clone())
                 }).collect::<Vec<_>>();
                 expected_contenders.sort();
                 expected_contenders.dedup();
@@ -785,6 +844,36 @@ mod tests {
             ReconciliationDecision {
                 participant_id: "coop-c".into(), node_id: "edge-c".into(), reservation_id: "reserve-c".into(),
                 disposition: ReconciliationDisposition::AwaitingAuthoritativeRecheck,
+            },
+        ];
+        assert!(verify_reconciliation(&requests, 120, &injected)
+            .iter().any(|violation| violation == "non-exhaustive-conflict-set:reserve-a"));
+    }
+
+    #[test]
+    fn independent_verifier_detects_conflict_contender_hidden_as_rejected() {
+        let requests = vec![
+            offline("coop-a", "edge-a", "reserve-a", "op-a", 1, 1),
+            offline("coop-b", "edge-b", "reserve-b", "op-b", 1, 1),
+            offline("coop-c", "edge-c", "reserve-c", "op-c", 1, 1),
+        ];
+        let partial_set = vec!["reserve-a".to_owned(), "reserve-b".to_owned()];
+        let injected = vec![
+            ReconciliationDecision {
+                participant_id: "coop-a".into(), node_id: "edge-a".into(), reservation_id: "reserve-a".into(),
+                disposition: ReconciliationDisposition::UnresolvedConflict {
+                    reason: "oversubscribed-offline-snapshot", contenders: partial_set.clone(),
+                },
+            },
+            ReconciliationDecision {
+                participant_id: "coop-b".into(), node_id: "edge-b".into(), reservation_id: "reserve-b".into(),
+                disposition: ReconciliationDisposition::UnresolvedConflict {
+                    reason: "oversubscribed-offline-snapshot", contenders: partial_set,
+                },
+            },
+            ReconciliationDecision {
+                participant_id: "coop-c".into(), node_id: "edge-c".into(), reservation_id: "reserve-c".into(),
+                disposition: ReconciliationDisposition::Rejected { reason: "injected-false-rejection" },
             },
         ];
         assert!(verify_reconciliation(&requests, 120, &injected)
