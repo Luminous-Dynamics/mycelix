@@ -76,6 +76,14 @@ jobs:
           release_publish=release_step.index('gh release edit "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false')
           assert tag_readback < release_publish
           assert 'unset COS_RELEASE_ADMIN_TOKEN' in release_step
+          assert 'EXPECTED_ASSET_SHA' in release_step
+          assert 'prepublish-release.json' in release_step
+          assert 'gh release view "${RELEASE_TAG}"' in release_step
+          assert "release['targetCommitish']==os.environ['EXPECTED_MAIN_SHA']" in release_step
+          assert "assert release['isDraft'] is True and release['isImmutable'] is False" in release_step
+          assert "assert release['isLatest'] is False and release['isPrerelease'] is False" in release_step
+          assert 'assert isinstance(assets,list) and len(assets)==1' in release_step
+          assert "matches[0].get('digest')=='sha256:'+os.environ['EXPECTED_ASSET_SHA']" in release_step
           assert 'recheck-ruleset-pages.json' in publish and 'recheck-rulesets/' in publish
           observation_step=publish.split('- name: Record durable publication observation',1)[1].split('\n      - name:',1)[0]
           preserve_step=publish.split('- name: Preserve publication observation',1)[1].split('\n      - name:',1)[0]
