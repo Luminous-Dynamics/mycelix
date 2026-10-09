@@ -1,3 +1,5 @@
+trunk-version = "=0.21.14"
+
 [build]
 target = "index.html"
 dist = "dist"
@@ -12,5 +14,5 @@ command_arguments = ["-c", "for f in dist/*.wasm; do wasm-opt -Oz --zero-filled-
 ignore = ["dist"]
 
 [serve]
-address = "127.0.0.1"
+addresses = ["127.0.0.1"]
 port = 8121
