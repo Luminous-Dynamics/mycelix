@@ -2,7 +2,7 @@
 
 **Profile ID:** `civ-013-durable-adapter-v1`  
 **Status:** experimental reference profile; not production qualification.  
-**Source adapter revision:** [Symthaea commit `2b3ea63771fb9f24c131b05ee9d69b81c085d8dc`](https://github.com/Luminous-Dynamics/symthaea/commit/2b3ea63771fb9f24c131b05ee9d69b81c085d8dc)  
+**Source adapter revision:** [Symthaea commit `6e7ecb488c7fe5988b19c475588b69a3d45750b8`](https://github.com/Luminous-Dynamics/symthaea/commit/6e7ecb488c7fe5988b19c475588b69a3d45750b8)  
 **Golden vectors:** [civ-013-durable-witness-conformance-v1.json](civ-013-durable-witness-conformance-v1.json)  
 **Manifest:** [civ-013-durable-witness-conformance-v1-manifest.json](civ-013-durable-witness-conformance-v1-manifest.json)  
 **Independent checker:** [verify_civ013_durable_witness_conformance_v1.py](../../scripts/integral/verify_civ013_durable_witness_conformance_v1.py)  
@@ -91,6 +91,8 @@ The profile's transition vectors are an independent abstract reference for these
 | DA028 | CorruptCurrentHeadRecord | Same-generation retry rejects current-head field tampering when the metadata pointer still matches its stored digest |
 | DA029 | RollbackDetected | A post-prepare anchor already ahead by more than the candidate generation is treated as missing/rollback history, not a same-generation fork |
 | DA030 | RollbackDetected | A pre-prepare observation of an anchor ahead by more than one generation rejects without writing a candidate or false fork evidence |
+| DA031 | CorruptForkEvidence | A valid but truncated fork-evidence prefix is rejected when the persisted count/tail commitment identifies a longer history |
+| DA032 | CorruptForkEvidence | A modified per-log fork-evidence tail digest is rejected even when the row chain itself is valid |
 
 ## Late-finalization metadata binding
 
