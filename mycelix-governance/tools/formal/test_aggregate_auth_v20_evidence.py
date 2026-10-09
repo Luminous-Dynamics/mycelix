@@ -97,6 +97,7 @@ def apply_mutation(root: Path, name: str) -> None:
     matrix = root / FROZEN_REQUIRED_RECEIPTS[2][0]
     policy = root / FROZEN_REQUIRED_RECEIPTS[4][0]
     keylink = root / FROZEN_REQUIRED_RECEIPTS[7][0]
+    compact_jws = root / FROZEN_REQUIRED_RECEIPTS[8][0]
     if name == "missing-required-receipt":
         (root / FROZEN_REQUIRED_RECEIPTS[5][0]).unlink()
     elif name == "wrong-source-head":
@@ -127,6 +128,10 @@ def apply_mutation(root: Path, name: str) -> None:
         data = json.loads(keylink.read_text(encoding="utf-8"))
         data["summary"]["checker_mutants_detected"] = 2
         keylink.write_text(json.dumps(data), encoding="utf-8")
+    elif name == "compact-jws-mutant-count-weakened":
+        data = json.loads(compact_jws.read_text(encoding="utf-8"))
+        data["summary"]["mutants_detected"] = 2
+        compact_jws.write_text(json.dumps(data), encoding="utf-8")
     elif name == "expected-head-malformed":
         # Applied via run_aggregate rather than altering any synthetic receipt.
         return
@@ -170,6 +175,7 @@ def main() -> int:
                 "corpus-count-weakened",
                 "matrix-mutation-count-weakened",
                 "mutant-detection-count-weakened",
+                "compact-jws-mutant-count-weakened",
                 "expected-head-malformed",
             )
             for name in mutations:
@@ -196,7 +202,7 @@ def main() -> int:
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 9 weakening mutations rejected")
+        print("AGGREGATE MUTATION GUARD PASS: valid fixture accepted; 10 weakening mutations rejected")
         print("QUALIFICATION NOT CLAIMED: synthetic receipt checks do not establish semantic correctness")
         return 0
     except Exception as error:
