@@ -214,12 +214,9 @@ def _consume_pop_jti(database_path: Path, scope: str, jti: str, iat: int,
                 "PRIMARY KEY(scope, jti))"
             )
             connection.execute("BEGIN IMMEDIATE")
-            # Once a token's iat has fallen outside the acceptance window, it
-            # cannot be accepted again under the same clock policy.
-            connection.execute(
-                "DELETE FROM aat_pop_replay WHERE iat < ?",
-                (now - tolerance,),
-            )
+            # Keep consumed JTIs durably: deleting old entries would allow the
+            # same identifier to be reused later, contrary to the one-time proof
+            # profile. Retention must be managed without making old JTIs reusable.
             connection.execute(
                 "INSERT INTO aat_pop_replay(scope, jti, iat) VALUES (?, ?, ?)",
                 (scope, jti, iat),
