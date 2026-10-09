@@ -2,7 +2,7 @@
 
 **Profile ID:** `civ-013-durable-adapter-v1`  
 **Status:** experimental reference profile; not production qualification.  
-**Source adapter revision:** [Symthaea commit `d1715640fe2e1005631072b9cca629a027d08f9e`](https://github.com/Luminous-Dynamics/symthaea/commit/d1715640fe2e1005631072b9cca629a027d08f9e)  
+**Source adapter revision:** [Symthaea commit `57d0c21ff54f2374a69037c08f168a0171dbb46f`](https://github.com/Luminous-Dynamics/symthaea/commit/57d0c21ff54f2374a69037c08f168a0171dbb46f)  
 **Golden vectors:** [civ-013-durable-witness-conformance-v1.json](civ-013-durable-witness-conformance-v1.json)  
 **Manifest:** [civ-013-durable-witness-conformance-v1-manifest.json](civ-013-durable-witness-conformance-v1-manifest.json)  
 **Independent checker:** [verify_civ013_durable_witness_conformance_v1.py](../../scripts/integral/verify_civ013_durable_witness_conformance_v1.py)  
@@ -102,7 +102,7 @@ The adapter permits idempotent success for both an exact same-generation retry a
 
 Fork evidence is append-only within the SQLite adapter, but validating only the rows that remain cannot detect deletion of the final row: the shortened prefix can still be a valid hash chain. The local schema therefore stores a per-log `witness_fork_meta` commitment with the evidence count and tail digest. Each append updates the evidence row and this commitment in the same `BEGIN IMMEDIATE` transaction. Reads fail closed if the row count or current chain tail disagrees with the commitment.
 
-DA031 deletes the last evidence row while leaving the count/tail commitment untouched; DA032 leaves all evidence rows in place but mutates the persisted tail digest. Both must return `CorruptForkEvidence`.
+DA031 deletes the last evidence row while leaving the count/tail commitment untouched; DA032 leaves all evidence rows in place but mutates the persisted tail digest. Both must return `CorruptForkEvidence`. Appending further evidence to a chain that already fails validation is also rejected before a new row is written.
 
 This is local truncation/corruption detection, not a tamper-proof external anchor. An actor who can rewrite or restore both the evidence rows and their local commitment can still roll them back together; anti-rollback for evidence history needs an independent trust domain.
 
