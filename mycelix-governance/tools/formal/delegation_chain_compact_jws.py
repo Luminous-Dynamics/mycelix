@@ -133,12 +133,13 @@ def parse_and_validate_header(header_bytes: bytes) -> dict[str, Any]:
         raise VerificationError("algorithm-not-allowed", "only EdDSA/Ed25519 is allowed")
     if header.get("typ") not in {"JWT", "application/aat+jwt"}:
         raise VerificationError("token-type-invalid", "JWT type header is required by this profile")
-    if header.get("b64") is False:
-        raise VerificationError("unencoded-payload-not-supported", "RFC 7797 b64=false is not supported")
-    crit = header.get("crit")
-    if crit is not None:
+    if "b64" in header:
+        raise VerificationError("b64-header-not-allowed",
+                                "this profile requires the default JWS payload encoding; b64 must be absent")
+    if "crit" in header:
+        crit = header.get("crit")
         if not isinstance(crit, list) or not crit:
-            raise VerificationError("critical-header-unsupported", "critical JWS headers are not supported")
+            raise VerificationError("critical-header-unsupported", "critical JWS headers must be a non-empty array")
     return header
 
 
