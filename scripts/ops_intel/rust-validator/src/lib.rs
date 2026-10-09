@@ -114,6 +114,10 @@ const EXPECTED_F0_COVERAGE_REFS: [&str; 2] = [
     "coverage:service-demand-R2",
     "coverage:supplier-B-unobserved-facilities",
 ];
+const EXPECTED_DEPENDENCY_ASSESSMENT_REFS: [&str; 2] = [
+    "dependency-assessment:shipment-A-17-sources",
+    "dependency-assessment:energy-sources",
+];
 const EXPECTED_F1_SOURCE_REFS: [&str; 1] = ["source:warehouse-inspection-B-refresh"];
 const EXPECTED_F1_ARTIFACT_REFS: [&str; 3] = [
     "artifact:warehouse-inspection-B-refresh-20260601T1210Z",
@@ -501,10 +505,91 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     if dependency_ids.len() != dependencies.len() {
         errors.push("F0: source dependency assessments require unique non-empty IDs".to_owned());
     }
+    require_exact_refs(&dependency_ids, dependencies.len(), &EXPECTED_DEPENDENCY_ASSESSMENT_REFS, "F0 source_dependency_assessments", &mut errors);
+    for (index, source) in f0.get("source_registry").and_then(Value::as_array).into_iter().flatten().enumerate() {
+        if source.get("trust_status").and_then(Value::as_str) != Some("UnassessedUnderProfile")
+            || source.get("source_dependency_status").and_then(Value::as_str) != Some("Unknown")
+        {
+            errors.push(format!("F0 source[{index}]: trust/dependency must remain unassessed/unknown"));
+        }
+    }
     for (index, assessment) in dependencies.iter().enumerate() {
         let members = string_array(assessment.get("member_refs"), &format!("F0 source dependency assessment[{index}] member_refs"), &mut errors);
         if members.len() < 2 || members.iter().any(|reference| !sources0.contains(reference)) {
             errors.push(format!("F0 source dependency assessment[{index}]: members must be at least two known sources"));
+        }
+        let expected_members: &[&str] = match assessment.get("assessment_ref").and_then(Value::as_str) {
+            Some("dependency-assessment:shipment-A-17-sources") => &["source:carrier-A", "source:supplier-A-portal"],
+            Some("dependency-assessment:energy-sources") => &["source:energy-E1", "source:energy-E2"],
+            _ => &[],
+        };
+        require_set_eq(&members, expected_members, "F0: source dependency group membership mismatch", &mut errors);
+        if assessment.get("disposition").and_then(Value::as_str) != Some("Unknown") {
+            errors.push(format!("F0 dependency assessment[{index}]: independence remains Unknown"));
+        }
+        let common = string_array(assessment.get("known_common_ancestry_refs"), "F0 known common ancestry refs", &mut errors);
+        if !common.is_empty() {
+            errors.push(format!("F0 dependency assessment[{index}]: distinct IDs do not prove source independence"));
+        }
+    }
+
+    let carrier = find_record(observations0, "observation_ref", "observation:shipment-A-17-carrier");
+    let portal = find_record(observations0, "observation_ref", "observation:shipment-A-17-portal");
+    if carrier.is_none() || portal.is_none() {
+        errors.push("F0: both shipment carrier and portal claims must remain present".to_owned());
+    } else {
+        for (label, record, expected_value, expected_class) in [
+            ("carrier", carrier, "Delayed", "ObservedValue"),
+            ("portal", portal, "OnTime", "AssertedBySource"),
+        ] {
+            for (field, expected) in [
+                ("subject_ref", "subject:shipment-A-17"),
+                ("proposition_ref", "proposition:shipment-A-17-status"),
+                ("property_ref", "property:shipment.status"),
+                ("value", expected_value),
+                ("value_class", expected_class),
+                ("dependency_assessment", "Unknown"),
+            ] {
+                if record.and_then(|v| v.get(field)).and_then(Value::as_str) != Some(expected) {
+                    errors.push(format!("F0 shipment {label}: {field} differs from frozen conflict fixture"));
+                }
+            }
+        }
+        if portal.and_then(|v| v.get("relation_to")).and_then(Value::as_str) != Some("observation:shipment-A-17-carrier")
+            || portal.and_then(|v| v.get("relation_kind")).and_then(Value::as_str) != Some("ContradictsCandidate")
+        {
+            errors.push("F0 shipment portal: contradiction link must remain explicit".to_owned());
+        }
+    }
+
+    let energy_e1 = find_record(observations0, "observation_ref", "observation:energy-E1-capacity");
+    let energy_e2 = find_record(observations0, "observation_ref", "observation:energy-E2-capacity");
+    if energy_e1.is_none() || energy_e2.is_none() {
+        errors.push("F0: both E1 and E2 capacity observations must remain present".to_owned());
+    } else {
+        for (label, record) in [("E1", energy_e1), ("E2", energy_e2)] {
+            for (field, expected) in [
+                ("subject_ref", "subject:energy-zone-1"),
+                ("proposition_ref", "proposition:energy-zone-1-available-capacity"),
+                ("property_ref", "property:capacity.available"),
+                ("unit_ref", "unit:MW"),
+                ("value_class", "ObservedValue"),
+            ] {
+                if record.and_then(|v| v.get(field)).and_then(Value::as_str) != Some(expected) {
+                    errors.push(format!("F0 energy {label}: {field} differs from frozen calibration fixture"));
+                }
+            }
+        }
+        if energy_e1.and_then(|v| v.get("value")).and_then(Value::as_i64) != Some(40)
+            || energy_e2.and_then(|v| v.get("value")).and_then(Value::as_i64) != Some(67)
+            || energy_e1.and_then(|v| v.get("currentness")).and_then(Value::as_str) != Some("StaleUnderProfile")
+            || energy_e1.and_then(|v| v.get("calibration_state")).and_then(Value::as_str) != Some("Expired")
+            || energy_e1.and_then(|v| v.get("relation_to")).and_then(Value::as_str) != Some("observation:energy-E2-capacity")
+            || energy_e1.and_then(|v| v.get("relation_kind")).and_then(Value::as_str) != Some("ContradictsCandidate")
+            || energy_e2.and_then(|v| v.get("currentness")).and_then(Value::as_str) != Some("CurrentUnderProfile")
+            || energy_e2.and_then(|v| v.get("calibration_state")).and_then(Value::as_str) != Some("Valid")
+        {
+            errors.push("F0: E1 stale versus E2 current calibration conflict must remain explicit".to_owned());
         }
     }
     let facility_refs = validate_facility_registry(f0, &subjects0, &mut errors);
@@ -649,6 +734,13 @@ pub fn validate_documents(docs: &BTreeMap<String, Value>) -> Vec<String> {
     };
 
     let sources1_new = unique_record_refs(f1.get("added_sources"), "source_ref", "F1 added_sources", &mut errors);
+    for (index, source) in f1.get("added_sources").and_then(Value::as_array).into_iter().flatten().enumerate() {
+        if source.get("trust_status").and_then(Value::as_str) != Some("UnassessedUnderProfile")
+            || source.get("source_dependency_status").and_then(Value::as_str) != Some("Unknown")
+        {
+            errors.push(format!("F1 source[{index}]: trust/dependency must remain unassessed/unknown"));
+        }
+    }
     let artifacts1_new = unique_record_refs(f1.get("added_artifacts"), "artifact_ref", "F1 added_artifacts", &mut errors);
     require_exact_refs(&sources1_new, f1.get("added_sources").and_then(Value::as_array).map_or(0, Vec::len), &EXPECTED_F1_SOURCE_REFS, "F1 added_sources", &mut errors);
     require_exact_refs(&artifacts1_new, f1.get("added_artifacts").and_then(Value::as_array).map_or(0, Vec::len), &EXPECTED_F1_ARTIFACT_REFS, "F1 added_artifacts", &mut errors);
@@ -1025,6 +1117,12 @@ fn validate_facility_registry(
             return expected;
         }
     };
+    if registry.get("registry_ref").and_then(Value::as_str) != Some("registry:supplier-B-facilities-v1")
+        || registry.get("supplier_ref").and_then(Value::as_str) != Some("subject:supplier-B")
+        || registry.get("identity_profile_ref").and_then(Value::as_str) != Some("identity-profile:synthetic-supplier-facility-v1")
+    {
+        errors.push("F0: facility registry identity/supplier/profile binding mismatch".to_owned());
+    }
     let refs = string_array(registry.get("facility_refs_known"), "F0 facility_registry.facility_refs_known", errors);
     let actual_set: BTreeSet<String> = refs.iter().cloned().collect();
     let expected_set: BTreeSet<String> = expected.iter().cloned().collect();
@@ -1471,6 +1569,53 @@ mod tests {
         assert!(validate_documents(&docs).iter().any(|e|
             e.contains("F1: inventory refresh coverage must be an object")
         ));
+    }
+
+    #[test]
+    fn rejects_source_independence_upgrade_without_evidence() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f0").unwrap()["source_dependency_assessments"][0]["disposition"] =
+            Value::String("Independent".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("independence remains Unknown")));
+    }
+
+    #[test]
+    fn rejects_collapsing_the_shipment_assertion_conflict() {
+        let mut docs = load_real_fixture();
+        let observations = docs.get_mut("f0").unwrap()["observations"].as_array_mut().unwrap();
+        let portal = observations.iter_mut().find(|v| v["observation_ref"] == "observation:shipment-A-17-portal").unwrap();
+        portal["proposition_ref"] = Value::String("proposition:unrelated".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("F0 shipment portal: proposition_ref differs from frozen conflict fixture")));
+    }
+
+    #[test]
+    fn rejects_e1_stale_to_current_bit_flip() {
+        let mut docs = load_real_fixture();
+        let observations = docs.get_mut("f0").unwrap()["observations"].as_array_mut().unwrap();
+        let e1 = observations.iter_mut().find(|v| v["observation_ref"] == "observation:energy-E1-capacity").unwrap();
+        e1["currentness"] = Value::String("CurrentUnderProfile".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("E1 stale versus E2 current calibration conflict")));
+    }
+
+    #[test]
+    fn rejects_source_trust_upgrade() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f0").unwrap()["source_registry"][0]["trust_status"] = Value::String("Trusted".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("F0 source[0]: trust/dependency must remain unassessed/unknown")));
+    }
+
+    #[test]
+    fn rejects_f1_refresh_source_dependency_upgrade() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f1").unwrap()["added_sources"][0]["source_dependency_status"] = Value::String("Independent".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("F1 source[0]: trust/dependency must remain unassessed/unknown")));
+    }
+
+    #[test]
+    fn rejects_unbound_supplier_facility_registry() {
+        let mut docs = load_real_fixture();
+        docs.get_mut("f0").unwrap()["facility_registry"]["supplier_ref"] = Value::String("subject:supplier-A".to_owned());
+        assert!(validate_documents(&docs).iter().any(|e| e.contains("facility registry identity/supplier/profile binding mismatch")));
     }
 
     #[test]
