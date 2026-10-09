@@ -353,7 +353,7 @@ def assert_evidence_archive_contract() -> None:
     assert 'config_path="${cargo_config_dir}/${config_name}"' in trusted_workflow
     assert '[ -e "$config_path" ] || [ -L "$config_path" ]' in trusted_workflow
     assert 'config_ancestor="$(dirname -- "$config_ancestor")"' in trusted_workflow
-    assert trusted_workflow.count("test ! -e /.cargo/config") == 4
+    assert trusted_workflow.count("test ! -e /.cargo/config\n") == 4
     assert trusted_workflow.count("test ! -e /.cargo/config.toml") == 4
     assert 'if "patch" in lock or "replace" in lock:' in trusted_workflow
     assert 'test ! -e "$CARGO_HOME/config"' in trusted_workflow
