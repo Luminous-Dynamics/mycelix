@@ -21,7 +21,7 @@ MANIFEST = ROOT / "docs/integral/civ-013-durable-witness-conformance-v1-manifest
 RECORD_DOMAIN = b"mycelix-civ013-durable-record-v1\0"
 FORK_DOMAIN = b"mycelix-civ013-durable-fork-v1\0"
 PROFILE_ID = "civ-013-durable-adapter-v1"
-SOURCE_COMMIT = "cf0db00db3a377402b557665fffe4f63d2fe1dbd"
+SOURCE_COMMIT = "37fdf714319a86d7539ee2ca7c80f641ee98ade2"
 SQLITE_INTEGER_MAX = (1 << 63) - 1
 
 REQUIRED_IDS = {
@@ -62,6 +62,7 @@ REQUIRED_IDS = {
     "DA035-legacy-fork-meta-migration-rejects-corruption",
     "DA036-startup-integrity-detects-fork-tail-truncation",
     "DA037-subprocess-crash-after-anchor-commit-recovers-exact-prepared",
+    "DA038-unprovisioned-persistent-anchor-fails-closed",
 }
 
 
@@ -470,6 +471,16 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
                 else "ExternalAnchorMismatch"
             )
         return "AnchorNotAhead"
+
+    if kind == "unprovisioned_test_anchor":
+        if (
+            vector.get("row_present") is not False
+            or vector.get("missing_row_means_genesis") is not False
+            or vector.get("adapter_fallback_generation") is not None
+            or vector.get("adapter_fallback_digest") is not None
+        ):
+            return "UnsafeImplicitGenesis"
+        return "AnchorUnavailable"
 
     if kind == "subprocess_crash_recovery":
         accepted = vector.get("accepted_generation")
