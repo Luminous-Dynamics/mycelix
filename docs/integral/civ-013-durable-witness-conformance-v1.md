@@ -2,7 +2,7 @@
 
 **Profile ID:** `civ-013-durable-adapter-v1`  
 **Status:** experimental reference profile; not production qualification.  
-**Source adapter revision:** [Symthaea commit `a8e16a7877043114d4fe98fbc47df91c448d9665`](https://github.com/Luminous-Dynamics/symthaea/commit/a8e16a7877043114d4fe98fbc47df91c448d9665)  
+**Source adapter revision:** [Symthaea commit `fab5db151d8c27dfa6179131c267252a4d6e301d`](https://github.com/Luminous-Dynamics/symthaea/commit/fab5db151d8c27dfa6179131c267252a4d6e301d)  
 **Golden vectors:** [civ-013-durable-witness-conformance-v1.json](civ-013-durable-witness-conformance-v1.json)  
 **Manifest:** [civ-013-durable-witness-conformance-v1-manifest.json](civ-013-durable-witness-conformance-v1-manifest.json)  
 **Independent checker:** [verify_civ013_durable_witness_conformance_v1.py](../../scripts/integral/verify_civ013_durable_witness_conformance_v1.py)  
@@ -172,10 +172,13 @@ The adapter refuses to open a store unless `rusqlite::version_number()` is at le
 
 | DA041 | UnanchoredForkEvidenceErasure | Coordinated deletion of local fork rows and same-database tail metadata is outside the current claim because the external anchor tracks accepted-head state only |
 
-| DA042 | ExternalAnchorMismatchAndForkEvidenceRecorded | Recovery seeing a same-generation, different external-anchor digest records the competing pair locally, leaves accepted head unchanged, creates no prepared candidate, and still fails closed |
+| DA042 | ExternalAnchorMismatchAndForkEvidenceRecorded | Recovery seeing a same-generation, different external-anchor digest records the competing pair locally, leaves accepted head unchanged, creates no prepared candidate, still fails closed, and repeated identical retries do not duplicate the fork event |
 
 ## Fork-evidence trust boundary and follow-on
 
 The current count/tail commitment is in the same SQLite database as the fork-evidence rows. It detects suffix truncation, interior/order/digest inconsistency, and metadata mismatch when some part of the committed state survives. It **cannot** prove that no fork was ever recorded if an actor coherently deletes both `witness_fork_evidence` and `witness_fork_meta`, because the current `IndependentAnchor` commits only accepted-record generation/digest and does not retain the fork-evidence frontier.
 
 Therefore the profile does not qualify fork evidence against a hostile actor able to rewrite the entire local database. A production follow-on should add an independent per-log monotonic fork frontier (count + tail digest bound to the accepted-head position) and explicitly model the fork-record/anchor-update crash, retry, and recovery interleavings. That should be a separately reviewed operation (for example, `compare_and_record_fork` or a signed append-only witness event), not an assumed same-generation accepted-head advance. No production anchor implementation is included here.
+
+
+The adapter makes fork-report append idempotent for an exact `(log_id, generation, first_digest, conflicting_digest)` tuple after validating the existing chain and tail commitment. DA042 explicitly repeats the same recovery mismatch twice and requires exactly one local fork event. This prevents retry loops from inflating the local evidence chain; it still does not make that chain externally anchored.
