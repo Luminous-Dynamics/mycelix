@@ -216,7 +216,17 @@ jobs:
             lock_mode=tracked
           else
             rm -f crates/fpm-wasm-artifact-identity/Cargo.lock
-            cargo generate-lockfile --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
+            env -i \
+              PATH="$PATH" \
+              HOME="$HOME" \
+              CARGO_HOME="$CARGO_HOME" \
+              CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse \
+              CARGO_NET_OFFLINE=false \
+              CARGO_NET_GIT_FETCH_WITH_CLI=false \
+              GIT_CONFIG_GLOBAL=/dev/null \
+              GIT_CONFIG_NOSYSTEM=true \
+              GIT_TERMINAL_PROMPT=0 \
+              cargo generate-lockfile --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
             lock_mode=generated_for_run
           fi
           test -f crates/fpm-wasm-artifact-identity/Cargo.lock
