@@ -73,6 +73,11 @@ on:
       - "docs/research/verify_censoring_classification_anchor_audit_bundle_v2.py"
       - "docs/research/verify_censoring_classification_anchor_audit_bundle_v2.mjs"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V2.md"
+      - "docs/research/build_censoring_classification_execution_receipt.py"
+      - "docs/research/verify_censoring_classification_execution_receipt.py"
+      - "docs/research/verify_censoring_classification_execution_receipt.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_EXECUTION_RECEIPT_V1.md"
+      - ".github/workflows/anchor-transparency-evidence-attestation.yml"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_TS_REGISTRY.json"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_FIXTURE.json"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_CAMPAIGN.json"
@@ -158,6 +163,11 @@ on:
       - "docs/research/verify_censoring_classification_anchor_audit_bundle_v2.py"
       - "docs/research/verify_censoring_classification_anchor_audit_bundle_v2.mjs"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_AUDIT_BUNDLE_V2.md"
+      - "docs/research/build_censoring_classification_execution_receipt.py"
+      - "docs/research/verify_censoring_classification_execution_receipt.py"
+      - "docs/research/verify_censoring_classification_execution_receipt.mjs"
+      - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_EXECUTION_RECEIPT_V1.md"
+      - ".github/workflows/anchor-transparency-evidence-attestation.yml"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_TS_REGISTRY.json"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_FIXTURE.json"
       - "docs/research/CONTINUAL_ADAPTATION_CENSORING_CLASSIFICATION_ANCHOR_COSE_RECEIPT_CAMPAIGN.json"
@@ -481,6 +491,14 @@ jobs:
             audit-bundle-v2-node.json
           diff -u audit-bundle-v2-python.json audit-bundle-v2-node.json
 
+      - name: Self-test execution evidence receipt tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/research/build_censoring_classification_execution_receipt.py self-test
+          python3 docs/research/verify_censoring_classification_execution_receipt.py self-test
+          node docs/research/verify_censoring_classification_execution_receipt.mjs self-test
+
       - name: Emit exact-head receipt
         shell: bash
         env:
@@ -504,3 +522,24 @@ jobs:
         run: |
           echo "Classification provenance regression is research evidence only."
           echo "This workflow is not the qualification authority."
+
+      - name: Build report-bound execution evidence receipt
+        if: success()
+        shell: bash
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+        run: |
+          set -euo pipefail
+          python3 docs/research/build_censoring_classification_execution_receipt.py create \
+            --root "$GITHUB_WORKSPACE" \
+            --out execution-evidence
+
+      - name: Upload successful-run evidence for downstream attestation
+        if: success()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: anchor-transparency-execution-evidence
+          path: execution-evidence/
+          if-no-files-found: error
+          retention-days: 30
