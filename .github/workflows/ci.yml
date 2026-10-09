@@ -404,16 +404,10 @@ jobs:
           workspaces: mycelix-workspace/sdk
       - name: Test Rust SDK
         run: cd mycelix-workspace/sdk && cargo test --workspace
-      - name: Install TypeScript SDK dependencies
-        run: cd mycelix-workspace/sdk-ts && npm ci
-      - name: Audit TypeScript SDK dependencies
-        run: cd mycelix-workspace/sdk-ts && npm audit --audit-level=high
-      - name: Typecheck TypeScript SDK
-        run: cd mycelix-workspace/sdk-ts && npm run typecheck
-      - name: Lint TypeScript SDK
-        run: cd mycelix-workspace/sdk-ts && npm run lint
-      - name: Test TypeScript SDK
-        run: cd mycelix-workspace/sdk-ts && npm test
+      - name: Audit TypeScript SDK advisories
+        # Advisory lookup is separate from the offline Nix build/test derivation.
+        # Keep npm pinned by the flake; do not run npm ci in the CI working tree.
+        run: nix develop ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c 'cd mycelix-workspace/sdk-ts && npm audit --audit-level=high'
 
   # Intentionally runs on draft PRs too: it validates the pure SDK flake output
   # before the full integration matrix is admitted.
