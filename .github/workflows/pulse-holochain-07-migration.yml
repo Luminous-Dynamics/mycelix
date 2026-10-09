@@ -6,10 +6,16 @@ on:
       - "mycelix-workspace/mycelix-pulse/**"
       - ".github/workflows/pulse-holochain-07-migration.yml"
   push:
-    branches: [main]
+    branches: [upgrade/pulse-holochain-0.7]
     paths:
       - "mycelix-workspace/mycelix-pulse/**"
       - ".github/workflows/pulse-holochain-07-migration.yml"
+
+# Updated commits supersede old queued builds. Keep one exact-head migration
+# attempt per PR/branch so stale queued jobs cannot pile up behind newer heads.
+concurrency:
+  group: pulse-holochain-07-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
