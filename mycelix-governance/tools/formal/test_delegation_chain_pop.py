@@ -324,6 +324,28 @@ def main() -> int:
                 "status": replay["status"], "finding": expected_code(replay),
             })
 
+            # Reissue a fresh, correctly signed PoP at a later time while
+            # reusing the already-consumed jti. The AATs remain unexpired at
+            # NOW+1000. A retention policy that deleted the old replay row
+            # would wrongly accept this newly signed proof.
+            later_raw = copy.deepcopy(raw)
+            later_raw["now"] = NOW + 1000
+            later_proof = make_pop(
+                root / "valid-positive", keys[3]["private_path"],
+                "aat-leaf-chain-2", jti="pop-valid-0001", iat=NOW + 1000,
+            )
+            later_replay = invoke(later_raw, anchors, later_proof, database)
+            require(later_replay.get("status") == "INVOCATION_DENIED"
+                    and expected_code(later_replay) == "pop-jti-replay",
+                    "fresh proof reused a consumed jti after the original clock window")
+            receipt["controls"].append({
+                "id": "fresh-pop-cannot-reuse-old-jti",
+                "status": later_replay["status"],
+                "finding": expected_code(later_replay),
+                "fresh_iat": NOW + 1000,
+                "same_jti_rejected": True,
+            })
+
             # Optional-audience profile with neither expected nor presented aud.
             raw, anchors, keys = make_chain(root / "optional-audience")
             token = make_pop(root / "optional-audience", keys[3]["private_path"],
