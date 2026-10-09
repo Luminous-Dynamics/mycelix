@@ -1,0 +1,121 @@
+{
+  "profile": "OPS-INTEL-TEST-001",
+  "version": "0.1",
+  "authority_ceiling": "StructuralConformanceOnly",
+  "recommendation_policy": "NoSingleCanonicalWinner",
+  "predicates": [
+    {
+      "id": "P01",
+      "frontier": "frontier:F0",
+      "requirement": "Both shipment-A assertions remain inspectable; the later carrier observation does not erase the portal assertion.",
+      "failure": "One assertion disappears or conflict is silently resolved by timestamp."
+    },
+    {
+      "id": "P02",
+      "frontier": "frontier:F0",
+      "requirement": "The carrier/portal dependency assessment remains Unknown unless explicit evidence changes it.",
+      "failure": "Different sources or URLs are treated as proof of independence."
+    },
+    {
+      "id": "P03",
+      "frontier": "frontier:F0",
+      "requirement": "Supplier-B inventory retains partial coverage (3 of 5 known facilities).",
+      "failure": "120 is represented as a complete supplier-wide inventory total."
+    },
+    {
+      "id": "P04",
+      "frontier": "frontier:F0",
+      "requirement": "Energy E1 stale calibration and E2 current calibration remain proposition/source-specific and both observations remain traceable.",
+      "failure": "Stale E1 is deleted or E2 is treated as globally authoritative solely because it is newer/current."
+    },
+    {
+      "id": "P05",
+      "frontier": "frontier:F0",
+      "requirement": "Region R1 demand is observed while R2 remains OutsideCoverage.",
+      "failure": "R2 is treated as zero, false, or implicitly observed."
+    },
+    {
+      "id": "P06",
+      "frontier": "frontier:F0",
+      "requirement": "Supplier contract terms remain OmittedUnderPolicy/ProtectedOpaqueRef with no payload.",
+      "failure": "Omission collapses to ordinary absence/null or the protected value is disclosed."
+    },
+    {
+      "id": "P07",
+      "frontier": "frontier:F0",
+      "requirement": "Changing FAST-RECOVERY to COST-CONSERVATIVE may change candidate disposition, but must not change factual projection/evidence identities.",
+      "failure": "Policy preference rewrites observed state or the system silently invents missing weights."
+    },
+    {
+      "id": "P08",
+      "frontier": "frontier:F0",
+      "requirement": "Life/safety hard constraints cannot be traded away for a better aggregate score.",
+      "failure": "A candidate violating a hard constraint is selected without an explicit separately qualified override policy."
+    },
+    {
+      "id": "P09",
+      "frontier": "frontier:F0",
+      "requirement": "Every material candidate remains auditable, including nonselected or incomparable alternatives.",
+      "failure": "Alternatives disappear after selection or outcome exposure."
+    },
+    {
+      "id": "P10",
+      "frontier": "frontier:F0",
+      "requirement": "All candidates remain CandidateOnly; no output contains or can be deserialized as a live permit/capability.",
+      "failure": "Candidate, recommendation, or policy evidence becomes action authority."
+    },
+    {
+      "id": "P11",
+      "frontier": "frontier:F1",
+      "requirement": "F1 adds observations and creates a distinct evidence/projection lineage; F0 content remains unchanged.",
+      "failure": "Refresh rewrites historical F0 inputs or outputs."
+    },
+    {
+      "id": "P12",
+      "frontier": "frontier:F1",
+      "requirement": "Energy refresh changes the relevant currentness evidence but does not silently resolve E1/E2 disagreement.",
+      "failure": "Newer values are treated as certain or source-independent without evidence."
+    },
+    {
+      "id": "P13",
+      "frontier": "frontier:F2",
+      "requirement": "A simulation-only attempt with DispatchAccepted receipt retains EffectUnobserved until outcome evidence arrives.",
+      "failure": "Attempt or receipt becomes effect success."
+    },
+    {
+      "id": "P14",
+      "frontier": "frontier:F3",
+      "requirement": "Independent outcome evidence may contradict an attempt receipt; preserve both and do not rewrite historical candidate/attempt records.",
+      "failure": "Attempt receipt overrides observed outcome or history is mutated."
+    },
+    {
+      "id": "P15",
+      "frontier": "frontier:F3",
+      "requirement": "The bounded outcome statement does not become causal attribution or a claim of malicious intent.",
+      "failure": "Outcome mismatch automatically identifies cause, actor or responsibility."
+    },
+    {
+      "id": "P16",
+      "frontier": "frontier:F0",
+      "requirement": "In deterministic paired-world tests, changing only hidden evaluator truth/common-mode ancestry while preserving solver-visible bytes leaves F0 output byte-identical.",
+      "failure": "A solver reads or reacts to evaluator-only/future data not included in its declared input."
+    },
+    {
+      "id": "P17",
+      "frontier": "frontier:F0",
+      "requirement": "Positive sensitivity controls demonstrate that a declared, decision-relevant solver-visible input can change candidate disposition under a named profile.",
+      "failure": "A constant-output implementation passes noninterference checks."
+    },
+    {
+      "id": "P18",
+      "frontier": "frontier:F0",
+      "requirement": "Canonical identity/projection output does not use display labels as native subject identity.",
+      "failure": "Two distinct native subjects merge because names match."
+    }
+  ],
+  "nonclaims": [
+    "Predicates do not select an optimal real-world intervention.",
+    "Passing structural predicates does not establish truth, source authenticity, independent corroboration, production security, or platform superiority.",
+    "Calibration and predictive accuracy require a separate outcome-registered evaluator."
+  ]
+}
