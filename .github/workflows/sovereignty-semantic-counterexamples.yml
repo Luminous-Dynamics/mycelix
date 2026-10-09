@@ -100,7 +100,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/auth-v20-compact-jws-evidence"
           python3 mycelix-governance/tools/formal/test_delegation_chain_compact_jws.py \
             --output "$RUNNER_TEMP/auth-v20-compact-jws-evidence/compact-jws-chain.json"
-      - name: Mutation-test the receipt aggregate
+      - name: Run PoP invocation controls and mutation-test receipt aggregate
         run: |
           set -euo pipefail
           export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/python-cache"
