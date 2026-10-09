@@ -2,7 +2,7 @@
   "spec_version": "civ-013-durable-adapter-v1",
   "profile_id": "civ-013-durable-adapter-v1",
   "source_repository": "Luminous-Dynamics/symthaea",
-  "source_adapter_commit": "b5a93838272e37f856f78e0e415bcd52f557ba7a",
+  "source_adapter_commit": "d76ddc77f4ac325b75450241f705d548c7835e77",
   "encoding": {
     "digest": "SHA-256",
     "integer_encoding": "unsigned big-endian",
