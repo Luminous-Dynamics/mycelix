@@ -173,6 +173,14 @@ pub struct ExecutionResolution {
     pub timelock_id: String,
     pub proposal_id: String,
     pub executor: String,
+    /// Exact creation action of the prepared Execution record being resolved.
+    /// None is legacy-only; new receipts must set it.
+    #[serde(default)]
+    pub execution_action_hash: Option<ActionHash>,
+    /// Exact update action of the Prepared Timelock record.
+    /// None is legacy-only; new receipts must set it.
+    #[serde(default)]
+    pub timelock_action_hash: Option<ActionHash>,
     #[serde(default)]
     pub bindings: Vec<ExecutionResolutionBindingV1>,
     pub outcome: ExecutionResolutionOutcome,
@@ -463,7 +471,7 @@ pub fn check_execution_resolution_bindings(
         ));
     }
 
-    for binding in bindings {
+    for (index, binding) in bindings.iter().enumerate() {
         if !is_tagged_digest(
             &binding.attempt_identity,
             EXECUTION_ATTEMPT_IDENTITY_PREFIX,
@@ -481,6 +489,17 @@ pub fn check_execution_resolution_bindings(
             EXECUTION_FINAL_PROVIDER_ENTRY_PROOF_PREFIX,
         ) {
             return Err("Resolution binding fields must use canonical digest namespaces".into());
+        }
+        if bindings[..index].iter().any(|prior| {
+            prior.attempt_identity == binding.attempt_identity
+                || prior.action_key_digest == binding.action_key_digest
+                || prior.terminal_evidence_digest == binding.terminal_evidence_digest
+                || prior.authorization_admission_proof_digest
+                    == binding.authorization_admission_proof_digest
+                || prior.final_provider_entry_proof_digest
+                    == binding.final_provider_entry_proof_digest
+        }) {
+            return Err("Resolution bindings must not reuse attempt/action/proof roots".into());
         }
     }
     Ok(())
@@ -503,6 +522,14 @@ pub fn check_create_execution_resolution(
         || resolution.proposal_id.is_empty()
     {
         return Err("Resolution identifiers are required".into());
+    }
+    if resolution.execution_action_hash.is_none()
+        || resolution.timelock_action_hash.is_none()
+    {
+        return Err(
+            "New execution resolutions must anchor the prepared execution and timelock ActionHash"
+                .into(),
+        );
     }
     check_execution_resolution_bindings(&resolution.bindings)?;
     Ok(())
@@ -740,14 +767,91 @@ fn validate_update_timelock(
 }
 
 /// Validate execution creation
+pub fn check_resolution_execution_scope(
+    resolution: &ExecutionResolution,
+    execution: &Execution,
+) -> Result<(), String> {
+    if execution.status != ExecutionStatus::Prepared
+        || execution.id != resolution.execution_id
+        || execution.timelock_id != resolution.timelock_id
+        || execution.proposal_id != resolution.proposal_id
+        || execution.executor != resolution.executor
+    {
+        return Err(
+            "Resolution prepared-execution action does not match execution/timelock/proposal/executor scope"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+pub fn check_resolution_timelock_scope(
+    resolution: &ExecutionResolution,
+    timelock: &Timelock,
+) -> Result<(), String> {
+    if timelock.status != TimelockStatus::Prepared
+        || timelock.id != resolution.timelock_id
+        || timelock.proposal_id != resolution.proposal_id
+    {
+        return Err(
+            "Resolution prepared-timelock action does not match timelock/proposal scope".into(),
+        );
+    }
+    Ok(())
+}
+
 fn validate_create_execution_resolution(
     action: Create,
     resolution: ExecutionResolution,
 ) -> ExternResult<ValidateCallbackResult> {
-    match check_create_execution_resolution(&action, &resolution) {
-        Ok(()) => Ok(ValidateCallbackResult::Valid),
-        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
+    if let Err(reason) = check_create_execution_resolution(&action, &resolution) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
     }
+
+    let Some(execution_hash) = resolution.execution_action_hash.clone() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New execution resolutions must anchor the prepared Execution ActionHash".into(),
+        ));
+    };
+    let execution_record = must_get_valid_record(execution_hash)?;
+    if execution_record.action().author() != &action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution and prepared Execution must share the executor source-chain author".into(),
+        ));
+    }
+    let execution: Execution = execution_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Execution ActionHash does not reference an Execution entry".into()
+        )))?;
+    if let Err(reason) = check_resolution_execution_scope(&resolution, &execution) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+
+    let Some(timelock_hash) = resolution.timelock_action_hash.clone() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New execution resolutions must anchor the prepared Timelock ActionHash".into(),
+        ));
+    };
+    let timelock_record = must_get_valid_record(timelock_hash)?;
+    if timelock_record.action().author() != &action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution and prepared Timelock must share the executor source-chain author".into(),
+        ));
+    }
+    let timelock: Timelock = timelock_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Timelock ActionHash does not reference a Timelock entry".into()
+        )))?;
+    if let Err(reason) = check_resolution_timelock_scope(&resolution, &timelock) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_execution(
