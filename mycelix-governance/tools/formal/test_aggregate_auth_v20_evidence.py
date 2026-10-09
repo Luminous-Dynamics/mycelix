@@ -102,6 +102,11 @@ FROZEN_AGGREGATE_MUTATIONS = (
 HEAD = "a" * 40
 
 
+def canonical_json_bytes(value: Any) -> bytes:
+    return (json.dumps(value, sort_keys=True, separators=(",", ":"),
+                       ensure_ascii=False) + "\\n").encode("utf-8")
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
@@ -118,7 +123,36 @@ def synthetic_receipts(root: Path) -> dict[str, dict[str, Any]]:
             "summary": {},
         }
         if relative == "auth-v20-evidence/receipt.json":
-            data["controls"] = [{"id": name} for name in FROZEN_POLICY_CONTROL_IDS]
+            control_dir = root / "auth-v20-evidence"
+            controls = []
+            for name in FROZEN_POLICY_CONTROL_IDS:
+                raw_scenario = {"fixture_id": name, "bounded": True}
+                input_bytes = canonical_json_bytes(raw_scenario)
+                input_sha = hashlib.sha256(input_bytes).hexdigest()
+                result_value = {
+                    "fixture_id": name,
+                    "status": "CONTROL_PASS",
+                    "input_sha256": input_sha,
+                }
+                result_sha = hashlib.sha256(canonical_json_bytes(result_value)).hexdigest()
+                result_value["result_sha256"] = result_sha
+                (control_dir / f"{name}.input.json").write_text(
+                    json.dumps(raw_scenario, sort_keys=True, indent=2, ensure_ascii=False) + "\\n",
+                    encoding="utf-8",
+                )
+                (control_dir / f"{name}.json").write_text(
+                    json.dumps(result_value, sort_keys=True, indent=2, ensure_ascii=False) + "\\n",
+                    encoding="utf-8",
+                )
+                controls.append({
+                    "id": name,
+                    "expected_status": "CONTROL_PASS",
+                    "observed_status": "CONTROL_PASS",
+                    "independent_replay": "PASS",
+                    "input_sha256": input_sha,
+                    "result_sha256": result_sha,
+                })
+            data["controls"] = controls
         elif relative == "auth-v20-differential-evidence/receipt.json":
             data.update({"ordered_pairs_expected": 16384, "ordered_pairs_evaluated": 16384})
             data["summary"]["ordered_pair_request_combinations"] = 524288
