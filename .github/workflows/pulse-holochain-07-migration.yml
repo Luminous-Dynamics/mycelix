@@ -158,7 +158,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: |
             mycelix-workspace/mycelix-pulse/holochain/client/package-lock.json
