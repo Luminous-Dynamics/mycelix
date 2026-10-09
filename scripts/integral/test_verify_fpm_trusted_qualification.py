@@ -293,6 +293,7 @@ def assert_evidence_archive_contract() -> None:
     assert "-print -quit" not in workflow
     assert "sandbox-system-closure.tsv" in trusted_workflow
     assert "FPM_SYSTEM_CLOSURE_PROFILE" in trusted_workflow
+    assert trusted_workflow.count("export PATH=/opt/fpm-rust/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin") == 3
     selftest_workflow = (Path(__file__).parents[2] / ".github/workflows/fpm-reference-verifier-selftest.yml").read_text(encoding="utf-8")
     assert "Parse every embedded sandbox program" in selftest_workflow
     assert "expected exactly four embedded sandbox programs" in selftest_workflow
