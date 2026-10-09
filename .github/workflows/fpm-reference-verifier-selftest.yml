@@ -13,6 +13,12 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
+# Keep only the newest PR-head self-test in this workflow's concurrency group.
+# An older commit's result cannot qualify the current candidate head.
+concurrency:
+  group: fpm-reference-verifier-selftest-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # Candidate-owned validation only. This is not an independent trust root and
 # must never be interpreted as promotion evidence.
 permissions:
