@@ -186,6 +186,9 @@ function selfTest(){
     fs.writeFileSync(eventPath,canonical(forkEvent)+"\n");
     [,err]=validateReceipt(receiptPath,artifact,eventPath);if(err!=="source-run-head-repository")throw Error("fork with main-named branch accepted:"+err);
     fs.writeFileSync(eventPath,canonical(event)+"\n");
+    const spoof=structuredClone(receipt);spoof.source.workflow_ref="attacker/repo/"+WORKFLOW_PATH+"@refs/heads/main";writeReceipt(spoof);
+    [,err]=validateReceipt(receiptPath,artifact,eventPath);if(err!=="source-workflow-ref-binding")throw Error("cross-repository workflow ref accepted:"+err);
+    writeReceipt(receipt);
     const tampered=path.join(reports,"python-fixed.json");fs.writeFileSync(tampered,Buffer.concat([fs.readFileSync(tampered),Buffer.from(" ")]));
     [,err]=validateReceipt(receiptPath,artifact,eventPath);if(err!=="report-sha:python-fixed.json")throw Error("tampered report accepted:"+err);
     const clean={schema:"self-test.fixed-classification",status:"research-evidence-only",case_count:52,
