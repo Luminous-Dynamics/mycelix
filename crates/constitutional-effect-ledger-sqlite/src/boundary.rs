@@ -1032,7 +1032,13 @@ mod tests {
 
         assert!(matches!(
             boundary
-                .dispatch(&action_key, &owner, "owner-attempt-pre-entry-absence-dispatch", &mut provider, &Verifier)
+                .dispatch(
+                    &action_key,
+                    &owner,
+                    "owner-attempt-pre-entry-absence-dispatch",
+                    &mut provider,
+                    &Verifier,
+                )
                 .unwrap(),
             BoundaryOutcome::IndeterminateHeld { reason }
                 if reason.contains("pre-entry absence is not terminal evidence")
