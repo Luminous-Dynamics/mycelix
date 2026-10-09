@@ -4,6 +4,7 @@
 
 use crate::app::PlayerState;
 use leptos::prelude::*;
+use wasm_bindgen::JsCast;
 
 /// Toggleable queue panel showing the current playlist.
 #[component]
@@ -30,6 +31,18 @@ fn QueuePanelInner() -> impl IntoView {
 
     let show_q = player.show_queue;
     let panel_ref = NodeRef::<leptos::html::Div>::new();
+
+    // Remember the invoker when the dialog mounts. Restore focus after the
+    // conditional panel unmounts (Escape, close button, or overlay click).
+    let return_focus = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.active_element())
+        .and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok());
+    on_cleanup(move || {
+        if let Some(element) = return_focus {
+            let _ = element.focus();
+        }
+    });
 
     // The dialog only exists while open. Move keyboard focus into it so
     // Escape and the panel's keyboard controls work immediately.
