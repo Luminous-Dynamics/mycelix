@@ -181,6 +181,10 @@ function selfTest(){
     fs.writeFileSync(eventPath,canonical({...event,workflow_run:{...wr,conclusion:"failure"}})+"\n");
     [,err]=validateReceipt(receiptPath,artifact,eventPath);if(err!=="source-workflow-not-success")throw Error("failed workflow accepted:"+err);
     fs.writeFileSync(eventPath,canonical(event)+"\n");
+    const forkEvent={...event,workflow_run:{...wr,head_repository:{full_name:"attacker/fork"},head_branch:"main"}};
+    fs.writeFileSync(eventPath,canonical(forkEvent)+"\n");
+    [,err]=validateReceipt(receiptPath,artifact,eventPath);if(err!=="source-run-head-repository")throw Error("fork with main-named branch accepted:"+err);
+    fs.writeFileSync(eventPath,canonical(event)+"\n");
     const tampered=path.join(reports,"python-fixed.json");fs.writeFileSync(tampered,Buffer.concat([fs.readFileSync(tampered),Buffer.from(" ")]));
     [,err]=validateReceipt(receiptPath,artifact,eventPath);if(err!=="report-sha:python-fixed.json")throw Error("tampered report accepted:"+err);
     const clean={schema:"self-test.fixed-classification",status:"research-evidence-only",case_count:52,
