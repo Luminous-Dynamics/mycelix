@@ -5,6 +5,7 @@ from pathlib import Path
 
 SCHEMA="SYM-CIVIC-019-RECEIPT-PROOF-BINDING-V1"
 CORPUS_SCHEMA="SYM-CIVIC-019-RECEIPT-PROOF-BINDING-CORPUS-V1"
+EXPECTED_MUTATION_CASE_COUNT=25
 TAG_COSE_SIGN1=18
 ALG_EDDSA=-8
 VDS_RFC9162_SHA256=1
@@ -127,9 +128,8 @@ def assert_surface_bindings(corpus_path):
     }
     if not isinstance(bindings, dict) or set(bindings) != set(expected):
         raise Reject("qualification surface manifest file-binding schema mismatch")
-    corpus = json.loads(Path(corpus_path).read_text())
-    if surface.get("mutation_case_count") != corpus.get("mutation_case_count"):
-        raise Reject("qualification surface mutation-case count disagrees with corpus")
+    if type(surface.get("mutation_case_count")) is not int or surface["mutation_case_count"] != EXPECTED_MUTATION_CASE_COUNT:
+        raise Reject("qualification surface mutation-case count differs from verifier constant")
     for label, rel in expected.items():
         path = root / rel
         if not path.is_file():
@@ -475,8 +475,6 @@ def mutate_byte(b):
     if out==b:
         raise Reject("byte mutation produced identical output")
     return out
-
-EXPECTED_MUTATION_CASE_COUNT=25
 
 def parser_rejects_nonminimal_cbor():
     try:

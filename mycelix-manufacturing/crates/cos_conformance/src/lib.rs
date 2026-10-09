@@ -10,6 +10,9 @@ pub mod productive_loop;
 pub mod source_refinement;
 pub mod seam_profile;
 pub mod seam_scenario;
+pub mod d6s_canonical;
+pub mod d6s_raw_json;
+pub use d6s_canonical::{canonical_bytes, D6S_HASH_DOMAIN, D6S_REFERENCE_CANONICALIZATION_VERSION};
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [

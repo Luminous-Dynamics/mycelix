@@ -1,0 +1,110 @@
+{
+  "profile": "D6S-CANON-2",
+  "kind": "authority-boundary-reference-manifest",
+  "version": 1,
+  "fixture_path": "docs/integral/d6s-canon-2-authority-boundary-fixture.json",
+  "fixture_blob_sha": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1",
+  "expected_case_count": 17,
+  "expected_case_ids": [
+    "author-grant",
+    "authorized-semantic-rejection",
+    "blocked-provenance",
+    "canonical-payload-accepted",
+    "expired-invocation",
+    "nonce-replay",
+    "nonce-stale",
+    "payload-mutation",
+    "provenance-mismatch",
+    "revoked-capability",
+    "valid-capability",
+    "wire-signature-invalid",
+    "wire-signature-valid",
+    "wrong-capability",
+    "wrong-cell",
+    "wrong-function",
+    "wrong-zome"
+  ],
+  "holochain_reference": {
+    "version": "0.7.0",
+    "runtime_binding_status": "ReferenceMappingOnly",
+    "invocation_type": "ZomeCallInvocation",
+    "invocation_fields": [
+      "cell_id",
+      "zome",
+      "cap_secret",
+      "fn_name",
+      "payload",
+      "provenance",
+      "nonce",
+      "expires_at"
+    ],
+    "authorization_methods": [
+      "verify_nonce",
+      "verify_grant",
+      "verify_blocked_provenance",
+      "is_authorized"
+    ],
+    "authorization_order": [
+      "verify_nonce",
+      "verify_grant",
+      "verify_blocked_provenance"
+    ],
+    "authentication_boundary": "signature-authentication-precedes-nonce-witnessing",
+    "expiry_field": "expires_at",
+    "author_grant_exception": "same caller/callee key may be authorized without explicit capability grant"
+  },
+  "claim_ceiling": "ReferenceModelOnly",
+  "dependencies": {
+    "d6s_canon_1_manifest_path": "docs/integral/d6s-canon-1-manifest.json",
+    "d6s_canon_1_manifest_blob_sha": "53d88a67c48c8adbf783d1df290b3c591cd15566",
+    "d6s_canon_1_corpus_path": "docs/integral/d6s-canon-1-golden-vectors.json",
+    "d6s_canon_1_corpus_blob_sha": "5e359549623101fe5997d0cfe8c7acb9c50cd57b",
+    "d6s_canon_1_corpus_sha256": "9d61cdb2e625c13c5813fffb7cceea4af2f93ed60d7d64c068dc6d3f6f6b614d"
+  },
+  "ledger_schema": {
+    "terminal_gate_field": "terminal_gate",
+    "authority_state_field": "authority_state",
+    "gate_vocabulary": [
+      "wire-authentication",
+      "d6s-integrity",
+      "invocation-routing-or-binding",
+      "invocation-binding-or-authorization",
+      "capability-authorization",
+      "nonce-replay-protection",
+      "invocation-expiry",
+      "zome-semantic-validation"
+    ],
+    "authority_states": [
+      "unauthenticated",
+      "authenticated-not-authorized",
+      "not-authorized",
+      "authorized"
+    ]
+  },
+  "runtime_evidence": {
+    "status": "NotExecuted",
+    "harness_issue": 3851,
+    "required_substrate": {
+      "holochain": "0.7.0",
+      "hdk": "0.7.0",
+      "hdi": "0.8.0"
+    },
+    "required_fields": [
+      "source_commit",
+      "runtime_version",
+      "hdk_version",
+      "hdi_version",
+      "fixture_identity",
+      "call_authentication",
+      "d6s_commitment_result",
+      "invocation_binding_result",
+      "capability_result",
+      "nonce_result",
+      "expiry_result",
+      "zome_reached",
+      "semantic_result",
+      "claim_ceiling"
+    ],
+    "required_state_rule": "Runtime evidence may only report observed conductor results; ReferenceModelOnly cases must not be upgraded by template presence."
+  }
+}
