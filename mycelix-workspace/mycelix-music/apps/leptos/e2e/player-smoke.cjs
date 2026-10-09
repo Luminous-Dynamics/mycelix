@@ -95,6 +95,28 @@ async function main() {
 
     assert.equal(await page.locator('.player-title').innerText(), 'Decentralized Dreams');
 
+    // Exercise the real range input against finite media metadata. Dispatching
+    // input through the DOM keeps the test deterministic while still invoking
+    // the same handler as a user-driven slider interaction.
+    const seek = page.locator('.player-seek');
+    await page.waitForFunction(() => {
+      const slider = document.querySelector('.player-seek');
+      return slider && !slider.disabled && Number(slider.max) > 0;
+    }, null, { timeout: 10000 });
+    await seek.evaluate(element => {
+      element.value = '5';
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      return audio && audio.currentTime >= 4.5 && audio.currentTime < 7;
+    }, null, { timeout: 10000 });
+
+    // Repeat One must apply to natural track completion, not manual Next.
+    await page.getByRole('button', { name: 'Repeat off' }).click();
+    await page.getByRole('button', { name: 'Repeat all' }).click();
+    await page.getByRole('button', { name: 'Repeat one' }).click();
+
     // The first attempt for track two returns HTTP 503. The UI should settle
     // into its stopped/error state with the seek duration invalidated.
     await page.getByRole('button', { name: 'Next track' }).click();
@@ -124,11 +146,52 @@ async function main() {
     }, null, { timeout: 20000 });
     assert.ok((requestCounts.get('QmDemo2') || 0) >= 2, 'retry should request the failed media URL again');
 
-    // Clear must release the source and zero the physical element playhead,
-    // not merely reset the displayed reactive progress signal.
+    // Exercise the compact control layout and queue transitions at a mobile
+    // viewport instead of inferring responsiveness from CSS alone.
+    await page.setViewportSize({ width: 390, height: 844 });
+    const overflowingPlayerChildren = await page.locator('.player-bar').evaluate(element => {
+      const bounds = element.getBoundingClientRect();
+      return Array.from(element.querySelectorAll('button, input, .player-info, .player-timeline, .player-controls'))
+        .map(child => {
+          const rect = child.getBoundingClientRect();
+          return { tag: child.tagName, className: child.className, left: rect.left, right: rect.right };
+        })
+        .filter(rect => rect.right > bounds.right + 1 || rect.left < bounds.left - 1);
+    });
+    assert.deepEqual(overflowingPlayerChildren, [], 'mobile player controls must remain inside the player bar');
+
+    // Select the exact queue occurrence and then remove the current row. The
+    // next occurrence should become selected and begin playing, without a stale
+    // queue index or an orphaned audio source.
     await page.getByRole('button', { name: 'Toggle playback queue' }).click();
     const queueDialog = page.getByRole('dialog', { name: 'Playback queue' });
     await queueDialog.waitFor({ state: 'visible' });
+    assert.equal(await queueDialog.locator('.queue-item').count(), 3);
+
+    await queueDialog.getByRole('button', { name: 'Play Decentralized Dreams', exact: true }).click();
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      return audio
+        && audio.currentSrc === 'https://ipfs.io/ipfs/QmDemo1'
+        && !audio.paused
+        && audio.currentTime > 0;
+    }, null, { timeout: 20000 });
+
+    await queueDialog.getByRole('button', { name: 'Remove Decentralized Dreams', exact: true }).click();
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('audio');
+      const activeTitle = document.querySelector('.queue-item.current .queue-title');
+      return audio
+        && audio.currentSrc === 'https://ipfs.io/ipfs/QmDemo2'
+        && !audio.paused
+        && audio.currentTime > 0
+        && activeTitle
+        && activeTitle.textContent === 'Zero-Cost Serenade'
+        && document.querySelectorAll('.queue-panel .queue-item').length === 2;
+    }, null, { timeout: 20000 });
+
+    // Clear must release the source and zero the physical element playhead,
+    // not merely reset the displayed reactive progress signal.
     await queueDialog.getByRole('button', { name: 'Clear' }).click();
 
     await page.waitForFunction(() => {
@@ -152,8 +215,12 @@ async function main() {
       baseURL: BASE_URL,
       scenarios: [
         'catalog play selects and starts exact media URL',
+        'seek clamps and applies a finite target to the real media element',
+        'Repeat One does not block manual Next',
         'queue Next handles deterministic media failure',
         'explicit Play retries the same failed resource',
+        'mobile player controls stay within the viewport',
+        'queue selection and current-row removal preserve exact next source',
         'Clear releases src and resets actual currentTime',
       ],
       mediaRequests: Object.fromEntries(requestCounts),
