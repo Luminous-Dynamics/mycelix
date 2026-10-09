@@ -8,6 +8,7 @@ import io
 import json
 import sys
 import tempfile
+import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
@@ -150,6 +151,14 @@ def main() -> int:
         "mutations": [],
     }
     try:
+        receipt["source_head"] = subprocess.run(
+            ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
+            check=True, timeout=15,
+        ).stdout.strip()
+        receipt["aggregator_sha256"] = hashlib.sha256(
+            (HERE / "aggregate_auth_v20_evidence.py").read_bytes()
+        ).hexdigest()
+        receipt["test_sha256"] = hashlib.sha256(Path(__file__).resolve().read_bytes()).hexdigest()
         require(tuple(aggregator.REQUIRED_RECEIPTS) == FROZEN_REQUIRED_RECEIPTS,
                 "aggregator required receipt inventory differs from independently frozen inventory")
         with tempfile.TemporaryDirectory(prefix="mycelix-auth-v20-aggregate-") as temporary:
