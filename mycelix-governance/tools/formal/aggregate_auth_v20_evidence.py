@@ -165,6 +165,50 @@ def main() -> int:
             }
             receipt["receipts"].append(row)
 
+        aggregate_guard_path = "auth-v20-final-evidence/aggregate-mutation-guard.json"
+        aggregate_guard_file = args.evidence_root / aggregate_guard_path
+        require(aggregate_guard_file.is_file(),
+                "missing aggregator self-test receipt: " + aggregate_guard_path)
+        aggregate_guard_bytes = aggregate_guard_file.read_bytes()
+        try:
+            aggregate_guard = json.loads(aggregate_guard_bytes.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ValueError(f"{aggregate_guard_path}: invalid UTF-8 JSON: {error}") from error
+        require(isinstance(aggregate_guard, dict),
+                f"{aggregate_guard_path}: receipt must be a JSON object")
+        validate_receipt(aggregate_guard, "mycelix.auth-v20-aggregate-mutation-test.v1",
+                         args.expected_head, aggregate_guard_path)
+        expected_aggregate_guard_mutations = (
+            "missing-required-receipt", "wrong-source-head", "qualification-laundered",
+            "failed-receipt-hidden", "schema-downgraded", "corpus-count-weakened",
+            "matrix-mutation-count-weakened", "matrix-mutation-inventory-substituted",
+            "mutant-detection-count-weakened", "mutation-identity-substituted",
+            "duplicate-mutation-id", "compact-jws-mutant-count-weakened",
+            "missing-capability-receipt", "capability-mutant-count-weakened",
+            "expected-head-malformed",
+        )
+        aggregate_guard_mutations = aggregate_guard.get("mutations")
+        require(isinstance(aggregate_guard_mutations, list),
+                "aggregator self-test receipt has no mutation records")
+        require([row.get("id") for row in aggregate_guard_mutations if isinstance(row, dict)]
+                == list(expected_aggregate_guard_mutations),
+                "aggregator self-test mutation identities/order differ from frozen inventory")
+        require(all(row.get("rejected") is True for row in aggregate_guard_mutations),
+                "aggregator self-test did not reject every required evidence weakening")
+        aggregate_guard_summary = aggregate_guard.get("summary", {})
+        require(aggregate_guard_summary.get("mutations_attempted") == len(expected_aggregate_guard_mutations),
+                "aggregator self-test attempted a different mutation count")
+        require(aggregate_guard_summary.get("mutations_rejected") == len(expected_aggregate_guard_mutations),
+                "aggregator self-test did not reject all expected mutations")
+        receipt["receipts"].append({
+            "path": aggregate_guard_path,
+            "schema": aggregate_guard["schema"],
+            "status": aggregate_guard["status"],
+            "source_head": aggregate_guard["source_head"],
+            "qualification": aggregate_guard["qualification"],
+            "sha256": hashlib.sha256(aggregate_guard_bytes).hexdigest(),
+        })
+
         differential_path = "auth-v20-differential-evidence/receipt.json"
         differential_raw = json.loads((args.evidence_root / differential_path).read_text(encoding="utf-8"))
         require(differential_raw.get("ordered_pairs_expected") == 16384,
@@ -271,7 +315,9 @@ def main() -> int:
 
         receipt["status"] = "PASS_BOUNDED_RESEARCH_EVIDENCE"
         receipt["summary"] = {
-            "required_receipts": len(REQUIRED_RECEIPTS),
+            "required_specialist_receipts": len(REQUIRED_RECEIPTS),
+            "aggregate_self_test_receipt_included": True,
+            "total_receipts_hashed": len(receipt["receipts"]),
             "all_receipts_status_pass": True,
             "all_receipts_exact_head_match": True,
             "all_receipts_qualification_not_claimed": True,
@@ -293,7 +339,7 @@ def main() -> int:
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("EXACT-HEAD RECEIPT AGGREGATE PASS: 11 receipts, one source head")
+        print("EXACT-HEAD RECEIPT AGGREGATE PASS: 12 receipts (11 specialist + aggregator self-test), one source head")
         print("BOUNDED EVIDENCE ONLY: production qualification remains NOT_CLAIMED")
         return 0
     except Exception as error:
