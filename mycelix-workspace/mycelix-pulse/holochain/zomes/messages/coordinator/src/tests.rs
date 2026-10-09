@@ -169,6 +169,21 @@ mod tests {
         }
     }
 
+    mod mailbox_scope {
+        use super::*;
+
+        #[test]
+        fn only_message_sender_or_recipient_is_a_mailbox_participant() {
+            let sender = test_agent(1);
+            let recipient = test_agent(2);
+            let unrelated = test_agent(3);
+
+            assert!(is_mailbox_participant(&sender, &recipient, &sender));
+            assert!(is_mailbox_participant(&sender, &recipient, &recipient));
+            assert!(!is_mailbox_participant(&sender, &recipient, &unrelated));
+        }
+    }
+
     // ==================== SEND EMAIL TESTS ====================
 
     mod send_email {
