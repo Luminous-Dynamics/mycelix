@@ -265,7 +265,19 @@ def candidate_regular_file(
         and "\\" not in relative_path
     ), f"candidate path is not canonical relative path: {relative_path!r}"
 
+    assert candidate_root.is_absolute(), (
+        "candidate root must be an absolute path"
+    )
+    assert not candidate_root.is_symlink(), (
+        "candidate root is symlinked"
+    )
+    assert candidate_root.is_dir(), (
+        "candidate root is missing or not a directory"
+    )
     root = candidate_root.resolve(strict=True)
+    assert root == candidate_root, (
+        "candidate root is not a canonical absolute path"
+    )
     current = root
     for index, part in enumerate(relative.parts):
         current = current / part
@@ -296,8 +308,34 @@ def exercise_candidate_path_guard() -> None:
         outside_root = scratch_root / "outside"
         candidate_root.mkdir()
         outside_root.mkdir()
+        safe_file = candidate_root / "safe.py"
+        safe_file.write_text("trusted-looking bytes\n", encoding="utf-8")
         outside_file = outside_root / "program.py"
         outside_file.write_text("trusted-looking bytes\n", encoding="utf-8")
+
+        candidate_root_link = scratch_root / "candidate-root-link"
+        candidate_root_link.symlink_to(candidate_root, target_is_directory=True)
+        assert_rejected(
+            lambda: candidate_regular_file(
+                candidate_root_link, "safe.py", "candidate-root symlink fixture"
+            ),
+            "candidate root is symlinked",
+            "candidate path guard accepted a symlinked candidate root",
+        )
+
+        candidate_parent_link = scratch_root / "candidate-parent-link"
+        candidate_parent_link.symlink_to(scratch_root, target_is_directory=True)
+        aliased_candidate_root = candidate_parent_link / "candidate"
+        assert_rejected(
+            lambda: candidate_regular_file(
+                aliased_candidate_root,
+                "safe.py",
+                "candidate-root parent symlink fixture",
+            ),
+            "candidate root is not a canonical absolute path",
+            "candidate path guard accepted a root reached through a symlinked parent",
+        )
+
         (candidate_root / "scripts").symlink_to(
             outside_root, target_is_directory=True
         )
@@ -1868,7 +1906,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidate-root", required=True)
     args = parser.parse_args()
-    run(pathlib.Path(args.candidate_root).resolve())
+    run(pathlib.Path(args.candidate_root))
     return 0
 
 
