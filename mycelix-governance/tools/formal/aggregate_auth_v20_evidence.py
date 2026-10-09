@@ -98,6 +98,7 @@ EXPECTED_POP_CONTROL_IDS = (
     "fresh-pop-cannot-reuse-old-jti",
     "concurrent-pop-jti-race",
     "replay-store-unavailable-fails-closed",
+    "replay-store-unsafe-parent-fails-closed",
     "caller-supplied-clock-cannot-resurrect-expired-chain",
     "audience-optional-when-unconfigured-and-absent",
     "tampered-pop-signature",
@@ -497,8 +498,8 @@ def main() -> int:
         pop_summary = pop_result.get("summary", {})
         require(pop_summary.get("positive_controls") == 2,
                 "AAT PoP harness did not execute both positive invocation profiles")
-        require(pop_summary.get("negative_controls") == 23,
-                "AAT PoP harness did not execute all 23 denial/replay controls")
+        require(pop_summary.get("negative_controls") == 24,
+                "AAT PoP harness did not execute all 24 denial/replay controls")
         require(pop_summary.get("mutants_detected") == 4,
                 "AAT PoP harness did not detect all five omitted-check mutants")
         require(pop_summary.get("replay_jti_consumed") is True,
@@ -535,7 +536,7 @@ def main() -> int:
             "aat_capability_subsumption_controls": 34,
             "aat_capability_runtime_invocation_controls": 21,
             "aat_invocation_pop_mutants_detected": 5,
-            "aat_invocation_pop_negative_controls": 23,
+            "aat_invocation_pop_negative_controls": 24,
             "qualification": "NOT_CLAIMED",
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
