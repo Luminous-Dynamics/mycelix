@@ -57,6 +57,7 @@ REQUIRED_IDS = {
     "DA030-anchor-advances-before-prepare",
     "DA031-fork-evidence-tail-truncated",
     "DA032-fork-evidence-tail-pointer-tampered",
+    "DA033-fork-evidence-append-refuses-corrupt-tail",
 }
 
 
@@ -381,24 +382,28 @@ def evaluate(vector: dict[str, Any], accepted: dict[str, dict[str, Any]]) -> str
             )
         return "AnchorNotAhead"
 
-    if kind == "fork_evidence_tail_integrity":
+    if kind in {"fork_evidence_tail_integrity", "fork_evidence_append_after_corruption"}:
         chain = vector.get("stored_chain")
-        if not isinstance(chain, list) or not valid_fork_chain(chain):
-            return "CorruptForkEvidence"
-        if vector.get("stored_count") != len(chain):
-            return "CorruptForkEvidence"
-        if vector.get("metadata_count") != vector.get("stored_count"):
-            return "CorruptForkEvidence"
-        try:
-            tail = parse_digest(vector["metadata_tail_digest"], "metadata_tail_digest")
-            actual_tail = parse_digest(chain[-1]["digest"], "stored chain tail")
-        except (KeyError, IndexError, TypeError, ValueError):
-            return "CorruptForkEvidence"
-        if tail != actual_tail:
-            return "CorruptForkEvidence"
-        if "append_must_reject" in vector and vector["append_must_reject"] is not True:
-            return "InvalidInput"
-        return "VALID_FORK_EVIDENCE_TAIL"
+        corrupt = not isinstance(chain, list) or not valid_fork_chain(chain)
+        if not corrupt:
+            if vector.get("stored_count") != len(chain):
+                corrupt = True
+            elif vector.get("metadata_count") != vector.get("stored_count"):
+                corrupt = True
+            else:
+                try:
+                    tail = parse_digest(vector["metadata_tail_digest"], "metadata_tail_digest")
+                    actual_tail = parse_digest(chain[-1]["digest"], "stored chain tail")
+                    corrupt = tail != actual_tail
+                except (KeyError, IndexError, TypeError, ValueError):
+                    corrupt = True
+        if kind == "fork_evidence_tail_integrity":
+            return "CorruptForkEvidence" if corrupt else "VALID_FORK_EVIDENCE_TAIL"
+        if not corrupt:
+            return "VALID_FORK_EVIDENCE_TAIL"
+        if vector.get("rows_after_attempt") != vector.get("rows_before_append"):
+            return "ForkEvidenceAppendUnexpectedlyChangedState"
+        return "CorruptForkEvidence"
 
     if kind == "anchor_ahead_before_prepare":
         if (
