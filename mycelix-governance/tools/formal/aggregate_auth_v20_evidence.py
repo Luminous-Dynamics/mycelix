@@ -36,6 +36,8 @@ REQUIRED_RECEIPTS = (
      "mycelix.par-hash-differential-receipt.v1"),
     ("auth-v20-compact-jws-evidence/compact-jws-chain.json",
      "mycelix.compact-jws-aat-chain-differential-receipt.v1"),
+    ("auth-v20-capability-evidence/aat-capability-subsumption.json",
+     "mycelix.aat-capability-subsumption-differential-receipt.v1"),
 )
 
 
@@ -119,6 +121,7 @@ def main() -> int:
             "auth-v20-key-link-evidence/delegation-chain-key-linkage.json": 3,
             "auth-v20-par-hash-evidence/delegation-chain-par-hash.json": 3,
             "auth-v20-compact-jws-evidence/compact-jws-chain.json": 3,
+            "auth-v20-capability-evidence/aat-capability-subsumption.json": 4,
         }
         for relative_path, count in expected_mutants.items():
             data = json.loads((args.evidence_root / relative_path).read_text(encoding="utf-8"))
@@ -152,6 +155,17 @@ def main() -> int:
                 "compact-JWS harness did not verify both four-token and single-token positive chains")
         require(compact_jws.get("summary", {}).get("signatures_verified") == 5,
                 "compact-JWS harness did not verify all five positive-chain signatures")
+        capability_result = json.loads((args.evidence_root /
+            "auth-v20-capability-evidence/aat-capability-subsumption.json").read_text(encoding="utf-8"))
+        capability_summary = capability_result.get("summary", {})
+        require(capability_summary.get("constraint_subsumption_controls") == 34,
+                "AAT capability harness did not execute all 34 frozen subsumption controls")
+        require(capability_summary.get("malformed_or_bound_controls") == 9,
+                "AAT capability harness did not execute all 9 malformed/bounded controls")
+        require(capability_summary.get("capability_attenuation_controls") == 8,
+                "AAT capability harness did not execute all 8 capability attenuation controls")
+        require(capability_summary.get("runtime_and_invocation_controls") == 21,
+                "AAT capability harness did not execute all 21 runtime/invocation controls")
 
         receipt["status"] = "PASS_BOUNDED_RESEARCH_EVIDENCE"
         receipt["summary"] = {
@@ -170,11 +184,14 @@ def main() -> int:
             "jwk_linkage_mutants_detected": 3,
             "par_hash_mutants_detected": 3,
             "compact_jws_mutants_detected": 3,
+            "aat_capability_mutants_detected": 4,
+            "aat_capability_subsumption_controls": 34,
+            "aat_capability_runtime_invocation_controls": 21,
             "qualification": "NOT_CLAIMED",
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-        print("EXACT-HEAD RECEIPT AGGREGATE PASS: 10 receipts, one source head")
+        print("EXACT-HEAD RECEIPT AGGREGATE PASS: 11 receipts, one source head")
         print("BOUNDED EVIDENCE ONLY: production qualification remains NOT_CLAIMED")
         return 0
     except Exception as error:
