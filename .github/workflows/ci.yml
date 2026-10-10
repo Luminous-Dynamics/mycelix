@@ -460,6 +460,37 @@ jobs:
       - name: Build Energy zomes for Holochain WASM
         run: cd mycelix-energy && cargo build --workspace --target wasm32-unknown-unknown --release
 
+  # Informational until the ignored conductor tests have a stable baseline.
+  # The native workspace test does not include mycelix-energy/tests (excluded
+  # from the workspace); build the DNA explicitly and run the conductor suite.
+  test-energy-integration:
+    name: Energy Integration (SweetConductor)
+    needs: changes
+    if: needs.changes.outputs.energy == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+      - uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-energy
+            mycelix-energy/tests
+      - name: Build Energy zomes for Holochain WASM
+        run: cd mycelix-energy && nix develop .#ci --impure --command cargo build --release --target wasm32-unknown-unknown --workspace
+      - name: Pack Energy DNA
+        run: cd mycelix-energy && nix develop .#ci --impure --command hc dna pack dna/
+      - name: Run SweetConductor integration tests
+        run: cd mycelix-energy && nix develop .#ci --impure --command bash -c 'cd tests && cargo test --test sweettest_integration -- --include-ignored --test-threads=1'
+
   # Summary gate
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
@@ -479,6 +510,7 @@ jobs:
       - test-sdk
       - test-prism
       - test-energy
+      - test-energy-integration
     runs-on: ubuntu-latest
     steps:
       - name: Check results
@@ -500,6 +532,8 @@ jobs:
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
           echo "Energy: ${{ needs.test-energy.result }}"
+          # Informational until the SweetConductor suite is stable.
+          echo "Energy Integration (informational): ${{ needs.test-energy-integration.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
           for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-energy.result }}"; do
