@@ -28,6 +28,10 @@ struct OrderFixture {
     participant: &'static str,
     hub: &'static str,
     sku: &'static str,
+    /// Explicit per-record source identity, always synthetic in this preview.
+    source: &'static str,
+    /// Synthetic event/observation time; not wall-clock freshness evidence.
+    observed_at: &'static str,
     quantity: u32,
     operational: &'static str,
     evidence: &'static str,
@@ -85,11 +89,13 @@ fn order_matches(order: &OrderFixture, query: &str, filter: QueueFilter) -> bool
         QueueFilter::All => true,
     };
     let haystack = format!(
-        "{} {} {} {} {} {} {} {} {} {}",
+        "{} {} {} {} {} {} {} {} {} {} {} {}",
         order.id,
         order.participant,
         order.hub,
         order.sku,
+        order.source,
+        order.observed_at,
         order.operational,
         order.evidence,
         order.freshness,
@@ -109,6 +115,8 @@ const SAMPLE_ORDERS: [OrderFixture; 7] = [
         participant: "Co-op North",
         hub: "Hub East",
         sku: "SKU-0000",
+        source: "Synthetic inventory snapshot INV-HUB-EAST-SKU-0000@rev-7",
+        observed_at: "t=100 ms (synthetic)",
         quantity: 1,
         operational: "Unresolved conflict",
         evidence: "Conflicting reservation claims",
@@ -123,6 +131,8 @@ const SAMPLE_ORDERS: [OrderFixture; 7] = [
         participant: "Co-op River",
         hub: "Hub East",
         sku: "SKU-0000",
+        source: "Synthetic inventory snapshot INV-HUB-EAST-SKU-0000@rev-7",
+        observed_at: "t=100 ms (synthetic)",
         quantity: 1,
         operational: "Unresolved conflict",
         evidence: "Conflicting reservation claims",
@@ -137,6 +147,8 @@ const SAMPLE_ORDERS: [OrderFixture; 7] = [
         participant: "Community Store",
         hub: "Hub East",
         sku: "SKU-0000",
+        source: "Synthetic inventory snapshot INV-HUB-EAST-SKU-0000@rev-7",
+        observed_at: "t=100 ms (synthetic)",
         quantity: 1,
         operational: "Unresolved conflict",
         evidence: "Conflicting reservation claims",
@@ -151,6 +163,8 @@ const SAMPLE_ORDERS: [OrderFixture; 7] = [
         participant: "Co-op North",
         hub: "Hub South",
         sku: "SKU-0142",
+        source: "Synthetic inventory snapshot INV-HUB-SOUTH-SKU-0142@rev-12",
+        observed_at: "t=100 ms (synthetic)",
         quantity: 2,
         operational: "Awaiting authoritative recheck",
         evidence: "Reported claim; no effect receipt",
@@ -165,6 +179,8 @@ const SAMPLE_ORDERS: [OrderFixture; 7] = [
         participant: "Food Network West",
         hub: "Hub West",
         sku: "SKU-0831",
+        source: "Synthetic inventory snapshot INV-HUB-WEST-SKU-0831@rev-3",
+        observed_at: "t=100 ms (synthetic)",
         quantity: 2,
         operational: "Rejected",
         evidence: "Stale snapshot",
@@ -179,6 +195,8 @@ const SAMPLE_ORDERS: [OrderFixture; 7] = [
         participant: "Carrier / recipient handoff",
         hub: "Hub Central",
         sku: "Shipment SH-0021",
+        source: "Synthetic carrier delivery report SH-0021-E03",
+        observed_at: "t=118 ms (synthetic)",
         quantity: 1,
         operational: "Delivery reported",
         evidence: "Recipient acceptance missing",
@@ -193,6 +211,8 @@ const SAMPLE_ORDERS: [OrderFixture; 7] = [
         participant: "Co-op River",
         hub: "Hub North",
         sku: "SKU-0310",
+        source: "Synthetic idempotency record ALIAS-0110 -> PRIMARY-0110",
+        observed_at: "t=121 ms (synthetic)",
         quantity: 1,
         operational: "Duplicate alias",
         evidence: "Linked to an existing logical request",
@@ -396,7 +416,15 @@ pub fn LogisticsWorkspacePage() -> impl IntoView {
                                                 <strong>{order.evidence}</strong>
                                             </div>
                                             <div class="logistics-detail-cell">
-                                                <span class="logistics-detail-label">"Freshness / time basis"</span>
+                                                <span class="logistics-detail-label">"Source record"</span>
+                                                <strong>{order.source}</strong>
+                                            </div>
+                                            <div class="logistics-detail-cell">
+                                                <span class="logistics-detail-label">"Observed at (synthetic time)"</span>
+                                                <strong>{order.observed_at}</strong>
+                                            </div>
+                                            <div class="logistics-detail-cell">
+                                                <span class="logistics-detail-label">"Freshness / validity"</span>
                                                 <strong>{order.freshness}</strong>
                                             </div>
                                         </div>
@@ -574,6 +602,16 @@ mod tests {
             QueueFilter::All
         ));
         assert!(order_matches(&SAMPLE_ORDERS[0], "VALID THROUGH T=200 MS", QueueFilter::All));
+        assert!(order_matches(
+            &SAMPLE_ORDERS[0],
+            "INV-HUB-EAST-SKU-0000@REV-7",
+            QueueFilter::All
+        ));
+        assert!(order_matches(
+            &SAMPLE_ORDERS[5],
+            "T=118 MS (SYNTHETIC)",
+            QueueFilter::All
+        ));
         assert!(order_matches(&SAMPLE_ORDERS[3], "OFFLINE REQUEST", QueueFilter::All));
         assert!(order_matches(
             &SAMPLE_ORDERS[5],
@@ -603,6 +641,15 @@ mod tests {
             .collect::<std::collections::HashSet<_>>();
 
         assert_eq!(ids.len(), SAMPLE_ORDERS.len());
+    }
+
+    #[test]
+    fn every_fixture_has_explicit_source_observation_and_freshness() {
+        assert!(SAMPLE_ORDERS.iter().all(|order| order.source.starts_with("Synthetic ")));
+        assert!(SAMPLE_ORDERS
+            .iter()
+            .all(|order| order.observed_at.contains("t=") && order.observed_at.contains("(synthetic)")));
+        assert!(SAMPLE_ORDERS.iter().all(|order| !order.freshness.trim().is_empty()));
     }
 
     #[test]
