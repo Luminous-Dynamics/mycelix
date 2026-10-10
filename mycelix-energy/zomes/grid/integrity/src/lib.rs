@@ -262,7 +262,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             result_from_validation_error(grid_link_delete_validation_error(&link_type))
         },
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        // Grid records are append-only. Domain lifecycle changes must use
+        // validated updates or attestations; deletion is a DHT tombstone, not
+        // a safe substitute for a state transition.
+        FlatOp::RegisterDelete(_) => {
+            result_from_validation_error(grid_entry_delete_validation_error())
+        },
     }
 }
 
@@ -278,6 +283,13 @@ fn energy_anchor_hash(value: &str) -> AnyLinkableHash {
 fn offer_day_bucket(timestamp: Timestamp) -> i64 {
     const MICROS_PER_DAY: i64 = 86_400 * 1_000_000;
     timestamp.as_micros().div_euclid(MICROS_PER_DAY)
+}
+
+/// Domain records remain append-only so production, consumption, trade
+/// history, and offers cannot disappear via entry tombstones. Use a validated
+/// state transition (or future signed attestation) to represent lifecycle changes.
+fn grid_entry_delete_validation_error() -> Option<&'static str> {
+    Some("Grid records are append-only; use validated domain transitions instead of deleting entries")
 }
 
 /// Grid indexes cannot be tombstoned until the app has explicit,
@@ -1289,6 +1301,16 @@ mod strict_validation_regression_tests {
         assert_eq!(
             production_validation_error(&production),
             Some("New production records cannot claim verified status")
+        );
+    }
+
+    #[test]
+    fn grid_entry_deletions_fail_closed() {
+        assert_eq!(
+            grid_entry_delete_validation_error(),
+            Some(
+                "Grid records are append-only; use validated domain transitions instead of deleting entries"
+            )
         );
     }
 
