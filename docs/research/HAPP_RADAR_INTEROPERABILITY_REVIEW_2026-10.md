@@ -209,15 +209,15 @@ Sources:
 
 ## Follow-up qualification snapshot — 2026-10-10, refreshed after workflow-path hardening
 
-The latest inspected AC-176 source SHA is `86cdb4c08f81639224c63165c5625757805fa657`. [PR #4520](https://github.com/Luminous-Dynamics/mycelix/pull/4520) and qualification-only [PR #4521](https://github.com/Luminous-Dynamics/mycelix/pull/4521) point to this exact SHA. The mirror was advanced with a guarded fast-forward, not a force update.
+The latest inspected AC-176 source SHA is `f61907259eaf6482da713dc3fae39a156e145e6f`. [PR #4520](https://github.com/Luminous-Dynamics/mycelix/pull/4520) and qualification-only [PR #4521](https://github.com/Luminous-Dynamics/mycelix/pull/4521) point to this exact SHA. The mirror was advanced with a guarded fast-forward, not a force update.
 
 ### What is now locally exercised
 
 - The caller audit checks the raw-credit ABI in both Payments coordinator projections and scans external coordinator files for the exact normal/raw Rust string literal `"credit_sap"`, independent of constructor spelling.
 - The scan deliberately errs toward false positives (for example, a quoted literal in a source comment gets reported for review); it does not detect names dynamically assembled at runtime. This is a static gate, not an AST-level proof.
-- The regression suite now has **17 cases**. The first 16 cover ABI visibility, outer attributes/comments, literal/constructor spellings, full-audit fail-closed behavior, clean/private success, known-caller detection and canonical/workspace drift. The 17th tests the CI workflow policy so the audit runs for canonical Finance, workspace Finance, changes to its own script/tests, and changes to the workflow itself, and that its failure propagates through `ci-pass`.
-- A reconstructed local harness previously passed the 16 audit cases. The new 17th workflow-policy test was just added. A focused local fixture exercising its path-filter, job-condition, `ci-pass` dependency and failure-propagation assertions passed; the checked-in 17-test suite has **not yet been run against a full local repository checkout**, so no 17/17 result is claimed.
-- A separate exact-subject census fetched all **18 non-Payments Finance coordinator Rust files** from the source tree at SHA `2b7283a0b098a0c519b4e91f2663b55e76df0119`. It found exactly four external raw-credit literals, at `currency-mint/coordinator/src/lib.rs:179`, `bridge/coordinator/src/lib.rs:663`, `bridge/coordinator/src/lib.rs:2417`, and `staking/coordinator/src/lib.rs:379`; no extra literal-form callers. Subsequent source changes affected only audit/test/CI files, not those callers. Matching canonical/workspace coordinator blob SHAs were identical.
+- The regression suite now has **18 cases**. The first 17 cover ABI visibility, outer attributes/comments, literal/constructor spellings, full-audit fail-closed behavior, clean/private success, known-caller detection, canonical/workspace caller drift, and the CI trigger/required-gate policy. The 18th checks that non-caller content drift anywhere under the two Finance `zomes/` trees fails closed.
+- A reconstructed local harness passed 16 audit cases before the 17th workflow-policy and 18th projection-parity cases were added; that is historical evidence, not a pass for the current suite. A focused local fixture exercised the workflow path-filter/job-condition/`ci-pass` assertions. A separate focused local fixture exercised byte-identical projection success, content-drift rejection, and symlink rejection. The checked-in 18-test suite has **not yet been run against a full local repository checkout**, so no 18/18 result is claimed.
+- A separate exact-subject census fetched all **18 non-Payments Finance coordinator Rust files** from the source tree at SHA `2b7283a0b098a0c519b4e91f2663b55e76df0119`. It found exactly four external raw-credit literals, at `currency-mint/coordinator/src/lib.rs:179`, `bridge/coordinator/src/lib.rs:663`, `bridge/coordinator/src/lib.rs:2417`, and `staking/coordinator/src/lib.rs:379`; no extra literal-form callers. Subsequent source changes affected only audit/test/CI files, not those callers. At exact source head `f61907259eaf6482da713dc3fae39a156e145e6f`, the recursive Git tree reports 57 files under each Finance `zomes/` root and all 57 corresponding Git blob SHAs match. The audit now enforces byte-for-byte equality across this full file inventory, not only coordinator caller-inventory parity.
 
 ### CI process improvement
 
@@ -227,19 +227,19 @@ The raw-credit audit no longer reuses the broad Finance test job's `finance` pat
 - the audit Python script and its regression suite;
 - `.github/workflows/ci.yml`.
 
-The audit job condition uses this dedicated output (and still runs on branch pushes); `ci-pass` already has it in `needs` and fails if the audit job fails. This closes a process gap where a workspace-only or audit-only change could otherwise skip the gate. A regression test has been added for this policy, but that newest test still needs local execution on a checkout to become test evidence.
+The audit job condition uses this dedicated output (and still runs on branch pushes); `ci-pass` already has it in `needs` and fails if the audit job fails. This closes a process gap where a workspace-only or audit-only change could otherwise skip the gate. A focused local fixture exercising the policy assertions passed. The 18th test protects full Finance zome projection parity; focused fixtures exercised equality, content drift and symlink rejection. The checked-in 18-test suite still needs execution on a full checkout before any suite-wide pass claim.
 
 ### Exact-head workflow state
 
 For exact SHA `86cdb4c08f81639224c63165c5625757805fa657`, direct GitHub Actions API records show the three PR-triggered runs, all **queued**:
 
-- Mycelix CI: run `38083243791`
-- Finance Exact-Head Qualification: run `38083243794`
-- D6S canonical qualification: run `38083243918`
+- Mycelix CI: run `38090495461`
+- Finance Exact-Head Qualification: run `38090495451`
+- D6S canonical qualification: run `38090495467`
 
 Queued is not PASS and there were no executed steps shown at the last query.
 
-Two D6U runtime-executor runs on the same SHA (`38083240469` and `38083233846`) show workflow conclusion `failure`, but the Actions Jobs API returned `total_count=0` for both. They expose no steps, test logs, or artifacts, and do not demonstrate a Rust/test failure or runtime execution. The mismatch between these `event=push` records on the AC-176 branch and the configured D6U `workflow_run` branch filter is tracked separately in [CI-OPS-002 / #4948](https://github.com/Luminous-Dynamics/mycelix/issues/4948).
+Two D6U runtime-executor runs on the same SHA (`38090492007` and `38090460642`) show workflow conclusion `failure`, but the Actions Jobs API returned `total_count=0` for both. They expose no steps, test logs, or artifacts, and do not demonstrate a Rust/test failure or runtime execution. The mismatch between these `event=push` records on the AC-176 branch and the configured D6U `workflow_run` branch filter is tracked separately in [CI-OPS-002 / #4948](https://github.com/Luminous-Dynamics/mycelix/issues/4948).
 
 [CI-OPS-001 / #697](https://github.com/Luminous-Dynamics/mycelix/issues/697) remains the distinct runner-assignment blocker: new ordinary hosted-runner jobs remain queued before steps. The public GitHub Status page was operational at the last check; that does not rule out repository/account/org policy, spending/quota restrictions or a stuck queue. Inspect Actions settings/usage and UI error banners, and escalate representative IDs to GitHub Support if settings are clean.
 
