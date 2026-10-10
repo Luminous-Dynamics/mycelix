@@ -15,6 +15,7 @@ pub enum ProviderIdempotencyContract {
     /// the specified Unix epoch second. The caller must validate this contract
     /// against the provider's current documented/contractual behavior.
     SameKeySameRequest {
+        provider_profile_digest: String,
         idempotency_key: String,
         request_digest: String,
         guaranteed_until_unix_seconds: u64,
@@ -25,20 +26,25 @@ pub enum ProviderIdempotencyContract {
 pub enum ProviderObservation {
     /// The provider has authoritatively established that this request applied.
     Applied {
+        provider_profile_digest: String,
         request_digest: String,
         receipt_digest: String,
+        evidence_digest: String,
     },
     /// The provider has authoritatively established no effect was applied.
     /// no_in_flight_attempt must only be true when the provider's evidence
     /// rules out a previous request still executing asynchronously.
     DefinitelyNotApplied {
+        provider_profile_digest: String,
         request_digest: String,
         evidence_digest: String,
         observed_at_unix_seconds: u64,
         no_in_flight_attempt: bool,
     },
     /// The query could not distinguish applied from not applied.
-    Unknown,
+    Unknown {
+        provider_profile_digest: String,
+    },
     /// Provider records disagree or evidence conflicts with the operation.
     ConflictingEvidence,
 }
@@ -46,7 +52,10 @@ pub enum ProviderObservation {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RecoveryAction {
     /// Persist/verify this receipt before advancing the local operation.
-    AcknowledgeReceipt { receipt_digest: String },
+    AcknowledgeReceipt {
+        receipt_digest: String,
+        evidence_digest: String,
+    },
     /// Retry only with this original key and the identical request payload.
     RetryWithSameKey { idempotency_key: String },
     /// The caller has evidence of no effect and no in-flight request. A new
@@ -67,12 +76,18 @@ pub enum RecoveryAction {
 /// only enforces the policy over the facts supplied by a separately verified
 /// adapter.
 pub fn decide_recovery(
+    expected_provider_profile_digest: &str,
     expected_request_digest: &str,
     observation: &ProviderObservation,
     idempotency: &ProviderIdempotencyContract,
     now_unix_seconds: u64,
     max_no_effect_observation_age_seconds: u64,
 ) -> RecoveryAction {
+    if validate_digest(expected_provider_profile_digest).is_err() {
+        return RecoveryAction::Quarantine {
+            reason: "expected provider-profile digest is not canonical",
+        };
+    }
     if validate_digest(expected_request_digest).is_err() {
         return RecoveryAction::Quarantine {
             reason: "expected request digest is not canonical",
@@ -81,9 +96,16 @@ pub fn decide_recovery(
 
     match observation {
         ProviderObservation::Applied {
+            provider_profile_digest,
             request_digest,
             receipt_digest,
+            evidence_digest,
         } => {
+            if provider_profile_digest != expected_provider_profile_digest {
+                return RecoveryAction::Quarantine {
+                    reason: "provider applied record is bound to a different provider profile",
+                };
+            }
             if request_digest != expected_request_digest {
                 return RecoveryAction::Quarantine {
                     reason: "provider applied record is bound to a different request",
@@ -94,16 +116,28 @@ pub fn decide_recovery(
                     reason: "provider receipt digest is not canonical",
                 };
             }
+            if validate_digest(evidence_digest).is_err() {
+                return RecoveryAction::Quarantine {
+                    reason: "provider evidence digest is not canonical",
+                };
+            }
             RecoveryAction::AcknowledgeReceipt {
                 receipt_digest: receipt_digest.clone(),
+                evidence_digest: evidence_digest.clone(),
             }
         }
         ProviderObservation::DefinitelyNotApplied {
+            provider_profile_digest,
             request_digest,
             evidence_digest,
             observed_at_unix_seconds,
             no_in_flight_attempt,
         } => {
+            if provider_profile_digest != expected_provider_profile_digest {
+                return RecoveryAction::Quarantine {
+                    reason: "no-effect evidence is bound to a different provider profile",
+                };
+            }
             if request_digest != expected_request_digest {
                 return RecoveryAction::Quarantine {
                     reason: "no-effect evidence is bound to a different request",
@@ -134,6 +168,7 @@ pub fn decide_recovery(
 
             match usable_idempotency_key(
                 idempotency,
+                expected_provider_profile_digest,
                 expected_request_digest,
                 now_unix_seconds,
             ) {
@@ -149,9 +184,15 @@ pub fn decide_recovery(
                 Err(reason) => RecoveryAction::Quarantine { reason },
             }
         }
-        ProviderObservation::Unknown => {
+        ProviderObservation::Unknown { provider_profile_digest } => {
+            if provider_profile_digest != expected_provider_profile_digest {
+                return RecoveryAction::Quarantine {
+                    reason: "unknown-outcome observation is bound to a different provider profile",
+                };
+            }
             match usable_idempotency_key(
                 idempotency,
+                expected_provider_profile_digest,
                 expected_request_digest,
                 now_unix_seconds,
             ) {
@@ -174,16 +215,24 @@ pub fn decide_recovery(
 /// Ok(None) means no live guarantee; Err means malformed or misbound data.
 fn usable_idempotency_key<'a>(
     contract: &'a ProviderIdempotencyContract,
+    expected_provider_profile_digest: &str,
     expected_request_digest: &str,
     now_unix_seconds: u64,
 ) -> Result<Option<&'a str>, &'static str> {
     match contract {
         ProviderIdempotencyContract::Unsupported => Ok(None),
         ProviderIdempotencyContract::SameKeySameRequest {
+            provider_profile_digest,
             idempotency_key,
             request_digest,
             guaranteed_until_unix_seconds,
         } => {
+            if validate_digest(provider_profile_digest).is_err() {
+                return Err("provider contract profile digest is not canonical");
+            }
+            if provider_profile_digest != expected_provider_profile_digest {
+                return Err("provider idempotency contract is bound to a different provider profile");
+            }
             if idempotency_key.trim().is_empty() {
                 return Err("provider idempotency key is empty");
             }
@@ -219,6 +268,10 @@ fn validate_digest(digest: &str) -> Result<(), ()> {
 mod tests {
     use super::*;
 
+    const PROVIDER_A: &str =
+        "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    const PROVIDER_B: &str =
+        "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
     const REQUEST_A: &str =
         "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const REQUEST_B: &str =
@@ -231,6 +284,7 @@ mod tests {
 
     fn live_contract() -> ProviderIdempotencyContract {
         ProviderIdempotencyContract::SameKeySameRequest {
+            provider_profile_digest: PROVIDER_A.to_owned(),
             idempotency_key: "effect-key-1".to_owned(),
             request_digest: REQUEST_A.to_owned(),
             guaranteed_until_unix_seconds: NOW + 100,
@@ -238,17 +292,22 @@ mod tests {
     }
 
     fn unknown() -> ProviderObservation {
-        ProviderObservation::Unknown
+        ProviderObservation::Unknown {
+            provider_profile_digest: PROVIDER_A.to_owned(),
+        }
     }
 
     #[test]
     fn applied_matching_request_returns_exact_receipt_for_acknowledgement() {
         assert_eq!(
             decide_recovery(
+                PROVIDER_A,
                 REQUEST_A,
                 &ProviderObservation::Applied {
+                    provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
                     receipt_digest: RECEIPT_A.to_owned(),
+                    evidence_digest: EVIDENCE_A.to_owned(),
                 },
                 &ProviderIdempotencyContract::Unsupported,
                 NOW,
@@ -256,6 +315,7 @@ mod tests {
             ),
             RecoveryAction::AcknowledgeReceipt {
                 receipt_digest: RECEIPT_A.to_owned(),
+                evidence_digest: EVIDENCE_A.to_owned(),
             },
         );
     }
@@ -264,10 +324,13 @@ mod tests {
     fn applied_record_for_different_request_is_quarantined() {
         assert_eq!(
             decide_recovery(
+                PROVIDER_A,
                 REQUEST_A,
                 &ProviderObservation::Applied {
+                    provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_B.to_owned(),
                     receipt_digest: RECEIPT_A.to_owned(),
+                    evidence_digest: EVIDENCE_A.to_owned(),
                 },
                 &ProviderIdempotencyContract::Unsupported,
                 NOW,
@@ -283,10 +346,13 @@ mod tests {
     fn malformed_receipt_digest_is_quarantined() {
         assert!(matches!(
             decide_recovery(
+                PROVIDER_A,
                 REQUEST_A,
                 &ProviderObservation::Applied {
+                    provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
                     receipt_digest: "sha256:BAD".to_owned(),
+                    evidence_digest: EVIDENCE_A.to_owned(),
                 },
                 &ProviderIdempotencyContract::Unsupported,
                 NOW,
@@ -299,7 +365,7 @@ mod tests {
     #[test]
     fn unknown_outcome_can_retry_only_with_same_live_key_and_request() {
         assert_eq!(
-            decide_recovery(REQUEST_A, &unknown(), &live_contract(), NOW, 30),
+            decide_recovery(PROVIDER_A, REQUEST_A, &unknown(), &live_contract(), NOW, 30),
             RecoveryAction::RetryWithSameKey {
                 idempotency_key: "effect-key-1".to_owned(),
             },
@@ -309,12 +375,13 @@ mod tests {
     #[test]
     fn idempotency_guarantee_is_expired_at_exact_deadline() {
         let contract = ProviderIdempotencyContract::SameKeySameRequest {
+            provider_profile_digest: PROVIDER_A.to_owned(),
             idempotency_key: "effect-key-1".to_owned(),
             request_digest: REQUEST_A.to_owned(),
             guaranteed_until_unix_seconds: NOW,
         };
         assert!(matches!(
-            decide_recovery(REQUEST_A, &unknown(), &contract, NOW, 30),
+            decide_recovery(PROVIDER_A, REQUEST_A, &unknown(), &contract, NOW, 30),
             RecoveryAction::RemainIndeterminate { .. },
         ));
     }
@@ -322,12 +389,13 @@ mod tests {
     #[test]
     fn unknown_outcome_never_uses_a_key_bound_to_another_request() {
         let contract = ProviderIdempotencyContract::SameKeySameRequest {
+            provider_profile_digest: PROVIDER_A.to_owned(),
             idempotency_key: "old-request-key".to_owned(),
             request_digest: REQUEST_B.to_owned(),
             guaranteed_until_unix_seconds: NOW + 100,
         };
         assert!(matches!(
-            decide_recovery(REQUEST_A, &unknown(), &contract, NOW, 30),
+            decide_recovery(PROVIDER_A, REQUEST_A, &unknown(), &contract, NOW, 30),
             RecoveryAction::Quarantine { .. },
         ));
     }
@@ -336,14 +404,17 @@ mod tests {
     fn fresh_definitive_no_effect_evidence_allows_new_key_after_expiry() {
         assert_eq!(
             decide_recovery(
+                PROVIDER_A,
                 REQUEST_A,
                 &ProviderObservation::DefinitelyNotApplied {
+                    provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
                     evidence_digest: EVIDENCE_A.to_owned(),
                     observed_at_unix_seconds: NOW - 5,
                     no_in_flight_attempt: true,
                 },
                 &ProviderIdempotencyContract::SameKeySameRequest {
+                    provider_profile_digest: PROVIDER_A.to_owned(),
                     idempotency_key: "effect-key-1".to_owned(),
                     request_digest: REQUEST_A.to_owned(),
                     guaranteed_until_unix_seconds: NOW,
@@ -361,8 +432,10 @@ mod tests {
     fn stale_no_effect_evidence_does_not_authorize_retry() {
         assert!(matches!(
             decide_recovery(
+                PROVIDER_A,
                 REQUEST_A,
                 &ProviderObservation::DefinitelyNotApplied {
+                    provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
                     evidence_digest: EVIDENCE_A.to_owned(),
                     observed_at_unix_seconds: NOW - 31,
@@ -380,8 +453,10 @@ mod tests {
     fn possible_in_flight_request_does_not_authorize_fresh_key() {
         assert!(matches!(
             decide_recovery(
+                PROVIDER_A,
                 REQUEST_A,
                 &ProviderObservation::DefinitelyNotApplied {
+                    provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
                     evidence_digest: EVIDENCE_A.to_owned(),
                     observed_at_unix_seconds: NOW - 1,
@@ -399,8 +474,10 @@ mod tests {
     fn future_observation_timestamp_does_not_authorize_retry() {
         assert!(matches!(
             decide_recovery(
+                PROVIDER_A,
                 REQUEST_A,
                 &ProviderObservation::DefinitelyNotApplied {
+                    provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
                     evidence_digest: EVIDENCE_A.to_owned(),
                     observed_at_unix_seconds: NOW + 1,
@@ -418,8 +495,10 @@ mod tests {
     fn misbound_no_effect_evidence_is_quarantined() {
         assert!(matches!(
             decide_recovery(
+                PROVIDER_A,
                 REQUEST_A,
                 &ProviderObservation::DefinitelyNotApplied {
+                    provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_B.to_owned(),
                     evidence_digest: EVIDENCE_A.to_owned(),
                     observed_at_unix_seconds: NOW - 1,
@@ -437,6 +516,7 @@ mod tests {
     fn conflicting_provider_evidence_is_quarantined() {
         assert!(matches!(
             decide_recovery(
+                PROVIDER_A,
                 REQUEST_A,
                 &ProviderObservation::ConflictingEvidence,
                 &live_contract(),
@@ -451,6 +531,7 @@ mod tests {
     fn invalid_expected_request_digest_is_quarantined() {
         assert!(matches!(
             decide_recovery(
+                PROVIDER_A,
                 "not-a-digest",
                 &unknown(),
                 &live_contract(),
@@ -464,12 +545,13 @@ mod tests {
     #[test]
     fn malformed_idempotency_key_is_quarantined_instead_of_retried() {
         let contract = ProviderIdempotencyContract::SameKeySameRequest {
+            provider_profile_digest: PROVIDER_A.to_owned(),
             idempotency_key: " ".to_owned(),
             request_digest: REQUEST_A.to_owned(),
             guaranteed_until_unix_seconds: NOW + 100,
         };
         assert!(matches!(
-            decide_recovery(REQUEST_A, &unknown(), &contract, NOW, 30),
+            decide_recovery(PROVIDER_A, REQUEST_A, &unknown(), &contract, NOW, 30),
             RecoveryAction::Quarantine { .. },
         ));
     }
