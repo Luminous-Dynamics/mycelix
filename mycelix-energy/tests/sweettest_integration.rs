@@ -385,6 +385,12 @@ fn dna_path() -> PathBuf {
         .join("mycelix_energy.dna")
 }
 
+/// Canonical identity string expected by the grid integrity zome for this
+/// Sweettest cell. Avoid placeholder DIDs: the author key is part of the rule.
+fn did_for_cell(cell: &SweetCell) -> String {
+    format!("did:mycelix:{}", cell.agent_pubkey())
+}
+
 async fn load_dna() -> DnaFile {
     SweetDnaFile::from_bundle(&dna_path())
         .await
@@ -532,10 +538,12 @@ mod grid_tests {
         let cell = app.cells()[0].clone();
 
         let now = Timestamp::now();
+        let later = Timestamp::from_micros(now.as_micros() + 86_400_000_000);
+        let producer_did = did_for_cell(&cell);
 
         // Record production
         let prod_input = RecordProductionInput {
-            producer_did: "did:mycelix:producer".to_string(),
+            producer_did: producer_did.clone(),
             project_id: "proj:solar-1".to_string(),
             amount_kwh: 5000.0,
             period_hours: 24.0,
@@ -551,13 +559,13 @@ mod grid_tests {
 
         // Create trade offer
         let offer_input = CreateOfferInput {
-            seller_did: "did:mycelix:producer".to_string(),
+            seller_did: producer_did,
             project_id: Some("proj:solar-1".to_string()),
             amount_kwh: 2000.0,
             price_per_kwh: 0.08,
             currency: "USD".to_string(),
             available_from: now,
-            available_until: now,
+            available_until: later,
         };
 
         let offer_record: Record = conductor
@@ -1093,21 +1101,22 @@ mod cross_zome_tests {
         assert_eq!(summary.unique_projects, 2, "Should span 2 projects");
     }
 
-    /// Trade offer lifecycle: create → partial fill → query
+    /// Integrity binds the buyer DID to the action author. Until the
+    /// append-only cross-agent offer/fill protocol tracked in mycelix#4940 is
+    /// implemented, a same-agent test must not pretend a placeholder buyer DID
+    /// proves a second participant's identity.
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
-    async fn test_trade_offer_partial_fill() {
+    async fn test_execute_trade_rejects_forged_buyer_identity() {
         let mut conductor = SweetConductor::from_standard_config().await;
         let dna = load_dna().await;
         let app = conductor.setup_app("test-app", &[dna]).await.unwrap();
         let cell = app.cells()[0].clone();
 
-        // Create offer
         let now = Timestamp::now();
-        let later = Timestamp::from_micros(now.as_micros() + 86_400_000_000); // +24h
-
+        let later = Timestamp::from_micros(now.as_micros() + 86_400_000_000);
         let offer_input = CreateOfferInput {
-            seller_did: "did:mycelix:seller".to_string(),
+            seller_did: did_for_cell(&cell),
             project_id: None,
             amount_kwh: 1000.0,
             price_per_kwh: 0.12,
@@ -1115,31 +1124,22 @@ mod cross_zome_tests {
             available_from: now,
             available_until: later,
         };
-
         let offer_record: Record = conductor
             .call(&cell.zome("grid"), "create_trade_offer", offer_input)
             .await;
         let offer: TradeOffer = decode_entry(&offer_record).expect("decode offer");
-        assert!(matches!(offer.status, OfferStatus::Active));
 
-        // Partial fill (buy 400 of 1000 kWh)
         let trade_input = ExecuteTradeInput {
-            offer_id: offer.id.clone(),
-            buyer_did: "did:mycelix:buyer-1".to_string(),
+            offer_id: offer.id,
+            buyer_did: "did:mycelix:forged-buyer".to_string(),
             amount_kwh: 400.0,
         };
-
-        let _: Record = conductor
-            .call(&cell.zome("grid"), "execute_trade", trade_input)
-            .await;
-
-        // Query active offers — should still show (partially filled)
-        let active: Vec<Record> = conductor
-            .call(&cell.zome("grid"), "get_active_offers", ())
+        let result: Result<Record, _> = conductor
+            .call_fallible(&cell.zome("grid"), "execute_trade", trade_input)
             .await;
         assert!(
-            !active.is_empty(),
-            "Partially filled offer should still be listed"
+            result.is_err(),
+            "a caller must not transact under a buyer DID that is not its agent key"
         );
     }
 
@@ -1161,7 +1161,7 @@ mod cross_zome_tests {
         let later = Timestamp::from_micros(now.as_micros() + 86_400_000_000);
 
         let offer_input = CreateOfferInput {
-            seller_did: "did:mycelix:shard-seller".to_string(),
+            seller_did: did_for_cell(&cell),
             project_id: None,
             amount_kwh: 500.0,
             price_per_kwh: 0.10,
@@ -1205,7 +1205,7 @@ mod cross_zome_tests {
         let expired_at = Timestamp::from_micros(now.as_micros() - 86_400_000_000);
 
         let offer_input = CreateOfferInput {
-            seller_did: "did:mycelix:expired-seller".to_string(),
+            seller_did: did_for_cell(&cell),
             project_id: None,
             amount_kwh: 300.0,
             price_per_kwh: 0.09,
