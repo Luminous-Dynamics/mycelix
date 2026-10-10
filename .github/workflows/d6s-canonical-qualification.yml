@@ -59,17 +59,16 @@ jobs:
       - name: Assert resolved reference-test dependency graph
         run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
 
-      # D6S qualification is scoped to the D6S reference contracts. The
-      # broader COS workspace contains unrelated suites whose baseline state
-      # must not gate this specific reference qualification.
-      - name: Run D6S canonical integration suites
+      # Run the actual checked-in adversarial conformance target. D6S-specific
+      # claims remain bound to the dedicated independent verifier scripts below;
+      # do not name test targets that do not exist in cos_conformance.
+      - name: Run canonical adversarial conformance suite
         run: >-
           cargo test
           --manifest-path mycelix-manufacturing/Cargo.toml
           --locked
           -p cos_conformance
-          --test d6s_canon_1_golden_vectors
-          --test d6s_canon_2_authority_boundary
+          --test integral_five_system_adversarial
 
       - name: Run independent D6S-CANON-1 verifier
         run: python3 scripts/integral/verify_d6s_canon_1.py
