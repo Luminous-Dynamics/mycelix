@@ -560,7 +560,6 @@ fn replay<R: BufRead>(reader: &mut R) -> Result<HashMap<String, JournalEntry>, J
                     line: line_no, reason: "invalid record shape or version"
                 }),
             };
-            };
         if encoded_id.len() > MAX_EFFECT_ID_BYTES * 2 {
             return Err(JournalError::CorruptJournal {
                 line: line_no, reason: "effect id exceeds maximum size"
