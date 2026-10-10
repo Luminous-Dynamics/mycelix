@@ -11,9 +11,9 @@ This plan applies to `mldsa65_verify::verify_with_empty_context` under the narro
 | Provider candidate | `ml-dsa = 0.1.1`, as present in `mycelix-identity/Cargo.lock` | Candidate implementation under test |
 | Independent verifier candidate | `libcrux-ml-dsa = 0.0.11`, upstream commit `42d68bd49b244b09bd02626c6ffa95e54dc64f91` | Test-only differential oracle; never a production dependency for this PR |
 | Wycheproof source snapshot | `C2SP/wycheproof` commit `12fd3aaf33eb5fa1f52e026912ee00c054f9d984` | Independent positive/negative verification corpus |
-| Wycheproof ML-DSA-65 file | `testvectors_v1/mldsa_65_verify_test.json`, Git blob SHA-1 `049f74be9785af926623e56530ab3aa9384179e8` | Source identity only; **not** a SHA-256 digest |
+| Vendored Wycheproof ML-DSA-65 file | `tests/data/mldsa_65_verify_test.json`; Git blob SHA-1 `049f74be9785af926623e56530ab3aa9384179e8`; SHA-256 `49ac366d76115eab56b7116f10d06e288e6f23fe6cfb90b26bfb2d731a8d1e02` | Immutable, byte-pinned verification corpus |
 
-The Wycheproof file's SHA-256 is not yet recorded in a checked-in corpus lock. This is a deliberate open gate: compute SHA-256 from the actual bytes checked into the qualification fixture and store it before calling any corpus run reproducible. Do not substitute the Git blob SHA-1 for SHA-256. The source snapshot commit is immutable, but the digest of our exact fixture is still required.
+The corpus is vendored unmodified at `mycelix-identity/crates/mycelix-crypto/tests/data/mldsa_65_verify_test.json`. Its SHA-256 was computed over the exact UTF-8 file bytes: `49ac366d76115eab56b7116f10d06e288e6f23fe6cfb90b26bfb2d731a8d1e02` (1,664,194 bytes). The Git blob SHA-1 was independently recomputed with Git's `blob <size>\\0<bytes>` framing and matches `049f74be9785af926623e56530ab3aa9384179e8`, confirming source-byte identity. The committed Rust integration target recomputes the SHA-256 before running the cases. Provenance and the upstream Apache-2.0 license are adjacent to the fixture in `tests/data/`.
 
 Libcrux's release source exposes the explicit-context verification API. Its version 0.0.11 is newer than the version 0.0.9 fix for the known AVX2 `use_hint` edge case, but this version floor is not a qualification verdict. Keep its use test-only and pin the exact source revision and Cargo resolution.
 
@@ -26,7 +26,7 @@ Run the complete pinned ML-DSA-65 Wycheproof verification corpus (210 cases at t
 - `acceptable`: report separately. Do not silently count it as valid or invalid; the harness must implement and record an explicit, reviewed policy for each such flag.
 - RustCrypto and Libcrux disagreement on a `valid` or `invalid` case is a hard failure and must preserve the case input and both outcomes in the evidence packet.
 
-Two essential sentinel vectors identified by the public community analysis are ML-DSA-65 Wycheproof tcId 19 (repeated hint index; reject) and tcId 61 (valid signature with the largest z coefficient below the limit; accept). The latter prevents a suite containing only negative tests from passing a verifier that rejects valid boundary signatures too aggressively. tcId 61 does **not** establish that verification exercised the distinct Algorithm 40 `UseHint` branch where the decomposed low bits equal `r0 = 0`; that branch is a separate mandatory regression target below.
+The committed corpus test explicitly asserts tcId 19 is invalid and carries the `InvalidHintsEncoding` flag (repeated hint index), and tcId 61 is valid with the `BoundaryCondition` flag (z maximum below the limit). This prevents accidental omission of either sentinel. The latter also guards against over-strict verification that rejects valid near-boundary signatures. tcId 61 does **not** establish that verification exercised the distinct Algorithm 40 `UseHint` branch where the decomposed low bits equal `r0 = 0`; that branch is a separate mandatory regression target below.
 
 Source: [ACVP-Server issue #470](https://github.com/usnistgov/ACVP-Server/issues/470). That is community research about the published vector coverage—not an official NIST validation result.
 
@@ -34,7 +34,7 @@ Implementation regression references: RustCrypto's [UseHint `r0 == 0` advisory](
 
 ## 3. Dedicated adversarial cases
 
-The pinned general corpus is necessary but not sufficient. Add focused cases with frozen input bytes and expected verdicts for:
+The pinned general corpus is necessary but not sufficient. The committed integration target runs all 210 cases (79 valid, 131 invalid) and fails closed on an `acceptable` or unknown result class. Still add focused cases with frozen input bytes and expected verdicts for:
 
 1. Repeated indices in a hint-index list: reject.
 2. Nonzero unused hint-index tail padding: reject.
@@ -76,8 +76,9 @@ The normal provider seam test stays offline/lock-preserving:
 
 ```sh
 cd mycelix-identity
+cargo test --locked -p mycelix-crypto --no-default-features --features mldsa-verify-corpus --test mldsa65_wycheproof
 cargo test --locked -p mycelix-crypto --no-default-features --features mldsa-verify-rc --lib
 cargo test --locked -p mycelix-crypto --no-default-features --features hybrid-rc --lib hybrid_sig::tests
 ```
 
-The first command isolates the provider seam; the second protects the high-level hybrid consumer that delegates to it. Both must pass on the exact head. The independent corpus target should be added only with a committed lockfile and committed fixture digests; do not generate or silently modify a lockfile during the qualification job. Keep the differential verifier as a dev-only dependency and use a separate, explicit qualification target so the production dependency graph does not acquire Libcrux merely to gain assurance evidence.
+The first command checks the pinned fixture digest and every corpus verdict. The second tests the standalone provider seam, and the third protects the high-level hybrid consumer that delegates to it. All must pass on the exact head. The corpus target is gated by the explicit `mldsa-verify-corpus` feature and is not required by application builds. Do not generate or silently modify a lockfile during qualification. The independent Libcrux differential verifier remains a separate mandatory gate and must stay test-only.
