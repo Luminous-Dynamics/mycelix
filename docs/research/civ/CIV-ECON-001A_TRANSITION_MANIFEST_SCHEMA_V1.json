@@ -697,7 +697,7 @@
           "then": {
             "required": [
               "target_instrument_ref",
-              "target_claim_ref",
+              "target_item_ref",
               "target_quantity_atomic",
               "target_unit_ref"
             ]
@@ -717,7 +717,7 @@
           "then": {
             "required": [
               "target_instrument_ref",
-              "target_claim_ref",
+              "target_item_ref",
               "target_quantity_atomic",
               "target_unit_ref",
               "conversion_profile_ref",
@@ -739,7 +739,7 @@
           "then": {
             "required": [
               "target_instrument_ref",
-              "target_claim_ref",
+              "target_item_ref",
               "target_quantity_atomic",
               "target_unit_ref",
               "authority_decision_ref",
@@ -856,7 +856,7 @@
           },
           "then": {
             "required": [
-              "target_resource_ref",
+              "target_item_ref",
               "target_quantity_atomic",
               "target_unit_profile_ref"
             ]
@@ -875,7 +875,7 @@
           },
           "then": {
             "required": [
-              "target_resource_ref",
+              "target_item_ref",
               "target_quantity_atomic",
               "target_unit_profile_ref",
               "conversion_profile_ref",
@@ -896,7 +896,7 @@
           },
           "then": {
             "required": [
-              "target_resource_ref",
+              "target_item_ref",
               "target_reservation_ref",
               "target_quantity_atomic",
               "target_unit_profile_ref",
