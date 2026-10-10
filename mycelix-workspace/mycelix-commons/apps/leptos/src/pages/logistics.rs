@@ -136,7 +136,7 @@ const SAMPLE_ORDERS: [OrderFixture; 7] = [
         quantity: 1,
         operational: "Unresolved conflict",
         evidence: "Conflicting reservation claims",
-        freshness: "Fixed fixture snapshot",
+        freshness: "Valid through t=200 ms; one unit available on this snapshot",
         scenario: "Shares a one-unit resource with LC-0001 and LC-0003. All three sample contenders are shown below; none is selected as the winner.",
         next_step: "Defer and request fresh reservation evidence",
         next_step_reason: "Three claims request three units while the fixture snapshot reports one available unit. No winner is selected.",
@@ -152,7 +152,7 @@ const SAMPLE_ORDERS: [OrderFixture; 7] = [
         quantity: 1,
         operational: "Unresolved conflict",
         evidence: "Conflicting reservation claims",
-        freshness: "Fixed fixture snapshot",
+        freshness: "Valid through t=200 ms; one unit available on this snapshot",
         scenario: "Shares a one-unit resource with LC-0001 and LC-0002. All three sample contenders are shown below; none is selected as the winner.",
         next_step: "Defer and request fresh reservation evidence",
         next_step_reason: "Three claims request three units while the fixture snapshot reports one available unit. No winner is selected.",
@@ -200,7 +200,7 @@ const SAMPLE_ORDERS: [OrderFixture; 7] = [
         quantity: 1,
         operational: "Delivery reported",
         evidence: "Recipient acceptance missing",
-        freshness: "Fixture event time only",
+        freshness: "Event-time fixture only; no freshness interval or recipient acceptance",
         scenario: "A carrier delivery report exists in this example, but recipient acceptance evidence does not. Delivery reported is not the same as recipient accepted.",
         next_step: "Request recipient acceptance evidence",
         next_step_reason: "A carrier delivery report is not proof that the recipient accepted the shipment.",
@@ -216,7 +216,7 @@ const SAMPLE_ORDERS: [OrderFixture; 7] = [
         quantity: 1,
         operational: "Duplicate alias",
         evidence: "Linked to an existing logical request",
-        freshness: "Fixture event time only",
+        freshness: "Fixed synthetic replay fixture; as of t=121 ms",
         scenario: "This is an idempotent replay example. It refers to a primary request and must not count a second time against inventory.",
         next_step: "Resolve to the primary request and deduplicate",
         next_step_reason: "The alias points to an existing logical request and must not count a second time against inventory.",
@@ -645,11 +645,12 @@ mod tests {
 
     #[test]
     fn every_fixture_has_explicit_source_observation_and_freshness() {
-        assert!(SAMPLE_ORDERS.iter().all(|order| order.source.starts_with("Synthetic ")));
-        assert!(SAMPLE_ORDERS
-            .iter()
-            .all(|order| order.observed_at.contains("t=") && order.observed_at.contains("(synthetic)")));
-        assert!(SAMPLE_ORDERS.iter().all(|order| !order.freshness.trim().is_empty()));
+        for order in &SAMPLE_ORDERS {
+            assert!(order.source.starts_with("Synthetic "));
+            assert!(order.observed_at.contains("t="));
+            assert!(order.observed_at.contains("(synthetic)"));
+            assert!(!order.freshness.trim().is_empty());
+        }
     }
 
     #[test]
