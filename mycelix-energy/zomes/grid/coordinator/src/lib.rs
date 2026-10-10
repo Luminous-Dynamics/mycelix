@@ -349,21 +349,28 @@ pub struct ExecuteTradeInput {
 pub fn get_active_offers(_: ()) -> ExternResult<Vec<Record>> {
     let now = sys_time()?;
     let mut all_records = Vec::new();
+    let mut seen_link_targets = HashSet::new();
     for key in offer_anchor_keys_for_lookback(now, OFFER_ANCHOR_LOOKBACK_DAYS) {
         let anchor = anchor_hash(&key)?;
         let links = get_links(
             LinkQuery::try_new(anchor, LinkTypes::ActiveOffers)?,
             GetStrategy::default(),
         )?;
-        // Batch-fetch the linked create records first, then follow each record's
-        // metadata chain. The anchor links still target immutable create actions.
+        // Batch-fetch linked records, skip repeated source actions before the
+        // more expensive metadata traversal, then resolve the newest version.
         for record in links_to_records(links)? {
-            all_records.push(resolve_latest_record(record)?);
+            if seen_link_targets.insert(record.action_address().clone()) {
+                all_records.push(resolve_latest_record(record)?);
+            }
         }
     }
 
     let mut active_records = Vec::new();
+    let mut seen_latest_actions = HashSet::new();
     for record in all_records {
+        if !seen_latest_actions.insert(record.action_address().clone()) {
+            continue;
+        }
         if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
             if (offer.status == OfferStatus::Active || offer.status == OfferStatus::PartiallyFilled)
                 && offer_is_current(&offer, now)
