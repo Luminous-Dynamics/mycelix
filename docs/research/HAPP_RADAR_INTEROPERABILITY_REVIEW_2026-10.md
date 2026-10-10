@@ -207,38 +207,45 @@ Sources:
 - https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/Cargo.toml
 - https://github.com/h-REA/hREA/blob/sprout/docs/README.md
 
-## Follow-up qualification snapshot — 2026-10-10, refreshed after literal-audit hardening
+## Follow-up qualification snapshot — 2026-10-10, refreshed after workflow-path hardening
 
-The latest inspected AC-176 source SHA is `8258f75f68d315c8b20bc2183af18a79cd1b22b5`. [PR #4520](https://github.com/Luminous-Dynamics/mycelix/pull/4520) and its [qualification-only mirror #4521](https://github.com/Luminous-Dynamics/mycelix/pull/4521) both point to this exact SHA. The mirror was advanced with a guarded fast-forward, not a force update.
+The latest inspected AC-176 source SHA is `86cdb4c08f81639224c63165c5625757805fa657`. [PR #4520](https://github.com/Luminous-Dynamics/mycelix/pull/4520) and qualification-only [PR #4521](https://github.com/Luminous-Dynamics/mycelix/pull/4521) point to this exact SHA. The mirror was advanced with a guarded fast-forward, not a force update.
 
 ### What is now locally exercised
 
-- The caller audit checks both Payments coordinator projections for a restored `#[hdk_extern] credit_sap` declaration and scans external coordinator files for the exact raw/normal Rust string literal, independent of function-name constructor spelling.
-- The scan deliberately errs toward false positives (for example, a code comment containing the exact literal is reported for review); it cannot detect function names assembled dynamically. This is a static gate, not an AST-level proof.
-- The standard-library regression suite now has **sixteen cases**: public raw-credit ABI detection; interposed outer attributes; exclusion of a private helper and unrelated extern; multiline/alternate constructor patterns; Rust raw-string literals; line-number reporting; coordinator/integrity scope boundaries; full-audit rejection of restored public ABI, the four known caller literals and mirror drift; and clean/private success.
-- A locally reconstructed harness for the current audit logic passed all sixteen cases, including the line-comment case that initially exposed an over-escaped regex and the comment-literal false-positive contract. A synthetic two-projection source tree with the four known caller patterns made the full audit exit non-zero and reported four matching literals in each projection, as intended. This is local harness evidence, not a local repository checkout or hosted test run.
-- A fresh GitHub source fetch confirms canonical/workspace content is byte-identical for each caller source, with the same four raw callsites: `currency-mint:179`, `bridge:663`, `bridge:2417`, and `staking:379`.
-- A separate exact-subject census fetched all **18 non-Payments Finance coordinator Rust files** and scanned the broader raw/normal string-literal pattern. It found exactly four literals, at those same locations, and no additional literal-form callers. The commit tree reports matching canonical/workspace blob SHAs for every mirrored coordinator file.
+- The caller audit checks the raw-credit ABI in both Payments coordinator projections and scans external coordinator files for the exact normal/raw Rust string literal `"credit_sap"`, independent of constructor spelling.
+- The scan deliberately errs toward false positives (for example, a quoted literal in a source comment gets reported for review); it does not detect names dynamically assembled at runtime. This is a static gate, not an AST-level proof.
+- The regression suite now has **17 cases**. The first 16 cover ABI visibility, outer attributes/comments, literal/constructor spellings, full-audit fail-closed behavior, clean/private success, known-caller detection and canonical/workspace drift. The 17th tests the CI workflow policy so the audit runs for canonical Finance, workspace Finance, changes to its own script/tests, and changes to the workflow itself, and that its failure propagates through `ci-pass`.
+- A reconstructed local harness previously passed the 16 audit cases. The new 17th workflow-policy test was just added and has **not yet been run against a full local repository checkout**; therefore no 17/17 result is claimed. The path filter itself has been inspected in the fetched workflow source.
+- A separate exact-subject census fetched all **18 non-Payments Finance coordinator Rust files** from the source tree at SHA `2b7283a0b098a0c519b4e91f2663b55e76df0119`. It found exactly four external raw-credit literals, at `currency-mint/coordinator/src/lib.rs:179`, `bridge/coordinator/src/lib.rs:663`, `bridge/coordinator/src/lib.rs:2417`, and `staking/coordinator/src/lib.rs:379`; no extra literal-form callers. Subsequent source changes affected only audit/test/CI files, not those callers. Matching canonical/workspace coordinator blob SHAs were identical.
 
-This does not establish that Rust/Sweettest/WASM qualification ran on the exact repository checkout.
+### CI process improvement
+
+The raw-credit audit no longer reuses the broad Finance test job's `finance` path-filter output. A separate `finance_raw_credit_audit` path filter includes:
+- `mycelix-finance/**`;
+- `mycelix-workspace/mycelix-finance/**`;
+- the audit Python script and its regression suite;
+- `.github/workflows/ci.yml`.
+
+The audit job condition uses this dedicated output (and still runs on branch pushes); `ci-pass` already has it in `needs` and fails if the audit job fails. This closes a process gap where a workspace-only or audit-only change could otherwise skip the gate. A regression test has been added for this policy, but that newest test still needs local execution on a checkout to become test evidence.
 
 ### Exact-head workflow state
 
-The direct GitHub Actions API query for `2b7283a0b098a0c519b4e91f2663b55e76df0119` returned these PR-triggered runs, all **queued**:
+For exact SHA `86cdb4c08f81639224c63165c5625757805fa657`, direct GitHub Actions API records show the three PR-triggered runs, all **queued**:
 
-- Mycelix CI: run `38082711076`
-- D6S canonical qualification: run `38082711072`
-- Finance exact-head qualification: run `38082711068`
+- Mycelix CI: run `38083243791`
+- Finance Exact-Head Qualification: run `38083243794`
+- D6S canonical qualification: run `38083243918`
 
-Queued is not PASS; at the latest inspection, no steps had started on these jobs.
+Queued is not PASS and there were no executed steps shown at the last query.
 
-Two D6U runtime-executor runs on the same commit (`38082707655` and `38082689691`) show workflow conclusion `failure`, but the Actions jobs endpoint returns zero job records for both. They expose no steps, test logs, or artifacts. They therefore do **not** demonstrate a Rust/test failure or runtime execution. Because the published D6U workflow is configured for a `workflow_run` event limited to a different source branch while these records show the AC-176 branch and `event=push`, this needs separate workflow-event/filter investigation; do not merge it into the runner-assignment diagnosis or assert a root cause from these records alone. Track this separately in [CI-OPS-002 / #4948](https://github.com/Luminous-Dynamics/mycelix/issues/4948).
+Two D6U runtime-executor runs on the same SHA (`38083240469` and `38083233846`) show workflow conclusion `failure`, but the Actions Jobs API returned `total_count=0` for both. They expose no steps, test logs, or artifacts, and do not demonstrate a Rust/test failure or runtime execution. The mismatch between these `event=push` records on the AC-176 branch and the configured D6U `workflow_run` branch filter is tracked separately in [CI-OPS-002 / #4948](https://github.com/Luminous-Dynamics/mycelix/issues/4948).
 
-[CI-OPS-001 / #697](https://github.com/Luminous-Dynamics/mycelix/issues/697) remains an independent infrastructure blocker: several ordinary hosted-runner jobs are queued before steps. The [public GitHub Status page](https://www.githubstatus.com/) reported all systems operational on October 10, with the recent October 5 Actions incident marked resolved. That does not rule out account/org policy or a repo-specific queue. Inspect Actions Settings, hosted-runner usage/quota, repository and organization Actions policy, spending/suspension state and any UI errors; if those are clean, escalate the representative stuck run IDs to GitHub Support.
+[CI-OPS-001 / #697](https://github.com/Luminous-Dynamics/mycelix/issues/697) remains the distinct runner-assignment blocker: new ordinary hosted-runner jobs remain queued before steps. The public GitHub Status page was operational at the last check; that does not rule out repository/account/org policy, spending/quota restrictions or a stuck queue. Inspect Actions settings/usage and UI error banners, and escalate representative IDs to GitHub Support if settings are clean.
 
 ### Merge boundary
 
-AC-176 is still **not qualified or ready to merge**. The source audit should continue to fail until all four external callers are migrated to source-specific authorization or deliberately disabled with explicit behavior. The public-ABI guard and sixteen local harness tests improve the gate, but do not prove that dynamically constructed names are absent, source authorization, SAP conservation, exactly-once behavior, or runtime success. The existing V2 account/transfer lanes remain draft and disabled by default; they are not a shortcut for wiring the legacy callers.
+AC-176 remains **unqualified and not ready to merge**. The source audit should fail until all four external callers are migrated to source-specific authorization or deliberately disabled with explicit behavior. The ABI guard, source census and locally tested cases improve process confidence but do not prove source authorization, SAP conservation, exactly-once behavior, or runtime success. The existing V2 account/transfer lanes remain draft and disabled by default; they are not a shortcut for wiring the legacy callers.
 
 ## Recommended Mycelix proof-of-integration slice
 
