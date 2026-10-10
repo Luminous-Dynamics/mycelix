@@ -195,6 +195,16 @@ impl DurableEffectJournal {
         self.entries.len()
     }
 
+    /// Number of identities whose external outcome is not yet acknowledged.
+    ///
+    /// This walks the in-memory index without allocating a copied or sorted ID
+    /// list. Use it for diagnostics and scale probes that should not perturb RSS.
+    pub fn unresolved_effect_count(&self) -> usize {
+        self.entries.values().filter(|entry| {
+            matches!(&entry.status, EffectStatus::Pending | EffectStatus::Indeterminate)
+        }).count()
+    }
+
     pub fn status(&self, id: &str) -> Option<EffectStatus> {
         self.entries.get(id).map(|entry| entry.status.clone())
     }
@@ -1097,10 +1107,12 @@ mod tests {
             ).unwrap();
 
             assert_eq!(journal.effect_count(), 3);
+            assert_eq!(journal.unresolved_effect_count(), 2);
         }
 
         let recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
         assert_eq!(recovered.effect_count(), 3);
+        assert_eq!(recovered.unresolved_effect_count(), 2);
     }
 
     #[test]
