@@ -185,6 +185,16 @@ impl DurableEffectJournal {
     }
 
     pub fn path(&self) -> &Path { &self.path }
+
+    /// Number of distinct effect identities retained by the journal.
+    ///
+    /// This includes Pending, Indeterminate, and Acknowledged entries. The
+    /// count is O(1) and does not allocate, so diagnostics can verify replayed
+    /// cardinality without perturbing memory measurements with a copied ID list.
+    pub fn effect_count(&self) -> usize {
+        self.entries.len()
+    }
+
     pub fn status(&self, id: &str) -> Option<EffectStatus> {
         self.entries.get(id).map(|entry| entry.status.clone())
     }
@@ -1056,7 +1066,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
     fn replay_rejects_extra_record_fields_without_ignoring_them() {
         let temp = TempDir::new();
         let line = format!(
@@ -1074,7 +1083,28 @@ mod tests {
         ));
     }
 
-fn noncanonical_effect_ids_and_digests_are_rejected() {
+    #[test]
+    #[test]
+    fn effect_count_includes_all_states_and_survives_replay() {
+        let temp = TempDir::new();
+        {
+            let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+            journal.begin_effect("count-pending", REQUEST_A, PROVIDER_A).unwrap();
+            journal.begin_effect("count-indeterminate", REQUEST_B, PROVIDER_A).unwrap();
+            journal.mark_indeterminate("count-indeterminate", REQUEST_B, PROVIDER_A).unwrap();
+            journal.begin_effect("count-acknowledged", REQUEST_A, PROVIDER_B).unwrap();
+            journal.acknowledge_effect(
+                "count-acknowledged", REQUEST_A, PROVIDER_B, RECEIPT_A, SOURCE_EVIDENCE_A
+            ).unwrap();
+
+            assert_eq!(journal.effect_count(), 3);
+        }
+
+        let recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(recovered.effect_count(), 3);
+    }
+
+    fn noncanonical_effect_ids_and_digests_are_rejected() {
         let temp = TempDir::new();
         let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
         assert_eq!(journal.begin_effect(" payment ", REQUEST_A, PROVIDER_A), Err(JournalError::InvalidEffectId));
