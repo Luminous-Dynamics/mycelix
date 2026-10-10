@@ -184,6 +184,32 @@ pub struct ExecuteTradeInput {
     pub amount_kwh: f64,
 }
 
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct VerifyProductionInput {
+    pub production_id: String,
+    pub verifier_did: String,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct IssueCarbonCreditInput {
+    pub production_id: String,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct CarbonCreditIssuance {
+    pub issued: bool,
+    pub reason: Option<String>,
+    pub credit_id: Option<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ProducerStats {
+    pub producer_did: String,
+    pub total_kwh: f64,
+    pub verified_kwh: f64,
+    pub record_count: u32,
+}
+
 // --- investments types ---
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -1099,6 +1125,93 @@ mod cross_zome_tests {
             "Total should be 25k + 75k"
         );
         assert_eq!(summary.unique_projects, 2, "Should span 2 projects");
+    }
+
+    /// Production records are immutable and carbon credits must not trust the
+    /// legacy `verified` bool. Until #4944's append-only attestations exist,
+    /// verification is unavailable, no credit is issued, and verified totals
+    /// remain zero even if a legacy entry carries a true flag.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore]
+    async fn test_production_verification_and_credit_issuance_fail_closed() {
+        let mut conductor = SweetConductor::from_standard_config().await;
+        let dna = load_dna().await;
+        let app = conductor.setup_app("test-app", &[dna]).await.unwrap();
+        let cell = app.cells()[0].clone();
+
+        let producer_did = did_for_cell(&cell);
+        let production_input = RecordProductionInput {
+            producer_did: producer_did.clone(),
+            project_id: "project:attestation-gate".to_string(),
+            amount_kwh: 250.0,
+            period_hours: 5.0,
+            meter_reading: Some(250.0),
+        };
+        let production_record: Record = conductor
+            .call(&cell.zome("grid"), "record_production", production_input)
+            .await;
+        let production: EnergyProduction =
+            decode_entry(&production_record).expect("decode production record");
+        assert!(!production.verified);
+
+        let verify_input = VerifyProductionInput {
+            production_id: production.id.clone(),
+            verifier_did: producer_did.clone(),
+        };
+        let verify_result: Result<Record, _> = conductor
+            .call_fallible(&cell.zome("grid"), "verify_production", verify_input)
+            .await;
+        assert!(
+            verify_result.is_err(),
+            "verification must fail closed until signed append-only attestations are supported"
+        );
+
+        let credit_input = IssueCarbonCreditInput {
+            production_id: production.id.clone(),
+        };
+        let credit: CarbonCreditIssuance = conductor
+            .call(
+                &cell.zome("grid"),
+                "issue_renewable_carbon_credit",
+                credit_input,
+            )
+            .await;
+        assert!(!credit.issued, "no carbon credit may be issued from a bool flag");
+        assert!(credit.credit_id.is_none());
+        assert!(
+            credit
+                .reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("#4944")),
+            "the disabled result must explain the attestation prerequisite"
+        );
+
+        let stored_production: Vec<Record> = conductor
+            .call(
+                &cell.zome("grid"),
+                "get_producer_production",
+                producer_did.clone(),
+            )
+            .await;
+        let still_unverified = stored_production.iter().filter_map(decode_entry::<EnergyProduction>)
+            .any(|entry| entry.id == production.id && !entry.verified);
+        assert!(
+            still_unverified,
+            "failed verification must not mutate the production record"
+        );
+
+        let stats: ProducerStats = conductor
+            .call(
+                &cell.zome("grid"),
+                "get_producer_total_production",
+                producer_did,
+            )
+            .await;
+        assert_eq!(stats.total_kwh, 250.0);
+        assert_eq!(
+            stats.verified_kwh, 0.0,
+            "the legacy verified boolean must not contribute to trusted stats"
+        );
     }
 
     /// Integrity binds the buyer DID to the action author. Until the
