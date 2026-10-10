@@ -82,6 +82,8 @@ Evidence relationships should distinguish:
 
 Do not infer support from citation proximity or an abstract alone. Where feasible, bind relevant passages, table/figure identifiers, data, analysis outputs, or independently reproduced results.
 
+For the initial cross-domain profile, keep computational reproducibility distinct from replicability. The National Academies' 2019 report defines computational reproducibility around the same input data, computational steps, methods, code, and analysis conditions; replicability concerns consistent results across studies that collected their own data. A replication attestation must therefore point to its own data or new experimental observations where applicable, rather than only re-signing the original artifact. Terminology can vary by discipline, so the active domain profile must state its definitions. A non-replication is an outcome to interpret against uncertainty and methodological quality, not automatic proof of misconduct or falsity.
+
 ### 4.3 Assessment profile
 
 An assessment is a versioned, reproducible projection over exact evidence inputs and a named policy. Report separate dimensions as applicable:
@@ -267,6 +269,7 @@ The first implementation milestone is not an autonomous allocator. It is one rep
 ## 12. Research and standards
 
 - DARPA, [Research model](https://www.darpa.mil/research) and [Heilmeier Catechism](https://www.darpa.mil/about/heilmeier-catechism): focused objectives, explicit risk/cost, and intermediate/final tests.
+- National Academies of Sciences, Engineering, and Medicine (2019), [Reproducibility and Replicability in Science](https://www.nationalacademies.org/read/25303/chapter/3): distinguishes reproducing computations from replicating a scientific finding with new data; useful for typed evidence relationships and benchmark fixtures.
 - NIH, [Simplified Peer Review Framework](https://www.grants.nih.gov/policy-and-compliance/policy-topics/peer-review/simplifying-review/framework): separates importance, rigor/feasibility, and expertise/resources; aims to reduce reputational bias.
 - GO FAIR, [FAIR Guiding Principles](https://www.go-fair.org/fair-principles/): persistent identification, machine-actionable metadata, interoperability, licensing, and provenance.
 - DORA, [Guidance on responsible quantitative indicators](https://sfdora.org/resource/guidance-on-the-responsible-use-of-quantitative-indicators-in-research-assessment/): contextual use of metrics and caution against reducing research quality to one indicator.
