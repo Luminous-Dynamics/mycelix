@@ -613,6 +613,9 @@ impl TransitionMachine {
         // monotonic. A later request cannot erase it by supplying weaker evidence.
         if ev.cutover_effects_started {
             self.effects_may_have_started = true;
+            // A newly reported possible effect invalidates any prior resolved
+            // frontier until the Reconciled gate validates it again.
+            self.effect_frontier_resolved = false;
         }
 
         if next == Stage::Quarantined {
@@ -637,10 +640,26 @@ impl TransitionMachine {
             if !self.effects_may_have_started || self.effect_frontier_resolved {
                 return Err(Violation::IndeterminateWithoutPossibleEffect);
             }
-            if !matches!(self.stage, Stage::CutoverReady | Stage::CutoverCommitted) {
-                return Err(Violation::InvalidTransition { from: self.stage, to: next });
-            }
+            // Indeterminate is an exceptional recovery state, not a normal
+            // forward transition. It must remain reachable if an effect may
+            // have escaped early or its acknowledgement was lost.
             return self.record_stage(next);
+        }
+
+        // Once an effect may have escaped, the machine cannot continue normal
+        // preparation or declare a terminal outcome. It may retry the precise
+        // cutover effect, reconcile from the committed boundary, or enter
+        // Indeterminate. Caller-supplied weaker booleans cannot clear this.
+        let effect_recovery_transition = matches!(
+            (self.stage, next),
+            (Stage::CutoverReady, Stage::CutoverCommitted)
+                | (Stage::CutoverCommitted, Stage::Reconciled)
+                | (Stage::Indeterminate, Stage::Reconciled)
+        );
+        if self.effects_may_have_started && !self.effect_frontier_resolved
+            && !effect_recovery_transition
+        {
+            return Err(Violation::PossibleEffectMustBeIndeterminate);
         }
 
         let allowed = matches!(
@@ -1214,23 +1233,39 @@ mod tests {
         );
     }
 
-    #[test] fn indeterminate_requires_unresolved_effect_frontier_after_cutover_boundary() {
-        let mut invalid = TransitionMachine::new(manifest());
-        assert_eq!(invalid.advance(Stage::Indeterminate, &ev()), Err(Violation::IndeterminateWithoutPossibleEffect));
-        let mut premature = ev(); premature.cutover_effects_started = true;
-        assert_eq!(invalid.advance(Stage::Indeterminate, &premature), Err(Violation::InvalidTransition { from: Stage::Draft, to: Stage::Indeterminate }));
-
+    #[test] fn indeterminate_requires_unresolved_effect_frontier_and_is_exceptionally_reachable() {
         let mut m = TransitionMachine::new(manifest());
-        advance_to_authorized(&mut m);
-        let mut ready = ev();
-        ready.rights_floors_satisfied = true;
-        ready.resource_reservations_reconciled = true;
-        ready.external_obligations_accounted = true;
-        m.advance(Stage::CutoverReady, &ready).unwrap();
         assert_eq!(m.advance(Stage::Indeterminate, &ev()), Err(Violation::IndeterminateWithoutPossibleEffect));
         let mut possible = ev(); possible.cutover_effects_started = true;
         assert_eq!(m.advance(Stage::Indeterminate, &possible), Ok(()));
         assert_eq!(m.stage(), Stage::Indeterminate);
+        assert!(m.history()[0].effects_may_have_started);
+        assert!(!m.history()[0].effect_frontier_resolved);
+
+        let mut ordinary = TransitionMachine::new(manifest());
+        advance_to_authorized(&mut ordinary);
+        let mut ready = ev();
+        ready.rights_floors_satisfied = true;
+        ready.resource_reservations_reconciled = true;
+        ready.external_obligations_accounted = true;
+        ordinary.advance(Stage::CutoverReady, &ready).unwrap();
+        assert_eq!(ordinary.advance(Stage::Indeterminate, &ev()), Err(Violation::IndeterminateWithoutPossibleEffect));
+        let mut boundary = ev(); boundary.cutover_effects_started = true;
+        assert_eq!(ordinary.advance(Stage::Indeterminate, &boundary), Ok(()));
+        assert_eq!(ordinary.stage(), Stage::Indeterminate);
+    }
+
+    #[test] fn possible_effect_evidence_blocks_normal_progress_outside_recovery_path() {
+        let mut machine = TransitionMachine::new(manifest());
+        let mut evidence = ev();
+        evidence.cutover_effects_started = true;
+        assert_eq!(
+            machine.advance(Stage::Frozen, &evidence),
+            Err(Violation::PossibleEffectMustBeIndeterminate)
+        );
+        assert_eq!(machine.stage(), Stage::Draft);
+        assert_eq!(machine.advance(Stage::Indeterminate, &ev()), Ok(()));
+        assert_eq!(machine.stage(), Stage::Indeterminate);
     }
 
     #[test] fn quarantine_cannot_hide_committed_effect_when_later_evidence_understates_it() {
