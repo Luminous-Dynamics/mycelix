@@ -209,7 +209,7 @@ Sources:
 
 ## Follow-up qualification snapshot — 2026-10-11, after static-name audit hardening
 
-The AC-176 source PR #4520 and qualification-only PR #4521 are now aligned at exact source SHA 28b08b01e56cef94a74a714ab48afd684aa18a93. The mirror advanced using a guarded fast-forward; it remains a qualification-only subject and must not be merged.
+The AC-176 source PR #4520 and qualification-only PR #4521 are now aligned at exact source SHA 9b6237b97f3ec6863fe0e414556a9b221b7b7efd. The mirror advanced using a guarded fast-forward; it remains a qualification-only subject and must not be merged.
 
 ### Audit coverage and local evidence
 
@@ -223,19 +223,19 @@ The AC-176 source PR #4520 and qualification-only PR #4521 are now aligned at ex
 
 The audit has a dedicated finance_raw_credit_audit path-filter output covering canonical Finance, workspace Finance, the audit/test files, and .github/workflows/ci.yml. ci-pass depends on the change-filter job and the audit; it rejects a non-success change-filter result and requires a successful audit whenever selected by that dedicated path filter, a push, or manual dispatch. Focused local policy fixtures exercised relevant/irrelevant PR, push, manual-dispatch, skipped-audit, and failed-filter outcomes.
 
-For exact SHA 28b08b01e56cef94a74a714ab48afd684aa18a93, direct GitHub Actions records show these PR-triggered runs, all **queued**:
+For exact SHA 9b6237b97f3ec6863fe0e414556a9b221b7b7efd, direct GitHub Actions records show these PR-triggered runs, all **queued**:
 
-- Mycelix CI: run 38094522117
-- Finance Exact-Head Qualification: run 38094522213
-- D6S canonical qualification: run 38094522171
+- Mycelix CI: run 38094859895
+- Finance Exact-Head Qualification: run not returned
+- D6S canonical qualification: run not returned
 
-Queued is not PASS. The commit combined status is pending with no completed status checks returned.
+Only Mycelix CI (run 38094859895) was returned and it remains queued; Finance Exact-Head Qualification and D6S Canonical Qualification were not returned for this subject. The commit combined status is pending with no completed status checks. Absence of a run is not PASS.
 
-Two D6U runtime-executor push-event runs on the same SHA (38094519646 and 38094500665) concluded failure, but the Jobs API returned total_count=0 for both. Neither record has job, step, test, log, or runtime evidence; these are not evidence of a code/test failure. The repeated event/branch-versus-configured-filter anomaly is tracked in [CI-OPS-002 / #4948](https://github.com/Luminous-Dynamics/mycelix/issues/4948). [CI-OPS-001 / #697](https://github.com/Luminous-Dynamics/mycelix/issues/697) remains the distinct hosted-runner assignment/queue issue.
+Two D6U runtime-executor push-event runs on the same SHA (38094856560 and 38094841409) concluded failure, but the Jobs API returned total_count=0 for both. Neither record has job, step, test, log, or runtime evidence; these are not evidence of a code/test failure. The repeated event/branch-versus-configured-filter anomaly is tracked in [CI-OPS-002 / #4948](https://github.com/Luminous-Dynamics/mycelix/issues/4948). [CI-OPS-001 / #697](https://github.com/Luminous-Dynamics/mycelix/issues/697) remains the distinct hosted-runner assignment/queue issue.
 
 ### Merge boundary
 
-AC-176 remains **unqualified and not ready to merge**. Four external raw-credit call sites remain; the audit is expected to fail until each caller is migrated to source-specific authorization or deliberately disabled with explicit behavior. The scanner hardening improves static coverage but does not prove source authorization, SAP conservation, exactly-once settlement, retry/recovery correctness, or runtime behavior. No queued, skipped, cancelled, or zero-job run is a PASS, and the legacy V2 account/transfer lanes remain draft and disabled by default.
+AC-176 remains **unqualified and not ready to merge**. Four external raw-credit call sites remain; the audit is expected to fail until each caller is migrated to source-specific authorization or deliberately disabled with explicit behavior. The scanner’s success report now matches its actual scope: direct literals, escaped literals, and static concat! names are covered. It still does not resolve arbitrary const aliases, every macro/literal transformation, or runtime-built names, and it does not prove source authorization, SAP conservation, exactly-once settlement, retry/recovery correctness, or runtime behavior. No queued, skipped, cancelled, or zero-job run is a PASS, and the legacy V2 account/transfer lanes remain draft and disabled by default.
 
 ## Recommended Mycelix proof-of-integration slice
 
