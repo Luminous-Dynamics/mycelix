@@ -85,7 +85,7 @@ for scenario in scenarios:
 check("scale binary is registered in Cargo manifest", 'name = "journal-replay-scale"' in manifest and 'path = "src/journal_replay_scale.rs"' in manifest)
 check("crate remains dependency-free", "[dependencies]" not in manifest)
 check("Cargo.lock resolves the local validator package", 'name = "civ-econ-transition-validator"' in lockfile)
-check("locked Cargo input is hashed in the audit report", LOCKFILE_PATH in files if "files" in globals() else True)
+check("locked Cargo input is included in report hash set", "MANIFEST_PATH, LOCKFILE_PATH, README_PATH" in audit_script)
 check("README states measurements are not established yet", "has not itself established performance numbers" in " ".join(readme.split()))
 check("README documents how to run source preflight", "python3 scripts/audit_journal_source_contract.py" in readme)
 check("audit fails closed when Git subject is absent", 'check("Git commit identity is available"' in audit_script)
