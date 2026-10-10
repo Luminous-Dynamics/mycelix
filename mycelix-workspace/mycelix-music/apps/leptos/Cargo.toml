@@ -29,7 +29,7 @@ web-sys = { version = "0.3", features = [
     "console", "HtmlAudioElement", "HtmlInputElement",
     "HtmlCanvasElement", "CanvasRenderingContext2d",
     "HtmlMediaElement", "HtmlElement", "MediaError",
-    "Event", "EventTarget", "CssStyleDeclaration",
+    "Event", "EventTarget", "Element", "Node", "NodeList", "CssStyleDeclaration",
     "Window", "Storage", "Document", "Performance",
     # WebGL2 consciousness visualization
     "WebGl2RenderingContext", "WebGlProgram", "WebGlShader",
@@ -47,8 +47,9 @@ web-sys = { version = "0.3", features = [
 console_error_panic_hook = "0.1"
 gloo-timers = { version = "0.3", features = ["futures"] }
 
-# Real consciousness-driven synthesis engine
-symthaea-muse = { git = "https://github.com/Luminous-Dynamics/symthaea", package = "symthaea-muse", default-features = false }
+# Pin the public cross-repository API to an exact Symthaea source revision.
+# Advance this deliberately after compatibility review; do not float main during qualification.
+symthaea-muse = { git = "https://github.com/Luminous-Dynamics/symthaea", rev = "77b872fd116c7b6f44fedd82bb8c6100240caa73", package = "symthaea-muse", default-features = false }
 getrandom = { version = "0.2", features = ["js"] }
 uuid = { version = "1", features = ["js"] }
 
