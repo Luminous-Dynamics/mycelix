@@ -75,6 +75,9 @@ jobs:
           assert "output_digest" not in evaluation["properties"], "simulation output and evaluator report must remain distinct"
           PY
 
+      - name: Run dependency-free journal source contract preflight
+        run: python3 mycelix-workspace/simulations/civ-econ-transition-validator/scripts/audit_journal_source_contract.py
+
       - name: Run dependency-free validator tests
         run: cargo +1.96.0 test --manifest-path mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml --locked --all-targets
 
