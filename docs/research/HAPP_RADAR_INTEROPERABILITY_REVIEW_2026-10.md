@@ -139,6 +139,22 @@ Sources:
 - https://github.com/WeAreFlowsta/flowsta-vault-app/blob/main/LICENSE
 - https://github.com/WeAreFlowsta/flowsta-vault-app/blob/main/src-tauri/Cargo.toml
 
+### 4c. Latest exact-head CI triage (2026-10-10)
+
+This section records the latest source-level follow-through so a documented fix is not mistaken for a qualified fix.
+
+**Root cause of the downstream compiler failure:** the failed Mycelix CI run #4750 on AC-176's former head `cedb056565a15825d7b1dbf2dc8acb1aa2555838` reported a mismatched closing delimiter at `mycelix-finance/zomes/payments/integrity/src/lib.rs:822`. The expression came from AC-171 / PR #4490's new `validate_mint_cap_counter_link` helper: `wasm_error!(WasmErrorInner::Guest(format!(...)))` had one missing closing parenthesis. It affected both canonical and workspace integrity projections.
+
+**Source correction made:** both integrity files on [AC-171 / PR #4490](https://github.com/Luminous-Dynamics/mycelix/pull/4490) were corrected to close the macro expression. The resulting file blobs are identical (`94d74d546d4f544f00e9087ae3a56d2b8da0cdff`). Head: `c242e721699fd87375a29a40347cae69e07968c1`.
+
+**Independent formatting correction made:** the same failed run showed rustfmt differences in `checked_channel_transfer_balances` around coordinator line 1467 and at EOF. Both canonical/workspace checked-arithmetic helpers were moved to rustfmt's multiline `checked_add/checked_sub` layout and EOF whitespace normalized on [AC-175 / PR #4517](https://github.com/Luminous-Dynamics/mycelix/pull/4517). The same correction was forward-ported to AC-176's source branch so its CI can inspect a coherent tree. The matching coordinator blobs are identical in each checked pair (`66e9679b9d19b4738a2e03f6d19c509669aa93e1` on AC-175; `5decb81386775bbb4c4af5bd1bbc18e4cf8fb4a3` on AC-176).
+
+**Exact-head synchronization:** AC-176's new source head is `dc0c6fa7587a0b0990a819dab4df5ccc6f12f0a1`. The qualification-only branch for [PR #4521](https://github.com/Luminous-Dynamics/mycelix/pull/4521) was fast-forwarded to that exact SHA (four commits ahead of its previous subject; no merge or force update).
+
+**Qualification state when checked:** AC-171's Mycelix CI #6541, D6S #2202, and Finance exact-head #82 were all `queued`; AC-176's Mycelix CI #6542, D6S #2203, and Finance exact-head #83 were all `queued`. AC-175's corrected head had no associated PR-triggered workflow run returned at that time. The prior AC-176 #4750 failure remains historical evidence against its old, now-superseded SHA; it does not tell us whether the corrections pass. **No PASS is claimed until a run on the exact new head completes and its material steps are inspected.**
+
+The outstanding AC-176 caller-census concern is unchanged: bridge collateral/fiat paths and staking return still dynamically call `payments::credit_sap` while the branch removes its public extern. That migration/authorization gap must be fixed or explicitly disabled with user-visible behavior before the raw-credit removal is considered integration-qualified. The source changes above fix syntax/format blockers only; they do not prove SAP conservation or close the caller gap.
+
 ### 5. Resolve licensing ambiguity before copying code
 
 The Finance README currently says Apache-2.0 at its footer, while its `Cargo.toml`, source SPDX header, Finance `LICENSE`, and root `LICENSING.md` identify the Finance cluster as AGPL-3.0-or-later. This review corrects the stale Finance README footer in the accompanying change.
