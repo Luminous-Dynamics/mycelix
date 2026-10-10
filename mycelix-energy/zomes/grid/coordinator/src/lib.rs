@@ -297,35 +297,36 @@ fn currency_has_real_settlement_rail(currency: &str) -> bool {
 /// Convert a whole-unit SAP/TEND amount (as stored in `Trade::total_price`)
 /// to the micro-unit integer `payments::send_payment` expects. Pure and
 /// unit-testable.
-fn whole_units_to_micro(whole_units: f64) -> u64 {
-    (whole_units * SAP_MICRO_UNITS_PER_UNIT).round() as u64
-}
-
-/// Attempt real settlement via the finance cluster's payment rail.
-///
-/// Only SAP and TEND can be settled this way -- they're the only
-/// currencies `payments::send_payment` accepts (`mycelix-finance/zomes/
-/// payments/coordinator/src/lib.rs`). P2P grid trades denominated in
-/// fiat-like currencies (USD, EUR, etc. -- used throughout this crate's
-/// existing tests and offer data) have no real settlement rail anywhere
-/// in this system; those fall back to the caller-supplied manual
-/// `payment_reference`, exactly as `settle_trade` behaved before this
-/// change.
-///
-/// Note: `send_payment` internally requires the CALLING agent's key to
-/// match `from_did` (`verify_caller_is_did`), so real settlement only
-/// succeeds when the buyer's own agent calls `settle_trade` -- this is
-/// the correct authorization boundary (a payer must authorize their own
-/// payment), not a bug to route around.
-///
-/// Returns `Some(payment_reference)` on a successful real payment, `None`
-/// if the currency isn't SAP/TEND or the finance cluster call fails --
-/// the caller falls back to the manual reference in either case.
-fn settle_via_finance(trade: &Trade) -> Option<String> {
-    if !currency_has_real_settlement_rail(&trade.currency) {
+fn whole_units_to_micro(whole_units: f64) -> Option<u64> {
+    if !whole_units.is_finite() || whole_units <= 0.0 {
         return None;
     }
-    let micro_amount = whole_units_to_micro(trade.total_price);
+    let micro_units = whole_units * SAP_MICRO_UNITS_PER_UNIT;
+    if !micro_units.is_finite() {
+        return None;
+    }
+    let rounded = micro_units.round();
+    // u64::MAX is not exactly representable as f64; its f64 conversion is
+    // 2^64. Reject that boundary before the saturating float-to-int cast.
+    if rounded < 1.0 || rounded >= u64::MAX as f64 {
+        return None;
+    }
+    Some(rounded as u64)
+}
+
+/// Attempt settlement through the real SAP/TEND payment rail.
+///
+/// Ok(Some(reference)) means a payment receipt was decoded.
+/// Ok(None) means the currency has no internal settlement rail and therefore
+/// requires a non-empty external payment reference from the caller.
+/// Err means internal settlement could not be confirmed; callers must leave
+/// the trade unsettled rather than converting a failed payment into success.
+fn settle_via_finance(trade: &Trade) -> Result<Option<String>, &'static str> {
+    if !currency_has_real_settlement_rail(&trade.currency) {
+        return Ok(None);
+    }
+    let micro_amount = whole_units_to_micro(trade.total_price)
+        .ok_or("Trade amount is outside the representable payment range")?;
 
     #[derive(Serialize, Debug)]
     struct SendPaymentPayload {
@@ -354,11 +355,13 @@ fn settle_via_finance(trade: &Trade) -> Option<String> {
         Ok(ZomeCallResponse::Ok(result)) => result
             .decode::<Record>()
             .ok()
-            .map(|record| format!("payments:{}", record.action_address())),
-        _ => None,
+            .map(|record| Some(format!("payments:{}", record.action_address())))
+            .ok_or("Payment rail response did not contain a verifiable receipt"),
+        Ok(_) => Err("Payment rail did not confirm the payment"),
+        Err(_) => Err("Payment rail call failed; trade remains unsettled"),
     }
 }
-
+ 
 #[hdk_extern]
 pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
     let filter = ChainQueryFilter::new()
@@ -368,21 +371,40 @@ pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
         .include_entries(true);
     for record in query(filter)? {
         if let Some(trade) = record.entry().to_app_option::<Trade>().ok().flatten() {
-            if trade.id == input.trade_id {
-                let payment_reference =
-                    settle_via_finance(&trade).unwrap_or(input.payment_reference);
-                let settled_trade = Trade {
-                    settled: true,
-                    payment_reference: Some(payment_reference),
-                    ..trade
-                };
-                let action_hash = update_entry(
-                    record.action_address().clone(),
-                    &EntryTypes::Trade(settled_trade),
-                )?;
-                return get(action_hash, GetOptions::default())?
-                    .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())));
+            if trade.id != input.trade_id {
+                continue;
             }
+            // Retries are idempotent at the local record level: never submit a
+            // second payment after this trade already has a settled receipt.
+            if trade.settled {
+                return Ok(record);
+            }
+            let payment_reference = match settle_via_finance(&trade) {
+                Ok(Some(reference)) => reference,
+                Ok(None) => {
+                    let reference = input.payment_reference.trim();
+                    if reference.is_empty() {
+                        return Err(wasm_error!(WasmErrorInner::Guest(
+                            "External settlement requires a non-empty payment reference".into()
+                        )));
+                    }
+                    reference.to_string()
+                }
+                Err(message) => {
+                    return Err(wasm_error!(WasmErrorInner::Guest(message.into())));
+                }
+            };
+            let settled_trade = Trade {
+                settled: true,
+                payment_reference: Some(payment_reference),
+                ..trade
+            };
+            let action_hash = update_entry(
+                record.action_address().clone(),
+                &EntryTypes::Trade(settled_trade),
+            )?;
+            return get(action_hash, GetOptions::default())?
+                .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())));
         }
     }
     Err(wasm_error!(WasmErrorInner::Guest("Trade not found".into())))
@@ -1809,5 +1831,32 @@ mod offer_window_regression_tests {
         assert!(offer_is_current(&offer, offer.available_from));
         assert!(offer_is_current(&offer, offer.available_until));
         assert!(!offer_is_current(&offer, Timestamp::from_micros(1_700_000_360_000_001)));
+    }
+}
+
+
+#[cfg(test)]
+mod settlement_amount_regression_tests {
+    use super::*;
+
+    #[test]
+    fn converts_representable_positive_whole_unit_amounts() {
+        assert_eq!(whole_units_to_micro(1.25), Some(1_250_000));
+        assert_eq!(whole_units_to_micro(0.000_001), Some(1));
+    }
+
+    #[test]
+    fn rejects_zero_negative_and_sub_micro_amounts() {
+        assert_eq!(whole_units_to_micro(0.0), None);
+        assert_eq!(whole_units_to_micro(-1.0), None);
+        assert_eq!(whole_units_to_micro(0.000_000_1), None);
+    }
+
+    #[test]
+    fn rejects_non_finite_and_overflowing_amounts() {
+        assert_eq!(whole_units_to_micro(f64::NAN), None);
+        assert_eq!(whole_units_to_micro(f64::INFINITY), None);
+        assert_eq!(whole_units_to_micro(f64::MAX), None);
+        assert_eq!(whole_units_to_micro((u64::MAX as f64) / SAP_MICRO_UNITS_PER_UNIT), None);
     }
 }
