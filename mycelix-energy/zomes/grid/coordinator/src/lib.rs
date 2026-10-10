@@ -473,7 +473,7 @@ fn settle_via_finance(trade: &Trade) -> Result<Option<String>, &'static str> {
         Err(_) => Err("Payment rail call failed; trade remains unsettled"),
     }
 }
- 
+
 #[hdk_extern]
 pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
     let filter = ChainQueryFilter::new()
@@ -1534,7 +1534,6 @@ mod tests {
         assert!(!did_matches_agent("did:mycelix:not-a-public-key", &author));
         assert!(!did_matches_agent(&format!("did:test:{author}"), &author));
     }
-
 
     #[test]
     fn test_execute_trade_input_valid() {
