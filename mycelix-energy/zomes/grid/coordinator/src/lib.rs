@@ -206,6 +206,16 @@ fn checked_remaining_offer_amount(
     Ok(remaining)
 }
 
+/// Bind a buyer claim to the current cell's canonical Holochain agent key.
+/// Syntax alone is not identity: accepting arbitrary `did:mycelix:...` strings
+/// would let a caller attempt to transact as another participant.
+fn did_matches_agent(did: &str, author: &AgentPubKey) -> bool {
+    did.strip_prefix("did:mycelix:")
+        .and_then(|value| AgentPubKey::try_from(value).ok())
+        .as_ref()
+        == Some(author)
+}
+
 #[hdk_extern]
 pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
     let filter = ChainQueryFilter::new()
@@ -238,12 +248,10 @@ pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
                         "Offer has expired".into()
                     )));
                 }
-                if !input.buyer_did.starts_with("did:")
-                    || input.buyer_did.len() <= 4
-                    || input.buyer_did.chars().any(char::is_whitespace)
-                {
+                let caller = agent_info()?.agent_initial_pubkey;
+                if !did_matches_agent(&input.buyer_did, &caller) {
                     return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Buyer must be a valid DID".into()
+                        "Buyer DID must identify the agent executing this trade".into()
                     )));
                 }
                 if input.buyer_did == offer.seller_did {
