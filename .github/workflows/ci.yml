@@ -929,9 +929,21 @@ jobs:
           echo "SDK: $SDK_RESULT"
           echo "Nix SDK shell: $NIX_SDK_RESULT"
           echo "Prism: $PRISM_RESULT"
-          if [[ "$FORMAT_RESULT" == "failure" ]]; then exit 1; fi
-          # Skipped jobs are OK (path filter didn't match).
+          # Format is unconditional for admitted CI runs, so anything but
+          # success is a failed aggregate gate (including cancellation).
+          if [[ "$FORMAT_RESULT" != "success" ]]; then
+            echo "Required format gate did not succeed: $FORMAT_RESULT" >&2
+            exit 1
+          fi
+          # Skipped path-filtered jobs are allowed; every other non-success
+          # result (including cancelled/unknown states) fails closed.
           for result in "$COS_CONFORMANCE_RESULT" "$COMMONS_RESULT" "$CIVIC_RESULT" "$HEARTH_RESULT" "$FINANCE_RESULT" "$GOVERNANCE_RESULT" "$IDENTITY_RESULT" "$PERSONAL_RESULT" "$ATTRIBUTION_RESULT" "$BRIDGE_RESULT" "$SDK_RESULT" "$NIX_SDK_RESULT" "$PRISM_RESULT"; do
-            if [[ "$result" == "failure" ]]; then exit 1; fi
+            case "$result" in
+              success|skipped) ;;
+              *)
+                echo "Required CI gate did not succeed: $result" >&2
+                exit 1
+                ;;
+            esac
           done
           echo "All checks passed!"
