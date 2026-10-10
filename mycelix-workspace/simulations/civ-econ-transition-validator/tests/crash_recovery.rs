@@ -106,12 +106,14 @@ fn crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispa
         .env(CHILD_MODE, "1")
         .env(JOURNAL_ENV, &journal_path)
         .env(PROVIDER_ENV, &provider_path)
-        .status()
+        .output()
         .expect("launch crash-boundary child");
     assert_eq!(
-        child_status.code(),
+        child_status.status.code(),
         Some(INTENTIONAL_CRASH_EXIT),
-        "child must terminate at the injected crash point",
+        "child must terminate at the injected crash point; stdout: {}; stderr: {}",
+        String::from_utf8_lossy(&child_status.stdout),
+        String::from_utf8_lossy(&child_status.stderr),
     );
 
     let lock_path = journal_path.with_file_name("effects.journal.lock");
