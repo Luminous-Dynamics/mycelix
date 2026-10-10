@@ -181,6 +181,21 @@ fn resolve_latest_record(mut record: Record) -> ExternResult<Record> {
     )))
 }
 
+/// Resolve link targets to latest records and collapse repeated index entries.
+/// Re-indexing after repair may leave more than one live CreateLink action for
+/// the same record; callers should receive one current record, not duplicates.
+fn resolve_latest_unique_records(records: Vec<Record>) -> ExternResult<Vec<Record>> {
+    let mut seen_latest_actions = HashSet::new();
+    let mut resolved = Vec::new();
+    for record in records {
+        let latest = resolve_latest_record(record)?;
+        if seen_latest_actions.insert(latest.action_address().clone()) {
+            resolved.push(latest);
+        }
+    }
+    Ok(resolved)
+}
+
 /// Compute the residual offer quantity without allowing floating-point rounding
 /// to turn a positive fill into a no-op. Used before any trade entry is written.
 fn checked_remaining_offer_amount(
@@ -551,10 +566,7 @@ pub fn get_seller_offers(seller_did: String) -> ExternResult<Vec<Record>> {
         LinkQuery::try_new(anchor_hash(&seller_did)?, LinkTypes::SellerToOffers)?,
         GetStrategy::default(),
     )?;
-    links_to_records(links)?
-        .into_iter()
-        .map(resolve_latest_record)
-        .collect()
+    resolve_latest_unique_records(links_to_records(links)?)
 }
 
 /// Get buyer's trade history
@@ -566,10 +578,7 @@ pub fn get_buyer_trades(buyer_did: String) -> ExternResult<Vec<Record>> {
         LinkQuery::try_new(anchor_hash(&buyer_did)?, LinkTypes::BuyerToTrades)?,
         GetStrategy::default(),
     )?;
-    links_to_records(links)?
-        .into_iter()
-        .map(resolve_latest_record)
-        .collect()
+    resolve_latest_unique_records(links_to_records(links)?)
 }
 
 /// Get trades for an offer
@@ -581,10 +590,7 @@ pub fn get_offer_trades(offer_id: String) -> ExternResult<Vec<Record>> {
         LinkQuery::try_new(anchor_hash(&offer_id)?, LinkTypes::OfferToTrades)?,
         GetStrategy::default(),
     )?;
-    links_to_records(links)?
-        .into_iter()
-        .map(resolve_latest_record)
-        .collect()
+    resolve_latest_unique_records(links_to_records(links)?)
 }
 
 /// Wire-compatible mirror of `mycelix-identity`'s `trust_credential::TrustTier`
