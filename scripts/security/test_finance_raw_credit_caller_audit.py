@@ -219,7 +219,13 @@ class RawCreditCallerAuditTests(unittest.TestCase):
         ci_pass_end = workflow.index("\n    runs-on:", ci_pass_start)
         ci_pass = workflow[ci_pass_start:ci_pass_end]
         self.assertIn("- finance-raw-credit-caller-audit", ci_pass)
-        self.assertIn("${{ needs.finance-raw-credit-caller-audit.result }}", workflow)
+        failure_loop_start = workflow.index("for result in ", ci_pass_start)
+        failure_loop = workflow[failure_loop_start:]
+        self.assertIn(
+            '"${{ needs.finance-raw-credit-caller-audit.result }}"',
+            failure_loop,
+        )
+        self.assertIn('if [ "$result" = "failure" ]; then exit 1; fi', failure_loop)
 
     def test_whole_audit_fails_if_public_credit_abi_is_restored(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
