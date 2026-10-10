@@ -1,0 +1,481 @@
+{
+  "fixture_schema_version": "evidence-provenance-fixtures/0.1.0",
+  "status": "synthetic contract fixtures; no production implementation currently consumes this file",
+  "note": "These are semantic inputs and expected dispositions, not canonical signed events, not evidence about real studies, and not passing tests. Digest strings and identifiers are synthetic.",
+  "contract": "evidence-provenance-contract/0.1.0",
+  "cases": [
+    {
+      "id": "EPC-001",
+      "name": "original dataset reused by replication attestation",
+      "artifacts": [
+        {
+          "artifact_id": "artifact-original",
+          "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "role": "primary_observation"
+        }
+      ],
+      "provenance_assertions": [],
+      "attestation": {
+        "kind": "independent_replication",
+        "evidence_artifact_ids": [
+          "artifact-original"
+        ],
+        "declared_by": "actor-reviewer-1"
+      },
+      "expected": {
+        "integrity": "valid_reference",
+        "lineage": "unknown_or_original_study_data",
+        "qualification": "not_qualified",
+        "reason_code": "REPLICATION_REQUIRES_NEW_COLLECTION"
+      }
+    },
+    {
+      "id": "EPC-002",
+      "name": "same bytes attached under new artifact identifier",
+      "artifacts": [
+        {
+          "artifact_id": "artifact-original",
+          "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "role": "primary_observation"
+        },
+        {
+          "artifact_id": "artifact-copy",
+          "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "role": "reused_input"
+        }
+      ],
+      "provenance_assertions": [
+        {
+          "artifact_id": "artifact-copy",
+          "origin_relation": "copied_or_repackaged_from",
+          "parent_artifacts": [
+            "artifact-original"
+          ]
+        }
+      ],
+      "attestation": {
+        "kind": "independent_replication",
+        "evidence_artifact_ids": [
+          "artifact-copy"
+        ],
+        "declared_by": "actor-reviewer-1"
+      },
+      "expected": {
+        "integrity": "valid_reference",
+        "lineage": "copy",
+        "qualification": "not_qualified",
+        "reason_code": "COPY_IS_NOT_NEW_COLLECTION"
+      }
+    },
+    {
+      "id": "EPC-003",
+      "name": "repacked or transformed copy has a different content digest",
+      "artifacts": [
+        {
+          "artifact_id": "artifact-original",
+          "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "role": "primary_observation"
+        },
+        {
+          "artifact_id": "artifact-repacked",
+          "content_hash": "blake3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "role": "derived_dataset"
+        }
+      ],
+      "provenance_assertions": [
+        {
+          "artifact_id": "artifact-repacked",
+          "origin_relation": "copied_or_repackaged_from",
+          "parent_artifacts": [
+            "artifact-original"
+          ]
+        }
+      ],
+      "attestation": {
+        "kind": "independent_replication",
+        "evidence_artifact_ids": [
+          "artifact-repacked"
+        ],
+        "declared_by": "actor-reviewer-1"
+      },
+      "expected": {
+        "integrity": "valid_reference",
+        "lineage": "copy_or_repackaging",
+        "qualification": "not_qualified",
+        "reason_code": "DIGEST_CHANGE_DOES_NOT_PROVE_NEW_COLLECTION"
+      }
+    },
+    {
+      "id": "EPC-004",
+      "name": "same inputs with a new analysis run",
+      "artifacts": [
+        {
+          "artifact_id": "artifact-original",
+          "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "role": "primary_observation"
+        },
+        {
+          "artifact_id": "artifact-analysis-output",
+          "content_hash": "blake3:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "role": "analysis_output"
+        }
+      ],
+      "provenance_assertions": [
+        {
+          "artifact_id": "artifact-analysis-output",
+          "origin_relation": "same_data_reanalysis",
+          "parent_artifacts": [
+            "artifact-original"
+          ],
+          "protocol_reference": "analysis:v2"
+        }
+      ],
+      "attestation": {
+        "kind": "independent_replication",
+        "evidence_artifact_ids": [
+          "artifact-analysis-output"
+        ],
+        "declared_by": "actor-reviewer-1"
+      },
+      "expected": {
+        "integrity": "valid_reference",
+        "lineage": "same_data_reanalysis",
+        "qualification": "not_qualified_as_replication",
+        "possible_classification": "computational_reproduction_candidate",
+        "reason_code": "SAME_DATA_IS_NOT_REPLICATION"
+      }
+    },
+    {
+      "id": "EPC-005",
+      "name": "derived dataset with recorded parent lineage",
+      "artifacts": [
+        {
+          "artifact_id": "artifact-original",
+          "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "role": "primary_observation"
+        },
+        {
+          "artifact_id": "artifact-derived",
+          "content_hash": "blake3:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "role": "derived_dataset"
+        }
+      ],
+      "provenance_assertions": [
+        {
+          "artifact_id": "artifact-derived",
+          "origin_relation": "derived_from",
+          "parent_artifacts": [
+            "artifact-original"
+          ]
+        }
+      ],
+      "attestation": {
+        "kind": "independent_replication",
+        "evidence_artifact_ids": [
+          "artifact-derived"
+        ],
+        "declared_by": "actor-reviewer-1"
+      },
+      "expected": {
+        "integrity": "valid_reference",
+        "lineage": "derived_from_original",
+        "qualification": "not_qualified_as_new_collection",
+        "reason_code": "TRANSFORMATION_INHERITS_LINEAGE"
+      }
+    },
+    {
+      "id": "EPC-006",
+      "name": "distinct collection with manifest and supporting provenance",
+      "artifacts": [
+        {
+          "artifact_id": "artifact-original",
+          "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "role": "primary_observation"
+        },
+        {
+          "artifact_id": "artifact-new-study-data",
+          "content_hash": "blake3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "role": "primary_observation"
+        }
+      ],
+      "provenance_assertions": [
+        {
+          "artifact_id": "artifact-new-study-data",
+          "study_id": "study-2",
+          "collection_activity_id": "collection-2",
+          "origin_relation": "new_collection",
+          "parent_artifacts": [],
+          "collection_manifest_commitment": "blake3:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "supporting_provenance_artifacts": [
+            "artifact-collection-log"
+          ],
+          "declared_by": "actor-data-collector-2"
+        }
+      ],
+      "attestation": {
+        "kind": "independent_replication",
+        "evidence_artifact_ids": [
+          "artifact-new-study-data"
+        ],
+        "declared_by": "actor-reviewer-2"
+      },
+      "expected": {
+        "integrity": "candidate",
+        "lineage": "declared_new_collection",
+        "qualification": "candidate_for_independent_evaluation",
+        "reason_code": "ASSERTION_REQUIRES_INDEPENDENT_QUALIFICATION"
+      }
+    },
+    {
+      "id": "EPC-007",
+      "name": "partial dataset overlap is declared",
+      "artifacts": [
+        {
+          "artifact_id": "artifact-original",
+          "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "role": "primary_observation"
+        },
+        {
+          "artifact_id": "artifact-overlap",
+          "content_hash": "blake3:abababababababababababababababababababababababababababababababab",
+          "role": "primary_observation"
+        }
+      ],
+      "provenance_assertions": [
+        {
+          "artifact_id": "artifact-overlap",
+          "study_id": "study-2",
+          "collection_activity_id": "collection-2",
+          "origin_relation": "partially_overlapping",
+          "parent_artifacts": [
+            "artifact-original"
+          ],
+          "overlap_summary": {
+            "unit": "records",
+            "shared": 20,
+            "total": 100
+          },
+          "declared_by": "actor-data-collector-2"
+        }
+      ],
+      "attestation": {
+        "kind": "independent_replication",
+        "evidence_artifact_ids": [
+          "artifact-overlap"
+        ],
+        "declared_by": "actor-reviewer-2"
+      },
+      "expected": {
+        "integrity": "candidate",
+        "lineage": "partial_overlap",
+        "qualification": "indeterminate_until_domain_profile_assessment",
+        "reason_code": "PARTIAL_OVERLAP_REQUIRES_DOMAIN_RULE"
+      }
+    },
+    {
+      "id": "EPC-008",
+      "name": "conflicting active provenance for same artifact",
+      "artifacts": [
+        {
+          "artifact_id": "artifact-x",
+          "content_hash": "blake3:abababababababababababababababababababababababababababababababab",
+          "role": "primary_observation"
+        }
+      ],
+      "provenance_assertions": [
+        {
+          "provenance_record_id": "prov-a",
+          "artifact_id": "artifact-x",
+          "origin_relation": "new_collection",
+          "collection_activity_id": "collection-a",
+          "status": "active"
+        },
+        {
+          "provenance_record_id": "prov-b",
+          "artifact_id": "artifact-x",
+          "origin_relation": "copied_or_repackaged_from",
+          "collection_activity_id": "collection-b",
+          "parent_artifacts": [
+            "artifact-original"
+          ],
+          "status": "active"
+        }
+      ],
+      "attestation": {
+        "kind": "independent_replication",
+        "evidence_artifact_ids": [
+          "artifact-x"
+        ],
+        "declared_by": "actor-reviewer-2"
+      },
+      "expected": {
+        "integrity": "conflicting_assertions",
+        "lineage": "conflict",
+        "qualification": "indeterminate",
+        "reason_code": "CONFLICTING_PROVENANCE_MUST_NOT_USE_LAST_WRITER_WINS"
+      }
+    },
+    {
+      "id": "EPC-009",
+      "name": "legacy schema v2 or v3 attestation has no provenance declaration",
+      "artifacts": [
+        {
+          "artifact_id": "artifact-legacy",
+          "content_hash": "blake3:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+          "role": "unknown"
+        }
+      ],
+      "provenance_assertions": [],
+      "attestation": {
+        "kind": "independent_replication",
+        "evidence_artifact_ids": [
+          "artifact-legacy"
+        ],
+        "declared_by": "actor-legacy-reviewer",
+        "event_schema_version": 3
+      },
+      "expected": {
+        "integrity": "historical_event_retained",
+        "lineage": "unknown",
+        "qualification": "not_provenance_qualified_under_new_policy",
+        "reason_code": "LEGACY_HISTORY_IS_NOT_NEW_PROVENANCE"
+      }
+    },
+    {
+      "id": "EPC-010",
+      "name": "provenance declared only by the actor whose replication is counted",
+      "artifacts": [
+        {
+          "artifact_id": "artifact-new-study-data",
+          "content_hash": "blake3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "role": "primary_observation"
+        }
+      ],
+      "provenance_assertions": [
+        {
+          "artifact_id": "artifact-new-study-data",
+          "origin_relation": "new_collection",
+          "collection_activity_id": "collection-2",
+          "declared_by": "actor-same-as-attester",
+          "supporting_provenance_artifacts": []
+        }
+      ],
+      "attestation": {
+        "kind": "independent_replication",
+        "evidence_artifact_ids": [
+          "artifact-new-study-data"
+        ],
+        "declared_by": "actor-same-as-attester"
+      },
+      "expected": {
+        "integrity": "assertion_present",
+        "lineage": "asserted_not_independently_checked",
+        "qualification": "not_qualified_yet",
+        "reason_code": "NO_SELF_CERTIFICATION"
+      }
+    },
+    {
+      "id": "EPC-011",
+      "name": "provenance parent is missing from event stream",
+      "artifacts": [
+        {
+          "artifact_id": "artifact-child",
+          "content_hash": "blake3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "role": "derived_dataset"
+        }
+      ],
+      "provenance_assertions": [
+        {
+          "artifact_id": "artifact-child",
+          "origin_relation": "derived_from",
+          "parent_artifacts": [
+            "artifact-parent-missing"
+          ]
+        }
+      ],
+      "attestation": {
+        "kind": "independent_replication",
+        "evidence_artifact_ids": [
+          "artifact-child"
+        ],
+        "declared_by": "actor-reviewer-2"
+      },
+      "expected": {
+        "integrity": "invalid_parent_reference",
+        "lineage": "unresolved",
+        "qualification": "rejected_or_replay_fails",
+        "reason_code": "PARENT_MUST_RESOLVE"
+      }
+    },
+    {
+      "id": "EPC-012",
+      "name": "provenance parent identifier resolves with a mismatched digest",
+      "artifacts": [
+        {
+          "artifact_id": "artifact-child",
+          "content_hash": "blake3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "role": "derived_dataset"
+        }
+      ],
+      "provenance_assertions": [
+        {
+          "artifact_id": "artifact-child",
+          "origin_relation": "derived_from",
+          "parent_artifacts": [
+            {
+              "artifact_id": "artifact-parent",
+              "content_hash": "blake3:0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ]
+        }
+      ],
+      "attestation": {
+        "kind": "independent_replication",
+        "evidence_artifact_ids": [
+          "artifact-child"
+        ],
+        "declared_by": "actor-reviewer-2"
+      },
+      "expected": {
+        "integrity": "parent_digest_mismatch",
+        "lineage": "untrusted",
+        "qualification": "rejected_or_replay_fails",
+        "reason_code": "PARENT_HASH_MUST_MATCH"
+      }
+    },
+    {
+      "id": "EPC-013",
+      "name": "qualified non-supporting replication remains visible",
+      "artifacts": [
+        {
+          "artifact_id": "artifact-new-study-data",
+          "content_hash": "blake3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "role": "primary_observation"
+        }
+      ],
+      "provenance_assertions": [
+        {
+          "artifact_id": "artifact-new-study-data",
+          "origin_relation": "new_collection",
+          "collection_activity_id": "collection-2",
+          "qualification": "qualified_for_profile",
+          "evaluator_id": "actor-independent-evaluator"
+        }
+      ],
+      "attestation": {
+        "kind": "independent_replication",
+        "outcome": "does_not_support",
+        "evidence_artifact_ids": [
+          "artifact-new-study-data"
+        ],
+        "declared_by": "actor-reviewer-2"
+      },
+      "expected": {
+        "integrity": "qualified_provenance",
+        "lineage": "new_collection",
+        "qualification": "qualified_counterevidence",
+        "reason_code": "OUTCOME_DOES_NOT_ERASE_EVIDENCE"
+      }
+    }
+  ]
+}
