@@ -302,6 +302,7 @@ async function main() {
     });
 
     // Keyboard focus belongs to the opened dialog; Escape should close it.
+    await page.keyboard.press('Escape');
     await page.waitForFunction(() => {
       const active = document.activeElement;
       return !document.querySelector('.queue-panel')
