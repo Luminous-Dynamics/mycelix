@@ -44,7 +44,7 @@ Build the dependency-free scale probe once, then run each size separately so
 The probe generates a synthetic J3 journal, syncs it, then reports journal bytes,
 bytes per effect, generation time, and open-plus-replay time. It verifies the
 first and last generated effects after replay. `/usr/bin/time -v` supplies peak
-resident-set size (RSS). The probe accepts 1 through 5,000,000 effects and deletes
+resident-set size (RSS). The probe accepts 1 through 1,000,000 effects and deletes
 its private temporary directory after each run.
 
 Record the commit, OS/kernel, filesystem/storage, Rust version, effect count,
