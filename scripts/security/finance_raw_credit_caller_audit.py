@@ -40,7 +40,7 @@ def has_public_raw_credit_abi(source_text: str) -> bool:
 
 
 def scan(zomes_root: Path) -> list[tuple[str, int, str]]:
-    """Return name-dispatched raw-credit references outside payments coordinator."""
+    """Return exact raw-credit name literals outside payments coordinator."""
     hits: list[tuple[str, int, str]] = []
     for source in sorted(zomes_root.rglob("*.rs")):
         relative = source.relative_to(zomes_root)
@@ -57,9 +57,9 @@ def scan(zomes_root: Path) -> list[tuple[str, int, str]]:
         except (OSError, UnicodeError) as exc:
             raise RuntimeError(f"cannot read {source}: {exc}") from exc
 
-        # Search the complete source file: string-dispatched zome calls can be
-        # formatted across several lines. A line-at-a-time search silently misses
-        # those calls and could let a private-extern migration appear complete.
+        # Search the complete source file for exact normal/raw string literals,
+        # independent of constructor spelling or line breaks. This errs toward
+        # false positives (including comments) so each occurrence receives review.
         for match in RAW_CREDIT_REFERENCE.finditer(source_text):
             line_number = source_text.count("\n", 0, match.start()) + 1
             hits.append((relative.as_posix(), line_number, match.group(0)))
@@ -107,16 +107,16 @@ def audit(root: Path = ROOT) -> int:
         return 1
 
     if canonical:
-        print("FAIL: external zome callers still target raw payments::credit_sap.")
-        print("Do not qualify removal of the public ABI until each path is migrated")
-        print("to a source-specific authorization flow or explicitly disabled.")
+        print("FAIL: external coordinator sources still contain the raw-credit function-name literal.")
+        print("Review every occurrence; do not qualify removal of the public ABI until each")
+        print("is migrated to source-specific authorization or deliberately disabled.")
         for relative, line_number, expression in canonical:
             print(f"  {relative}:{line_number}: {expression}")
-        print(f"Found {len(canonical)} call site(s) in each Finance projection.")
+        print(f"Found {len(canonical)} matching literal(s) in each Finance projection.")
         return 1
 
-    print("PASS: raw credit ABI is private and no cross-zome raw-credit references remain.")
-    print("This source audit does not prove SAP conservation or exact-once settlement.")
+    print("PASS: raw credit ABI is private and no exact raw-credit name literal remains outside Payments coordinator.")
+    print("This literal scan cannot detect dynamically constructed names and does not prove SAP conservation or exact-once settlement.")
     return 0
 
 
