@@ -200,28 +200,28 @@ Sources:
 
 ## Follow-up qualification snapshot — 2026-10-10, refreshed after ABI-audit hardening
 
-The latest inspected AC-176 source SHA is `93390ffb96563ca9c654ebd04cc0325b5e2ed635`. [PR #4520](https://github.com/Luminous-Dynamics/mycelix/pull/4520) and its [qualification-only mirror #4521](https://github.com/Luminous-Dynamics/mycelix/pull/4521) both point to this exact SHA. The mirror was advanced with a guarded fast-forward, not a force update.
+The latest inspected AC-176 source SHA is `c3809f65ce1c96c510d1b71c12364f2cc676aee9`. [PR #4520](https://github.com/Luminous-Dynamics/mycelix/pull/4520) and its [qualification-only mirror #4521](https://github.com/Luminous-Dynamics/mycelix/pull/4521) both point to this exact SHA. The mirror was advanced with a guarded fast-forward, not a force update.
 
 ### What is now locally exercised
 
 - The caller audit searches multiline source, compares canonical/workspace inventories, and checks both Payments coordinator projections for a restored `#[hdk_extern] credit_sap` declaration.
-- The standard-library regression suite now has **six cases**: public raw-credit ABI is detected; private helper and unrelated extern are not misclassified; both supported cross-zome dispatch spellings are found across lines; reported line numbers remain correct; the Payments-coordinator and non-coordinator exclusions remain effective.
-- A local run of the fetched/recreated test sources passed all six cases. A synthetic two-projection source tree with the four known caller patterns made the full audit exit non-zero and reported four sites in each projection, as intended.
+- The standard-library regression suite now has **ten cases**: public raw-credit ABI is detected; private helper and unrelated extern are not misclassified; both supported cross-zome dispatch spellings are found across lines; reported line numbers remain correct; the Payments-coordinator and non-coordinator exclusions remain effective; the full audit rejects a restored public ABI, rejects the four known callers, rejects projection drift, and accepts only a clean/private fixture.
+- A local run of the fetched/recreated test sources passed all ten cases. A synthetic two-projection source tree with the four known caller patterns made the full audit exit non-zero and reported four sites in each projection, as intended.
 - A fresh GitHub source fetch confirms canonical/workspace content is byte-identical for each caller source, with the same four raw callsites: `currency-mint:179`, `bridge:663`, `bridge:2417`, and `staking:379`.
 
 This is local regression/static-audit evidence; it is not evidence that Rust/Sweettest/WASM qualification ran on the exact repo checkout.
 
 ### Exact-head workflow state
 
-The direct GitHub Actions API query for `93390ffb96563ca9c654ebd04cc0325b5e2ed635` returned these PR-triggered runs, all **queued**:
+The direct GitHub Actions API query for `c3809f65ce1c96c510d1b71c12364f2cc676aee9` returned these PR-triggered runs, all **queued**:
 
-- Mycelix CI: run `38074359555`
-- D6S canonical qualification: run `38074359471`
-- Finance exact-head qualification: run `38074359467`
+- Mycelix CI: run `38074701410`
+- D6S canonical qualification: run `38074701377`
+- Finance exact-head qualification: run `38074701394`
 
 Queued is not PASS; at the latest inspection, no steps had started on these jobs.
 
-Two separate D6U runtime-executor runs on the same commit (`38074355928` and `38074286983`) show workflow conclusion `failure`, but the Actions jobs endpoint returns zero job records for both. They expose no steps, test logs, or artifacts. They therefore do **not** demonstrate a Rust/test failure or runtime execution. Because the published D6U workflow is configured for a `workflow_run` event limited to a different source branch while these records show the AC-176 branch, this needs separate workflow-event/filter investigation; do not merge it into the runner-assignment diagnosis or assert a root cause from these records alone.
+Two separate D6U runtime-executor runs on the same commit (`38074697484` and `38074658211`) show workflow conclusion `failure`, but the Actions jobs endpoint returns zero job records for both. They expose no steps, test logs, or artifacts. They therefore do **not** demonstrate a Rust/test failure or runtime execution. Because the published D6U workflow is configured for a `workflow_run` event limited to a different source branch while these records show the AC-176 branch and `event=push`, this needs separate workflow-event/filter investigation; do not merge it into the runner-assignment diagnosis or assert a root cause from these records alone.
 
 [CI-OPS-001 / #697](https://github.com/Luminous-Dynamics/mycelix/issues/697) remains an independent infrastructure blocker: several ordinary hosted-runner jobs are queued before steps. The [public GitHub Status page](https://www.githubstatus.com/) reported all systems operational on October 10, with the recent October 5 Actions incident marked resolved. That does not rule out account/org policy or a repo-specific queue. Inspect Actions Settings, hosted-runner usage/quota, repository and organization Actions policy, spending/suspension state and any UI errors; if those are clean, escalate the representative stuck run IDs to GitHub Support.
 
