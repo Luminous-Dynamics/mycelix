@@ -217,6 +217,12 @@ fn production_validation_error(production: &EnergyProduction) -> Option<&'static
     if !valid_did(&production.producer_did) {
         return Some("Producer must be a valid DID");
     }
+    // Verification is an attestation, not a user-controlled input flag. The
+    // legacy verification update is rejected below, so never let a new record
+    // mint verified production directly while #4944 specifies append-only attestations.
+    if production.verified {
+        return Some("New production records cannot claim verified status");
+    }
     if !production.amount_kwh.is_finite() || production.amount_kwh <= 0.0 {
         return Some("Production amount must be finite and positive");
     }
@@ -225,6 +231,19 @@ fn production_validation_error(production: &EnergyProduction) -> Option<&'static
     }
     if matches!(production.meter_reading, Some(value) if !value.is_finite() || value < 0.0) {
         return Some("Meter reading must be finite and non-negative");
+    }
+    None
+}
+
+fn production_creation_author_validation_error(
+    production: &EnergyProduction,
+    author: &AgentPubKey,
+) -> Option<&'static str> {
+    if let Some(error) = production_validation_error(production) {
+        return Some(error);
+    }
+    if !did_matches_agent(&production.producer_did, author) {
+        return Some("Producer DID must identify the agent authoring the production record");
     }
     None
 }
@@ -244,6 +263,19 @@ fn consumption_validation_error(consumption: &EnergyConsumption) -> Option<&'sta
     }
     if matches!(consumption.meter_reading, Some(value) if !value.is_finite() || value < 0.0) {
         return Some("Meter reading must be finite and non-negative");
+    }
+    None
+}
+
+fn consumption_creation_author_validation_error(
+    consumption: &EnergyConsumption,
+    author: &AgentPubKey,
+) -> Option<&'static str> {
+    if let Some(error) = consumption_validation_error(consumption) {
+        return Some(error);
+    }
+    if !did_matches_agent(&consumption.consumer_did, author) {
+        return Some("Consumer DID must identify the agent authoring the consumption record");
     }
     None
 }
@@ -398,17 +430,23 @@ fn result_from_validation_error(
 }
 
 fn validate_create_energy_production(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     production: EnergyProduction,
 ) -> ExternResult<ValidateCallbackResult> {
-    result_from_validation_error(production_validation_error(&production))
+    result_from_validation_error(production_creation_author_validation_error(
+        &production,
+        action.author(),
+    ))
 }
 
 fn validate_create_energy_consumption(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     consumption: EnergyConsumption,
 ) -> ExternResult<ValidateCallbackResult> {
-    result_from_validation_error(consumption_validation_error(&consumption))
+    result_from_validation_error(consumption_creation_author_validation_error(
+        &consumption,
+        action.author(),
+    ))
 }
 
 fn validate_create_trade_offer(
@@ -1075,6 +1113,59 @@ mod strict_validation_regression_tests {
         let mut production = valid_production();
         production.meter_reading = Some(-1.0);
         assert!(production_validation_error(&production).is_some());
+
+        let mut production = valid_production();
+        production.verified = true;
+        assert_eq!(
+            production_validation_error(&production),
+            Some("New production records cannot claim verified status")
+        );
+    }
+
+    #[test]
+    fn production_and_consumption_identity_must_match_the_author() {
+        let author = AgentPubKey::from_raw_32(vec![7u8; 32]);
+        let other = AgentPubKey::from_raw_32(vec![8u8; 32]);
+        let author_did = format!("did:mycelix:{author}");
+        let other_did = format!("did:mycelix:{other}");
+
+        let owned_production = EnergyProduction {
+            producer_did: author_did.clone(),
+            ..valid_production()
+        };
+        assert_eq!(
+            production_creation_author_validation_error(&owned_production, &author),
+            None
+        );
+        let impersonated_production = EnergyProduction {
+            producer_did: other_did.clone(),
+            ..valid_production()
+        };
+        assert_eq!(
+            production_creation_author_validation_error(&impersonated_production, &author),
+            Some("Producer DID must identify the agent authoring the production record")
+        );
+
+        let owned_consumption = EnergyConsumption {
+            id: "consumption-1".into(),
+            consumer_did: author_did,
+            amount_kwh: 2.0,
+            timestamp: timestamp(),
+            period_hours: 1.0,
+            meter_reading: None,
+        };
+        assert_eq!(
+            consumption_creation_author_validation_error(&owned_consumption, &author),
+            None
+        );
+        let impersonated_consumption = EnergyConsumption {
+            consumer_did: other_did,
+            ..owned_consumption
+        };
+        assert_eq!(
+            consumption_creation_author_validation_error(&impersonated_consumption, &author),
+            Some("Consumer DID must identify the agent authoring the consumption record")
+        );
     }
 
     #[test]
