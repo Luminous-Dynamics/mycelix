@@ -11,6 +11,7 @@ on:
       - ".github/workflows/fpm-reference-verifier-selftest.yml"
       - ".github/workflows/fpm-wasm-artifact-identity.yml"
       - ".github/workflows/d6u-exact-head-runtime-executor.yml"
+      - ".github/workflows/d6s-canonical-qualification.yml"
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
@@ -77,7 +78,8 @@ jobs:
             .github/workflows/fpm-trusted-qualification.yml \
             .github/workflows/fpm-trusted-qualification-independent-verify.yml \
             .github/workflows/fpm-reference-verifier-selftest.yml \
-            .github/workflows/d6u-exact-head-runtime-executor.yml
+            .github/workflows/d6u-exact-head-runtime-executor.yml \
+            .github/workflows/d6s-canonical-qualification.yml
 
       - name: Parse every embedded sandbox program
         run: |
