@@ -232,13 +232,13 @@ class RawCreditCallerAuditTests(unittest.TestCase):
         self.assertIn('if [ "$result" = "failure" ]; then exit 1; fi', failure_loop)
         self.assertIn(
             'if [ "${{ needs.changes.result }}" != "success" ]; then',
-            failure_loop,
+            check_results,
         )
-        self.assertIn('needs.changes.outputs.finance_raw_credit_audit', failure_loop)
-        self.assertIn('|| [ "${{ github.event_name }}" = "workflow_dispatch" ]; then', failure_loop)
+        self.assertIn('needs.changes.outputs.finance_raw_credit_audit', check_results)
+        self.assertIn('|| [ "${{ github.event_name }}" = "workflow_dispatch" ]; then', check_results)
         self.assertIn(
             'if [ "${{ needs.finance-raw-credit-caller-audit.result }}" != "success" ]; then',
-            failure_loop,
+            check_results,
         )
 
     def test_whole_audit_fails_if_public_credit_abi_is_restored(self) -> None:
