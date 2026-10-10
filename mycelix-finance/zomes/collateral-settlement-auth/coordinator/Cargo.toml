@@ -1,0 +1,21 @@
+[package]
+name = "collateral_settlement_auth"
+version = "0.2.0"
+edition = "2024"
+license.workspace = true
+description = "Coordinator zome for exact-action collateral attestations and authenticated settlement"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "collateral_settlement_auth"
+
+[dependencies]
+holochain_serialized_bytes = { workspace = true }
+hdk = { workspace = true }
+serde = { workspace = true }
+finance-collateral-auth = { path = "../../../crates/finance-collateral-auth" }
+finance-collateral-request-binding = { path = "../../../crates/finance-collateral-request-binding" }
+finance-collateral-settlement = { path = "../../../crates/finance-collateral-settlement" }
+collateral_settlement_auth_integrity = { path = "../integrity" }
+collateral_deposit_v2_integrity = { path = "../../collateral-deposit-v2/integrity" }
+mycelix-bridge-entry-types = { workspace = true }
