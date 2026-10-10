@@ -2316,8 +2316,38 @@ mod tests {
         )
         .unwrap();
 
-        let projection =
-            ClaimProjection::rebuild(&[genesis, evidence, self_replication, external]).unwrap();
+        let external_peer = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &external,
+                actor("did:key:carol"),
+                Utc.timestamp_opt(1_700_000_040, 0).unwrap(),
+                ScientificEventPayload::AttestationRecorded {
+                    attestation: Attestation {
+                        id: AttestationId::new(),
+                        claim_id,
+                        kind: AttestationKind::IndependentReplication {
+                            outcome: EvidenceOutcome::Supports,
+                        },
+                        evidence_ids: vec![artifact_id],
+                        statement: Some("Second actor, same organization".to_string()),
+                        protocol_reference: Some("protocol:v2".to_string()),
+                    },
+                },
+            )
+            .unwrap()
+            .with_acting_organization(organization("ror:external-lab")),
+            &key(3),
+        )
+        .unwrap();
+
+        let projection = ClaimProjection::rebuild(&[
+            genesis,
+            evidence,
+            self_replication,
+            external,
+            external_peer,
+        ])
+        .unwrap();
         assert_eq!(
             projection
                 .evidence_profile
