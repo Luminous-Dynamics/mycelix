@@ -895,27 +895,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check results
+        env:
+          FORMAT_RESULT: ${{ needs.format.result }}
+          COS_CONFORMANCE_RESULT: ${{ needs.test-cos-conformance.result }}
+          COMMONS_RESULT: ${{ needs.test-commons.result }}
+          CIVIC_RESULT: ${{ needs.test-civic.result }}
+          HEARTH_RESULT: ${{ needs.test-hearth.result }}
+          FINANCE_RESULT: ${{ needs.test-finance.result }}
+          FINANCE_INTEGRATION_RESULT: ${{ needs.test-finance-integration.result }}
+          GOVERNANCE_RESULT: ${{ needs.test-governance.result }}
+          IDENTITY_RESULT: ${{ needs.test-identity.result }}
+          PERSONAL_RESULT: ${{ needs.test-personal.result }}
+          ATTRIBUTION_RESULT: ${{ needs.test-attribution.result }}
+          BRIDGE_RESULT: ${{ needs.test-bridge.result }}
+          SDK_RESULT: ${{ needs.test-sdk.result }}
+          NIX_SDK_RESULT: ${{ needs.nix-sdk-shell.result }}
+          PRISM_RESULT: ${{ needs.test-prism.result }}
         run: |
-          echo "Format: ${{ needs.format.result }}"
-          echo "COS conformance: ${{ needs.test-cos-conformance.result }}"
-          echo "Commons: ${{ needs.test-commons.result }}"
-          echo "Civic: ${{ needs.test-civic.result }}"
-          echo "Hearth: ${{ needs.test-hearth.result }}"
-          echo "Finance: ${{ needs.test-finance.result }}"
+          echo "Format: $FORMAT_RESULT"
+          echo "COS conformance: $COS_CONFORMANCE_RESULT"
+          echo "Commons: $COMMONS_RESULT"
+          echo "Civic: $CIVIC_RESULT"
+          echo "Hearth: $HEARTH_RESULT"
+          echo "Finance: $FINANCE_RESULT"
           # Reported but not gated below — expected red until the finance
           # zomes/tests are synced from the monorepo. See the job's own comment.
-          echo "Finance Integration (informational): ${{ needs.test-finance-integration.result }}"
-          echo "Governance: ${{ needs.test-governance.result }}"
-          echo "Identity: ${{ needs.test-identity.result }}"
-          echo "Personal: ${{ needs.test-personal.result }}"
-          echo "Attribution: ${{ needs.test-attribution.result }}"
-          echo "Bridge: ${{ needs.test-bridge.result }}"
-          echo "SDK: ${{ needs.test-sdk.result }}"
-          echo "Nix SDK shell: ${{ needs.nix-sdk-shell.result }}"
-          echo "Prism: ${{ needs.test-prism.result }}"
-          if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
-          # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.nix-sdk-shell.result }}" "${{ needs.test-prism.result }}"; do
-            if [ "$result" = "failure" ]; then exit 1; fi
+          echo "Finance Integration (informational): $FINANCE_INTEGRATION_RESULT"
+          echo "Governance: $GOVERNANCE_RESULT"
+          echo "Identity: $IDENTITY_RESULT"
+          echo "Personal: $PERSONAL_RESULT"
+          echo "Attribution: $ATTRIBUTION_RESULT"
+          echo "Bridge: $BRIDGE_RESULT"
+          echo "SDK: $SDK_RESULT"
+          echo "Nix SDK shell: $NIX_SDK_RESULT"
+          echo "Prism: $PRISM_RESULT"
+          if [[ "$FORMAT_RESULT" == "failure" ]]; then exit 1; fi
+          # Skipped jobs are OK (path filter didn't match).
+          for result in "$COS_CONFORMANCE_RESULT" "$COMMONS_RESULT" "$CIVIC_RESULT" "$HEARTH_RESULT" "$FINANCE_RESULT" "$GOVERNANCE_RESULT" "$IDENTITY_RESULT" "$PERSONAL_RESULT" "$ATTRIBUTION_RESULT" "$BRIDGE_RESULT" "$SDK_RESULT" "$NIX_SDK_RESULT" "$PRISM_RESULT"; do
+            if [[ "$result" == "failure" ]]; then exit 1; fi
           done
           echo "All checks passed!"
