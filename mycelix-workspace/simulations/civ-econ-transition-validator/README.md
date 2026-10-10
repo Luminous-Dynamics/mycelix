@@ -30,6 +30,30 @@ From this directory:
 
 The crate has an isolated Cargo workspace and no third-party dependencies.
 
+### Journal replay scale probe
+
+Build the dependency-free scale probe once, then run each size separately so
+`/usr/bin/time -v` captures the probe process rather than Cargo's build process:
+
+    cargo build --offline --release --bin journal-replay-scale
+    for n in 10000 100000 1000000; do
+      printf '\\n== %s effects ==\\n' "$n"
+      /usr/bin/time -v target/release/journal-replay-scale "$n" 2>&1
+    done
+
+The probe generates a synthetic J3 journal, syncs it, then reports journal bytes,
+bytes per effect, generation time, and open-plus-replay time. It verifies the
+first and last generated effects after replay. `/usr/bin/time -v` supplies peak
+resident-set size (RSS). The probe accepts 1 through 5,000,000 effects and deletes
+its private temporary directory after each run.
+
+Record the commit, OS/kernel, filesystem/storage, Rust version, effect count,
+journal bytes, generation time, open-plus-replay time, and maximum RSS when
+comparing runs. Compare repeated runs on the same machine; do not infer asymptotic
+complexity or production capacity from one sample. The current harness does not
+measure allocator-level peak memory in isolation and has not itself established
+performance numbers in this repository yet.
+
 The `EffectLedger` in `lib.rs` remains an in-memory reference model. The new
 `durable_journal::DurableEffectJournal` persists begin, indeterminate, and
 acknowledgement records to an append-only local file. It reads legacy J1/J2
