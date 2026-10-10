@@ -871,7 +871,7 @@ mod lifecycle_tests {
 
         // 3. Record production
         let prod_input = RecordProductionInput {
-            producer_did: "did:mycelix:lc-developer".to_string(),
+            producer_did: did_for_cell(&cell),
             project_id: project.id.clone(),
             amount_kwh: 10000.0,
             period_hours: 24.0,
@@ -994,7 +994,7 @@ mod cross_zome_tests {
 
         // Record production
         let prod_input = RecordProductionInput {
-            producer_did: "did:mycelix:prod-ref-dev".to_string(),
+            producer_did: did_for_cell(&cell),
             project_id: project.id.clone(),
             amount_kwh: 5000.0,
             period_hours: 12.0,
