@@ -117,7 +117,7 @@ Before implementation, inspect the codec implementation and golden-vector suite 
 | Provenance assertion written by the same actor who wants the replication counted | Asserted pending separate evaluation | Self-certification |
 | Valid non-supporting replication result | Preserve as qualified counterevidence if provenance/method pass | Outcome-biased qualification |
 
-The initial machine-readable synthetic cases are in [fixtures/evidence-provenance-v0.1.0.json](fixtures/evidence-provenance-v0.1.0.json). They are contract inputs with expected dispositions, not signed canonical events and not tests consumed by production code yet. For each fixture, freeze exact events, signatures, content digests, collection manifests, expected projection fields, assessment policy version, and a canonical projection commitment. Run both the authoritative replay and a separate checker that does not share the projection's qualification helper.
+The initial machine-readable synthetic cases are in [fixtures/evidence-provenance-v0.1.0.json](fixtures/evidence-provenance-v0.1.0.json), governed by the [fixture-corpus JSON Schema](fixtures/evidence-provenance-fixtures.schema.json). That JSON Schema defines only the fixture format, not the production provenance event schema. The fixtures are contract inputs with expected dispositions, not signed canonical events and not tests consumed by production code yet. For each fixture, freeze exact events, signatures, content digests, collection manifests, expected projection fields, assessment policy version, and a canonical projection commitment. Run both the authoritative replay and a separate checker that does not share the projection's qualification helper.
 
 ## 7. Qualification gates
 
