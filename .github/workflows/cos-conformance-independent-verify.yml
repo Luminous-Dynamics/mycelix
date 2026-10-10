@@ -343,7 +343,9 @@ jobs:
   validate:
     name: Validate execution from fresh trusted runner
     needs: [prepare, execute]
-    if: always()
+    # Preserve validation after execution failure, but don't turn unrelated
+    # push/schedule workflow_run events into malformed PR evidence attempts.
+    if: always() && needs.prepare.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
