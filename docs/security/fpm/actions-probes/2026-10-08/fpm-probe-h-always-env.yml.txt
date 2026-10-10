@@ -1,0 +1,13 @@
+name: FPM probe always env
+on:
+  push:
+permissions: {}
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: one
+        if: always()
+        env:
+          GITHUB_OUTPUT: /dev/null
+        run: echo ok

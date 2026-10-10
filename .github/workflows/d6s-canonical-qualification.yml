@@ -4,8 +4,16 @@ on:
   push:
     branches:
       - myc-int-demo-d6t-canonical-encoding
+  # This D6S-specific reference suite must run only when its subject inputs change;
+  # unrelated PR heads may not contain these frozen fixtures and verifier sources.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "mycelix-manufacturing/**"
+      - "docs/integral/d6s-canon-1-*"
+      - "docs/integral/d6s-canon-2-*"
+      - "scripts/integral/verify_d6s_canon_1.py"
+      - "scripts/integral/verify_d6s_canon_2_authority_boundary.py"
   workflow_dispatch:
 
 permissions:

@@ -1,0 +1,28 @@
+Archived diagnostic workflow from 2026-10-08.
+
+Original path: .github/workflows/fpm-actions-dispatch-probe.yml
+Original blob SHA: 8ba7cc9ab9c1401edce6cb39a327986ad037c09b
+
+This file was intentionally used only to distinguish Actions event dispatch from runner execution during FPM qualification hardening. It triggered no secrets, checkout, Cargo execution, or privileged operations.
+
+Exact original contents follow:
+
+name: FPM Actions dispatch probe
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Emit dispatch proof
+        run: |
+          set -eu
+          echo "FPM Actions dispatch probe reached a runner"
+

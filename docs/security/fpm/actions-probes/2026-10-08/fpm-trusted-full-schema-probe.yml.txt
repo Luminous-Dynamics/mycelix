@@ -1,0 +1,766 @@
+name: FPM trusted full schema probe
+
+on:
+  push:
+
+# This workflow is intended to live on the protected default branch.
+# The candidate workflow is only an execution-request signal. The fixed
+# qualification procedure is sourced from this workflow on main.
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: fpm-trusted-qualification-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt || 1 }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  FPM_SANDBOX_IMAGE: ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
+  FPM_SYSTEM_CLOSURE_PROFILE: fpm-ubuntu24.04-amd64-rust-1.96.1-v1
+
+jobs:
+  qualify:
+    if: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Establish protected evidence directory
+        run: |
+          set -euo pipefail
+          printf 'FPM_CARGO_HOME=%s/fpm-cargo\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'FPM_TARGET_DIR=%s/fpm-target\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'FPM_RESOLVER_CARGO_HOME=%s/fpm-resolver-cargo\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'FPM_TOOLCHAIN_ROOT=%s/fpm-rust-toolchain\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'FPM_UNTRUSTED_TMP=%s/fpm-untrusted-tmp\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'FPM_EVIDENCE_DIR=%s/fpm-trusted-evidence-%s\n' "$RUNNER_TEMP" "$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+          evidence_dir="$RUNNER_TEMP/fpm-trusted-evidence-$GITHUB_RUN_ID"
+          mkdir -p "$evidence_dir"
+          chmod 700 "$evidence_dir"
+          test -O "$evidence_dir"
+
+      - name: Revalidate workflow-run subject and live PR
+        id: preflight
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_WORKFLOW_ID: "377461322"
+          EXPECTED_WORKFLOW_PATH: ".github/workflows/fpm-wasm-artifact-identity.yml"
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+
+          api() {
+            curl -fsS               -H 'Accept: application/vnd.github+json'               -H "Authorization: Bearer ${GH_TOKEN}"               -H 'X-GitHub-Api-Version: 2022-11-28'               "${GITHUB_API_URL}$1"
+          }
+
+          workflow_run_event="$(jq -c '.workflow_run' "$GITHUB_EVENT_PATH")"
+          pr_count="$(printf '%s' "$workflow_run_event" | jq -r '.pull_requests | length')"
+          test "$pr_count" = "1"
+
+          expected_head="$(printf '%s' "$workflow_run_event" | jq -r '.head_sha')"
+          expected_base="$(printf '%s' "$workflow_run_event" | jq -r '.pull_requests[0].base.sha')"
+          pr_number="$(printf '%s' "$workflow_run_event" | jq -r '.pull_requests[0].number')"
+          event_workflow_id="$(printf '%s' "$workflow_run_event" | jq -r '.workflow_id')"
+          event_workflow_event="$(printf '%s' "$workflow_run_event" | jq -r '.event')"
+          event_head_repo_id="$(printf '%s' "$workflow_run_event" | jq -r '.head_repository.id')"
+          event_head_repo="$(printf '%s' "$workflow_run_event" | jq -r '.head_repository.full_name')"
+          event_base_repo_id="$(printf '%s' "$workflow_run_event" | jq -r '.pull_requests[0].base.repo.id')"
+          event_base_ref="$(printf '%s' "$workflow_run_event" | jq -r '.pull_requests[0].base.ref')"
+          event_head_repo_from_pr="$(printf '%s' "$workflow_run_event" | jq -r '.pull_requests[0].head.repo.full_name')"
+          event_head_sha_from_pr="$(printf '%s' "$workflow_run_event" | jq -r '.pull_requests[0].head.sha')"
+
+          test "$event_workflow_id" = "$EXPECTED_WORKFLOW_ID"
+          test "$event_workflow_event" = "pull_request"
+          test "$event_head_repo_id" = "$GITHUB_REPOSITORY_ID"
+          test "$event_head_repo" = "$GITHUB_REPOSITORY"
+          test "$event_base_repo_id" = "$GITHUB_REPOSITORY_ID"
+          test "$event_base_ref" = "main"
+          test "$event_head_repo_from_pr" = "$GITHUB_REPOSITORY"
+          test "$event_head_sha_from_pr" = "$expected_head"
+          printf '%s\n' "$expected_head" | grep -Eq '^[0-9a-f]{40}$'
+          test "$pr_number" -ge 1
+
+          run_api="$(api "/repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")"
+          test "$(printf '%s' "$run_api" | jq -r '.id')" = "$RUN_ID"
+          test "$(printf '%s' "$run_api" | jq -r '.workflow_id')" = "$EXPECTED_WORKFLOW_ID"
+          test "$(printf '%s' "$run_api" | jq -r '.path')" = "$EXPECTED_WORKFLOW_PATH"
+          test "$(printf '%s' "$run_api" | jq -r '.event')" = "pull_request"
+          test "$(printf '%s' "$run_api" | jq -r '.head_sha')" = "$expected_head"
+          test "$(printf '%s' "$run_api" | jq -r '.head_repository.id')" = "$GITHUB_REPOSITORY_ID"
+          test "$(printf '%s' "$run_api" | jq -r '.head_repository.full_name')" = "$GITHUB_REPOSITORY"
+
+          pr_api="$(api "/repos/$GITHUB_REPOSITORY/pulls/$pr_number")"
+          test "$(printf '%s' "$pr_api" | jq -r '.number')" = "$pr_number"
+          test "$(printf '%s' "$pr_api" | jq -r '.base.ref')" = "main"
+          test "$(printf '%s' "$pr_api" | jq -r '.base.sha')" = "$expected_base"
+          test "$(printf '%s' "$pr_api" | jq -r '.base.repo.id')" = "$GITHUB_REPOSITORY_ID"
+          test "$(printf '%s' "$pr_api" | jq -r '.head.repo.id')" = "$GITHUB_REPOSITORY_ID"
+          test "$(printf '%s' "$pr_api" | jq -r '.head.repo.full_name')" = "$GITHUB_REPOSITORY"
+          test "$(printf '%s' "$pr_api" | jq -r '.head.sha')" = "$expected_head"
+
+          printf 'pr_number=%s\n' "$pr_number" >> "$GITHUB_OUTPUT"
+          printf 'expected_head_sha=%s\n' "$expected_head" >> "$GITHUB_OUTPUT"
+          printf 'expected_base_sha=%s\n' "$expected_base" >> "$GITHUB_OUTPUT"
+          printf 'upstream_run_attempt=%s\n' "$(printf '%s' "$run_api" | jq -r '.run_attempt // empty')" >> "$GITHUB_OUTPUT"
+          printf 'upstream_run_conclusion=%s\n' "$(printf '%s' "$run_api" | jq -r '.conclusion // empty')" >> "$GITHUB_OUTPUT"
+
+      - name: Bind trusted policy identity
+        id: policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          policy_json="$(curl -fsS             -H 'Accept: application/vnd.github+json'             -H "Authorization: Bearer $GH_TOKEN"             -H 'X-GitHub-Api-Version: 2022-11-28'             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/contents/.github/workflows/fpm-trusted-qualification.yml?ref=$GITHUB_SHA")"
+          policy_blob_sha="$(printf '%s' "$policy_json" | jq -r '.sha')"
+          test "$policy_blob_sha" != "null"
+          test -n "$policy_blob_sha"
+          printf 'trusted_policy_sha=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          printf 'trusted_policy_blob_sha=%s\n' "$policy_blob_sha" >> "$GITHUB_OUTPUT"
+          printf 'trusted_policy_ref=%s\n' "$GITHUB_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact candidate
+        id: checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ steps.preflight.outputs.expected_head_sha }}
+          path: candidate
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Establish candidate identity and pre-Cargo policy
+        id: source
+        working-directory: candidate
+        env:
+          EXPECTED_MANIFEST_BLOB_SHA: c94b53f61ed8a9bfb6249b1b339550dddd074d6c
+        run: |
+          set -euo pipefail
+          actual_head="$(git rev-parse HEAD)"
+          subject_tree="$(git rev-parse HEAD^{tree})"
+          test "$actual_head" = "${{ steps.preflight.outputs.expected_head_sha }}"
+          test -z "$(git ls-files -s -- crates/fpm-wasm-artifact-identity | awk '$1 ~ /^120000$/ {print $4}')"
+          root_config_hits="$(git ls-files --stage -- .cargo/config .cargo/config.toml || true)"
+          test -z "$root_config_hits"
+          test ! -e .cargo/config
+          test ! -e .cargo/config.toml
+          actual_manifest_sha="$(git hash-object crates/fpm-wasm-artifact-identity/Cargo.toml)"
+          test "$actual_manifest_sha" = "$EXPECTED_MANIFEST_BLOB_SHA"
+          grep -Fx 'holo_hash = { version = "=0.7.0", default-features = false, features = ["hashing"] }' crates/fpm-wasm-artifact-identity/Cargo.toml
+          grep -Fx 'holochain_types = "=0.7.0"' crates/fpm-wasm-artifact-identity/Cargo.toml
+          printf 'candidate_head_sha=%s\n' "$actual_head" >> "$GITHUB_OUTPUT"
+          printf 'candidate_tree_sha=%s\n' "$subject_tree" >> "$GITHUB_OUTPUT"
+          printf 'candidate_manifest_blob_sha=%s\n' "$actual_manifest_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Install pinned Rust toolchain
+        id: toolchain_install
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.96.1
+          components: rustfmt
+
+      - name: Snapshot immutable Rust toolchain
+        id: toolchain
+        run: |
+          set -euo pipefail
+          sysroot="$(rustc +1.96.1 --print sysroot)"
+          rm -rf "${FPM_TOOLCHAIN_ROOT}"
+          cp -a "$sysroot" "${FPM_TOOLCHAIN_ROOT}"
+          chmod -R a-w "${FPM_TOOLCHAIN_ROOT}"
+          test -x "${FPM_TOOLCHAIN_ROOT}/bin/rustc"
+          test -x "${FPM_TOOLCHAIN_ROOT}/bin/cargo"
+          test -x "${FPM_TOOLCHAIN_ROOT}/bin/rustfmt"
+          "${FPM_TOOLCHAIN_ROOT}/bin/rustc" --version --verbose
+          printf 'rustc_version=%s\n' "$("${FPM_TOOLCHAIN_ROOT}/bin/rustc" --version)" >> "$GITHUB_OUTPUT"
+          printf 'rustc_commit=%s\n' "$("${FPM_TOOLCHAIN_ROOT}/bin/rustc" --version --verbose | sed -ne 's/^commit-hash: //p')" >> "$GITHUB_OUTPUT"
+          printf 'cargo_version=%s\n' "$("${FPM_TOOLCHAIN_ROOT}/bin/cargo" --version)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate run-local locked dependency snapshot
+        id: lock
+        working-directory: candidate
+        env:
+          GIT_CONFIG_NOSYSTEM: "true"
+        run: |
+          set -euo pipefail
+          export PATH="${FPM_TOOLCHAIN_ROOT}/bin:/usr/bin:/bin"
+          export CARGO_HOME="${FPM_RESOLVER_CARGO_HOME}"
+          rm -rf "${CARGO_HOME}"
+          mkdir -p "${CARGO_HOME}"
+          chmod 700 "${CARGO_HOME}"
+          if git ls-files --error-unmatch crates/fpm-wasm-artifact-identity/Cargo.lock >/dev/null 2>&1; then
+            lock_mode=tracked
+          else
+            rm -f crates/fpm-wasm-artifact-identity/Cargo.lock
+            cargo generate-lockfile --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
+            lock_mode=generated_for_run
+          fi
+          test -f crates/fpm-wasm-artifact-identity/Cargo.lock
+          lock_sha="$(sha256sum crates/fpm-wasm-artifact-identity/Cargo.lock | awk '{print $1}')"
+          printf 'lock_mode=%s\n' "$lock_mode" >> "$GITHUB_OUTPUT"
+          printf 'lock_sha256=%s\n' "$lock_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Materialize dependency cache before hostile execution
+        # The dependency phase is networked, so it receives a smaller, explicit
+        # environment than the later hostile sandbox.
+        id: dependencies
+        working-directory: candidate
+        env:
+          GIT_CONFIG_NOSYSTEM: "true"
+        run: |
+          set -euo pipefail
+          export PATH="${FPM_TOOLCHAIN_ROOT}/bin:/usr/bin:/bin"
+          export CARGO_HOME="${FPM_RESOLVER_CARGO_HOME}"
+          python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          lock = tomllib.loads(
+              Path("crates/fpm-wasm-artifact-identity/Cargo.lock").read_text(encoding="utf-8")
+          )
+          packages = lock.get("package")
+          if not isinstance(packages, list) or not packages:
+              raise SystemExit("Cargo.lock has no package entries")
+
+          allowed = "registry+https://github.com/rust-lang/crates.io-index"
+          source_free = []
+          for package in packages:
+              if not isinstance(package, dict):
+                  raise SystemExit("Cargo.lock package entry is malformed")
+              name = package.get("name")
+              source = package.get("source")
+              if source is None:
+                  source_free.append(name)
+                  continue
+              if source != allowed:
+                  raise SystemExit(f"unapproved Cargo.lock source: {name}: {source}")
+              checksum = package.get("checksum")
+              if not isinstance(checksum, str) or len(checksum) != 64 or any(
+                  char not in "0123456789abcdef" for char in checksum
+              ):
+                  raise SystemExit(f"registry package checksum is not canonical: {name}")
+
+          if source_free != ["fpm-wasm-artifact-identity"]:
+              raise SystemExit(
+                  f"unexpected source-free Cargo.lock packages: {source_free!r}"
+              )
+          PY
+          export HOME="$RUNNER_TEMP/fpm-resolver-home"
+          rm -rf "$HOME"
+          mkdir -p "$HOME"
+          chmod 700 "$HOME"
+          test ! -e "$HOME/.gitconfig"
+          test ! -e "$CARGO_HOME/config.toml"
+          test ! -e "$CARGO_HOME/credentials"
+          test ! -e "$CARGO_HOME/credentials.toml"
+          env -i             PATH="$PATH"             HOME="$HOME"             CARGO_HOME="$CARGO_HOME"             CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse             CARGO_NET_OFFLINE=false             CARGO_NET_GIT_FETCH_WITH_CLI=false             GIT_CONFIG_NOSYSTEM=true             GIT_TERMINAL_PROMPT=0             cargo fetch --locked --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
+          rm -rf "${FPM_CARGO_HOME}"
+          cp -a "${CARGO_HOME}" "${FPM_CARGO_HOME}"
+          test -d "${FPM_CARGO_HOME}"
+          test -z "$(find "${FPM_CARGO_HOME}" -type l -print -quit)"
+          chmod -R a-w "${FPM_CARGO_HOME}"
+          cache_digest="$(tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner --format=gnu -cf - -C "${FPM_CARGO_HOME}" . | sha256sum | awk '{print $1}')"
+          printf 'dependency_cache_sha256=%s\n' "$cache_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare pinned hostile-code sandbox image
+        id: sandbox_image
+        run: |
+          set -euo pipefail
+          docker pull --quiet "${FPM_SANDBOX_IMAGE}"
+          docker image inspect "${FPM_SANDBOX_IMAGE}" >/dev/null
+          repo_digests="$(docker image inspect --format '{{json .RepoDigests}}' "${FPM_SANDBOX_IMAGE}")"
+          printf '%s' "$repo_digests" | grep -Fq 'sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b'
+          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "${FPM_SANDBOX_IMAGE}")" = "linux/amd64"
+          image_id="$(docker image inspect --format '{{.Id}}' "${FPM_SANDBOX_IMAGE}")"
+          test -n "$image_id"
+          printf 'sandbox_image_digest=%s\n' 'sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b' >> "$GITHUB_OUTPUT"
+
+      - name: Create non-privileged candidate identity and freeze source
+        id: sandbox
+        run: |
+          set -euo pipefail
+          if ! id fpm-untrusted >/dev/null 2>&1; then
+            sudo useradd --create-home --shell /bin/bash fpm-untrusted
+          fi
+          rm -rf "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}" "${FPM_UNTRUSTED_TMP}"
+          mkdir -p "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}" "${FPM_UNTRUSTED_TMP}"
+          chown -R fpm-untrusted:fpm-untrusted "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}" "${FPM_UNTRUSTED_TMP}"
+          chmod 700 "${FPM_CARGO_HOME}" "${FPM_TARGET_DIR}" "${FPM_UNTRUSTED_TMP}"
+          candidate_uid="$(sudo -n -u fpm-untrusted id -u)"
+          test "$candidate_uid" != "0"
+          test "$candidate_uid" != "$(id -u)"
+          printf 'candidate_uid=%s\n' "$candidate_uid" >> "$GITHUB_OUTPUT"
+          candidate_gid="$(sudo -n -u fpm-untrusted id -g)"
+          test "$candidate_gid" != "0"
+          printf 'candidate_gid=%s\n' "$candidate_gid" >> "$GITHUB_OUTPUT"
+          printf 'candidate_execution_profile=%s\n' "fpm-docker-offline-v1" >> "$GITHUB_OUTPUT"
+          chmod -R a-w candidate
+          test -r candidate/crates/fpm-wasm-artifact-identity/Cargo.lock
+
+      - name: Assert frozen candidate source
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ steps.source.outputs.candidate_head_sha }}"
+          test "$(git rev-parse HEAD^{tree})" = "${{ steps.source.outputs.candidate_tree_sha }}"
+          status="$(git status --porcelain --untracked-files=all)"
+          if [ "${{ steps.lock.outputs.lock_mode || '' }}" = "generated_for_run" ]; then
+            unexpected="$(printf '%s\n' "$status" | grep -v '^?? crates/fpm-wasm-artifact-identity/Cargo.lock$' || true)"
+            test -z "$unexpected"
+          else
+            test -z "$status"
+          fi
+
+      - name: Cargo fmt inside immutable sandbox
+        id: fmt
+        if: success()
+        env:
+          SANDBOX_IMAGE: ${{ env.FPM_SANDBOX_IMAGE }}
+          CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid }}
+          CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid }}
+        run: |
+          set -euo pipefail
+          docker run --rm --pull=never --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit 256 --memory 2g --memory-swap 2g --cpus 1 \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m \
+            --mount type=bind,src="${GITHUB_WORKSPACE}/candidate",dst=/candidate,readonly \
+            --mount type=bind,src="${FPM_TOOLCHAIN_ROOT}",dst=/opt/fpm-rust,readonly \
+            --user "${CANDIDATE_UID}:${CANDIDATE_GID}" --workdir /candidate \
+            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu '
+              umask 077
+              export HOME=/tmp/home
+              export PATH=/opt/fpm-rust/bin:/usr/bin:/bin
+              export TMPDIR=/tmp
+              export CARGO_NET_OFFLINE=true
+              export CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+              export RUSTC_WRAPPER=
+              test ! -e /var/run/docker.sock
+              test ! -d /github
+              test ! -d /home/runner
+              test -z "$(env | grep '^GITHUB_' || true)"
+              cargo fmt --check --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
+            '
+
+      - name: Probe hostile-code sandbox boundary
+        id: sandbox_probe
+        if: success()
+        env:
+          SANDBOX_IMAGE: ${{ env.FPM_SANDBOX_IMAGE }}
+          CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid }}
+          CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid }}
+        run: |
+          set -euo pipefail
+          rm -f "${FPM_EVIDENCE_DIR}/sandbox-system-closure.tsv"
+          docker run --rm --pull=never --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit 256 --memory 6g --memory-swap 6g --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m \
+            --mount type=bind,src="${GITHUB_WORKSPACE}/candidate",dst=/candidate,readonly \
+            --mount type=bind,src="${FPM_TOOLCHAIN_ROOT}",dst=/opt/fpm-rust,readonly \
+            --mount type=bind,src="${FPM_CARGO_HOME}",dst=/cargo-ro,readonly \
+            --mount type=bind,src="${FPM_TARGET_DIR}",dst=/target \
+            --user "${CANDIDATE_UID}:${CANDIDATE_GID}" --workdir /candidate \
+            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu '
+              umask 077
+              export HOME=/tmp/home
+              export PATH=/opt/fpm-rust/bin:/usr/bin:/bin
+              export TMPDIR=/tmp
+              export CARGO_NET_OFFLINE=true
+              export CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+              export RUSTC_WRAPPER=
+              test ! -e /var/run/docker.sock
+              test ! -d /github
+              test ! -d /home/runner
+              test ! -d /opt/hostedtoolcache
+              test -z "$(env | grep '^GITHUB_' || true)"
+              test "$(uname -m)" = "x86_64"
+              test -f /etc/os-release
+              test -x /opt/fpm-rust/bin/rustc
+              test -x /opt/fpm-rust/bin/cargo
+              test -x /opt/fpm-rust/bin/rustfmt
+              printf '%s\\n' 'fn main() {}' > /tmp/fpm-toolchain-probe.rs
+              rustc --crate-name fpm_toolchain_probe --edition 2024 -C linker=cc /tmp/fpm-toolchain-probe.rs -o /target/.fpm-toolchain-probe
+              test -x /target/.fpm-toolchain-probe
+              /target/.fpm-toolchain-probe
+              rm -f /target/.fpm-toolchain-probe /tmp/fpm-toolchain-probe.rs
+              required_commands=(bash env grep tr timeout cargo rustc rustfmt cc ld as ldd realpath sha256sum sed uname cat)
+              closure=/tmp/fpm-system-closure.tsv
+              printf "profile\tfpm-ubuntu24.04-amd64-rust-1.96.1-v1\n" > "$closure"
+              printf "image_digest\tsha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b\n" >> "$closure"
+              printf "architecture\tlinux/amd64\n" >> "$closure"
+              printf "os_release_sha256\t%s\n" "$(sha256sum /etc/os-release | { read -r digest _; printf "%s" "$digest"; })" >> "$closure"
+              libc_version="$(ldd --version 2>&1 | { read -r line; printf "%s" "$line"; })"
+              printf "libc_version\t%s\n" "$libc_version" >> "$closure"
+              : > /tmp/fpm-ldd-queue
+              for command_name in "${required_commands[@]}"; do
+                command_path="$(command -v "$command_name")"
+                test -n "$command_path"
+                case "$command_path" in
+                  /opt/fpm-rust/bin/*|/usr/bin/*|/bin/*|/usr/sbin/*|/sbin/*) ;;
+                  *) echo "required command escaped immutable roots: $command_name=$command_path" >&2; exit 1 ;;
+                esac
+                resolved="$(realpath -e "$command_path")"
+                test -f "$resolved"
+                read -r command_sha _ < <(sha256sum "$resolved")
+                printf "command\t%s\t%s\t%s\n" "$command_name" "$resolved" "$command_sha" >> "$closure"
+                printf "%s\n" "$resolved" >> /tmp/fpm-ldd-queue
+              done
+              declare -A seen_libraries=()
+              : > /tmp/fpm-ldd-seen
+              while IFS= read -r binary; do
+                [ -n "$binary" ] || continue
+                ldd_output="$(ldd "$binary" 2>&1)"
+                if printf "%s\n" "$ldd_output" | grep -Fq "not found"; then
+                  echo "dynamic dependency missing for $binary" >&2
+                  exit 1
+                fi
+                while IFS= read -r line; do
+                  dep_path="$(printf "%s\n" "$line" | sed -nE 's/^[[:space:]]*[^[:space:]]+[[:space:]]*=>[[:space:]]*(\/[^[:space:]]+).*/\1/p')"
+                  if [ -z "$dep_path" ]; then
+                    dep_path="$(printf "%s\n" "$line" | sed -nE 's/^[[:space:]]*(\/[^[:space:]]+)[[:space:]]+\(.*/\1/p')"
+                  fi
+                  [ -n "$dep_path" ] || continue
+                  resolved_dep="$(realpath -e "$dep_path")"
+                  test -f "$resolved_dep"
+                  if [ -z "${seen_libraries[$resolved_dep]+yes}" ]; then
+                    seen_libraries["$resolved_dep"]=1
+                    read -r dep_sha _ < <(sha256sum "$resolved_dep")
+                    printf "library\t%s\t%s\n" "$resolved_dep" "$dep_sha" >> "$closure"
+                    printf "%s\n" "$resolved_dep" >> /tmp/fpm-ldd-queue
+                  fi
+                done <<< "$ldd_output"
+              done < /tmp/fpm-ldd-queue
+              cat "$closure"
+            ' > "${FPM_EVIDENCE_DIR}/sandbox-system-closure.tsv"
+          test -s "${FPM_EVIDENCE_DIR}/sandbox-system-closure.tsv"
+          chmod 400 "${FPM_EVIDENCE_DIR}/sandbox-system-closure.tsv"
+          printf 'sandbox_probe=passed\n' >> "$GITHUB_OUTPUT"
+      - name: Cargo test inside immutable offline sandbox
+        id: tests
+        if: success()
+        env:
+          SANDBOX_IMAGE: ${{ env.FPM_SANDBOX_IMAGE }}
+          CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid }}
+          CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid }}
+          DEP_CACHE_SHA256: ${{ steps.dependencies.outputs.dependency_cache_sha256 }}
+        run: |
+          set -euo pipefail
+          test -n "$DEP_CACHE_SHA256"
+          docker run --rm --pull=never --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit 512 --memory 6g --memory-swap 6g --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m \
+            --mount type=bind,src="${GITHUB_WORKSPACE}/candidate",dst=/candidate,readonly \
+            --mount type=bind,src="${FPM_TOOLCHAIN_ROOT}",dst=/opt/fpm-rust,readonly \
+            --mount type=bind,src="${FPM_CARGO_HOME}",dst=/cargo-ro,readonly \
+            --mount type=bind,src="${FPM_TARGET_DIR}",dst=/target \
+            --user "${CANDIDATE_UID}:${CANDIDATE_GID}" --workdir /candidate \
+            "${SANDBOX_IMAGE}" /bin/bash --noprofile --norc -ceu '
+              umask 077
+              mkdir -p /tmp/home /tmp/cargo
+              ln -s /cargo-ro/registry /tmp/cargo/registry
+              if [ -d /cargo-ro/git ]; then ln -s /cargo-ro/git /tmp/cargo/git; fi
+              export HOME=/tmp/home
+              export PATH=/opt/fpm-rust/bin:/usr/bin:/bin
+              export CARGO_HOME=/tmp/cargo
+              export CARGO_TARGET_DIR=/target
+              export TMPDIR=/tmp
+              export CARGO_NET_OFFLINE=true
+              export CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+              export RUSTC_WRAPPER=
+              test ! -e /var/run/docker.sock
+              test ! -d /github
+              test ! -d /home/runner
+              test ! -d /opt/hostedtoolcache
+              test -z "$(env | grep '^GITHUB_' || true)"
+              cargo test --locked --offline --manifest-path crates/fpm-wasm-artifact-identity/Cargo.toml
+            '
+
+      - name: Postflight source and live-PR reconciliation
+        id: postflight
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD_SHA: ${{ steps.preflight.outputs.expected_head_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.preflight.outputs.expected_base_sha }}
+          PR_NUMBER: ${{ steps.preflight.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          actual_head="$(git -C candidate rev-parse HEAD 2>/dev/null || true)"
+          actual_tree="$(git -C candidate rev-parse HEAD^{tree} 2>/dev/null || true)"
+          test "$actual_head" = "${{ steps.source.outputs.candidate_head_sha }}"
+          test "$actual_tree" = "${{ steps.source.outputs.candidate_tree_sha }}"
+
+          status="$(git -C candidate status --porcelain --untracked-files=all 2>/dev/null || true)"
+          if [ "${{ steps.lock.outputs.lock_mode || '' }}" = "generated_for_run" ]; then
+            test -f candidate/crates/fpm-wasm-artifact-identity/Cargo.lock
+            lock_sha="$(sha256sum candidate/crates/fpm-wasm-artifact-identity/Cargo.lock | awk '{print $1}')"
+            test "$lock_sha" = "${{ steps.lock.outputs.lock_sha256 }}"
+            unexpected="$(printf '%s\n' "$status" | grep -v '^?? crates/fpm-wasm-artifact-identity/Cargo.lock$' || true)"
+            test -z "$unexpected"
+            rm -f candidate/crates/fpm-wasm-artifact-identity/Cargo.lock
+            test -z "$(git -C candidate status --porcelain --untracked-files=all)"
+          else
+            test -z "$status"
+          fi
+          test -z "$(git -C candidate diff --name-only)"
+          test -z "$(git -C candidate diff --cached --name-only)"
+
+          api() {
+            curl -fsS               -H 'Accept: application/vnd.github+json'               -H "Authorization: Bearer ${GH_TOKEN}"               -H 'X-GitHub-Api-Version: 2022-11-28'               "${GITHUB_API_URL}$1"
+          }
+
+          pr_api="$(api "/repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")"
+          # Historical qualification is bound to the completed candidate run exact head/base/repository identities.
+          test "$(printf '%s' "$pr_api" | jq -r '.base.ref')" = "main"
+          test "$(printf '%s' "$pr_api" | jq -r '.base.sha')" = "$EXPECTED_BASE_SHA"
+          test "$(printf '%s' "$pr_api" | jq -r '.base.repo.id')" = "$GITHUB_REPOSITORY_ID"
+          test "$(printf '%s' "$pr_api" | jq -r '.head.repo.id')" = "$GITHUB_REPOSITORY_ID"
+          test "$(printf '%s' "$pr_api" | jq -r '.head.repo.full_name')" = "$GITHUB_REPOSITORY"
+          test "$(printf '%s' "$pr_api" | jq -r '.head.sha')" = "$EXPECTED_HEAD_SHA"
+
+          printf 'postflight_head=%s\n' "$actual_head" >> "$GITHUB_OUTPUT"
+          printf 'postflight_tree=%s\n' "$actual_tree" >> "$GITHUB_OUTPUT"
+
+      - name: Emit canonical qualification receipt
+        id: receipt
+        if: always()
+        env:
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          SOURCE_OUTCOME: ${{ steps.source.outcome }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          LOCK_OUTCOME: ${{ steps.lock.outcome }}
+          DEPENDENCIES_OUTCOME: ${{ steps.dependencies.outcome }}
+          SANDBOX_IMAGE_OUTCOME: ${{ steps.sandbox_image.outcome }}
+          SANDBOX_PROBE_OUTCOME: ${{ steps.sandbox_probe.outcome }}
+          FMT_OUTCOME: ${{ steps.fmt.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          POSTFLIGHT_OUTCOME: ${{ steps.postflight.outcome }}
+          PR_NUMBER: ${{ steps.preflight.outputs.pr_number || '' }}
+          SUBJECT_SHA: ${{ steps.source.outputs.candidate_head_sha || steps.preflight.outputs.expected_head_sha || '' }}
+          SUBJECT_TREE_SHA: ${{ steps.source.outputs.candidate_tree_sha || '' }}
+          POSTFLIGHT_HEAD: ${{ steps.postflight.outputs.postflight_head || '' }}
+          POSTFLIGHT_TREE: ${{ steps.postflight.outputs.postflight_tree || '' }}
+          BASE_SHA: ${{ steps.preflight.outputs.expected_base_sha || '' }}
+          TRUSTED_POLICY_SHA: ${{ steps.policy.outputs.trusted_policy_sha || '' }}
+          TRUSTED_POLICY_BLOB_SHA: ${{ steps.policy.outputs.trusted_policy_blob_sha || '' }}
+          TRUSTED_POLICY_REF: ${{ steps.policy.outputs.trusted_policy_ref || '' }}
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+          UPSTREAM_RUN_ATTEMPT: ${{ steps.preflight.outputs.upstream_run_attempt || '' }}
+          UPSTREAM_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+          UPSTREAM_WORKFLOW_PATH: ".github/workflows/fpm-wasm-artifact-identity.yml"
+          UPSTREAM_CONCLUSION: ${{ steps.preflight.outputs.upstream_run_conclusion || '' }}
+          MANIFEST_BLOB_SHA: ${{ steps.source.outputs.candidate_manifest_blob_sha || '' }}
+          LOCK_MODE: ${{ steps.lock.outputs.lock_mode || '' }}
+          LOCK_SHA256: ${{ steps.lock.outputs.lock_sha256 || '' }}
+          RUSTC_VERSION: ${{ steps.toolchain.outputs.rustc_version || '' }}
+          RUSTC_COMMIT: ${{ steps.toolchain.outputs.rustc_commit || '' }}
+          CARGO_VERSION: ${{ steps.toolchain.outputs.cargo_version || '' }}
+          CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid || '' }}
+          CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid || '' }}
+          CANDIDATE_EXECUTION_PROFILE: ${{ steps.sandbox.outputs.candidate_execution_profile || '' }}
+          SANDBOX_IMAGE_DIGEST: ${{ steps.sandbox_image.outputs.sandbox_image_digest || '' }}
+          SANDBOX_PROBE: ${{ steps.sandbox_probe.outputs.sandbox_probe || '' }}
+          DEPENDENCY_CACHE_SHA256: ${{ steps.dependencies.outputs.dependency_cache_sha256 || '' }}
+          SYSTEM_CLOSURE_FILE: ${{ runner.temp }}/fpm-trusted-evidence-${{ github.run_id }}/sandbox-system-closure.tsv
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          def integer_or_zero(name: str) -> int:
+              value = os.environ.get(name, "")
+              try:
+                  return int(value) if value else 0
+              except ValueError:
+                  return 0
+
+          closure_path = os.environ["SYSTEM_CLOSURE_FILE"]
+          sandbox_system_closure = {
+              "profile": os.environ["FPM_SYSTEM_CLOSURE_PROFILE"],
+              "image_digest": os.environ["SANDBOX_IMAGE_DIGEST"],
+              "architecture": "linux/amd64",
+              "os_release_sha256": "",
+              "libc_version": "",
+              "commands": [],
+              "libraries": [],
+          }
+          if os.path.isfile(closure_path):
+              for line in Path(closure_path).read_text(encoding="utf-8").splitlines():
+                  parts = line.split("\t")
+                  if parts[0] == "profile" and len(parts) == 2:
+                      sandbox_system_closure["profile"] = parts[1]
+                  elif parts[0] == "image_digest" and len(parts) == 2:
+                      sandbox_system_closure["image_digest"] = parts[1]
+                  elif parts[0] == "architecture" and len(parts) == 2:
+                      sandbox_system_closure["architecture"] = parts[1]
+                  elif parts[0] == "os_release_sha256" and len(parts) == 2:
+                      sandbox_system_closure["os_release_sha256"] = parts[1]
+                  elif parts[0] == "libc_version" and len(parts) == 2:
+                      sandbox_system_closure["libc_version"] = parts[1]
+                  elif parts[0] == "command" and len(parts) == 4:
+                      sandbox_system_closure["commands"].append({"name": parts[1], "path": parts[2], "sha256": parts[3]})
+                  elif parts[0] == "library" and len(parts) == 3:
+                      sandbox_system_closure["libraries"].append({"path": parts[1], "sha256": parts[2]})
+          sandbox_system_closure["commands"] = sorted(sandbox_system_closure["commands"], key=lambda item: item["name"])
+          sandbox_system_closure["libraries"] = sorted(sandbox_system_closure["libraries"], key=lambda item: item["path"])
+
+          outcomes = {              "preflight": os.environ["PREFLIGHT_OUTCOME"],
+              "checkout": os.environ["CHECKOUT_OUTCOME"],
+              "source": os.environ["SOURCE_OUTCOME"],
+              "toolchain": os.environ["TOOLCHAIN_OUTCOME"],
+              "lock": os.environ["LOCK_OUTCOME"],
+              "dependencies": os.environ["DEPENDENCIES_OUTCOME"],
+              "sandbox_image": os.environ["SANDBOX_IMAGE_OUTCOME"],
+              "fmt": os.environ["FMT_OUTCOME"],
+              "sandbox_probe": os.environ["SANDBOX_PROBE_OUTCOME"],
+              "tests": os.environ["TESTS_OUTCOME"],
+              "postflight": os.environ["POSTFLIGHT_OUTCOME"],
+          }
+          execution_pass = all(value == "success" for value in outcomes.values())
+
+          receipt = {
+              "schema": "mycelix.fpm.trusted-qualification-receipt.v1",
+              "qualification": "FPM-WASM-ARTIFACT-IDENTITY-V1",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "repository_id": int(os.environ["GITHUB_REPOSITORY_ID"]),
+              "pr_number": os.environ["PR_NUMBER"],
+              "subject_sha": os.environ["SUBJECT_SHA"],
+              "subject_tree_sha": os.environ["SUBJECT_TREE_SHA"],
+              "observed_postflight_head_sha": os.environ["POSTFLIGHT_HEAD"],
+              "observed_postflight_tree_sha": os.environ["POSTFLIGHT_TREE"],
+              "base_sha": os.environ["BASE_SHA"],
+              "trusted_policy_sha": os.environ["TRUSTED_POLICY_SHA"],
+              "trusted_policy_blob_sha": os.environ["TRUSTED_POLICY_BLOB_SHA"],
+              "trusted_policy_ref": os.environ["TRUSTED_POLICY_REF"],
+              "trusted_workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "trusted_workflow_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "upstream_workflow_run_id": os.environ["UPSTREAM_RUN_ID"],
+              "upstream_workflow_run_attempt": os.environ["UPSTREAM_RUN_ATTEMPT"],
+              "upstream_workflow_id": int(os.environ["UPSTREAM_WORKFLOW_ID"]),
+              "upstream_workflow_path": os.environ["UPSTREAM_WORKFLOW_PATH"],
+              "upstream_workflow_conclusion": os.environ["UPSTREAM_CONCLUSION"],
+              "manifest_blob_sha": os.environ["MANIFEST_BLOB_SHA"],
+              "lock_mode": os.environ["LOCK_MODE"],
+              "lock_sha256": os.environ["LOCK_SHA256"],
+              "rustc_version": os.environ["RUSTC_VERSION"],
+              "rustc_commit": os.environ["RUSTC_COMMIT"],
+              "cargo_version": os.environ["CARGO_VERSION"],
+              "candidate_uid": integer_or_zero("CANDIDATE_UID"),
+              "candidate_gid": integer_or_zero("CANDIDATE_GID"),
+              "candidate_execution_profile": os.environ["CANDIDATE_EXECUTION_PROFILE"],
+              "sandbox_image_digest": os.environ["SANDBOX_IMAGE_DIGEST"],
+              "sandbox_probe": os.environ["SANDBOX_PROBE"],
+              "sandbox_system_closure": sandbox_system_closure,
+              "sandbox_system_closure_sha256": hashlib.sha256(
+                  json.dumps(sandbox_system_closure, sort_keys=True, separators=(",", ":")).encode("utf-8")
+              ).hexdigest(),
+              "dependency_cache_sha256": os.environ["DEPENDENCY_CACHE_SHA256"],
+              "dependency_source_policy": "crates-io-registry-only-v1",
+              "steps": outcomes,
+              "execution_pass": execution_pass,
+              "procedure_trust": "trusted_default_branch_snapshot",
+              "promotion_authority": "pending_repository_governance_evidence",
+          }
+
+          canonical = json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode()
+          digest = hashlib.sha256(canonical).hexdigest()
+          out = os.path.join(os.environ["FPM_EVIDENCE_DIR"], "qualification-receipt.json")
+          with open(out, "wb") as f:
+              f.write(canonical)
+              f.write(b"\n")
+          os.chmod(out, 0o400)
+          print(f"receipt_sha256={digest}")
+          print(f"execution_pass={execution_pass}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"receipt_sha256={digest}\n")
+              output.write(f"execution_pass={str(execution_pass).lower()}\n")
+          PY
+
+      - name: Upload canonical qualification evidence
+        id: upload_evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fpm-trusted-qualification-${{ steps.preflight.outputs.expected_head_sha || github.event.workflow_run.head_sha || github.run_id }}
+          path: ${{ runner.temp }}/fpm-trusted-evidence-${{ github.run_id }}/qualification-receipt.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Validate uploaded evidence identity
+        if: steps.upload_evidence.outcome == 'success'
+        env:
+          ARTIFACT_ID: ${{ steps.upload_evidence.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload_evidence.outputs.artifact-digest }}
+          RECEIPT_SHA256: ${{ steps.receipt.outputs.receipt_sha256 }}
+        run: |
+          set -euo pipefail
+          test "$ARTIFACT_ID" -ge 1
+          printf "%s" "$ARTIFACT_DIGEST" | grep -Eq "^[0-9a-f]{64}$"
+          printf "%s" "$RECEIPT_SHA256" | grep -Eq "^[0-9a-f]{64}$"
+          echo "QUALIFICATION_ARTIFACT_ID=$ARTIFACT_ID"
+          echo "QUALIFICATION_ARTIFACT_DIGEST=$ARTIFACT_DIGEST"
+          echo "QUALIFICATION_RECEIPT_SHA256=$RECEIPT_SHA256"
+
+      - name: Emit artifact binding index
+        if: steps.upload_evidence.outcome == 'success'
+        env:
+          ARTIFACT_ID: ${{ steps.upload_evidence.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload_evidence.outputs.artifact-digest }}
+          ARTIFACT_URL: ${{ steps.upload_evidence.outputs.artifact-url }}
+          RECEIPT_SHA256: ${{ steps.receipt.outputs.receipt_sha256 }}
+          SUBJECT_SHA: ${{ steps.source.outputs.candidate_head_sha || steps.preflight.outputs.expected_head_sha || "" }}
+          SUBJECT_TREE_SHA: ${{ steps.source.outputs.candidate_tree_sha || "" }}
+          TRUSTED_POLICY_SHA: ${{ steps.policy.outputs.trusted_policy_sha || "" }}
+          TRUSTED_POLICY_BLOB_SHA: ${{ steps.policy.outputs.trusted_policy_blob_sha || "" }}
+          TRUSTED_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+
+          index = {
+              "schema": "mycelix.fpm.trusted-qualification-artifact-index.v1",
+              "receipt_sha256": os.environ["RECEIPT_SHA256"],
+              "artifact": {
+                  "id": int(os.environ["ARTIFACT_ID"]),
+                  # upload-artifact exposes this output as bare 64-hex SHA-256.
+                  # The Actions artifact API independently represents the same digest as
+                  # the prefixed `sha256:<hex>` value.
+                  "sha256_hex": os.environ["ARTIFACT_DIGEST"],
+                  "url": os.environ["ARTIFACT_URL"],
+                  "retention_days": 90,
+                  "immutable_after_upload": True,
+                  "deletion_by_repository_writer_possible": True,
+              },
+              "subject_sha": os.environ["SUBJECT_SHA"],
+              "subject_tree_sha": os.environ["SUBJECT_TREE_SHA"],
+              "trusted_policy_sha": os.environ["TRUSTED_POLICY_SHA"],
+              "trusted_policy_blob_sha": os.environ["TRUSTED_POLICY_BLOB_SHA"],
+              "trusted_workflow_run_id": int(os.environ["TRUSTED_RUN_ID"]),
+          }
+          canonical = json.dumps(index, sort_keys=True, separators=(",", ":")).encode()
+          digest = hashlib.sha256(canonical).hexdigest()
+          out = os.path.join(os.environ["FPM_EVIDENCE_DIR"], "artifact-binding-index.json")
+          with open(out, "wb") as f:
+              f.write(canonical)
+              f.write(b"\n")
+          os.chmod(out, 0o400)
+          print(f"artifact_index_sha256={digest}")
+          PY
+
+      - name: Upload artifact binding index
+        if: steps.upload_evidence.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fpm-trusted-qualification-index-${{ steps.preflight.outputs.expected_head_sha || github.event.workflow_run.head_sha || github.run_id }}
+          path: ${{ runner.temp }}/fpm-trusted-evidence-${{ github.run_id }}/artifact-binding-index.json
+          if-no-files-found: error
+          retention-days: 90
