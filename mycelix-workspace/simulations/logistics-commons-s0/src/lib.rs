@@ -923,10 +923,12 @@ mod tests {
     #[test]
     fn reused_idempotency_key_with_different_payload_fails_closed() {
         let stock = snapshot(10, 0, 200);
-        let requests = vec![
-            intent("r-a", "idem-shared", 1),
-            intent("r-b", "idem-shared", 2),
-        ];
+        // Idempotency keys are participant-scoped. Keep the participant constant so
+        // this exercises a conflicting replay, not two unrelated participants.
+        let first = intent("r-a", "idem-shared", 1);
+        let mut conflicting = intent("r-b", "idem-shared", 2);
+        conflicting.participant_id = first.participant_id.clone();
+        let requests = vec![first, conflicting];
         let decisions = plan_reservations(&stock, &requests, 120);
         assert!(decisions.iter().all(|d| matches!(&d.outcome,
             ReservationOutcome::Rejected { reason: "idempotency-key-payload-conflict" }
