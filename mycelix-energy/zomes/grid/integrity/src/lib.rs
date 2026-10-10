@@ -371,11 +371,88 @@ fn validate_create_trade_offer(
     result_from_validation_error(offer_validation_error(&offer))
 }
 
+/// Offer identity and publication terms are immutable. The coordinator may
+/// update the price without changing quantity/status, cancel an active offer,
+/// or reduce remaining quantity after a fill. No other transition is valid.
+fn offer_update_validation_error(
+    previous: &TradeOffer,
+    updated: &TradeOffer,
+) -> Option<&'static str> {
+    if let Some(error) = offer_validation_error(updated) {
+        return Some(error);
+    }
+    if previous.id != updated.id
+        || previous.seller_did != updated.seller_did
+        || previous.project_id != updated.project_id
+        || previous.currency != updated.currency
+        || previous.available_from != updated.available_from
+        || previous.available_until != updated.available_until
+        || previous.created != updated.created
+    {
+        return Some("Offer identity and availability terms are immutable");
+    }
+
+    if !matches!(previous.status, OfferStatus::Active | OfferStatus::PartiallyFilled) {
+        return Some("Terminal offers cannot be updated");
+    }
+
+    // Price changes are permitted only as a price-only edit, preserving the
+    // current status and amount. This prevents repricing from being combined
+    // with a fill or status transition in one update.
+    if updated.price_per_kwh != previous.price_per_kwh {
+        if updated.amount_kwh != previous.amount_kwh || updated.status != previous.status {
+            return Some("Price changes cannot modify offer quantity or status");
+        }
+        return None;
+    }
+
+    // Cancellation preserves terms and quantity, and only Active -> Cancelled
+    // is supported by the coordinator's current cancellation endpoint.
+    if previous.status == OfferStatus::Active
+        && updated.status == OfferStatus::Cancelled
+        && updated.amount_kwh == previous.amount_kwh
+    {
+        return None;
+    }
+
+    // A fill must strictly reduce quantity. The status must agree exactly with
+    // the remaining amount, so a no-op / precision-lost fill cannot be accepted.
+    if updated.amount_kwh >= previous.amount_kwh {
+        return Some("Offer quantity must strictly decrease after a fill");
+    }
+    let expected_status = if updated.amount_kwh == 0.0 {
+        OfferStatus::Filled
+    } else {
+        OfferStatus::PartiallyFilled
+    };
+    if updated.status != expected_status {
+        return Some("Offer status must match the remaining quantity after a fill");
+    }
+    None
+}
+
 fn validate_update_trade_offer(
-    _action: Update,
+    action: Update,
     offer: TradeOffer,
 ) -> ExternResult<ValidateCallbackResult> {
-    result_from_validation_error(offer_validation_error(&offer))
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    if action.author != *original_record.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the original offer author may update offer state".into(),
+        ));
+    }
+    let original_offer = original_record
+        .entry()
+        .to_app_option::<TradeOffer>()
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Original offer entry could not be decoded".into()
+        )))?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Original offer entry is unavailable".into()
+            ))
+        })?;
+    result_from_validation_error(offer_update_validation_error(&original_offer, &offer))
 }
 
 fn validate_create_trade(
@@ -1017,6 +1094,98 @@ mod strict_validation_regression_tests {
         assert_eq!(
             trade_update_validation_error(&settled, &rolled_back),
             Some("Settled trades cannot be updated")
+        );
+    }
+
+    #[test]
+    fn offer_updates_preserve_identity_and_only_allow_valid_transitions() {
+        let previous = valid_offer();
+
+        let price_only = TradeOffer {
+            price_per_kwh: 0.15,
+            ..previous.clone()
+        };
+        assert_eq!(offer_update_validation_error(&previous, &price_only), None);
+
+        let partial_fill = TradeOffer {
+            amount_kwh: 4.0,
+            status: OfferStatus::PartiallyFilled,
+            ..previous.clone()
+        };
+        assert_eq!(offer_update_validation_error(&previous, &partial_fill), None);
+
+        let filled = TradeOffer {
+            amount_kwh: 0.0,
+            status: OfferStatus::Filled,
+            ..previous.clone()
+        };
+        assert_eq!(offer_update_validation_error(&previous, &filled), None);
+
+        let cancelled = TradeOffer {
+            status: OfferStatus::Cancelled,
+            ..previous.clone()
+        };
+        assert_eq!(offer_update_validation_error(&previous, &cancelled), None);
+    }
+
+    #[test]
+    fn offer_updates_reject_term_changes_quantity_increases_and_noop_fills() {
+        let previous = valid_offer();
+
+        let changed_seller = TradeOffer {
+            seller_did: "did:test:attacker".into(),
+            ..previous.clone()
+        };
+        assert_eq!(
+            offer_update_validation_error(&previous, &changed_seller),
+            Some("Offer identity and availability terms are immutable")
+        );
+
+        let increased_quantity = TradeOffer {
+            amount_kwh: 11.0,
+            ..previous.clone()
+        };
+        assert_eq!(
+            offer_update_validation_error(&previous, &increased_quantity),
+            Some("Offer quantity must strictly decrease after a fill")
+        );
+
+        let no_op_fill = TradeOffer {
+            status: OfferStatus::PartiallyFilled,
+            ..previous.clone()
+        };
+        assert_eq!(
+            offer_update_validation_error(&previous, &no_op_fill),
+            Some("Offer quantity must strictly decrease after a fill")
+        );
+
+        let combined_price_and_fill = TradeOffer {
+            amount_kwh: 4.0,
+            price_per_kwh: 0.15,
+            status: OfferStatus::PartiallyFilled,
+            ..previous.clone()
+        };
+        assert_eq!(
+            offer_update_validation_error(&previous, &combined_price_and_fill),
+            Some("Price changes cannot modify offer quantity or status")
+        );
+    }
+
+    #[test]
+    fn terminal_offers_cannot_be_reopened_or_repriced() {
+        let previous = TradeOffer {
+            status: OfferStatus::Filled,
+            amount_kwh: 0.0,
+            ..valid_offer()
+        };
+        let reopened = TradeOffer {
+            status: OfferStatus::Active,
+            amount_kwh: 10.0,
+            ..previous.clone()
+        };
+        assert_eq!(
+            offer_update_validation_error(&previous, &reopened),
+            Some("Terminal offers cannot be updated")
         );
     }
 
