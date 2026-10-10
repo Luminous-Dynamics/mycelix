@@ -351,6 +351,25 @@ fn whole_units_to_micro(whole_units: f64) -> Option<u64> {
 /// requires a non-empty external payment reference from the caller.
 /// Err means internal settlement could not be confirmed; callers must leave
 /// the trade unsettled rather than converting a failed payment into success.
+/// Gate paid settlements until the caller can validate an authenticated receipt,
+/// use a deterministic rail idempotency key, and recover ambiguous outcomes.
+/// Only genuinely free trades (zero unit and total price) may settle locally.
+fn settlement_gate_error(trade: &Trade) -> Option<&'static str> {
+    if !trade.price_per_kwh.is_finite()
+        || trade.price_per_kwh < 0.0
+        || !trade.total_price.is_finite()
+        || trade.total_price < 0.0
+    {
+        return Some("Trade price is invalid; settlement refused");
+    }
+    if trade.total_price == 0.0 && trade.price_per_kwh == 0.0 {
+        return None;
+    }
+    Some(
+        "Paid trade settlement is disabled until authenticated receipt verification, rail idempotency, and indeterminate-outcome recovery are implemented (#4940)",
+    )
+}
+
 fn settle_via_finance(trade: &Trade) -> Result<Option<String>, &'static str> {
     // Explicitly priced-at-zero trades need no transfer on any currency rail.
     if trade.total_price == 0.0 {
@@ -414,16 +433,19 @@ pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
             if trade.settled {
                 return Ok(record);
             }
+            if let Some(message) = settlement_gate_error(&trade) {
+                return Err(wasm_error!(WasmErrorInner::Guest(message.into())));
+            }
             let payment_reference = match settle_via_finance(&trade) {
                 Ok(Some(reference)) => reference,
                 Ok(None) => {
-                    let reference = input.payment_reference.trim();
-                    if reference.is_empty() {
-                        return Err(wasm_error!(WasmErrorInner::Guest(
-                            "External settlement requires a non-empty payment reference".into()
-                        )));
-                    }
-                    reference.to_string()
+                    // A caller-supplied string is not evidence that payment
+                    // occurred. External rails need authenticated receipt lookup
+                    // and validation before a trade can transition to settled.
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "External settlement cannot be marked complete from a caller-supplied reference (#4940)"
+                            .into()
+                    )));
                 }
                 Err(message) => {
                     return Err(wasm_error!(WasmErrorInner::Guest(message.into())));
@@ -1948,6 +1970,47 @@ mod settlement_amount_regression_tests {
         assert_eq!(
             settle_via_finance(&trade),
             Ok(Some("no-payment-required:free-energy-trade".to_string()))
+        );
+    }
+
+    fn settlement_test_trade(unit_price: f64, total_price: f64) -> Trade {
+        Trade {
+            id: "settlement-gate-test".into(),
+            offer_id: "offer-settlement-gate-test".into(),
+            seller_did: "did:test:seller".into(),
+            buyer_did: "did:test:buyer".into(),
+            amount_kwh: 1.0,
+            price_per_kwh: unit_price,
+            total_price,
+            currency: "USD".into(),
+            executed: Timestamp::from_micros(1_700_000_000_000_000),
+            settled: false,
+            payment_reference: None,
+        }
+    }
+
+    #[test]
+    fn only_genuinely_free_trades_pass_the_settlement_gate() {
+        assert_eq!(settlement_gate_error(&settlement_test_trade(0.0, 0.0)), None);
+        assert_eq!(
+            settlement_gate_error(&settlement_test_trade(0.12, 0.12)),
+            Some(
+                "Paid trade settlement is disabled until authenticated receipt verification, rail idempotency, and indeterminate-outcome recovery are implemented (#4940)"
+            )
+        );
+        assert_eq!(
+            settlement_gate_error(&settlement_test_trade(0.12, 0.0)),
+            Some(
+                "Paid trade settlement is disabled until authenticated receipt verification, rail idempotency, and indeterminate-outcome recovery are implemented (#4940)"
+            )
+        );
+        assert_eq!(
+            settlement_gate_error(&settlement_test_trade(f64::NAN, f64::NAN)),
+            Some("Trade price is invalid; settlement refused")
+        );
+        assert_eq!(
+            settlement_gate_error(&settlement_test_trade(-0.1, -0.1)),
+            Some("Trade price is invalid; settlement refused")
         );
     }
 
