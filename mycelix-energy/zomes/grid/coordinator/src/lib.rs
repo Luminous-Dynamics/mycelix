@@ -1525,6 +1525,18 @@ mod tests {
     }
 
     #[test]
+    fn buyer_did_must_match_exact_author_key() {
+        let author = AgentPubKey::from_raw_32(vec![7u8; 32]);
+        let other = AgentPubKey::from_raw_32(vec![8u8; 32]);
+
+        assert!(did_matches_agent(&format!("did:mycelix:{author}"), &author));
+        assert!(!did_matches_agent(&format!("did:mycelix:{other}"), &author));
+        assert!(!did_matches_agent("did:mycelix:not-a-public-key", &author));
+        assert!(!did_matches_agent(&format!("did:test:{author}"), &author));
+    }
+
+
+    #[test]
     fn test_execute_trade_input_valid() {
         let input = valid_execute_trade_input();
         assert!(!input.offer_id.is_empty());
