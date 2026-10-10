@@ -277,6 +277,30 @@ class RawCreditCallerAuditTests(unittest.TestCase):
             self.assertEqual(status, 1)
             self.assertIn("inventories differ", output.getvalue())
 
+    def test_whole_audit_rejects_non_caller_projection_content_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _canonical, workspace = seed_project(root)
+            payments = workspace / "payments" / "coordinator" / "src" / "lib.rs"
+            payments.write_text(
+                payments.read_text(encoding="utf-8") + "// workspace-only drift\\n",
+                encoding="utf-8",
+            )
+
+            output = io.StringIO()
+            with redirect_stdout(output):
+                status = audit(root)
+
+            self.assertEqual(status, 1)
+            self.assertIn(
+                "canonical and workspace Finance zome file projections differ",
+                output.getvalue(),
+            )
+            self.assertIn(
+                "payments/coordinator/src/lib.rs: content differs",
+                output.getvalue(),
+            )
+
     def test_whole_audit_passes_only_when_abi_is_private_and_no_callers_exist(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
