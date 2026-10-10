@@ -42,7 +42,13 @@ for each reviewed source/artifact. When `QUALIFIED_SHA` is set (as it is in the
 pull-request workflow), the audit requires Git metadata to be available and the
 checked-out commit to match that exact subject. A missing or mismatched subject
 fails the audit. This is an early process check, not a Rust parser, compiler,
-unit test, Clippy run, or proof of runtime correctness.
+unit test, Clippy run, or proof of runtime correctness. In CI, the report is
+written to the runner's temporary directory and uploaded as a run-specific
+artifact for 14 days, including when the preflight fails after producing the
+report. The JSON binds the report to the observed commit and expected
+`QUALIFIED_SHA`, includes the run ID when available, and carries hashes of the
+reviewed files. Artifact retention is a convenience for review, not immutable
+long-term archival or a cryptographic attestation.
 
 ### Journal replay scale probe
 
