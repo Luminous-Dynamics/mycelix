@@ -191,7 +191,7 @@
       "required": [
         "method_profile_ref",
         "input_digest",
-        "output_digest",
+        "subject_output_digest",
         "oracle_profile_ref",
         "result"
       ],
@@ -200,9 +200,6 @@
           "$ref": "#/$defs/policyProfileRef"
         },
         "input_digest": {
-          "$ref": "#/$defs/digest"
-        },
-        "output_digest": {
           "$ref": "#/$defs/digest"
         },
         "oracle_profile_ref": {
@@ -226,6 +223,12 @@
         "environment_ref": {
           "type": "string",
           "minLength": 1
+        },
+        "subject_output_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "report_digest": {
+          "$ref": "#/$defs/digest"
         }
       }
     },
@@ -456,6 +459,49 @@
         "minLength": 1
       },
       "uniqueItems": true
+    },
+    "simulation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method_profile_ref",
+        "input_digest",
+        "output_digest",
+        "scenario_corpus_digest",
+        "environment_ref",
+        "run_receipt_ref",
+        "result"
+      ],
+      "properties": {
+        "method_profile_ref": {
+          "$ref": "#/$defs/policyProfileRef"
+        },
+        "input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "output_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "scenario_corpus_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "environment_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_receipt_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result": {
+          "enum": [
+            "NotRun",
+            "Completed",
+            "Failed",
+            "Inconclusive"
+          ]
+        }
+      }
     }
   },
   "$defs": {
@@ -979,6 +1025,50 @@
         "properties": {
           "status": {
             "enum": [
+              "Simulated",
+              "Qualified",
+              "Authorized",
+              "PilotActive",
+              "CutoverReady",
+              "CutoverCommitted",
+              "Reconciled",
+              "Completed"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "simulation"
+        ],
+        "properties": {
+          "simulation": {
+            "required": [
+              "method_profile_ref",
+              "input_digest",
+              "output_digest",
+              "scenario_corpus_digest",
+              "environment_ref",
+              "run_receipt_ref",
+              "result"
+            ],
+            "properties": {
+              "result": {
+                "const": "Completed"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
               "Qualified",
               "Authorized",
               "PilotActive",
@@ -997,10 +1087,15 @@
         "properties": {
           "evaluation": {
             "required": [
+              "method_profile_ref",
+              "input_digest",
+              "subject_output_digest",
+              "oracle_profile_ref",
+              "result",
               "receipt_ref",
               "scenario_corpus_digest",
               "environment_ref",
-              "result"
+              "report_digest"
             ],
             "properties": {
               "result": {
