@@ -1188,7 +1188,7 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         let key = rate_limit_anchor_key("payment", &agent, now.as_micros());
         let anchor = anchor_hash(&key)?;
         let recent_links = get_links(
-            LinkQuery::try_new(anchor.clone(), LinkTypes::SenderToPayments)?,
+            LinkQuery::try_new(anchor.clone(), LinkTypes::RateLimitBucketToAgent)?,
             GetStrategy::default(),
         )?;
         if recent_links.len() >= DEFAULT_RATE_LIMIT_PER_MINUTE {
@@ -1201,7 +1201,7 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         create_link(
             anchor,
             AnyLinkableHash::from(agent.clone()),
-            LinkTypes::SenderToPayments,
+            LinkTypes::RateLimitBucketToAgent,
             (),
         )?;
     }
