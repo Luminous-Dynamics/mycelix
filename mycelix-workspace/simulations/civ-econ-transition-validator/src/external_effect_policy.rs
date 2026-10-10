@@ -1,10 +1,12 @@
 //! Conservative policy for recovering uncertain external effects.
 //!
 //! This module computes a decision from caller-supplied provider observations
-//! and a provider idempotency contract. It does not authenticate those inputs,
-//! query a provider, dispatch requests, or mutate the durable journal. Callers
-//! must verify source evidence and persist the selected recovery action before
-//! treating it as operational authority.
+//! and a provider idempotency contract. Every observation and retry contract is
+//! bound to both a provider-profile digest and the exact request digest; applied
+//! outcomes also carry a source-evidence digest. This module does not authenticate
+//! those inputs, query a provider, dispatch requests, or mutate the durable journal.
+//! Callers must verify the source evidence and persist any retry authorization
+//! before treating a selected action as operational authority.
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ProviderIdempotencyContract {
@@ -539,6 +541,85 @@ mod tests {
                 30,
             ),
             RecoveryAction::Quarantine { .. },
+        ));
+    }
+
+    #[test]
+    fn applied_evidence_from_another_provider_profile_is_quarantined() {
+        assert!(matches!(
+            decide_recovery(
+                PROVIDER_A,
+                REQUEST_A,
+                &ProviderObservation::Applied {
+                    provider_profile_digest: PROVIDER_B.to_owned(),
+                    request_digest: REQUEST_A.to_owned(),
+                    receipt_digest: RECEIPT_A.to_owned(),
+                    evidence_digest: EVIDENCE_A.to_owned(),
+                },
+                &ProviderIdempotencyContract::Unsupported,
+                NOW,
+                30,
+            ),
+            RecoveryAction::Quarantine {
+                reason: "provider applied record is bound to a different provider profile",
+            },
+        ));
+    }
+
+    #[test]
+    fn unknown_observation_from_another_provider_profile_is_quarantined() {
+        assert!(matches!(
+            decide_recovery(
+                PROVIDER_A,
+                REQUEST_A,
+                &ProviderObservation::Unknown {
+                    provider_profile_digest: PROVIDER_B.to_owned(),
+                },
+                &live_contract(),
+                NOW,
+                30,
+            ),
+            RecoveryAction::Quarantine {
+                reason: "unknown-outcome observation is bound to a different provider profile",
+            },
+        ));
+    }
+
+    #[test]
+    fn idempotency_contract_from_another_provider_profile_is_quarantined() {
+        let contract = ProviderIdempotencyContract::SameKeySameRequest {
+            provider_profile_digest: PROVIDER_B.to_owned(),
+            idempotency_key: "other-provider-key".to_owned(),
+            request_digest: REQUEST_A.to_owned(),
+            guaranteed_until_unix_seconds: NOW + 100,
+        };
+        assert!(matches!(
+            decide_recovery(PROVIDER_A, REQUEST_A, &unknown(), &contract, NOW, 30),
+            RecoveryAction::Quarantine {
+                reason: "provider idempotency contract is bound to a different provider profile",
+            },
+        ));
+    }
+
+    #[test]
+    fn malformed_source_evidence_digest_is_quarantined_before_acknowledgement() {
+        assert!(matches!(
+            decide_recovery(
+                PROVIDER_A,
+                REQUEST_A,
+                &ProviderObservation::Applied {
+                    provider_profile_digest: PROVIDER_A.to_owned(),
+                    request_digest: REQUEST_A.to_owned(),
+                    receipt_digest: RECEIPT_A.to_owned(),
+                    evidence_digest: "sha256:BAD".to_owned(),
+                },
+                &ProviderIdempotencyContract::Unsupported,
+                NOW,
+                30,
+            ),
+            RecoveryAction::Quarantine {
+                reason: "provider evidence digest is not canonical",
+            },
         ));
     }
 
