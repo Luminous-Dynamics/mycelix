@@ -1,0 +1,129 @@
+# Mycelix / hAppRadar Comparative Interoperability Review
+Date: 2026-10-10
+Status: research findings and proposed engineering gates; source builds/tests were not run as part of this review.
+
+## Executive finding
+
+The strongest near-term improvement is not to increase the number of Mycelix clusters. It is to make the economic ledger and cross-hApp trust boundaries independently verifiable, then align interoperable parts with existing Holochain ecosystem vocabularies.
+
+This review compared the public hAppRadar directory, hREA's ValueFlows implementation and migration documentation, ValiChord's commit/reveal design, and the current Mycelix root/Finance documentation and source.
+
+## Evidence-based findings
+
+### 1. Version compatibility is a hard boundary, not a packaging detail
+
+- Mycelix's root README documents Holochain 0.6.0 / HDK 0.6.0 / HDI 0.7.0. The Finance workspace pins HDK 0.6.1 and HDI 0.7.1 in `mycelix-finance/Cargo.toml`.
+- hREA's current in-repository release guide describes `happ-0.5.0-beta` on Holochain 0.7.x, with HDK 0.7.0, HDI 0.8.0, `@holochain/client` 0.21.x and the 0.700.x GraphQL adapter line. hREA documents breaking 0.6-to-0.7 changes in validation callback signatures, action wire format, and WASM `getrandom` configuration.
+- hAppRadar's cached project metadata can describe a released version while repository docs describe a newer development/release line. Record the exact source ref, release artifact, conductor, HDK/HDI, client and adapter versions for every compatibility claim.
+
+**Decision:** do not treat hREA zomes as drop-in dependencies for current Mycelix Finance. First prototype against a pinned artifact. Native DNA composition requires a deliberate compatibility/migration plan. A separate-process/API integration is a different trust and networking boundary and must be documented as such; it does not make 0.6 and 0.7 DHTs one network.
+
+Sources:
+- Mycelix root: https://github.com/Luminous-Dynamics/mycelix/blob/main/README.md
+- Finance manifest: https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/Cargo.toml
+- hREA release and compatibility guide: https://github.com/h-REA/hREA/blob/sprout/docs/consuming-a-release.md
+- hREA ValueFlows types: https://github.com/h-REA/hREA/blob/sprout/modules/vf-graphql-holochain/src/types.ts
+- hAppRadar directory: https://happradar.com/projects
+
+### 2. ValueFlows/REA is a useful interoperability vocabulary for economic facts
+
+hREA's model gives applications shared concepts for agents, economic resources, commitments, agreements, processes and economic events. Its GraphQL adapter exposes relations such as a commitment being fulfilled by an event and an event affecting a resource.
+
+Mycelix Finance already has application-specific concepts for SAP, TEND and MYCEL, Payment, Receipt, SAP balances, treasury contributions, and cross-hApp events. These are not interchangeable with ValueFlows concepts, but a carefully defined mapping would make economic facts easier to exchange with other applications.
+
+**Decision:** build a mapping specification and a small read-only/export prototype before changing ledger semantics:
+
+| Mycelix concept | Candidate interoperability representation | Guardrail |
+|---|---|---|
+| SAP balance/transfer | Resource specification + resource-affecting economic events | Preserve integer micro-SAP units, exact currency identity, and signed debit/credit semantics; do not use floating point for authoritative amounts |
+| TEND time-credit obligation/settlement | Commitment plus fulfillment/settlement event, scoped to the relevant parties/community | Preserve zero-sum accounting, unit meaning (hours), credit limits, disputes and settlement evidence |
+| MYCEL recognition/reputation | Agent-scoped attestations/claims or another explicitly non-transferable representation | Never map it into a transferable balance; distinguish evidence about reputation from the authority to compute a score |
+| Commons pool/reserve | Scoped resource and events with policy metadata | Keep reserve floors, demurrage, mint caps and governance rules enforceable by Mycelix integrity validation |
+
+This is a candidate mapping, not a claim that the external schema already expresses every Mycelix policy. ValueFlows should describe interoperable economic facts; Mycelix remains responsible for its own monetary-policy and authorization invariants.
+
+Source: https://github.com/h-REA/hREA/blob/sprout/modules/vf-graphql-holochain/src/types.ts
+
+### 3. ValiChord offers a useful pattern for claims that must be hidden until a common reveal point
+
+ValiChord describes private local attestations bound to a commitment hash, publication of a content-free commitment anchor, deterministic serialization shared by seal and reveal paths, a fresh nonce, duplicate-seal guards, and reveal eligibility driven by network-observed phase state. Its source also explicitly separates what this proves (the committed statement was not changed after commitment) from what it does not prove (that the validator is correct).
+
+Potential Mycelix applications are governance ballots, blind peer reviews, pre-registered evaluations, or contested claims where seeing another participant's answer early would bias or enable adaptation. This pattern is not automatically appropriate for every payment receipt: adding a reveal phase to an ordinary payment may add latency without a clear privacy or integrity benefit.
+
+**Decision:** write a protocol-level design and adversarial tests before reusing code. Require:
+- Canonical, versioned and domain-separated commitment preimages.
+- A cryptographically random nonce generated by a trusted platform source; never publish the nonce before reveal.
+- The same serialization/hash routine on both sides of the boundary.
+- Integrity validation that rejects mismatched reveals and duplicate or phase-invalid operations.
+- Idempotent retry behavior when a commitment anchor write/cross-zome call fails.
+- Multi-agent tests for early reveal, tampered payload, replay, duplicate commit, missing participant, network delay/dropout and conflicting outcomes.
+- Clear trust assumptions for any credential issuer, quorum, Sybil-resistance scheme or governance override.
+
+**Important external-project caveat:** ValiChord documents a permissioned validator membrane and a single trusted certificate issuer in its current phase, with issuer federation/rotation planned. Its README also notes its hosted demo runs Holochain 0.6.2 while `main` targets 0.7.0. Treat its described architecture as a source to inspect, not as evidence that Mycelix should inherit those trust assumptions or that its demo verifies the exact current branch.
+
+Sources:
+- https://github.com/ValiChord/ValiChord
+- https://github.com/ValiChord/ValiChord/blob/main/docs/15_How_a_Validation_Round_Works.md
+- https://github.com/ValiChord/ValiChord/blob/main/valichord/dnas/validator_workspace/zomes/validator_workspace_coordinator/src/lib.rs
+
+### 4. A source comment records an unresolved SAP balance-conservation step
+
+In `mycelix-finance/zomes/payments/integrity/src/lib.rs`, `SapBalance.justified_by` is documented as a field intended to bind a balance delta to a mint record or counterpart payment. The same comment says it is **not yet enforced** by integrity validation and producers currently write `None`.
+
+This is a directly visible implementation gap, not a conclusion inferred from test counts. Before making strong claims about conservation of SAP, the implementation must prove which operation justifies every non-genesis positive delta and reject unmatched increases.
+
+**P0 gate before broader economic interoperability:**
+1. Inventory every writer/producer of `SapBalance`, including mint, transfer, treasury/compost, bridge, restoration and exit paths.
+2. Define the accepted justification types and exactly how the validator matches owner, currency, amount/delta, predecessor and operation identity.
+3. Enforce justification in integrity validation, not only in coordinator logic or UI.
+4. Ensure a justification cannot be replayed to authorize multiple balance increases; explicitly model partial consumption if any use case requires it.
+5. Preserve a narrowly defined zero/genesis exception rather than treating `None` as general authorization.
+6. Add multi-agent tests for unauthorized increase, changed amount, wrong owner, wrong currency, duplicate/replay, mismatched transfer legs, failed/retried cross-zome operations and valid mint/transfer/compost cases.
+7. Update all producers in one coherent migration; don't introduce a permissive fallback to keep old tests green.
+
+Source: https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/zomes/payments/integrity/src/lib.rs
+
+### 5. Resolve licensing ambiguity before copying code
+
+The Finance README currently says Apache-2.0 at its footer, while its `Cargo.toml`, source SPDX header, Finance `LICENSE`, and root `LICENSING.md` identify the Finance cluster as AGPL-3.0-or-later. This review corrects the stale Finance README footer in the accompanying change.
+
+hREA is Apache-2.0, but license compatibility alone does not resolve version, architecture, attribution, and resulting-work obligations. Prefer a clean adapter/specification first; any source reuse must retain notices and receive an explicit license review.
+
+Sources:
+- https://github.com/Luminous-Dynamics/mycelix/blob/main/LICENSING.md
+- https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/Cargo.toml
+- https://github.com/h-REA/hREA/blob/sprout/docs/README.md
+
+## Prioritized execution plan
+
+### P0 — Ledger truth and explicit maturity
+- Complete the `SapBalance.justified_by` conservation path described above, after inventorying all producers.
+- Keep the known pre-alpha/multi-agent-test maturity caveats visible; a unit-test count does not establish DHT validation behavior.
+- Correct contradictory license metadata and make license state machine-readable and consistent across README, Cargo manifests, license files and source headers.
+
+### P1 — External economic interoperability
+- Freeze a versioned mapping document for SAP, TEND, MYCEL, commitments, events, resources, receipts and disputes.
+- Pin exact hREA artifacts and compatibility tuple. Do not combine hREA 0.7 artifacts into the existing 0.6 Mycelix DNA.
+- Implement a read-only adapter/export fixture and round-trip tests before enabling external writes.
+- Preserve Mycelix rules as integrity invariants; never let an external GraphQL adapter become the authority for balance changes.
+
+### P1 — Selective commit/reveal
+- Identify one suitable Mycelix use case (prefer blind evaluation or governance, not ordinary payments).
+- Define the threat model and commitment envelope, then test it across independent agents before production use.
+- Use ValiChord as a comparative reference, not a dependency by default.
+
+### P2 — Broader hAppRadar survey
+Expand the research to Moss, Flowsta Vault, AD4M, Nondominium and other active projects by category. For each, capture exact repo/ref/license/toolchain; actual test and runtime evidence; integration cost; security assumptions; reuse/adapter/independent-implementation decision. Prioritize by gap relevance, not stars, activity or project count.
+
+## Acceptance criteria
+
+- All claims in the comparison point to a specific source and revision or are clearly marked as project documentation rather than independently verified behavior.
+- No external implementation is described as compatible until its exact runtime/toolchain is tested.
+- SAP balance increases fail closed when they lack a valid, single-use justification; valid paths have tests at integrity and multi-agent layers.
+- The economic mapping preserves exact integer units, non-transferable MYCEL semantics, TEND zero-sum behavior, and the boundary between economic facts and monetary policy.
+- Commit/reveal tests demonstrate phase enforcement, tamper rejection, replay resistance, failure recovery and auditable disagreement.
+- No production-readiness claim is inferred from a passing build or a stated test count.
+
+## Scope and limitations
+
+This is an evidence-backed research/design change. It does not claim that external repositories have been independently audited, that all findings in their READMEs are verified, or that any builds/tests were run during this review. The SAP conservation comment should trigger a complete source/test investigation before modifying ledger code; a narrow patch without tracing all producers could break valid paths or preserve a bypass.
