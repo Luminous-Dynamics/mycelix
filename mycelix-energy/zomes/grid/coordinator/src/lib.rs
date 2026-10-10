@@ -476,6 +476,9 @@ pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SettleTradeInput {
     pub trade_id: String,
+    /// Retained for request compatibility. A caller-supplied string is not
+    /// evidence of payment; positive-value settlement remains gated until the
+    /// referenced rail receipt can be authenticated and recovered idempotently.
     pub payment_reference: String,
 }
 
