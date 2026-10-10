@@ -216,6 +216,10 @@ def _find_macro_close(source_text: str, opening: int) -> int:
         if literal is not None:
             cursor = literal.end()
             continue
+        character = RUST_CHAR_LITERAL.match(source_text, cursor)
+        if character is not None:
+            cursor = character.end()
+            continue
         if source_text[cursor] == "(":
             depth += 1
         elif source_text[cursor] == ")":
@@ -227,7 +231,7 @@ def _find_macro_close(source_text: str, opening: int) -> int:
 
 
 def _static_concat_hits(source_text: str) -> list[tuple[int, int, str]]:
-    """Find concat! calls whose string-literal arguments resolve to credit_sap."""
+    """Find concat! calls whose string/character literal arguments resolve to credit_sap."""
     hits: list[tuple[int, int, str]] = []
     direct_spans = [match.span() for match in RAW_CREDIT_REFERENCE.finditer(source_text)]
     for macro in CONCAT_MACRO.finditer(source_text):
@@ -249,15 +253,21 @@ def _static_concat_hits(source_text: str) -> list[tuple[int, int, str]]:
         valid = True
         while cursor < len(body):
             literal = RUST_STRING_LITERAL.match(body, cursor)
-            if literal is None:
-                valid = False
-                break
-            value = _literal_value(literal)
+            if literal is not None:
+                value = _literal_value(literal)
+                token_end = literal.end()
+            else:
+                character = RUST_CHAR_LITERAL.match(body, cursor)
+                if character is None:
+                    valid = False
+                    break
+                value = _char_literal_value(character)
+                token_end = character.end()
             if value is None:
                 valid = False
                 break
             values.append(value)
-            cursor = _skip_rust_trivia(body, literal.end())
+            cursor = _skip_rust_trivia(body, token_end)
         if valid and values and "".join(values) == "credit_sap":
             line_number = source_text.count("\n", 0, macro.start()) + 1
             source_spelling = source_text[macro.start() : end]
