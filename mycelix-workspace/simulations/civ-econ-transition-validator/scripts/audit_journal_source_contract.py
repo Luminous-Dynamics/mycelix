@@ -103,7 +103,7 @@ check("workflow checks formatting", "cargo +1.96.0 fmt" in workflow and "-- --ch
 check("workflow records host and RSS for smoke", "/usr/bin/time -v" in workflow and "uname -a" in workflow and "df -T" in workflow)
 check("workflow invokes a 10k smoke per lifecycle scenario", 'echo "runner_image=' in workflow and ' "$bin" 10000 "$scenario"' in workflow)
 check("workflow writes the JSON source report to runner temp", "JOURNAL_AUDIT_REPORT_PATH:" in workflow and "journal-source-contract-report.json" in workflow)
-check("workflow uploads the report even when prior steps fail", "Upload journal source-contract report" in workflow and "if: always()" in workflow)
+check("workflow uploads the report even when prior steps fail", "Upload journal qualification evidence" in workflow and "if: always()" in workflow)
 check("artifact upload action is pinned to reviewed v7.0.2", "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in workflow and "# v7.0.2" in workflow)
 check("artifact name includes run ID and exact subject", "github.run_id" in workflow and "env.QUALIFIED_SHA" in workflow)
 check("audit writes a newline-terminated JSON report", "JOURNAL_AUDIT_REPORT_PATH" in audit_script and "destination.write_text(report_json" in audit_script and "encoding=\"utf-8\"" in audit_script)
