@@ -29,8 +29,9 @@ RAW_CREDIT_REFERENCE = re.compile(r'(?:r#*)?"credit_sap"#*')
 # private helper look externally exported.
 PUBLIC_RAW_CREDIT_ABI = re.compile(
     r"#\s*\[\s*hdk_extern\s*\]"
-    r"(?:\s*#\s*\[[^\]]*\]\s*)*"
-    r"\s*(?:pub\s+)?fn\s+credit_sap\s*\("
+    r"(?:(?:\s*#\s*\[[^\]]*\])|(?:\s*//[^\\n]*(?:\\n|$))|(?:\s*/\\*.*?\\*/))*"
+    r"\s*(?:pub\s+)?fn\s+credit_sap\s*\(",
+    re.DOTALL,
 )
 
 
