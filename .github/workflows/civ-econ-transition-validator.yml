@@ -1,0 +1,59 @@
+name: CIV-ECON Transition Validator
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - "mycelix-workspace/simulations/civ-econ-transition-validator/**"
+      - "docs/research/civ/CIV-ECON-001A_*"
+      - ".github/workflows/civ-econ-transition-validator.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ-econ-transition-validator-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  QUALIFIED_SHA: ${{ github.event.pull_request.head.sha }}
+
+jobs:
+  reference-validator:
+    name: Exact-head Rust reference tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact qualification subject
+        run: test "$(git rev-parse HEAD)" = "${QUALIFIED_SHA}"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Assert Rust toolchain identity
+        run: |
+          test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+          rustc +1.96.0 --version --verbose
+          cargo +1.96.0 --version
+          rustfmt +1.96.0 --version
+
+      - name: Run dependency-free validator tests
+        run: cargo +1.96.0 test --manifest-path mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml --locked --all-targets
+
+      - name: Run strict Clippy
+        run: cargo +1.96.0 clippy --manifest-path mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml --locked --all-targets -- -D warnings
+
+      - name: Check Rust formatting
+        run: cargo +1.96.0 fmt --manifest-path mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml --all -- --check
