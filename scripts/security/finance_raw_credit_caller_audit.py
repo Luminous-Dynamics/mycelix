@@ -19,10 +19,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-RAW_CREDIT_REFERENCE = re.compile(
-    r'(?:FunctionName\s*::\s*(?:from|try_from)\s*\(\s*"credit_sap"\s*\)|'
-    r'"credit_sap"\s*\.\s*(?:into|to_string)\s*\(\s*\))'
-)
+# Match the exact function-name literal, independent of which Holochain
+# constructor/conversion API wraps it. This intentionally errs toward a false
+# positive: any external coordinator literal should be reviewed before the ABI is
+# removed. It also catches Rust raw-string spellings such as r#"credit_sap"#.
+RAW_CREDIT_REFERENCE = re.compile(r'(?:r#*)?"credit_sap"#*')
 # Permit other outer attributes between hdk_extern and the function declaration.
 # Stop at the first function declaration so an unrelated extern cannot make a later
 # private helper look externally exported.
