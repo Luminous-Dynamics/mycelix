@@ -222,7 +222,7 @@ impl DurableEffectJournal {
                 if recorded_profile != provider_profile_digest {
                     return Err(JournalError::ProviderProfileConflict);
                 }
-            } else if !matches!(existing.status, EffectStatus::Acknowledged { .. }) {
+            } else if !matches!(&existing.status, EffectStatus::Acknowledged { .. }) {
                 return Ok(BeginResult::ProviderProfileUnboundNeedsReconciliation);
             }
             return Ok(match &existing.status {
@@ -579,8 +579,8 @@ mod tests {
         fn drop(&mut self) { let _ = fs::remove_dir_all(&self.0); }
     }
 
-    const PROVIDER_A: &str = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
-    const PROVIDER_B: &str = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    const PROVIDER_A: &str = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+    const PROVIDER_B: &str = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
     const REQUEST_A: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const REQUEST_B: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     const RECEIPT_A: &str = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
@@ -778,12 +778,12 @@ mod tests {
         let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
         journal.begin_effect("payment-evidence", REQUEST_A, PROVIDER_A).unwrap();
         journal.acknowledge_effect(
-            "payment-evidence", REQUEST_A, RECEIPT_A, SOURCE_EVIDENCE_A
+            "payment-evidence", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A
         ).unwrap();
 
         assert_eq!(
             journal.acknowledge_effect(
-                "payment-evidence", REQUEST_A, RECEIPT_A, SOURCE_EVIDENCE_B
+                "payment-evidence", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_B
             ),
             Err(JournalError::EvidenceConflict),
         );
