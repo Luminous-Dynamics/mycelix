@@ -88,6 +88,10 @@ jobs:
         run: |
           manifest=mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml
           cargo +1.96.0 build --release --manifest-path "$manifest" --locked --bin journal-replay-scale
+          echo "runner_image=${ImageOS:-unknown} ${ImageVersion:-unknown}"
+          echo "kernel=$(uname -a)"
+          echo "rustc=$(rustc +1.96.0 --version)"
+          df -T "$RUNNER_TEMP"
           bin=mycelix-workspace/simulations/civ-econ-transition-validator/target/release/journal-replay-scale
           for scenario in pending indeterminate acknowledged reconciled; do
             echo "::group::journal replay scale / 10000 effects / $scenario"
