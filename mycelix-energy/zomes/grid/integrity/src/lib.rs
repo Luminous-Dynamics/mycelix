@@ -3,6 +3,7 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! P2P Grid Trading Integrity Zome
 use hdi::prelude::*;
+use holo_hash::blake2b_256;
 
 /// Anchor entry for deterministic link bases
 #[hdk_entry_helper]
@@ -174,18 +175,119 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, .. } => match link_type {
-            LinkTypes::ProducerToProduction
-            | LinkTypes::ConsumerToConsumption
-            | LinkTypes::SellerToOffers
-            | LinkTypes::ActiveOffers
-            | LinkTypes::OfferToTrades
-            | LinkTypes::BuyerToTrades => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            action,
+            ..
+        } => {
+            let target_action_hash = match target_address.clone().into_action_hash() {
+                Some(hash) => hash,
+                None => {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Grid index links must target an action hash".into(),
+                    ));
+                }
+            };
+            let target_record = must_get_valid_record(target_action_hash)?;
+            let target_entry = target_record
+                .entry()
+                .to_app_option::<EntryTypes>()
+                .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                    "Grid link target entry could not be decoded".into()
+                )))?
+                .ok_or_else(|| {
+                    wasm_error!(WasmErrorInner::Guest(
+                        "Grid link target entry is unavailable".into()
+                    ))
+                })?;
+            result_from_validation_error(grid_link_validation_error(
+                &base_address,
+                &target_entry,
+                &link_type,
+                &action.author,
+            ))
         },
         FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+/// Reproduce the Energy hApp's anchor-key encoding without depending on the
+/// coordinator/shared crate. Keep byte-for-byte parity with
+/// mycelix_energy_shared::anchors::anchor_hash.
+fn energy_anchor_hash(value: &str) -> AnyLinkableHash {
+    let digest = blake2b_256(value.as_bytes());
+    let bytes: Vec<u8> = digest.iter().copied().chain([0u8; 4]).collect();
+    AnyLinkableHash::from(EntryHash::from_raw_36(bytes))
+}
+
+fn offer_day_bucket(timestamp: Timestamp) -> i64 {
+    const MICROS_PER_DAY: i64 = 86_400 * 1_000_000;
+    timestamp.as_micros().div_euclid(MICROS_PER_DAY)
+}
+
+fn grid_link_validation_error(
+    base_address: &AnyLinkableHash,
+    target_entry: &EntryTypes,
+    link_type: &LinkTypes,
+    link_author: &AgentPubKey,
+) -> Option<&'static str> {
+    let invalid = Some("Grid link base, target, or author does not match its entry");
+
+    match (link_type, target_entry) {
+        (LinkTypes::ProducerToProduction, EntryTypes::EnergyProduction(production)) => {
+            if !did_matches_agent(&production.producer_did, link_author)
+                || base_address != &energy_anchor_hash(&production.producer_did)
+            {
+                return invalid;
+            }
+        }
+        (LinkTypes::ConsumerToConsumption, EntryTypes::EnergyConsumption(consumption)) => {
+            if !did_matches_agent(&consumption.consumer_did, link_author)
+                || base_address != &energy_anchor_hash(&consumption.consumer_did)
+            {
+                return invalid;
+            }
+        }
+        (LinkTypes::SellerToOffers, EntryTypes::TradeOffer(offer)) => {
+            if !did_matches_agent(&offer.seller_did, link_author)
+                || base_address != &energy_anchor_hash(&offer.seller_did)
+            {
+                return invalid;
+            }
+        }
+        (LinkTypes::ActiveOffers, EntryTypes::TradeOffer(offer)) => {
+            let expected_anchor = energy_anchor_hash(&format!(
+                "active_energy_offers:{}",
+                offer_day_bucket(offer.created)
+            ));
+            if !did_matches_agent(&offer.seller_did, link_author)
+                || base_address != &expected_anchor
+            {
+                return invalid;
+            }
+        }
+        (LinkTypes::OfferToTrades, EntryTypes::Trade(trade)) => {
+            if !did_matches_agent(&trade.buyer_did, link_author)
+                || base_address != &energy_anchor_hash(&trade.offer_id)
+            {
+                return invalid;
+            }
+        }
+        (LinkTypes::BuyerToTrades, EntryTypes::Trade(trade)) => {
+            if !did_matches_agent(&trade.buyer_did, link_author)
+                || base_address != &energy_anchor_hash(&trade.buyer_did)
+            {
+                return invalid;
+            }
+        }
+        _ => return Some("Grid index link must target the expected entry type"),
+    }
+
+    None
 }
 
 fn valid_nonempty(value: &str) -> bool {
