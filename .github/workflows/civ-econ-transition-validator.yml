@@ -80,6 +80,13 @@ jobs:
           JOURNAL_AUDIT_REPORT_PATH: ${{ runner.temp }}/journal-source-contract-report.json
         run: python3 mycelix-workspace/simulations/civ-econ-transition-validator/scripts/audit_journal_source_contract.py
 
+      - name: Validate persisted journal source-contract report JSON
+        if: always()
+        run: |
+          report="${{ runner.temp }}/journal-source-contract-report.json"
+          test -s "$report"
+          python3 -m json.tool "$report" > /dev/null
+
       - name: Upload journal source-contract report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
