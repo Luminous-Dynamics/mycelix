@@ -107,6 +107,12 @@ check("workflow uploads the report even when prior steps fail", "Upload journal 
 check("artifact upload action is pinned to reviewed v7.0.2", "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in workflow and "# v7.0.2" in workflow)
 check("artifact name includes run ID and exact subject", "github.run_id" in workflow and "env.QUALIFIED_SHA" in workflow)
 check("audit writes a newline-terminated JSON report", "JOURNAL_AUDIT_REPORT_PATH" in audit_script and "destination.write_text(report_json" in audit_script and "encoding=\"utf-8\"" in audit_script)
+check("workflow validates persisted JSON before any Cargo build", workflow.index("Validate persisted journal source-contract report JSON") < workflow.index("Run dependency-free validator tests"))
+check("workflow captures replay smoke output in a durable log", 'report="$RUNNER_TEMP/journal-replay-smoke.log"' in workflow and '2>&1 | tee -a "$report"' in workflow)
+check("smoke records the qualification subject and run ID", 'echo "qualified_sha=$QUALIFIED_SHA" | tee -a "$report"' in workflow and 'echo "github_run_id=${GITHUB_RUN_ID:-unknown}" | tee -a "$report"' in workflow)
+check("smoke records host metadata before attempting the build", workflow.index('echo "runner_image=') < workflow.index("cargo +1.96.0 build --release"))
+check("one artifact includes source report and runtime smoke log", "journal-source-contract-report.json" in workflow and "journal-replay-smoke.log" in workflow and "Upload journal qualification evidence" in workflow)
+check("combined evidence upload remains failure-tolerant and 14-day", "Upload journal qualification evidence\n        if: always()" in workflow and "retention-days: 14" in workflow)
 
 files = (JOURNAL_PATH, SCALE_PATH, MANIFEST_PATH, LOCKFILE_PATH, README_PATH, DESIGN_PATH, WORKFLOW_PATH, SCRIPT_PATH)
 try:
