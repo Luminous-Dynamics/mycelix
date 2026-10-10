@@ -32,6 +32,18 @@ funding commitment != disbursement or experiment performed
 project completion != scientific or social impact
 ```
 
+## 2.1 Source inventory and implementation implications (2026-10-10)
+
+Static source inspection (not a fresh build or runtime qualification) found these reusable primitives and gaps:
+
+- §scientific_events.rs§ defines canonical payloads for claim proposal/import, evidence attachment, attestations, corrections/withdrawals, supersession, and retraction. The inspected enum does not yet define first-class resource requests, allocation decisions, funding commitments, milestones, or outcomes.
+- §EvidenceProfile§ already separates counts for artifacts, reviews, reproductions/replications, non-supporting results, critiques, conflicts, corrections, and withdrawals. §EvidenceAssessment§ carries policy ID/version, maturity, contestation, and reasons. That is a useful baseline, but it is not yet the multidimensional due-diligence report or portfolio decision record proposed here.
+- The current §source_key§ uses organization identity when present and actor identity otherwise for replication/reproduction counting, while review counting uses actor identity. This helps deduplicate some reports but is not a full independence model. A person represented under multiple organizations may produce distinct source keys where otherwise-distinct attestations are admissible; multiple people in one organization can still be dependent. Before funding decisions consume such counts, qualify dependence across actor, organization, dataset, protocol, lab, and method.
+- Related modules exist for citation metrics (§citation.rs§), Bayesian belief propagation (§bayesian.rs§), replication tracking (§reproducibility.rs§), disputes (§dispute.rs§), inference (§inference.rs§), and meta-claims (§meta.rs§). Their existence alone does not prove integration with the canonical path or scientific qualification; inspect call paths and tests before reuse.
+- The legacy type layer contains E0–E4 and a unified confidence score. The documented import boundary correctly says historical tiers/counts are not validated evidence. The allocator must not silently consume legacy confidence or citation-influence fields.
+
+**Implementation consequence:** start with a traceable mapping and adversarial qualification of existing evidence-independence semantics and assessment disposition behavior. Design resource-request, decision, milestone, and outcome event families only after avoiding duplicate schema/authority primitives.
+
 ## 3. Design principles
 
 1. **Evidence before score.** Every material assessment finding references evidence, a source version, and an explicit reasoning rule. A numerical score cannot substitute for the evidence trail.
@@ -206,6 +218,9 @@ At minimum prove:
 10. fabricated citations, prompt injection, missing data, and correlated reviewers do not silently increase confidence;
 11. restricted data can be represented without exposing it, with rights/access restrictions explicit;
 12. ties and score sensitivity are surfaced rather than disguised as precise rankings.
+13. the same actor presented under multiple organization identities cannot silently count as multiple independent persons;
+14. multiple actors within the same organization/data-source group are not treated as independent organization-level replications without an explicit profile;
+15. changes to organization, protocol, dataset, lab, or method linkage cannot silently increase an independence count.
 
 ### Gate D — frozen benchmark and shadow decisions
 
