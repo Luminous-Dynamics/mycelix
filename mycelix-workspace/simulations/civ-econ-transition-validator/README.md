@@ -36,15 +36,18 @@ Build the dependency-free scale probe once, then run each size separately so
 `/usr/bin/time -v` captures the probe process rather than Cargo's build process:
 
     cargo build --offline --release --bin journal-replay-scale
-    for n in 10000 100000 1000000; do
-      printf '\n== %s effects ==\n' "$n"
-      /usr/bin/time -v target/release/journal-replay-scale "$n" 2>&1
+    for scenario in pending indeterminate acknowledged reconciled; do
+      for n in 10000 100000 1000000; do
+        printf '\n== %s effects / %s ==\n' "$n" "$scenario"
+        /usr/bin/time -v target/release/journal-replay-scale "$n" "$scenario" 2>&1
+      done
     done
 
 The probe generates a synthetic J3 journal, syncs it, then reports journal bytes,
-bytes per effect, generation time, and open-plus-replay time. It verifies the
-exact total replayed identity count plus the first and last generated effects;
-the count check is O(1) and does not allocate an ID list. `/usr/bin/time -v` supplies peak
+bytes per effect, generation time, and open-plus-replay time. Scenarios cover
+Pending, Indeterminate, acknowledged directly, and Indeterminate-to-acknowledged
+reconciliation. It verifies total replayed identity count, unresolved count, and
+the expected first/last final states without allocating an ID list. `/usr/bin/time -v` supplies peak
 resident-set size (RSS). The probe accepts 1 through 1,000,000 effects and deletes
 its private temporary directory after each run.
 
