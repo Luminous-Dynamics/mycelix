@@ -248,6 +248,17 @@ Machine-readable companion artifacts:
 
 JSON Schema validates structure only. It does not prove signatures, distinct authority identities, causal completeness, external settlement, resource truth, legal discharge or real-world effectiveness. Those require independent validators and evidence at the appropriate layer.
 
+### Reference validator boundary
+
+A dependency-free Rust reference crate is being added at `mycelix-workspace/simulations/civ-econ-transition-validator`. It consumes a normalized typed projection rather than deserializing this JSON Schema directly; a schema-to-type adapter remains future work. The model keeps policy-profile identity, instrument identity (including issuer and economic form), and unit identity (including atomic scale) as distinct types.
+
+The evidence chain distinguishes:
+- simulation run receipt, exact output digest, scenario-corpus digest, and environment;
+- independent evaluation of that exact output and corpus;
+- the evaluator's own report digest and receipt.
+
+The evaluator's report digest is not the simulation output digest. JSON Schema can require each object and its shape, but equality between cross-object digests, unique inventory-to-mapping coverage, signatures, current authority, and live effect evidence require executable semantic verification. Thirty-four reference unit tests have been authored for the current Rust source; no test PASS is claimed until its exact-head CI job completes successfully.
+
 ## 10. Existing standards and empirical boundary
 
 The Valueflows ontology provides shared concepts for Intent, Commitment, Claim, Economic Event, Economic Resource and quantified flows; it is useful as an interoperability vocabulary, not as a substitute for Mycelix authority or finality rules: https://www.valueflo.ws/specification/all_vf.html
