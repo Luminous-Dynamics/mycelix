@@ -87,15 +87,6 @@ jobs:
           test -s "$report"
           python3 -m json.tool "$report" > /dev/null
 
-      - name: Upload journal source-contract report
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: journal-source-contract-${{ github.run_id }}-${{ env.QUALIFIED_SHA }}
-          path: ${{ runner.temp }}/journal-source-contract-report.json
-          if-no-files-found: warn
-          retention-days: 14
-
       - name: Run dependency-free validator tests
         run: cargo +1.96.0 test --manifest-path mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml --locked --all-targets
 
@@ -108,14 +99,29 @@ jobs:
       - name: Run journal replay smoke matrix
         run: |
           manifest=mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml
-          cargo +1.96.0 build --release --manifest-path "$manifest" --locked --bin journal-replay-scale
-          echo "runner_image=${ImageOS:-unknown} ${ImageVersion:-unknown}"
-          echo "kernel=$(uname -a)"
-          echo "rustc=$(rustc +1.96.0 --version)"
-          df -T "$RUNNER_TEMP"
+          report="$RUNNER_TEMP/journal-replay-smoke.log"
+          : > "$report"
+          echo "qualified_sha=$QUALIFIED_SHA" | tee -a "$report"
+          echo "github_run_id=${GITHUB_RUN_ID:-unknown}" | tee -a "$report"
+          cargo +1.96.0 build --release --manifest-path "$manifest" --locked --bin journal-replay-scale 2>&1 | tee -a "$report"
+          echo "runner_image=${ImageOS:-unknown} ${ImageVersion:-unknown}" | tee -a "$report"
+          echo "kernel=$(uname -a)" | tee -a "$report"
+          echo "rustc=$(rustc +1.96.0 --version)" | tee -a "$report"
+          df -T "$RUNNER_TEMP" 2>&1 | tee -a "$report"
           bin=mycelix-workspace/simulations/civ-econ-transition-validator/target/release/journal-replay-scale
           for scenario in pending indeterminate acknowledged reconciled; do
-            echo "::group::journal replay scale / 10000 effects / $scenario"
-            /usr/bin/time -v "$bin" 10000 "$scenario"
-            echo "::endgroup::"
+            echo "::group::journal replay scale / 10000 effects / $scenario" | tee -a "$report"
+            /usr/bin/time -v "$bin" 10000 "$scenario" 2>&1 | tee -a "$report"
+            echo "::endgroup::" | tee -a "$report"
           done
+
+      - name: Upload journal qualification evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: journal-qualification-evidence-${{ github.run_id }}-${{ env.QUALIFIED_SHA }}
+          path: |
+            ${{ runner.temp }}/journal-source-contract-report.json
+            ${{ runner.temp }}/journal-replay-smoke.log
+          if-no-files-found: warn
+          retention-days: 14
