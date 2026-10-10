@@ -18,6 +18,7 @@ const MAX_TEXT_BYTES = 512;
 const MAX_U32 = 0xffff_ffff;
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 const DIGEST_DOMAIN = 'luminous-dynamics.energy-study-manifest.v1\0';
+const CASE_DIGEST_DOMAIN = 'luminous-dynamics.energy-study-case.v1\0';
 const encoder = new TextEncoder();
 
 export type EnergyEvidenceClass = 'observed' | 'curated' | 'scenario' | 'modelled';
@@ -448,6 +449,7 @@ export interface EnergyStudyArtifactBytesV1 {
 export interface EnergyStudyArtifactVerificationReceiptV1 {
   schema_version: 1;
   manifest_sha256: string;
+  case_sha256: string;
   artifact_set_sha256: string;
   verified_dataset_count: number;
   verified_configuration_count: 4;
@@ -486,6 +488,7 @@ export async function verifyEnergyStudyArtifactsV1(
   }
 
   const manifestDigest = await digestEnergyStudyManifestV1(manifest);
+  const caseDigest = await digestEnergyStudyCaseV1(manifest);
   const receiptEntries: Array<{ id: string; hash: string }> = [];
 
   const hashArtifact = async (
@@ -570,6 +573,7 @@ export async function verifyEnergyStudyArtifactsV1(
   return {
     schema_version: 1,
     manifest_sha256: manifestDigest,
+    case_sha256: caseDigest,
     artifact_set_sha256: artifactSetSha256,
     verified_dataset_count: manifest.datasets.length,
     verified_configuration_count: 4,
@@ -622,6 +626,60 @@ export async function digestEnergyStudyManifestV1(input: unknown): Promise<strin
   writer.writeText(manifest.policy.git_revision);
   writer.writeText(manifest.policy.configuration_sha256);
   writer.writeByte(POLICY_TAG[manifest.policy.kind]);
+
+  const canonicalBytes = writer.finish();
+  const ownedBuffer = new ArrayBuffer(canonicalBytes.byteLength);
+  new Uint8Array(ownedBuffer).set(canonicalBytes);
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', ownedBuffer);
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, '0')
+  ).join('');
+}
+
+
+/**
+ * Compute the policy/model-independent identity of the frozen study case.
+ *
+ * This digest binds the shared time axis, dataset identities, asset registry,
+ * and hard-constraint configuration while excluding model/policy code and
+ * configuration. Baseline and candidate runs can therefore share the case
+ * digest but must retain separate full manifest/run-spec digests.
+ *
+ * The encoding is identical to sol-atlas-core's Rust case_digest_sha256().
+ */
+export async function digestEnergyStudyCaseV1(input: unknown): Promise<string> {
+  const manifest = validateEnergyStudyManifestV1(input);
+  if (!globalThis.crypto?.subtle) {
+    throw new EnergyStudyManifestError(
+      'CRYPTO_UNAVAILABLE',
+      'Web Crypto SHA-256 is unavailable in this runtime'
+    );
+  }
+
+  const writer = new CanonicalWriter();
+  writer.writeBytes(encoder.encode(CASE_DIGEST_DOMAIN));
+  writer.writeUint16(manifest.schema_version);
+  writer.writeText(manifest.study_id);
+  writer.writeText(manifest.case_id);
+  writer.writeText(manifest.region_id);
+  writer.writeInt64(manifest.start_unix_seconds);
+  writer.writeUint32(manifest.interval_seconds);
+  writer.writeUint32(manifest.interval_count);
+
+  const datasets = [...manifest.datasets].sort((left, right) =>
+    compareUtf8(left.dataset_id, right.dataset_id)
+  );
+  writer.writeUint32(datasets.length);
+  for (const dataset of datasets) {
+    writer.writeText(dataset.dataset_id);
+    writer.writeText(dataset.source_id);
+    writer.writeText(dataset.content_sha256);
+    writer.writeText(dataset.unit);
+    writer.writeByte(EVIDENCE_TAG[dataset.evidence_class]);
+  }
+
+  writer.writeText(manifest.asset_registry_sha256);
+  writer.writeText(manifest.constraints_sha256);
 
   const canonicalBytes = writer.finish();
   const ownedBuffer = new ArrayBuffer(canonicalBytes.byteLength);
