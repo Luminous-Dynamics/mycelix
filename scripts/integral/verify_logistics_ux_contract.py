@@ -30,6 +30,7 @@ REQUIRED_TESTS = {
     "search_and_filter_must_both_match",
     "fixture_ids_are_unique",
     "every_fixture_has_a_safe_step_and_reason",
+    "every_fixture_has_explicit_source_observation_and_freshness",
     "next_safe_steps_respect_authority_and_evidence_boundaries",
     "queue_counts_stay_consistent_with_search_and_filter_results",
     "fixture_kind_partition_is_complete_and_explicit",
@@ -94,7 +95,7 @@ def audit(source: str, app: str, pages: str, css: str, workflow: str, runbook_ex
     kinds = enum_variants(source, "FixtureKind")
     filters = enum_variants(source, "QueueFilter")
     declared, blocks = fixture_blocks(source)
-    keys = ("id", "participant", "hub", "sku", "quantity", "operational", "evidence", "freshness", "scenario", "next_step", "next_step_reason", "kind")
+    keys = ("id", "participant", "hub", "sku", "source", "observed_at", "quantity", "operational", "evidence", "freshness", "scenario", "next_step", "next_step_reason", "kind")
     fixtures = [{key: field_value(block, key) for key in keys} for block in blocks]
     ids = [item["id"] for item in fixtures]
     counts = {kind: sum(item["kind"] == f"FixtureKind::{kind}" for item in fixtures) for kind in EXPECTED_KINDS}
@@ -106,6 +107,17 @@ def audit(source: str, app: str, pages: str, css: str, workflow: str, runbook_ex
     add("fixture IDs are unique", all(ids) and len(ids) == len(set(ids)), f"ids={ids}")
     missing = [item["id"] or f"fixture-{index}" for index, item in enumerate(fixtures) if any(not item.get(k, "").strip() for k in keys[1:])]
     add("each fixture has required evidence and guidance", not missing, f"missing={missing or 'none'}")
+    missing_source_metadata = [
+        item["id"] or f"fixture-{index}"
+        for index, item in enumerate(fixtures)
+        if not item["source"].startswith("Synthetic ")
+        or not re.fullmatch(r"t=\d+\s*ms\s+\(synthetic\)", item["observed_at"], re.I)
+    ]
+    add(
+        "every fixture exposes a synthetic source and observed-at time",
+        not missing_source_metadata,
+        f"missing={missing_source_metadata or 'none'}",
+    )
     add("fixture-kind distribution is exhaustive", counts == EXPECTED_KINDS, f"observed={counts}")
 
     conflicts = [item for item in fixtures if item["kind"] == "FixtureKind::Conflict"]
