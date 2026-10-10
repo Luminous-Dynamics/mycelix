@@ -18,9 +18,12 @@ pub enum Violation {
     MappingKindMismatch(String),
     MissingMappingField { item: String, field: &'static str },
     InvalidDispositionForKind(String),
+    InvalidAtomicQuantity(&'static str),
+    OriginChanged(String),
+    PreservedSemanticsChanged(String),
+    UnexpectedTargetMapping(String),
     DuplicatePrincipal(String),
     ForbiddenRoleOverlap(String),
-    MissingSeparationException,
     InvalidTransition { from: Stage, to: Stage },
     FrozenPlanMismatch,
     StaleSourceSnapshot,
@@ -87,6 +90,53 @@ pub enum ItemKind {
     Dispute,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnitRef {
+    pub profile: ProfileRef,
+    pub dimension: String,
+    /// Positive count of atomic units per display unit, encoded as canonical decimal digits.
+    pub atomic_scale: String,
+}
+
+impl UnitRef {
+    fn validate(&self) -> Result<(), Violation> {
+        self.profile.validate("unit_profile")?;
+        if self.dimension.trim().is_empty() {
+            return Err(Violation::EmptyField("unit dimension"));
+        }
+        let parsed = self.atomic_scale.parse::<u64>()
+            .map_err(|_| Violation::InvalidAtomicQuantity("unit.atomic_scale"))?;
+        if parsed == 0 || parsed.to_string() != self.atomic_scale {
+            return Err(Violation::InvalidAtomicQuantity("unit.atomic_scale"));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EconomicIdentity {
+    /// Immutable provenance identity; conversion does not silently replace it.
+    pub origin_ref: String,
+    /// Absent for purely physical resources; present for monetary claim instruments.
+    pub instrument_ref: Option<ProfileRef>,
+    pub unit_ref: UnitRef,
+}
+
+impl EconomicIdentity {
+    fn validate(&self, kind: ItemKind) -> Result<(), Violation> {
+        if self.origin_ref.trim().is_empty() {
+            return Err(Violation::EmptyField("origin_ref"));
+        }
+        self.unit_ref.validate()?;
+        if let Some(instrument) = &self.instrument_ref {
+            instrument.validate("instrument_profile")?;
+        } else if matches!(kind, ItemKind::Claim | ItemKind::Obligation) {
+            return Err(Violation::EmptyField("instrument_profile"));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Disposition {
     Preserve,
@@ -112,8 +162,12 @@ pub struct ItemMapping {
     pub source_item_id: String,
     pub kind: ItemKind,
     pub disposition: Disposition,
+    pub source_identity: EconomicIdentity,
+    pub source_quantity_atomic: String,
+    pub target_identity: Option<EconomicIdentity>,
+    pub target_quantity_atomic: Option<String>,
     pub target_ref: Option<String>,
-    pub conversion_profile_ref: Option<String>,
+    pub conversion_profile_ref: Option<ProfileRef>,
     pub authority_decision_ref: Option<String>,
     pub counterparty_acceptance_ref: Option<String>,
     pub discharge_receipt_ref: Option<String>,
@@ -124,20 +178,70 @@ impl ItemMapping {
         if self.source_item_id.trim().is_empty() {
             return Err(Violation::EmptyField("source_item_id"));
         }
+        self.source_identity.validate(self.kind)?;
+        validate_atomic_quantity(&self.source_quantity_atomic, "source_quantity_atomic")?;
+
+        match (&self.target_identity, &self.target_quantity_atomic) {
+            (Some(identity), Some(quantity)) => {
+                identity.validate(self.kind)?;
+                validate_atomic_quantity(quantity, "target_quantity_atomic")?;
+            }
+            (None, None) => {}
+            (Some(_), None) => {
+                return Err(Violation::MissingMappingField {
+                    item: self.source_item_id.clone(),
+                    field: "target_quantity_atomic",
+                });
+            }
+            (None, Some(_)) => {
+                return Err(Violation::MissingMappingField {
+                    item: self.source_item_id.clone(),
+                    field: "target_identity",
+                });
+            }
+        }
 
         match self.disposition {
+            Disposition::Preserve => {
+                self.require(self.target_ref.as_deref(), "target_ref")?;
+                self.require_target()?;
+                self.require_same_identity_and_quantity()?;
+            }
             Disposition::Convert => {
                 self.require(self.target_ref.as_deref(), "target_ref")?;
-                self.require(self.conversion_profile_ref.as_deref(), "conversion_profile_ref")?;
+                self.conversion_profile_ref
+                    .as_ref()
+                    .ok_or(Violation::MissingMappingField {
+                        item: self.source_item_id.clone(),
+                        field: "conversion_profile_ref",
+                    })?
+                    .validate("conversion_profile_ref")?;
                 self.require(self.authority_decision_ref.as_deref(), "authority_decision_ref")?;
+                self.require_target()?;
+                let target = self.target_identity.as_ref().expect("required above");
+                if target.origin_ref != self.source_identity.origin_ref {
+                    return Err(Violation::OriginChanged(self.source_item_id.clone()));
+                }
             }
             Disposition::Novate => {
                 self.require(self.target_ref.as_deref(), "target_ref")?;
                 self.require(self.authority_decision_ref.as_deref(), "authority_decision_ref")?;
                 self.require(self.counterparty_acceptance_ref.as_deref(), "counterparty_acceptance_ref")?;
+                self.require_target()?;
+                let target = self.target_identity.as_ref().expect("required above");
+                if target.origin_ref != self.source_identity.origin_ref {
+                    return Err(Violation::OriginChanged(self.source_item_id.clone()));
+                }
+                if target.instrument_ref != self.source_identity.instrument_ref
+                    || target.unit_ref != self.source_identity.unit_ref
+                    || self.target_quantity_atomic.as_deref() != Some(self.source_quantity_atomic.as_str())
+                {
+                    return Err(Violation::PreservedSemanticsChanged(self.source_item_id.clone()));
+                }
             }
             Disposition::Discharge => {
                 self.require(self.discharge_receipt_ref.as_deref(), "discharge_receipt_ref")?;
+                self.require_no_target()?;
             }
             Disposition::ReReserve => {
                 if !matches!(self.kind, ItemKind::Resource | ItemKind::Reservation) {
@@ -145,18 +249,24 @@ impl ItemMapping {
                 }
                 self.require(self.target_ref.as_deref(), "target_ref")?;
                 self.require(self.authority_decision_ref.as_deref(), "authority_decision_ref")?;
+                self.require_target()?;
+                self.require_same_identity_and_quantity()?;
             }
             Disposition::Release => {
                 if !matches!(self.kind, ItemKind::Resource | ItemKind::Reservation) {
                     return Err(Violation::InvalidDispositionForKind(self.source_item_id.clone()));
                 }
                 self.require(self.authority_decision_ref.as_deref(), "authority_decision_ref")?;
+                self.require_no_target()?;
             }
-            Disposition::Preserve
-            | Disposition::Freeze
-            | Disposition::Dispute
-            | Disposition::Quarantine
-            | Disposition::RetainSourceOnly => {}
+            Disposition::Freeze | Disposition::Dispute => {
+                if self.target_identity.is_some() {
+                    self.require_same_identity_and_quantity()?;
+                }
+            }
+            Disposition::Quarantine | Disposition::RetainSourceOnly => {
+                self.require_no_target()?;
+            }
         }
         Ok(())
     }
@@ -170,6 +280,52 @@ impl ItemMapping {
         }
         Ok(())
     }
+
+    fn require_target(&self) -> Result<(), Violation> {
+        if self.target_identity.is_none() {
+            return Err(Violation::MissingMappingField {
+                item: self.source_item_id.clone(),
+                field: "target_identity",
+            });
+        }
+        if self.target_quantity_atomic.is_none() {
+            return Err(Violation::MissingMappingField {
+                item: self.source_item_id.clone(),
+                field: "target_quantity_atomic",
+            });
+        }
+        Ok(())
+    }
+
+    fn require_no_target(&self) -> Result<(), Violation> {
+        if self.target_identity.is_some() || self.target_quantity_atomic.is_some() {
+            return Err(Violation::UnexpectedTargetMapping(self.source_item_id.clone()));
+        }
+        Ok(())
+    }
+
+    fn require_same_identity_and_quantity(&self) -> Result<(), Violation> {
+        if self.target_identity.as_ref() != Some(&self.source_identity)
+            || self.target_quantity_atomic.as_ref() != Some(&self.source_quantity_atomic)
+        {
+            return Err(Violation::PreservedSemanticsChanged(self.source_item_id.clone()));
+        }
+        Ok(())
+    }
+}
+
+fn validate_atomic_quantity(value: &str, field: &'static str) -> Result<(), Violation> {
+    if value.is_empty() || value == "-0" {
+        return Err(Violation::InvalidAtomicQuantity(field));
+    }
+    let digits = value.strip_prefix('-').unwrap_or(value);
+    if digits.is_empty()
+        || !digits.bytes().all(|byte| byte.is_ascii_digit())
+        || (digits.len() > 1 && digits.starts_with('0'))
+    {
+        return Err(Violation::InvalidAtomicQuantity(field));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -596,11 +752,44 @@ mod tests {
         ProfileRef { id: id.into(), version: "1.0.0".into(), content_digest: digest.into() }
     }
 
+    fn identity(origin: &str, kind: ItemKind) -> EconomicIdentity {
+        let instrument_ref = if matches!(kind, ItemKind::Claim | ItemKind::Obligation | ItemKind::Entitlement | ItemKind::Dispute) {
+            Some(profile("instrument:synthetic", C))
+        } else {
+            None
+        };
+        let dimension = if instrument_ref.is_some() { "currency:synthetic" } else { "resource:capacity" };
+        EconomicIdentity {
+            origin_ref: origin.into(),
+            instrument_ref,
+            unit_ref: UnitRef {
+                profile: profile("unit:synthetic", B),
+                dimension: dimension.into(),
+                atomic_scale: "1000000".into(),
+            },
+        }
+    }
+
     fn mapping(id: &str, kind: ItemKind, disposition: Disposition) -> ItemMapping {
+        let source_identity = identity(&format!("origin:{id}"), kind);
+        let with_target = matches!(
+            disposition,
+            Disposition::Preserve | Disposition::Convert | Disposition::Novate
+                | Disposition::Freeze | Disposition::Dispute | Disposition::ReReserve
+        );
         ItemMapping {
-            source_item_id: id.into(), kind, disposition, target_ref: None,
-            conversion_profile_ref: None, authority_decision_ref: None,
-            counterparty_acceptance_ref: None, discharge_receipt_ref: None,
+            source_item_id: id.into(),
+            kind,
+            disposition,
+            source_identity: source_identity.clone(),
+            source_quantity_atomic: "100".into(),
+            target_identity: with_target.then_some(source_identity),
+            target_quantity_atomic: with_target.then(|| "100".into()),
+            target_ref: with_target.then(|| format!("target:{id}")),
+            conversion_profile_ref: None,
+            authority_decision_ref: None,
+            counterparty_acceptance_ref: None,
+            discharge_receipt_ref: None,
         }
     }
 
@@ -668,9 +857,48 @@ mod tests {
         assert_eq!(m.validate(), Err(Violation::OutOfScopeMapping("extra".into())));
     }
 
-    #[test] fn conversion_requires_target_profile_and_authority() {
+    #[test] fn conversion_requires_versioned_conversion_profile_and_authority() {
         let mut m = manifest(); m.mappings[0].disposition = Disposition::Convert;
-        assert_eq!(m.validate(), Err(Violation::MissingMappingField { item: "claim-1".into(), field: "target_ref" }));
+        assert_eq!(m.validate(), Err(Violation::MissingMappingField { item: "claim-1".into(), field: "conversion_profile_ref" }));
+    }
+
+    #[test] fn preserve_rejects_unit_semantic_drift() {
+        let mut m = manifest();
+        m.mappings[0].target_identity.as_mut().unwrap().unit_ref.dimension = "energy".into();
+        assert_eq!(m.validate(), Err(Violation::PreservedSemanticsChanged("claim-1".into())));
+    }
+
+    #[test] fn conversion_preserves_origin_even_when_instrument_changes() {
+        let mut m = manifest();
+        let mapping = &mut m.mappings[0];
+        mapping.disposition = Disposition::Convert;
+        mapping.conversion_profile_ref = Some(profile("conversion-policy-v1", C));
+        mapping.authority_decision_ref = Some("authority-approval-1".into());
+        mapping.target_identity.as_mut().unwrap().origin_ref = "foreign-origin".into();
+        assert_eq!(m.validate(), Err(Violation::OriginChanged("claim-1".into())));
+    }
+
+    #[test] fn novation_cannot_hide_a_quantity_change() {
+        let mut m = manifest();
+        let mapping = &mut m.mappings[0];
+        mapping.disposition = Disposition::Novate;
+        mapping.authority_decision_ref = Some("authority-approval-1".into());
+        mapping.counterparty_acceptance_ref = Some("counterparty-accepted-1".into());
+        mapping.target_quantity_atomic = Some("99".into());
+        assert_eq!(m.validate(), Err(Violation::PreservedSemanticsChanged("claim-1".into())));
+    }
+
+    #[test] fn atomic_quantities_reject_floats_and_noncanonical_integers() {
+        assert_eq!(validate_atomic_quantity("1.5", "q"), Err(Violation::InvalidAtomicQuantity("q")));
+        assert_eq!(validate_atomic_quantity("01", "q"), Err(Violation::InvalidAtomicQuantity("q")));
+        assert_eq!(validate_atomic_quantity("-0", "q"), Err(Violation::InvalidAtomicQuantity("q")));
+        assert_eq!(validate_atomic_quantity("-12", "q"), Ok(()));
+    }
+
+    #[test] fn unit_scale_must_be_canonical_positive_integer() {
+        let mut identity = identity("origin:unit-test", ItemKind::Claim);
+        identity.unit_ref.atomic_scale = "01".into();
+        assert_eq!(identity.validate(ItemKind::Claim), Err(Violation::InvalidAtomicQuantity("unit.atomic_scale")));
     }
 
     #[test] fn novation_requires_counterparty_acceptance() {
@@ -680,7 +908,11 @@ mod tests {
     }
 
     #[test] fn discharge_requires_receipt() {
-        let mut m = manifest(); m.mappings[0].disposition = Disposition::Discharge;
+        let mut m = manifest();
+        m.mappings[0].disposition = Disposition::Discharge;
+        m.mappings[0].target_identity = None;
+        m.mappings[0].target_quantity_atomic = None;
+        m.mappings[0].target_ref = None;
         assert_eq!(m.validate(), Err(Violation::MissingMappingField { item: "claim-1".into(), field: "discharge_receipt_ref" }));
     }
 
