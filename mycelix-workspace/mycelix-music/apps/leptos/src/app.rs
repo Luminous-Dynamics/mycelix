@@ -308,6 +308,12 @@ fn queue_next_index(
         return None;
     }
 
+    if current_index.is_none() {
+        // With an unselected but non-empty queue, Next starts the first item;
+        // treating None as index zero would accidentally skip to item one.
+        return Some(0);
+    }
+
     let index = queue_navigation_index(current_index, queue_len);
     if track_ended && repeat_mode == &RepeatMode::One {
         return Some(index);
@@ -682,6 +688,42 @@ mod player_queue_tests {
     #[test]
     fn repeat_none_stops_at_end() {
         assert_eq!(queue_next_index(Some(2), 3, &RepeatMode::None, true), None);
+    }
+
+    #[test]
+    fn next_from_unselected_queue_starts_at_first_track_for_every_repeat_mode() {
+        assert_eq!(
+            queue_next_index(None, 3, &RepeatMode::None, false),
+            Some(0)
+        );
+        assert_eq!(
+            queue_next_index(None, 3, &RepeatMode::All, false),
+            Some(0)
+        );
+        assert_eq!(
+            queue_next_index(None, 3, &RepeatMode::One, false),
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn manual_next_with_queued_tracks_but_no_selection_starts_first() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let player = PlayerState::new();
+            let first = test_song("first", "QmFirst");
+            player.enqueue(first.clone());
+            player.enqueue(test_song("second", "QmSecond"));
+
+            player.next();
+
+            assert_eq!(player.queue_index.get_untracked(), Some(0));
+            assert_eq!(
+                player.current_song.get_untracked().map(|song| song.song_hash),
+                Some(first.song_hash)
+            );
+            assert!(player.is_playing.get_untracked());
+        });
     }
 
     #[test]
