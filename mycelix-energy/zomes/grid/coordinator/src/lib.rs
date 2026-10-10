@@ -131,6 +131,31 @@ fn offer_is_current(offer: &TradeOffer, now: Timestamp) -> bool {
     offer.available_from <= now && now <= offer.available_until
 }
 
+/// Compute the residual offer quantity without allowing floating-point rounding
+/// to turn a positive fill into a no-op. Used before any trade entry is written.
+fn checked_remaining_offer_amount(
+    current_amount_kwh: f64,
+    fill_amount_kwh: f64,
+) -> Result<f64, &'static str> {
+    if !current_amount_kwh.is_finite() || current_amount_kwh <= 0.0 {
+        return Err("Offer quantity must be finite and positive");
+    }
+    if !fill_amount_kwh.is_finite() || fill_amount_kwh <= 0.0 {
+        return Err("Trade amount must be finite and positive");
+    }
+    if fill_amount_kwh > current_amount_kwh {
+        return Err("Trade amount exceeds offer's remaining quantity");
+    }
+    let remaining = current_amount_kwh - fill_amount_kwh;
+    if !remaining.is_finite() || remaining < 0.0 {
+        return Err("Remaining offer quantity is invalid");
+    }
+    if remaining >= current_amount_kwh {
+        return Err("Trade amount is too small to reduce offer quantity at this precision");
+    }
+    Ok(remaining)
+}
+
 #[hdk_extern]
 pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
     let filter = ChainQueryFilter::new()
@@ -168,16 +193,15 @@ pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
                         "Cannot trade with yourself".into()
                     )));
                 }
-                if !input.amount_kwh.is_finite() || input.amount_kwh <= 0.0 {
-                    return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Trade amount must be finite and positive".into()
-                    )));
-                }
-                if input.amount_kwh > offer.amount_kwh {
-                    return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Trade amount exceeds offer's remaining quantity".into()
-                    )));
-                }
+                let remaining = match checked_remaining_offer_amount(
+                    offer.amount_kwh,
+                    input.amount_kwh,
+                ) {
+                    Ok(remaining) => remaining,
+                    Err(message) => {
+                        return Err(wasm_error!(WasmErrorInner::Guest(message.into())));
+                    }
+                };
                 let total_price = input.amount_kwh * offer.price_per_kwh;
                 if !total_price.is_finite() {
                     return Err(wasm_error!(WasmErrorInner::Guest(
@@ -214,14 +238,13 @@ pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
                 )?;
 
                 // Update offer status
-                let remaining = offer.amount_kwh - input.amount_kwh;
-                let new_status = if remaining <= 0.0 {
+                let new_status = if remaining == 0.0 {
                     OfferStatus::Filled
                 } else {
                     OfferStatus::PartiallyFilled
                 };
                 let updated_offer = TradeOffer {
-                    amount_kwh: remaining.max(0.0),
+                    amount_kwh: remaining,
                     status: new_status,
                     ..offer
                 };
