@@ -656,7 +656,7 @@ impl TransitionMachine {
                 let corpus = ev.simulation_scenario_corpus_digest.as_deref()
                     .ok_or(Violation::MissingSimulationOutput)?;
                 validate_digest(corpus, "simulation_scenario_corpus_digest")?;
-                let environment = ev.simulation_environment_ref.as_deref()
+                ev.simulation_environment_ref.as_deref()
                     .map(str::trim).filter(|s| !s.is_empty())
                     .ok_or(Violation::MissingSimulationOutput)?;
                 self.simulation_output_digest = Some(output.to_owned());
