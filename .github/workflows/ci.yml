@@ -381,6 +381,7 @@ jobs:
       - name: Install Nix for the SDK toolchain
         uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
         with:
+          install_url: https://releases.nixos.org/nix/nix-2.35.2/install
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Export and verify the flake-pinned SDK toolchain
         shell: bash
@@ -588,6 +589,7 @@ jobs:
         if: steps.scope.outputs.relevant == 'true'
         uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
         with:
+          install_url: https://releases.nixos.org/nix/nix-2.35.2/install
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Evaluate pinned shell in pure mode
         if: steps.scope.outputs.relevant == 'true'
