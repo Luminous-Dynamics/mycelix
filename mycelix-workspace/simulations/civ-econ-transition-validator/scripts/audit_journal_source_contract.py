@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -64,7 +65,8 @@ for test_name in (
     "replay_rejects_extra_record_fields_without_ignoring_them",
     "effect_count_includes_all_states_and_survives_replay",
 ):
-    check(f"regression test present: {test_name}", f"fn {test_name}(" in journal and "#[test]" in journal)
+    annotated_test = re.search(r"#\\[test\\]\\s*fn\\s+" + re.escape(test_name) + r"\\(", journal)
+    check(f"regression test is annotated: {test_name}", annotated_test is not None)
 
 # Scale probe and build registration must describe the same four lifecycle paths.
 scenarios = ("pending", "indeterminate", "acknowledged", "reconciled")
@@ -90,7 +92,7 @@ check("workflow checks formatting", "cargo +1.96.0 fmt" in workflow and "-- --ch
 check("workflow records host and RSS for smoke", "/usr/bin/time -v" in workflow and "uname -a" in workflow and "df -T" in workflow)
 check("workflow invokes a 10k smoke per lifecycle scenario", 'echo "runner_image=' in workflow and ' "$bin" 10000 "$scenario"' in workflow)
 
-files = (JOURNAL_PATH, SCALE_PATH, MANIFEST_PATH, README_PATH, DESIGN_PATH, WORKFLOW_PATH)
+files = (JOURNAL_PATH, SCALE_PATH, MANIFEST_PATH, README_PATH, DESIGN_PATH, WORKFLOW_PATH, Path(__file__).resolve())
 try:
     commit = subprocess.run(
         ["git", "rev-parse", "HEAD"],
