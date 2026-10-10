@@ -1141,6 +1141,13 @@ mod cross_zome_tests {
             result.is_err(),
             "a caller must not transact under a buyer DID that is not its agent key"
         );
+        let unsettled: Vec<Record> = conductor
+            .call(&cell.zome("grid"), "get_unsettled_trades", ())
+            .await;
+        assert!(
+            unsettled.is_empty(),
+            "a rejected buyer identity must not append a trade record"
+        );
     }
 
     /// `get_active_offers` reads through daily-sharded anchors
@@ -1237,7 +1244,7 @@ mod cross_zome_tests {
         // execute against a stale price/quantity.
         let trade_input = ExecuteTradeInput {
             offer_id: offer.id.clone(),
-            buyer_did: "did:mycelix:late-buyer".to_string(),
+            buyer_did: did_for_cell(&cell),
             amount_kwh: 100.0,
         };
         let result: Result<Record, _> = conductor
