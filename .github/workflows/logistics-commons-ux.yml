@@ -1,0 +1,67 @@
+name: logistics-commons-ux
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-commons/apps/leptos/**"
+      - ".github/workflows/logistics-commons-ux.yml"
+      - "scripts/integral/verify_logistics_ux_contract.py"
+      - "docs/integral/logistics-ux-qualification.md"
+  push:
+    branches: ["main"]
+    paths:
+      - "mycelix-workspace/mycelix-commons/apps/leptos/**"
+      - ".github/workflows/logistics-commons-ux.yml"
+      - "scripts/integral/verify_logistics_ux_contract.py"
+      - "docs/integral/logistics-ux-qualification.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: logistics-commons-ux-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-commons-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact qualification subject
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Run dependency-free Logistics UX source contract
+        run: python3 scripts/integral/verify_logistics_ux_contract.py
+      - name: Install Rust and WASM target
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # pinned action commit
+        with:
+          toolchain: 1.99.0
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+      - name: Record qualification identity
+        run: |
+          set -euo pipefail
+          echo "qualification_sha=$(git rev-parse HEAD)"
+          echo "event_sha=$GITHUB_SHA"
+          echo "rustc=$(rustc --version)"
+          echo "cargo=$(cargo --version)"
+          echo "rustfmt=$(rustfmt --version)"
+          echo "target=wasm32-unknown-unknown"
+          lockfile="mycelix-workspace/mycelix-commons/apps/leptos/Cargo.lock"
+          if test -f "$lockfile"; then
+            echo "cargo_lock_sha256=$(sha256sum "$lockfile" | cut -d' ' -f1)"
+          else
+            echo "cargo_lock=ABSENT (dependency resolution is not locked)"
+          fi
+      - name: Assert pinned Rust version
+        run: test "$(rustc --version | awk '{print $2}')" = "1.99.0"
+      - name: Check formatting of the new logistics page
+        run: rustfmt --edition 2024 --check --config skip_children=true mycelix-workspace/mycelix-commons/apps/leptos/src/pages/logistics.rs
+      - name: Test logistics fixture and queue semantics
+        run: cargo test --manifest-path mycelix-workspace/mycelix-commons/apps/leptos/Cargo.toml
+      - name: Compile Commons Leptos UI for WASM
+        run: cargo check --manifest-path mycelix-workspace/mycelix-commons/apps/leptos/Cargo.toml --target wasm32-unknown-unknown
