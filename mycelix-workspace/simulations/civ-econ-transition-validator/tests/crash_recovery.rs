@@ -6,9 +6,7 @@
 //! explicit test-only stale-lock recovery that production must gate on operator
 //! evidence that the previous owner is no longer running.
 
-use civ_econ_transition_validator::durable_journal::{
-    BeginResult, DurableEffectJournal,
-};
+use civ_econ_transition_validator::durable_journal::{BeginResult, DurableEffectJournal};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
