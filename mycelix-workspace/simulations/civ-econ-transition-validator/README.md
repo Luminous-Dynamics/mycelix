@@ -57,6 +57,11 @@ comparing runs. Compare repeated runs on the same machine; do not infer asymptot
 complexity or production capacity from one sample. The current harness does not
 measure allocator-level peak memory in isolation and has not itself established
 performance numbers in this repository yet.
+The exact-head PR workflow also runs all four state scenarios at 10,000 effects
+after tests, Clippy, and formatting checks. It records runner image, kernel,
+filesystem information, Rust version, wall time, and peak RSS as a smoke-level
+measurement. This checks that the harness executes in the pinned CI environment;
+it is not a substitute for repeated 100k/1m runs on a documented benchmark host.
 
 Before implementing compaction, use the explicit [checkpoint/compaction design gate](JOURNAL_CHECKPOINT_COMPACTION_DESIGN.md). It records why acknowledged effect IDs must remain as no-redispatch tombstones, which crash boundaries require tests, and why compaction alone cannot reduce the memory needed for the full identity index. The current replay parser also uses borrowed fixed-field splitting rather than allocating a Vec of fields per record.
 
