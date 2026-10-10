@@ -9,19 +9,6 @@
     "schema_version",
     "transition_id",
     "status",
-    "source_profile",
-    "target_profile",
-    "source_snapshot",
-    "plan_digest",
-    "scope",
-    "rights_floor_refs",
-    "instrument_mappings",
-    "resource_mappings",
-    "authorities",
-    "evaluation",
-    "pilot",
-    "cutover",
-    "failure_policy",
     "claim_ceiling"
   ],
   "properties": {
@@ -488,7 +475,9 @@
       "required": [
         "instrument_id",
         "version",
-        "content_digest"
+        "content_digest",
+        "issuer_ref",
+        "economic_form_ref"
       ],
       "properties": {
         "instrument_id": {
@@ -522,7 +511,8 @@
         "unit_id",
         "version",
         "content_digest",
-        "dimension"
+        "dimension",
+        "atomic_scale"
       ],
       "properties": {
         "unit_id": {
@@ -542,7 +532,7 @@
         },
         "atomic_scale": {
           "type": "string",
-          "pattern": "^(0|[1-9][0-9]*)$"
+          "pattern": "^[1-9][0-9]*$"
         }
       }
     },
@@ -550,8 +540,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "principal_id",
-        "decision_ref"
+        "principal_id"
       ],
       "properties": {
         "principal_id": {
@@ -657,6 +646,26 @@
           "if": {
             "properties": {
               "disposition": {
+                "const": "Preserve"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "target_instrument_ref",
+              "target_claim_ref",
+              "target_quantity_atomic",
+              "target_unit_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
                 "const": "Convert"
               }
             },
@@ -667,6 +676,7 @@
           "then": {
             "required": [
               "target_instrument_ref",
+              "target_claim_ref",
               "target_quantity_atomic",
               "target_unit_ref",
               "conversion_profile_ref",
@@ -687,7 +697,10 @@
           },
           "then": {
             "required": [
+              "target_instrument_ref",
               "target_claim_ref",
+              "target_quantity_atomic",
+              "target_unit_ref",
               "authority_decision_ref",
               "counterparty_acceptance_ref"
             ]
@@ -772,6 +785,13 @@
         "reason": {
           "type": "string",
           "minLength": 1
+        },
+        "target_quantity_atomic": {
+          "type": "string",
+          "pattern": "^-?(0|[1-9][0-9]*)$"
+        },
+        "target_unit_profile_ref": {
+          "$ref": "#/$defs/unitRef"
         }
       },
       "allOf": [
@@ -779,7 +799,7 @@
           "if": {
             "properties": {
               "disposition": {
-                "const": "ReReserve"
+                "const": "Preserve"
               }
             },
             "required": [
@@ -789,8 +809,8 @@
           "then": {
             "required": [
               "target_resource_ref",
-              "target_reservation_ref",
-              "authority_decision_ref"
+              "target_quantity_atomic",
+              "target_unit_profile_ref"
             ]
           }
         },
@@ -808,7 +828,30 @@
           "then": {
             "required": [
               "target_resource_ref",
+              "target_quantity_atomic",
+              "target_unit_profile_ref",
               "conversion_profile_ref",
+              "authority_decision_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "ReReserve"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "target_resource_ref",
+              "target_reservation_ref",
+              "target_quantity_atomic",
+              "target_unit_profile_ref",
               "authority_decision_ref"
             ]
           }
@@ -817,6 +860,72 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "Draft"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "source_profile",
+          "target_profile"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "Frozen",
+              "Simulated",
+              "Qualified",
+              "Authorized",
+              "PilotActive",
+              "CutoverReady",
+              "CutoverCommitted",
+              "Reconciled",
+              "Completed",
+              "Indeterminate"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "source_profile",
+          "target_profile",
+          "source_snapshot",
+          "plan_digest",
+          "scope",
+          "rights_floor_refs",
+          "instrument_mappings",
+          "resource_mappings",
+          "authorities"
+        ],
+        "properties": {
+          "source_profile": {
+            "required": [
+              "authority_ref"
+            ]
+          },
+          "target_profile": {
+            "required": [
+              "authority_ref"
+            ]
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {
@@ -859,6 +968,39 @@
         "properties": {
           "status": {
             "enum": [
+              "Qualified",
+              "Authorized",
+              "PilotActive",
+              "CutoverReady",
+              "CutoverCommitted",
+              "Reconciled",
+              "Completed"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "authorities": {
+            "properties": {
+              "evaluator": {
+                "required": [
+                  "decision_ref"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
               "Authorized",
               "PilotActive",
               "CutoverReady",
@@ -877,7 +1019,14 @@
           "authorities": {
             "required": [
               "approval_receipt_ref"
-            ]
+            ],
+            "properties": {
+              "approver": {
+                "required": [
+                  "decision_ref"
+                ]
+              }
+            }
           }
         }
       }
@@ -886,13 +1035,7 @@
       "if": {
         "properties": {
           "status": {
-            "enum": [
-              "PilotActive",
-              "CutoverReady",
-              "CutoverCommitted",
-              "Reconciled",
-              "Completed"
-            ]
+            "const": "PilotActive"
           }
         },
         "required": [
@@ -900,6 +1043,9 @@
         ]
       },
       "then": {
+        "required": [
+          "pilot"
+        ],
         "properties": {
           "pilot": {
             "properties": {
@@ -928,6 +1074,9 @@
         ]
       },
       "then": {
+        "required": [
+          "cutover"
+        ],
         "properties": {
           "cutover": {
             "properties": {
@@ -985,6 +1134,15 @@
       },
       "then": {
         "properties": {
+          "authorities": {
+            "properties": {
+              "executor": {
+                "required": [
+                  "decision_ref"
+                ]
+              }
+            }
+          },
           "cutover": {
             "required": [
               "effect_receipt_refs"
@@ -1020,7 +1178,21 @@
           "reconciliation"
         ],
         "properties": {
+          "authorities": {
+            "properties": {
+              "reconciler": {
+                "required": [
+                  "decision_ref"
+                ]
+              }
+            }
+          },
           "reconciliation": {
+            "required": [
+              "report_digest",
+              "verifier_receipt_ref",
+              "effect_frontier_resolved"
+            ],
             "properties": {
               "effect_frontier_resolved": {
                 "const": true
@@ -1042,6 +1214,9 @@
         ]
       },
       "then": {
+        "required": [
+          "cutover"
+        ],
         "properties": {
           "cutover": {
             "properties": {
