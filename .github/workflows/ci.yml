@@ -187,6 +187,21 @@ jobs:
       - name: Test hearth
         run: cd mycelix-hearth && cargo test --workspace
 
+  # Fail closed when an extern is made private but other zomes still invoke it
+  # by string. These calls may compile and only fail when exercised at runtime.
+  finance-raw-credit-caller-audit:
+    needs: changes
+    if: needs.changes.outputs.finance == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Audit cross-zome raw SAP credit callers
+        run: python3 scripts/security/finance_raw_credit_caller_audit.py
+
   test-finance:
     needs: changes
     if: needs.changes.outputs.finance == 'true' || github.event_name == 'push'
@@ -443,6 +458,7 @@ jobs:
       - test-commons
       - test-civic
       - test-hearth
+      - finance-raw-credit-caller-audit
       - test-finance
       - test-finance-integration
       - test-governance
@@ -461,6 +477,7 @@ jobs:
           echo "Commons: ${{ needs.test-commons.result }}"
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
+          echo "Raw SAP credit caller audit: ${{ needs.finance-raw-credit-caller-audit.result }}"
           echo "Finance: ${{ needs.test-finance.result }}"
           # Reported but not gated below — expected red until the finance
           # zomes/tests are synced from the monorepo. See the job's own comment.
@@ -474,7 +491,7 @@ jobs:
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.finance-raw-credit-caller-audit.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
