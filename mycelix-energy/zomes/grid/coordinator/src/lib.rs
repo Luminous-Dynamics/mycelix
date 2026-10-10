@@ -908,6 +908,7 @@ pub fn get_producer_total_production(producer_did: String) -> ExternResult<Produ
 pub struct ProducerStats {
     pub producer_did: String,
     pub total_kwh: f64,
+    /// Stays zero until verification is backed by an append-only attestation (#4944).
     pub verified_kwh: f64,
     pub record_count: u32,
 }
@@ -916,6 +917,8 @@ pub struct ProducerStats {
 ///
 /// Normalizes verified energy production: 30+ verified records = saturation.
 /// Quality = verified_kwh / total_kwh (higher = more trustworthy production).
+/// Until #4944's attestation protocol exists, the verified-quality component is
+/// intentionally zero: the legacy boolean is not authoritative verification.
 ///
 /// Used by the 8D Sovereign Profile (D1: Thermodynamic Yield).
 #[hdk_extern]
