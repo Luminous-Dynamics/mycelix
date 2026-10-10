@@ -103,11 +103,11 @@ jobs:
           : > "$report"
           echo "qualified_sha=$QUALIFIED_SHA" | tee -a "$report"
           echo "github_run_id=${GITHUB_RUN_ID:-unknown}" | tee -a "$report"
-          cargo +1.96.0 build --release --manifest-path "$manifest" --locked --bin journal-replay-scale 2>&1 | tee -a "$report"
           echo "runner_image=${ImageOS:-unknown} ${ImageVersion:-unknown}" | tee -a "$report"
           echo "kernel=$(uname -a)" | tee -a "$report"
           echo "rustc=$(rustc +1.96.0 --version)" | tee -a "$report"
           df -T "$RUNNER_TEMP" 2>&1 | tee -a "$report"
+          cargo +1.96.0 build --release --manifest-path "$manifest" --locked --bin journal-replay-scale 2>&1 | tee -a "$report"
           bin=mycelix-workspace/simulations/civ-econ-transition-validator/target/release/journal-replay-scale
           for scenario in pending indeterminate acknowledged reconciled; do
             echo "::group::journal replay scale / 10000 effects / $scenario" | tee -a "$report"
