@@ -260,10 +260,13 @@ jobs:
 
       - name: Assert exact PR-head checkout
         id: target_checkout
+        env:
+          EXPECTED_HEAD_SHA: ${{ needs.prepare.outputs.expected_head_sha }}
         run: |
+          set -euo pipefail
           actual_head_sha="$(git rev-parse HEAD)"
-          test "${actual_head_sha}" = "${{ needs.prepare.outputs.expected_head_sha }}" || {
-            echo "PR-head checkout drift: expected ${{ needs.prepare.outputs.expected_head_sha }}, got ${actual_head_sha}" >&2
+          test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}" || {
+            echo "PR-head checkout drift: expected ${EXPECTED_HEAD_SHA}, got ${actual_head_sha}" >&2
             exit 1
           }
           printf 'tested_commit_sha=%s\n' "${actual_head_sha}" >> "${GITHUB_OUTPUT}"
@@ -357,6 +360,9 @@ jobs:
           EXPECTED_ARTIFACT_ID: ${{ needs.execute.outputs.execution_artifact_id }}
           EXPECTED_ARTIFACT_DIGEST: ${{ needs.execute.outputs.execution_artifact_digest }}
           EXPECTED_ARTIFACT_NAME: cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}
+          EXECUTE_JOB_RESULT: ${{ needs.execute.result }}
+          TARGET_CHECKOUT_OUTCOME: ${{ needs.execute.outputs.target_checkout_outcome }}
+          TESTED_COMMIT_SHA: ${{ needs.execute.outputs.tested_commit_sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -396,9 +402,9 @@ jobs:
           test "${head_repository}" = "${GITHUB_REPOSITORY}"
           test "${pull_request_state}" = "open"
 
-          test "${{ needs.execute.result }}" = "success"
-          test "${{ needs.execute.outputs.target_checkout_outcome }}" = "success"
-          test "${{ needs.execute.outputs.tested_commit_sha }}" = "${EXPECTED_HEAD_SHA}"
+          test "${EXECUTE_JOB_RESULT}" = "success"
+          test "${TARGET_CHECKOUT_OUTCOME}" = "success"
+          test "${TESTED_COMMIT_SHA}" = "${EXPECTED_HEAD_SHA}"
 
           test -s evidence/tested-commit-sha.txt
           test "$(cat evidence/tested-commit-sha.txt)" = "${EXPECTED_HEAD_SHA}"
