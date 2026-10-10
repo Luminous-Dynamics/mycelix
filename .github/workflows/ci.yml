@@ -298,6 +298,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-identity
+      - name: Run pinned ML-DSA-65 Wycheproof corpus
+        run: cd mycelix-identity && cargo test --locked -p mycelix-crypto --no-default-features --features mldsa-verify-corpus --test mldsa65_wycheproof
       - name: Test standalone ML-DSA-65 verifier (RustCrypto feature)
         run: cd mycelix-identity && cargo test --locked -p mycelix-crypto --no-default-features --features mldsa-verify-rc --lib
       # When the locked gate finds resolver drift, show the exact Cargo.lock delta
