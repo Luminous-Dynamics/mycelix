@@ -67,6 +67,41 @@ def scan(zomes_root: Path) -> list[tuple[str, int, str]]:
     return hits
 
 
+def compare_projection_files(canonical_root: Path, workspace_root: Path) -> list[tuple[str, str]]:
+    """Return byte-level file differences between the canonical and workspace zome trees.
+
+    These trees are maintained as mirrored projections. A caller-only census can
+    miss security-relevant drift elsewhere (for example, an ABI or validator change
+    in one projection), so qualification requires their relative file inventories
+    and bytes to remain identical. Symlinks are rejected rather than followed.
+    """
+    def inventory(root: Path) -> dict[str, bytes]:
+        files: dict[str, bytes] = {}
+        for path in sorted(root.rglob("*")):
+            if path.is_symlink():
+                raise RuntimeError(f"unexpected symlink in Finance zome projection: {path}")
+            if not path.is_file():
+                continue
+            relative = path.relative_to(root).as_posix()
+            try:
+                files[relative] = path.read_bytes()
+            except OSError as exc:
+                raise RuntimeError(f"cannot read projection file {path}: {exc}") from exc
+        return files
+
+    canonical = inventory(canonical_root)
+    workspace = inventory(workspace_root)
+    differences: list[tuple[str, str]] = []
+    for relative in sorted(set(canonical) | set(workspace)):
+        if relative not in canonical:
+            differences.append((relative, "missing from canonical projection"))
+        elif relative not in workspace:
+            differences.append((relative, "missing from workspace projection"))
+        elif canonical[relative] != workspace[relative]:
+            differences.append((relative, "content differs"))
+    return differences
+
+
 def audit(root: Path = ROOT) -> int:
     """Run the whole fail-closed ABI and caller audit under a project root."""
     canonical_zomes = root / "mycelix-finance" / "zomes"
@@ -107,6 +142,18 @@ def audit(root: Path = ROOT) -> int:
         print(f"workspace: {workspace}")
         return 1
 
+    try:
+        projection_differences = compare_projection_files(canonical_zomes, workspace_zomes)
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
+    if projection_differences:
+        print("FAIL: canonical and workspace Finance zome file projections differ.")
+        for relative, reason in projection_differences:
+            print(f"  {relative}: {reason}")
+        print(f"Found {len(projection_differences)} projection difference(s).")
+
     if canonical:
         print("FAIL: external coordinator sources still contain the raw-credit function-name literal.")
         print("Review every occurrence; do not qualify removal of the public ABI until each")
@@ -114,9 +161,11 @@ def audit(root: Path = ROOT) -> int:
         for relative, line_number, expression in canonical:
             print(f"  {relative}:{line_number}: {expression}")
         print(f"Found {len(canonical)} matching literal(s) in each Finance projection.")
+
+    if canonical or projection_differences:
         return 1
 
-    print("PASS: raw credit ABI is private and no exact raw-credit name literal remains outside Payments coordinator.")
+    print("PASS: raw credit ABI is private, the two Finance zome projections are byte-identical, and no exact raw-credit name literal remains outside Payments coordinator.")
     print("This literal scan cannot detect dynamically constructed names and does not prove SAP conservation or exact-once settlement.")
     return 0
 
