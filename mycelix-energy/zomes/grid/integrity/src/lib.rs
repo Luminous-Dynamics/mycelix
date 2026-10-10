@@ -436,7 +436,7 @@ fn validate_update_trade_offer(
     offer: TradeOffer,
 ) -> ExternResult<ValidateCallbackResult> {
     let original_record = must_get_valid_record(action.original_action_address.clone())?;
-    if action.author != *original_record.action().author() {
+    if &action.author != original_record.action().author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Only the original offer author may update offer state".into(),
         ));
