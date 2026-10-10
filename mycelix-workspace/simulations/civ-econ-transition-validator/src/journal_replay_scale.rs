@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     if args.next().is_some() {
         return Err(invalid_input("provide at most one effect-count argument").into());
     }
-    if count == 0 || count > MAX_EFFECTS {
+    if !(1..=MAX_EFFECTS).contains(&count) {
         return Err(invalid_input("effect count must be in 1..=1_000_000").into());
     }
 
