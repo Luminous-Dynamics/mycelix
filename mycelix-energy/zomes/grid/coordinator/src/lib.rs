@@ -1934,3 +1934,42 @@ mod settlement_amount_regression_tests {
         assert_eq!(whole_units_to_micro((u64::MAX as f64) / SAP_MICRO_UNITS_PER_UNIT), None);
     }
 }
+
+#[cfg(test)]
+mod checked_remaining_offer_regression_tests {
+    use super::*;
+
+    #[test]
+    fn computes_valid_partial_and_full_fill_residuals() {
+        assert_eq!(checked_remaining_offer_amount(5.0, 2.0), Ok(3.0));
+        assert_eq!(checked_remaining_offer_amount(5.0, 5.0), Ok(0.0));
+    }
+
+    #[test]
+    fn rejects_non_representable_noop_fills_before_trade_creation() {
+        assert_eq!(
+            checked_remaining_offer_amount(5.0, f64::MIN_POSITIVE),
+            Err("Trade amount is too small to reduce offer quantity at this precision")
+        );
+        assert_eq!(
+            checked_remaining_offer_amount(f64::MAX, 1.0),
+            Err("Trade amount is too small to reduce offer quantity at this precision")
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_or_excessive_fill_amounts() {
+        assert_eq!(
+            checked_remaining_offer_amount(5.0, f64::NAN),
+            Err("Trade amount must be finite and positive")
+        );
+        assert_eq!(
+            checked_remaining_offer_amount(5.0, 6.0),
+            Err("Trade amount exceeds offer's remaining quantity")
+        );
+        assert_eq!(
+            checked_remaining_offer_amount(0.0, 1.0),
+            Err("Offer quantity must be finite and positive")
+        );
+    }
+}
