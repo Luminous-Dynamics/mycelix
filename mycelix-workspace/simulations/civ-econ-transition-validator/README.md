@@ -32,11 +32,13 @@ The crate has an isolated Cargo workspace and no third-party dependencies.
 
 The `EffectLedger` in `lib.rs` remains an in-memory reference model. The new
 `durable_journal::DurableEffectJournal` persists begin, indeterminate, and
-acknowledgement records to an append-only local file with a versioned J1
-record format, syncs each record before returning success, refuses concurrent
-cooperating writers with a PID-marked sidecar lock, and fails closed on
-truncated/corrupt history. A surviving Pending record after restart is a
-reconciliation requirement, never permission to dispatch again.
+acknowledgement records to an append-only local file. It reads legacy J1 records
+and writes J2 records, syncing each before returning success. New J2 acknowledgements
+bind both the provider receipt digest and source-evidence digest; a legacy J1
+acknowledgement replays with no source-evidence binding and reports that absence
+explicitly. It refuses concurrent cooperating writers with a PID-marked sidecar
+lock and fails closed on truncated/corrupt history. A surviving Pending record
+after restart is a reconciliation requirement, never permission to dispatch again.
 
 The integration tests in `tests/crash_recovery.rs` launch child processes to
 exercise two distinct crash windows: after a synthetic external effect but before
