@@ -180,6 +180,10 @@ Absence of returned workflow runs does not prove that no run exists in any other
 
 PR #4520's current body now explicitly enumerates four remaining `credit_sap` external call sites across currency-mint, bridge collateral deposit, bridge fiat-deposit verification, and staking return. The caller audit CI gate is a useful defense against future false-green builds, but the gate must itself run on the exact head and the external call sites must be migrated to authorized entrypoints before the public function is removed.
 
+**Subsequent caller-audit hardening (2026-10-10):** AC-176 / PR #4520 advanced to exact source head `48fb49ecd2047b7501796fb7831c203ba9341e0e`. The caller audit now searches the whole file, rather than one physical line at a time, and a new standard-library `unittest` suite covers both supported dispatch spellings across newlines, verifies reported line numbers, and confirms the Payments-coordinator exclusion and non-coordinator exclusion. The CI workflow invokes those regression tests before the expected-to-fail caller census.
+
+At the latest check, the available exact-commit workflow-run query and combined status query returned no runs/checks for `48fb49ecd2047b7501796fb7831c203ba9341e0e`. This is absence of qualification evidence, not a pass. The four known callers still exist, so AC-176 remains blocked on source-authorized migrations (or explicit feature disablement) plus exact-head execution.
+
 ## Recommended Mycelix proof-of-integration slice
 
 The comparative work suggests the next useful demonstration is a small, complete and independently verifiable journey, not a new domain cluster.
