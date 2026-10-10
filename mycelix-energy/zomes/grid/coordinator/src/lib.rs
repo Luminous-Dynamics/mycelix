@@ -322,6 +322,10 @@ fn whole_units_to_micro(whole_units: f64) -> Option<u64> {
 /// Err means internal settlement could not be confirmed; callers must leave
 /// the trade unsettled rather than converting a failed payment into success.
 fn settle_via_finance(trade: &Trade) -> Result<Option<String>, &'static str> {
+    // Explicitly priced-at-zero trades need no transfer on any currency rail.
+    if trade.total_price == 0.0 {
+        return Ok(Some(format!("no-payment-required:{}", trade.id)));
+    }
     if !currency_has_real_settlement_rail(&trade.currency) {
         return Ok(None);
     }
@@ -1838,6 +1842,27 @@ mod offer_window_regression_tests {
 #[cfg(test)]
 mod settlement_amount_regression_tests {
     use super::*;
+
+    #[test]
+    fn zero_value_trades_get_an_explicit_no_payment_receipt() {
+        let trade = Trade {
+            id: "free-energy-trade".into(),
+            offer_id: "offer-free".into(),
+            seller_did: "did:test:seller".into(),
+            buyer_did: "did:test:buyer".into(),
+            amount_kwh: 1.0,
+            price_per_kwh: 0.0,
+            total_price: 0.0,
+            currency: "SAP".into(),
+            executed: Timestamp::from_micros(1_700_000_000_000_000),
+            settled: false,
+            payment_reference: None,
+        };
+        assert_eq!(
+            settle_via_finance(&trade),
+            Ok(Some("no-payment-required:free-energy-trade".to_string()))
+        );
+    }
 
     #[test]
     fn converts_representable_positive_whole_unit_amounts() {
