@@ -9,6 +9,7 @@ NOW = datetime(2026, 10, 10, 20, 0, 0, tzinfo=timezone.utc)
 def make_run(run_id, created_at, *, name="Mycelix CI", sha="abc", pr=10):
     return {
         "id": run_id, "name": name, "run_number": run_id,
+        "workflow_id": 123, "path": ".github/workflows/ci.yml",
         "event": "pull_request", "status": "queued", "conclusion": None,
         "head_branch": "feature/test", "head_sha": sha,
         "pull_requests": [{"number": pr}], "created_at": created_at,
@@ -80,6 +81,22 @@ class QueueCensusTests(unittest.TestCase):
         self.assertTrue(result["read_only"])
         self.assertEqual(result["statuses"]["queued"]["api_total_count"], 0)
         self.assertIn("does not establish root cause", result["interpretation_boundary"])
+
+    def test_census_preserves_exact_queued_and_active_run_manifests(self):
+        queued = {"total_count": 2, "workflow_runs": [
+            make_run(1, "2026-10-10T18:00:00Z", sha="sha-one"),
+            make_run(2, "2026-10-10T19:00:00Z", sha="sha-two", pr=11),
+        ]}
+        active = make_run(3, "2026-10-10T19:30:00Z", sha="sha-three", pr=12)
+        active["status"] = "in_progress"
+        result = census.build_census("Luminous-Dynamics/mycelix", queued,
+                                     {"total_count": 1, "workflow_runs": [active]}, NOW)
+        self.assertEqual([run["head_sha"] for run in result["queued_run_manifest"]],
+                         ["sha-one", "sha-two"])
+        self.assertEqual(result["in_progress_run_manifest"][0]["run_id"], 3)
+        self.assertEqual(result["queued_run_manifest"][0]["workflow_id"], 123)
+        self.assertEqual(result["queued_run_manifest"][0]["workflow_path"],
+                         ".github/workflows/ci.yml")
 
     def test_job_sampling_is_bounded(self):
         runs = [
