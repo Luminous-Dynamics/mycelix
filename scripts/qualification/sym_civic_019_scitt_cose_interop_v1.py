@@ -515,6 +515,7 @@ def verify_receipt(statement_bytes: bytes, receipt_bytes: bytes, log_key_pem: by
             "valid": True,
             "reason": "VALID",
             "algorithm": alg,
+            "vds": proof["vds"],
             "payload_mode": "detached_null" if receipt["payload"] is None else "embedded_bstr",
             "tree_root": deterministic_root.hex(),
             "reconstructed_root": reconstructed.hex(),
@@ -668,10 +669,26 @@ def run(corpus_manifest_path: Path, upstream_vectors_root: Path, report_path: Pa
     checksums = load_checksums(upstream_vectors_root / "SHA256SUMS")
     observations = []
     for vector in corpus["vectors"]:
-        require_exact_keys(vector, {"id", "dir", "expected"}, f"local vector {vector.get('id', '<missing>')}")
+        require_exact_keys(vector, {"id", "dir", "expected", "sha256"}, f"local vector {vector.get('id', '<missing>')}")
         root = upstream_vectors_root / vector["dir"]
         files = ["expected.json", "statement.cose", "receipt.cose", "issuer-key.pub", "log-key.pub", "payload.bin"]
         verify_file_pins(upstream_vectors_root, checksums, vector["dir"], files)
+
+        # The local vector manifest has its own complete byte pins; independently
+        # check them against the same exact upstream files instead of leaving them unused.
+        local_hashes = vector["sha256"]
+        require_exact_keys(local_hashes, set(files), f"local vector {vector['id']} SHA-256 map")
+        for relative_path in files:
+            expected_hash = local_hashes[relative_path]
+            if (
+                not isinstance(expected_hash, str)
+                or len(expected_hash) != 64
+                or any(ch not in "0123456789abcdef" for ch in expected_hash)
+            ):
+                raise Reject(f"{vector['id']}: malformed local SHA-256 pin for {relative_path}")
+            actual_hash = hashlib.sha256((root / relative_path).read_bytes()).hexdigest()
+            if actual_hash != expected_hash:
+                raise Reject(f"{vector['id']}: local SHA-256 pin mismatch for {relative_path}")
 
         expected_upstream = strict_json_file(root / "expected.json", f"{vector['id']} expected.json")
         expected_keys = {

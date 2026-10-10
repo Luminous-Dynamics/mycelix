@@ -42,10 +42,10 @@
   "vdp_proof_type": -1,
   "vds_id": 1,
   "files_git_blob_sha": {
-    "verifier": "cc79feffc9026386795e9320d5f1c426e97c1ce5",
+    "verifier": "61b4fb745449440e51d8b02222ba3716c21d7b8f",
     "corpus": "d27dfabddecea44aa8e3a0fc233ccdd43d4db571",
     "workflow": "461ec23a4cc3192f1989dfd828394611d97941a2",
-    "external_interop_verifier": "235cbb7d9811d350bc1028a358a86abe2f23e842",
+    "external_interop_verifier": "e6a4ab10f799bd567cf79c9769e029db9a9b3bc0",
     "external_interop_manifest": "6b5017a8677b6e3028a8a6209b79771194726cb7"
   },
   "proof_model_version": "exact-entry-v2",
