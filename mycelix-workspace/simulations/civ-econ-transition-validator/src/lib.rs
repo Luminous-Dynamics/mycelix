@@ -19,6 +19,7 @@ pub enum Violation {
     MissingMappingField { item: String, field: &'static str },
     InvalidDispositionForKind(String),
     DuplicatePrincipal(String),
+    ForbiddenRoleOverlap(String),
     MissingSeparationException,
     InvalidTransition { from: Stage, to: Stage },
     FrozenPlanMismatch,
@@ -191,6 +192,23 @@ impl AuthorityRoles {
             ("executor", self.executor.as_str()),
             ("reconciler", self.reconciler.as_str()),
         ];
+        let never_combined = [
+            ("proposer", self.proposer.as_str(), "evaluator", self.evaluator.as_str()),
+            ("proposer", self.proposer.as_str(), "approver", self.approver.as_str()),
+            ("proposer", self.proposer.as_str(), "reconciler", self.reconciler.as_str()),
+            ("evaluator", self.evaluator.as_str(), "approver", self.approver.as_str()),
+            ("evaluator", self.evaluator.as_str(), "executor", self.executor.as_str()),
+            ("evaluator", self.evaluator.as_str(), "reconciler", self.reconciler.as_str()),
+            ("approver", self.approver.as_str(), "executor", self.executor.as_str()),
+            ("approver", self.approver.as_str(), "reconciler", self.reconciler.as_str()),
+            ("executor", self.executor.as_str(), "reconciler", self.reconciler.as_str()),
+        ];
+        for (left_role, left, right_role, right) in never_combined {
+            if left == right {
+                return Err(Violation::ForbiddenRoleOverlap(format!("{left_role}+{right_role}:{left}")));
+            }
+        }
+
         let mut seen: HashMap<&str, &str> = HashMap::new();
         let mut duplicates = Vec::new();
 
@@ -666,11 +684,18 @@ mod tests {
         assert_eq!(m.validate(), Err(Violation::MissingMappingField { item: "claim-1".into(), field: "discharge_receipt_ref" }));
     }
 
-    #[test] fn overlapping_roles_need_exception_reference() {
-        let mut m = manifest(); m.authorities.evaluator = m.authorities.proposer.clone();
+    #[test] fn limited_role_overlap_needs_exception_reference() {
+        let mut m = manifest(); m.authorities.executor = m.authorities.proposer.clone();
         assert!(matches!(m.validate(), Err(Violation::DuplicatePrincipal(_))));
         m.authorities.separation_exception_ref = Some("risk-exception".into());
         assert_eq!(m.validate(), Ok(()));
+    }
+
+    #[test] fn separation_exception_cannot_authorize_self_evaluation() {
+        let mut m = manifest();
+        m.authorities.evaluator = m.authorities.proposer.clone();
+        m.authorities.separation_exception_ref = Some("risk-exception".into());
+        assert!(matches!(m.validate(), Err(Violation::ForbiddenRoleOverlap(_))));
     }
 
     #[test] fn rejects_stage_skip() {
@@ -748,6 +773,20 @@ mod tests {
         m.advance(Stage::CutoverReady, &ready).unwrap();
         let mut e = ev(); e.cutover_effects_started = true;
         assert_eq!(m.advance(Stage::Aborted, &e), Err(Violation::AbortAfterPossibleEffect));
+    }
+
+    #[test] fn rejected_cannot_hide_an_already_committed_effect() {
+        let mut m = TransitionMachine::new(manifest());
+        advance_to_authorized(&mut m);
+        let mut ready = ev(); ready.rights_floors_satisfied = true; ready.resource_reservations_reconciled = true;
+        ready.external_obligations_accounted = true;
+        m.advance(Stage::CutoverReady, &ready).unwrap();
+        let mut commit = ev(); commit.cutover_effects_started = true; commit.effect_receipts_durable = true;
+        m.advance(Stage::CutoverCommitted, &commit).unwrap();
+        assert_eq!(
+            m.advance(Stage::Rejected, &ev()),
+            Err(Violation::InvalidTransition { from: Stage::CutoverCommitted, to: Stage::Rejected })
+        );
     }
 
     #[test] fn indeterminate_requires_unresolved_effect_frontier() {
