@@ -83,3 +83,14 @@ jobs:
 
       - name: Check Rust formatting
         run: cargo +1.96.0 fmt --manifest-path mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml --all -- --check
+
+      - name: Run journal replay smoke matrix
+        run: |
+          manifest=mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml
+          cargo +1.96.0 build --release --manifest-path "$manifest" --locked --bin journal-replay-scale
+          bin=mycelix-workspace/simulations/civ-econ-transition-validator/target/release/journal-replay-scale
+          for scenario in pending indeterminate acknowledged reconciled; do
+            echo "::group::journal replay scale / 10000 effects / $scenario"
+            /usr/bin/time -v "$bin" 10000 "$scenario"
+            echo "::endgroup::"
+          done
