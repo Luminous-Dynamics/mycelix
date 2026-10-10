@@ -299,7 +299,8 @@ def receipt_b(raw,stmt,corpus):
     if {k.value for k,_ in pairs(ph)} & {k.value for k,_ in pairs(uh)}: raise Reject("reference cross-bucket duplicate")
     if ii(get(ph,1),"reference alg")!=-8: raise Reject("reference alg")
     kid=bi(get(ph,4),"reference kid"); iss,sub=claims(get(ph,15),"reference")
-    if ii(get(ph,395),"reference vds")!=1: raise Reject("reference VDS")
+    vds_id=ii(get(ph,395),"reference VDS")
+    if vds_id!=1: raise Reject("reference VDS")
     vd=mp(get(uh,396),"reference VDP"); pa=arr(get(vd,-1),"reference inclusion")
     if len(pa.children)!=1: raise Reject("reference proof multiplicity")
     proof=bi(pa.children[0],"reference proof"); pn=arr(Reader(proof).parse(),"reference proof")
@@ -321,7 +322,7 @@ def receipt_b(raw,stmt,corpus):
     return {
         "proof_to_root":"PASS",
         "signature_to_root":"PASS",
-        "vds_id":h["vds"],
+        "vds_id":vds_id,
         "vdp_proof_type":VDP_INCLUSION,
         "tree_size":size,
         "leaf_index":idx,
