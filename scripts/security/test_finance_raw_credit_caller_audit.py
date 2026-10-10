@@ -64,6 +64,26 @@ class RawCreditCallerAuditTests(unittest.TestCase):
         )
         self.assertTrue(has_public_raw_credit_abi(source))
 
+    def test_comments_between_extern_attribute_and_function_are_supported(self) -> None:
+        cases = (
+            "#[hdk_extern]\\n// export boundary comment\\n"
+            "#[allow(clippy::too_many_arguments)]\\npub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> { todo!() }",
+            "#[hdk_extern] /* export boundary comment */ pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> { todo!() }",
+        )
+        for source in cases:
+            with self.subTest(source=source):
+                self.assertTrue(has_public_raw_credit_abi(source))
+
+    def test_quoted_literal_in_comment_is_flagged_for_review(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "bridge" / "coordinator" / "src" / "lib.rs"
+            source.parent.mkdir(parents=True)
+            source.write_text('// avoid calling "credit_sap" here\\n', encoding="utf-8")
+            hits = scan(root)
+            self.assertEqual(len(hits), 1)
+            self.assertEqual(hits[0][1], 1)
+
     def test_unrelated_extern_does_not_hide_later_private_helper(self) -> None:
         source = (
             "#[hdk_extern]\\n"
