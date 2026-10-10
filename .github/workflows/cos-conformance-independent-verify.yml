@@ -1,7 +1,10 @@
 name: COS Conformance Independent Verify
 
 on:
-  workflow_run:
+  # This narrow exception is intentional: only the trusted default-branch workflow handles the run event;
+  # it binds the exact same-repository PR head and upstream workflow identity. PR code runs in a separate
+  # read-only job without persisted checkout credentials; a fresh validator checks run-scoped artifact digests.
+  workflow_run: # zizmor: ignore[dangerous-triggers] -- trusted receiver with exact-head and artifact-digest boundaries
     workflows: ["COS Conformance Evidence"]
     types: [completed]
   workflow_dispatch:
