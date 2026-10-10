@@ -1,0 +1,9 @@
+[package]
+name = "civ-econ-transition-validator"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Dependency-free reference validator for Mycelix CIV-ECON-001A transition invariants"
+
+[workspace]
