@@ -54,6 +54,8 @@ complexity or production capacity from one sample. The current harness does not
 measure allocator-level peak memory in isolation and has not itself established
 performance numbers in this repository yet.
 
+Before implementing compaction, use the explicit [checkpoint/compaction design gate](JOURNAL_CHECKPOINT_COMPACTION_DESIGN.md). It records why acknowledged effect IDs must remain as no-redispatch tombstones, which crash boundaries require tests, and why compaction alone cannot reduce the memory needed for the full identity index. The current replay parser also uses borrowed fixed-field splitting rather than allocating a Vec of fields per record.
+
 The `EffectLedger` in `lib.rs` remains an in-memory reference model. The new
 `durable_journal::DurableEffectJournal` persists begin, indeterminate, and
 acknowledgement records to an append-only local file. It reads legacy J1/J2
