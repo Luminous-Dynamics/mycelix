@@ -403,7 +403,7 @@ def audit(root: Path = ROOT) -> int:
     if canonical or projection_differences:
         return 1
 
-    print("PASS: raw credit ABI is private, the two Finance zome projections are byte-identical, and no direct, escaped, or statically concatenated raw-credit function-name reference remains outside Payments coordinator.")
+    print("PASS: raw credit ABI is private, the two Finance zome projections are byte-identical, and no direct, escaped/Unicode-escaped, or statically concatenated raw-credit function-name reference remains outside Payments coordinator.")
     print("This source scanner does not resolve arbitrary const aliases, every possible macro/literal transformation, or runtime-constructed names; it also does not prove SAP conservation or exactly-once settlement.")
     return 0
 
