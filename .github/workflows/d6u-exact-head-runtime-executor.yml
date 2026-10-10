@@ -36,7 +36,7 @@ jobs:
           persist-credentials: false
 
       - name: Assert exact qualification subject
-        run: test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
 
       - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
@@ -205,27 +205,52 @@ jobs:
 
       - name: Emit runtime evidence record
         working-directory: d6u-runtime-harness
+        env:
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+          WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SOURCE_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          TRIGGER_WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          TRIGGER_WORKFLOW_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          TRIGGER_WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          TRIGGER_WORKFLOW_PATH: ${{ github.event.workflow_run.path }}
+          EXECUTOR_RUN_ID: ${{ github.run_id }}
+          EXECUTOR_RUN_ATTEMPT: ${{ github.run_attempt }}
+          EXECUTOR_WORKFLOW_COMMIT_SHA: ${{ github.workflow_sha }}
+          EXECUTOR_WORKFLOW_REF: ${{ github.workflow_ref }}
+          EXECUTOR_WORKFLOW_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
+          [[ "$SOURCE_REPOSITORY" == "Luminous-Dynamics/mycelix" ]]
+          [[ "$TRIGGER_WORKFLOW_NAME" == "D6S Canonical Qualification" ]]
+          [[ "$TRIGGER_WORKFLOW_PATH" == ".github/workflows/d6s-canonical-qualification.yml" ]]
+          [[ "$EXECUTOR_WORKFLOW_REPOSITORY" == "Luminous-Dynamics/mycelix" ]]
+          [[ "$SOURCE_BRANCH" == "myc-int-demo-d6u-holochain-07-runtime" ]]
+          [[ "$WORKFLOW_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$WORKFLOW_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          [[ "$TRIGGER_WORKFLOW_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$TRIGGER_WORKFLOW_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          [[ "$EXECUTOR_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$EXECUTOR_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          [[ "$EXECUTOR_WORKFLOW_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
           {
             echo "D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE"
             echo "status=runtime-reference-evidence"
             echo "source_commit=$(git rev-parse HEAD)"
-            echo "workflow_run_id=${{ github.run_id }}"
-            echo "workflow_run_attempt=${{ github.run_attempt }}"
+            echo "workflow_run_id=${WORKFLOW_RUN_ID}"
+            echo "workflow_run_attempt=${WORKFLOW_RUN_ATTEMPT}"
             echo "source_branch=${SOURCE_BRANCH}"
-            echo "source_repository=${{ github.event.workflow_run.head_repository.full_name }}"
-            echo "trigger_workflow_run_id=${{ github.event.workflow_run.id }}"
-            echo "trigger_workflow_run_attempt=${{ github.event.workflow_run.run_attempt }}"
-            echo "trigger_workflow_name=${{ github.event.workflow_run.name }}"
-            echo "trigger_workflow_path=${{ github.event.workflow_run.path }}"
+            echo "source_repository=${SOURCE_REPOSITORY}"
+            echo "trigger_workflow_run_id=${TRIGGER_WORKFLOW_RUN_ID}"
+            echo "trigger_workflow_run_attempt=${TRIGGER_WORKFLOW_RUN_ATTEMPT}"
+            echo "trigger_workflow_name=${TRIGGER_WORKFLOW_NAME}"
+            echo "trigger_workflow_path=${TRIGGER_WORKFLOW_PATH}"
             echo "trigger_workflow_blob_sha=$(git hash-object ../.github/workflows/d6s-canonical-qualification.yml)"
-            echo "executor_run_id=${{ github.run_id }}"
-            echo "executor_run_attempt=${{ github.run_attempt }}"
-            echo "executor_workflow_commit_sha=${{ github.workflow_sha }}"
-            echo "executor_workflow_ref=${{ github.workflow_ref }}"
+            echo "executor_run_id=${EXECUTOR_RUN_ID}"
+            echo "executor_run_attempt=${EXECUTOR_RUN_ATTEMPT}"
+            echo "executor_workflow_commit_sha=${EXECUTOR_WORKFLOW_COMMIT_SHA}"
+            echo "executor_workflow_ref=${EXECUTOR_WORKFLOW_REF}"
             echo "executor_workflow_file_path=.github/workflows/d6u-exact-head-runtime-executor.yml"
-            echo "executor_workflow_repository=${{ github.repository }}"
+            echo "executor_workflow_repository=${EXECUTOR_WORKFLOW_REPOSITORY}"
             echo "attestation_status=deferred-to-trusted-builder"
             echo "d6s2_manifest_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-manifest.json)"
             echo "d6s2_fixture_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
