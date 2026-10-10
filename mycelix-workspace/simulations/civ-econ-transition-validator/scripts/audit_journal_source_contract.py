@@ -65,7 +65,7 @@ for test_name in (
     "replay_rejects_extra_record_fields_without_ignoring_them",
     "effect_count_includes_all_states_and_survives_replay",
 ):
-    annotated_test = re.search(r"#\\[test\\]\\s*fn\\s+" + re.escape(test_name) + r"\\(", journal)
+    annotated_test = re.search(r"#\[test\]\s*fn\s+" + re.escape(test_name) + r"\(", journal)
     check(f"regression test is annotated: {test_name}", annotated_test is not None)
 
 # Scale probe and build registration must describe the same four lifecycle paths.
