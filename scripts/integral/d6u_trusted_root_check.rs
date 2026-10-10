@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Dependency-free Rust preflight for the D6U trusted source closure.
 //!
 //! This program does not execute candidate source. It rejects symlinked roots and
@@ -78,6 +80,26 @@ fn safe_relative_components(value: &str) -> Result<Vec<PathBuf>, String> {
         return Err("empty relative path".to_string());
     }
     Ok(parts)
+}
+
+fn candidate_root_from_arg(value: &str) -> Result<PathBuf, String> {
+    if !value.starts_with('/') || value.contains('\\') {
+        return Err(format!("candidate root is not a canonical absolute path: {value:?}"));
+    }
+
+    // Path::components() normalizes some spelling differences, so reject those
+    // from the original CLI string before constructing a Path.
+    let components: Vec<_> = value.split('/').collect();
+    if components.first() != Some(&"")
+        || components
+            .iter()
+            .skip(1)
+            .any(|part| part.is_empty() || *part == "." || *part == "..")
+    {
+        return Err(format!("candidate root is not canonically spelled: {value:?}"));
+    }
+
+    Ok(PathBuf::from(value))
 }
 
 fn reject_symlinked_path_components(path: &Path) -> Result<(), String> {
@@ -207,7 +229,14 @@ fn main() {
         std::process::exit(2);
     }
 
-    if let Err(error) = evaluate(Path::new(&args[2])) {
+    let candidate_root = match candidate_root_from_arg(&args[2]) {
+        Ok(path) => path,
+        Err(error) => {
+            eprintln!("D6U Rust trusted-root preflight: REFUSED: {error}");
+            std::process::exit(1);
+        }
+    };
+    if let Err(error) = evaluate(&candidate_root) {
         eprintln!("D6U Rust trusted-root preflight: REFUSED: {error}");
         std::process::exit(1);
     }
@@ -240,6 +269,14 @@ mod tests {
         assert!(safe_relative_components(r"docs\policy.json").is_err());
         assert!(safe_relative_components(".").is_err());
         assert!(safe_relative_components("").is_err());
+
+        assert!(candidate_root_from_arg("/tmp/candidate").is_ok());
+        assert!(candidate_root_from_arg("relative/candidate").is_err());
+        assert!(candidate_root_from_arg("/tmp/../candidate").is_err());
+        assert!(candidate_root_from_arg("/tmp/./candidate").is_err());
+        assert!(candidate_root_from_arg("/tmp//candidate").is_err());
+        assert!(candidate_root_from_arg("/tmp/candidate/").is_err());
+        assert!(candidate_root_from_arg(r"/tmp\\candidate").is_err());
     }
 
     #[test]
