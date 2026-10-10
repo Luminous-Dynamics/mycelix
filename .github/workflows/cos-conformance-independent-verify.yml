@@ -490,6 +490,7 @@ jobs:
         env:
           PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
           EXPECTED_HEAD_SHA: ${{ needs.prepare.outputs.expected_head_sha }}
+          TESTED_COMMIT_SHA: ${{ needs.execute.outputs.tested_commit_sha || '' }}
           HEAD_REPOSITORY: ${{ needs.prepare.outputs.head_repository }}
           TRUSTED_WORKFLOW_SHA: ${{ needs.prepare.outputs.trusted_workflow_sha }}
           TRUSTED_WORKFLOW_REF: ${{ needs.prepare.outputs.trusted_workflow_ref }}
