@@ -1,3 +1,5 @@
+pub mod durable_journal;
+
 //! Dependency-free, non-authoritative reference checks for CIV-ECON-001A.
 //!
 //! This validates typed invariants and lifecycle gates. It does not parse the
