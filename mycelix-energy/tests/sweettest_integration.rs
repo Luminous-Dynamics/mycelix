@@ -1107,7 +1107,7 @@ mod cross_zome_tests {
     /// proves a second participant's identity.
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
-    async fn test_execute_trade_rejects_forged_buyer_identity() {
+    async fn test_execute_trade_fails_closed_without_reservation_protocol() {
         let mut conductor = SweetConductor::from_standard_config().await;
         let dna = load_dna().await;
         let app = conductor.setup_app("test-app", &[dna]).await.unwrap();
@@ -1141,12 +1141,29 @@ mod cross_zome_tests {
             result.is_err(),
             "a caller must not transact under a buyer DID that is not its agent key"
         );
+
+        // Even a caller whose buyer DID matches its real key must not fall
+        // through to the legacy mutable-offer implementation. No trade is
+        // committed until the append-only reservation protocol is implemented.
+        let valid_buyer_input = ExecuteTradeInput {
+            offer_id: offer.id,
+            buyer_did: did_for_cell(&cell),
+            amount_kwh: 400.0,
+        };
+        let valid_buyer_result: Result<Record, _> = conductor
+            .call_fallible(&cell.zome("grid"), "execute_trade", valid_buyer_input)
+            .await;
+        assert!(
+            valid_buyer_result.is_err(),
+            "valid caller identity must still fail closed while reservation/fill protocol is absent"
+        );
+
         let unsettled: Vec<Record> = conductor
             .call(&cell.zome("grid"), "get_unsettled_trades", ())
             .await;
         assert!(
             unsettled.is_empty(),
-            "a rejected buyer identity must not append a trade record"
+            "failed trade attempts must not append a trade record"
         );
     }
 
