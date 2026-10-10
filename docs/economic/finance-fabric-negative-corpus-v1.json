@@ -1,0 +1,21 @@
+{
+  "schema": "mycelix.economic.finance-negative-corpus/v1",
+  "scope_issue": 3346,
+  "cases": [
+    {"id":"ECO-NEG-001","name":"reputation_to_money","input":"MYCEL reputation observation","forbidden":"SAP/TEND/fiat mint or transfer","expected":"reject_unqualified_promotion"},
+    {"id":"ECO-NEG-002","name":"sap_to_tend","input":"SAP position","forbidden":"implicit TEND recognition","expected":"require_explicit_profile"},
+    {"id":"ECO-NEG-003","name":"credit_to_ownership","input":"credit limit or score","forbidden":"asset ownership claim","expected":"reject"},
+    {"id":"ECO-NEG-004","name":"entitlement_to_authorization","input":"economic entitlement","forbidden":"execution authority","expected":"require_authorization_scope"},
+    {"id":"ECO-NEG-005","name":"authorization_to_settlement","input":"valid authorization","forbidden":"settlement/finality assertion","expected":"require_execution_and_rail_evidence"},
+    {"id":"ECO-NEG-006","name":"provider_ack_to_finality","input":"provider acknowledgement","forbidden":"universal finality=true","expected":"require_finality_profile"},
+    {"id":"ECO-NEG-007","name":"bridge_to_native","input":"wrapped/bridged representation","forbidden":"native instrument identity","expected":"preserve_origin_and_profile"},
+    {"id":"ECO-NEG-008","name":"balance_to_legal_ownership","input":"token/SAP balance observation","forbidden":"legal ownership claim","expected":"reject"},
+    {"id":"ECO-NEG-009","name":"accounting_to_source","input":"accounting projection","forbidden":"physical/economic source event","expected":"preserve_projection_boundary"},
+    {"id":"ECO-NEG-010","name":"fx_to_unit_conversion","input":"USD/EUR valuation rate","forbidden":"treat as unit-scale conversion","expected":"require_explicit_fx_profile"},
+    {"id":"ECO-NEG-011","name":"simulation_to_physical","input":"simulation currency","forbidden":"physical-world instrument identity","expected":"reject_cross_domain_promotion"},
+    {"id":"ECO-NEG-012","name":"recognition_to_local_mint","input":"foreign recognition event","forbidden":"unrelated local issuance","expected":"require_authorized_issuance_profile"},
+    {"id":"ECO-NEG-013","name":"correction_rewrites_history","input":"reversal/correction","forbidden":"mutation of original source history","expected":"append_correction_lineage"},
+    {"id":"ECO-NEG-014","name":"decimal_substitution","input":"same nominal quantity with altered scale","forbidden":"silent quantity change","expected":"reject_unit_scale_mismatch"},
+    {"id":"ECO-NEG-015","name":"send_payment_collapse","input":"payment API request","forbidden":"instruction=execution=settlement=finality","expected":"preserve_lifecycle_states"}
+  ]
+}
