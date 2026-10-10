@@ -17,7 +17,7 @@ const PROVIDER_PROFILE_DIGEST: &str =
     "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 const REQUEST_DIGEST: &str =
     "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-const MAX_EFFECTS: usize = 5_000_000;
+const MAX_EFFECTS: usize = 1_000_000;
 
 struct TempDir(PathBuf);
 
@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err(invalid_input("provide at most one effect-count argument").into());
     }
     if count == 0 || count > MAX_EFFECTS {
-        return Err(invalid_input("effect count must be in 1..=5_000_000").into());
+        return Err(invalid_input("effect count must be in 1..=1_000_000").into());
     }
 
     let temp = TempDir::new()?;
