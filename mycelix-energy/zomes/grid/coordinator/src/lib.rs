@@ -132,13 +132,14 @@ fn offer_is_current(offer: &TradeOffer, now: Timestamp) -> bool {
     offer.available_from <= now && now <= offer.available_until
 }
 
-/// Resolve a record's linear update chain to its latest valid version.
+/// Resolve a record's update chain to its latest valid version.
 ///
 /// CRUD metadata is attached to action hashes, while links commonly continue
 /// to target the original create action. Reading the linked record alone can
-/// therefore return stale offer/trade state. A single child update is expected
-/// because the integrity rules bind updates to the original author; multiple
-/// child updates are treated as a conflict instead of silently choosing one.
+/// therefore return stale offer/trade state. Updates are restricted to the
+/// original author; if older data has multiple update branches, choose the
+/// branch with the newest action timestamp, matching Holochain's documented
+/// same-author conflict-resolution pattern.
 fn resolve_latest_record(mut record: Record) -> ExternResult<Record> {
     const MAX_UPDATE_HOPS: usize = 256;
 
@@ -156,12 +157,11 @@ fn resolve_latest_record(mut record: Record) -> ExternResult<Record> {
             }
         };
 
-        if record_details.updates.len() > 1 {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Conflicting record updates require explicit resolution".into()
-            )));
-        }
-        if let Some(update) = record_details.updates.into_iter().next() {
+        let latest_update = record_details
+            .updates
+            .into_iter()
+            .max_by_key(|update| update.action().timestamp());
+        if let Some(update) = latest_update {
             record = get(update.hashed.hash.clone(), GetOptions::default())?
                 .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
                     "Updated record is unavailable".into()
