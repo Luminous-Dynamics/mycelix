@@ -103,6 +103,19 @@ class RawCreditCallerAuditTests(unittest.TestCase):
             )
             self.assertEqual(len(scan(root)), 1)
 
+    def test_escaped_string_literal_dispatch_is_detected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            caller = root / "bridge" / "coordinator" / "src" / "lib.rs"
+            caller.parent.mkdir(parents=True)
+            caller.write_text(
+                r'let function = FunctionName::from("credit\x5fsap");',
+                encoding="utf-8",
+            )
+            hits = scan(root)
+            self.assertEqual(len(hits), 1)
+            self.assertIn('decoded static string "credit_sap"', hits[0][2])
+
     def test_compile_time_concat_dispatch_is_detected(self) -> None:
         for source in (
             'let function = FunctionName::from(concat!(\n    "credit_",\n    "sap"\n));\n',
