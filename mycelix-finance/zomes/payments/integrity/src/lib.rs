@@ -821,7 +821,7 @@ fn validate_mint_cap_counter_link(
     if record.entry().to_app_option::<SapMintCapCounterEntry>().map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "MintCapCounterAnchor target decode failed: {e:?}"
-        ))
+        )))
     })?.is_none() {
         return Ok(invalid_link(
             "MintCapCounterAnchor target must resolve to SapMintCapCounterEntry",
