@@ -43,7 +43,7 @@ Static source inspection (not a fresh build or runtime qualification) found thes
 - Related modules exist for citation metrics (§citation.rs§), Bayesian belief propagation (§bayesian.rs§), replication tracking (§reproducibility.rs§), disputes (§dispute.rs§), inference (§inference.rs§), and meta-claims (§meta.rs§). Their existence alone does not prove integration with the canonical path or scientific qualification; inspect call paths and tests before reuse.
 - The legacy type layer contains E0–E4 and a unified confidence score. The documented import boundary correctly says historical tiers/counts are not validated evidence. The allocator must not silently consume legacy confidence or citation-influence fields.
 
-**Implementation consequence:** start with a traceable mapping and adversarial qualification of existing evidence-independence semantics and assessment disposition behavior. Design resource-request, decision, milestone, and outcome event families only after avoiding duplicate schema/authority primitives.
+**Implementation consequence:** start with a traceable mapping and adversarial qualification of existing evidence-independence semantics and assessment disposition behavior. The separate [Evidence Provenance and Collection Contract](EVIDENCE_PROVENANCE_AND_COLLECTION_CONTRACT.md) defines the required lineage assertions, adversarial fixtures, schema-v4 compatibility plan, and qualification gates. Design resource-request, decision, milestone, and outcome event families only after avoiding duplicate schema/authority primitives.
 
 ## 3. Design principles
 
