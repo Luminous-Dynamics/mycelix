@@ -173,6 +173,18 @@ fn valid_did(value: &str) -> bool {
         && !value.chars().any(char::is_whitespace)
 }
 
+/// Parse the repository's canonical DID representation and bind it to the
+/// Holochain agent key that authored an entry action. A syntactically valid
+/// but unrelated DID is not proof of ownership.
+fn agent_pub_key_from_did(did: &str) -> Option<AgentPubKey> {
+    let agent_str = did.strip_prefix("did:mycelix:")?;
+    AgentPubKey::try_from(agent_str).ok()
+}
+
+fn did_matches_agent(did: &str, author: &AgentPubKey) -> bool {
+    agent_pub_key_from_did(did).as_ref() == Some(author)
+}
+
 fn production_validation_error(production: &EnergyProduction) -> Option<&'static str> {
     if !valid_nonempty(&production.id) || !valid_nonempty(&production.project_id) {
         return Some("Production id and project id must be non-empty");
@@ -294,6 +306,16 @@ fn trade_creation_validation_error(trade: &Trade) -> Option<&'static str> {
     trade_validation_error(trade)
 }
 
+fn trade_creation_author_validation_error(
+    trade: &Trade,
+    author: &AgentPubKey,
+) -> Option<&'static str> {
+    if !did_matches_agent(&trade.buyer_did, author) {
+        return Some("Buyer DID must identify the agent authoring the trade");
+    }
+    trade_creation_validation_error(trade)
+}
+
 /// Only the original trade author may record settlement. This is an
 /// authorization boundary in addition to the monotonic state transition.
 fn trade_update_author_validation_error(
@@ -365,15 +387,33 @@ fn validate_create_energy_consumption(
 }
 
 fn validate_create_trade_offer(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     offer: TradeOffer,
 ) -> ExternResult<ValidateCallbackResult> {
-    result_from_validation_error(offer_validation_error(&offer))
+    if let Some(error) = offer_validation_error(&offer) {
+        return result_from_validation_error(Some(error));
+    }
+    if !did_matches_agent(&offer.seller_did, action.author()) {
+        return result_from_validation_error(Some(
+            "Seller DID must identify the agent authoring the offer",
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Offer identity and publication terms are immutable. The coordinator may
 /// update the price without changing quantity/status, cancel an active offer,
 /// or reduce remaining quantity after a fill. No other transition is valid.
+fn offer_creation_author_validation_error(
+    offer: &TradeOffer,
+    author: &AgentPubKey,
+) -> Option<&'static str> {
+    if !did_matches_agent(&offer.seller_did, author) {
+        return Some("Seller DID must identify the agent authoring the offer");
+    }
+    offer_validation_error(offer)
+}
+
 fn offer_update_validation_error(
     previous: &TradeOffer,
     updated: &TradeOffer,
@@ -456,10 +496,13 @@ fn validate_update_trade_offer(
 }
 
 fn validate_create_trade(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     trade: Trade,
 ) -> ExternResult<ValidateCallbackResult> {
-    result_from_validation_error(trade_creation_validation_error(&trade))
+    result_from_validation_error(trade_creation_author_validation_error(
+        &trade,
+        action.author(),
+    ))
 }
 
 fn validate_update_trade(
@@ -1186,6 +1229,33 @@ mod strict_validation_regression_tests {
         assert_eq!(
             offer_update_validation_error(&previous, &reopened),
             Some("Terminal offers cannot be updated")
+        );
+    }
+
+    #[test]
+    fn offer_and_trade_create_claims_must_match_the_author_key() {
+        let author = AgentPubKey::from_raw_32(vec![7u8; 32]);
+        let other_author = AgentPubKey::from_raw_32(vec![8u8; 32]);
+        let author_did = format!("did:mycelix:{author}");
+        let other_did = format!("did:mycelix:{other_author}");
+
+        assert!(did_matches_agent(&author_did, &author));
+        assert!(!did_matches_agent(&other_did, &author));
+        assert!(!did_matches_agent("did:test:seller", &author));
+        assert!(!did_matches_agent("did:mycelix:not-a-public-key", &author));
+
+        let mut offer = valid_offer();
+        offer.seller_did = other_did.clone();
+        assert_eq!(
+            offer_creation_author_validation_error(&offer, &author),
+            Some("Seller DID must identify the agent authoring the offer")
+        );
+
+        let mut trade = valid_trade();
+        trade.buyer_did = other_did;
+        assert_eq!(
+            trade_creation_author_validation_error(&trade, &author),
+            Some("Buyer DID must identify the agent authoring the trade")
         );
     }
 
