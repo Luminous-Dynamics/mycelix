@@ -912,7 +912,9 @@ jobs:
 
   # Summary gate
   ci-pass:
-    if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
+    # Always evaluate admitted non-draft runs, including when an upstream job
+    # was cancelled; the check-results step below rejects cancellation fail-closed.
+    if: always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
     needs:
       - format
       - test-cos-conformance
