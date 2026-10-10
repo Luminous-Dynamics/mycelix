@@ -349,13 +349,23 @@ fn whole_units_to_micro(whole_units: f64) -> Option<u64> {
 /// ambiguous outcomes. The finance zome returns a Payment record while storing
 /// its signed Receipt separately; a payment-record hash alone is not proof.
 fn settlement_gate_error(trade: &Trade) -> Option<&'static str> {
+    if !trade.amount_kwh.is_finite() || trade.amount_kwh <= 0.0 {
+        return Some("Trade amount must be finite and positive; settlement refused");
+    }
     if !trade.price_per_kwh.is_finite()
         || trade.price_per_kwh < 0.0
         || !trade.total_price.is_finite()
         || trade.total_price < 0.0
     {
-        return Some("Trade price is invalid; settlement refused");
+        return Some("Trade price must be finite and non-negative; settlement refused");
     }
+
+    let expected_total = trade.amount_kwh * trade.price_per_kwh;
+    let tolerance = expected_total.abs().max(1.0) * 1.0e-9;
+    if !expected_total.is_finite() || (trade.total_price - expected_total).abs() > tolerance {
+        return Some("Trade total price must equal amount multiplied by unit price");
+    }
+
     if trade.total_price == 0.0 && trade.price_per_kwh == 0.0 {
         return None;
     }
@@ -2029,17 +2039,22 @@ mod settlement_amount_regression_tests {
         );
         assert_eq!(
             settlement_gate_error(&settlement_test_trade(0.12, 0.0)),
-            Some(
-                "Paid trade settlement is disabled until authenticated receipt verification, rail idempotency, and indeterminate-outcome recovery are implemented (#4940)"
-            )
+            Some("Trade total price must equal amount multiplied by unit price")
         );
         assert_eq!(
             settlement_gate_error(&settlement_test_trade(f64::NAN, f64::NAN)),
-            Some("Trade price is invalid; settlement refused")
+            Some("Trade price must be finite and non-negative; settlement refused")
         );
         assert_eq!(
             settlement_gate_error(&settlement_test_trade(-0.1, -0.1)),
-            Some("Trade price is invalid; settlement refused")
+            Some("Trade price must be finite and non-negative; settlement refused")
+        );
+
+        let mut invalid_amount = settlement_test_trade(0.0, 0.0);
+        invalid_amount.amount_kwh = f64::NAN;
+        assert_eq!(
+            settlement_gate_error(&invalid_amount),
+            Some("Trade amount must be finite and positive; settlement refused")
         );
     }
 
