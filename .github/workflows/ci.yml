@@ -666,7 +666,7 @@ jobs:
           root_matches = [
               (store_path, drv)
               for store_path, drv in graph.items()
-              if isinstance(drv, dict) and drv.get("name") == "mycelix-sdk-ts-0.6.0"
+              if isinstance(drv, dict) and isinstance(drv.get("env"), dict) and drv["env"].get("name") == "mycelix-sdk-ts-0.6.0"
           ]
           if len(root_matches) != 1:
               raise SystemExit(f"expected exactly one SDK root derivation; found {len(root_matches)}")
