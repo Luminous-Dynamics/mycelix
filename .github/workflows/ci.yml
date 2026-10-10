@@ -721,11 +721,37 @@ jobs:
           ):
               raise SystemExit("version-4 derivation graph has a malformed derivation key")
           
-          root_matches = [
-              (store_path, drv)
-              for store_path, drv in graph.items()
-              if isinstance(drv, dict) and drv.get("name") == "mycelix-sdk-ts-0.6.0"
-          ]
+          SDK_ROOT_NAME = "mycelix-sdk-ts-0.6.0"
+
+          def find_sdk_roots(derivations):
+              # In the version-4 nix derivation show schema, package name is
+              # represented under env.name, not at the derivation-record root.
+              return [
+                  (store_path, drv)
+                  for store_path, drv in derivations.items()
+                  if isinstance(drv, dict)
+                  and isinstance(drv.get("env"), dict)
+                  and drv["env"].get("name") == SDK_ROOT_NAME
+              ]
+
+          # Exercise the actual schema predicate against adversarial records:
+          # a fake top-level name must not qualify, and two env.name matches
+          # must be treated as ambiguous by the count check below.
+          fixture_key = "/nix/store/fixture-mycelix-sdk-ts-0.6.0.drv"
+          fixture_graph = {
+              fixture_key: {"env": {"name": SDK_ROOT_NAME}},
+              "/nix/store/top-level-name-only.drv": {"name": SDK_ROOT_NAME},
+          }
+          if [path for path, _drv in find_sdk_roots(fixture_graph)] != [fixture_key]:
+              raise SystemExit("SDK root identity regression: expected only the env.name fixture")
+          if find_sdk_roots({"/nix/store/top-level-name-only.drv": {"name": SDK_ROOT_NAME}}):
+              raise SystemExit("SDK root identity regression: accepted a top-level-only name")
+          duplicate_fixture = dict(fixture_graph)
+          duplicate_fixture["/nix/store/duplicate-sdk-root.drv"] = {"env": {"name": SDK_ROOT_NAME}}
+          if len(find_sdk_roots(duplicate_fixture)) != 2:
+              raise SystemExit("SDK root identity regression: duplicate roots were not detected")
+
+          root_matches = find_sdk_roots(graph)
           if len(root_matches) != 1:
               raise SystemExit(f"expected exactly one SDK root derivation; found {len(root_matches)}")
           root_path, root = root_matches[0]
