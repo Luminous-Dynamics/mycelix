@@ -174,7 +174,11 @@ fn SummaryAttentionCard(item: SummaryAttentionItem) -> impl IntoView {
 
 #[component]
 fn SummaryAction(action: SummaryActionItem) -> impl IntoView {
-    let class_name = if action.primary { "btn btn-primary" } else { "btn" };
+    let class_name = if action.primary {
+        "btn btn-primary"
+    } else {
+        "btn"
+    };
     if let Some(href) = action.href {
         view! {
             <a class=class_name href=href target="_blank" rel="noopener">

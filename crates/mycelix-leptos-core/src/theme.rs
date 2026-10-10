@@ -9,7 +9,7 @@
 
 use crate::util::set_root_attribute;
 use leptos::prelude::*;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 /// Trait for app-specific theme enums.
 ///

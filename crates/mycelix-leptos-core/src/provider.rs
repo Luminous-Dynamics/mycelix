@@ -14,8 +14,8 @@
 
 use leptos::prelude::*;
 use mycelix_leptos_client::{ClientError, HolochainTransport};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 /// Context provider that makes a [`HolochainTransport`] available to all
 /// child components.
