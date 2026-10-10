@@ -46,6 +46,7 @@ export type { GridClientConfig } from './zomes/grid.js';
 
 // Types
 export * from './types.js';
+export * from './study-manifest.js';
 
 // ============================================================================
 // Legacy Mock Service (for backward compatibility)
