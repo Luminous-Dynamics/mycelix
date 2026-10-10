@@ -749,6 +749,20 @@ mod tests {
     }
 
     #[test]
+    fn legacy_j2_pending_effect_requires_provider_binding_reconciliation() {
+        let temp = TempDir::new();
+        let path = temp.journal_path();
+        let encoded_id = encode_hex(b"legacy-j2-pending");
+        fs::write(&path, format!("J2\\tB\\t{}\\t{}\\n", encoded_id, REQUEST_A)).unwrap();
+
+        let mut journal = DurableEffectJournal::open(&path).unwrap();
+        assert_eq!(
+            journal.begin_effect("legacy-j2-pending", REQUEST_A, PROVIDER_A),
+            Ok(BeginResult::ProviderProfileUnboundNeedsReconciliation),
+        );
+    }
+
+    #[test]
     fn j3_replay_rejects_provider_profile_change_between_begin_and_ack() {
         let temp = TempDir::new();
         let path = temp.journal_path();
