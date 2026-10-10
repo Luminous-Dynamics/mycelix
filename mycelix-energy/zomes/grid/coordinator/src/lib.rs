@@ -231,8 +231,20 @@ fn did_matches_agent(did: &str, author: &AgentPubKey) -> bool {
         == Some(author)
 }
 
+/// Legacy mutable-offer execution path. This searches only the caller's
+/// source chain; under the current integrity policy, newly authored offers
+/// bind seller DID to their author and the buyer DID binds to the caller, while
+/// self-trading is forbidden. Therefore this path is not a valid cross-agent
+/// trading protocol. Keep it fail-closed until #4940's append-only reservation
+/// and fill design replaces source-chain offer mutation.
 #[hdk_extern]
 pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    if !did_matches_agent(&input.buyer_did, &caller) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Buyer DID must identify the agent executing this trade".into()
+        )));
+    }
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::TradeOffer,
@@ -261,12 +273,6 @@ pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
                 if now > offer.available_until {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Offer has expired".into()
-                    )));
-                }
-                let caller = agent_info()?.agent_initial_pubkey;
-                if !did_matches_agent(&input.buyer_did, &caller) {
-                    return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Buyer DID must identify the agent executing this trade".into()
                     )));
                 }
                 if input.buyer_did == offer.seller_did {
@@ -340,7 +346,8 @@ pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
         }
     }
     Err(wasm_error!(WasmErrorInner::Guest(
-        "Offer not found or not active".into()
+        "Offer not found in caller's source chain; cross-agent reservation/fill protocol is not implemented"
+            .into()
     )))
 }
 
