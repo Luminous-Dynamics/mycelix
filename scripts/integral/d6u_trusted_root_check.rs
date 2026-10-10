@@ -761,6 +761,10 @@ fn evaluate(candidate_root: &Path) -> Result<(), String> {
             ));
         }
         println!("D6U Rust source preflight: {label}: PASS ({observed})", label = pin.label);
+        if pin.path == "docs/integral/d6u-trusted-builder-policy.json" {
+            validate_policy_contract(&snapshot)?;
+            println!("D6U Rust source preflight: policy closure and aliases: PASS");
+        }
     }
 
     println!("D6U Rust trusted-root preflight: PASS");
@@ -913,6 +917,75 @@ mod tests {
         assert!(validate_evaluation_scope("policy-fingerprint,policy-fingerprint").is_err());
         assert!(validate_evaluation_scope("workflow-and-five-program-closure,policy-fingerprint").is_err());
         assert!(validate_evaluation_scope("policy-fingerprint,workflow-and-five-program-closure,unknown-scope").is_err());
+    }
+
+    fn valid_policy_contract_fixture() -> String {
+        format!(
+            concat!(
+                "{{",
+                "\"policy_version\":62,",
+                "\"claim_ceiling\":\"ReferenceModelOnly\",",
+                "\"repository_identity\":{{\"full_name\":\"Luminous-Dynamics/mycelix\",\"repository_id\":1176351975}},",
+                "\"trusted_workflow\":{{\"path\":\".github/workflows/d6u-trusted-evidence-attestation.yml\",\"blob_sha\":\"652f81c65cdf6d6138ff2c7f4be5b0bd74ae3d61\"}},",
+                "\"trusted_programs\":{{",
+                "\"scripts/integral/verify_d6u_trusted_artifacts.py\":{{\"path\":\"scripts/integral/verify_d6u_trusted_artifacts.py\",\"blob_sha\":\"de5b3275dda9cbeaa880d26a9ff2dc0e58d7d65e\"}},",
+                "\"scripts/integral/fetch_d6u_trusted_artifact.py\":{{\"path\":\"scripts/integral/fetch_d6u_trusted_artifact.py\",\"blob_sha\":\"4c4d67f6f9a77c512728a8723cf2aa708687a395\"}},",
+                "\"scripts/integral/verify_d6u_trusted_attestation.py\":{{\"path\":\"scripts/integral/verify_d6u_trusted_attestation.py\",\"blob_sha\":\"91331c11f6c6de76f44c8d977629971193e2c0ba\"}},",
+                "\"scripts/integral/emit_d6u_trusted_attestation_predicate.py\":{{\"path\":\"scripts/integral/emit_d6u_trusted_attestation_predicate.py\",\"blob_sha\":\"ce32e161d3f45918ba8ea5545d02e233af331ead\"}},",
+                "\"scripts/integral/verify_d6u_trusted_attestation_retention.py\":{{\"path\":\"scripts/integral/verify_d6u_trusted_attestation_retention.py\",\"blob_sha\":\"df1e4fd9ba3c924037ef7ae97d087751ac8e122f\"}}",
+                "}},",
+                "\"trusted_artifact_fetcher\":{{\"path\":\"scripts/integral/fetch_d6u_trusted_artifact.py\",\"blob_sha\":\"4c4d67f6f9a77c512728a8723cf2aa708687a395\"}},",
+                "\"trusted_attestation_verifier\":{{\"path\":\"scripts/integral/verify_d6u_trusted_attestation.py\",\"blob_sha\":\"91331c11f6c6de76f44c8d977629971193e2c0ba\"}}",
+                "}}"
+            )
+        )
+    }
+
+    #[test]
+    fn validates_exact_policy_program_set_and_aliases() {
+        assert!(validate_policy_contract(valid_policy_contract_fixture().as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn rejects_policy_closure_and_alias_drift() {
+        let valid = valid_policy_contract_fixture();
+
+        let altered_alias = valid.replace(
+            "\"trusted_artifact_fetcher\":{\"path\":\"scripts/integral/fetch_d6u_trusted_artifact.py\",\"blob_sha\":\"4c4d67f6f9a77c512728a8723cf2aa708687a395\"}",
+            "\"trusted_artifact_fetcher\":{\"path\":\"scripts/integral/verify_d6u_trusted_artifacts.py\",\"blob_sha\":\"de5b3275dda9cbeaa880d26a9ff2dc0e58d7d65e\"}"
+        );
+        assert!(validate_policy_contract(altered_alias.as_bytes()).is_err());
+
+        let altered_program_pin = valid.replace(
+            "\"blob_sha\":\"de5b3275dda9cbeaa880d26a9ff2dc0e58d7d65e\"",
+            "\"blob_sha\":\"0000000000000000000000000000000000000000\""
+        );
+        assert!(validate_policy_contract(altered_program_pin.as_bytes()).is_err());
+
+        let extra_program = valid.replace(
+            "\"trusted_programs\":{",
+            "\"trusted_programs\":{\"scripts/integral/rogue.py\":{\"path\":\"scripts/integral/rogue.py\",\"blob_sha\":\"1111111111111111111111111111111111111111\"},"
+        );
+        assert!(validate_policy_contract(extra_program.as_bytes()).is_err());
+    }
+
+    #[test]
+    fn strict_json_parser_rejects_duplicate_keys_and_malformed_json() {
+        assert!(JsonParser::new(br#"{"a":1,"a":2}"#).parse().is_err());
+        assert!(JsonParser::new(br#"{"a":01}"#).parse().is_err());
+        assert!(JsonParser::new(br#"{"a":true,}"#).parse().is_err());
+        assert!(JsonParser::new(br#"{"a":"\uD800"}"#).parse().is_err());
+        assert_eq!(
+            JsonParser::new(br#"{"text":"line\n\ud83d\ude00"}"#).parse(),
+            Ok(JsonValue::Object(
+                [(
+                    "text".to_string(),
+                    JsonValue::String("line\n😀".to_string())
+                )]
+                .into_iter()
+                .collect()
+            ))
+        );
     }
 
     #[test]
