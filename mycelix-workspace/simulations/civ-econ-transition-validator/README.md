@@ -18,6 +18,7 @@ reference model does not parse the schema file. It checks:
 - rights-floor, resource-reservation, external-obligation, cutover, and reconciliation gates;
 - idempotent effect identity, duplicate replay, and payload-conflict rejection;
 - append-only local effect intent/receipt journal with fsync before dispatch, strict replay, and unresolved-effect recovery.
+- a conservative external-effect recovery policy that binds retries to the exact request, explicit idempotency-guarantee deadlines, and fresh no-effect evidence.
 
 ## Run
 
@@ -45,6 +46,16 @@ stale test lock, reopens the journal, checks the recovered state/receipt, and
 asserts no duplicate dispatch. These are process-boundary tests with a synthetic
 provider ledger only; they do not contact or prove behavior of a real payment
 provider, bank, physical actuator, or settlement authority.
+
+The `external_effect_policy` module is a pure decision policy, not a provider
+adapter. With an unknown outcome, it permits a retry only when the same request
+is bound to a still-valid provider idempotency guarantee; at the guarantee's
+exact expiry second, it remains indeterminate. A fresh, request-bound, recent
+no-effect observation can authorize a new key only when it also asserts that no
+prior request remains in flight. Conflicting or misbound evidence is quarantined.
+The module does not authenticate those claims, query a provider, dispatch a
+request, or persist a retry authorization; those remain responsibilities of a
+verified adapter and the future transition driver.
 
 This journal is not tamper-evident: it does not hash-chain or sign the log,
 and it trusts supplied request/receipt digests rather than computing or verifying
