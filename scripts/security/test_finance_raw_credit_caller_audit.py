@@ -182,6 +182,42 @@ class RawCreditCallerAuditTests(unittest.TestCase):
             )
             self.assertEqual(scan(root), [])
 
+    def test_ci_audit_job_covers_workspace_and_its_own_sources(self) -> None:
+        repository_root = Path(__file__).resolve().parents[2]
+        workflow_path = repository_root / ".github" / "workflows" / "ci.yml"
+        workflow = workflow_path.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "finance_raw_credit_audit: ${{ steps.filter.outputs.finance_raw_credit_audit }}",
+            workflow,
+        )
+        filter_start = workflow.index("            finance_raw_credit_audit:")
+        filter_end = workflow.find("\n            ", filter_start + 12)
+        self.assertGreater(filter_end, filter_start)
+        filter_block = workflow[filter_start:filter_end]
+        for required_path in (
+            "'mycelix-finance/**'",
+            "'mycelix-workspace/mycelix-finance/**'",
+            "'scripts/security/finance_raw_credit_caller_audit.py'",
+            "'scripts/security/test_finance_raw_credit_caller_audit.py'",
+            "'.github/workflows/ci.yml'",
+        ):
+            with self.subTest(required_path=required_path):
+                self.assertIn(required_path, filter_block)
+
+        job_start = workflow.index("  finance-raw-credit-caller-audit:")
+        job_end = workflow.index("\n  test-finance:", job_start)
+        job_block = workflow[job_start:job_end]
+        self.assertIn(
+            "needs.changes.outputs.finance_raw_credit_audit == 'true'",
+            job_block,
+        )
+        self.assertIn(
+            "python3 -m unittest discover -s scripts/security -p 'test_finance_raw_credit_caller_audit.py' -v",
+            job_block,
+        )
+        self.assertIn("finance-raw-credit-caller-audit", workflow[workflow.index("  ci-pass:"):])
+
     def test_whole_audit_fails_if_public_credit_abi_is_restored(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
