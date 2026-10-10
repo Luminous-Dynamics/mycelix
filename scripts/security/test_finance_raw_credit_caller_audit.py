@@ -9,10 +9,39 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from finance_raw_credit_caller_audit import scan
+from finance_raw_credit_caller_audit import has_public_raw_credit_abi, scan
 
 
 class RawCreditCallerAuditTests(unittest.TestCase):
+    def test_public_hdk_extern_raw_credit_is_detected(self) -> None:
+        source = (
+            "#[hdk_extern]\n"
+            "pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {\n"
+            "    todo!()\n"
+            "}\n"
+        )
+
+        self.assertTrue(has_public_raw_credit_abi(source))
+
+    def test_private_internal_helper_is_not_a_public_raw_credit_abi(self) -> None:
+        source = (
+            "fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {\n"
+            "    todo!()\n"
+            "}\n"
+        )
+
+        self.assertFalse(has_public_raw_credit_abi(source))
+
+    def test_different_hdk_extern_does_not_trip_raw_credit_abi_guard(self) -> None:
+        source = (
+            "#[hdk_extern]\n"
+            "pub fn debit_sap(input: DebitSapInput) -> ExternResult<Record> {\n"
+            "    todo!()\n"
+            "}\n"
+        )
+
+        self.assertFalse(has_public_raw_credit_abi(source))
+
     def test_multiline_function_name_dispatch_is_detected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
