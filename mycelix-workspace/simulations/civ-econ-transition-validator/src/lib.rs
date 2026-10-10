@@ -298,7 +298,10 @@ impl ItemMapping {
     }
 
     fn require_no_target(&self) -> Result<(), Violation> {
-        if self.target_identity.is_some() || self.target_quantity_atomic.is_some() {
+        if self.target_ref.is_some()
+            || self.target_identity.is_some()
+            || self.target_quantity_atomic.is_some()
+        {
             return Err(Violation::UnexpectedTargetMapping(self.source_item_id.clone()));
         }
         Ok(())
