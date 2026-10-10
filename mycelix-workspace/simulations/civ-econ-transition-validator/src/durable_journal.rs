@@ -930,7 +930,7 @@ mod tests {
     fn oversized_encoded_effect_id_fails_closed_before_decoding() {
         let temp = TempDir::new();
         let encoded_id = "a".repeat(MAX_EFFECT_ID_BYTES * 2 + 2);
-        let record = format!("J3\\tB\\t{}\\t{}\\t{}\\n", encoded_id, REQUEST_A, PROVIDER_A);
+        let record = format!("J3\tB\t{}\t{}\t{}\n", encoded_id, REQUEST_A, PROVIDER_A);
         write_journal_fixture(&temp.journal_path(), record.as_bytes());
 
         assert!(matches!(
@@ -945,7 +945,7 @@ mod tests {
     #[test]
     fn oversized_journal_record_fails_closed_before_field_parsing() {
         let temp = TempDir::new();
-        let mut record = "malformed\\t".to_owned();
+        let mut record = "malformed\t".to_owned();
         record.push_str(&"x".repeat(MAX_JOURNAL_RECORD_BYTES));
         record.push('\n');
         write_journal_fixture(&temp.journal_path(), record.as_bytes());
