@@ -255,7 +255,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 &action.author,
             ))
         },
-        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
+        // The six grid index links are append-only for now. Domain state is
+        // represented by immutable records and validated offer/trade transitions;
+        // deleting an index must not silently rewrite discovery semantics.
+        FlatOp::RegisterDeleteLink { link_type, .. } => {
+            result_from_validation_error(grid_link_delete_validation_error(&link_type))
+        },
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
@@ -273,6 +278,23 @@ fn energy_anchor_hash(value: &str) -> AnyLinkableHash {
 fn offer_day_bucket(timestamp: Timestamp) -> i64 {
     const MICROS_PER_DAY: i64 = 86_400 * 1_000_000;
     timestamp.as_micros().div_euclid(MICROS_PER_DAY)
+}
+
+/// Grid indexes cannot be tombstoned until the app has explicit,
+/// tested repair and lifecycle rules. A seller must cancel an offer through its
+/// state transition; a link deletion is not a substitute for that transition.
+/// Recreating an index link remains possible if a link is accidentally missing.
+fn grid_link_delete_validation_error(link_type: &LinkTypes) -> Option<&'static str> {
+    match link_type {
+        LinkTypes::ProducerToProduction
+        | LinkTypes::ConsumerToConsumption
+        | LinkTypes::SellerToOffers
+        | LinkTypes::ActiveOffers
+        | LinkTypes::OfferToTrades
+        | LinkTypes::BuyerToTrades => Some(
+            "Grid index links are append-only; use domain state transitions instead of deleting links",
+        ),
+    }
 }
 
 fn grid_link_validation_error(
@@ -1268,6 +1290,27 @@ mod strict_validation_regression_tests {
             production_validation_error(&production),
             Some("New production records cannot claim verified status")
         );
+    }
+
+    #[test]
+    fn all_grid_index_link_deletions_fail_closed() {
+        let link_types = [
+            LinkTypes::ProducerToProduction,
+            LinkTypes::ConsumerToConsumption,
+            LinkTypes::SellerToOffers,
+            LinkTypes::ActiveOffers,
+            LinkTypes::OfferToTrades,
+            LinkTypes::BuyerToTrades,
+        ];
+        for link_type in link_types {
+            assert_eq!(
+                grid_link_delete_validation_error(&link_type),
+                Some(
+                    "Grid index links are append-only; use domain state transitions instead of deleting links"
+                ),
+                "link type {link_type:?} must not silently disappear from discovery"
+            );
+        }
     }
 
     #[test]
