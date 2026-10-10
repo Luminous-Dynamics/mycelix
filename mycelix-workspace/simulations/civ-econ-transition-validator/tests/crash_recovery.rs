@@ -17,6 +17,8 @@ const CHILD_MODE: &str = "MYCELIX_CIV_ECON_CRASH_TEST_CHILD";
 const JOURNAL_ENV: &str = "MYCELIX_CIV_ECON_CRASH_TEST_JOURNAL";
 const PROVIDER_ENV: &str = "MYCELIX_CIV_ECON_CRASH_TEST_PROVIDER_LOG";
 const EFFECT_ID: &str = "payment-crash-1";
+const PROVIDER_PROFILE_DIGEST: &str =
+    "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 const REQUEST_DIGEST: &str =
     "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const RECEIPT_DIGEST: &str =
@@ -57,7 +59,7 @@ fn dispatch_only_if_started(
     provider_path: &Path,
 ) -> BeginResult {
     let result = journal
-        .begin_effect(EFFECT_ID, REQUEST_DIGEST)
+        .begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST)
         .expect("begin or recover synthetic effect");
 
     if result == BeginResult::Started {
@@ -150,6 +152,7 @@ fn crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispa
             .acknowledge_effect(
                 EFFECT_ID,
                 REQUEST_DIGEST,
+                PROVIDER_PROFILE_DIGEST,
                 RECEIPT_DIGEST,
                 SOURCE_EVIDENCE_DIGEST,
             )
@@ -159,10 +162,11 @@ fn crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispa
     let mut verified =
         DurableEffectJournal::open(&journal_path).expect("reopen reconciled journal");
     assert_eq!(
-        verified.begin_effect(EFFECT_ID, REQUEST_DIGEST),
+        verified.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST),
         Ok(BeginResult::AlreadyAcknowledged {
             receipt_digest: RECEIPT_DIGEST.to_owned(),
             source_evidence_digest: Some(SOURCE_EVIDENCE_DIGEST.to_owned()),
+            provider_profile_digest: Some(PROVIDER_PROFILE_DIGEST.to_owned()),
         }),
     );
     let provider_effects_after_recovery: Vec<String> = fs::read_to_string(&provider_path)
@@ -193,7 +197,7 @@ fn acknowledged_receipt_survives_process_exit_before_caller_observes_success() {
         let mut journal =
             DurableEffectJournal::open(&journal_path).expect("open child journal");
         assert_eq!(
-            journal.begin_effect(EFFECT_ID, REQUEST_DIGEST),
+            journal.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST),
             Ok(BeginResult::Started),
         );
 
@@ -210,6 +214,7 @@ fn acknowledged_receipt_survives_process_exit_before_caller_observes_success() {
             .acknowledge_effect(
                 EFFECT_ID,
                 REQUEST_DIGEST,
+                PROVIDER_PROFILE_DIGEST,
                 RECEIPT_DIGEST,
                 SOURCE_EVIDENCE_DIGEST,
             )
@@ -250,10 +255,11 @@ fn acknowledged_receipt_survives_process_exit_before_caller_observes_success() {
     let mut recovered =
         DurableEffectJournal::open(&journal_path).expect("reopen acknowledged journal");
     assert_eq!(
-        recovered.begin_effect(EFFECT_ID, REQUEST_DIGEST),
+        recovered.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST),
         Ok(BeginResult::AlreadyAcknowledged {
             receipt_digest: RECEIPT_DIGEST.to_owned(),
             source_evidence_digest: Some(SOURCE_EVIDENCE_DIGEST.to_owned()),
+            provider_profile_digest: Some(PROVIDER_PROFILE_DIGEST.to_owned()),
         }),
         "recovery must return the exact receipt that was synchronized before exit",
     );
