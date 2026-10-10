@@ -28,6 +28,11 @@ From this directory:
 
 The crate has an isolated Cargo workspace and no third-party dependencies.
 
+The `EffectLedger` is intentionally an in-memory reference model: it can test
+same-process replay identity and request conflicts, but it is not durable across
+process restart and does not atomically commit an external side effect. Do not
+treat its tests as proof of exactly-once execution.
+
 ## Claim ceiling
 
 This is a reference validator, not a source of authority. It does not hash
@@ -37,7 +42,7 @@ verify conversion arithmetic from source data, establish legal discharge, or
 establish external settlement finality. Production work still needs the JSON
 adapter, live evidence bindings, and independent qualification.
 
-The 36 unit tests in this source are authored regression tests, not a PASS claim
+The unit tests in this source are authored regression tests, not a PASS claim
 until the exact-head CI run executes and succeeds. Even then, passing them proves
 only the local invariants actually tested, not end-to-end transition correctness
 or production readiness.

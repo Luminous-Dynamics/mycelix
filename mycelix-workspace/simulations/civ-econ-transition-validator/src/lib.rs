@@ -564,6 +564,9 @@ pub struct StageEvent {
     pub from: Stage,
     pub to: Stage,
     pub plan_digest: String,
+    /// Monotonic safety facts at this transition boundary.
+    pub effects_may_have_started: bool,
+    pub effect_frontier_resolved: bool,
 }
 
 pub struct TransitionMachine {
@@ -574,6 +577,10 @@ pub struct TransitionMachine {
     reconciliation_digest: Option<String>,
     reconciliation_passed: bool,
     unresolved_mandatory_items: usize,
+    /// Once true, later callers cannot erase possible execution by passing weaker evidence.
+    effects_may_have_started: bool,
+    /// Set only after the Reconciled stage validates a resolved effect frontier.
+    effect_frontier_resolved: bool,
     history: Vec<StageEvent>,
 }
 
@@ -587,6 +594,8 @@ impl TransitionMachine {
             reconciliation_digest: None,
             reconciliation_passed: false,
             unresolved_mandatory_items: 0,
+            effects_may_have_started: false,
+            effect_frontier_resolved: false,
             history: Vec::new(),
         }
     }
@@ -600,8 +609,14 @@ impl TransitionMachine {
             return Err(Violation::TerminalState);
         }
 
+        // Treat any credible indication that an effect may have started as
+        // monotonic. A later request cannot erase it by supplying weaker evidence.
+        if ev.cutover_effects_started {
+            self.effects_may_have_started = true;
+        }
+
         if next == Stage::Quarantined {
-            if ev.cutover_effects_started && !ev.effect_frontier_resolved {
+            if self.effects_may_have_started && !self.effect_frontier_resolved {
                 return Err(Violation::PossibleEffectMustBeIndeterminate);
             }
             if ev.quarantine_reason.as_deref().map(str::trim).filter(|s| !s.is_empty()).is_none() {
@@ -613,14 +628,17 @@ impl TransitionMachine {
             if !matches!(self.stage, Stage::Draft | Stage::Frozen | Stage::Simulated | Stage::Qualified | Stage::Authorized | Stage::PilotActive | Stage::CutoverReady) {
                 return Err(Violation::InvalidTransition { from: self.stage, to: next });
             }
-            if ev.cutover_effects_started {
+            if self.effects_may_have_started {
                 return Err(Violation::AbortAfterPossibleEffect);
             }
             return self.record_stage(next);
         }
         if next == Stage::Indeterminate {
-            if !ev.cutover_effects_started || ev.effect_frontier_resolved {
+            if !self.effects_may_have_started || self.effect_frontier_resolved {
                 return Err(Violation::IndeterminateWithoutPossibleEffect);
+            }
+            if !matches!(self.stage, Stage::CutoverReady | Stage::CutoverCommitted) {
+                return Err(Violation::InvalidTransition { from: self.stage, to: next });
             }
             return self.record_stage(next);
         }
@@ -741,6 +759,9 @@ impl TransitionMachine {
                 self.reconciliation_digest = Some(digest.to_owned());
                 self.reconciliation_passed = ev.reconciliation_passed;
                 self.unresolved_mandatory_items = ev.unresolved_mandatory_items;
+                // Crossing this gate means the uncertain effect frontier has
+                // been explicitly reconciled, even if the reconciliation failed.
+                self.effect_frontier_resolved = true;
             }
             (Stage::Reconciled, Stage::Completed) => {
                 if !ev.effect_frontier_resolved { return Err(Violation::EffectFrontierUnresolved); }
@@ -770,6 +791,8 @@ impl TransitionMachine {
             from: self.stage,
             to: next,
             plan_digest: self.manifest.plan_digest.clone(),
+            effects_may_have_started: self.effects_may_have_started,
+            effect_frontier_resolved: self.effect_frontier_resolved,
         });
         self.stage = next;
         Ok(())
@@ -1191,11 +1214,72 @@ mod tests {
         );
     }
 
-    #[test] fn indeterminate_requires_unresolved_effect_frontier() {
+    #[test] fn indeterminate_requires_unresolved_effect_frontier_after_cutover_boundary() {
         let mut m = TransitionMachine::new(manifest());
         assert_eq!(m.advance(Stage::Indeterminate, &ev()), Err(Violation::IndeterminateWithoutPossibleEffect));
         let mut e = ev(); e.cutover_effects_started = true;
-        assert_eq!(m.advance(Stage::Indeterminate, &e), Ok(()));
+        assert_eq!(m.advance(Stage::Indeterminate, &e), Err(Violation::InvalidTransition { from: Stage::Draft, to: Stage::Indeterminate }));
+
+        advance_to_authorized(&mut m);
+        let mut ready = ev();
+        ready.rights_floors_satisfied = true;
+        ready.resource_reservations_reconciled = true;
+        ready.external_obligations_accounted = true;
+        m.advance(Stage::CutoverReady, &ready).unwrap();
+        assert_eq!(m.advance(Stage::Indeterminate, &ev()), Err(Violation::IndeterminateWithoutPossibleEffect));
+        let mut possible = ev(); possible.cutover_effects_started = true;
+        assert_eq!(m.advance(Stage::Indeterminate, &possible), Ok(()));
+        assert_eq!(m.stage(), Stage::Indeterminate);
+    }
+
+    #[test] fn quarantine_cannot_hide_committed_effect_when_later_evidence_understates_it() {
+        let mut machine = TransitionMachine::new(manifest());
+        advance_to_authorized(&mut machine);
+        let mut ready = ev();
+        ready.rights_floors_satisfied = true;
+        ready.resource_reservations_reconciled = true;
+        ready.external_obligations_accounted = true;
+        machine.advance(Stage::CutoverReady, &ready).unwrap();
+
+        let mut commit = ev();
+        commit.cutover_effects_started = true;
+        commit.effect_receipts_durable = true;
+        machine.advance(Stage::CutoverCommitted, &commit).unwrap();
+
+        let mut later = ev();
+        later.quarantine_reason = Some("attempt to mask a possibly executed effect".into());
+        // Caller-provided per-call fields understate the machine's prior history.
+        later.cutover_effects_started = false;
+        later.effect_frontier_resolved = true;
+        assert_eq!(
+            machine.advance(Stage::Quarantined, &later),
+            Err(Violation::PossibleEffectMustBeIndeterminate)
+        );
+        assert_eq!(machine.stage(), Stage::CutoverCommitted);
+    }
+
+    #[test] fn failed_commit_attempt_remembers_possible_effect_and_forbids_abort() {
+        let mut machine = TransitionMachine::new(manifest());
+        advance_to_authorized(&mut machine);
+        let mut ready = ev();
+        ready.rights_floors_satisfied = true;
+        ready.resource_reservations_reconciled = true;
+        ready.external_obligations_accounted = true;
+        machine.advance(Stage::CutoverReady, &ready).unwrap();
+
+        let mut uncertain = ev();
+        uncertain.cutover_effects_started = true;
+        uncertain.effect_receipts_durable = false;
+        assert_eq!(
+            machine.advance(Stage::CutoverCommitted, &uncertain),
+            Err(Violation::EffectReceiptsNotDurable)
+        );
+        assert_eq!(machine.stage(), Stage::CutoverReady);
+        assert_eq!(
+            machine.advance(Stage::Aborted, &ev()),
+            Err(Violation::AbortAfterPossibleEffect)
+        );
+        assert_eq!(machine.advance(Stage::Indeterminate, &ev()), Ok(()));
     }
 
     #[test] fn unresolved_mandatory_residual_blocks_completion() {
