@@ -112,6 +112,15 @@ def audit(root: Path = ROOT) -> int:
             print(f"ERROR: required Finance source root missing: {path}", file=sys.stderr)
         return 2
 
+    try:
+        # Run before reading source files so no source symlink is followed by the
+        # ABI or caller scan. Content differences are reported after specific ABI
+        # and caller diagnostics; symlink/read failures stop the audit immediately.
+        projection_differences = compare_projection_files(canonical_zomes, workspace_zomes)
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
     # Audit the ABI itself as well as its consumers. Otherwise the caller census
     # could pass while an unrestricted raw-credit extern is accidentally restored.
     payments_coordinators = (
@@ -141,12 +150,6 @@ def audit(root: Path = ROOT) -> int:
         print(f"canonical: {canonical}")
         print(f"workspace: {workspace}")
         return 1
-
-    try:
-        projection_differences = compare_projection_files(canonical_zomes, workspace_zomes)
-    except RuntimeError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 2
 
     if projection_differences:
         print("FAIL: canonical and workspace Finance zome file projections differ.")
