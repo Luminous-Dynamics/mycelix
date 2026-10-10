@@ -342,11 +342,16 @@ mod tests {
     #[test]
     fn fixture_contains_distinct_records_for_the_same_media_resource() {
         let songs = mock_songs();
-        let original = songs.iter().find(|song| song.song_hash == "mock-1").unwrap();
-        let alternate = songs.iter().find(|song| song.song_hash == "mock-4").unwrap();
+        let original = songs
+            .iter()
+            .find(|song| song.song_hash == "mock-1")
+            .unwrap();
+        let alternate = songs
+            .iter()
+            .find(|song| song.song_hash == "mock-4")
+            .unwrap();
 
         assert_ne!(original.song_hash, alternate.song_hash);
         assert_eq!(original.audio_url(), alternate.audio_url());
     }
-
 }

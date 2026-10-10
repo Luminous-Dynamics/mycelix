@@ -99,12 +99,18 @@ fn QueuePanelInner() -> impl IntoView {
         let active_is_panel = active.as_ref().is_some_and(|active| {
             active.is_same_node(Some(panel.unchecked_ref::<web_sys::Node>()))
         });
-        let active_is_first = active.as_ref().zip(first.as_ref()).is_some_and(|(active, first)| {
-            active.is_same_node(Some(first.unchecked_ref::<web_sys::Node>()))
-        });
-        let active_is_last = active.as_ref().zip(last.as_ref()).is_some_and(|(active, last)| {
-            active.is_same_node(Some(last.unchecked_ref::<web_sys::Node>()))
-        });
+        let active_is_first = active
+            .as_ref()
+            .zip(first.as_ref())
+            .is_some_and(|(active, first)| {
+                active.is_same_node(Some(first.unchecked_ref::<web_sys::Node>()))
+            });
+        let active_is_last = active
+            .as_ref()
+            .zip(last.as_ref())
+            .is_some_and(|(active, last)| {
+                active.is_same_node(Some(last.unchecked_ref::<web_sys::Node>()))
+            });
 
         if ev.shift_key() && (active_is_panel || active_is_first) {
             ev.prevent_default();

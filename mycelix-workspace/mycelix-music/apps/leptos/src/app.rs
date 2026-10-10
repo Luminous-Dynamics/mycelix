@@ -323,8 +323,8 @@ fn queue_next_index(
 #[cfg(test)]
 mod player_queue_tests {
     use super::{
-        PlayerState, QueueRemovalAction, queue_next_index, queue_removal_action,
-        same_audio_source, same_media_resource,
+        PlayerState, QueueRemovalAction, queue_next_index, queue_removal_action, same_audio_source,
+        same_media_resource,
     };
     use crate::types::{AgentPubKey, RepeatMode, Song, Timestamp};
     use leptos::prelude::Owner;
@@ -411,7 +411,10 @@ mod player_queue_tests {
                 "https://ipfs.io/ipfs/QmNew".to_string()
             );
             assert_eq!(
-                player.current_song.get_untracked().map(|song| song.audio_url()),
+                player
+                    .current_song
+                    .get_untracked()
+                    .map(|song| song.audio_url()),
                 Some("https://ipfs.io/ipfs/QmNew".to_string())
             );
             assert_eq!(player.progress.get_untracked(), 0.0);
@@ -456,7 +459,13 @@ mod player_queue_tests {
             player.clear_queue();
 
             assert!(player.queue.get_untracked().is_empty());
-            assert_eq!(player.current_song.get_untracked().map(|song| song.song_hash), None);
+            assert_eq!(
+                player
+                    .current_song
+                    .get_untracked()
+                    .map(|song| song.song_hash),
+                None
+            );
             assert_eq!(player.queue_index.get_untracked(), None);
             assert!(!player.is_playing.get_untracked());
             assert_eq!(player.progress.get_untracked(), 0.0);
@@ -526,7 +535,10 @@ mod player_queue_tests {
             assert_eq!(player.queue.get_untracked().len(), 1);
             assert_eq!(player.queue_index.get_untracked(), Some(0));
             assert_eq!(
-                player.current_song.get_untracked().map(|song| song.audio_url()),
+                player
+                    .current_song
+                    .get_untracked()
+                    .map(|song| song.audio_url()),
                 Some("https://ipfs.io/ipfs/QmNew".to_string())
             );
             assert_eq!(player.progress.get_untracked(), 0.0);
@@ -556,7 +568,6 @@ mod player_queue_tests {
             assert!(player.is_playing.get_untracked());
         });
     }
-
 
     #[test]
     fn removing_track_before_current_shifts_index() {
@@ -625,10 +636,7 @@ mod player_queue_tests {
 
     #[test]
     fn absent_current_index_does_not_invent_a_selection() {
-        assert_eq!(
-            queue_removal_action(None, 0, 1),
-            QueueRemovalAction::Keep
-        );
+        assert_eq!(queue_removal_action(None, 0, 1), QueueRemovalAction::Keep);
     }
 
     #[test]
@@ -660,10 +668,7 @@ mod player_queue_tests {
 
     #[test]
     fn manual_next_at_last_track_stops_even_with_repeat_one() {
-        assert_eq!(
-            queue_next_index(Some(2), 3, &RepeatMode::One, false),
-            None
-        );
+        assert_eq!(queue_next_index(Some(2), 3, &RepeatMode::One, false), None);
     }
 
     #[test]
@@ -676,18 +681,12 @@ mod player_queue_tests {
 
     #[test]
     fn repeat_none_stops_at_end() {
-        assert_eq!(
-            queue_next_index(Some(2), 3, &RepeatMode::None, true),
-            None
-        );
+        assert_eq!(queue_next_index(Some(2), 3, &RepeatMode::None, true), None);
     }
 
     #[test]
     fn next_from_empty_queue_has_no_selection() {
-        assert_eq!(
-            queue_next_index(None, 0, &RepeatMode::All, true),
-            None
-        );
+        assert_eq!(queue_next_index(None, 0, &RepeatMode::All, true), None);
     }
 }
 

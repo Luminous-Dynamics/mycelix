@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
-use crate::app::{format_time, same_audio_source, PlayerState};
+use super::queue::QueuePanel;
+use crate::app::{PlayerState, format_time, same_audio_source};
 use crate::types::RepeatMode;
 use leptos::prelude::*;
-use super::queue::QueuePanel;
 
 /// True only when the browser has selected the expected media URL.
 /// An empty currentSrc is a loading state, not proof that the selected URL is active.
@@ -14,14 +14,9 @@ fn media_source_matches_expected(current_src: &str, expected_url: &str) -> bool 
 }
 
 /// A queued error is relevant only while the selected resource still reports an error.
-fn media_error_matches_source(
-    current_src: &str,
-    expected_url: &str,
-    error_present: bool,
-) -> bool {
+fn media_error_matches_source(current_src: &str, expected_url: &str, error_present: bool) -> bool {
     error_present && media_source_matches_expected(current_src, expected_url)
 }
-
 
 /// Attempt playback and observe the media promise instead of treating the
 /// synchronous JS call as proof that playback actually started. A stale reject
@@ -60,9 +55,7 @@ fn request_playback(
         Ok(promise) => {
             let player_for_result = player.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                if wasm_bindgen_futures::JsFuture::from(promise)
-                    .await
-                    .is_err()
+                if wasm_bindgen_futures::JsFuture::from(promise).await.is_err()
                     && attempt_generation.get_untracked() == generation
                     && player_for_result.is_playing.get_untracked()
                     && player_for_result
@@ -93,9 +86,10 @@ fn request_playback(
 /// True only when media events belong to the song currently selected in PlayerState.
 fn audio_matches_selected_source(audio: &web_sys::HtmlAudioElement, player: &PlayerState) -> bool {
     let current_src = audio.current_src();
-    player.current_song.get_untracked().is_some_and(|song| {
-        media_source_matches_expected(&current_src, &song.audio_url())
-    })
+    player
+        .current_song
+        .get_untracked()
+        .is_some_and(|song| media_source_matches_expected(&current_src, &song.audio_url()))
 }
 
 /// The Player effect owns the src attribute; reload only when its declared
@@ -157,9 +151,10 @@ pub fn Player() -> impl IntoView {
         let selected_identity = selected_song
             .as_ref()
             .map(|song| (song.song_hash.clone(), song.audio_url()));
-        if let (Some((previous_hash, previous_url)), Some(song)) =
-            (last_selected_identity.get_untracked(), selected_song.as_ref())
-        {
+        if let (Some((previous_hash, previous_url)), Some(song)) = (
+            last_selected_identity.get_untracked(),
+            selected_song.as_ref(),
+        ) {
             let selected_url = song.audio_url();
             if previous_hash != song.song_hash && previous_url == selected_url {
                 if let Some(audio) = audio_ref.get() {
@@ -261,11 +256,7 @@ pub fn Player() -> impl IntoView {
         if player_for_ready.is_playing.get_untracked() {
             if let Some(audio) = audio_ref.get() {
                 if audio_matches_selected_source(&audio, &player_for_ready) {
-                    request_playback(
-                        audio,
-                        player_for_ready.clone(),
-                        play_attempt_generation,
-                    );
+                    request_playback(audio, player_for_ready.clone(), play_attempt_generation);
                 }
             }
         }
@@ -293,11 +284,7 @@ pub fn Player() -> impl IntoView {
             )
         {
             audio.set_current_time(0.0);
-            request_playback(
-                audio,
-                player_for_end.clone(),
-                play_attempt_generation,
-            );
+            request_playback(audio, player_for_end.clone(), play_attempt_generation);
         }
     };
 
@@ -477,7 +464,10 @@ mod media_source_guard_tests {
 
     #[test]
     fn empty_current_source_is_not_playable_yet() {
-        assert!(!media_source_matches_expected("", "https://ipfs.io/ipfs/QmSong"));
+        assert!(!media_source_matches_expected(
+            "",
+            "https://ipfs.io/ipfs/QmSong"
+        ));
     }
 
     #[test]
