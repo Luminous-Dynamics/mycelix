@@ -1215,11 +1215,12 @@ mod tests {
     }
 
     #[test] fn indeterminate_requires_unresolved_effect_frontier_after_cutover_boundary() {
-        let mut m = TransitionMachine::new(manifest());
-        assert_eq!(m.advance(Stage::Indeterminate, &ev()), Err(Violation::IndeterminateWithoutPossibleEffect));
-        let mut e = ev(); e.cutover_effects_started = true;
-        assert_eq!(m.advance(Stage::Indeterminate, &e), Err(Violation::InvalidTransition { from: Stage::Draft, to: Stage::Indeterminate }));
+        let mut invalid = TransitionMachine::new(manifest());
+        assert_eq!(invalid.advance(Stage::Indeterminate, &ev()), Err(Violation::IndeterminateWithoutPossibleEffect));
+        let mut premature = ev(); premature.cutover_effects_started = true;
+        assert_eq!(invalid.advance(Stage::Indeterminate, &premature), Err(Violation::InvalidTransition { from: Stage::Draft, to: Stage::Indeterminate }));
 
+        let mut m = TransitionMachine::new(manifest());
         advance_to_authorized(&mut m);
         let mut ready = ev();
         ready.rights_floors_satisfied = true;
