@@ -20,6 +20,369 @@ struct Pin {
     blob: &'static str,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+enum JsonValue {
+    Object(std::collections::BTreeMap<String, JsonValue>),
+    Array(Vec<JsonValue>),
+    String(String),
+    Number(String),
+    Boolean(bool),
+    Null,
+}
+
+struct JsonParser<'a> {
+    bytes: &'a [u8],
+    cursor: usize,
+}
+
+impl<'a> JsonParser<'a> {
+    fn new(bytes: &'a [u8]) -> Self {
+        Self { bytes, cursor: 0 }
+    }
+
+    fn skip_ws(&mut self) {
+        while matches!(self.bytes.get(self.cursor), Some(b' ' | b'\n' | b'\r' | b'\t')) {
+            self.cursor += 1;
+        }
+    }
+
+    fn parse(mut self) -> Result<JsonValue, String> {
+        let value = self.parse_value(0)?;
+        self.skip_ws();
+        if self.cursor != self.bytes.len() {
+            return Err(format!("unexpected trailing JSON at byte {}", self.cursor));
+        }
+        Ok(value)
+    }
+
+    fn parse_value(&mut self, depth: usize) -> Result<JsonValue, String> {
+        if depth > 64 {
+            return Err("JSON nesting exceeds the maximum depth".to_string());
+        }
+        self.skip_ws();
+        match self.bytes.get(self.cursor).copied() {
+            Some(b'{') => self.parse_object(depth + 1),
+            Some(b'[') => self.parse_array(depth + 1),
+            Some(b'"') => self.parse_string().map(JsonValue::String),
+            Some(b't') => {
+                self.expect_literal(b"true")?;
+                Ok(JsonValue::Boolean(true))
+            }
+            Some(b'f') => {
+                self.expect_literal(b"false")?;
+                Ok(JsonValue::Boolean(false))
+            }
+            Some(b'n') => {
+                self.expect_literal(b"null")?;
+                Ok(JsonValue::Null)
+            }
+            Some(b'-' | b'0'..=b'9') => self.parse_number().map(JsonValue::Number),
+            Some(_) => Err(format!("unexpected JSON token at byte {}", self.cursor)),
+            None => Err("unexpected end of JSON".to_string()),
+        }
+    }
+
+    fn parse_object(&mut self, depth: usize) -> Result<JsonValue, String> {
+        self.cursor += 1;
+        self.skip_ws();
+        let mut entries = std::collections::BTreeMap::new();
+        if self.bytes.get(self.cursor) == Some(&b'}') {
+            self.cursor += 1;
+            return Ok(JsonValue::Object(entries));
+        }
+
+        loop {
+            self.skip_ws();
+            if self.bytes.get(self.cursor) != Some(&b'"') {
+                return Err(format!("object key must be a JSON string at byte {}", self.cursor));
+            }
+            let key = self.parse_string()?;
+            self.skip_ws();
+            if self.bytes.get(self.cursor) != Some(&b':') {
+                return Err(format!("expected ':' after object key at byte {}", self.cursor));
+            }
+            self.cursor += 1;
+            let value = self.parse_value(depth)?;
+            if entries.insert(key.clone(), value).is_some() {
+                return Err(format!("duplicate JSON object key: {key}"));
+            }
+            self.skip_ws();
+            match self.bytes.get(self.cursor) {
+                Some(b',') => self.cursor += 1,
+                Some(b'}') => {
+                    self.cursor += 1;
+                    break;
+                }
+                _ => return Err(format!("expected ',' or '}}' at byte {}", self.cursor)),
+            }
+        }
+        Ok(JsonValue::Object(entries))
+    }
+
+    fn parse_array(&mut self, depth: usize) -> Result<JsonValue, String> {
+        self.cursor += 1;
+        self.skip_ws();
+        let mut values = Vec::new();
+        if self.bytes.get(self.cursor) == Some(&b']') {
+            self.cursor += 1;
+            return Ok(JsonValue::Array(values));
+        }
+
+        loop {
+            values.push(self.parse_value(depth)?);
+            self.skip_ws();
+            match self.bytes.get(self.cursor) {
+                Some(b',') => self.cursor += 1,
+                Some(b']') => {
+                    self.cursor += 1;
+                    break;
+                }
+                _ => return Err(format!("expected ',' or ']' at byte {}", self.cursor)),
+            }
+        }
+        Ok(JsonValue::Array(values))
+    }
+
+    fn parse_string(&mut self) -> Result<String, String> {
+        if self.bytes.get(self.cursor) != Some(&b'"') {
+            return Err(format!("expected JSON string at byte {}", self.cursor));
+        }
+        self.cursor += 1;
+        let mut output = String::new();
+
+        loop {
+            let byte = *self
+                .bytes
+                .get(self.cursor)
+                .ok_or_else(|| "unterminated JSON string".to_string())?;
+            match byte {
+                b'"' => {
+                    self.cursor += 1;
+                    return Ok(output);
+                }
+                b'\\' => {
+                    self.cursor += 1;
+                    let escape = *self
+                        .bytes
+                        .get(self.cursor)
+                        .ok_or_else(|| "unterminated JSON escape".to_string())?;
+                    self.cursor += 1;
+                    match escape {
+                        b'"' => output.push('"'),
+                        b'\\' => output.push('\\'),
+                        b'/' => output.push('/'),
+                        b'b' => output.push('\u{0008}'),
+                        b'f' => output.push('\u{000c}'),
+                        b'n' => output.push('\n'),
+                        b'r' => output.push('\r'),
+                        b't' => output.push('\t'),
+                        b'u' => {
+                            let first = self.parse_hex_u16()?;
+                            let codepoint = if (0xD800..=0xDBFF).contains(&first) {
+                                if self.bytes.get(self.cursor..self.cursor + 2) != Some(b"\\u") {
+                                    return Err("high surrogate is missing a low surrogate".to_string());
+                                }
+                                self.cursor += 2;
+                                let second = self.parse_hex_u16()?;
+                                if !(0xDC00..=0xDFFF).contains(&second) {
+                                    return Err("invalid low surrogate in JSON escape".to_string());
+                                }
+                                0x10000
+                                    + (((u32::from(first) - 0xD800) << 10)
+                                        | (u32::from(second) - 0xDC00))
+                            } else if (0xDC00..=0xDFFF).contains(&first) {
+                                return Err("unexpected low surrogate in JSON escape".to_string());
+                            } else {
+                                u32::from(first)
+                            };
+                            output.push(
+                                char::from_u32(codepoint)
+                                    .ok_or_else(|| "invalid Unicode scalar in JSON string".to_string())?,
+                            );
+                        }
+                        _ => return Err(format!("invalid JSON escape byte: {escape}")),
+                    }
+                }
+                0x00..=0x1F => return Err("unescaped control byte in JSON string".to_string()),
+                0x20..=0x7F => {
+                    output.push(char::from(byte));
+                    self.cursor += 1;
+                }
+                _ => {
+                    let remainder = std::str::from_utf8(&self.bytes[self.cursor..])
+                        .map_err(|error| format!("invalid UTF-8 in JSON string: {error}"))?;
+                    let ch = remainder
+                        .chars()
+                        .next()
+                        .ok_or_else(|| "unexpected end of UTF-8 JSON string".to_string())?;
+                    output.push(ch);
+                    self.cursor += ch.len_utf8();
+                }
+            }
+        }
+    }
+
+    fn parse_hex_u16(&mut self) -> Result<u16, String> {
+        let end = self.cursor.saturating_add(4);
+        let digits = self
+            .bytes
+            .get(self.cursor..end)
+            .ok_or_else(|| "truncated Unicode escape".to_string())?;
+        let text = std::str::from_utf8(digits)
+            .map_err(|error| format!("invalid Unicode escape: {error}"))?;
+        let value = u16::from_str_radix(text, 16)
+            .map_err(|_| format!("invalid Unicode escape: {text}"))?;
+        self.cursor = end;
+        Ok(value)
+    }
+
+    fn parse_number(&mut self) -> Result<String, String> {
+        let start = self.cursor;
+        if self.bytes.get(self.cursor) == Some(&b'-') {
+            self.cursor += 1;
+        }
+        match self.bytes.get(self.cursor) {
+            Some(b'0') => {
+                self.cursor += 1;
+                if matches!(self.bytes.get(self.cursor), Some(b'0'..=b'9')) {
+                    return Err("JSON number has a leading zero".to_string());
+                }
+            }
+            Some(b'1'..=b'9') => {
+                self.cursor += 1;
+                while matches!(self.bytes.get(self.cursor), Some(b'0'..=b'9')) {
+                    self.cursor += 1;
+                }
+            }
+            _ => return Err(format!("malformed JSON number at byte {start}")),
+        }
+        if self.bytes.get(self.cursor) == Some(&b'.') {
+            self.cursor += 1;
+            let fraction_start = self.cursor;
+            while matches!(self.bytes.get(self.cursor), Some(b'0'..=b'9')) {
+                self.cursor += 1;
+            }
+            if fraction_start == self.cursor {
+                return Err("JSON number has an empty fractional part".to_string());
+            }
+        }
+        if matches!(self.bytes.get(self.cursor), Some(b'e' | b'E')) {
+            self.cursor += 1;
+            if matches!(self.bytes.get(self.cursor), Some(b'+' | b'-')) {
+                self.cursor += 1;
+            }
+            let exponent_start = self.cursor;
+            while matches!(self.bytes.get(self.cursor), Some(b'0'..=b'9')) {
+                self.cursor += 1;
+            }
+            if exponent_start == self.cursor {
+                return Err("JSON number has an empty exponent".to_string());
+            }
+        }
+        let text = std::str::from_utf8(&self.bytes[start..self.cursor])
+            .map_err(|error| format!("invalid JSON number: {error}"))?;
+        Ok(text.to_string())
+    }
+
+    fn expect_literal(&mut self, literal: &[u8]) -> Result<(), String> {
+        if self.bytes.get(self.cursor..self.cursor + literal.len()) != Some(literal) {
+            return Err(format!("invalid JSON literal at byte {}", self.cursor));
+        }
+        self.cursor += literal.len();
+        Ok(())
+    }
+}
+
+fn object_field<'a>(value: &'a JsonValue, key: &str) -> Result<&'a JsonValue, String> {
+    match value {
+        JsonValue::Object(fields) => fields
+            .get(key)
+            .ok_or_else(|| format!("policy field is missing: {key}")),
+        _ => Err(format!("policy value containing {key} is not an object")),
+    }
+}
+
+fn string_field<'a>(value: &'a JsonValue, key: &str) -> Result<&'a str, String> {
+    match object_field(value, key)? {
+        JsonValue::String(text) => Ok(text),
+        _ => Err(format!("policy field {key} is not a string")),
+    }
+}
+
+fn validate_policy_contract(bytes: &[u8]) -> Result<(), String> {
+    let policy = JsonParser::new(bytes).parse()?;
+    let policy_object = match &policy {
+        JsonValue::Object(fields) => fields,
+        _ => return Err("trusted policy root is not a JSON object".to_string()),
+    };
+
+    if policy_object.get("policy_version") != Some(&JsonValue::Number("62".to_string())) {
+        return Err("trusted policy version is not the reviewed version 62".to_string());
+    }
+    if string_field(&policy, "claim_ceiling")? != "ReferenceModelOnly" {
+        return Err("trusted policy claim ceiling mismatch".to_string());
+    }
+
+    let identity = object_field(&policy, "repository_identity")?;
+    if string_field(identity, "full_name")? != "Luminous-Dynamics/mycelix"
+        || object_field(identity, "repository_id")? != &JsonValue::Number("1176351975".to_string())
+    {
+        return Err("trusted policy repository identity mismatch".to_string());
+    }
+
+    let expected_programs: std::collections::BTreeMap<_, _> = TRUSTED_PINS
+        .iter()
+        .filter(|pin| pin.path.starts_with("scripts/integral/"))
+        .map(|pin| (pin.path, pin.blob))
+        .collect();
+    let declared_programs_value = object_field(&policy, "trusted_programs")?;
+    let declared_programs = match declared_programs_value {
+        JsonValue::Object(programs) => programs,
+        _ => return Err("trusted_programs is not an object".to_string()),
+    };
+    if declared_programs.len() != expected_programs.len()
+        || declared_programs.keys().any(|key| !expected_programs.contains_key(key.as_str()))
+    {
+        return Err("trusted_programs keys differ from the exact five-program closure".to_string());
+    }
+    for (path, expected_blob) in expected_programs {
+        let entry = object_field(declared_programs_value, path)?;
+        if string_field(entry, "path")? != path {
+            return Err(format!("trusted_programs path alias mismatch: {path}"));
+        }
+        if string_field(entry, "blob_sha")? != expected_blob {
+            return Err(format!("trusted_programs blob mismatch: {path}"));
+        }
+    }
+
+    let workflow_pin = TRUSTED_PINS
+        .iter()
+        .find(|pin| pin.path == ".github/workflows/d6u-trusted-evidence-attestation.yml")
+        .ok_or_else(|| "internal trusted workflow pin is missing".to_string())?;
+    let declared_workflow = object_field(&policy, "trusted_workflow")?;
+    if string_field(declared_workflow, "path")? != workflow_pin.path
+        || string_field(declared_workflow, "blob_sha")? != workflow_pin.blob
+    {
+        return Err("trusted_workflow path/blob differs from its independent pin".to_string());
+    }
+
+    for (alias, path) in [
+        ("trusted_artifact_fetcher", "scripts/integral/fetch_d6u_trusted_artifact.py"),
+        ("trusted_attestation_verifier", "scripts/integral/verify_d6u_trusted_attestation.py"),
+    ] {
+        let pin = TRUSTED_PINS
+            .iter()
+            .find(|pin| pin.path == path)
+            .ok_or_else(|| format!("internal alias target pin is missing: {path}"))?;
+        let value = object_field(&policy, alias)?;
+        if string_field(value, "path")? != path || string_field(value, "blob_sha")? != pin.blob {
+            return Err(format!("policy alias path/blob mismatch: {alias}"));
+        }
+    }
+
+    Ok(())
+}
+
 // These values are intentionally literal. The source file itself is independently
 // blob-pinned by the calling workflow. Updating any pin requires reviewing the
 // policy and the complete trust closure, not just accepting a new digest.
