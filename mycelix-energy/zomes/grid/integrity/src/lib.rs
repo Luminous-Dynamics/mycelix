@@ -100,65 +100,90 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Main validation callback using FlatOp pattern
+/// Validate a new app entry and the action that publishes it. Shared by
+/// StoreEntry and StoreRecord so the entry and action authorities enforce the
+/// same structural and identity invariants.
+fn validate_create_app_entry(
+    app_entry: EntryTypes,
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::EnergyProduction(production) => {
+            validate_create_energy_production(EntryCreationAction::Create(action), production)
+        }
+        EntryTypes::EnergyConsumption(consumption) => {
+            validate_create_energy_consumption(EntryCreationAction::Create(action), consumption)
+        }
+        EntryTypes::TradeOffer(offer) => {
+            validate_create_trade_offer(EntryCreationAction::Create(action), offer)
+        }
+        EntryTypes::Trade(trade) => {
+            validate_create_trade(EntryCreationAction::Create(action), trade)
+        }
+    }
+}
+
+/// Validate an app-entry update through every DHT operation that carries it.
+fn validate_update_app_entry(
+    app_entry: EntryTypes,
+    action: Update,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::EnergyProduction(_) => Ok(ValidateCallbackResult::Invalid(
+            "Production records cannot be updated".into(),
+        )),
+        EntryTypes::EnergyConsumption(_) => Ok(ValidateCallbackResult::Invalid(
+            "Consumption records cannot be updated".into(),
+        )),
+        EntryTypes::TradeOffer(offer) => validate_update_trade_offer(action, offer),
+        EntryTypes::Trade(trade) => validate_update_trade(action, trade),
+    }
+}
+
+/// Main validation callback. Holochain sends each authored action through
+/// multiple DHT operations, including StoreRecord, StoreEntry, and
+/// RegisterUpdate. Enforce the same entry invariants on every path carrying
+/// the app entry, rather than letting the action authority accept a record
+/// that the entry authority rejects.
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => {
-                match app_entry {
-                    EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                    EntryTypes::EnergyProduction(production) => {
-                        validate_create_energy_production(EntryCreationAction::Create(action), production)
-                    }
-                    EntryTypes::EnergyConsumption(consumption) => {
-                        validate_create_energy_consumption(EntryCreationAction::Create(action), consumption)
-                    }
-                    EntryTypes::TradeOffer(offer) => {
-                        validate_create_trade_offer(EntryCreationAction::Create(action), offer)
-                    }
-                    EntryTypes::Trade(trade) => {
-                        validate_create_trade(EntryCreationAction::Create(action), trade)
-                    }
-                }
+                validate_create_app_entry(app_entry, action)
             }
             OpEntry::UpdateEntry { app_entry, action, .. } => {
-                match app_entry {
-                    EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                    EntryTypes::EnergyProduction(_) => {
-                        Ok(ValidateCallbackResult::Invalid(
-                            "Production records cannot be updated".into(),
-                        ))
-                    }
-                    EntryTypes::EnergyConsumption(_) => {
-                        Ok(ValidateCallbackResult::Invalid(
-                            "Consumption records cannot be updated".into(),
-                        ))
-                    }
-                    EntryTypes::TradeOffer(offer) => {
-                        validate_update_trade_offer(action, offer)
-                    }
-                    EntryTypes::Trade(trade) => {
-                        validate_update_trade(action, trade)
-                    }
-                }
+                validate_update_app_entry(app_entry, action)
             }
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, .. } => {
-            match link_type {
-                LinkTypes::ProducerToProduction => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::ConsumerToConsumption => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::SellerToOffers => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::ActiveOffers => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::OfferToTrades => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::BuyerToTrades => Ok(ValidateCallbackResult::Valid),
+        FlatOp::StoreRecord(record) => match record {
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_create_app_entry(app_entry, action)
             }
-        }
+            OpRecord::UpdateEntry { app_entry, action, .. } => {
+                validate_update_app_entry(app_entry, action)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterUpdate(update) => match update {
+            OpUpdate::Entry { app_entry, action } => {
+                validate_update_app_entry(app_entry, action)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterCreateLink { link_type, .. } => match link_type {
+            LinkTypes::ProducerToProduction
+            | LinkTypes::ConsumerToConsumption
+            | LinkTypes::SellerToOffers
+            | LinkTypes::ActiveOffers
+            | LinkTypes::OfferToTrades
+            | LinkTypes::BuyerToTrades => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
