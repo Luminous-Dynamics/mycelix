@@ -221,6 +221,8 @@ class RawCreditCallerAuditTests(unittest.TestCase):
         ci_pass = workflow[ci_pass_start:ci_pass_end]
         self.assertIn("- changes", ci_pass)
         self.assertIn("- finance-raw-credit-caller-audit", ci_pass)
+        check_results_start = workflow.index("      - name: Check results", ci_pass_start)
+        check_results = workflow[check_results_start:]
         failure_loop_start = workflow.index("for result in ", ci_pass_start)
         failure_loop = workflow[failure_loop_start:]
         self.assertIn(
