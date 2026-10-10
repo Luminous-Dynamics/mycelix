@@ -37,7 +37,7 @@ verify conversion arithmetic from source data, establish legal discharge, or
 establish external settlement finality. Production work still needs the JSON
 adapter, live evidence bindings, and independent qualification.
 
-The 34 unit tests in this source are authored regression tests, not a PASS claim
+The 36 unit tests in this source are authored regression tests, not a PASS claim
 until the exact-head CI run executes and succeeds. Even then, passing them proves
 only the local invariants actually tested, not end-to-end transition correctness
 or production readiness.

@@ -257,7 +257,7 @@ The evidence chain distinguishes:
 - independent evaluation of that exact output and corpus;
 - the evaluator's own report digest and receipt.
 
-The evaluator's report digest is not the simulation output digest. JSON Schema can require each object and its shape, but equality between cross-object digests, unique inventory-to-mapping coverage, signatures, current authority, and live effect evidence require executable semantic verification. Thirty-four reference unit tests have been authored for the current Rust source; no test PASS is claimed until its exact-head CI job completes successfully.
+The evaluator's report digest is not the simulation output digest. JSON Schema can require each object and its shape, but equality between cross-object digests, unique inventory-to-mapping coverage, signatures, current authority, and live effect evidence require executable semantic verification. Thirty-six reference unit tests have been authored for the current Rust source; no test PASS is claimed until its exact-head CI job completes successfully.
 
 ## 10. Existing standards and empirical boundary
 
