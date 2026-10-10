@@ -209,6 +209,7 @@ The latest inspected AC-176 source SHA is `2b7283a0b098a0c519b4e91f2663b55e76df0
 - The standard-library regression suite now has **fourteen cases**: public raw-credit ABI detection; interposed outer attributes; exclusion of a private helper and unrelated extern; multiline/alternate constructor patterns; Rust raw-string literals; line-number reporting; coordinator/integrity scope boundaries; full-audit rejection of restored public ABI, the four known caller literals and mirror drift; and clean/private success.
 - A locally reconstructed harness for the current audit logic passed all fourteen cases. A synthetic two-projection source tree with the four known caller patterns made the full audit exit non-zero and reported four matching literals in each projection, as intended. This is local harness evidence, not a local repository checkout or hosted test run.
 - A fresh GitHub source fetch confirms canonical/workspace content is byte-identical for each caller source, with the same four raw callsites: `currency-mint:179`, `bridge:663`, `bridge:2417`, and `staking:379`.
+- A separate exact-subject census fetched all **18 non-Payments Finance coordinator Rust files** and scanned the broader raw/normal string-literal pattern. It found exactly four literals, at those same locations, and no additional literal-form callers. The commit tree reports matching canonical/workspace blob SHAs for every mirrored coordinator file.
 
 This does not establish that Rust/Sweettest/WASM qualification ran on the exact repository checkout.
 
