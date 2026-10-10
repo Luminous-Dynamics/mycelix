@@ -1130,7 +1130,7 @@ mod cross_zome_tests {
         let offer: TradeOffer = decode_entry(&offer_record).expect("decode offer");
 
         let trade_input = ExecuteTradeInput {
-            offer_id: offer.id,
+            offer_id: offer.id.clone(),
             buyer_did: "did:mycelix:forged-buyer".to_string(),
             amount_kwh: 400.0,
         };
