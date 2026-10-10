@@ -39,8 +39,12 @@ digest; acknowledgements also bind the receipt and source-evidence digests. Lega
 J1/J2 entries replay with no provider-profile binding and may not be automatically
 resumed or acknowledged under a caller-selected provider: they require explicit
 reconciliation. Legacy acknowledgements report absent bindings as `None`, rather
-than upgrading their evidence claim. The journal refuses concurrent cooperating
-writers with a PID-marked sidecar lock and fails closed on truncated/corrupt history.
+than upgrading their evidence claim. Startup replay is streaming: a bounded reader
+processes one newline-terminated record at a time (maximum 4,096 record bytes and
+1,024 decoded effect-ID bytes), rejects an unterminated final record, and does not
+create a second in-memory copy of the complete journal. The effect index itself
+still grows with the number of distinct effect IDs. The journal refuses concurrent
+cooperating writers with a PID-marked sidecar lock and fails closed on truncated/corrupt history.
 A surviving Pending record after restart is a reconciliation requirement, never
 permission to dispatch again.
 
