@@ -83,6 +83,23 @@ This is a directly visible implementation gap, not a conclusion inferred from te
 
 Source: https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/zomes/payments/integrity/src/lib.rs
 
+### 4a. Align implementation work with existing exact-head Finance tracks
+
+This gap already has substantial tracked work; do not open a parallel implementation path or treat the presence of a design kernel as a migrated ledger:
+
+- [#4519 / AC-176](https://github.com/Luminous-Dynamics/mycelix/issues/4519) tracks removal of public arbitrary SAP credit.
+- [#4520](https://github.com/Luminous-Dynamics/mycelix/pull/4520) is the stacked source PR that makes `credit_sap` private; [#4521](https://github.com/Luminous-Dynamics/mycelix/pull/4521) is its qualification-only mirror.
+- [#4110 / AC-092](https://github.com/Luminous-Dynamics/mycelix/issues/4110) and [#654 / FIN-SAFE-012](https://github.com/Luminous-Dynamics/mycelix/issues/654) track typed provenance, predecessor binding, balance deltas and fork-explicit state.
+- [#4594 / AC-153](https://github.com/Luminous-Dynamics/mycelix/pull/4594) is the cause-bound/conservation-aware balance update tranche.
+- [#4662 / FIN-SAFE-013 kernel](https://github.com/Luminous-Dynamics/mycelix/pull/4662) and [#4708](https://github.com/Luminous-Dynamics/mycelix/pull/4708) add a pure economic-effect theorem layer; their own claim ceilings state that this does not migrate legacy SAP or raw `credit_sap`.
+- [#4664 / AC-153E](https://github.com/Luminous-Dynamics/mycelix/issues/4664) tracks prevention of compound mutation classes in one balance successor.
+
+When checked on 2026-10-10, the above source/qualification PRs were still open and stacked rather than merged to `main`. Accordingly, the current `main` paths still expose the legacy public credit primitive; the existence of a source PR or a qualification PR is not evidence that the behavior has landed or passed exact-head execution.
+
+**Additional caller-census finding raised in #4520:** the PR patch removes `#[hdk_extern]` from the two payments coordinator copies, but the same branch still contains cross-zome calls to `payments::credit_sap` in the bridge collateral-deposit path, bridge fiat-deposit verification path, and staking return path. These calls are dynamically dispatched by zome/function name and will not be caught by a Rust compile. The finding was posted for review on [PR #4520](https://github.com/Luminous-Dynamics/mycelix/pull/4520). Before that change is qualified, either migrate those paths to explicitly authorized source-specific entrypoints or prove, by exact-head multi-zome runtime tests, that each path has been replaced. The qualification-only changed-file list does not include the bridge or staking coordinator files.
+
+**Sequencing decision:** use the existing AC-176 / AC-153 / FIN-SAFE track and its exact-head gates as the source of truth. The new comparative research should feed those tracks (e.g. interoperability mapping and claim/reveal protocol design); it should not create a competing credit/conservation implementation. Do not call the SAP ledger conserved, exactly-once, or fully provenance-bound until the precise integrated subject passes its required validation/runtime evidence.
+
 ### 5. Resolve licensing ambiguity before copying code
 
 The Finance README currently says Apache-2.0 at its footer, while its `Cargo.toml`, source SPDX header, Finance `LICENSE`, and root `LICENSING.md` identify the Finance cluster as AGPL-3.0-or-later. This review corrects the stale Finance README footer in the accompanying change.
