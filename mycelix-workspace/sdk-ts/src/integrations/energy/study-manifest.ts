@@ -136,7 +136,8 @@ function requireText(value: unknown, field: string): string {
     value.length === 0 ||
     !isWellFormedUnicode(value) ||
     encoder.encode(value).byteLength > MAX_TEXT_BYTES ||
-    value.trim() !== value ||
+    value.startsWith(' ') ||
+    value.endsWith(' ') ||
     /[\u0000-\u001f\u007f-\u009f]/u.test(value)
   ) {
     throw new EnergyStudyManifestError(
@@ -264,9 +265,10 @@ export function validateEnergyStudyManifestV1(
   requireText(manifest.case_id, 'case_id');
   requireText(manifest.region_id, 'region_id');
 
+  const startUnixSeconds = manifest.start_unix_seconds;
   if (
-    typeof manifest.start_unix_seconds !== 'number' ||
-    !Number.isSafeInteger(manifest.start_unix_seconds)
+    typeof startUnixSeconds !== 'number' ||
+    !Number.isSafeInteger(startUnixSeconds)
   ) {
     throw new EnergyStudyManifestError(
       'TIME_OUTSIDE_PORTABLE_RANGE',
@@ -285,7 +287,7 @@ export function validateEnergyStudyManifestV1(
       'study duration is outside the exact cross-language integer range'
     );
   }
-  const endSeconds = manifest.start_unix_seconds + durationSeconds;
+  const endSeconds = startUnixSeconds + durationSeconds;
   if (!Number.isSafeInteger(endSeconds)) {
     throw new EnergyStudyManifestError(
       'TIME_OUTSIDE_PORTABLE_RANGE',
