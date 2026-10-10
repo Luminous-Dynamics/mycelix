@@ -32,13 +32,17 @@ The crate has an isolated Cargo workspace and no third-party dependencies.
 
 The `EffectLedger` in `lib.rs` remains an in-memory reference model. The new
 `durable_journal::DurableEffectJournal` persists begin, indeterminate, and
-acknowledgement records to an append-only local file. It reads legacy J1 records
-and writes J2 records, syncing each before returning success. New J2 acknowledgements
-bind both the provider receipt digest and source-evidence digest; a legacy J1
-acknowledgement replays with no source-evidence binding and reports that absence
-explicitly. It refuses concurrent cooperating writers with a PID-marked sidecar
-lock and fails closed on truncated/corrupt history. A surviving Pending record
-after restart is a reconciliation requirement, never permission to dispatch again.
+acknowledgement records to an append-only local file. It reads legacy J1/J2
+records and writes J3 records, syncing each before returning success. New J3
+begin/indeterminate/acknowledgement records bind the operation to a provider-profile
+digest; acknowledgements also bind the receipt and source-evidence digests. Legacy
+J1/J2 entries replay with no provider-profile binding and may not be automatically
+resumed or acknowledged under a caller-selected provider: they require explicit
+reconciliation. Legacy acknowledgements report absent bindings as `None`, rather
+than upgrading their evidence claim. The journal refuses concurrent cooperating
+writers with a PID-marked sidecar lock and fails closed on truncated/corrupt history.
+A surviving Pending record after restart is a reconciliation requirement, never
+permission to dispatch again.
 
 The integration tests in `tests/crash_recovery.rs` launch child processes to
 exercise two distinct crash windows: after a synthetic external effect but before
@@ -64,8 +68,8 @@ of a verified adapter and the future transition driver.
 
 This journal is not tamper-evident: it does not hash-chain or sign the log,
 and it stores supplied request, receipt, and source-evidence digests without
-authenticating the provider or independently verifying the source evidence. J2
-preserves the source-evidence digest alongside the receipt digest; digest presence
+authenticating the provider or independently verifying the source evidence. J3
+preserves the provider-profile and source-evidence digests alongside the receipt digest; digest presence
 alone is not proof that the underlying event occurred. On Unix, new journal and
 lock files are created with owner-only mode (0600), and an existing journal with
 group/other permission bits is rejected. The parent directory must still be trusted and protected against
