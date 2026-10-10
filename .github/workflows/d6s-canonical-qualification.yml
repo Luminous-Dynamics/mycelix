@@ -32,7 +32,6 @@ jobs:
         with:
           ref: ${{ env.QUALIFIED_SHA }}
           persist-credentials: false
-          persist-credentials: false
 
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
@@ -94,8 +93,8 @@ jobs:
             echo "rust_action_sha=e97e2d8cc328f1b50210efc529dca0028893a2d9"
             echo "rust_action_toolchain=1.96.0"
             echo "rust_expected_version=rustc 1.96.0 (ac68faa20 2026-05-25)"
-            echo "checkout_action_sha=11bd71901bbe5b1630ceea73d27597364c9af683"
-            echo "upload_artifact_action_sha=ea165f8d65b6e75b540449e92b4886f43607fa02"
+            echo "checkout_action_sha=3d3c42e5aac5ba805825da76410c181273ba90b1"
+            echo "upload_artifact_action_sha=cf430e030ddbb5b0abf93d22962f4752f3646cd9"
             echo "rust=$(rustc --version)"
             echo "rust_verbose_commit=$(rustc --version --verbose | sed -n 's/^commit-hash: //p')"
             echo "cargo=$(cargo --version)"
