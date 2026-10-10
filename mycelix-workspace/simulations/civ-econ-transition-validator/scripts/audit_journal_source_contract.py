@@ -88,6 +88,7 @@ check("Cargo.lock resolves the local validator package", 'name = "civ-econ-trans
 check("locked Cargo input is included in report hash set", "MANIFEST_PATH, LOCKFILE_PATH, README_PATH" in audit_script)
 check("README states measurements are not established yet", "has not itself established performance numbers" in " ".join(readme.split()))
 check("README documents how to run source preflight", "python3 scripts/audit_journal_source_contract.py" in readme)
+check("README documents combined report/smoke artifact and limits", "JSON audit report and replay-smoke log are bundled" in " ".join(readme.split()) and "not immutable long-term archival" in " ".join(readme.split()) and "smoke figures are not capacity benchmarks" in " ".join(readme.split()))
 check("audit fails closed when Git subject is absent", 'check("Git commit identity is available"' in audit_script)
 check("audit compares checked-out subject to QUALIFIED_SHA", 'if expected_subject:' in audit_script and "commit == expected_subject" in audit_script)
 check("audit report records expected subject comparison", '"expected_subject": expected_subject' in audit_script and '"subject_matches_expected"' in audit_script)
