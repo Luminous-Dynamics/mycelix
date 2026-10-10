@@ -87,11 +87,43 @@
     "scope": {
       "type": "array",
       "minItems": 1,
-      "uniqueItems": true,
       "items": {
-        "type": "string",
-        "minLength": 1
-      }
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item_id",
+          "kind"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "Claim",
+              "Obligation",
+              "Entitlement",
+              "Resource",
+              "Reservation",
+              "Dispute"
+            ]
+          },
+          "source_record_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        }
+      },
+      "description": "Inventory of every in-scope source item. Unique item_id and exact scope-to-mapping coverage are cross-record invariants for the executable validator."
     },
     "semantic_delta_ref": {
       "type": "string",
@@ -564,7 +596,8 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "source_claim_ref",
+        "source_item_ref",
+        "kind",
         "source_instrument_ref",
         "source_quantity_atomic",
         "source_unit_ref",
@@ -573,10 +606,6 @@
         "evidence_refs"
       ],
       "properties": {
-        "source_claim_ref": {
-          "type": "string",
-          "minLength": 1
-        },
         "source_instrument_ref": {
           "$ref": "#/$defs/instrumentRef"
         },
@@ -601,10 +630,6 @@
         },
         "target_instrument_ref": {
           "$ref": "#/$defs/instrumentRef"
-        },
-        "target_claim_ref": {
-          "type": "string",
-          "minLength": 1
         },
         "target_quantity_atomic": {
           "type": "string",
@@ -639,6 +664,22 @@
             "minLength": 1
           },
           "uniqueItems": true
+        },
+        "source_item_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "Claim",
+            "Obligation",
+            "Entitlement",
+            "Dispute"
+          ]
+        },
+        "target_item_ref": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "allOf": [
@@ -729,17 +770,14 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "source_resource_ref",
+        "source_item_ref",
+        "kind",
         "quantity_atomic",
         "unit_profile_ref",
         "disposition",
         "reason"
       ],
       "properties": {
-        "source_resource_ref": {
-          "type": "string",
-          "minLength": 1
-        },
         "quantity_atomic": {
           "type": "string",
           "pattern": "^-?(0|[1-9][0-9]*)$"
@@ -758,10 +796,6 @@
             "Quarantine",
             "RetainSourceOnly"
           ]
-        },
-        "target_resource_ref": {
-          "type": "string",
-          "minLength": 1
         },
         "target_reservation_ref": {
           "type": "string",
@@ -792,6 +826,20 @@
         },
         "target_unit_profile_ref": {
           "$ref": "#/$defs/unitRef"
+        },
+        "source_item_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "Resource",
+            "Reservation"
+          ]
+        },
+        "target_item_ref": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "allOf": [
