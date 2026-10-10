@@ -1,7 +1,10 @@
 name: Security Audit Independent Verifier
 
 on:
-  workflow_run:
+  # This narrow exception is intentional: the verifier checks runs from the trusted default branch,
+  # rejects wrong workflow ID/path, event, repository or stale head, downloads only run-scoped evidence,
+  # recomputes artifact/file digests, and writes status only after the independent verdict succeeds.
+  workflow_run: # zizmor: ignore[dangerous-triggers] -- privileged work is trusted-branch-only and input-bound
     workflows:
       - Security Audit
     types: [requested, in_progress, completed]
