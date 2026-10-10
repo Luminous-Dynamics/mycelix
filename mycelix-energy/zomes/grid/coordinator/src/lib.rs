@@ -125,11 +125,10 @@ pub struct CreateOfferInput {
     pub available_until: Timestamp,
 }
 
-/// Whether a trade offer's availability window still covers `now`. Pure and
-/// unit-testable — no Holochain host calls, unlike `sys_time()` at the call
-/// sites.
-fn offer_not_expired(offer: &TradeOffer, now: Timestamp) -> bool {
-    offer.available_until >= now
+/// Whether a trade offer is inside its complete availability window.
+/// Kept pure so boundary conditions can be unit-tested without HDK host calls.
+fn offer_is_current(offer: &TradeOffer, now: Timestamp) -> bool {
+    offer.available_from <= now && now <= offer.available_until
 }
 
 #[hdk_extern]
@@ -141,14 +140,50 @@ pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
         .include_entries(true);
     for record in query(filter)? {
         if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
-            if offer.id == input.offer_id && offer.status == OfferStatus::Active {
+            if offer.id == input.offer_id
+                && (offer.status == OfferStatus::Active
+                    || offer.status == OfferStatus::PartiallyFilled)
+            {
                 let now = sys_time()?;
-                if !offer_not_expired(&offer, now) {
+                if now < offer.available_from {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Offer is not yet available".into()
+                    )));
+                }
+                if now > offer.available_until {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Offer has expired".into()
                     )));
                 }
+                if !input.buyer_did.starts_with("did:")
+                    || input.buyer_did.len() <= 4
+                    || input.buyer_did.chars().any(char::is_whitespace)
+                {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Buyer must be a valid DID".into()
+                    )));
+                }
+                if input.buyer_did == offer.seller_did {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Cannot trade with yourself".into()
+                    )));
+                }
+                if !input.amount_kwh.is_finite() || input.amount_kwh <= 0.0 {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Trade amount must be finite and positive".into()
+                    )));
+                }
+                if input.amount_kwh > offer.amount_kwh {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Trade amount exceeds offer's remaining quantity".into()
+                    )));
+                }
                 let total_price = input.amount_kwh * offer.price_per_kwh;
+                if !total_price.is_finite() {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Trade total price is not finite".into()
+                    )));
+                }
 
                 let trade = Trade {
                     id: format!("trade:{}:{}", input.offer_id, now.as_micros()),
@@ -243,7 +278,7 @@ pub fn get_active_offers(_: ()) -> ExternResult<Vec<Record>> {
     }
     Ok(filter_records_by::<TradeOffer, _>(&all_records, |offer| {
         (offer.status == OfferStatus::Active || offer.status == OfferStatus::PartiallyFilled)
-            && offer_not_expired(offer, now)
+            && offer_is_current(offer, now)
     }))
 }
 
@@ -1743,5 +1778,36 @@ mod tests {
             ..valid_execute_trade_input()
         };
         assert!(!input.offer_id.is_empty());
+    }
+}
+
+
+#[cfg(test)]
+mod offer_window_regression_tests {
+    use super::*;
+
+    fn test_offer() -> TradeOffer {
+        let start = Timestamp::from_micros(1_700_000_000_000_000);
+        TradeOffer {
+            id: "offer-window-test".into(),
+            seller_did: "did:test:seller".into(),
+            project_id: None,
+            amount_kwh: 5.0,
+            price_per_kwh: 0.1,
+            currency: "USD".into(),
+            available_from: start,
+            available_until: Timestamp::from_micros(1_700_000_360_000_000),
+            status: OfferStatus::Active,
+            created: start,
+        }
+    }
+
+    #[test]
+    fn offer_window_includes_start_and_end_boundaries_only() {
+        let offer = test_offer();
+        assert!(!offer_is_current(&offer, Timestamp::from_micros(1_699_999_999_999_999)));
+        assert!(offer_is_current(&offer, offer.available_from));
+        assert!(offer_is_current(&offer, offer.available_until));
+        assert!(!offer_is_current(&offer, Timestamp::from_micros(1_700_000_360_000_001)));
     }
 }

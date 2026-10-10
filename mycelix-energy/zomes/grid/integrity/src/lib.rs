@@ -163,77 +163,167 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+fn valid_nonempty(value: &str) -> bool {
+    !value.trim().is_empty()
+}
+
+fn valid_did(value: &str) -> bool {
+    value.starts_with("did:")
+        && value.len() > 4
+        && !value.chars().any(char::is_whitespace)
+}
+
+fn production_validation_error(production: &EnergyProduction) -> Option<&'static str> {
+    if !valid_nonempty(&production.id) || !valid_nonempty(&production.project_id) {
+        return Some("Production id and project id must be non-empty");
+    }
+    if !valid_did(&production.producer_did) {
+        return Some("Producer must be a valid DID");
+    }
+    if !production.amount_kwh.is_finite() || production.amount_kwh <= 0.0 {
+        return Some("Production amount must be finite and positive");
+    }
+    if !production.period_hours.is_finite() || production.period_hours <= 0.0 {
+        return Some("Production period must be finite and positive");
+    }
+    if matches!(production.meter_reading, Some(value) if !value.is_finite() || value < 0.0) {
+        return Some("Meter reading must be finite and non-negative");
+    }
+    None
+}
+
+fn consumption_validation_error(consumption: &EnergyConsumption) -> Option<&'static str> {
+    if !valid_nonempty(&consumption.id) {
+        return Some("Consumption id must be non-empty");
+    }
+    if !valid_did(&consumption.consumer_did) {
+        return Some("Consumer must be a valid DID");
+    }
+    if !consumption.amount_kwh.is_finite() || consumption.amount_kwh <= 0.0 {
+        return Some("Consumption amount must be finite and positive");
+    }
+    if !consumption.period_hours.is_finite() || consumption.period_hours <= 0.0 {
+        return Some("Consumption period must be finite and positive");
+    }
+    if matches!(consumption.meter_reading, Some(value) if !value.is_finite() || value < 0.0) {
+        return Some("Meter reading must be finite and non-negative");
+    }
+    None
+}
+
+fn offer_validation_error(offer: &TradeOffer) -> Option<&'static str> {
+    if !valid_nonempty(&offer.id) {
+        return Some("Offer id must be non-empty");
+    }
+    if !valid_did(&offer.seller_did) {
+        return Some("Seller must be a valid DID");
+    }
+    if matches!(offer.project_id.as_deref(), Some(project_id) if !valid_nonempty(project_id)) {
+        return Some("Project id must be non-empty when present");
+    }
+    if !offer.amount_kwh.is_finite() || offer.amount_kwh < 0.0 {
+        return Some("Offer amount must be finite and non-negative");
+    }
+    // A filled offer has no quantity remaining. All other states with a
+    // remaining quantity must have a strictly positive finite amount.
+    if offer.status == OfferStatus::Filled {
+        if offer.amount_kwh != 0.0 {
+            return Some("Filled offers must have zero remaining quantity");
+        }
+    } else if offer.amount_kwh <= 0.0 {
+        return Some("Non-filled offers must have positive remaining quantity");
+    }
+    if !offer.price_per_kwh.is_finite() || offer.price_per_kwh < 0.0 {
+        return Some("Price must be finite and non-negative");
+    }
+    if !valid_nonempty(&offer.currency) {
+        return Some("Currency must be non-empty");
+    }
+    if offer.available_from.as_micros() > offer.available_until.as_micros() {
+        return Some("Offer availability window is invalid");
+    }
+    None
+}
+
+fn trade_validation_error(trade: &Trade) -> Option<&'static str> {
+    if !valid_nonempty(&trade.id) || !valid_nonempty(&trade.offer_id) {
+        return Some("Trade id and offer id must be non-empty");
+    }
+    if !valid_did(&trade.seller_did) || !valid_did(&trade.buyer_did) {
+        return Some("Parties must be valid DIDs");
+    }
+    if trade.seller_did == trade.buyer_did {
+        return Some("Cannot trade with yourself");
+    }
+    if !trade.amount_kwh.is_finite() || trade.amount_kwh <= 0.0 {
+        return Some("Trade amount must be finite and positive");
+    }
+    if !trade.price_per_kwh.is_finite() || trade.price_per_kwh < 0.0 {
+        return Some("Trade price must be finite and non-negative");
+    }
+    if !trade.total_price.is_finite() || trade.total_price < 0.0 {
+        return Some("Trade total price must be finite and non-negative");
+    }
+    let expected_total = trade.amount_kwh * trade.price_per_kwh;
+    let tolerance = expected_total.abs().max(1.0) * 1.0e-9;
+    if !expected_total.is_finite() || (trade.total_price - expected_total).abs() > tolerance {
+        return Some("Trade total price must equal amount multiplied by unit price");
+    }
+    if !valid_nonempty(&trade.currency) {
+        return Some("Currency must be non-empty");
+    }
+    None
+}
+
+fn result_from_validation_error(
+    error: Option<&'static str>,
+) -> ExternResult<ValidateCallbackResult> {
+    Ok(match error {
+        Some(message) => ValidateCallbackResult::Invalid(message.into()),
+        None => ValidateCallbackResult::Valid,
+    })
+}
+
 fn validate_create_energy_production(
     _action: EntryCreationAction,
     production: EnergyProduction,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !production.producer_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid("Producer must be a valid DID".into()));
-    }
-    if production.amount_kwh <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid("Production amount must be positive".into()));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    result_from_validation_error(production_validation_error(&production))
 }
 
 fn validate_create_energy_consumption(
     _action: EntryCreationAction,
     consumption: EnergyConsumption,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !consumption.consumer_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid("Consumer must be a valid DID".into()));
-    }
-    if consumption.amount_kwh <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid("Consumption amount must be positive".into()));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    result_from_validation_error(consumption_validation_error(&consumption))
 }
 
 fn validate_create_trade_offer(
     _action: EntryCreationAction,
     offer: TradeOffer,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !offer.seller_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid("Seller must be a valid DID".into()));
-    }
-    if offer.amount_kwh <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid("Offer amount must be positive".into()));
-    }
-    if offer.price_per_kwh < 0.0 {
-        return Ok(ValidateCallbackResult::Invalid("Price cannot be negative".into()));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    result_from_validation_error(offer_validation_error(&offer))
 }
 
 fn validate_update_trade_offer(
     _action: Update,
     offer: TradeOffer,
 ) -> ExternResult<ValidateCallbackResult> {
-    if offer.amount_kwh <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid("Offer amount must be positive".into()));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    result_from_validation_error(offer_validation_error(&offer))
 }
 
 fn validate_create_trade(
     _action: EntryCreationAction,
     trade: Trade,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !trade.seller_did.starts_with("did:") || !trade.buyer_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid("Parties must be valid DIDs".into()));
-    }
-    if trade.seller_did == trade.buyer_did {
-        return Ok(ValidateCallbackResult::Invalid("Cannot trade with yourself".into()));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    result_from_validation_error(trade_validation_error(&trade))
 }
 
 fn validate_update_trade(
     _action: Update,
-    _trade: Trade,
+    trade: Trade,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Can update settlement status
-    Ok(ValidateCallbackResult::Valid)
+    result_from_validation_error(trade_validation_error(&trade))
 }
 
 #[cfg(test)]
@@ -690,5 +780,114 @@ mod tests {
             ..valid_energy_consumption()
         };
         assert!(consumption.period_hours > 0.0);
+    }
+}
+
+
+#[cfg(test)]
+mod strict_validation_regression_tests {
+    use super::*;
+
+    fn timestamp() -> Timestamp {
+        Timestamp::from_micros(1_700_000_000_000_000)
+    }
+
+    fn valid_production() -> EnergyProduction {
+        EnergyProduction {
+            id: "prod-1".into(),
+            producer_did: "did:test:producer".into(),
+            project_id: "solar-1".into(),
+            amount_kwh: 10.0,
+            timestamp: timestamp(),
+            period_hours: 1.0,
+            meter_reading: Some(100.0),
+            verified: false,
+        }
+    }
+
+    fn valid_offer() -> TradeOffer {
+        TradeOffer {
+            id: "offer-1".into(),
+            seller_did: "did:test:seller".into(),
+            project_id: Some("solar-1".into()),
+            amount_kwh: 10.0,
+            price_per_kwh: 0.12,
+            currency: "USD".into(),
+            available_from: timestamp(),
+            available_until: Timestamp::from_micros(1_700_003_600_000_000),
+            status: OfferStatus::Active,
+            created: timestamp(),
+        }
+    }
+
+    fn valid_trade() -> Trade {
+        Trade {
+            id: "trade-1".into(),
+            offer_id: "offer-1".into(),
+            seller_did: "did:test:seller".into(),
+            buyer_did: "did:test:buyer".into(),
+            amount_kwh: 2.0,
+            price_per_kwh: 0.12,
+            total_price: 0.24,
+            currency: "USD".into(),
+            executed: timestamp(),
+            settled: false,
+            payment_reference: None,
+        }
+    }
+
+    #[test]
+    fn production_rejects_non_finite_values_and_invalid_intervals() {
+        let mut production = valid_production();
+        production.amount_kwh = f64::NAN;
+        assert!(production_validation_error(&production).is_some());
+
+        let mut production = valid_production();
+        production.period_hours = f64::INFINITY;
+        assert!(production_validation_error(&production).is_some());
+
+        let mut production = valid_production();
+        production.meter_reading = Some(-1.0);
+        assert!(production_validation_error(&production).is_some());
+    }
+
+    #[test]
+    fn offers_reject_bad_price_and_reversed_availability_window() {
+        let mut offer = valid_offer();
+        offer.price_per_kwh = f64::INFINITY;
+        assert!(offer_validation_error(&offer).is_some());
+
+        let mut offer = valid_offer();
+        offer.available_from = Timestamp::from_micros(1_700_010_000_000_000);
+        assert!(offer_validation_error(&offer).is_some());
+    }
+
+    #[test]
+    fn fully_filled_offer_may_have_zero_remaining_quantity_only() {
+        let mut offer = valid_offer();
+        offer.status = OfferStatus::Filled;
+        offer.amount_kwh = 0.0;
+        assert_eq!(offer_validation_error(&offer), None);
+
+        offer.amount_kwh = 1.0;
+        assert!(offer_validation_error(&offer).is_some());
+    }
+
+    #[test]
+    fn trades_reject_invalid_amounts_and_inconsistent_totals() {
+        let mut trade = valid_trade();
+        trade.amount_kwh = f64::NAN;
+        assert!(trade_validation_error(&trade).is_some());
+
+        let mut trade = valid_trade();
+        trade.total_price = 99.0;
+        assert!(trade_validation_error(&trade).is_some());
+    }
+
+    #[test]
+    fn valid_energy_records_remain_accepted() {
+        assert_eq!(production_validation_error(&valid_production()), None);
+        assert_eq!(offer_validation_error(&valid_offer()), None);
+        assert_eq!(trade_validation_error(&valid_trade()), None);
     }
 }
