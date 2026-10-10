@@ -50,7 +50,8 @@ jobs:
         env:
           EXPECTED_TRUSTED_SHA: ${{ github.sha }}
           EXPECTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
-          EXPECTED_EVALUATOR_BLOB: dea41c4923fe5b0f25114ff7a0ef9a5543b6705c
+          EXPECTED_EVALUATOR_BLOB: 0eb67587eb95bf8e0b3da3dffd5aa01bb92073a6
+          EXPECTED_RUST_PREFLIGHT_BLOB: ca750be2bd26019e7a5f96a9483901d727773bb6
         run: |
           set -euo pipefail
           observed_commit="$(git rev-parse HEAD)"
@@ -64,6 +65,19 @@ jobs:
           test "$trusted_workflow_blob" = "$workflow_revision_blob"
           observed_blob="$(git rev-parse HEAD:scripts/integral/evaluate_d6u_trusted_verifier_independently.py)"
           test "$observed_blob" = "$EXPECTED_EVALUATOR_BLOB"
+          observed_rust_blob="$(git rev-parse HEAD:scripts/integral/d6u_trusted_root_check.rs)"
+          test "$observed_rust_blob" = "$EXPECTED_RUST_PREFLIGHT_BLOB"
+
+      - name: Install pinned Rust for independent receipt validation
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
+        with:
+          toolchain: 1.96.0
+
+      - name: Compile trusted Rust preflight
+        run: |
+          set -euo pipefail
+          test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+          rustc +1.96.0 --edition=2024 -D warnings scripts/integral/d6u_trusted_root_check.rs -o "$RUNNER_TEMP/d6u-trusted-root-check"
 
       - name: Validate candidate SHA
         id: validate
@@ -89,6 +103,9 @@ jobs:
           set -euo pipefail
           observed_commit="$(git -C _candidate rev-parse HEAD)"
           test "$observed_commit" = "$EXPECTED_CANDIDATE_SHA"
+
+      - name: Verify candidate trusted-root closure with Rust
+        run: "$RUNNER_TEMP/d6u-trusted-root-check" --candidate-root "$GITHUB_WORKSPACE/_candidate"
 
       - name: Run evaluator in an isolated container
         run: |
@@ -121,7 +138,8 @@ jobs:
         if: success()
         env:
           EXPECTED_CANDIDATE_SHA: ${{ steps.validate.outputs.sha }}
-          EXPECTED_EVALUATOR_BLOB: dea41c4923fe5b0f25114ff7a0ef9a5543b6705c
+          EXPECTED_EVALUATOR_BLOB: 0eb67587eb95bf8e0b3da3dffd5aa01bb92073a6
+          EXPECTED_RUST_PREFLIGHT_BLOB: ca750be2bd26019e7a5f96a9483901d727773bb6
           EXPECTED_TRUSTED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
@@ -137,6 +155,8 @@ jobs:
           [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           observed_evaluator_blob="$(git rev-parse HEAD:scripts/integral/evaluate_d6u_trusted_verifier_independently.py)"
           test "$observed_evaluator_blob" = "$EXPECTED_EVALUATOR_BLOB"
+          observed_rust_preflight_blob="$(git rev-parse HEAD:scripts/integral/d6u_trusted_root_check.rs)"
+          test "$observed_rust_preflight_blob" = "$EXPECTED_RUST_PREFLIGHT_BLOB"
           observed_candidate_sha="$(git -C _candidate rev-parse HEAD)"
           test "$observed_candidate_sha" = "$EXPECTED_CANDIDATE_SHA"
           candidate_verifier_blob="$(git -C _candidate rev-parse HEAD:scripts/integral/verify_d6u_trusted_artifacts.py)"
@@ -159,6 +179,7 @@ jobs:
             printf 'candidate_retention_verifier_blob_sha=%s\n' "$candidate_retention_verifier_blob"
             printf 'candidate_policy_blob_sha=%s\n' "$candidate_policy_blob"
             printf 'trusted_evaluator_blob_sha=%s\n' "$observed_evaluator_blob"
+            printf 'trusted_rust_preflight_blob_sha=%s\n' "$observed_rust_preflight_blob"
             printf 'trusted_source_commit_sha=%s\n' "$EXPECTED_TRUSTED_SHA"
             printf 'workflow_file_commit_sha=%s\n' "$GITHUB_WORKFLOW_SHA"
             printf 'workflow_ref=%s\n' "$GITHUB_WORKFLOW_REF"
@@ -168,6 +189,7 @@ jobs:
             printf '%s\n' "evaluation_scope=policy-fingerprint,workflow-and-five-program-closure,canonical-path-and-symlink-containment,candidate-root-identity-and-cli-path-preservation,validated-source-snapshot-import,alias-pin-consistency,provenance-binding,artifact-integrity,redirect-safety,optimized-mode-refusal"
             printf '%s\n' "container_image=python:3.12-slim-bookworm@sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4"
           } > d6u-independent-verifier-result.txt
+          "$RUNNER_TEMP/d6u-trusted-root-check" --validate-receipt d6u-independent-verifier-result.txt
           receipt_sha256="$(sha256sum d6u-independent-verifier-result.txt | cut -d ' ' -f 1)"
           {
             echo "### D6U independent verifier evaluation"
