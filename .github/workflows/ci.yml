@@ -8,6 +8,10 @@ on:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
 
+# CI jobs only read source; individual jobs receive no write-capable token.
+permissions:
+  contents: read
+
 # Generic branch/PR CI is supersedable: once a newer commit exists on the same
 # PR or ref, completing an older run cannot provide a current merge signal.
 # Exact qualification/evidence workflows intentionally do not inherit this
@@ -24,6 +28,9 @@ jobs:
   changes:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       commons: ${{ steps.filter.outputs.commons }}
       civic: ${{ steps.filter.outputs.civic }}
