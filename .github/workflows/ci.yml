@@ -29,6 +29,7 @@ jobs:
       civic: ${{ steps.filter.outputs.civic }}
       hearth: ${{ steps.filter.outputs.hearth }}
       finance: ${{ steps.filter.outputs.finance }}
+      finance_raw_credit_audit: ${{ steps.filter.outputs.finance_raw_credit_audit }}
       governance: ${{ steps.filter.outputs.governance }}
       identity: ${{ steps.filter.outputs.identity }}
       personal: ${{ steps.filter.outputs.personal }}
@@ -55,6 +56,12 @@ jobs:
             finance:
               - 'mycelix-finance/**'
               - 'crates/mycelix-bridge-*/**'
+            finance_raw_credit_audit:
+              - 'mycelix-finance/**'
+              - 'mycelix-workspace/mycelix-finance/**'
+              - 'scripts/security/finance_raw_credit_caller_audit.py'
+              - 'scripts/security/test_finance_raw_credit_caller_audit.py'
+              - '.github/workflows/ci.yml'
             governance:
               - 'mycelix-governance/**'
               - 'crates/mycelix-bridge-*/**'
@@ -191,7 +198,7 @@ jobs:
   # invokes it by string. String-dispatched calls can survive Rust compilation.
   finance-raw-credit-caller-audit:
     needs: changes
-    if: needs.changes.outputs.finance == 'true' || github.event_name == 'push'
+    if: needs.changes.outputs.finance_raw_credit_audit == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
