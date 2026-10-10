@@ -198,7 +198,7 @@ jobs:
   # invokes it by string. String-dispatched calls can survive Rust compilation.
   finance-raw-credit-caller-audit:
     needs: changes
-    if: needs.changes.outputs.finance_raw_credit_audit == 'true' || github.event_name == 'push'
+    if: needs.changes.outputs.finance_raw_credit_audit == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -462,6 +462,7 @@ jobs:
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
     needs:
+      - changes
       - format
       - test-cos-conformance
       - test-commons
@@ -499,7 +500,20 @@ jobs:
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
-          # Skipped jobs are OK (path filter didn't match)
+          # The change-path filter is required to decide whether the audit is optional.
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "Required change-path filter failed or was skipped: ${{ needs.changes.result }}" >&2
+            exit 1
+          fi
+          # The audit may be skipped on a PR only when its dedicated path filter is false;
+          # pushes and manual dispatches always require a successful audit.
+          if [ "${{ needs.changes.outputs.finance_raw_credit_audit }}" = "true" ] || [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ needs.finance-raw-credit-caller-audit.result }}" != "success" ]; then
+              echo "Raw SAP credit caller audit was required but result was '${{ needs.finance-raw-credit-caller-audit.result }}'." >&2
+              exit 1
+            fi
+          fi
+          # Skipped optional test jobs are OK only when their path filter didn't match.
           for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.finance-raw-credit-caller-audit.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
