@@ -72,16 +72,19 @@ jobs:
 
       - name: Capture trusted verifier identity
         id: trusted_identity
+        env:
+          EXPECTED_TRUSTED_SHA: ${{ github.workflow_sha }}
+          TRUSTED_WORKFLOW_REF: ${{ github.workflow_ref }}
         run: |
           actual_trusted_sha="$(git rev-parse HEAD)"
           trusted_file_blob="$(git rev-parse HEAD:.github/workflows/cos-conformance-independent-verify.yml)"
-          test "${actual_trusted_sha}" = "${{ github.workflow_sha }}" || {
-            echo "trusted verifier checkout drift: expected ${{ github.workflow_sha }}, got ${actual_trusted_sha}" >&2
+          test "${actual_trusted_sha}" = "$EXPECTED_TRUSTED_SHA" || {
+            echo "trusted verifier checkout drift: expected $EXPECTED_TRUSTED_SHA, got ${actual_trusted_sha}" >&2
             exit 1
           }
           {
-            printf 'trusted_workflow_sha=%s\n' "${{ github.workflow_sha }}"
-            printf 'trusted_workflow_ref=%s\n' "${{ github.workflow_ref }}"
+            printf 'trusted_workflow_sha=%s\n' "$EXPECTED_TRUSTED_SHA"
+            printf 'trusted_workflow_ref=%s\n' "$TRUSTED_WORKFLOW_REF"
             printf 'trusted_workflow_checked_out_sha=%s\n' "${actual_trusted_sha}"
             printf 'trusted_workflow_file_blob_sha=%s\n' "${trusted_file_blob}"
           } >> "${GITHUB_OUTPUT}"
