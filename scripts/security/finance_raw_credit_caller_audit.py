@@ -44,10 +44,13 @@ def scan(zomes_root: Path) -> list[tuple[str, int, str]]:
         except (OSError, UnicodeError) as exc:
             raise RuntimeError(f"cannot read {source}: {exc}") from exc
 
-        for line_number, line in enumerate(lines, start=1):
-            match = RAW_CREDIT_REFERENCE.search(line)
-            if match:
-                hits.append((relative.as_posix(), line_number, match.group(0)))
+        # Search the complete source file: string-dispatched zome calls can be
+        # formatted across several lines. A line-at-a-time search silently misses
+        # those calls and could let a private-extern migration appear complete.
+        source_text = "\n".join(lines)
+        for match in RAW_CREDIT_REFERENCE.finditer(source_text):
+            line_number = source_text.count("\n", 0, match.start()) + 1
+            hits.append((relative.as_posix(), line_number, match.group(0)))
     return hits
 
 
