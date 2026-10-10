@@ -9,7 +9,7 @@
 use civ_econ_transition_validator::durable_journal::{BeginResult, DurableEffectJournal};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -46,6 +46,31 @@ impl Drop for TestDir {
     }
 }
 
+/// Minimal driver contract: only a freshly synced intent authorizes dispatch.
+/// Recovery states are deliberately non-dispatching and must be reconciled.
+fn dispatch_only_if_started(
+    journal: &mut DurableEffectJournal,
+    provider_path: &Path,
+) -> BeginResult {
+    let result = journal
+        .begin_effect(EFFECT_ID, REQUEST_DIGEST)
+        .expect("begin or recover synthetic effect");
+
+    if result == BeginResult::Started {
+        let mut provider = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(provider_path)
+            .expect("open synthetic provider ledger");
+        writeln!(provider, "{EFFECT_ID}").expect("record synthetic external effect");
+        provider
+            .sync_all()
+            .expect("sync synthetic provider ledger");
+    }
+
+    result
+}
+
 #[test]
 fn crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispatch() {
     // Child mode: persist intent, perform one synthetic external effect, then
@@ -61,19 +86,9 @@ fn crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispa
         let mut journal =
             DurableEffectJournal::open(&journal_path).expect("open child journal");
         assert_eq!(
-            journal.begin_effect(EFFECT_ID, REQUEST_DIGEST),
-            Ok(BeginResult::Started),
+            dispatch_only_if_started(&mut journal, &provider_path),
+            BeginResult::Started,
         );
-
-        let mut provider = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(provider_path)
-            .expect("open synthetic provider ledger");
-        writeln!(provider, "{EFFECT_ID}").expect("record synthetic external effect");
-        provider
-            .sync_all()
-            .expect("sync synthetic provider ledger");
 
         // Deliberately skip destructors: this models abrupt termination in the
         // critical window after the external effect but before journal ack.
@@ -122,8 +137,8 @@ fn crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispa
         // A surviving intent is not permission to dispatch again. The caller
         // queries the synthetic provider ledger and records its observed result.
         assert_eq!(
-            recovered.begin_effect(EFFECT_ID, REQUEST_DIGEST),
-            Ok(BeginResult::PendingNeedsReconciliation),
+            dispatch_only_if_started(&mut recovered, &provider_path),
+            BeginResult::PendingNeedsReconciliation,
         );
         recovered
             .acknowledge_effect(EFFECT_ID, REQUEST_DIGEST, RECEIPT_DIGEST)
