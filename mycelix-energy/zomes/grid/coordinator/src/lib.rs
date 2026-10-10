@@ -196,8 +196,9 @@ fn resolve_latest_unique_records(records: Vec<Record>) -> ExternResult<Vec<Recor
     Ok(resolved)
 }
 
-/// Compute the residual offer quantity without allowing floating-point rounding
-/// to turn a positive fill into a no-op. Used before any trade entry is written.
+/// Pure quantity guard retained as regression coverage for the successor
+/// reservation/fill protocol. The legacy execution endpoint is fail-closed.
+#[cfg(test)]
 fn checked_remaining_offer_amount(
     current_amount_kwh: f64,
     fill_amount_kwh: f64,
@@ -231,12 +232,10 @@ fn did_matches_agent(did: &str, author: &AgentPubKey) -> bool {
         == Some(author)
 }
 
-/// Legacy mutable-offer execution path. This searches only the caller's
-/// source chain; under the current integrity policy, newly authored offers
-/// bind seller DID to their author and the buyer DID binds to the caller, while
-/// self-trading is forbidden. Therefore this path is not a valid cross-agent
-/// trading protocol. Keep it fail-closed until #4940's append-only reservation
-/// and fill design replaces source-chain offer mutation.
+/// Fail closed until the append-only cross-agent reservation/fill protocol is
+/// implemented. This legacy mutable-offer path cannot safely coordinate seller
+/// and buyer source chains or guarantee replay-safe quantity reservations.
+/// See https://github.com/Luminous-Dynamics/mycelix/issues/4940.
 #[hdk_extern]
 pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
     let caller = agent_info()?.agent_initial_pubkey;
@@ -245,108 +244,9 @@ pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
             "Buyer DID must identify the agent executing this trade".into()
         )));
     }
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::TradeOffer,
-        )?))
-        .include_entries(true)
-        .descending();
-    for record in query(filter)? {
-        if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
-            if offer.id == input.offer_id {
-                // Because the query is descending, the first matching ID is
-                // the current version. Never skip a terminal version and fall
-                // through to an older Active create/update record.
-                if offer.status != OfferStatus::Active
-                    && offer.status != OfferStatus::PartiallyFilled
-                {
-                    return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Offer not found or not active".into()
-                    )));
-                }
-                let now = sys_time()?;
-                if now < offer.available_from {
-                    return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Offer is not yet available".into()
-                    )));
-                }
-                if now > offer.available_until {
-                    return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Offer has expired".into()
-                    )));
-                }
-                if input.buyer_did == offer.seller_did {
-                    return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Cannot trade with yourself".into()
-                    )));
-                }
-                let remaining = match checked_remaining_offer_amount(
-                    offer.amount_kwh,
-                    input.amount_kwh,
-                ) {
-                    Ok(remaining) => remaining,
-                    Err(message) => {
-                        return Err(wasm_error!(WasmErrorInner::Guest(message.into())));
-                    }
-                };
-                let total_price = input.amount_kwh * offer.price_per_kwh;
-                if !total_price.is_finite() {
-                    return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Trade total price is not finite".into()
-                    )));
-                }
 
-                let trade = Trade {
-                    id: format!("trade:{}:{}", input.offer_id, now.as_micros()),
-                    offer_id: input.offer_id.clone(),
-                    seller_did: offer.seller_did.clone(),
-                    buyer_did: input.buyer_did.clone(),
-                    amount_kwh: input.amount_kwh,
-                    price_per_kwh: offer.price_per_kwh,
-                    total_price,
-                    currency: offer.currency.clone(),
-                    executed: now,
-                    settled: false,
-                    payment_reference: None,
-                };
-
-                let trade_hash = create_entry(&EntryTypes::Trade(trade))?;
-                create_link(
-                    anchor_hash(&input.offer_id)?,
-                    trade_hash.clone(),
-                    LinkTypes::OfferToTrades,
-                    (),
-                )?;
-                create_link(
-                    anchor_hash(&input.buyer_did)?,
-                    trade_hash.clone(),
-                    LinkTypes::BuyerToTrades,
-                    (),
-                )?;
-
-                // Update offer status
-                let new_status = if remaining == 0.0 {
-                    OfferStatus::Filled
-                } else {
-                    OfferStatus::PartiallyFilled
-                };
-                let updated_offer = TradeOffer {
-                    amount_kwh: remaining,
-                    status: new_status,
-                    ..offer
-                };
-                update_entry(
-                    record.action_address().clone(),
-                    &EntryTypes::TradeOffer(updated_offer),
-                )?;
-
-                return get(trade_hash, GetOptions::default())?
-                    .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())));
-            }
-        }
-    }
     Err(wasm_error!(WasmErrorInner::Guest(
-        "Offer not found in caller's source chain; cross-agent reservation/fill protocol is not implemented"
+        "Trade execution is disabled until append-only cross-agent reservation/fill semantics are implemented (#4940)"
             .into()
     )))
 }
