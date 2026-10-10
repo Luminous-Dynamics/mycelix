@@ -42,13 +42,17 @@ for each reviewed source/artifact. When `QUALIFIED_SHA` is set (as it is in the
 pull-request workflow), the audit requires Git metadata to be available and the
 checked-out commit to match that exact subject. A missing or mismatched subject
 fails the audit. This is an early process check, not a Rust parser, compiler,
-unit test, Clippy run, or proof of runtime correctness. In CI, the report is
-written to the runner's temporary directory and uploaded as a run-specific
-artifact for 14 days, including when the preflight fails after producing the
-report. The JSON binds the report to the observed commit and expected
-`QUALIFIED_SHA`, includes the run ID when available, and carries hashes of the
-reviewed files. Artifact retention is a convenience for review, not immutable
-long-term archival or a cryptographic attestation.
+unit test, Clippy run, or proof of runtime correctness. In CI, the JSON
+audit report and replay-smoke log are bundled into a run-specific evidence
+artifact retained for 14 days. The artifact upload is attempted even after a
+preflight/test/build failure so diagnostics can survive a failed qualification
+run. The JSON binds the report to the observed commit and expected
+`QUALIFIED_SHA`, includes the run ID when available, and fingerprints the
+reviewed files including `Cargo.lock`. The replay log records the subject, run
+ID, runner image, kernel, filesystem, Rust version, generation/replay output, and
+`/usr/bin/time -v` observations for each 10,000-effect scenario. Artifact
+retention is a convenience for review, not immutable long-term archival or a
+cryptographic attestation; smoke figures are not capacity benchmarks.
 
 ### Journal replay scale probe
 
