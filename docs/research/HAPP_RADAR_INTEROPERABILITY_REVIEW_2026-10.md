@@ -209,33 +209,33 @@ Sources:
 
 ## Follow-up qualification snapshot — 2026-10-11, after static-name audit hardening
 
-The AC-176 source PR #4520 and qualification-only PR #4521 are now aligned at exact source SHA 9b6237b97f3ec6863fe0e414556a9b221b7b7efd. The mirror advanced using a guarded fast-forward; it remains a qualification-only subject and must not be merged.
+The AC-176 source PR #4520 and qualification-only PR #4521 are now aligned at exact source SHA a427084674234d971fcca4c787f92e9c5eeacf85. The mirror advanced using a guarded fast-forward; it remains a qualification-only subject and must not be merged.
 
 ### Audit coverage and local evidence
 
 - The caller audit checks the raw-credit ABI in both Payments coordinator projections; inventories the canonical and workspace Finance zomes trees byte-for-byte; rejects nested/root symlinks before reading Rust sources; and scans coordinator call sites outside Payments.
 - The scanner catches exact normal/raw "credit_sap" literals independent of constructor spelling, escaped normal strings that decode to credit_sap, and statically composed Rust concat! calls whose string-literal arguments resolve to credit_sap (including normal/raw fragments and parentheses inside comments). It deliberately errs toward false positives, including matching literals inside comments. Arbitrary const indirection, other macro/literal transformations, and runtime string construction remain outside this regex-oriented static scanner; this is not an AST-level proof.
-- The checked-in regression suite now has **22 cases**: the previous 20 cover ABI visibility and attributes/comments, literal/constructor forms, full-audit fail-closed behavior, CI trigger/required-gate policy, full projection parity, and broken/nested/root symlink rejection. The 21st detects statically composed concat! names split across normal/raw literal fragments, including a parenthesis in a comment, while rejecting unrelated concatenation.
-- An isolated local Python probe of the scanner logic detected an escaped literal, normal/raw concat forms, and nested/comment-parenthesis forms and rejected an unrelated concatenation. This is focused fixture evidence, **not** execution of the checked-in test module. A reconstructed 16-case harness passed before later regression additions; that historical result is not a pass for the current suite. The 22nd detects an escaped ordinary string literal that decodes to credit_sap. The checked-in 22-test suite has **not** been run against a full local repository checkout, so no 22/22 claim is made.
+- The checked-in regression suite now has **23 cases**: the previous 20 cover ABI visibility and attributes/comments, literal/constructor forms, full-audit fail-closed behavior, CI trigger/required-gate policy, full projection parity, and broken/nested/root symlink rejection. The 21st detects statically composed concat! names split across normal/raw literal fragments, including a parenthesis in a comment, while rejecting unrelated concatenation.
+- An isolated local Python probe of the scanner logic detected an escaped literal, normal/raw concat forms, and nested/comment-parenthesis forms and rejected an unrelated concatenation. This is focused fixture evidence, **not** execution of the checked-in test module. A reconstructed 16-case harness passed before later regression additions; that historical result is not a pass for the current suite. The 22nd detects an escaped ordinary string literal that decodes to credit_sap. The checked-in 23-test suite has **not** been run against a full local repository checkout, so no 23/23 claim is made.
 - The exact source census previously fetched all **18 non-Payments Finance coordinator Rust files** and found the four remaining external raw-credit calls at currency-mint/coordinator/src/lib.rs:179, bridge/coordinator/src/lib.rs:663, bridge/coordinator/src/lib.rs:2417, and staking/coordinator/src/lib.rs:379. The latest commits changed only the audit and its test, not Finance zome source, so those four callers remain an expected blocker. The two Finance zomes projections previously matched 57/57 file blob SHAs; the new commits do not alter those trees.
 
 ### CI process and exact-head state
 
 The audit has a dedicated finance_raw_credit_audit path-filter output covering canonical Finance, workspace Finance, the audit/test files, and .github/workflows/ci.yml. ci-pass depends on the change-filter job and the audit; it rejects a non-success change-filter result and requires a successful audit whenever selected by that dedicated path filter, a push, or manual dispatch. Focused local policy fixtures exercised relevant/irrelevant PR, push, manual-dispatch, skipped-audit, and failed-filter outcomes.
 
-For exact SHA 9b6237b97f3ec6863fe0e414556a9b221b7b7efd, direct GitHub Actions records show these PR-triggered runs, all **queued**:
+For exact SHA a427084674234d971fcca4c787f92e9c5eeacf85, direct GitHub Actions records show these PR-triggered runs, all **queued**:
 
-- Mycelix CI: run 38094859895
-- Finance Exact-Head Qualification: run not returned
-- D6S canonical qualification: run not returned
+- Finance Exact-Head Qualification: run 38094995824
+- Mycelix CI: run 38094995810
+- D6S Canonical Qualification: run 38094995795
 
-Only Mycelix CI (run 38094859895) was returned and it remains queued; Finance Exact-Head Qualification and D6S Canonical Qualification were not returned for this subject. The commit combined status is pending with no completed status checks. Absence of a run is not PASS.
+Finance Exact-Head Qualification (run 38094995824), Mycelix CI (run 38094995810), and D6S Canonical Qualification (run 38094995795) remain queued. The commit combined status is pending with no completed status checks. Queued is not PASS.
 
-Two D6U runtime-executor push-event runs on the same SHA (38094856560 and 38094841409) concluded failure, but the Jobs API returned total_count=0 for both. Neither record has job, step, test, log, or runtime evidence; these are not evidence of a code/test failure. The repeated event/branch-versus-configured-filter anomaly is tracked in [CI-OPS-002 / #4948](https://github.com/Luminous-Dynamics/mycelix/issues/4948). [CI-OPS-001 / #697](https://github.com/Luminous-Dynamics/mycelix/issues/697) remains the distinct hosted-runner assignment/queue issue.
+Two D6U runtime-executor push-event runs on the same SHA (38094993094 and 38094983657) concluded failure, but the Jobs API returned total_count=0 for both. Neither record has job, step, test, log, or runtime evidence; these are not evidence of a code/test failure. The repeated event/branch-versus-configured-filter anomaly is tracked in [CI-OPS-002 / #4948](https://github.com/Luminous-Dynamics/mycelix/issues/4948). [CI-OPS-001 / #697](https://github.com/Luminous-Dynamics/mycelix/issues/697) remains the distinct hosted-runner assignment/queue issue.
 
 ### Merge boundary
 
-AC-176 remains **unqualified and not ready to merge**. Four external raw-credit call sites remain; the audit is expected to fail until each caller is migrated to source-specific authorization or deliberately disabled with explicit behavior. The scanner’s success report now matches its actual scope: direct literals, escaped literals, and static concat! names are covered. It still does not resolve arbitrary const aliases, every macro/literal transformation, or runtime-built names, and it does not prove source authorization, SAP conservation, exactly-once settlement, retry/recovery correctness, or runtime behavior. No queued, skipped, cancelled, or zero-job run is a PASS, and the legacy V2 account/transfer lanes remain draft and disabled by default.
+AC-176 remains **unqualified and not ready to merge**. Four external raw-credit call sites remain; the audit is expected to fail until each caller is migrated to source-specific authorization or deliberately disabled with explicit behavior. The scanner’s success report now matches its actual scope: direct literals, escaped normal/Unicode literals, and static concat! names are covered. It still does not resolve arbitrary const aliases, every macro/literal transformation, or runtime-built names, and it does not prove source authorization, SAP conservation, exactly-once settlement, retry/recovery correctness, or runtime behavior. No queued, skipped, cancelled, or zero-job run is a PASS, and the legacy V2 account/transfer lanes remain draft and disabled by default.
 
 ## Recommended Mycelix proof-of-integration slice
 
