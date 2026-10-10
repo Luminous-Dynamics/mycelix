@@ -112,11 +112,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     let last_id = format!("scale-effect-{:010}", count - 1);
     let first_present = journal.status(first_id).is_some();
     let last_present = journal.status(&last_id).is_some();
+    let replayed_effect_count = journal.effect_count();
+    if replayed_effect_count != count {
+        return Err(io::Error::other(format!(
+            "expected {count} effects after replay, recovered {replayed_effect_count}"
+        )).into());
+    }
     if !first_present || !last_present {
         return Err(io::Error::other("replay did not preserve first and last generated effect").into());
     }
 
     println!("effect_count={count}");
+    println!("replayed_effect_count={replayed_effect_count}");
+    println!("replay_count_verified=true");
     println!("journal_bytes={journal_bytes}");
     println!("bytes_per_effect={:.2}", journal_bytes as f64 / count as f64);
     println!("generation_ms={:.3}", generation_elapsed.as_secs_f64() * 1000.0);
