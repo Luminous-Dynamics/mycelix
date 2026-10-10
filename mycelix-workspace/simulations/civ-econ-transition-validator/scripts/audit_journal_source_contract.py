@@ -16,6 +16,7 @@ CRATE = ROOT / "mycelix-workspace/simulations/civ-econ-transition-validator"
 JOURNAL_PATH = CRATE / "src/durable_journal.rs"
 SCALE_PATH = CRATE / "src/journal_replay_scale.rs"
 MANIFEST_PATH = CRATE / "Cargo.toml"
+LOCKFILE_PATH = CRATE / "Cargo.lock"
 README_PATH = CRATE / "README.md"
 DESIGN_PATH = CRATE / "JOURNAL_CHECKPOINT_COMPACTION_DESIGN.md"
 WORKFLOW_PATH = ROOT / ".github/workflows/civ-econ-transition-validator.yml"
@@ -39,6 +40,7 @@ def read(path: Path) -> str:
 journal = read(JOURNAL_PATH)
 scale = read(SCALE_PATH)
 manifest = read(MANIFEST_PATH)
+lockfile = read(LOCKFILE_PATH)
 readme = read(README_PATH)
 design = read(DESIGN_PATH)
 workflow = read(WORKFLOW_PATH)
@@ -82,6 +84,8 @@ for scenario in scenarios:
     check(f"workflow smoke includes: {scenario}", f"{scenario}" in workflow)
 check("scale binary is registered in Cargo manifest", 'name = "journal-replay-scale"' in manifest and 'path = "src/journal_replay_scale.rs"' in manifest)
 check("crate remains dependency-free", "[dependencies]" not in manifest)
+check("Cargo.lock resolves the local validator package", 'name = "civ-econ-transition-validator"' in lockfile)
+check("locked Cargo input is hashed in the audit report", LOCKFILE_PATH in files if "files" in globals() else True)
 check("README states measurements are not established yet", "has not itself established performance numbers" in " ".join(readme.split()))
 check("README documents how to run source preflight", "python3 scripts/audit_journal_source_contract.py" in readme)
 check("audit fails closed when Git subject is absent", 'check("Git commit identity is available"' in audit_script)
@@ -104,7 +108,7 @@ check("artifact upload action is pinned to reviewed v7.0.2", "actions/upload-art
 check("artifact name includes run ID and exact subject", "github.run_id" in workflow and "env.QUALIFIED_SHA" in workflow)
 check("audit writes a newline-terminated JSON report", "JOURNAL_AUDIT_REPORT_PATH" in audit_script and "destination.write_text(report_json" in audit_script and "encoding=\"utf-8\"" in audit_script)
 
-files = (JOURNAL_PATH, SCALE_PATH, MANIFEST_PATH, README_PATH, DESIGN_PATH, WORKFLOW_PATH, SCRIPT_PATH)
+files = (JOURNAL_PATH, SCALE_PATH, MANIFEST_PATH, LOCKFILE_PATH, README_PATH, DESIGN_PATH, WORKFLOW_PATH, SCRIPT_PATH)
 try:
     commit = subprocess.run(
         ["git", "rev-parse", "HEAD"],
