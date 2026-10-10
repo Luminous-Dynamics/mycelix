@@ -29,8 +29,11 @@ output.
 
 ## How to interpret the evidence
 
-- If active hosted jobs equal the plan's maximum concurrency, inspect plan/usage
-  limits and running jobs before changing workflow configuration.
+- Compare queue evidence against the organization-level GitHub-hosted runner
+  Active jobs and All jobs usage panels. Repository-local workflow-run counts do
+  not reveal the active-job load from other repositories in the organization.
+- If organization-level active hosted jobs equal the plan's maximum concurrency,
+  inspect plan/usage limits and running jobs before changing workflow configuration.
 - If active jobs are below the maximum but sampled queued jobs remain unassigned,
   inspect organization/repository Actions policy, enabled runner types/labels, and
   the runner UI's queue reason; escalate to GitHub Support if those checks do not
@@ -40,6 +43,10 @@ output.
 - If many older exact-head qualification jobs are queued, inventory which ones
   are deliberate immutable evidence runs and which are supersedable developer
   feedback. Do not bulk-cancel evidence runs just to lower the displayed queue.
+- Record the official GitHub Status observation with the capture timestamp. An
+  operational public status page does not establish the cause of a repository-
+  specific stall; likewise, a resolved historical incident is not proof of a
+  current shared cause.
 
 ## Qualification boundary
 
@@ -61,3 +68,16 @@ changes, reruns, dispatches, cancellations, or policy edits.
 The tests cover pagination/deduplication, incomplete-count visibility, queue age
 and grouping, API error handling, runner-assignment metadata, interpretation
 limits, and bounded sampling.
+
+## Authoritative references
+
+- [GitHub CLI: gh api](https://cli.github.com/manual/gh_api) documents that
+  --paginate follows all response pages and --slurp wraps each page response
+  into an outer JSON array. Both details matter for complete queue counts.
+- [GitHub Docs: Viewing your current jobs](https://docs.github.com/en/actions/how-tos/manage-runners/github-hosted-runners/view-current-jobs)
+  explains how to inspect organization-level Active jobs and All jobs usage.
+- [GitHub Docs: Concurrency](https://docs.github.com/en/actions/concepts/workflows-and-actions/concurrency)
+  explains account-wide concurrent runs and how workflow/job concurrency groups
+  alter which work can remain pending.
+- [GitHub Status](https://www.githubstatus.com/) provides the service incident
+  timeline for comparison with the observed queue interval.
