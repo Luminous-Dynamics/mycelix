@@ -77,24 +77,24 @@ jobs:
           tampered_lock=$(mktemp)
           cp Cargo.lock "$tampered_lock"
           python3 - "$tampered_lock" <<'PY'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-inside_holochain = False
-for index, line in enumerate(lines):
-    if line == "[[package]]":
-        inside_holochain = False
-    elif line == 'name = "holochain"':
-        inside_holochain = True
-    elif inside_holochain and line == 'version = "0.7.0"':
-        lines[index] = 'version = "0.0.0"'
-        break
-else:
-    raise SystemExit("holochain lock package/version not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
+          import pathlib
+          import sys
+          
+          path = pathlib.Path(sys.argv[1])
+          lines = path.read_text(encoding="utf-8").splitlines()
+          inside_holochain = False
+          for index, line in enumerate(lines):
+              if line == "[[package]]":
+                  inside_holochain = False
+              elif line == 'name = "holochain"':
+                  inside_holochain = True
+              elif inside_holochain and line == 'version = "0.7.0"':
+                  lines[index] = 'version = "0.0.0"'
+                  break
+          else:
+              raise SystemExit("holochain lock package/version not found")
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
           if python3 ../scripts/integral/verify_d6u_runtime_lock.py "$tampered_lock"; then
             echo "tampered Cargo.lock version was incorrectly accepted"
             exit 1
@@ -102,24 +102,24 @@ PY
 
           cp Cargo.lock "$tampered_lock"
           python3 - "$tampered_lock" <<'PY'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-inside_holochain = False
-for index, line in enumerate(lines):
-    if line == "[[package]]":
-        inside_holochain = False
-    elif line == 'name = "holochain"':
-        inside_holochain = True
-    elif inside_holochain and line == 'source = "registry+https://github.com/rust-lang/crates.io-index"':
-        lines[index] = 'source = "registry+https://example.invalid/index"'
-        break
-else:
-    raise SystemExit("holochain lock package/source not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
+          import pathlib
+          import sys
+          
+          path = pathlib.Path(sys.argv[1])
+          lines = path.read_text(encoding="utf-8").splitlines()
+          inside_holochain = False
+          for index, line in enumerate(lines):
+              if line == "[[package]]":
+                  inside_holochain = False
+              elif line == 'name = "holochain"':
+                  inside_holochain = True
+              elif inside_holochain and line == 'source = "registry+https://github.com/rust-lang/crates.io-index"':
+                  lines[index] = 'source = "registry+https://example.invalid/index"'
+                  break
+          else:
+              raise SystemExit("holochain lock package/source not found")
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
           if python3 ../scripts/integral/verify_d6u_runtime_lock.py "$tampered_lock"; then
             echo "tampered Cargo.lock registry source was incorrectly accepted"
             exit 1
@@ -127,25 +127,25 @@ PY
 
           cp Cargo.lock "$tampered_lock"
           python3 - "$tampered_lock" <<'PY'
-import pathlib
-import re
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-inside_holochain = False
-for index, line in enumerate(lines):
-    if line == "[[package]]":
-        inside_holochain = False
-    elif line == 'name = "holochain"':
-        inside_holochain = True
-    elif inside_holochain and re.fullmatch(r'checksum = "[0-9a-f]{64}"', line):
-        lines[index] = 'checksum = "' + ("0" * 64) + '"'
-        break
-else:
-    raise SystemExit("holochain lock package/checksum not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
+          import pathlib
+          import re
+          import sys
+          
+          path = pathlib.Path(sys.argv[1])
+          lines = path.read_text(encoding="utf-8").splitlines()
+          inside_holochain = False
+          for index, line in enumerate(lines):
+              if line == "[[package]]":
+                  inside_holochain = False
+              elif line == 'name = "holochain"':
+                  inside_holochain = True
+              elif inside_holochain and re.fullmatch(r'checksum = "[0-9a-f]{64}"', line):
+                  lines[index] = 'checksum = "' + ("0" * 64) + '"'
+                  break
+          else:
+              raise SystemExit("holochain lock package/checksum not found")
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
           if python3 ../scripts/integral/verify_d6u_runtime_lock.py "$tampered_lock"; then
             echo "tampered Cargo.lock checksum was incorrectly accepted"
             exit 1
@@ -182,21 +182,21 @@ PY
           tampered_log=$(mktemp)
           cp d6u-runtime-test.log "$tampered_log"
           python3 - "$tampered_log" <<'PY'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-for index, line in enumerate(lines):
-    if line.startswith("D6U_CASE\tcanonical-payload-accepted\t"):
-        parts = line.split("\t")
-        parts[2] = "semantic-rejected"
-        lines[index] = "\t".join(parts)
-        break
-else:
-    raise SystemExit("canonical acceptance evidence line not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
+          import pathlib
+          import sys
+          
+          path = pathlib.Path(sys.argv[1])
+          lines = path.read_text(encoding="utf-8").splitlines()
+          for index, line in enumerate(lines):
+              if line.startswith("D6U_CASE\tcanonical-payload-accepted\t"):
+                  parts = line.split("\t")
+                  parts[2] = "semantic-rejected"
+                  lines[index] = "\t".join(parts)
+                  break
+          else:
+              raise SystemExit("canonical acceptance evidence line not found")
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
           if python3 ../scripts/integral/verify_d6u_runtime_evidence.py "$tampered_log"; then
             echo "tampered runtime evidence was incorrectly accepted"
             exit 1
