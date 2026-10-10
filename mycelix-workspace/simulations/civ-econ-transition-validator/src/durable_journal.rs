@@ -344,7 +344,7 @@ fn replay(bytes: &[u8]) -> Result<HashMap<String, JournalEntry>, JournalError> {
                 entry.status = EffectStatus::Indeterminate;
             }
             "A" => {
-                let receipt = fields[3];
+                let receipt = fields[4];
                 validate_digest(receipt).map_err(|_| JournalError::CorruptJournal {
                     line: line_no, reason: "receipt digest is invalid"
                 })?;
