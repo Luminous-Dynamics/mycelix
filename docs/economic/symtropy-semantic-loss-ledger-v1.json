@@ -1,0 +1,93 @@
+{
+  "ledger_id": "ECO-SYMTROPY-LOSS-001",
+  "version": "1.0.0",
+  "status": "bounded_reference",
+  "dispositions": {
+    "Preserved": "exact source semantics survive",
+    "Derived": "target meaning derived under explicit target policy",
+    "BoundedLoss": "source semantics not representable at target and loss is explicit",
+    "Unmapped": "target concept intentionally not created",
+    "Conflict": "source or mapping is stale, conflicting, indeterminate, or contradictory"
+  },
+  "required_trace": [
+    "source_event_id",
+    "source_origin",
+    "simulation_identity",
+    "adapter_profile",
+    "target_id",
+    "target_type",
+    "semantic_disposition",
+    "recognition_or_settlement_record"
+  ],
+  "mappings": [
+    {
+      "source": "Symtropy.OfferCreated",
+      "target": "Valueflows.Intent",
+      "disposition": "Preserved",
+      "ceiling": "simulation-scoped"
+    },
+    {
+      "source": "Symtropy.OfferAccepted",
+      "target": "Valueflows.Commitment",
+      "disposition": "Derived",
+      "ceiling": "simulation-scoped"
+    },
+    {
+      "source": "Symtropy.actual_flow",
+      "target": "Valueflows.EconomicEvent",
+      "disposition": "Derived",
+      "ceiling": "simulation-scoped"
+    },
+    {
+      "source": "Symtropy.production_or_service_observation",
+      "target": "Integral.COS.Observation",
+      "disposition": "BoundedLoss",
+      "omissions": [
+        "ITC_entitlement",
+        "physical_qualification"
+      ]
+    },
+    {
+      "source": "Symtropy.event",
+      "target": "TEND.TransactionCandidate",
+      "disposition": "BoundedLoss",
+      "omissions": [
+        "authorization",
+        "settlement"
+      ]
+    },
+    {
+      "source": "Symtropy.event",
+      "target": "Accounting.Projection",
+      "disposition": "Derived",
+      "omissions": [
+        "physical_evidence"
+      ]
+    }
+  ],
+  "forbidden_promotions": [
+    "simulation_production_to_physical_production",
+    "simulation_ownership_to_legal_title",
+    "replay_equality_to_independent_verification",
+    "COS_observation_to_ITC_entitlement",
+    "TEND_candidate_to_settlement",
+    "accounting_projection_to_physical_evidence",
+    "foreign_recognition_to_local_issuance",
+    "correction_to_history_mutation",
+    "indeterminate_transport_to_settlement"
+  ],
+  "claim_ceiling": "provenance-preserving bounded cross-ontology semantic projection",
+  "conservation_vector": [
+    "identity",
+    "origin",
+    "replay_fingerprint",
+    "quantity",
+    "unit",
+    "causality",
+    "validity",
+    "correction_lineage",
+    "claim_ceiling"
+  ],
+  "clean_projection_rule": "all conservation_vector dimensions must be Preserved; Conflict prevents clean projection",
+  "unit_conversion_policy": "no implicit conversion; explicit conversion profile required"
+}

@@ -1,0 +1,34 @@
+{
+ "corpus_id":"MYC-ECO-SETTLEMENT-CONF-001","version":"1.0.0",
+ "cases":[
+  ["RAIL-N-001","message_to_finality","payment message treated as final settlement","Rejected"],
+  ["RAIL-N-002","instruction_to_settlement","payment instruction treated as settled","Rejected"],
+  ["RAIL-N-003","provider_ack_to_finality","provider acknowledgement treated as universal finality","Rejected"],
+  ["RAIL-N-004","booking_to_finality","bank booking treated as legal discharge","Rejected"],
+  ["RAIL-N-005","transfer_to_fill","token transfer treated as market fill","Rejected"],
+  ["RAIL-N-006","fill_to_settlement","market fill treated as settlement","Rejected"],
+  ["RAIL-N-007","block_inclusion_to_finality","chain inclusion treated as universal finality","Rejected"],
+  ["RAIL-N-008","wrong_chain_finality","finality evidence from one chain applied to another","Rejected"],
+  ["RAIL-N-009","bridge_to_native","bridge destination representation treated as native asset","Rejected"],
+  ["RAIL-N-010","confirmation_boolean","rail-specific finality collapsed to confirmed=true","Rejected"],
+  ["RAIL-N-011","timeout_to_success","timeout treated as successful settlement","Rejected"],
+  ["RAIL-N-012","duplicate_receipt","same logical settlement generates duplicate effect","DuplicateIdempotent"],
+  ["RAIL-N-013","reorg_mutation","reorg rewrites source history","Rejected"],
+  ["RAIL-N-014","reconciliation_mismatch","mismatched source and destination identities treated as success","Rejected"],
+  ["RAIL-N-015","accounting_to_settlement","accounting projection treated as settlement rail","Rejected"],
+  ["RAIL-N-016","mutual_credit_to_blockchain_finality","mutual-credit ledger inherits blockchain finality","Rejected"],
+  ["RAIL-N-017","stale_finality","old finality evidence reused outside validity","Rejected"],
+  ["RAIL-N-018","wrong_instrument","rail evidence for one instrument applied to another","Rejected"],
+  ["RAIL-N-019","authorization_scope_mismatch","settlement receipt exceeds authorization scope","Rejected"],
+  ["RAIL-N-020","correction_overwrite","correction mutates original receipt","Rejected"]
+ ],
+ "positive_controls":[
+  "rail_specific_finality_preserved",
+  "probabilistic_and_consensus_finality_remain_distinct",
+  "source_and_target_reconciliation_identity_match",
+  "duplicate_logical_settlement_is_idempotent",
+  "correction_appends_lineage",
+  "accounting_projection_remains_derived"
+ ],
+ "claim_ceiling":"Semantic settlement-rail interoperability only."
+}

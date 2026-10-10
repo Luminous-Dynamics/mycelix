@@ -1,0 +1,32 @@
+{
+  "corpus_id":"ECO-CONF-001",
+  "version":"1.0.0",
+  "status":"Reference adversarial corpus",
+  "cases":[
+    ["ECO-N-001","stale_quote","A stale valuation quote is used for settlement authorization","Rejected"],
+    ["ECO-N-002","duplicate_settlement","Same logical settlement is submitted twice","DuplicateIdempotent"],
+    ["ECO-N-003","unauthorized_settlement","Settlement has no matching authorization reference","Rejected"],
+    ["ECO-N-004","foreign_recognition","Foreign instrument is recognized and origin is rewritten to local","Rejected"],
+    ["ECO-N-005","labor_to_compensation","Verified labor event directly mints compensation without policy transition","Rejected"],
+    ["ECO-N-006","production_to_itc","Production observation directly mints Integral ITC","Rejected"],
+    ["ECO-N-007","capability_as_collateral","Capability claim is treated as collateral ownership","Rejected"],
+    ["ECO-N-008","credit_as_ownership","Credit limit is treated as proof of asset ownership","Rejected"],
+    ["ECO-N-009","transport_as_settlement","Transport/provider acknowledgment is treated as settlement receipt","Rejected"],
+    ["ECO-N-010","dispute_to_settlement","Disputed settlement silently becomes settled","Rejected"],
+    ["ECO-N-011","correction_rewrite","Correction mutates the historical source event instead of preserving lineage","Rejected"],
+    ["ECO-N-012","unit_alias","Numerically equal quantities with different unit identities are exchanged as equivalent","Rejected"],
+    ["ECO-N-013","price_equals_value","A quoted price is treated as the valuation basis itself","Rejected"],
+    ["ECO-N-014","reputation_mints_money","Reputation alone creates monetary entitlement without explicit policy","Rejected"],
+    ["ECO-N-015","evidence_loss","Adapter removes source evidence/provenance while translating event","Rejected"],
+    ["ECO-N-016","unknown_as_success","Indeterminate delivery is converted to settled","Rejected"]
+  ],
+  "positive_controls":[
+    "explicit_authorization_then_settlement",
+    "same_logical_delivery_retry_is_idempotent",
+    "foreign_instrument_recognized_without_origin_rewrite",
+    "correction_adds_lineage_without_history_mutation",
+    "Integral_ITC_adapter_preserves_source_owned_semantics",
+    "Valueflows_EconomicEvent_maps_to_source_bound_event_without_claim_promotion"
+  ],
+  "claim_ceiling":"Semantic conformance only; not financial, legal, regulatory, security, or real-world economic validation."
+}

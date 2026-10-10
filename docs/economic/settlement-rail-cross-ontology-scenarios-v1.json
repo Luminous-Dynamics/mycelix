@@ -1,0 +1,17 @@
+{
+ "scenario_id":"MYC-ECO-RAIL-XONT-001","version":"1.0.0","status":"bounded_reference",
+ "scenarios":[
+  {"id":"R-001","path":["ISO20022Message","BankPaymentRail","SettlementReceipt"],"forbid":["message_to_finality","provider_ack_to_legal_discharge"]},
+  {"id":"R-002","path":["BTCObservation","BitcoinProbabilisticRail","SettlementReceipt"],"preserve":["chain_id","tx_id","block","confirmation_policy","claim_ceiling"]},
+  {"id":"R-003","path":["ETHObservation","EthereumConsensusRail","SettlementReceipt"],"preserve":["chain_id","tx_id","block","finality_profile","claim_ceiling"]},
+  {"id":"R-004","path":["ERC20Transfer","EvmTokenRail","MycelixEconomicEvent"],"preserve":["chain_id","contract","quantity","transfer_evidence","finality_profile"]},
+  {"id":"R-005","path":["StablecoinTransfer","StablecoinRail","ExternalSettlement"],"preserve":["instrument_identity","issuer","network","contract","rail_finality"]},
+  {"id":"R-006","path":["BridgeTransfer","BridgeRail","DestinationRecognition"],"preserve":["source_asset","bridge_identity","destination_asset","message_proof","correction_lineage"]},
+  {"id":"R-007","path":["TENDEvent","MutualCreditRail","SettlementReceipt"],"preserve":["instrument_identity","ledger_event","authorization","ledger_finality_profile"]},
+  {"id":"R-008","path":["IntegralITCEntitlement","EconomicSettlementRail","SettlementReceipt"],"forbid":["entitlement_to_finality_without_authorization_and_rail_evidence"]},
+  {"id":"R-009","path":["SymtropySimulationEvent","SimulationRecognition","MycelixEconomicEvent"],"preserve":["world","episode","build","replay","simulation_claim_ceiling"],"forbid":["simulation_to_physical_settlement"]},
+  {"id":"R-010","path":["AccountingProjection","ProjectionProfile"],"forbid":["projection_to_settlement_finality"]}
+ ],
+ "global_invariants":["rail_identity_preserved","instrument_identity_preserved","finality_model_preserved","authorization_scope_preserved","reconciliation_identity_preserved","correction_lineage_preserved","claim_ceiling_not_widened"],
+ "claim_ceiling":"Semantic settlement-rail interoperability only."
+}

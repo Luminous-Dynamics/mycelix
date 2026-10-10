@@ -1,0 +1,40 @@
+{
+  "kernel_id": "ECON-OS-POLICY-KERNEL-001",
+  "version": "1.0.0",
+  "status": "bounded_executable_reference",
+  "kernel_invariants": [
+    "source evidence cannot directly create entitlement",
+    "policy must be explicit and versioned before entitlement",
+    "authority must be explicit before effect",
+    "settlement eligibility is distinct from authorization",
+    "settlement requires current evidence and preserved claim ceiling",
+    "profile adapters cannot widen source claims",
+    "foreign recognition does not imply local issuance",
+    "correction appends lineage rather than mutating history",
+    "retries preserve logical economic identity"
+  ],
+  "profiles": [
+    {
+      "id": "IntegralItc",
+      "role": "domain-specific contribution/access policy"
+    },
+    {
+      "id": "Valueflows",
+      "role": "external economic ontology"
+    },
+    {
+      "id": "MutualCredit",
+      "role": "instrument and credit policy"
+    },
+    {
+      "id": "Tend",
+      "role": "domain-specific instrument/policy"
+    },
+    {
+      "id": "AccountingProjection",
+      "role": "derived reporting projection"
+    }
+  ],
+  "profile_rule": "profile-specific policy may restrict kernel transitions but may not weaken kernel invariants",
+  "claim_ceiling": "semantic transition conformance only"
+}
