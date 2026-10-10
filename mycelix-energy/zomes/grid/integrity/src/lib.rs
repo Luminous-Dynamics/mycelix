@@ -191,17 +191,63 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
             };
             let target_record = must_get_valid_record(target_action_hash)?;
-            let target_entry = target_record
-                .entry()
-                .to_app_option::<EntryTypes>()
-                .map_err(|_| wasm_error!(WasmErrorInner::Guest(
-                    "Grid link target entry could not be decoded".into()
-                )))?
-                .ok_or_else(|| {
-                    wasm_error!(WasmErrorInner::Guest(
-                        "Grid link target entry is unavailable".into()
-                    ))
-                })?;
+            // AppEntry bytes encode the concrete entry struct, not the
+            // EntryTypes enum wrapper. Decode the concrete type expected by
+            // this link kind, then pass the in-memory enum to the pure rule.
+            let target_entry = match &link_type {
+                LinkTypes::ProducerToProduction => match target_record
+                    .entry()
+                    .to_app_option::<EnergyProduction>()
+                    .ok()
+                    .flatten()
+                {
+                    Some(entry) => EntryTypes::EnergyProduction(entry),
+                    None => {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Producer index must target an energy-production entry".into(),
+                        ));
+                    }
+                },
+                LinkTypes::ConsumerToConsumption => match target_record
+                    .entry()
+                    .to_app_option::<EnergyConsumption>()
+                    .ok()
+                    .flatten()
+                {
+                    Some(entry) => EntryTypes::EnergyConsumption(entry),
+                    None => {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Consumer index must target an energy-consumption entry".into(),
+                        ));
+                    }
+                },
+                LinkTypes::SellerToOffers | LinkTypes::ActiveOffers => match target_record
+                    .entry()
+                    .to_app_option::<TradeOffer>()
+                    .ok()
+                    .flatten()
+                {
+                    Some(entry) => EntryTypes::TradeOffer(entry),
+                    None => {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Offer index must target a trade-offer entry".into(),
+                        ));
+                    }
+                },
+                LinkTypes::OfferToTrades | LinkTypes::BuyerToTrades => match target_record
+                    .entry()
+                    .to_app_option::<Trade>()
+                    .ok()
+                    .flatten()
+                {
+                    Some(entry) => EntryTypes::Trade(entry),
+                    None => {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Trade index must target a trade entry".into(),
+                        ));
+                    }
+                },
+            };
             result_from_validation_error(grid_link_validation_error(
                 &base_address,
                 &target_entry,
