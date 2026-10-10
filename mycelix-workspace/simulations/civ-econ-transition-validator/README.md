@@ -63,10 +63,12 @@ dispatch a request, or persist a retry authorization; those remain responsibilit
 of a verified adapter and the future transition driver.
 
 This journal is not tamper-evident: it does not hash-chain or sign the log,
-and it trusts supplied request/receipt digests rather than computing or verifying
-their source evidence. On Unix, new journal and lock files are created with
-owner-only mode (0600), and an existing journal with group/other permission bits
-is rejected. The parent directory must still be trusted and protected against
+and it stores supplied request, receipt, and source-evidence digests without
+authenticating the provider or independently verifying the source evidence. J2
+preserves the source-evidence digest alongside the receipt digest; digest presence
+alone is not proof that the underlying event occurred. On Unix, new journal and
+lock files are created with owner-only mode (0600), and an existing journal with
+group/other permission bits is rejected. The parent directory must still be trusted and protected against
 unauthorized replacement; non-Unix deployments must verify their native ACL
 policy. These controls do not authenticate external evidence. The journal also
 cannot atomically commit a local record with an external bank/payment/physical
