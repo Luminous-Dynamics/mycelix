@@ -38,6 +38,7 @@ jobs:
     name: Prepare trusted verification target
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Prepare binds a same-repository PR target using read-only metadata; it cannot mutate code or statuses.
     permissions:
       contents: read
       pull-requests: read
@@ -240,6 +241,7 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # This job executes the candidate PR tree, so it receives contents:read only and no persisted checkout credential.
     permissions:
       contents: read
     outputs:
@@ -348,6 +350,7 @@ jobs:
     if: always() && needs.prepare.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Fresh-runner validation reads PR metadata and run-scoped artifacts; it does not write statuses or repository data.
     permissions:
       contents: read
       pull-requests: read
