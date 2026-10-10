@@ -15,11 +15,12 @@ on:
         required: true
         type: string
 
+# Default token capabilities are read-only; only the single verifier job
+# receives statuses: write to publish its independently computed verdict.
 permissions:
   actions: read
   contents: read
   pull-requests: read
-  statuses: write
 
 concurrency:
   group: security-audit-independent-${{ github.event.workflow_run.head_sha || inputs.workflow_run_id || github.ref }}-${{ github.event.workflow_run.id || 'manual' }}
