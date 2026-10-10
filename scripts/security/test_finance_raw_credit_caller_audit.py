@@ -56,6 +56,34 @@ class RawCreditCallerAuditTests(unittest.TestCase):
         )
         self.assertTrue(has_public_raw_credit_abi(source))
 
+    def test_interposed_outer_attribute_does_not_hide_public_extern(self) -> None:
+        source = (
+            "#[hdk_extern]\\n"
+            "#[allow(clippy::too_many_arguments)]\\n"
+            "pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> { todo!() }\\n"
+        )
+        self.assertTrue(has_public_raw_credit_abi(source))
+
+    def test_unrelated_extern_does_not_hide_later_private_helper(self) -> None:
+        source = (
+            "#[hdk_extern]\\n"
+            "pub fn debit_sap(input: DebitSapInput) -> ExternResult<Record> { todo!() }\\n"
+            "fn credit_sap(input: CreditSapInput) -> ExternResult<Record> { todo!() }\\n"
+        )
+        self.assertFalse(has_public_raw_credit_abi(source))
+
+    def test_alternate_dispatch_constructors_are_detected(self) -> None:
+        for source in (
+            'FunctionName::try_from("credit_sap")',
+            '"credit_sap".to_string()',
+        ):
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                caller = root / "bridge" / "coordinator" / "src" / "lib.rs"
+                caller.parent.mkdir(parents=True)
+                caller.write_text(source, encoding="utf-8")
+                self.assertEqual(len(scan(root)), 1)
+
     def test_private_internal_helper_is_not_a_public_raw_credit_abi(self) -> None:
         source = (
             "fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {\n"
