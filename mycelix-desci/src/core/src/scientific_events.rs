@@ -44,7 +44,7 @@ pub const SCIENTIFIC_EVENT_SCHEMA_VERSION: u16 = 3;
 pub const MIN_SUPPORTED_SCIENTIFIC_EVENT_SCHEMA_VERSION: u16 = 2;
 /// Default explanatory assessment policy.
 pub const DEFAULT_EVIDENCE_POLICY_ID: &str = "mycelix-evidence-policy";
-pub const DEFAULT_EVIDENCE_POLICY_VERSION: &str = "1.0.0";
+pub const DEFAULT_EVIDENCE_POLICY_VERSION: &str = "1.1.0";
 /// Client clocks may be slightly ahead, but cannot place authoritative events
 /// arbitrarily into the future.
 pub const MAX_EVENT_FUTURE_SKEW_SECONDS: i64 = 300;
@@ -1289,6 +1289,10 @@ pub struct EvidenceProfile {
     pub review_count: usize,
     pub supportive_reproduction_count: usize,
     pub supportive_independent_replication_count: usize,
+    /// Positive replication attributions excluded because one actor mapped to multiple source identities.
+    /// Defaulted for compatibility with previously serialized projections.
+    #[serde(default)]
+    pub ambiguous_replication_actor_count: usize,
     pub non_supporting_result_count: usize,
     pub inconclusive_result_count: usize,
     pub critique_count: usize,
@@ -1356,6 +1360,12 @@ impl EvidenceAssessment {
             }
         };
         let contested = profile.non_supporting_result_count > 0 || profile.critique_count > 0;
+        if profile.ambiguous_replication_actor_count > 0 {
+            reasons.push(format!(
+                "{} replication actor(s) had multiple source identities and were excluded from the independent replication count",
+                profile.ambiguous_replication_actor_count
+            ));
+        }
         if contested && !matches!(maturity, EvidenceMaturity::Contested) {
             reasons.push("maturity coexists with active contestation".to_string());
         }
@@ -1673,7 +1683,11 @@ impl ClaimProjection {
 
         let mut reviewers = BTreeSet::new();
         let mut reproductions = BTreeSet::new();
-        let mut independent_replications = BTreeSet::new();
+        // Collect source affiliations per actor first. An actor cannot create
+        // multiple independent replication sources by appearing under more than
+        // one organization (or by mixing an organization-bound and unbound identity).
+        let mut independent_replication_attributions: BTreeMap<ActorId, BTreeSet<String>> =
+            BTreeMap::new();
         let mut non_supporting = BTreeSet::new();
         let mut inconclusive = BTreeSet::new();
         let mut critiques = BTreeSet::new();
@@ -1721,7 +1735,10 @@ impl ClaimProjection {
                         EvidenceOutcome::Supports
                             if !actor_is_creator && !organization_is_creator =>
                         {
-                            independent_replications.insert(source);
+                            independent_replication_attributions
+                                .entry(record.actor.clone())
+                                .or_default()
+                                .insert(source);
                         }
                         EvidenceOutcome::Supports => {}
                         EvidenceOutcome::DoesNotSupport => {
@@ -1739,6 +1756,15 @@ impl ClaimProjection {
                     conflicts.insert(record.actor.clone());
                 }
                 AttestationKind::Correction => profile.correction_count += 1,
+            }
+        }
+
+        let mut independent_replications = BTreeSet::new();
+        for source_keys in independent_replication_attributions.into_values() {
+            if source_keys.len() == 1 {
+                independent_replications.extend(source_keys);
+            } else if !source_keys.is_empty() {
+                profile.ambiguous_replication_actor_count += 1;
             }
         }
 
@@ -2302,6 +2328,108 @@ mod tests {
             projection.maturity(),
             EvidenceMaturity::IndependentlyReplicated
         );
+    }
+
+    #[test]
+    fn one_actor_cannot_count_as_independent_replications_from_multiple_organizations() {
+        let claim_id = ClaimId::new();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_000, 0).unwrap(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            )
+            .unwrap()
+            .with_acting_organization(organization("ror:creator-lab")),
+            &key(1),
+        )
+        .unwrap();
+
+        let artifact_id = ArtifactId::new();
+        let evidence = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis,
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_010, 0).unwrap(),
+                ScientificEventPayload::EvidenceAttached {
+                    claim_id,
+                    artifact: artifact(artifact_id),
+                },
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+
+        // Different protocol references allow both attestations to be recorded.
+        // The same actor identity must still not count as two independent sources.
+        let first = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &evidence,
+                actor("did:key:bob"),
+                Utc.timestamp_opt(1_700_000_020, 0).unwrap(),
+                ScientificEventPayload::AttestationRecorded {
+                    attestation: Attestation {
+                        id: AttestationId::new(),
+                        claim_id,
+                        kind: AttestationKind::IndependentReplication {
+                            outcome: EvidenceOutcome::Supports,
+                        },
+                        evidence_ids: vec![artifact_id],
+                        statement: Some("Replication reported by actor".to_string()),
+                        protocol_reference: Some("protocol:v1".to_string()),
+                    },
+                },
+            )
+            .unwrap()
+            .with_acting_organization(organization("ror:lab-one")),
+            &key(2),
+        )
+        .unwrap();
+
+        let second = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &first,
+                actor("did:key:bob"),
+                Utc.timestamp_opt(1_700_000_030, 0).unwrap(),
+                ScientificEventPayload::AttestationRecorded {
+                    attestation: Attestation {
+                        id: AttestationId::new(),
+                        claim_id,
+                        kind: AttestationKind::IndependentReplication {
+                            outcome: EvidenceOutcome::Supports,
+                        },
+                        evidence_ids: vec![artifact_id],
+                        statement: Some("Same actor, different affiliation".to_string()),
+                        protocol_reference: Some("protocol:v2".to_string()),
+                    },
+                },
+            )
+            .unwrap()
+            .with_acting_organization(organization("ror:lab-two")),
+            &key(2),
+        )
+        .unwrap();
+
+        let projection =
+            ClaimProjection::rebuild(&[genesis, evidence, first, second]).unwrap();
+
+        assert_eq!(
+            projection
+                .evidence_profile
+                .supportive_independent_replication_count,
+            0
+        );
+        assert_eq!(
+            projection
+                .evidence_profile
+                .ambiguous_replication_actor_count,
+            1
+        );
+        let assessment = projection.assessment();
+        assert_eq!(assessment.policy_version, "1.1.0");
+        assert!(assessment.reasons.iter().any(|reason| reason.contains("multiple source identities")));
+        assert_ne!(projection.maturity(), EvidenceMaturity::IndependentlyReplicated);
     }
 
     #[test]
