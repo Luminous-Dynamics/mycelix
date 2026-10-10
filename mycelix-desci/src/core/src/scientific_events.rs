@@ -2172,11 +2172,15 @@ mod tests {
     }
 
     fn artifact(id: ArtifactId) -> EvidenceArtifact {
+        artifact_with(id, b"dataset", "ipfs://bafy-test")
+    }
+
+    fn artifact_with(id: ArtifactId, content: &[u8], locator: &str) -> EvidenceArtifact {
         EvidenceArtifact {
             id,
-            content_hash: ContentHash::digest(b"dataset"),
+            content_hash: ContentHash::digest(content),
             media_type: "application/parquet".to_string(),
-            locator: "ipfs://bafy-test".to_string(),
+            locator: locator.to_string(),
             license: Some("CC-BY-4.0".to_string()),
             availability: ArtifactAvailability::Public,
         }
@@ -2404,15 +2408,57 @@ mod tests {
         )
         .unwrap();
 
-        let artifact_id = ArtifactId::new();
-        let evidence = SignedScientificEvent::sign(
+        let original_artifact_id = ArtifactId::new();
+        let original_evidence = SignedScientificEvent::sign(
             ScientificEventEnvelope::next(
                 &genesis,
                 actor("did:key:alice"),
                 Utc.timestamp_opt(1_700_000_010, 0).unwrap(),
                 ScientificEventPayload::EvidenceAttached {
                     claim_id,
-                    artifact: artifact(artifact_id),
+                    artifact: artifact(original_artifact_id),
+                },
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+
+        // Replication means new data, unlike computational reproduction which
+        // reuses the original data and analysis path.
+        let replication_one_id = ArtifactId::new();
+        let replication_one_evidence = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &original_evidence,
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_020, 0).unwrap(),
+                ScientificEventPayload::EvidenceAttached {
+                    claim_id,
+                    artifact: artifact_with(
+                        replication_one_id,
+                        b"independently-collected-data-one",
+                        "ipfs://replication-data-one",
+                    ),
+                },
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+
+        let replication_two_id = ArtifactId::new();
+        let replication_two_evidence = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &replication_one_evidence,
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_030, 0).unwrap(),
+                ScientificEventPayload::EvidenceAttached {
+                    claim_id,
+                    artifact: artifact_with(
+                        replication_two_id,
+                        b"independently-collected-data-two",
+                        "ipfs://replication-data-two",
+                    ),
                 },
             )
             .unwrap(),
@@ -2424,9 +2470,9 @@ mod tests {
         // The same actor identity must still not count as two independent sources.
         let first = SignedScientificEvent::sign(
             ScientificEventEnvelope::next(
-                &evidence,
+                &replication_two_evidence,
                 actor("did:key:bob"),
-                Utc.timestamp_opt(1_700_000_020, 0).unwrap(),
+                Utc.timestamp_opt(1_700_000_040, 0).unwrap(),
                 ScientificEventPayload::AttestationRecorded {
                     attestation: Attestation {
                         id: AttestationId::new(),
@@ -2434,8 +2480,8 @@ mod tests {
                         kind: AttestationKind::IndependentReplication {
                             outcome: EvidenceOutcome::Supports,
                         },
-                        evidence_ids: vec![artifact_id],
-                        statement: Some("Replication reported by actor".to_string()),
+                        evidence_ids: vec![replication_one_id],
+                        statement: Some("Replication by actor at lab one".to_string()),
                         protocol_reference: Some("protocol:v1".to_string()),
                     },
                 },
@@ -2450,7 +2496,7 @@ mod tests {
             ScientificEventEnvelope::next(
                 &first,
                 actor("did:key:bob"),
-                Utc.timestamp_opt(1_700_000_030, 0).unwrap(),
+                Utc.timestamp_opt(1_700_000_050, 0).unwrap(),
                 ScientificEventPayload::AttestationRecorded {
                     attestation: Attestation {
                         id: AttestationId::new(),
@@ -2458,7 +2504,7 @@ mod tests {
                         kind: AttestationKind::IndependentReplication {
                             outcome: EvidenceOutcome::Supports,
                         },
-                        evidence_ids: vec![artifact_id],
+                        evidence_ids: vec![replication_two_id],
                         statement: Some("Same actor, different affiliation".to_string()),
                         protocol_reference: Some("protocol:v2".to_string()),
                     },
@@ -2470,11 +2516,13 @@ mod tests {
         )
         .unwrap();
 
+        // These two computations deliberately reuse the original artifact; the
+        // same actor must not become two independent computational sources.
         let reproduction_one = SignedScientificEvent::sign(
             ScientificEventEnvelope::next(
                 &second,
                 actor("did:key:bob"),
-                Utc.timestamp_opt(1_700_000_040, 0).unwrap(),
+                Utc.timestamp_opt(1_700_000_060, 0).unwrap(),
                 ScientificEventPayload::AttestationRecorded {
                     attestation: Attestation {
                         id: AttestationId::new(),
@@ -2482,9 +2530,9 @@ mod tests {
                         kind: AttestationKind::ComputationalReproduction {
                             outcome: EvidenceOutcome::Supports,
                         },
-                        evidence_ids: vec![artifact_id],
+                        evidence_ids: vec![original_artifact_id],
                         statement: Some("First computational reproduction".to_string()),
-                        protocol_reference: Some("protocol:v1".to_string()),
+                        protocol_reference: Some("analysis:v1".to_string()),
                     },
                 },
             )
@@ -2498,7 +2546,7 @@ mod tests {
             ScientificEventEnvelope::next(
                 &reproduction_one,
                 actor("did:key:bob"),
-                Utc.timestamp_opt(1_700_000_050, 0).unwrap(),
+                Utc.timestamp_opt(1_700_000_070, 0).unwrap(),
                 ScientificEventPayload::AttestationRecorded {
                     attestation: Attestation {
                         id: AttestationId::new(),
@@ -2506,9 +2554,9 @@ mod tests {
                         kind: AttestationKind::ComputationalReproduction {
                             outcome: EvidenceOutcome::Supports,
                         },
-                        evidence_ids: vec![artifact_id],
+                        evidence_ids: vec![original_artifact_id],
                         statement: Some("Same actor, second affiliation".to_string()),
-                        protocol_reference: Some("protocol:v2".to_string()),
+                        protocol_reference: Some("analysis:v2".to_string()),
                     },
                 },
             )
@@ -2520,7 +2568,9 @@ mod tests {
 
         let projection = ClaimProjection::rebuild(&[
             genesis,
-            evidence,
+            original_evidence,
+            replication_one_evidence,
+            replication_two_evidence,
             first,
             second,
             reproduction_one,
