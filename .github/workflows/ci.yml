@@ -659,32 +659,72 @@ jobs:
           import json
           import sys
           
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON object key: {key!r}")
+                  result[key] = value
+              return result
+          
           with open(sys.argv[1], encoding="utf-8") as handle:
-              graph = json.load(handle)
+              payload = json.load(handle, object_pairs_hook=reject_duplicate_keys)
+          
+          # Nix 2.34 switched nix derivation show to version-4 JSON:
+          # {"version":4,"derivations":{...}} with inputs.drvs replacing
+          # inputDrvs. Do not silently accept an unrecognized schema.
+          if not isinstance(payload, dict) or payload.get("version") != 4:
+              raise SystemExit("expected Nix derivation JSON format version 4")
+          graph = payload.get("derivations")
           if not isinstance(graph, dict) or not graph:
-              raise SystemExit("recursive derivation graph is empty or malformed")
+              raise SystemExit("version-4 recursive derivation graph is empty or malformed")
+          if not all(
+              isinstance(key, str) and key.endswith(".drv") and "/" not in key
+              for key in graph
+          ):
+              raise SystemExit("version-4 derivation graph has a malformed derivation key")
+          
           root_matches = [
               (store_path, drv)
               for store_path, drv in graph.items()
-              if isinstance(drv, dict) and isinstance(drv.get("env"), dict) and drv["env"].get("name") == "mycelix-sdk-ts-0.6.0"
+              if isinstance(drv, dict) and drv.get("name") == "mycelix-sdk-ts-0.6.0"
           ]
           if len(root_matches) != 1:
               raise SystemExit(f"expected exactly one SDK root derivation; found {len(root_matches)}")
           root_path, root = root_matches[0]
-          root_inputs = root.get("inputDrvs", {})
-          if not isinstance(root_inputs, dict) or not root_inputs:
+          
+          def derivation_inputs(store_path, drv):
+              if not isinstance(drv, dict):
+                  raise SystemExit(f"derivation record is not an object: {store_path}")
+              inputs = drv.get("inputs")
+              if not isinstance(inputs, dict):
+                  raise SystemExit(f"derivation lacks version-4 inputs object: {store_path}")
+              input_drvs = inputs.get("drvs")
+              if not isinstance(input_drvs, dict):
+                  raise SystemExit(f"derivation inputs.drvs is not an object: {store_path}")
+              return input_drvs
+          
+          root_inputs = derivation_inputs(root_path, root)
+          if not root_inputs:
               raise SystemExit("SDK root derivation has no recorded input derivations")
-          if not all(isinstance(key, str) and key.endswith(".drv") for key in graph):
-              raise SystemExit("recursive derivation graph contains a non-derivation key")
-          transitive_input_edges = sum(
-              len(drv.get("inputDrvs", {}))
-              for drv in graph.values()
-              if isinstance(drv, dict) and isinstance(drv.get("inputDrvs", {}), dict)
-          )
+          
+          all_input_edges = 0
+          missing_inputs = set()
+          for store_path, drv in graph.items():
+              input_drvs = derivation_inputs(store_path, drv)
+              all_input_edges += len(input_drvs)
+              missing_inputs.update(set(input_drvs) - set(graph))
+          if missing_inputs:
+              raise SystemExit(
+                  "recursive derivation graph omits input derivations: "
+                  + ", ".join(sorted(missing_inputs)[:20])
+              )
+          
+          print("sdk_ts_derivation_json_version=4")
           print(f"sdk_ts_drv_path={root_path}")
           print(f"sdk_ts_derivation_count={len(graph)}")
           print(f"sdk_ts_root_input_derivation_count={len(root_inputs)}")
-          print(f"sdk_ts_transitive_input_edge_count={transitive_input_edges}")
+          print(f"sdk_ts_transitive_input_edge_count={all_input_edges}")
           PY
           )"
             summary_status=$?
