@@ -37,12 +37,14 @@ jobs:
       - name: Establish protected evidence directory
         run: |
           set -euo pipefail
-          printf 'FPM_CARGO_HOME=%s/fpm-cargo\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
-          printf 'FPM_TARGET_DIR=%s/fpm-target\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
-          printf 'FPM_RESOLVER_CARGO_HOME=%s/fpm-resolver-cargo\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
-          printf 'FPM_TOOLCHAIN_ROOT=%s/fpm-rust-toolchain\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
-          printf 'FPM_UNTRUSTED_TMP=%s/fpm-untrusted-tmp\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
-          printf 'FPM_EVIDENCE_DIR=%s/fpm-trusted-evidence-%s\n' "$RUNNER_TEMP" "$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+          {
+            printf 'FPM_CARGO_HOME=%s/fpm-cargo\n' "$RUNNER_TEMP"
+            printf 'FPM_TARGET_DIR=%s/fpm-target\n' "$RUNNER_TEMP"
+            printf 'FPM_RESOLVER_CARGO_HOME=%s/fpm-resolver-cargo\n' "$RUNNER_TEMP"
+            printf 'FPM_TOOLCHAIN_ROOT=%s/fpm-rust-toolchain\n' "$RUNNER_TEMP"
+            printf 'FPM_UNTRUSTED_TMP=%s/fpm-untrusted-tmp\n' "$RUNNER_TEMP"
+            printf 'FPM_EVIDENCE_DIR=%s/fpm-trusted-evidence-%s\n' "$RUNNER_TEMP" "$GITHUB_RUN_ID"
+          } >> "$GITHUB_ENV"
           evidence_dir="$RUNNER_TEMP/fpm-trusted-evidence-$GITHUB_RUN_ID"
           mkdir -p "$evidence_dir"
           chmod 700 "$evidence_dir"
@@ -151,7 +153,7 @@ jobs:
         run: |
           set -euo pipefail
           actual_head="$(git rev-parse HEAD)"
-          subject_tree="$(git rev-parse HEAD^{tree})"
+          subject_tree="$(git rev-parse 'HEAD^{tree}')"
           test "$actual_head" = "$EXPECTED_HEAD_SHA"
           test -z "$(git ls-files -s -- crates/fpm-wasm-artifact-identity | awk '$1 ~ /^120000$/ {print $4}')"
           root_config_hits="$(git ls-files --stage -- .cargo/config .cargo/config.toml || true)"
@@ -366,7 +368,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_CANDIDATE_HEAD_SHA"
-          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_CANDIDATE_TREE_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$EXPECTED_CANDIDATE_TREE_SHA"
           status="$(git status --porcelain --untracked-files=all)"
           if [ "$LOCK_MODE" = "generated_for_run" ]; then
             unexpected="$(printf '%s\n' "$status" | grep -v '^?? crates/fpm-wasm-artifact-identity/Cargo.lock$' || true)"
@@ -765,7 +767,7 @@ jobs:
           set -euo pipefail
 
           actual_head="$(git -C candidate rev-parse HEAD 2>/dev/null || true)"
-          actual_tree="$(git -C candidate rev-parse HEAD^{tree} 2>/dev/null || true)"
+          actual_tree="$(git -C candidate rev-parse 'HEAD^{tree}' 2>/dev/null || true)"
           test "$actual_head" = "$EXPECTED_HEAD_SHA"
           test "$actual_tree" = "$EXPECTED_TREE_SHA"
 
