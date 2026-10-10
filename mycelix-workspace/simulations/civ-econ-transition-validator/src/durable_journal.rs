@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 /// Prevent malformed local history from causing unbounded per-record decoding.
@@ -173,10 +173,13 @@ impl DurableEffectJournal {
         file.sync_all().map_err(|err| io_error("sync journal on open", err))?;
         sync_directory(&parent)?;
         file.seek(SeekFrom::Start(0)).map_err(|err| io_error("rewind journal", err))?;
-        let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes).map_err(|err| io_error("read journal", err))?;
+        // Parse through a fixed-size buffer. Only one bounded record is held by
+        // the parser at a time; the in-memory effect index remains proportional
+        // to the number of distinct effects, not the byte length of the log.
+        let mut reader = BufReader::new(file);
+        let entries = replay(&mut reader)?;
+        let mut file = reader.into_inner();
         file.seek(SeekFrom::End(0)).map_err(|err| io_error("seek journal end", err))?;
-        let entries = replay(&bytes)?;
 
         Ok(Self { path, file, _lock: lock, entries, poisoned: false })
     }
@@ -432,25 +435,62 @@ fn decode_hex(value: &str, line: usize) -> Result<Vec<u8>, JournalError> {
     Ok(out)
 }
 
-fn replay(bytes: &[u8]) -> Result<HashMap<String, JournalEntry>, JournalError> {
-    if bytes.is_empty() { return Ok(HashMap::new()); }
-    if !bytes.ends_with(b"\n") {
-        return Err(JournalError::CorruptJournal {
-            line: bytes.iter().filter(|b| **b == b'\n').count() + 1,
-            reason: "truncated record; never repair by silently discarding bytes"
-        });
-    }
-    let text = std::str::from_utf8(bytes).map_err(|_| JournalError::CorruptJournal {
-        line: 1, reason: "journal is not valid UTF-8"
-    })?;
-    let mut entries: HashMap<String, JournalEntry> = HashMap::new();
-    for (index, line) in text.split_terminator('\n').enumerate() {
-        let line_no = index + 1;
-        if line.len() > MAX_JOURNAL_RECORD_BYTES {
-            return Err(JournalError::CorruptJournal {
-                line: line_no, reason: "record exceeds maximum size"
-            });
+/// Read exactly one newline-terminated journal record without ever retaining
+/// more than MAX_JOURNAL_RECORD_BYTES plus its delimiter. An unterminated final
+/// record is corruption, even when all prior records were valid.
+fn read_bounded_record<R: BufRead>(
+    reader: &mut R,
+    line_no: usize,
+) -> Result<Option<Vec<u8>>, JournalError> {
+    let mut record = Vec::with_capacity(256);
+    loop {
+        let (consumed, complete) = {
+            let available = reader
+                .fill_buf()
+                .map_err(|err| io_error("read journal record", err))?;
+            if available.is_empty() {
+                if record.is_empty() {
+                    return Ok(None);
+                }
+                return Err(JournalError::CorruptJournal {
+                    line: line_no,
+                    reason: "truncated record; never repair by silently discarding bytes",
+                });
+            }
+
+            let newline_at = available.iter().position(|byte| *byte == b'\n');
+            let content_bytes = newline_at.unwrap_or(available.len());
+            if record.len() + content_bytes > MAX_JOURNAL_RECORD_BYTES {
+                return Err(JournalError::CorruptJournal {
+                    line: line_no,
+                    reason: "record exceeds maximum size",
+                });
+            }
+
+            let consumed = newline_at.map_or(available.len(), |index| index + 1);
+            record.extend_from_slice(&available[..consumed]);
+            (consumed, newline_at.is_some())
+        };
+        reader.consume(consumed);
+
+        if complete {
+            // Remove the delimiter; the parser receives just the record bytes.
+            record.pop();
+            return Ok(Some(record));
         }
+    }
+}
+
+fn replay<R: BufRead>(reader: &mut R) -> Result<HashMap<String, JournalEntry>, JournalError> {
+    let mut entries: HashMap<String, JournalEntry> = HashMap::new();
+    let mut line_no = 0usize;
+
+    while let Some(record) = read_bounded_record(reader, line_no + 1)? {
+        line_no += 1;
+        let line = std::str::from_utf8(&record).map_err(|_| JournalError::CorruptJournal {
+            line: line_no,
+            reason: "journal record is not valid UTF-8",
+        })?;
         let fields: Vec<&str> = line.split('\t').collect();
         let (event, encoded_id, request_digest, provider_profile_digest, receipt_digest, source_evidence_digest) =
             match fields.as_slice() {
@@ -955,6 +995,49 @@ mod tests {
             Err(JournalError::CorruptJournal {
                 reason: "record exceeds maximum size",
                 ..
+            })
+        ));
+    }
+
+
+    #[test]
+    fn streaming_replay_handles_history_larger_than_reader_buffer() {
+        let temp = TempDir::new();
+        let mut history = String::new();
+        const EFFECTS: usize = 4096;
+        for index in 0..EFFECTS {
+            let id = format!("streamed-effect-{index}");
+            history.push_str(&format!(
+                "J3\tB\t{}\t{}\t{}\n",
+                encode_hex(id.as_bytes()), REQUEST_A, PROVIDER_A
+            ));
+        }
+        write_journal_fixture(&temp.journal_path(), history.as_bytes());
+
+        let journal = DurableEffectJournal::open(temp.journal_path())
+            .expect("replay multi-buffer history");
+        assert_eq!(journal.unresolved_effect_ids().len(), EFFECTS);
+        assert!(journal.status("streamed-effect-4095").is_some());
+    }
+
+    #[test]
+    fn streaming_replay_rejects_truncated_final_record_after_valid_history() {
+        let temp = TempDir::new();
+        let mut history = format!(
+            "J3\tB\t{}\t{}\t{}\n",
+            encode_hex(b"first-complete-effect"), REQUEST_A, PROVIDER_A
+        );
+        history.push_str(&format!(
+            "J3\tB\t{}\t{}\t{}",
+            encode_hex(b"truncated-second-effect"), REQUEST_A, PROVIDER_A
+        ));
+        write_journal_fixture(&temp.journal_path(), history.as_bytes());
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                line: 2,
+                reason: "truncated record; never repair by silently discarding bytes",
             })
         ));
     }
