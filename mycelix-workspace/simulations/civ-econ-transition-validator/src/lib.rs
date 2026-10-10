@@ -29,6 +29,8 @@ pub enum Violation {
     EvaluationOutputMismatch,
     EvaluationNotIndependent,
     QualificationFailed,
+    MissingEvaluationReceipt,
+    MissingApprovalReceipt,
     EvaluatorIdentityMismatch,
     ApprovalInputMismatch,
     ApprovalAuthorityMismatch,
@@ -307,11 +309,13 @@ pub struct StageEvidence {
     pub evaluation_plan_digest: Option<String>,
     pub evaluation_output_digest: Option<String>,
     pub evaluation_passed: bool,
+    pub evaluation_receipt_ref: Option<String>,
     pub independent_oracle: bool,
     pub evaluator_id: Option<String>,
     pub approval_plan_digest: Option<String>,
     pub approver_id: Option<String>,
     pub approval_current: bool,
+    pub approval_receipt_ref: Option<String>,
     pub pilot_controls_present: bool,
     pub rights_floors_satisfied: bool,
     pub resource_reservations_reconciled: bool,
@@ -370,14 +374,11 @@ impl TransitionMachine {
             }
             return self.record_stage(next);
         }
-        if next == Stage::Rejected {
-            if ev.cutover_effects_started {
-                return Err(Violation::AbortAfterPossibleEffect);
+        if next == Stage::Rejected || next == Stage::Aborted {
+            if !matches!(self.stage, Stage::Draft | Stage::Frozen | Stage::Simulated | Stage::Qualified | Stage::Authorized | Stage::PilotActive | Stage::CutoverReady) {
+                return Err(Violation::InvalidTransition { from: self.stage, to: next });
             }
-            return self.record_stage(next);
-        }
-        if next == Stage::Aborted {
-            if ev.cutover_effects_started || self.stage == Stage::CutoverCommitted {
+            if ev.cutover_effects_started {
                 return Err(Violation::AbortAfterPossibleEffect);
             }
             return self.record_stage(next);
@@ -440,6 +441,9 @@ impl TransitionMachine {
                 if !ev.evaluation_passed {
                     return Err(Violation::QualificationFailed);
                 }
+                if ev.evaluation_receipt_ref.as_deref().map(str::trim).filter(|s| !s.is_empty()).is_none() {
+                    return Err(Violation::MissingEvaluationReceipt);
+                }
             }
             (Stage::Qualified, Stage::Authorized) => {
                 require_current_snapshot(ev)?;
@@ -451,6 +455,9 @@ impl TransitionMachine {
                 }
                 if !ev.approval_current {
                     return Err(Violation::ApprovalNotCurrent);
+                }
+                if ev.approval_receipt_ref.as_deref().map(str::trim).filter(|s| !s.is_empty()).is_none() {
+                    return Err(Violation::MissingApprovalReceipt);
                 }
             }
             (Stage::Authorized, Stage::PilotActive) => {
@@ -615,10 +622,10 @@ mod tests {
         let mut e = ev(); e.simulation_input_digest = Some(A.into()); e.simulation_output_digest = Some(C.into());
         machine.advance(Stage::Simulated, &e).unwrap();
         let mut e = ev(); e.evaluation_plan_digest = Some(A.into()); e.evaluation_output_digest = Some(C.into());
-        e.evaluation_passed = true; e.independent_oracle = true; e.evaluator_id = Some("e".into());
+        e.evaluation_passed = true; e.evaluation_receipt_ref = Some("eval-receipt-1".into()); e.independent_oracle = true; e.evaluator_id = Some("e".into());
         machine.advance(Stage::Qualified, &e).unwrap();
         let mut e = ev(); e.approval_plan_digest = Some(A.into()); e.approver_id = Some("a".into());
-        e.approval_current = true; machine.advance(Stage::Authorized, &e).unwrap();
+        e.approval_current = true; e.approval_receipt_ref = Some("approval-receipt-1".into()); machine.advance(Stage::Authorized, &e).unwrap();
     }
 
     #[test] fn accepts_valid_manifest() { assert_eq!(manifest().validate(), Ok(())); }
@@ -690,6 +697,43 @@ mod tests {
         let mut e = ev(); e.evaluation_plan_digest = Some(A.into()); e.evaluation_output_digest = Some(B.into());
         e.evaluation_passed = true; e.independent_oracle = true; e.evaluator_id = Some("e".into());
         assert_eq!(m.advance(Stage::Qualified, &e), Err(Violation::EvaluationOutputMismatch));
+    }
+
+    #[test] fn qualification_requires_verifier_receipt() {
+        let mut m = TransitionMachine::new(manifest());
+        let mut e = ev(); e.frozen_plan_digest = Some(A.into()); m.advance(Stage::Frozen, &e).unwrap();
+        let mut e = ev(); e.simulation_input_digest = Some(A.into()); e.simulation_output_digest = Some(C.into()); m.advance(Stage::Simulated, &e).unwrap();
+        let mut e = ev(); e.evaluation_plan_digest = Some(A.into()); e.evaluation_output_digest = Some(C.into());
+        e.evaluation_passed = true; e.independent_oracle = true; e.evaluator_id = Some("e".into());
+        assert_eq!(m.advance(Stage::Qualified, &e), Err(Violation::MissingEvaluationReceipt));
+    }
+
+    #[test] fn authorization_requires_approval_receipt() {
+        let mut m = TransitionMachine::new(manifest());
+        let mut e = ev(); e.frozen_plan_digest = Some(A.into()); m.advance(Stage::Frozen, &e).unwrap();
+        let mut e = ev(); e.simulation_input_digest = Some(A.into()); e.simulation_output_digest = Some(C.into()); m.advance(Stage::Simulated, &e).unwrap();
+        let mut e = ev(); e.evaluation_plan_digest = Some(A.into()); e.evaluation_output_digest = Some(C.into());
+        e.evaluation_passed = true; e.evaluation_receipt_ref = Some("eval-receipt".into()); e.independent_oracle = true; e.evaluator_id = Some("e".into());
+        m.advance(Stage::Qualified, &e).unwrap();
+        let mut e = ev(); e.approval_plan_digest = Some(A.into()); e.approver_id = Some("a".into()); e.approval_current = true;
+        assert_eq!(m.advance(Stage::Authorized, &e), Err(Violation::MissingApprovalReceipt));
+    }
+
+    #[test] fn full_happy_path_requires_complete_reconciliation() {
+        let mut m = TransitionMachine::new(manifest());
+        advance_to_authorized(&mut m);
+        let mut ready = ev(); ready.rights_floors_satisfied = true; ready.resource_reservations_reconciled = true;
+        ready.external_obligations_accounted = true;
+        m.advance(Stage::CutoverReady, &ready).unwrap();
+        let mut commit = ev(); commit.cutover_effects_started = true; commit.effect_receipts_durable = true;
+        m.advance(Stage::CutoverCommitted, &commit).unwrap();
+        let mut recon = ev(); recon.effect_frontier_resolved = true; recon.reconciliation_plan_digest = Some(A.into());
+        recon.reconciliation_digest = Some(B.into()); recon.reconciliation_passed = true;
+        recon.unresolved_mandatory_items = 0;
+        m.advance(Stage::Reconciled, &recon).unwrap();
+        m.advance(Stage::Completed, &recon).unwrap();
+        assert_eq!(m.stage(), Stage::Completed);
+        assert_eq!(m.history().len(), 8);
     }
 
     #[test] fn cutover_requires_rights_resource_and_external_obligation_gates() {
