@@ -5,6 +5,7 @@
 //! legal authority/capacity, or establish external settlement finality.
 
 pub mod durable_journal;
+pub mod external_effect_policy;
 
 use std::collections::{HashMap, HashSet};
 
