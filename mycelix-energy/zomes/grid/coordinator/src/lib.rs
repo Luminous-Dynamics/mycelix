@@ -216,10 +216,17 @@ pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
         .descending();
     for record in query(filter)? {
         if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
-            if offer.id == input.offer_id
-                && (offer.status == OfferStatus::Active
-                    || offer.status == OfferStatus::PartiallyFilled)
-            {
+            if offer.id == input.offer_id {
+                // Because the query is descending, the first matching ID is
+                // the current version. Never skip a terminal version and fall
+                // through to an older Active create/update record.
+                if offer.status != OfferStatus::Active
+                    && offer.status != OfferStatus::PartiallyFilled
+                {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Offer not found or not active".into()
+                    )));
+                }
                 let now = sys_time()?;
                 if now < offer.available_from {
                     return Err(wasm_error!(WasmErrorInner::Guest(
