@@ -879,6 +879,6 @@ mod tests {
         let temp = TempDir::new();
         let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
         assert_eq!(journal.begin_effect(" payment ", REQUEST_A, PROVIDER_A), Err(JournalError::InvalidEffectId));
-        assert_eq!(journal.begin_effect("payment", "SHA256:bad"), Err(JournalError::InvalidDigest));
+        assert_eq!(journal.begin_effect("payment", "SHA256:bad", PROVIDER_A), Err(JournalError::InvalidDigest));
     }
 }
