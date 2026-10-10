@@ -48,9 +48,10 @@ The integration tests in `tests/crash_recovery.rs` launch child processes to
 exercise two distinct crash windows: after a synthetic external effect but before
 journal acknowledgement, and after the acknowledgement is synchronized but before
 the caller can observe success. The parent explicitly clears each dead child's
-stale test lock, reopens the journal, checks the recovered state/receipt, and
-asserts no duplicate dispatch. These are process-boundary tests with a synthetic
-provider ledger only; they do not contact or prove behavior of a real payment
+stale test lock, reopens the journal, checks the recovered receipt, source-evidence
+digest, and provider-profile binding, and asserts no duplicate dispatch. These are
+process-boundary tests with a synthetic provider ledger only; they do not contact
+or prove behavior of a real payment
 provider, bank, physical actuator, or settlement authority.
 
 The `external_effect_policy` module is a pure decision policy, not a provider
