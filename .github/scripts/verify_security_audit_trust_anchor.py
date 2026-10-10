@@ -53,7 +53,7 @@ POLICY: dict[str, dict[str, Any]] = {
         "workflow_id": 379572736,
         "workflow_name": "Security Audit",
         "workflow_path": ".github/workflows/security-audit.yml",
-        "workflow_blob": "f24de1c8d249c365498b78c8ad97557e666d97b0",
+        "workflow_blob": "36b880f1e8c0e84ec0353297f9a54602ab9141dd",
         "engine_sha": ENGINE_SHA,
         "audit_rust": True,
         "audit_node": False,
