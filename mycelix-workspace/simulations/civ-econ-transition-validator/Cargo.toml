@@ -7,3 +7,7 @@ publish = false
 description = "Dependency-free reference validator for Mycelix CIV-ECON-001A transition invariants"
 
 [workspace]
+
+[[bin]]
+name = "journal-replay-scale"
+path = "src/journal_replay_scale.rs"
