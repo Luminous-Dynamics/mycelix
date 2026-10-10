@@ -496,42 +496,50 @@ fn replay<R: BufRead>(reader: &mut R) -> Result<HashMap<String, JournalEntry>, J
             line: line_no,
             reason: "journal record is not valid UTF-8",
         })?;
-        let fields: Vec<&str> = line.split('\t').collect();
-        let (event, encoded_id, request_digest, provider_profile_digest, receipt_digest, source_evidence_digest) =
-            match fields.as_slice() {
-                [version, event, id, request]
-                    if (*version == "J1" || *version == "J2")
-                        && (*event == "B" || *event == "I") =>
-                {
-                    (*event, *id, *request, None, None, None)
-                }
-                [version, event, id, request, profile]
-                    if *version == "J3" && (*event == "B" || *event == "I") =>
-                {
-                    (*event, *id, *request, Some(*profile), None, None)
-                }
-                [version, event, id, request, receipt]
-                    if *version == "J1" && *event == "A" =>
-                {
-                    (*event, *id, *request, None, Some(*receipt), None)
-                }
-                [version, event, id, request, receipt, evidence]
-                    if *version == "J2" && *event == "A" =>
-                {
-                    (*event, *id, *request, None, Some(*receipt), Some(*evidence))
-                }
-                [version, event, id, request, profile, receipt, evidence]
-                    if *version == "J3" && *event == "A" =>
-                {
-                    (*event, *id, *request, Some(*profile), Some(*receipt), Some(*evidence))
-                }
-                [version, ..] if *version != "J1" && *version != "J2" && *version != "J3" =>
-                    return Err(JournalError::CorruptJournal {
-                        line: line_no, reason: "unsupported journal record version"
-                    }),
+        // Split into a fixed number of borrowed fields. Collecting into a Vec
+        // here would heap-allocate once per line even though the grammar allows
+        // no more than seven fields.
+        let mut fields = line.split('\t');
+        let version = fields.next().ok_or(JournalError::CorruptJournal {
+            line: line_no, reason: "invalid record shape or version"
+        })?;
+        let event = fields.next().ok_or(JournalError::CorruptJournal {
+            line: line_no, reason: "invalid record shape or version"
+        })?;
+        let encoded_id = fields.next().ok_or(JournalError::CorruptJournal {
+            line: line_no, reason: "invalid record shape or version"
+        })?;
+        let request_digest = fields.next().ok_or(JournalError::CorruptJournal {
+            line: line_no, reason: "invalid record shape or version"
+        })?;
+        let fifth = fields.next();
+        let sixth = fields.next();
+        let seventh = fields.next();
+        if fields.next().is_some() {
+            return Err(JournalError::CorruptJournal {
+                line: line_no, reason: "invalid record shape or version"
+            });
+        }
+
+        if version != "J1" && version != "J2" && version != "J3" {
+            return Err(JournalError::CorruptJournal {
+                line: line_no, reason: "unsupported journal record version"
+            });
+        }
+
+        let (provider_profile_digest, receipt_digest, source_evidence_digest) =
+            match (version, event, fifth, sixth, seventh) {
+                ("J1" | "J2", "B" | "I", None, None, None) => (None, None, None),
+                ("J3", "B" | "I", Some(profile), None, None) => (Some(profile), None, None),
+                ("J1", "A", Some(receipt), None, None) => (None, Some(receipt), None),
+                ("J2", "A", Some(receipt), Some(evidence), None) =>
+                    (None, Some(receipt), Some(evidence)),
+                ("J3", "A", Some(profile), Some(receipt), Some(evidence)) =>
+                    (Some(profile), Some(receipt), Some(evidence)),
                 _ => return Err(JournalError::CorruptJournal {
                     line: line_no, reason: "invalid record shape or version"
                 }),
+            };
             };
         if encoded_id.len() > MAX_EFFECT_ID_BYTES * 2 {
             return Err(JournalError::CorruptJournal {
@@ -1048,7 +1056,25 @@ mod tests {
     }
 
     #[test]
-    fn noncanonical_effect_ids_and_digests_are_rejected() {
+        #[test]
+    fn replay_rejects_extra_record_fields_without_ignoring_them() {
+        let temp = TempDir::new();
+        let line = format!(
+            "J3\tB\t{}\t{}\t{}\textra\n",
+            encode_hex(b"extra-field"), REQUEST_A, PROVIDER_A
+        );
+        write_journal_fixture(&temp.journal_path(), line.as_bytes());
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "invalid record shape or version",
+                ..
+            })
+        ));
+    }
+
+fn noncanonical_effect_ids_and_digests_are_rejected() {
         let temp = TempDir::new();
         let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
         assert_eq!(journal.begin_effect(" payment ", REQUEST_A, PROVIDER_A), Err(JournalError::InvalidEffectId));
