@@ -499,6 +499,13 @@ fn agent_pub_key_from_did(did: &str) -> Option<AgentPubKey> {
     AgentPubKey::try_from(agent_str).ok()
 }
 
+/// Bind a claimed verifier DID to the actual agent making this zome call.
+/// Credential lookup alone is insufficient: otherwise any caller could name
+/// a trusted verifier and borrow that verifier's authorization.
+fn verifier_did_matches_agent_key(verifier_did: &str, caller: &AgentPubKey) -> bool {
+    agent_pub_key_from_did(verifier_did).as_ref() == Some(caller)
+}
+
 /// Minimum trust tier required to verify energy-production records.
 /// "Standard" (trust_credential's own doc comment: score >= 0.4, "can vote
 /// on major proposals") is a defensible, if tunable, policy choice: a
@@ -545,6 +552,13 @@ fn verifier_trust_tier(verifier_did: &str) -> Option<TrustTier> {
 /// section).
 #[hdk_extern]
 pub fn verify_production(input: VerifyProductionInput) -> ExternResult<Record> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    if !verifier_did_matches_agent_key(&input.verifier_did, &caller) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Verifier DID must identify the calling agent".into()
+        )));
+    }
+
     let trust_tier = verifier_trust_tier(&input.verifier_did);
     if !trust_tier.is_some_and(tier_meets_verification_threshold) {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
@@ -1511,6 +1525,18 @@ mod tests {
         let agent = AgentPubKey::from_raw_32(vec![7u8; 32]);
         let did = format!("did:mycelix:{agent}");
         assert_eq!(agent_pub_key_from_did(&did), Some(agent));
+    }
+
+    #[test]
+    fn test_verifier_did_must_match_the_calling_agent() {
+        let caller = AgentPubKey::from_raw_32(vec![7u8; 32]);
+        let other_agent = AgentPubKey::from_raw_32(vec![8u8; 32]);
+        let caller_did = format!("did:mycelix:{caller}");
+        let other_agent_did = format!("did:mycelix:{other_agent}");
+
+        assert!(verifier_did_matches_agent_key(&caller_did, &caller));
+        assert!(!verifier_did_matches_agent_key(&other_agent_did, &caller));
+        assert!(!verifier_did_matches_agent_key("did:mycelix:verifier1", &caller));
     }
 
     #[test]
