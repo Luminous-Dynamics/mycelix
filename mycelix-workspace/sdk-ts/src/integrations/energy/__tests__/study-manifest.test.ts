@@ -125,7 +125,9 @@ describe('EnergyStudyManifestV1', () => {
     expect(receipt.manifest_sha256).toBe(RUST_GOLDEN_DIGEST);
     expect(receipt.verified_dataset_count).toBe(3);
     expect(receipt.verified_configuration_count).toBe(4);
-    expect(receipt.artifact_set_sha256).toMatch(/^[0-9a-f]{64}$/u);
+    expect(receipt.artifact_set_sha256).toBe(
+      '74a2bb57ea351ab2f0d68502443d27a971db33293fa4c11e12a45d0afa3b30e2'
+    );
   });
 
   it('fails closed on missing, extra, or content-mismatched artifacts', async () => {
