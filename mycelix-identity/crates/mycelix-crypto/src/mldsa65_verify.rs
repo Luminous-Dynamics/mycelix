@@ -86,11 +86,7 @@ mod tests {
 
     fn signed_fixture(message: &[u8], context: &[u8]) -> (Vec<u8>, Vec<u8>) {
         let signing_key = SigningKey::<MlDsa65>::generate();
-        let verifying_key = signing_key
-            .verifying_key()
-            .encode()
-            .as_slice()
-            .to_vec();
+        let verifying_key = signing_key.verifying_key().encode().as_slice().to_vec();
         let signature = signing_key
             .expanded_key()
             .sign_deterministic(message, context)
@@ -116,12 +112,7 @@ mod tests {
     fn rejects_modified_message() {
         let (public_key, signature) = signed_fixture(b"original message", ML_DSA_65_EMPTY_CONTEXT);
 
-        assert!(verify_with_empty_context(
-            &public_key,
-            b"modified message",
-            &signature
-        )
-        .is_err());
+        assert!(verify_with_empty_context(&public_key, b"modified message", &signature).is_err());
     }
 
     #[test]
