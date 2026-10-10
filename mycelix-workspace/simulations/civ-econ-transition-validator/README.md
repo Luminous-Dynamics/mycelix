@@ -30,6 +30,20 @@ From this directory:
 
 The crate has an isolated Cargo workspace and no third-party dependencies.
 
+### Source-contract preflight
+
+Run the fast, stdlib-only structural audit before the Rust checks:
+
+    python3 scripts/audit_journal_source_contract.py
+
+It verifies selected source invariants, regression-test annotations, scale-scenario
+wiring, and the exact-head qualification workflow; it emits SHA-256 fingerprints
+for each reviewed source/artifact. When `QUALIFIED_SHA` is set (as it is in the
+pull-request workflow), the audit requires Git metadata to be available and the
+checked-out commit to match that exact subject. A missing or mismatched subject
+fails the audit. This is an early process check, not a Rust parser, compiler,
+unit test, Clippy run, or proof of runtime correctness.
+
 ### Journal replay scale probe
 
 Build the dependency-free scale probe once, then run each size separately so
