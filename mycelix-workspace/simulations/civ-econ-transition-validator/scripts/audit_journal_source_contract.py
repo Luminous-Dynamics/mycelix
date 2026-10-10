@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""Fast stdlib-only source preflight; deliberately not a Rust compiler substitute."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[4]
+CRATE = ROOT / "mycelix-workspace/simulations/civ-econ-transition-validator"
+JOURNAL_PATH = CRATE / "src/durable_journal.rs"
+SCALE_PATH = CRATE / "src/journal_replay_scale.rs"
+MANIFEST_PATH = CRATE / "Cargo.toml"
+README_PATH = CRATE / "README.md"
+DESIGN_PATH = CRATE / "JOURNAL_CHECKPOINT_COMPACTION_DESIGN.md"
+WORKFLOW_PATH = ROOT / ".github/workflows/civ-econ-transition-validator.yml"
+
+failures: list[str] = []
+passed: list[str] = []
+
+
+def check(name: str, condition: bool) -> None:
+    (passed if condition else failures).append(name)
+
+
+def read(path: Path) -> str:
+    if not path.is_file():
+        failures.append(f"required file exists: {path.relative_to(ROOT)}")
+        return ""
+    return path.read_text(encoding="utf-8")
+
+
+journal = read(JOURNAL_PATH)
+scale = read(SCALE_PATH)
+manifest = read(MANIFEST_PATH)
+readme = read(README_PATH)
+design = read(DESIGN_PATH)
+workflow = read(WORKFLOW_PATH)
+
+# Replay resource bounds and parser structure.
+check("record limit is 4096 bytes", "MAX_JOURNAL_RECORD_BYTES: usize = 4096;" in journal)
+check("effect ID limit is 1024 bytes", "MAX_EFFECT_ID_BYTES: usize = 1024;" in journal)
+check("replay uses the bounded record reader", "read_bounded_record(reader, &mut record, line_no + 1)?" in journal)
+check("bounded reader uses fill_buf/consume", "reader.fill_buf()" in journal and "reader.consume(consumed)" in journal)
+check("no full-file read_to_end replay path", "read_to_end(" not in journal)
+check("record fields are borrowed rather than collected per line", "let mut fields = line.split('\\t');" in journal and "let fields: Vec<&str> = line.split" not in journal)
+match_start = journal.find("let (provider_profile_digest, receipt_digest, source_evidence_digest) =")
+match_end = journal.find("if encoded_id.len() > MAX_EFFECT_ID_BYTES * 2", match_start)
+check(
+    "record-shape match closes exactly once",
+    match_start >= 0 and match_end > match_start and journal[match_start:match_end].count("};") == 1,
+)
+check(
+    "encoded effect ID limit is checked before decoding",
+    journal.find("if encoded_id.len() > MAX_EFFECT_ID_BYTES * 2")
+    < journal.find("let id_bytes = decode_hex(encoded_id, line_no)?"),
+)
+for test_name in (
+    "streaming_replay_handles_history_larger_than_reader_buffer",
+    "streaming_replay_rejects_truncated_final_record_after_valid_history",
+    "replay_rejects_extra_record_fields_without_ignoring_them",
+    "effect_count_includes_all_states_and_survives_replay",
+):
+    check(f"regression test present: {test_name}", f"fn {test_name}(" in journal and "#[test]" in journal)
+
+# Scale probe and build registration must describe the same four lifecycle paths.
+scenarios = ("pending", "indeterminate", "acknowledged", "reconciled")
+check("scale probe has the one-million-effect ceiling", "const MAX_EFFECTS: usize = 1_000_000;" in scale)
+check("scale probe verifies total count and unresolved count", "journal.effect_count()" in scale and "journal.unresolved_effect_count()" in scale)
+check("scale probe verifies first and last states", "first_status_matches" in scale and "last_status_matches" in scale)
+check("scale probe writes and syncs its generated journal before replay", "writer.flush()?;" in scale and "writer.get_ref().sync_all()?;" in scale)
+for scenario in scenarios:
+    check(f"scale probe scenario is implemented: {scenario}", f'"{scenario}"' in scale)
+    check(f"workflow smoke includes: {scenario}", f"{scenario}" in workflow)
+check("scale binary is registered in Cargo manifest", 'name = "journal-replay-scale"' in manifest and 'path = "src/journal_replay_scale.rs"' in manifest)
+check("crate remains dependency-free", "[dependencies]" not in manifest)
+check("README states measurements are not established yet", "has not itself established performance numbers" in readme)
+check("compaction remains design-only", "design only; not implemented or qualified" in design)
+check("compaction preserves acknowledged identity tombstones", "Acknowledged identities must survive" in design and "No unresolved effect disappears" in design)
+
+# Qualification process: exact subject, pinned toolchain, locked build and measured smoke.
+check("workflow asserts checkout matches exact PR head", 'test "$(git rev-parse HEAD)" = "\${QUALIFIED_SHA}"' in workflow)
+check("workflow pins Rust 1.96.0 identity", "rustc +1.96.0 --version" in workflow and "rustc 1.96.0 (ac68faa20 2026-05-25)" in workflow)
+check("workflow runs locked all-target tests", "cargo +1.96.0 test --manifest-path" in workflow and "--locked --all-targets" in workflow)
+check("workflow runs strict Clippy", "clippy --manifest-path" in workflow and "-- -D warnings" in workflow)
+check("workflow checks formatting", "cargo +1.96.0 fmt" in workflow and "-- --check" in workflow)
+check("workflow records host and RSS for smoke", "/usr/bin/time -v" in workflow and "uname -a" in workflow and "df -T" in workflow)
+check("workflow invokes a 10k smoke per lifecycle scenario", 'echo "runner_image=' in workflow and ' "$bin" 10000 "$scenario"' in workflow)
+
+files = (JOURNAL_PATH, SCALE_PATH, MANIFEST_PATH, README_PATH, DESIGN_PATH, WORKFLOW_PATH)
+try:
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+except (OSError, subprocess.CalledProcessError):
+    commit = "unavailable"
+
+report = {
+    "audit": "journal-source-contract-v1",
+    "commit": commit,
+    "passed": not failures,
+    "checks_passed": len(passed),
+    "checks_failed": len(failures),
+    "checks": passed,
+    "failures": failures,
+    "sha256": {
+        path.relative_to(ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in files
+        if path.is_file()
+    },
+    "scope": (
+        "Static source-contract preflight only. It does not compile Rust, execute tests, "
+        "run Clippy/rustfmt, authenticate provider evidence, or establish benchmark/capacity claims."
+    ),
+}
+
+print(json.dumps(report, indent=2, sort_keys=True))
+sys.exit(1 if failures else 0)
