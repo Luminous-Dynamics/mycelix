@@ -1,8 +1,9 @@
-//! Complete, pinned C2SP Wycheproof ML-DSA-65 verification corpus.
+//! Pinned published and proposed-upstream ML-DSA-65 verification corpora.
 //!
-//! This is corpus regression evidence for the RustCrypto candidate only. It is
-//! not independent cross-implementation qualification; the separate Libcrux
-//! oracle and mutation gates remain mandatory in ML_DSA_65_QUALIFICATION_PLAN.md.
+//! This executes the exact published C2SP snapshot plus the separately pinned,
+//! signed-but-not-yet-merged C2SP PR #278 candidate. The latter regenerates
+//! edge-case vectors under the final FIPS 204 key-expansion derivation.
+//! This remains RustCrypto regression evidence, not cross-implementation qualification.
 
 use mycelix_crypto::mldsa65_verify::{
     verify_with_empty_context, ML_DSA_65_PUBLIC_KEY_BYTES, ML_DSA_65_SIGNATURE_BYTES,
@@ -10,9 +11,13 @@ use mycelix_crypto::mldsa65_verify::{
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-const CORPUS: &str = include_str!("data/mldsa_65_verify_test.json");
-const EXPECTED_SHA256: &str =
+const PUBLISHED_CORPUS: &str = include_str!("data/mldsa_65_verify_test.json");
+const PUBLISHED_SHA256: &str =
     "49ac366d76115eab56b7116f10d06e288e6f23fe6cfb90b26bfb2d731a8d1e02";
+
+const PR278_CORPUS: &str = include_str!("data/mldsa_65_verify_pr278_test.json");
+const PR278_SHA256: &str =
+    "1ca235f61928421a173a171780beb00264ae9155dc33c52a11e1766cc7979034";
 
 fn decode_hex(input: &str) -> Vec<u8> {
     assert_eq!(input.len() % 2, 0, "hex input has an odd number of digits");
@@ -37,16 +42,15 @@ fn hex_nibble(byte: u8) -> Option<u8> {
     }
 }
 
-#[test]
-fn fixture_sha256_matches_the_pinned_corpus() {
-    let actual = format!("{:x}", Sha256::digest(CORPUS.as_bytes()));
-    assert_eq!(actual, EXPECTED_SHA256, "pinned Wycheproof fixture changed");
-}
+fn exercise_corpus(source: &str, corpus_text: &str, expected_sha256: &str) {
+    let actual_sha256 = format!("{:x}", Sha256::digest(corpus_text.as_bytes()));
+    assert_eq!(
+        actual_sha256, expected_sha256,
+        "{source}: pinned fixture SHA-256 mismatch"
+    );
 
-#[test]
-fn complete_wycheproof_mldsa65_verification_corpus() {
     let corpus: Value =
-        serde_json::from_str(CORPUS).expect("pinned Wycheproof corpus must be valid JSON");
+        serde_json::from_str(corpus_text).expect("pinned Wycheproof corpus must be valid JSON");
     assert_eq!(corpus["algorithm"].as_str(), Some("ML-DSA-65"));
     assert_eq!(corpus["numberOfTests"].as_u64(), Some(210));
 
@@ -63,7 +67,7 @@ fn complete_wycheproof_mldsa65_verification_corpus() {
         assert_eq!(
             group["type"].as_str(),
             Some("MlDsaVerify"),
-            "unexpected test group type at index {group_index}"
+            "{source}: unexpected test group type at index {group_index}"
         );
         let public_key = decode_hex(
             group["publicKey"]
@@ -73,7 +77,7 @@ fn complete_wycheproof_mldsa65_verification_corpus() {
         assert_eq!(
             public_key.len(),
             ML_DSA_65_PUBLIC_KEY_BYTES,
-            "wrong public-key size in test group {group_index}"
+            "{source}: wrong public-key size in group {group_index}"
         );
         let tests = group["tests"]
             .as_array()
@@ -96,7 +100,7 @@ fn complete_wycheproof_mldsa65_verification_corpus() {
             assert_eq!(
                 signature.len(),
                 ML_DSA_65_SIGNATURE_BYTES,
-                "wrong signature size for tcId {tc_id}"
+                "{source}: wrong signature size for tcId {tc_id}"
             );
 
             let result = verify_with_empty_context(&public_key, &message, &signature);
@@ -107,41 +111,33 @@ fn complete_wycheproof_mldsa65_verification_corpus() {
                 "valid" => {
                     assert!(
                         result.is_ok(),
-                        "tcId {tc_id} was expected valid but was rejected: {result:?}"
+                        "{source}: tcId {tc_id} expected valid but was rejected: {result:?}"
                     );
                     valid += 1;
                 }
                 "invalid" => {
                     assert!(
                         result.is_err(),
-                        "tcId {tc_id} was expected invalid but was accepted"
+                        "{source}: tcId {tc_id} expected invalid but was accepted"
                     );
                     invalid += 1;
                 }
                 "acceptable" => {
-                    panic!("tcId {tc_id} is flagged acceptable; no explicit policy is defined");
+                    panic!("{source}: tcId {tc_id} is flagged acceptable; no explicit policy is defined");
                 }
-                other => panic!("tcId {tc_id} has unknown expected result {other:?}"),
+                other => panic!("{source}: tcId {tc_id} has unknown expected result {other:?}"),
             }
 
             match tc_id {
                 19 => {
-                    assert_eq!(expected, "invalid", "tcId 19 must reject repeated hint indices");
-                    let flags = case["flags"]
-                        .as_array()
-                        .expect("tcId 19 must declare flags");
+                    assert_eq!(expected, "invalid", "{source}: tcId 19 must reject repeated hint indices");
+                    let flags = case["flags"].as_array().expect("tcId 19 must declare flags");
                     assert!(flags.iter().any(|flag| flag.as_str() == Some("InvalidHintsEncoding")));
                     tc19_seen = true;
                 }
                 61 => {
-                    assert_eq!(
-                        expected,
-                        "valid",
-                        "tcId 61 must accept the valid near-boundary signature"
-                    );
-                    let flags = case["flags"]
-                        .as_array()
-                        .expect("tcId 61 must declare flags");
+                    assert_eq!(expected, "valid", "{source}: tcId 61 must accept the valid near-boundary signature");
+                    let flags = case["flags"].as_array().expect("tcId 61 must declare flags");
                     assert!(flags.iter().any(|flag| flag.as_str() == Some("BoundaryCondition")));
                     tc61_seen = true;
                 }
@@ -151,9 +147,19 @@ fn complete_wycheproof_mldsa65_verification_corpus() {
         }
     }
 
-    assert_eq!(total, 210, "not every pinned corpus case was exercised");
-    assert_eq!(valid, 79, "unexpected count of expected-valid cases");
-    assert_eq!(invalid, 131, "unexpected count of expected-invalid cases");
-    assert!(tc19_seen, "required repeated-hint sentinel tcId 19 was not exercised");
-    assert!(tc61_seen, "required valid-boundary sentinel tcId 61 was not exercised");
+    assert_eq!(total, 210, "{source}: not every corpus case was exercised");
+    assert_eq!(valid, 79, "{source}: unexpected number of expected-valid cases");
+    assert_eq!(invalid, 131, "{source}: unexpected number of expected-invalid cases");
+    assert!(tc19_seen, "{source}: required repeated-hint sentinel tcId 19 was not exercised");
+    assert!(tc61_seen, "{source}: required valid-boundary sentinel tcId 61 was not exercised");
+}
+
+#[test]
+fn published_c2sp_snapshot_matches_all_expected_verdicts() {
+    exercise_corpus("published C2SP snapshot at 12fd3aaf", PUBLISHED_CORPUS, PUBLISHED_SHA256);
+}
+
+#[test]
+fn regenerated_c2sp_pr278_candidate_matches_all_expected_verdicts() {
+    exercise_corpus("C2SP PR #278 candidate at 8f654b7f", PR278_CORPUS, PR278_SHA256);
 }

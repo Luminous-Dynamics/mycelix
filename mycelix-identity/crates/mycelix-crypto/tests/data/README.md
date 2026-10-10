@@ -23,3 +23,26 @@ verdict policy together. The test intentionally fails if a case class such as
 
 The upstream C2SP Wycheproof project is distributed under Apache License 2.0;
 see [LICENSE-C2SP-Apache-2.0.txt](LICENSE-C2SP-Apache-2.0.txt).
+
+## Supplemental upstream candidate (not yet merged upstream)
+
+A second fixture, `mldsa_65_verify_pr278_test.json`, is sourced from C2SP
+Wycheproof PR [#278, “mldsa: regenerate FIPS 204 edge cases”](https://github.com/C2SP/wycheproof/pull/278),
+head commit `8f654b7fe9cd9bf0825269df2a7541c52f0f9cb1`. This commit is
+signature-verified by GitHub and the PR reports cross-checks with OpenSSL,
+smoke tests with Go's standard-library implementation, and mutation checks.
+The PR was still open at the time this fixture was pinned, so this file is
+**supplemental proposed upstream data**, not a released/main-branch corpus.
+
+- Candidate file Git blob SHA-1: `fa871a3c8c76b0cf871879243ad34fa2cbd79000`
+- Candidate fixture SHA-256: `1ca235f61928421a173a171780beb00264ae9155dc33c52a11e1766cc7979034`
+- UTF-8 size: 1,664,284 bytes
+- Cases: 210 (79 expected valid and 131 expected invalid)
+
+The C2SP issue [#276](https://github.com/C2SP/wycheproof/issues/276) reported
+that some ML-DSA edge cases were stale under the final FIPS 204 key-expansion
+derivation. The harness runs this candidate separately from the published
+snapshot to preserve provenance and prevent us from treating an unmerged
+correction as official upstream data. Do not replace either fixture without
+reviewing its source commit, blob SHA-1, SHA-256, case counts, and expected
+verdicts together.
