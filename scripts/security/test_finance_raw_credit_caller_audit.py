@@ -126,7 +126,7 @@ class RawCreditCallerAuditTests(unittest.TestCase):
             hits = scan(root)
             self.assertEqual(len(hits), 1)
             self.assertEqual(hits[0][0], "bridge/coordinator/src/lib.rs")
-            self.assertEqual(hits[0][1], 1)
+            self.assertEqual(hits[0][1], 2)
             self.assertIn("credit_sap", hits[0][2])
 
     def test_multiline_into_dispatch_is_detected_and_private_helper_is_ignored(self) -> None:
@@ -192,7 +192,7 @@ class RawCreditCallerAuditTests(unittest.TestCase):
                 status = audit(root)
 
             self.assertEqual(status, 1)
-            self.assertIn("Found 4 call site(s) in each Finance projection.", output.getvalue())
+            self.assertIn("Found 4 matching literal(s) in each Finance projection.", output.getvalue())
 
     def test_whole_audit_rejects_projection_drift(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
