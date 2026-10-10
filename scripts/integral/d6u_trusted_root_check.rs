@@ -23,7 +23,7 @@ struct Pin {
 #[derive(Debug, Clone, PartialEq)]
 enum JsonValue {
     Object(std::collections::BTreeMap<String, JsonValue>),
-    Array(Vec<JsonValue>),
+    Array,
     String(String),
     Number(String),
     Boolean,
@@ -122,14 +122,15 @@ impl<'a> JsonParser<'a> {
     fn parse_array(&mut self, depth: usize) -> Result<JsonValue, String> {
         self.cursor += 1;
         self.skip_ws();
-        let mut values = Vec::new();
         if self.bytes.get(self.cursor) == Some(&b']') {
             self.cursor += 1;
-            return Ok(JsonValue::Array(values));
+            return Ok(JsonValue::Array);
         }
 
         loop {
-            values.push(self.parse_value(depth)?);
+            // This checker only needs the policy's object structures. Consume
+            // array elements fully without retaining unreachable AST payloads.
+            self.parse_value(depth)?;
             self.skip_ws();
             match self.bytes.get(self.cursor) {
                 Some(b',') => self.cursor += 1,
@@ -140,7 +141,7 @@ impl<'a> JsonParser<'a> {
                 _ => return Err(format!("expected ',' or ']' at byte {}", self.cursor)),
             }
         }
-        Ok(JsonValue::Array(values))
+        Ok(JsonValue::Array)
     }
 
     fn parse_string(&mut self) -> Result<String, String> {
@@ -179,7 +180,11 @@ impl<'a> JsonParser<'a> {
                         b'u' => {
                             let first = self.parse_hex_u16()?;
                             let codepoint = if (0xD800..=0xDBFF).contains(&first) {
-                                if self.bytes.get(self.cursor..self.cursor + 2) != Some(b"\\u") {
+                                if !self
+                                    .bytes
+                                    .get(self.cursor..self.cursor.saturating_add(2))
+                                    .is_some_and(|prefix| prefix == b"\\u")
+                                {
                                     return Err("high surrogate is missing a low surrogate".to_string());
                                 }
                                 self.cursor += 2;
