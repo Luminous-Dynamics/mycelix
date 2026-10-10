@@ -13,7 +13,6 @@ to turn the check green.
 
 from __future__ import annotations
 
-import ast
 import re
 import sys
 from pathlib import Path
@@ -82,16 +81,80 @@ def _skip_rust_trivia(text: str, index: int) -> int:
 
 
 def _literal_value(match: re.Match[str]) -> str | None:
-    """Return a static Rust string's value when it can be safely interpreted."""
+    """Decode only the Rust string escapes understood by this static name scanner."""
     if match.group("raw") is not None:
         return match.group("raw")
-    try:
-        # Python and Rust share the common escapes used in function-name strings.
-        # Unrecognized Rust-specific escapes are conservatively left unclassified.
-        value = ast.literal_eval(match.group("quoted"))
-    except (SyntaxError, ValueError):
+
+    spelling = match.group("quoted")
+    if spelling is None or len(spelling) < 2:
         return None
-    return value if isinstance(value, str) else None
+    body = spelling[1:-1]
+    decoded: list[str] = []
+    index = 0
+    simple_escapes = {
+        "\\": "\\",
+        '"': '"',
+        "'": "'",
+        "n": "\n",
+        "r": "\r",
+        "t": "\t",
+        "0": "\0",
+    }
+    while index < len(body):
+        char = body[index]
+        if char != "\\":
+            decoded.append(char)
+            index += 1
+            continue
+        index += 1
+        if index >= len(body):
+            return None
+        escape = body[index]
+        if escape in simple_escapes:
+            decoded.append(simple_escapes[escape])
+            index += 1
+            continue
+        if escape == "x":
+            digits = body[index + 1 : index + 3]
+            if len(digits) != 2 or not re.fullmatch(r"[0-9a-fA-F]{2}", digits):
+                return None
+            codepoint = int(digits, 16)
+            # Rust text-string \\x escapes are ASCII-only.
+            if codepoint > 0x7F:
+                return None
+            decoded.append(chr(codepoint))
+            index += 3
+            continue
+        if escape == "u" and body[index + 1 : index + 2] == "{":
+            close = body.find("}", index + 2)
+            if close < 0:
+                return None
+            digits = body[index + 2 : close]
+            if not digits or not re.fullmatch(r"[0-9a-fA-F_]+", digits):
+                return None
+            try:
+                codepoint = int(digits.replace("_", ""), 16)
+                if codepoint > 0x10FFFF or 0xD800 <= codepoint <= 0xDFFF:
+                    return None
+                decoded.append(chr(codepoint))
+            except (ValueError, OverflowError):
+                return None
+            index = close + 1
+            continue
+        # Rust escaped-newline continuation: discard the line break and following
+        # ASCII whitespace. This is static normalization, not arbitrary evaluation.
+        if escape == "\n":
+            index += 1
+            while index < len(body) and body[index] in " \t\r\n":
+                index += 1
+            continue
+        if escape == "\r" and body[index + 1 : index + 2] == "\n":
+            index += 2
+            while index < len(body) and body[index] in " \t\r\n":
+                index += 1
+            continue
+        return None
+    return "".join(decoded)
 
 
 def _static_decoded_literal_hits(source_text: str) -> list[tuple[int, int, str]]:
