@@ -300,6 +300,33 @@ jobs:
           workspaces: mycelix-identity
       - name: Test standalone ML-DSA-65 verifier (RustCrypto feature)
         run: cd mycelix-identity && cargo test --locked -p mycelix-crypto --no-default-features --features mldsa-verify-rc --lib
+      # When the locked gate finds resolver drift, show the exact Cargo.lock delta
+      # without committing or using that regenerated lock as a test result. The
+      # original lock is restored even if resolution fails.
+      - name: Diagnose lockfile drift after verifier gate
+        if: failure()
+        run: |
+          cd mycelix-identity
+          lock_backup="$(mktemp)"
+          cp Cargo.lock "$lock_backup"
+          restore_lock() {
+            cp "$lock_backup" Cargo.lock
+            rm -f "$lock_backup"
+          }
+          trap restore_lock EXIT
+          set +e
+          cargo tree -p mycelix-crypto --no-default-features --features mldsa-verify-rc --edges all > /tmp/mldsa-cargo-tree.txt
+          resolver_status=$?
+          set -e
+          echo "resolver_diagnostic_exit=${resolver_status}"
+          if cmp -s "$lock_backup" Cargo.lock; then
+            echo "Cargo.lock unchanged by diagnostic resolution."
+          else
+            echo "::group::Exact temporary Cargo.lock delta (not used as qualification evidence)"
+            diff -u "$lock_backup" Cargo.lock || true
+            echo "::endgroup::"
+          fi
+          echo "Original Cargo.lock will be restored before the next CI step."
       - name: Test hybrid signature composition (RustCrypto feature)
         run: cd mycelix-identity && cargo test --locked -p mycelix-crypto --no-default-features --features hybrid-rc --lib hybrid_sig::tests
       - name: Test identity
