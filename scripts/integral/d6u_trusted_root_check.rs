@@ -23,6 +23,188 @@ struct Pin {
 // These values are intentionally literal. The source file itself is independently
 // blob-pinned by the calling workflow. Updating any pin requires reviewing the
 // policy and the complete trust closure, not just accepting a new digest.
+const EXPECTED_EVALUATION_SCOPE: &str = "policy-fingerprint,workflow-and-five-program-closure,canonical-path-and-symlink-containment,candidate-root-identity-and-cli-path-preservation,validated-source-snapshot-import,alias-pin-consistency,provenance-binding,artifact-integrity,redirect-safety,optimized-mode-refusal";
+
+const EXPECTED_RECEIPT_KEYS: [&str; 21] = [
+    "record_schema",
+    "status",
+    "repository",
+    "candidate_sha",
+    "candidate_verifier_blob_sha",
+    "candidate_trusted_workflow_blob_sha",
+    "candidate_fetcher_blob_sha",
+    "candidate_attestation_verifier_blob_sha",
+    "candidate_predicate_emitter_blob_sha",
+    "candidate_retention_verifier_blob_sha",
+    "candidate_policy_blob_sha",
+    "trusted_evaluator_blob_sha",
+    "trusted_rust_preflight_blob_sha",
+    "trusted_source_commit_sha",
+    "workflow_file_commit_sha",
+    "workflow_ref",
+    "run_id",
+    "run_attempt",
+    "claim_ceiling",
+    "evaluation_scope",
+    "container_image",
+];
+
+#[derive(Debug)]
+struct ReceiptSummary {
+    candidate_sha: String,
+    run_id: u64,
+    run_attempt: u32,
+    scope_items: usize,
+}
+
+fn is_lower_hex(value: &str, length: usize) -> bool {
+    value.len() == length
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn canonical_positive_integer<T>(value: &str, field: &str) -> Result<T, String>
+where
+    T: std::str::FromStr + ToString,
+{
+    let parsed = value
+        .parse::<T>()
+        .map_err(|_| format!("receipt field {field} is not a positive integer"))?;
+    if parsed.to_string() != value || parsed.to_string().starts_with('0') {
+        return Err(format!("receipt field {field} is not canonical"));
+    }
+    Ok(parsed)
+}
+
+fn validate_evaluation_scope(value: &str) -> Result<usize, String> {
+    let items: Vec<_> = value.split(',').collect();
+    if value != EXPECTED_EVALUATION_SCOPE
+        || items.iter().any(|item| item.is_empty())
+        || items.iter().collect::<std::collections::BTreeSet<_>>().len() != items.len()
+    {
+        return Err("receipt evaluation_scope differs from the exact trusted inventory".to_string());
+    }
+    Ok(items.len())
+}
+
+fn parse_receipt_bytes(bytes: &[u8]) -> Result<ReceiptSummary, String> {
+    let source =
+        std::str::from_utf8(bytes).map_err(|error| format!("receipt is not UTF-8: {error}"))?;
+    if !source.ends_with('\n') || source.contains('\r') {
+        return Err("receipt must use LF line endings and end with a newline".to_string());
+    }
+
+    let mut fields = std::collections::BTreeMap::<String, String>::new();
+    for (index, line) in source.lines().enumerate() {
+        if line.is_empty() {
+            return Err(format!("receipt contains an empty line at {}", index + 1));
+        }
+        let (key, value) = line
+            .split_once('=')
+            .ok_or_else(|| format!("receipt line {} lacks '='", index + 1))?;
+        if key.is_empty()
+            || !key
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+            || value.is_empty()
+            || value.contains('=')
+        {
+            return Err(format!("receipt line {} is malformed", index + 1));
+        }
+        if fields.insert(key.to_string(), value.to_string()).is_some() {
+            return Err(format!("receipt contains duplicate key: {key}"));
+        }
+    }
+
+    let actual_keys: std::collections::BTreeSet<_> = fields.keys().map(String::as_str).collect();
+    let expected_keys: std::collections::BTreeSet<_> = EXPECTED_RECEIPT_KEYS.into_iter().collect();
+    if actual_keys != expected_keys {
+        let missing: Vec<_> = expected_keys.difference(&actual_keys).copied().collect();
+        let extra: Vec<_> = actual_keys.difference(&expected_keys).copied().collect();
+        return Err(format!(
+            "receipt schema mismatch; missing={missing:?}, extra={extra:?}"
+        ));
+    }
+
+    let get = |key: &str| -> Result<&str, String> {
+        fields
+            .get(key)
+            .map(String::as_str)
+            .ok_or_else(|| format!("receipt is missing field {key}"))
+    };
+
+    if get("record_schema")? != "d6u-independent-verifier-evaluation/v2" {
+        return Err("unexpected receipt schema version".to_string());
+    }
+    if get("status")? != "passed" {
+        return Err("receipt status is not passed".to_string());
+    }
+    if get("repository")? != "Luminous-Dynamics/mycelix" {
+        return Err("receipt repository identity mismatch".to_string());
+    }
+    if get("claim_ceiling")? != "ReferenceModelOnly" {
+        return Err("receipt claim ceiling mismatch".to_string());
+    }
+    if get("workflow_ref")?
+        != "Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-verifier-candidate-check.yml@refs/heads/main"
+    {
+        return Err("receipt workflow ref is not the trusted main workflow".to_string());
+    }
+    if get("container_image")?
+        != "python:3.12-slim-bookworm@sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4"
+    {
+        return Err("receipt container image identity mismatch".to_string());
+    }
+
+    for field in [
+        "candidate_sha",
+        "trusted_source_commit_sha",
+        "workflow_file_commit_sha",
+    ] {
+        if !is_lower_hex(get(field)?, 40) {
+            return Err(format!("receipt field {field} is not a canonical Git SHA"));
+        }
+    }
+    for field in [
+        "candidate_verifier_blob_sha",
+        "candidate_trusted_workflow_blob_sha",
+        "candidate_fetcher_blob_sha",
+        "candidate_attestation_verifier_blob_sha",
+        "candidate_predicate_emitter_blob_sha",
+        "candidate_retention_verifier_blob_sha",
+        "candidate_policy_blob_sha",
+        "trusted_evaluator_blob_sha",
+        "trusted_rust_preflight_blob_sha",
+    ] {
+        if !is_lower_hex(get(field)?, 40) {
+            return Err(format!("receipt field {field} is not a canonical Git blob SHA"));
+        }
+    }
+
+    let run_id = canonical_positive_integer::<u64>(get("run_id")?, "run_id")?;
+    let run_attempt = canonical_positive_integer::<u32>(get("run_attempt")?, "run_attempt")?;
+    let scope_items = validate_evaluation_scope(get("evaluation_scope")?)?;
+
+    Ok(ReceiptSummary {
+        candidate_sha: get("candidate_sha")?.to_string(),
+        run_id,
+        run_attempt,
+        scope_items,
+    })
+}
+
+fn validate_receipt_file(path: &Path) -> Result<ReceiptSummary, String> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|error| format!("cannot inspect receipt {}: {error}", path.display()))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err("receipt path must be a regular file, not a symlink".to_string());
+    }
+    let bytes = fs::read(path)
+        .map_err(|error| format!("cannot read receipt {}: {error}", path.display()))?;
+    parse_receipt_bytes(&bytes)
+}
+
 const TRUSTED_PINS: [Pin; 7] = [
     Pin {
         label: "policy",
@@ -224,20 +406,30 @@ fn evaluate(candidate_root: &Path) -> Result<(), String> {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 3 || args[1] != "--candidate-root" {
-        eprintln!("usage: d6u_trusted_root_check --candidate-root ABSOLUTE_PATH");
-        std::process::exit(2);
-    }
-
-    let candidate_root = match candidate_root_from_arg(&args[2]) {
-        Ok(path) => path,
-        Err(error) => {
-            eprintln!("D6U Rust trusted-root preflight: REFUSED: {error}");
-            std::process::exit(1);
+    let result = match args.as_slice() {
+        [_, command, candidate_root] if command == "--candidate-root" => {
+            match candidate_root_from_arg(candidate_root) {
+                Ok(path) => evaluate(&path).map(|()| ()),
+                Err(error) => Err(error),
+            }
+        }
+        [_, command, receipt_path] if command == "--validate-receipt" => {
+            validate_receipt_file(Path::new(receipt_path)).map(|summary| {
+                println!(
+                    "D6U receipt validation: PASS candidate_sha={} run_id={} run_attempt={} scope_items={}",
+                    summary.candidate_sha, summary.run_id, summary.run_attempt, summary.scope_items
+                );
+            })
+        }
+        _ => {
+            eprintln!("usage: d6u_trusted_root_check --candidate-root ABSOLUTE_PATH");
+            eprintln!("   or: d6u_trusted_root_check --validate-receipt RECEIPT_PATH");
+            std::process::exit(2);
         }
     };
-    if let Err(error) = evaluate(&candidate_root) {
-        eprintln!("D6U Rust trusted-root preflight: REFUSED: {error}");
+
+    if let Err(error) = result {
+        eprintln!("D6U trusted-root/receipt preflight: REFUSED: {error}");
         std::process::exit(1);
     }
 }
@@ -289,6 +481,75 @@ mod tests {
             git_blob_sha1(b"validated snapshot\n").expect("git hash-object should be available"),
             git_blob_sha1(b"reopened path\n").expect("git hash-object should be available")
         );
+    }
+
+    fn valid_receipt() -> String {
+        format!(
+            concat!(
+                "record_schema=d6u-independent-verifier-evaluation/v2\n",
+                "status=passed\n",
+                "repository=Luminous-Dynamics/mycelix\n",
+                "candidate_sha={}\n",
+                "candidate_verifier_blob_sha={}\n",
+                "candidate_trusted_workflow_blob_sha={}\n",
+                "candidate_fetcher_blob_sha={}\n",
+                "candidate_attestation_verifier_blob_sha={}\n",
+                "candidate_predicate_emitter_blob_sha={}\n",
+                "candidate_retention_verifier_blob_sha={}\n",
+                "candidate_policy_blob_sha={}\n",
+                "trusted_evaluator_blob_sha={}\n",
+                "trusted_rust_preflight_blob_sha={}\n",
+                "trusted_source_commit_sha={}\n",
+                "workflow_file_commit_sha={}\n",
+                "workflow_ref=Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-verifier-candidate-check.yml@refs/heads/main\n",
+                "run_id=12\n",
+                "run_attempt=2\n",
+                "claim_ceiling=ReferenceModelOnly\n",
+                "evaluation_scope={}\n",
+                "container_image=python:3.12-slim-bookworm@sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4\n"
+            ),
+            "a".repeat(40),
+            "b".repeat(40),
+            "c".repeat(40),
+            "d".repeat(40),
+            "e".repeat(40),
+            "f".repeat(40),
+            "1".repeat(40),
+            "2".repeat(40),
+            "3".repeat(40),
+            "4".repeat(40),
+            "5".repeat(40),
+            "6".repeat(40),
+            EXPECTED_EVALUATION_SCOPE,
+        )
+    }
+
+    #[test]
+    fn validates_typed_attempt_bound_receipt() {
+        let bytes = valid_receipt();
+        let parsed = parse_receipt_bytes(bytes.as_bytes()).expect("valid fixture should parse");
+        assert_eq!(parsed.candidate_sha, "a".repeat(40));
+        assert_eq!(parsed.run_id, 12);
+        assert_eq!(parsed.run_attempt, 2);
+        assert_eq!(parsed.scope_items, 10);
+    }
+
+    #[test]
+    fn rejects_duplicate_missing_extra_and_untrusted_receipt_fields() {
+        let bytes = valid_receipt();
+        assert!(parse_receipt_bytes(format!("{bytes}run_id=13\n").as_bytes()).is_err());
+        assert!(parse_receipt_bytes(bytes.replace("run_attempt=2\n", "").as_bytes()).is_err());
+        assert!(parse_receipt_bytes(format!("{bytes}extra=attacker-controlled\n").as_bytes()).is_err());
+        assert!(parse_receipt_bytes(bytes.replace("status=passed", "status=failed").as_bytes()).is_err());
+        assert!(parse_receipt_bytes(bytes.replace("claim_ceiling=ReferenceModelOnly", "claim_ceiling=OperationallyQualified").as_bytes()).is_err());
+    }
+
+    #[test]
+    fn rejects_scope_duplicates_reordering_and_unreviewed_extensions() {
+        assert!(validate_evaluation_scope(EXPECTED_EVALUATION_SCOPE).is_ok());
+        assert!(validate_evaluation_scope("policy-fingerprint,policy-fingerprint").is_err());
+        assert!(validate_evaluation_scope("workflow-and-five-program-closure,policy-fingerprint").is_err());
+        assert!(validate_evaluation_scope("policy-fingerprint,workflow-and-five-program-closure,unknown-scope").is_err());
     }
 
     #[test]
