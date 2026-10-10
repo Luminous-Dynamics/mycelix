@@ -170,6 +170,15 @@ A fresh source review of the current AC-176 branch reconfirmed that each of the 
 | Fiat bridge verification | The call supplies an `ExternalResourceAudit`; the shown flow only checks `is_speculative == false`. It does not authenticate the institution/compliance reference or prove bank settlement through a configured authority. The visible update validator checks structure and disallows transition back to Pending, but does not bind verifier authorization to the `Update` action. | Trusted issuer/bank attestation and explicit trust-root policy; canonical external deposit identity; exact amount/currency/conversion profile; one-time claim semantics; make verification evidence distinct from a balance mutation. |
 | Staking return / slash remainder | `withdraw_stake` attempts the credit before recording `Withdrawn`. A multi-write partial/ambiguous completion therefore needs explicit retry protection; a reason string and the current mutable stake state are not a proof that the locked amount has not already been returned. | Exact stake-lock and release/slash evidence, bounded return amount, canonical stake/return identity, owner binding, and duplicate/conflict handling that survives retry after ambiguous completion. |
 
+**Mutation-order hazard while the raw extern is private (source-order deduction):**
+
+- Genesis writes a `ThermodynamicGenesis` entry and its sensor/timestamp dedup link before the credit call. If that call errors, the source evidence/dedup marker can remain with no SAP credit, and a retry may be rejected.
+- Collateral bridge creates the `CollateralBridgeDeposit` and both lookup links before credit. If credit errors, a pending indexed deposit can claim an SAP quantity that never reached the balance.
+- Fiat bridge changes the deposit status from Pending to Verified before calling Payments. If credit errors, the record can remain Verified without the balance effect, while the current coordinator refuses a second attempt because the status is no longer Pending.
+- Staking withdrawal calls the return helper before updating to Withdrawn, so an error leaves the stake unwithdrawn and the retry path repeats the failed call. Slashing is more problematic: it creates a slashing event and link before attempting the un-slashed return, so an error can leave the event linked while the stake remains Active/Unbonding.
+
+These outcomes are inferred from source ordering on the current draft, not demonstrated runtime results. They show why merely hiding the public ABI is not integration-safe. Migration needs exact effect identity, replay-safe receipts, and recovery/response-loss tests; where a path cannot yet prove those invariants, it should fail before any source-state writes with a clear disabled response.
+
 These are source-inspection findings, not runtime exploit demonstrations. The source was inspected on 2026-10-10; no Rust/Sweettest/WASM runtime test was performed for these paths during this review.
 
 #### Use the current V2 stack without overstating its readiness
