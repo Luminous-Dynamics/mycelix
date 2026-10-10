@@ -294,6 +294,18 @@ fn trade_creation_validation_error(trade: &Trade) -> Option<&'static str> {
     trade_validation_error(trade)
 }
 
+/// Only the original trade author may record settlement. This is an
+/// authorization boundary in addition to the monotonic state transition.
+fn trade_update_author_validation_error(
+    update_author: &AgentPubKey,
+    original_author: &AgentPubKey,
+) -> Option<&'static str> {
+    if update_author != original_author {
+        return Some("Only the original trade author may update settlement state");
+    }
+    None
+}
+
 /// Trade terms are immutable after creation. The only permitted update is a
 /// one-way unsettled -> settled transition with a non-empty reference.
 /// This is a structural invariant, not proof that an external payment really
@@ -378,6 +390,11 @@ fn validate_update_trade(
     trade: Trade,
 ) -> ExternResult<ValidateCallbackResult> {
     let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    if let Some(error) =
+        trade_update_author_validation_error(&action.author, original_record.action().author())
+    {
+        return Ok(ValidateCallbackResult::Invalid(error.into()));
+    }
     let original_trade = original_record
         .entry()
         .to_app_option::<Trade>()
@@ -1000,6 +1017,20 @@ mod strict_validation_regression_tests {
         assert_eq!(
             trade_update_validation_error(&settled, &rolled_back),
             Some("Settled trades cannot be updated")
+        );
+    }
+
+    #[test]
+    fn trade_settlement_updates_require_original_author() {
+        let original_author = AgentPubKey::from_raw_32(vec![7u8; 32]);
+        let other_author = AgentPubKey::from_raw_32(vec![8u8; 32]);
+        assert_eq!(
+            trade_update_author_validation_error(&original_author, &original_author),
+            None
+        );
+        assert_eq!(
+            trade_update_author_validation_error(&other_author, &original_author),
+            Some("Only the original trade author may update settlement state")
         );
     }
 
