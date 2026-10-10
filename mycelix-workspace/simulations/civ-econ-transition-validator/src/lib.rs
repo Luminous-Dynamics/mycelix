@@ -1,10 +1,10 @@
-pub mod durable_journal;
-
 //! Dependency-free, non-authoritative reference checks for CIV-ECON-001A.
 //!
 //! This validates typed invariants and lifecycle gates. It does not parse the
 //! JSON Schema, hash manifests, verify signatures, query live ledgers, prove
 //! legal authority/capacity, or establish external settlement finality.
+
+pub mod durable_journal;
 
 use std::collections::{HashMap, HashSet};
 

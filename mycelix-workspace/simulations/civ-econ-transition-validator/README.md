@@ -36,11 +36,14 @@ returning success, refuses concurrent cooperating writers with a sidecar lock,
 and fails closed on truncated/corrupt history. A surviving Pending record after
 restart is a reconciliation requirement, never permission to dispatch again.
 
-This journal still cannot atomically commit a local record with an external
-bank/payment/physical side effect. Filesystem sync semantics are platform and
-storage dependent, stale lock files require deliberate operator recovery, and
-the caller must validate source-bound receipts. Do not describe this as exactly-
-once distributed execution.
+This journal is not tamper-evident: it does not hash-chain or sign the log,
+and it trusts supplied request/receipt digests rather than computing or verifying
+their source evidence. File permissions and external evidence verification are
+separate requirements. It also cannot atomically commit a local record with an
+external bank/payment/physical side effect. Filesystem sync semantics are
+platform and storage dependent, stale lock files require deliberate operator
+recovery, and the caller must validate source-bound receipts. Do not describe
+this as exactly-once distributed execution.
 
 ## Claim ceiling
 
