@@ -19,6 +19,7 @@ MANIFEST_PATH = CRATE / "Cargo.toml"
 README_PATH = CRATE / "README.md"
 DESIGN_PATH = CRATE / "JOURNAL_CHECKPOINT_COMPACTION_DESIGN.md"
 WORKFLOW_PATH = ROOT / ".github/workflows/civ-econ-transition-validator.yml"
+SCRIPT_PATH = Path(__file__).resolve()
 
 failures: list[str] = []
 passed: list[str] = []
@@ -41,6 +42,7 @@ manifest = read(MANIFEST_PATH)
 readme = read(README_PATH)
 design = read(DESIGN_PATH)
 workflow = read(WORKFLOW_PATH)
+audit_script = read(SCRIPT_PATH)
 
 # Replay resource bounds and parser structure.
 check("record limit is 4096 bytes", "MAX_JOURNAL_RECORD_BYTES: usize = 4096;" in journal)
@@ -81,6 +83,10 @@ for scenario in scenarios:
 check("scale binary is registered in Cargo manifest", 'name = "journal-replay-scale"' in manifest and 'path = "src/journal_replay_scale.rs"' in manifest)
 check("crate remains dependency-free", "[dependencies]" not in manifest)
 check("README states measurements are not established yet", "has not itself established performance numbers" in " ".join(readme.split()))
+check("README documents how to run source preflight", "python3 scripts/audit_journal_source_contract.py" in readme)
+check("audit fails closed when Git subject is absent", 'check("Git commit identity is available"' in audit_script)
+check("audit compares checked-out subject to QUALIFIED_SHA", 'if expected_subject:' in audit_script and "commit == expected_subject" in audit_script)
+check("audit report records expected subject comparison", '"expected_subject": expected_subject' in audit_script and '"subject_matches_expected"' in audit_script)
 check("compaction remains design-only", "design only; not implemented or qualified" in design)
 check("compaction preserves acknowledged identity tombstones", "Acknowledged identities must survive" in " ".join(design.split()) and "No unresolved effect disappears" in design)
 
@@ -93,7 +99,7 @@ check("workflow checks formatting", "cargo +1.96.0 fmt" in workflow and "-- --ch
 check("workflow records host and RSS for smoke", "/usr/bin/time -v" in workflow and "uname -a" in workflow and "df -T" in workflow)
 check("workflow invokes a 10k smoke per lifecycle scenario", 'echo "runner_image=' in workflow and ' "$bin" 10000 "$scenario"' in workflow)
 
-files = (JOURNAL_PATH, SCALE_PATH, MANIFEST_PATH, README_PATH, DESIGN_PATH, WORKFLOW_PATH, Path(__file__).resolve())
+files = (JOURNAL_PATH, SCALE_PATH, MANIFEST_PATH, README_PATH, DESIGN_PATH, WORKFLOW_PATH, SCRIPT_PATH)
 try:
     commit = subprocess.run(
         ["git", "rev-parse", "HEAD"],
