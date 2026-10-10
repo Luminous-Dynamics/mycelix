@@ -553,7 +553,7 @@ export async function verifyEnergyStudyArtifactsV1(
 
   receiptEntries.sort((left, right) => compareUtf8(left.id, right.id));
   const writer = new CanonicalWriter();
-  writer.writeBytes(encoder.encode('luminous-dynamics.energy-study-artifacts.v1\\0'));
+  writer.writeBytes(encoder.encode('luminous-dynamics.energy-study-artifacts.v1\0'));
   writer.writeUint32(receiptEntries.length);
   for (const entry of receiptEntries) {
     writer.writeText(entry.id);
