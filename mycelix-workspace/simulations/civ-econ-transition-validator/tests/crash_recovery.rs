@@ -22,6 +22,8 @@ const REQUEST_DIGEST: &str =
 const RECEIPT_DIGEST: &str =
     "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 const INTENTIONAL_CRASH_EXIT: i32 = 86;
+const ACKNOWLEDGED_CRASH_EXIT: i32 = 87;
+const ACK_CHILD_MODE: &str = "MYCELIX_CIV_ECON_ACK_CRASH_TEST_CHILD";
 
 struct TestDir(PathBuf);
 
@@ -164,5 +166,91 @@ fn crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispa
         provider_effects_after_recovery,
         vec![EFFECT_ID.to_owned()],
         "recovery must not issue a second synthetic external effect",
+    );
+}
+
+
+#[test]
+fn acknowledged_receipt_survives_process_exit_before_caller_observes_success() {
+    // Child mode: sync the external effect and acknowledgement, then exit
+    // before the parent process can observe whether the operation returned.
+    if std::env::var_os(ACK_CHILD_MODE).is_some() {
+        let journal_path = PathBuf::from(
+            std::env::var_os(JOURNAL_ENV).expect("child journal path is supplied"),
+        );
+        let provider_path = PathBuf::from(
+            std::env::var_os(PROVIDER_ENV).expect("child provider log path is supplied"),
+        );
+
+        let mut journal =
+            DurableEffectJournal::open(&journal_path).expect("open child journal");
+        assert_eq!(
+            journal.begin_effect(EFFECT_ID, REQUEST_DIGEST),
+            Ok(BeginResult::Started),
+        );
+
+        let mut provider = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(provider_path)
+            .expect("open synthetic provider ledger");
+        writeln!(provider, "{EFFECT_ID}").expect("record synthetic external effect");
+        provider
+            .sync_all()
+            .expect("sync synthetic provider ledger");
+        journal
+            .acknowledge_effect(EFFECT_ID, REQUEST_DIGEST, RECEIPT_DIGEST)
+            .expect("persist synthetic acknowledgement");
+
+        // Simulate a lost caller response after the acknowledgement is durable.
+        std::process::exit(ACKNOWLEDGED_CRASH_EXIT);
+    }
+
+    let temp = TestDir::new();
+    let journal_path = temp.0.join("effects.journal");
+    let provider_path = temp.0.join("provider-ledger.log");
+
+    let child_status = Command::new(std::env::current_exe().expect("test executable path"))
+        .arg("--exact")
+        .arg("acknowledged_receipt_survives_process_exit_before_caller_observes_success")
+        .arg("--nocapture")
+        .env(ACK_CHILD_MODE, "1")
+        .env(JOURNAL_ENV, &journal_path)
+        .env(PROVIDER_ENV, &provider_path)
+        .output()
+        .expect("launch acknowledgement crash-boundary child");
+    assert_eq!(
+        child_status.status.code(),
+        Some(ACKNOWLEDGED_CRASH_EXIT),
+        "child must terminate after durable acknowledgement; stdout: {}; stderr: {}",
+        String::from_utf8_lossy(&child_status.stdout),
+        String::from_utf8_lossy(&child_status.stderr),
+    );
+
+    let lock_path = journal_path.with_file_name("effects.journal.lock");
+    assert!(
+        lock_path.exists(),
+        "abrupt termination should leave a stale lock for explicit recovery",
+    );
+    fs::remove_file(&lock_path).expect("explicitly recover dead child's stale lock");
+
+    let mut recovered =
+        DurableEffectJournal::open(&journal_path).expect("reopen acknowledged journal");
+    assert_eq!(
+        recovered.begin_effect(EFFECT_ID, REQUEST_DIGEST),
+        Ok(BeginResult::AlreadyAcknowledged {
+            receipt_digest: RECEIPT_DIGEST.to_owned(),
+        }),
+        "recovery must return the exact receipt that was synchronized before exit",
+    );
+    let provider_effects: Vec<String> = fs::read_to_string(&provider_path)
+        .expect("read synthetic provider ledger")
+        .lines()
+        .map(str::to_owned)
+        .collect();
+    assert_eq!(
+        provider_effects,
+        vec![EFFECT_ID.to_owned()],
+        "recovering an acknowledged effect must not redispatch it",
     );
 }
