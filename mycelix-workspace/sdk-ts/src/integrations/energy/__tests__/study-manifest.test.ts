@@ -129,8 +129,14 @@ describe('EnergyStudyManifestV1', () => {
   });
 
   it('fails closed on missing, extra, or content-mismatched artifacts', async () => {
-    const missing = fixtureArtifacts();
-    delete (missing.datasets as Record<string, Uint8Array>)['load-profile'];
+    const complete = fixtureArtifacts();
+    const missing = {
+      ...complete,
+      datasets: {
+        'renewable-generation': complete.datasets['renewable-generation'],
+        'grid-availability': complete.datasets['grid-availability'],
+      },
+    };
     await expect(verifyEnergyStudyArtifactsV1(fixture, missing)).rejects.toMatchObject({
       code: 'ARTIFACT_SET_MISMATCH',
     });
