@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -104,9 +105,16 @@ try:
 except (OSError, subprocess.CalledProcessError):
     commit = "unavailable"
 
+expected_subject = os.environ.get("QUALIFIED_SHA")
+check("Git commit identity is available", re.fullmatch(r"[0-9a-f]{40}", commit) is not None)
+if expected_subject:
+    check("audit subject matches QUALIFIED_SHA", commit == expected_subject)
+
 report = {
     "audit": "journal-source-contract-v1",
     "commit": commit,
+    "expected_subject": expected_subject,
+    "subject_matches_expected": commit == expected_subject if expected_subject else None,
     "passed": not failures,
     "checks_passed": len(passed),
     "checks_failed": len(failures),
