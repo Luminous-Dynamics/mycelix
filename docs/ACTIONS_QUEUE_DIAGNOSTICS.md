@@ -18,10 +18,11 @@ permission to read Actions metadata for the repository.
 The tool paginates the queued and in-progress run endpoints instead of silently
 using only the first page. It records API-reported counts separately from the
 number of unique runs fetched, groups runs by workflow/event/PR, records oldest
-and newest run identities, and samples a bounded number of queued runs for job
-status, runner labels, and whether a runner name has been assigned. The default
-sample uses up to six additional job-list API requests. Use --job-samples 0 to
-capture only workflow-run metadata.
+and newest run identities, and retains an exact run manifest including each run
+ID, SHA, workflow ID/path, status, PR association, and URL. It also samples a
+bounded number of queued runs for job status, runner labels, and whether a runner
+name has been assigned. The default sample uses up to six additional job-list API
+requests. Use --job-samples 0 to capture only workflow-run metadata.
 
 The JSON output is timestamped in UTC. Keep it with incident notes and record
 when/how it was captured. Do not attach credential material or verbose HTTP debug
@@ -66,8 +67,8 @@ changes, reruns, dispatches, cancellations, or policy edits.
     python3 -m py_compile actions_queue_census.py test_actions_queue_census.py
 
 The tests cover pagination/deduplication, incomplete-count visibility, queue age
-and grouping, API error handling, runner-assignment metadata, interpretation
-limits, and bounded sampling.
+and grouping, API error handling, runner-assignment metadata, full run manifests,
+interpretation limits, and bounded sampling.
 
 ## Authoritative references
 
