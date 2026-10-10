@@ -49,6 +49,24 @@ jobs:
           cargo +1.96.0 --version
           rustfmt +1.96.0 --version
 
+      - name: Validate JSON specification artifacts and corpus identity
+        run: |
+          python3 -m json.tool docs/research/civ/CIV-ECON-001A_TRANSITION_MANIFEST_SCHEMA_V1.json > /dev/null
+          python3 -m json.tool docs/research/civ/CIV-ECON-001A_TRANSITION_ADVERSARIAL_CORPUS_V1.json > /dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          corpus = json.loads(Path("docs/research/civ/CIV-ECON-001A_TRANSITION_ADVERSARIAL_CORPUS_V1.json").read_text())
+          ids = [case["id"] for case in corpus["cases"]]
+          assert len(ids) == 24, f"expected 24 cases, got {len(ids)}"
+          assert len(set(ids)) == len(ids), "duplicate adversarial case IDs"
+          assert all(case.get("expected") and case.get("invariants") for case in corpus["cases"])
+          schema = json.loads(Path("docs/research/civ/CIV-ECON-001A_TRANSITION_MANIFEST_SCHEMA_V1.json").read_text())
+          assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+          assert len(schema["allOf"]) >= 8, "stage-specific fail-closed constraints missing"
+          PY
+
       - name: Run dependency-free validator tests
         run: cargo +1.96.0 test --manifest-path mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml --locked --all-targets
 
