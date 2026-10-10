@@ -283,7 +283,7 @@ class RawCreditCallerAuditTests(unittest.TestCase):
             _canonical, workspace = seed_project(root)
             payments = workspace / "payments" / "coordinator" / "src" / "lib.rs"
             payments.write_text(
-                payments.read_text(encoding="utf-8") + "// workspace-only drift\\n",
+                payments.read_text(encoding="utf-8") + "// workspace-only drift\n",
                 encoding="utf-8",
             )
 
