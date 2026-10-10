@@ -1242,6 +1242,18 @@ mod strict_validation_regression_tests {
         assert!(!did_matches_agent("did:test:seller", &author));
         assert!(!did_matches_agent("did:mycelix:not-a-public-key", &author));
 
+        let owned_offer = TradeOffer {
+            seller_did: author_did.clone(),
+            ..valid_offer()
+        };
+        assert_eq!(offer_creation_author_validation_error(&owned_offer, &author), None);
+
+        let owned_trade = Trade {
+            buyer_did: author_did,
+            ..valid_trade()
+        };
+        assert_eq!(trade_creation_author_validation_error(&owned_trade, &author), None);
+
         let mut offer = valid_offer();
         offer.seller_did = other_did.clone();
         assert_eq!(
