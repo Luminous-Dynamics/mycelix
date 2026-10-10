@@ -46,3 +46,17 @@ snapshot to preserve provenance and prevent us from treating an unmerged
 correction as official upstream data. Do not replace either fixture without
 reviewing its source commit, blob SHA-1, SHA-256, case counts, and expected
 verdicts together.
+
+## Empty-context adapter policy
+
+The C2SP files exercise the general ML-DSA verification API and include a
+`ctx` field in eight cases. This module intentionally exposes only the
+RFC 9964 empty-context profile. The harness therefore honors source verdicts
+and the vector context together: source-labeled valid vectors with an absent
+or empty `ctx` must verify; source-labeled valid vectors with a non-empty
+`ctx` must be rejected by this empty-context adapter; source-labeled invalid
+vectors must all be rejected. At these pins, that means 77 valid empty-context
+acceptances, two non-empty-context valid signatures rejected for this profile,
+and 131 invalid rejections per corpus. This is deliberately different from
+claiming that all 79 source-labeled valid vectors should pass an empty-context
+API.

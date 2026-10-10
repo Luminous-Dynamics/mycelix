@@ -50,7 +50,7 @@ Implementation regression references: RustCrypto's [UseHint `r0 == 0` advisory](
 
 ## 3. Dedicated adversarial cases
 
-The integration target runs both the published snapshot and the supplemental PR #278 candidate separately: 210 cases each, 79 valid and 131 invalid per file. The candidate does not increase the number of unique tcIds, but refreshes edge-case bytes based on the final FIPS 204 derivation. The target fails closed on an `acceptable` or unknown result class. The corpus is necessary but not sufficient; still add focused cases with frozen input bytes and expected verdicts for:
+Each published/candidate file contains 210 cases (79 valid and 131 invalid source labels). The profile harness also enforces the RFC 9964 empty-context contract: 77 valid vectors have absent/empty `ctx` and must pass; two source-valid vectors use non-empty contexts and must be rejected by this empty-context adapter; all 131 source-invalid vectors must be rejected. Do not treat the two context-bound signatures as generic verifier failures—they are expected negative cases for this deliberately narrower profile. The candidate does not increase the number of unique tcIds, but refreshes edge-case bytes based on the final FIPS 204 derivation. The target fails closed on an `acceptable` or unknown result class. The corpus is necessary but not sufficient; still add focused cases with frozen input bytes and expected verdicts for:
 
 1. Repeated indices in a hint-index list: reject.
 2. Nonzero unused hint-index tail padding: reject.

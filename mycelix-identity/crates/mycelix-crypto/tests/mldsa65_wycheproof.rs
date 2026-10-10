@@ -60,6 +60,8 @@ fn exercise_corpus(source: &str, corpus_text: &str, expected_sha256: &str) {
     let mut total = 0usize;
     let mut valid = 0usize;
     let mut invalid = 0usize;
+    let mut valid_empty_context = 0usize;
+    let mut valid_nonempty_context = 0usize;
     let mut tc19_seen = false;
     let mut tc61_seen = false;
 
@@ -103,17 +105,35 @@ fn exercise_corpus(source: &str, corpus_text: &str, expected_sha256: &str) {
                 "{source}: wrong signature size for tcId {tc_id}"
             );
 
+            // The published vectors exercise the general API, including two
+            // signatures valid only with a non-empty context. This adapter's
+            // contract is always context=b"": a "valid" vector with ctx!=b""
+            // must therefore be rejected by this specific verifier.
+            let vector_context = case
+                .get("ctx")
+                .and_then(Value::as_str)
+                .map(decode_hex)
+                .unwrap_or_default();
             let result = verify_with_empty_context(&public_key, &message, &signature);
             let expected = case["result"]
                 .as_str()
                 .expect("each test case must declare its expected result");
             match expected {
                 "valid" => {
-                    assert!(
-                        result.is_ok(),
-                        "{source}: tcId {tc_id} expected valid but was rejected: {result:?}"
-                    );
                     valid += 1;
+                    if vector_context.is_empty() {
+                        assert!(
+                            result.is_ok(),
+                            "{source}: empty-context tcId {tc_id} expected valid but was rejected: {result:?}"
+                        );
+                        valid_empty_context += 1;
+                    } else {
+                        assert!(
+                            result.is_err(),
+                            "{source}: tcId {tc_id} is valid only under a non-empty context but was accepted by the empty-context verifier"
+                        );
+                        valid_nonempty_context += 1;
+                    }
                 }
                 "invalid" => {
                     assert!(
@@ -148,8 +168,10 @@ fn exercise_corpus(source: &str, corpus_text: &str, expected_sha256: &str) {
     }
 
     assert_eq!(total, 210, "{source}: not every corpus case was exercised");
-    assert_eq!(valid, 79, "{source}: unexpected number of expected-valid cases");
-    assert_eq!(invalid, 131, "{source}: unexpected number of expected-invalid cases");
+    assert_eq!(valid, 79, "{source}: unexpected number of source-labeled valid cases");
+    assert_eq!(valid_empty_context, 77, "{source}: expected 77 valid empty-context cases");
+    assert_eq!(valid_nonempty_context, 2, "{source}: expected 2 valid signatures bound to non-empty contexts");
+    assert_eq!(invalid, 131, "{source}: unexpected number of source-labeled invalid cases");
     assert!(tc19_seen, "{source}: required repeated-hint sentinel tcId 19 was not exercised");
     assert!(tc61_seen, "{source}: required valid-boundary sentinel tcId 61 was not exercised");
 }
