@@ -89,6 +89,10 @@ def compare_projection_files(canonical_root: Path, workspace_root: Path) -> list
                 raise RuntimeError(f"cannot read projection file {path}: {exc}") from exc
         return files
 
+    for root in (canonical_root, workspace_root):
+        if root.is_symlink():
+            raise RuntimeError(f"unexpected symlink used as Finance zome projection root: {root}")
+
     canonical = inventory(canonical_root)
     workspace = inventory(workspace_root)
     differences: list[tuple[str, str]] = []
