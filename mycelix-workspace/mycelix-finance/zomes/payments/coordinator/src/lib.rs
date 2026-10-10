@@ -1459,6 +1459,39 @@ fn get_payment_record(payment_id: &str) -> ExternResult<(Record, Payment)> {
     Ok((record, payment))
 }
 
+fn checked_channel_transfer_balances(
+    balance_a: u64,
+    balance_b: u64,
+    amount: u64,
+    from_a: bool,
+) -> ExternResult<(u64, u64)> {
+    if from_a {
+        let new_a = balance_a
+            .checked_sub(amount)
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Insufficient balance for party A".into()
+            )))?;
+        let new_b = balance_b
+            .checked_add(amount)
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Party B balance overflow".into()
+            )))?;
+        Ok((new_a, new_b))
+    } else {
+        let new_a = balance_a
+            .checked_add(amount)
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Party A balance overflow".into()
+            )))?;
+        let new_b = balance_b
+            .checked_sub(amount)
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Insufficient balance for party B".into()
+            )))?;
+        Ok((new_a, new_b))
+    }
+}
+
 #[hdk_extern]
 pub fn channel_transfer(input: ChannelTransferInput) -> ExternResult<Record> {
     let (record, channel) = get_channel_record(&input.channel_id)?;
@@ -1473,27 +1506,12 @@ pub fn channel_transfer(input: ChannelTransferInput) -> ExternResult<Record> {
     }
 
     let now = sys_time()?;
-    let (new_a, new_b) = if input.from_a {
-        (
-            channel
-                .balance_a
-                .checked_sub(input.amount)
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Insufficient balance for party A".into()
-                )))?,
-            channel.balance_b + input.amount,
-        )
-    } else {
-        (
-            channel.balance_a + input.amount,
-            channel
-                .balance_b
-                .checked_sub(input.amount)
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Insufficient balance for party B".into()
-                )))?,
-        )
-    };
+    let (new_a, new_b) = checked_channel_transfer_balances(
+        channel.balance_a,
+        channel.balance_b,
+        input.amount,
+        input.from_a,
+    )?;
     let updated = PaymentChannel {
         balance_a: new_a,
         balance_b: new_b,
@@ -2518,4 +2536,41 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
         minimum_proven: input.minimum_balance,
         domain_tag: domain_tag.as_str().to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn channel_transfer_allows_ordinary_a_to_b_transfer() {
+        assert_eq!(
+            checked_channel_transfer_balances(10, 5, 3, true).unwrap(),
+            (7, 8)
+        );
+    }
+
+    #[test]
+    fn channel_transfer_allows_ordinary_b_to_a_transfer() {
+        assert_eq!(
+            checked_channel_transfer_balances(10, 5, 3, false).unwrap(),
+            (13, 2)
+        );
+    }
+
+    #[test]
+    fn channel_transfer_rejects_b_receiver_overflow() {
+        assert!(checked_channel_transfer_balances(1, u64::MAX, 1, true).is_err());
+    }
+
+    #[test]
+    fn channel_transfer_rejects_a_receiver_overflow() {
+        assert!(checked_channel_transfer_balances(u64::MAX, 1, 1, false).is_err());
+    }
+
+    #[test]
+    fn channel_transfer_preserves_sender_insufficient_balance_failure() {
+        assert!(checked_channel_transfer_balances(1, 10, 2, true).is_err());
+        assert!(checked_channel_transfer_balances(10, 1, 2, false).is_err());
+    }
 }
