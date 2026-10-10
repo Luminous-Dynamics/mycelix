@@ -2605,6 +2605,57 @@ mod tests {
     }
 
     #[test]
+    fn evidence_profile_deserializes_legacy_projection_without_ambiguity_counters() {
+        // Previously persisted projections predate the two ambiguity fields.
+        // Missing new counters must deserialize conservatively to zero.
+        let legacy_profile = r#"{
+            "artifact_count": 3,
+            "public_artifact_count": 2,
+            "controlled_artifact_count": 1,
+            "review_count": 4,
+            "supportive_reproduction_count": 1,
+            "supportive_independent_replication_count": 2,
+            "non_supporting_result_count": 5,
+            "inconclusive_result_count": 6,
+            "critique_count": 7,
+            "conflict_disclosure_count": 8,
+            "correction_count": 9,
+            "withdrawn_attestation_count": 10
+        }"#;
+
+        let profile: EvidenceProfile = serde_json::from_str(legacy_profile).unwrap();
+        assert_eq!(profile.ambiguous_reproduction_actor_count, 0);
+        assert_eq!(profile.ambiguous_replication_actor_count, 0);
+        assert_eq!(profile.artifact_count, 3);
+        assert_eq!(profile.review_count, 4);
+        assert_eq!(profile.supportive_independent_replication_count, 2);
+    }
+
+    #[test]
+    fn source_collapse_deduplicates_shared_organizations_and_excludes_conflicts() {
+        let attributions = BTreeMap::from([
+            (
+                actor("did:key:alice"),
+                BTreeSet::from(["org:lab-a".to_string()]),
+            ),
+            (
+                actor("did:key:bob"),
+                BTreeSet::from(["org:lab-a".to_string()]),
+            ),
+            (
+                actor("did:key:carol"),
+                BTreeSet::from(["org:lab-b".to_string(), "org:lab-c".to_string()]),
+            ),
+        ]);
+
+        let (sources, ambiguous_actors) =
+            collapse_unambiguous_actor_sources(attributions);
+
+        assert_eq!(sources, BTreeSet::from(["org:lab-a".to_string()]));
+        assert_eq!(ambiguous_actors, 1);
+    }
+
+    #[test]
     fn attestation_correction_and_withdrawal_recompute_projection() {
         let claim_id = ClaimId::new();
         let genesis = SignedScientificEvent::sign(
