@@ -1289,6 +1289,9 @@ pub struct EvidenceProfile {
     pub review_count: usize,
     pub supportive_reproduction_count: usize,
     pub supportive_independent_replication_count: usize,
+    /// Positive computational-reproduction attributions excluded because one actor mapped to multiple source identities.
+    #[serde(default)]
+    pub ambiguous_reproduction_actor_count: usize,
     /// Positive replication attributions excluded because one actor mapped to multiple source identities.
     /// Defaulted for compatibility with previously serialized projections.
     #[serde(default)]
@@ -1360,6 +1363,12 @@ impl EvidenceAssessment {
             }
         };
         let contested = profile.non_supporting_result_count > 0 || profile.critique_count > 0;
+        if profile.ambiguous_reproduction_actor_count > 0 {
+            reasons.push(format!(
+                "{} computational reproduction actor(s) had multiple source identities and were excluded from the independent reproduction count",
+                profile.ambiguous_reproduction_actor_count
+            ));
+        }
         if profile.ambiguous_replication_actor_count > 0 {
             reasons.push(format!(
                 "{} replication actor(s) had multiple source identities and were excluded from the independent replication count",
@@ -1682,7 +1691,7 @@ impl ClaimProjection {
         }
 
         let mut reviewers = BTreeSet::new();
-        let mut reproductions = BTreeSet::new();
+        let mut reproduction_attributions: BTreeMap<ActorId, BTreeSet<String>> = BTreeMap::new();
         // Collect source affiliations per actor first. An actor cannot create
         // multiple independent replication sources by appearing under more than
         // one organization (or by mixing an organization-bound and unbound identity).
@@ -1717,7 +1726,10 @@ impl ClaimProjection {
                 }
                 AttestationKind::ComputationalReproduction { outcome } => match outcome {
                     EvidenceOutcome::Supports => {
-                        reproductions.insert(source);
+                        reproduction_attributions
+                            .entry(record.actor.clone())
+                            .or_default()
+                            .insert(source);
                     }
                     EvidenceOutcome::DoesNotSupport => {
                         non_supporting.insert(source);
@@ -1759,14 +1771,13 @@ impl ClaimProjection {
             }
         }
 
-        let mut independent_replications = BTreeSet::new();
-        for source_keys in independent_replication_attributions.into_values() {
-            if source_keys.len() == 1 {
-                independent_replications.extend(source_keys);
-            } else if !source_keys.is_empty() {
-                profile.ambiguous_replication_actor_count += 1;
-            }
-        }
+        let (reproductions, ambiguous_reproduction_actor_count) =
+            collapse_unambiguous_actor_sources(reproduction_attributions);
+        profile.ambiguous_reproduction_actor_count += ambiguous_reproduction_actor_count;
+
+        let (independent_replications, ambiguous_replication_actor_count) =
+            collapse_unambiguous_actor_sources(independent_replication_attributions);
+        profile.ambiguous_replication_actor_count += ambiguous_replication_actor_count;
 
         profile.review_count = reviewers.len();
         profile.supportive_reproduction_count = reproductions.len();
@@ -1777,6 +1788,24 @@ impl ClaimProjection {
         profile.conflict_disclosure_count = conflicts.len();
         self.evidence_profile = profile;
     }
+}
+
+fn collapse_unambiguous_actor_sources(
+    attributions: BTreeMap<ActorId, BTreeSet<String>>,
+) -> (BTreeSet<String>, usize) {
+    let mut sources = BTreeSet::new();
+    let mut ambiguous_actors = 0;
+    for source_keys in attributions.into_values() {
+        if source_keys.len() == 1 {
+            sources.extend(source_keys);
+        } else if !source_keys.is_empty() {
+            // One actor cannot count as multiple independent people/groups by
+            // changing organizational attribution. Missing or conflicting
+            // source identity is reported rather than guessed.
+            ambiguous_actors += 1;
+        }
+    }
+    (sources, ambiguous_actors)
 }
 
 fn source_key(actor: &ActorId, organization: Option<&OrganizationId>) -> String {
@@ -2441,8 +2470,63 @@ mod tests {
         )
         .unwrap();
 
-        let projection =
-            ClaimProjection::rebuild(&[genesis, evidence, first, second]).unwrap();
+        let reproduction_one = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &second,
+                actor("did:key:bob"),
+                Utc.timestamp_opt(1_700_000_040, 0).unwrap(),
+                ScientificEventPayload::AttestationRecorded {
+                    attestation: Attestation {
+                        id: AttestationId::new(),
+                        claim_id,
+                        kind: AttestationKind::ComputationalReproduction {
+                            outcome: EvidenceOutcome::Supports,
+                        },
+                        evidence_ids: vec![artifact_id],
+                        statement: Some("First computational reproduction".to_string()),
+                        protocol_reference: Some("protocol:v1".to_string()),
+                    },
+                },
+            )
+            .unwrap()
+            .with_acting_organization(organization("ror:lab-one")),
+            &key(2),
+        )
+        .unwrap();
+
+        let reproduction_two = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &reproduction_one,
+                actor("did:key:bob"),
+                Utc.timestamp_opt(1_700_000_050, 0).unwrap(),
+                ScientificEventPayload::AttestationRecorded {
+                    attestation: Attestation {
+                        id: AttestationId::new(),
+                        claim_id,
+                        kind: AttestationKind::ComputationalReproduction {
+                            outcome: EvidenceOutcome::Supports,
+                        },
+                        evidence_ids: vec![artifact_id],
+                        statement: Some("Same actor, second affiliation".to_string()),
+                        protocol_reference: Some("protocol:v2".to_string()),
+                    },
+                },
+            )
+            .unwrap()
+            .with_acting_organization(organization("ror:lab-two")),
+            &key(2),
+        )
+        .unwrap();
+
+        let projection = ClaimProjection::rebuild(&[
+            genesis,
+            evidence,
+            first,
+            second,
+            reproduction_one,
+            reproduction_two,
+        ])
+        .unwrap();
 
         assert_eq!(
             projection
@@ -2456,10 +2540,18 @@ mod tests {
                 .ambiguous_replication_actor_count,
             1
         );
+        assert_eq!(projection.evidence_profile.supportive_reproduction_count, 0);
+        assert_eq!(
+            projection
+                .evidence_profile
+                .ambiguous_reproduction_actor_count,
+            1
+        );
         let assessment = projection.assessment();
         assert_eq!(assessment.policy_version, "1.1.0");
         assert!(assessment.reasons.iter().any(|reason| reason.contains("multiple source identities")));
         assert_ne!(projection.maturity(), EvidenceMaturity::IndependentlyReplicated);
+        assert_ne!(projection.maturity(), EvidenceMaturity::ComputationallyReproduced);
     }
 
     #[test]
