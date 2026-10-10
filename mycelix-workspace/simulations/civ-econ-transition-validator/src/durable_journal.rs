@@ -1084,7 +1084,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn effect_count_includes_all_states_and_survives_replay() {
         let temp = TempDir::new();
         {
@@ -1104,6 +1103,7 @@ mod tests {
         assert_eq!(recovered.effect_count(), 3);
     }
 
+    #[test]
     fn noncanonical_effect_ids_and_digests_are_rejected() {
         let temp = TempDir::new();
         let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
