@@ -187,8 +187,8 @@ jobs:
       - name: Test hearth
         run: cd mycelix-hearth && cargo test --workspace
 
-  # Fail closed when an extern is made private but other zomes still invoke it
-  # by string. These calls may compile and only fail when exercised at runtime.
+  # Fail closed if raw credit is publicly exported or another zome still
+  # invokes it by string. String-dispatched calls can survive Rust compilation.
   finance-raw-credit-caller-audit:
     needs: changes
     if: needs.changes.outputs.finance == 'true' || github.event_name == 'push'
@@ -199,7 +199,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 1
-      - name: Test raw-credit caller audit multiline detection
+      - name: Test raw-credit caller audit and ABI guard
         run: python3 -m unittest discover -s scripts/security -p 'test_finance_raw_credit_caller_audit.py' -v
       - name: Audit cross-zome raw SAP credit callers
         run: python3 scripts/security/finance_raw_credit_caller_audit.py
