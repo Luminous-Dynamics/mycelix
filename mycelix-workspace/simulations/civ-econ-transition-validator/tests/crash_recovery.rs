@@ -21,6 +21,8 @@ const REQUEST_DIGEST: &str =
     "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const RECEIPT_DIGEST: &str =
     "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+const SOURCE_EVIDENCE_DIGEST: &str =
+    "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 const INTENTIONAL_CRASH_EXIT: i32 = 86;
 const ACKNOWLEDGED_CRASH_EXIT: i32 = 87;
 const ACK_CHILD_MODE: &str = "MYCELIX_CIV_ECON_ACK_CRASH_TEST_CHILD";
@@ -145,7 +147,12 @@ fn crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispa
             BeginResult::PendingNeedsReconciliation,
         );
         recovered
-            .acknowledge_effect(EFFECT_ID, REQUEST_DIGEST, RECEIPT_DIGEST)
+            .acknowledge_effect(
+                EFFECT_ID,
+                REQUEST_DIGEST,
+                RECEIPT_DIGEST,
+                SOURCE_EVIDENCE_DIGEST,
+            )
             .expect("record reconciled synthetic provider receipt");
     }
 
@@ -155,6 +162,7 @@ fn crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispa
         verified.begin_effect(EFFECT_ID, REQUEST_DIGEST),
         Ok(BeginResult::AlreadyAcknowledged {
             receipt_digest: RECEIPT_DIGEST.to_owned(),
+            source_evidence_digest: Some(SOURCE_EVIDENCE_DIGEST.to_owned()),
         }),
     );
     let provider_effects_after_recovery: Vec<String> = fs::read_to_string(&provider_path)
@@ -199,7 +207,12 @@ fn acknowledged_receipt_survives_process_exit_before_caller_observes_success() {
             .sync_all()
             .expect("sync synthetic provider ledger");
         journal
-            .acknowledge_effect(EFFECT_ID, REQUEST_DIGEST, RECEIPT_DIGEST)
+            .acknowledge_effect(
+                EFFECT_ID,
+                REQUEST_DIGEST,
+                RECEIPT_DIGEST,
+                SOURCE_EVIDENCE_DIGEST,
+            )
             .expect("persist synthetic acknowledgement");
 
         // Simulate a lost caller response after the acknowledgement is durable.
@@ -240,6 +253,7 @@ fn acknowledged_receipt_survives_process_exit_before_caller_observes_success() {
         recovered.begin_effect(EFFECT_ID, REQUEST_DIGEST),
         Ok(BeginResult::AlreadyAcknowledged {
             receipt_digest: RECEIPT_DIGEST.to_owned(),
+            source_evidence_digest: Some(SOURCE_EVIDENCE_DIGEST.to_owned()),
         }),
         "recovery must return the exact receipt that was synchronized before exit",
     );
