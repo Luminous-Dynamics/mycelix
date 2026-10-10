@@ -37,7 +37,7 @@ Build the dependency-free scale probe once, then run each size separately so
 
     cargo build --offline --release --bin journal-replay-scale
     for n in 10000 100000 1000000; do
-      printf '\\n== %s effects ==\\n' "$n"
+      printf '\n== %s effects ==\n' "$n"
       /usr/bin/time -v target/release/journal-replay-scale "$n" 2>&1
     done
 
