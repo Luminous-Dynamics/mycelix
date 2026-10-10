@@ -390,15 +390,10 @@ fn validate_create_trade_offer(
     action: EntryCreationAction,
     offer: TradeOffer,
 ) -> ExternResult<ValidateCallbackResult> {
-    if let Some(error) = offer_validation_error(&offer) {
-        return result_from_validation_error(Some(error));
-    }
-    if !did_matches_agent(&offer.seller_did, action.author()) {
-        return result_from_validation_error(Some(
-            "Seller DID must identify the agent authoring the offer",
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    result_from_validation_error(offer_creation_author_validation_error(
+        &offer,
+        action.author(),
+    ))
 }
 
 /// Offer identity and publication terms are immutable. The coordinator may
@@ -408,10 +403,13 @@ fn offer_creation_author_validation_error(
     offer: &TradeOffer,
     author: &AgentPubKey,
 ) -> Option<&'static str> {
+    if let Some(error) = offer_validation_error(offer) {
+        return Some(error);
+    }
     if !did_matches_agent(&offer.seller_did, author) {
         return Some("Seller DID must identify the agent authoring the offer");
     }
-    offer_validation_error(offer)
+    None
 }
 
 fn offer_update_validation_error(
