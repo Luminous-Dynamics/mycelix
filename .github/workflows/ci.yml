@@ -497,9 +497,9 @@ jobs:
             cd tests
             set -e
             cargo test --test sweettest_integration test_record_production_and_create_offer -- --include-ignored --test-threads=1
-            cargo test --test sweettest_integration test_execute_trade_rejects_forged_buyer_identity -- --include-ignored --test-threads=1
+            cargo test --test sweettest_integration test_execute_trade_fails_closed_without_reservation_protocol -- --include-ignored --test-threads=1
             cargo test --test sweettest_integration test_offer_discoverable_via_sharded_anchor -- --include-ignored --test-threads=1
-            cargo test --test sweettest_integration test_execute_trade_rejects_expired_offer -- --include-ignored --test-threads=1
+            cargo test --test sweettest_integration test_expired_offer_is_not_discoverable -- --include-ignored --test-threads=1
           '
 
   # Summary gate
