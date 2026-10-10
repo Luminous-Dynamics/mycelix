@@ -41,6 +41,7 @@ validation listed in the repository README before release.
 
 ## Proposed design work
 
+- [Evidence Provenance and Collection Contract](EVIDENCE_PROVENANCE_AND_COLLECTION_CONTRACT.md) — proposed, not implemented or qualified. Defines how artifact identity, provenance assertions, collection activities, lineage, independent evaluation, schema compatibility, and adversarial fixtures must remain distinct.
 - [Scientific Due Diligence and Resource Allocation RFC](SCIENTIFIC_DUE_DILIGENCE_AND_ALLOCATION_RFC.md) — proposed, not implemented or qualified. Defines evidence-grounded assessment, independence/dependence checks, allocation principles, adversarial gates, and a process-first implementation sequence.
 
 ## Operator entry points
