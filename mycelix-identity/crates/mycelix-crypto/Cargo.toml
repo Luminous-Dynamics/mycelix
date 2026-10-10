@@ -13,6 +13,9 @@ wasm = []
 # candidate provider seam, not a qualification claim. It deliberately avoids
 # activating the Ed25519, KEM, and AEAD dependencies used by `hybrid-rc`.
 mldsa-verify-rc = ["dep:ml-dsa"]
+# Explicit qualification-only feature for the pinned corpus test. Not needed by
+# application builds; SHA-256 is used to assert the exact corpus bytes.
+mldsa-verify-corpus = ["mldsa-verify-rc", "dep:sha2"]
 # RustCrypto hybrid backend: real hybrid X25519+ML-KEM-768 KEM that builds for
 # wasm32 (browser clients), unlike `native` (pqcrypto C-FFI). Off by default.
 # EXPERIMENTAL — construction pending crypto audit (see PQC_ROADMAP_2026-07-07.md).
@@ -78,3 +81,8 @@ criterion = { version = "0.8", features = ["html_reports"] }
 name = "pqc_bench"
 harness = false
 required-features = ["native"]
+
+[[test]]
+name = "mldsa65_wycheproof"
+path = "tests/mldsa65_wycheproof.rs"
+required-features = ["mldsa-verify-corpus"]
