@@ -11,5 +11,6 @@ name = "grid_integrity"
 [dependencies]
 holochain_serialized_bytes = { workspace = true }
 hdi = { workspace = true }
+holo_hash = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
