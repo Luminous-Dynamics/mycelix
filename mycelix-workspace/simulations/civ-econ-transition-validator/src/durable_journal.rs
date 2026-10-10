@@ -947,7 +947,7 @@ mod tests {
         let temp = TempDir::new();
         let mut record = "malformed\\t".to_owned();
         record.push_str(&"x".repeat(MAX_JOURNAL_RECORD_BYTES));
-        record.push('\\n');
+        record.push('\n');
         write_journal_fixture(&temp.journal_path(), record.as_bytes());
 
         assert!(matches!(
