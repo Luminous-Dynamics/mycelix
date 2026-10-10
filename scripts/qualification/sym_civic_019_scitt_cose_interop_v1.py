@@ -515,6 +515,7 @@ def verify_receipt(statement_bytes: bytes, receipt_bytes: bytes, log_key_pem: by
             "valid": True,
             "reason": "VALID",
             "algorithm": alg,
+            "vds": proof["vds"],
             "payload_mode": "detached_null" if receipt["payload"] is None else "embedded_bstr",
             "tree_root": deterministic_root.hex(),
             "reconstructed_root": reconstructed.hex(),
