@@ -100,6 +100,37 @@ When checked on 2026-10-10, the above source/qualification PRs were still open a
 
 **Sequencing decision:** use the existing AC-176 / AC-153 / FIN-SAFE track and its exact-head gates as the source of truth. The new comparative research should feed those tracks (e.g. interoperability mapping and claim/reveal protocol design); it should not create a competing credit/conservation implementation. Do not call the SAP ledger conserved, exactly-once, or fully provenance-bound until the precise integrated subject passes its required validation/runtime evidence.
 
+### 4b. Further projects: patterns to benchmark, not dependencies to import blindly
+
+**Nondominium — ValueFlows plus resource-scoped peer networks.** The public `Sensorica/nondominium` README describes a multi-DNA application using hREA/ValueFlows, a lobby → group → NDO hierarchy, group-scoped cloned cells, resource/NDO-scoped cells, and a governance operator separated from resource state. It names Rust Sweettest suites across the core, lobby and group DNAs plus Playwright against real conductors. Its README's canonical technology table currently lists Holochain 0.6.0 / client 0.20.0. That makes it a useful, concrete case study in the same broad architectural problem as Mycelix: how to separate resource data from policy and prevent one network's membership/state from automatically becoming another network's authority.
+
+Candidate Mycelix lesson:
+- Compare which domains truly need one shared DHT versus their own network/membrane.
+- Model cross-cluster access as explicit adapters/capabilities rather than inheriting authority from a broad unified deployment.
+- Benchmark the test pyramid: pure rules, integrity tests, two-/three-agent Sweettests per DNA, and user workflows against live conductors.
+- Compare Nondominium's PPR (Private Participation Receipt) and resource lifecycle with Mycelix attribution/reciprocity, provenance, commons/property and economic-event models before considering shared types.
+
+Source: https://github.com/Sensorica/nondominium/blob/dev/README.md
+
+**Moss — composable collaboration spaces.** `lightningrodlabs/moss` describes a runtime/frame for composing custom collaboration “Tools” into groups, with the group and each tool represented by their own private peer-to-peer networks. This is a product/architecture lesson: users should assemble a useful workspace from small domain apps without each domain needing to become a monolithic all-in-one platform. For Mycelix, a similar composition contract could improve app boundaries and user choice, while the unified hApp remains a deployment option rather than the only security boundary.
+
+Source: https://github.com/lightningrodlabs/moss/blob/main/README.md
+
+**AD4M — semantic interoperability and signed agent-authored expressions.** `coasys/ad4m` describes pluggable “Languages” for bridging protocols/storage systems, cryptographically signed expressions, semantic perspectives, and a local agent-centric runtime. It also documents both Holochain-backed synchronization and a self-hosted server-backed link-language option, plus multi-node test commands. This is worth studying for Mycelix's federation of personal, commons, and civic meanings: how to preserve provenance while allowing different applications to interpret shared relations. Do not assume its semantic layer substitutes for integrity-zome validation, authorization, or a domain ontology.
+
+Its repository uses the Cryptographic Autonomy License (CAL-1.0). Review the actual CAL conditions and compatibility before reusing code; source inspiration and independent protocol implementation are different from copying a licensed implementation.
+
+Source: https://github.com/coasys/ad4m/blob/dev/README.md
+
+**Flowsta Vault — user sovereignty as product behavior.** Its public README describes local key derivation and custody, encrypted local vault data, an approval-gated localhost bridge, identity linking, per-app backups and full data export/recovery. The useful benchmark is not the specific BIP39 or encryption implementation by itself; it is the end-to-end user contract: keys remain local, actions are visible/approved, and users can recover both identity and app data without a service operator retaining the only copy. Mycelix identity/personal vault UX should be tested against those workflows.
+
+A metadata discrepancy is visible in the source: the README and root `LICENSE` say MIT, while `src-tauri/Cargo.toml` has `license = ""`. That does not prove a licensing violation, but it does mean the Rust package metadata is incomplete and should not be inferred from the top-level badge alone.
+
+Sources:
+- https://github.com/WeAreFlowsta/flowsta-vault-app/blob/main/README.md
+- https://github.com/WeAreFlowsta/flowsta-vault-app/blob/main/LICENSE
+- https://github.com/WeAreFlowsta/flowsta-vault-app/blob/main/src-tauri/Cargo.toml
+
 ### 5. Resolve licensing ambiguity before copying code
 
 The Finance README currently says Apache-2.0 at its footer, while its `Cargo.toml`, source SPDX header, Finance `LICENSE`, and root `LICENSING.md` identify the Finance cluster as AGPL-3.0-or-later. This review corrects the stale Finance README footer in the accompanying change.
