@@ -72,6 +72,17 @@ class RawCreditCallerAuditTests(unittest.TestCase):
         )
         self.assertFalse(has_public_raw_credit_abi(source))
 
+    def test_direct_constructor_and_raw_string_literal_are_detected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            caller = root / "bridge" / "coordinator" / "src" / "lib.rs"
+            caller.parent.mkdir(parents=True)
+            caller.write_text(
+                'let function = FunctionName::new(r#"credit_sap"#);',
+                encoding="utf-8",
+            )
+            self.assertEqual(len(scan(root)), 1)
+
     def test_alternate_dispatch_constructors_are_detected(self) -> None:
         for source in (
             'FunctionName::try_from("credit_sap")',
