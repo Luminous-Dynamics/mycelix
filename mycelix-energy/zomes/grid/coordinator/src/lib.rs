@@ -1997,9 +1997,18 @@ mod settlement_amount_regression_tests {
 
     #[test]
     fn paid_finance_settlement_fails_before_any_payment_call() {
-        let trade = settlement_test_trade(0.12, 0.12);
+        let mut sap_trade = settlement_test_trade(0.12, 0.12);
+        sap_trade.currency = "SAP".into();
         assert_eq!(
-            settle_via_finance(&trade),
+            settle_via_finance(&sap_trade),
+            Err(
+                "Paid trade settlement is disabled until authenticated receipt verification, rail idempotency, and indeterminate-outcome recovery are implemented (#4940)"
+            )
+        );
+
+        let external_trade = settlement_test_trade(0.12, 0.12);
+        assert_eq!(
+            settle_via_finance(&external_trade),
             Err(
                 "Paid trade settlement is disabled until authenticated receipt verification, rail idempotency, and indeterminate-outcome recovery are implemented (#4940)"
             )
