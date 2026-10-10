@@ -82,10 +82,10 @@ pub fn verify_with_empty_context(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ml_dsa::{Generate as _, Keypair as _, MlDsa65, SigningKey};
+    use ml_dsa::{Keypair as _, MlDsa65, Seed, SigningKey};
 
     fn signed_fixture(message: &[u8], context: &[u8]) -> (Vec<u8>, Vec<u8>) {
-        let signing_key = SigningKey::<MlDsa65>::generate();
+        let signing_key = SigningKey::<MlDsa65>::from_seed(&Seed::default());
         let verifying_key = signing_key.verifying_key().encode().as_slice().to_vec();
         let signature = signing_key
             .expanded_key()
