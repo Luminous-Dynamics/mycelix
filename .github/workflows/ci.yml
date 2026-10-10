@@ -513,7 +513,7 @@ jobs:
               exit 1
             fi
           fi
-          # Skipped optional test jobs are OK only when their path filter didn't match.
+          # Existing optional cluster jobs may be skipped; the security audit is success-gated above when required.
           for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.finance-raw-credit-caller-audit.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
