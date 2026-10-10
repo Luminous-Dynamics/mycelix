@@ -64,7 +64,15 @@ jobs:
           assert all(case.get("expected") and case.get("invariants") for case in corpus["cases"])
           schema = json.loads(Path("docs/research/civ/CIV-ECON-001A_TRANSITION_MANIFEST_SCHEMA_V1.json").read_text())
           assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-          assert len(schema["allOf"]) >= 8, "stage-specific fail-closed constraints missing"
+          assert len(schema["allOf"]) >= 12, "stage-specific fail-closed constraints missing"
+          assert schema["properties"]["scope"]["items"]["type"] == "object"
+          assert "kind" in schema["properties"]["scope"]["items"]["required"]
+          simulation = schema["properties"]["simulation"]
+          assert "output_digest" in simulation["properties"]
+          evaluation = schema["properties"]["evaluation"]
+          assert "subject_output_digest" in evaluation["properties"]
+          assert "report_digest" in evaluation["properties"]
+          assert "output_digest" not in evaluation["properties"], "simulation output and evaluator report must remain distinct"
           PY
 
       - name: Run dependency-free validator tests
