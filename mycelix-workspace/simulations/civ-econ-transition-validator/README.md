@@ -37,12 +37,14 @@ cooperating writers with a PID-marked sidecar lock, and fails closed on
 truncated/corrupt history. A surviving Pending record after restart is a
 reconciliation requirement, never permission to dispatch again.
 
-The integration test in `tests/crash_recovery.rs` launches a child process that
-records a synthetic external effect and terminates before journal acknowledgement.
-The parent explicitly clears the dead child's stale test lock, reopens the journal,
-reconciles against a synthetic provider ledger, and asserts no duplicate dispatch.
-This is process-boundary test coverage only; it does not contact or prove behavior
-of a real payment provider, bank, physical actuator, or settlement authority.
+The integration tests in `tests/crash_recovery.rs` launch child processes to
+exercise two distinct crash windows: after a synthetic external effect but before
+journal acknowledgement, and after the acknowledgement is synchronized but before
+the caller can observe success. The parent explicitly clears each dead child's
+stale test lock, reopens the journal, checks the recovered state/receipt, and
+asserts no duplicate dispatch. These are process-boundary tests with a synthetic
+provider ledger only; they do not contact or prove behavior of a real payment
+provider, bank, physical actuator, or settlement authority.
 
 This journal is not tamper-evident: it does not hash-chain or sign the log,
 and it trusts supplied request/receipt digests rather than computing or verifying
