@@ -157,6 +157,36 @@ This section records the latest source-level follow-through so a documented fix 
 
 The outstanding AC-176 caller-census concern is unchanged and has one additional call site: `currency-mint::mint_genesis_sap` also dynamically calls `payments::credit_sap`. The full current census is one genesis-mint call, two bridge-deposit calls, and one staking-return call, mirrored in the workspace tree. Those four paths must be migrated to source-specific authorization or explicitly disabled with user-visible behavior before raw-credit removal is integration-qualified. The syntax/format patches above do not prove SAP conservation or close the caller gap.
 
+### 4d. Route legacy SAP credit callers through AC-154 source proofs, not generic wrappers
+
+A fresh source review of the current AC-176 branch reconfirmed that each of the four external `payments::credit_sap` calls has an identical canonical/workspace projection. More importantly, the newer Finance safety stack already defines the right direction: [AC-154 / #4589](https://github.com/Luminous-Dynamics/mycelix/issues/4589) says unsupported external positive credits remain fail-closed until typed source-specific proofs exist. [AC-153 / PR #4594](https://github.com/Luminous-Dynamics/mycelix/pull/4594) explicitly leaves governance/bridge/staking and other external positive credits blocked until that follow-up.
+
+#### Source-specific gaps from the legacy caller paths
+
+| Caller | Fresh source-level finding | Required evidence boundary |
+|---|---|---|
+| Thermodynamic genesis (`currency-mint::mint_genesis_sap`) | The coordinator rejects only empty `proof_bytes`; the source comments say actual STARK verification is future work. The persisted `ThermodynamicGenesis` entry contains sensor ID, yield, timestamp and location, not the proof/verifier receipt. The read-links-then-create-link replay marker is not a global concurrent exact-once theorem. | Authenticated, versioned proof verification; exact measurement/evidence object; circuit/verifier and conversion profile; canonical issuance identity; recipient and integer μSAP amount; conflict/replay semantics. See [#4439](https://github.com/Luminous-Dynamics/mycelix/issues/4439) and [#4180](https://github.com/Luminous-Dynamics/mycelix/issues/4180). |
+| Legacy collateral bridge | `deposit_collateral` accepts a caller-supplied finite positive `oracle_rate`; integrity verifies that `sap_minted` is arithmetically consistent with that same supplied value, not that the rate/custody evidence was authenticated. | Consume an exact issuance receipt from the authenticated FIN-SAFE-010/011 collateral settlement pipeline; bind the qualified deposit, valuation/custody facts, mint ID, recipient and amount. Do not treat the legacy rate field as an oracle attestation. |
+| Fiat bridge verification | The call supplies an `ExternalResourceAudit`; the shown flow only checks `is_speculative == false`. It does not authenticate the institution/compliance reference or prove bank settlement through a configured authority. The visible update validator checks structure and disallows transition back to Pending, but does not bind verifier authorization to the `Update` action. | Trusted issuer/bank attestation and explicit trust-root policy; canonical external deposit identity; exact amount/currency/conversion profile; one-time claim semantics; make verification evidence distinct from a balance mutation. |
+| Staking return / slash remainder | `withdraw_stake` attempts the credit before recording `Withdrawn`. A multi-write partial/ambiguous completion therefore needs explicit retry protection; a reason string and the current mutable stake state are not a proof that the locked amount has not already been returned. | Exact stake-lock and release/slash evidence, bounded return amount, canonical stake/return identity, owner binding, and duplicate/conflict handling that survives retry after ambiguous completion. |
+
+These are source-inspection findings, not runtime exploit demonstrations. The source was inspected on 2026-10-10; no Rust/Sweettest/WASM runtime test was performed for these paths during this review.
+
+#### Use the current V2 stack without overstating its readiness
+
+The current Finance work already includes:
+- [FIN-SAFE-014 issue #663 / draft PR #665](https://github.com/Luminous-Dynamics/mycelix/pull/665): owner-authored collateral claims derived from an exact FIN-SAFE-010 issuance receipt and economically de-duplicated by canonical `mint_id`.
+- [FIN-SAFE-015 / draft PR #671](https://github.com/Luminous-Dynamics/mycelix/pull/671): pure value-note/transfer theorem, with exact conservation and explicit double-spend conflict semantics.
+- [FIN-SAFE-016 / draft PR #677](https://github.com/Luminous-Dynamics/mycelix/pull/677): disabled-by-default Holochain adapter that exact-loads collateral claims and issuance receipts; it does not change legacy `SapBalance`, `credit_sap`, or `transfer_sap`.
+
+All three source PRs remain open/draft in the inspected state, and shipped `sap_account_v2.enabled` / `sap_transfer_v2.enabled` are `false`. This is the right architectural direction for collateral-backed value, but it is **not** a drop-in fix for the four legacy callers and does not yet support genesis, fiat, governance, staking return, demurrage, or a globally final spend protocol.
+
+**Decision:** keep AC-176's caller audit fail-closed. Do not add generic `credit_from_x` wrappers, whitelist the four callers, or enable the V2 lanes as a shortcut. Use AC-154's source-specific authorization contract and promote each source only after exact-origin validation, adversarial retry/replay/conflict tests, and exact-head hosted execution.
+
+#### Runner-assignment diagnosis is a separate infrastructure boundary
+
+[CI-OPS-001 / #697](https://github.com/Luminous-Dynamics/mycelix/issues/697) records jobs queued before runner assignment, with no checkout or test steps. On 2026-10-10, the public [GitHub Status page](https://www.githubstatus.com/) reported all systems operational and no incidents for October 8–10; its recent October 5 Actions/hosted-runner incident is marked resolved. This rules out neither repository/organization configuration nor a stuck account-specific queue; it does mean we should not infer a current global incident or a repository code failure from `queued`. Check Actions Settings (active jobs/usage), repository/organization Actions policy, quota/spending/suspension and UI errors; if clean, escalate representative stuck run IDs to GitHub Support. More source churn is not a substitute for this diagnostic.
+
 ### 5. Resolve licensing ambiguity before copying code
 
 The Finance README currently says Apache-2.0 at its footer, while its `Cargo.toml`, source SPDX header, Finance `LICENSE`, and root `LICENSING.md` identify the Finance cluster as AGPL-3.0-or-later. This review corrects the stale Finance README footer in the accompanying change.
