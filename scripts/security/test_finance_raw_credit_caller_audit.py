@@ -192,8 +192,7 @@ class RawCreditCallerAuditTests(unittest.TestCase):
             workflow,
         )
         filter_start = workflow.index("            finance_raw_credit_audit:")
-        filter_end = workflow.find("\n            ", filter_start + 12)
-        self.assertGreater(filter_end, filter_start)
+        filter_end = workflow.index("\n            governance:", filter_start)
         filter_block = workflow[filter_start:filter_end]
         for required_path in (
             "'mycelix-finance/**'",
@@ -216,7 +215,11 @@ class RawCreditCallerAuditTests(unittest.TestCase):
             "python3 -m unittest discover -s scripts/security -p 'test_finance_raw_credit_caller_audit.py' -v",
             job_block,
         )
-        self.assertIn("finance-raw-credit-caller-audit", workflow[workflow.index("  ci-pass:"):])
+        ci_pass_start = workflow.index("  ci-pass:")
+        ci_pass_end = workflow.index("\n    runs-on:", ci_pass_start)
+        ci_pass = workflow[ci_pass_start:ci_pass_end]
+        self.assertIn("- finance-raw-credit-caller-audit", ci_pass)
+        self.assertIn("${{ needs.finance-raw-credit-caller-audit.result }}", workflow)
 
     def test_whole_audit_fails_if_public_credit_abi_is_restored(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
