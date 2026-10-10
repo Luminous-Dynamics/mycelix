@@ -330,18 +330,18 @@ def audit(root: Path = ROOT) -> int:
         print(f"Found {len(projection_differences)} projection difference(s).")
 
     if canonical:
-        print("FAIL: external coordinator sources still contain the raw-credit function-name literal.")
+        print("FAIL: external coordinator sources still contain a raw-credit function-name reference.")
         print("Review every occurrence; do not qualify removal of the public ABI until each")
         print("is migrated to source-specific authorization or deliberately disabled.")
         for relative, line_number, expression in canonical:
             print(f"  {relative}:{line_number}: {expression}")
-        print(f"Found {len(canonical)} matching literal(s) in each Finance projection.")
+        print(f"Found {len(canonical)} matching function-name reference(s) in each Finance projection.")
 
     if canonical or projection_differences:
         return 1
 
-    print("PASS: raw credit ABI is private, the two Finance zome projections are byte-identical, and no exact raw-credit name literal remains outside Payments coordinator.")
-    print("This literal scan cannot detect dynamically constructed names and does not prove SAP conservation or exact-once settlement.")
+    print("PASS: raw credit ABI is private, the two Finance zome projections are byte-identical, and no direct, escaped, or statically concatenated raw-credit function-name reference remains outside Payments coordinator.")
+    print("This source scanner does not resolve arbitrary const aliases, every possible macro/literal transformation, or runtime-constructed names; it also does not prove SAP conservation or exactly-once settlement.")
     return 0
 
 
