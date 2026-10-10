@@ -70,7 +70,7 @@ jobs:
 
       - name: Assert independent evaluator commit and blob
         env:
-          EXPECTED_EVALUATOR_COMMIT: 4575027025591550d27c3b8902e5b415fb3716c0
+          EXPECTED_EVALUATOR_COMMIT: 431e302f2674f65b0bafd0ba19d6bf8953a69592
           EXPECTED_EVALUATOR_BLOB: 0eb67587eb95bf8e0b3da3dffd5aa01bb92073a6
           EXPECTED_RUST_EVALUATOR_BLOB: ca750be2bd26019e7a5f96a9483901d727773bb6
         run: |
@@ -88,6 +88,14 @@ jobs:
 
       - name: Assert Rust compiler identity
         run: test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+
+      - name: Run pinned Rust preflight and receipt regression tests
+        run: |
+          set -euo pipefail
+          rustc +1.96.0 --edition=2024 --test \
+            _independent-evaluator/scripts/integral/d6u_trusted_root_check.rs \
+            -o "$RUNNER_TEMP/d6u-trusted-root-check-tests"
+          "$RUNNER_TEMP/d6u-trusted-root-check-tests"
 
       - name: Run independent Rust trust-root preflight
         run: |
