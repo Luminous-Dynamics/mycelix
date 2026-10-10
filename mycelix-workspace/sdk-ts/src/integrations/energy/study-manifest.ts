@@ -80,7 +80,10 @@ export type EnergyStudyManifestErrorCode =
   | 'INVALID_TIME_AXIS'
   | 'TIME_HORIZON_OVERFLOW'
   | 'TIME_OUTSIDE_PORTABLE_RANGE'
-  | 'CRYPTO_UNAVAILABLE';
+  | 'CRYPTO_UNAVAILABLE'
+  | 'INVALID_ARTIFACT_BYTES'
+  | 'ARTIFACT_SET_MISMATCH'
+  | 'ARTIFACT_HASH_MISMATCH';
 
 export class EnergyStudyManifestError extends Error {
   constructor(
@@ -426,6 +429,151 @@ function compareUtf8(left: string, right: string): number {
     if (a[index] !== b[index]) return a[index] - b[index];
   }
   return a.length - b.length;
+}
+
+/**
+ * Exact artifact bytes referenced by a study manifest.
+ *
+ * Dataset bytes are keyed by the manifest's dataset_id. The four configuration
+ * artifacts use the named properties below to avoid ambiguous positional data.
+ */
+export interface EnergyStudyArtifactBytesV1 {
+  datasets: Readonly<Record<string, Uint8Array>>;
+  asset_registry: Uint8Array;
+  constraints: Uint8Array;
+  model_configuration: Uint8Array;
+  policy_configuration: Uint8Array;
+}
+
+export interface EnergyStudyArtifactVerificationReceiptV1 {
+  schema_version: 1;
+  manifest_sha256: string;
+  artifact_set_sha256: string;
+  verified_dataset_count: number;
+  verified_configuration_count: 4;
+}
+
+/**
+ * Recompute and verify every raw artifact hash bound by the manifest.
+ *
+ * This proves byte equality with the declared hashes, not authenticity of the
+ * source that supplied those bytes. All declared datasets and all four
+ * configuration artifacts are required; extra or missing dataset IDs fail.
+ */
+export async function verifyEnergyStudyArtifactsV1(
+  manifestInput: unknown,
+  artifactsInput: unknown
+): Promise<EnergyStudyArtifactVerificationReceiptV1> {
+  const manifest = validateEnergyStudyManifestV1(manifestInput);
+  const artifacts = requireRecord(artifactsInput, 'artifacts');
+  assertExactKeys(
+    artifacts,
+    ['datasets', 'asset_registry', 'constraints', 'model_configuration', 'policy_configuration'],
+    'artifacts'
+  );
+
+  const datasetBytes = requireRecord(artifacts.datasets, 'artifacts.datasets');
+  const expectedIds = manifest.datasets.map((dataset) => dataset.dataset_id).sort(compareUtf8);
+  const actualIds = Object.keys(datasetBytes).sort(compareUtf8);
+  if (
+    expectedIds.length !== actualIds.length ||
+    expectedIds.some((datasetId, index) => datasetId !== actualIds[index])
+  ) {
+    throw new EnergyStudyManifestError(
+      'ARTIFACT_SET_MISMATCH',
+      'provided dataset artifact IDs must exactly match the manifest dataset IDs'
+    );
+  }
+
+  const manifestDigest = await digestEnergyStudyManifestV1(manifest);
+  const receiptEntries: Array<{ id: string; hash: string }> = [];
+
+  const hashArtifact = async (
+    bytesInput: unknown,
+    field: string,
+    expectedHash: string
+  ): Promise<string> => {
+    if (!(bytesInput instanceof Uint8Array)) {
+      throw new EnergyStudyManifestError(
+        'INVALID_ARTIFACT_BYTES',
+        `${field} must be supplied as Uint8Array bytes`
+      );
+    }
+    if (!globalThis.crypto?.subtle) {
+      throw new EnergyStudyManifestError(
+        'CRYPTO_UNAVAILABLE',
+        'Web Crypto SHA-256 is unavailable in this runtime'
+      );
+    }
+    const ownedBuffer = new ArrayBuffer(bytesInput.byteLength);
+    new Uint8Array(ownedBuffer).set(bytesInput);
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', ownedBuffer);
+    const actualHash = Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, '0')
+    ).join('');
+    if (actualHash !== expectedHash) {
+      throw new EnergyStudyManifestError(
+        'ARTIFACT_HASH_MISMATCH',
+        `${field} bytes do not match the manifest's declared SHA-256 digest`
+      );
+    }
+    return actualHash;
+  };
+
+  const datasetsById = new Map(
+    manifest.datasets.map((dataset) => [dataset.dataset_id, dataset])
+  );
+  for (const datasetId of expectedIds) {
+    const dataset = datasetsById.get(datasetId);
+    if (!dataset) {
+      throw new EnergyStudyManifestError(
+        'ARTIFACT_SET_MISMATCH',
+        `manifest dataset not found: ${datasetId}`
+      );
+    }
+    const hash = await hashArtifact(
+      datasetBytes[datasetId],
+      `datasets.${datasetId}`,
+      dataset.content_sha256
+    );
+    receiptEntries.push({ id: `dataset:${datasetId}`, hash });
+  }
+
+  const configurationArtifacts = [
+    ['asset_registry', artifacts.asset_registry, manifest.asset_registry_sha256],
+    ['constraints', artifacts.constraints, manifest.constraints_sha256],
+    ['model_configuration', artifacts.model_configuration, manifest.model.configuration_sha256],
+    ['policy_configuration', artifacts.policy_configuration, manifest.policy.configuration_sha256],
+  ] as const;
+
+  for (const [artifactId, bytesInput, expectedHash] of configurationArtifacts) {
+    const hash = await hashArtifact(bytesInput, artifactId, expectedHash);
+    receiptEntries.push({ id: artifactId, hash });
+  }
+
+  receiptEntries.sort((left, right) => compareUtf8(left.id, right.id));
+  const writer = new CanonicalWriter();
+  writer.writeBytes(encoder.encode('luminous-dynamics.energy-study-artifacts.v1\\0'));
+  writer.writeUint32(receiptEntries.length);
+  for (const entry of receiptEntries) {
+    writer.writeText(entry.id);
+    writer.writeText(entry.hash);
+  }
+  const canonicalBytes = writer.finish();
+  const ownedBuffer = new ArrayBuffer(canonicalBytes.byteLength);
+  new Uint8Array(ownedBuffer).set(canonicalBytes);
+  const artifactSetDigest = await globalThis.crypto.subtle.digest('SHA-256', ownedBuffer);
+  const artifactSetSha256 = Array.from(new Uint8Array(artifactSetDigest), (byte) =>
+    byte.toString(16).padStart(2, '0')
+  ).join('');
+
+  return {
+    schema_version: 1,
+    manifest_sha256: manifestDigest,
+    artifact_set_sha256: artifactSetSha256,
+    verified_dataset_count: manifest.datasets.length,
+    verified_configuration_count: 4,
+  };
 }
 
 /**
