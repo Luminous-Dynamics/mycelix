@@ -272,6 +272,60 @@ fn trade_validation_error(trade: &Trade) -> Option<&'static str> {
     if !valid_nonempty(&trade.currency) {
         return Some("Currency must be non-empty");
     }
+    match (trade.settled, trade.payment_reference.as_deref()) {
+        (false, None) => {}
+        (false, Some(_)) => {
+            return Some("Unsettled trades must not contain a payment reference");
+        }
+        (true, Some(reference)) if valid_nonempty(reference) => {}
+        (true, _) => {
+            return Some("Settled trades require a non-empty payment reference");
+        }
+    }
+    None
+}
+
+/// A new trade must begin in the unsettled state. A caller cannot bypass the
+/// settlement transition by creating a record that already claims success.
+fn trade_creation_validation_error(trade: &Trade) -> Option<&'static str> {
+    if trade.settled || trade.payment_reference.is_some() {
+        return Some("New trades must start unsettled without a payment reference");
+    }
+    trade_validation_error(trade)
+}
+
+/// Trade terms are immutable after creation. The only permitted update is a
+/// one-way unsettled -> settled transition with a non-empty reference.
+/// This is a structural invariant, not proof that an external payment really
+/// occurred; rail-authenticated receipts remain a separate trust requirement.
+fn trade_update_validation_error(
+    previous: &Trade,
+    updated: &Trade,
+) -> Option<&'static str> {
+    if let Some(error) = trade_validation_error(updated) {
+        return Some(error);
+    }
+    if previous.settled {
+        return Some("Settled trades cannot be updated");
+    }
+    if previous.payment_reference.is_some() {
+        return Some("Original unsettled trade contains a payment reference");
+    }
+    if previous.id != updated.id
+        || previous.offer_id != updated.offer_id
+        || previous.seller_did != updated.seller_did
+        || previous.buyer_did != updated.buyer_did
+        || previous.amount_kwh != updated.amount_kwh
+        || previous.price_per_kwh != updated.price_per_kwh
+        || previous.total_price != updated.total_price
+        || previous.currency != updated.currency
+        || previous.executed != updated.executed
+    {
+        return Some("Trade terms are immutable after creation");
+    }
+    if !updated.settled {
+        return Some("Trade updates must perform the unsettled-to-settled transition");
+    }
     None
 }
 
@@ -316,14 +370,26 @@ fn validate_create_trade(
     _action: EntryCreationAction,
     trade: Trade,
 ) -> ExternResult<ValidateCallbackResult> {
-    result_from_validation_error(trade_validation_error(&trade))
+    result_from_validation_error(trade_creation_validation_error(&trade))
 }
 
 fn validate_update_trade(
-    _action: Update,
+    action: Update,
     trade: Trade,
 ) -> ExternResult<ValidateCallbackResult> {
-    result_from_validation_error(trade_validation_error(&trade))
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original_trade = original_record
+        .entry()
+        .to_app_option::<Trade>()
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Original trade entry could not be decoded".into()
+        )))?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Original trade entry is unavailable".into()
+            ))
+        })?;
+    result_from_validation_error(trade_update_validation_error(&original_trade, &trade))
 }
 
 #[cfg(test)]
@@ -889,5 +955,67 @@ mod strict_validation_regression_tests {
         assert_eq!(production_validation_error(&valid_production()), None);
         assert_eq!(offer_validation_error(&valid_offer()), None);
         assert_eq!(trade_validation_error(&valid_trade()), None);
+        assert_eq!(trade_creation_validation_error(&valid_trade()), None);
+    }
+
+    #[test]
+    fn new_trades_cannot_claim_settlement_or_attach_a_premature_reference() {
+        let mut settled_at_creation = valid_trade();
+        settled_at_creation.settled = true;
+        settled_at_creation.payment_reference = Some("manual-reference".into());
+        assert_eq!(
+            trade_creation_validation_error(&settled_at_creation),
+            Some("New trades must start unsettled without a payment reference")
+        );
+
+        let mut reference_before_settlement = valid_trade();
+        reference_before_settlement.payment_reference = Some("premature-reference".into());
+        assert_eq!(
+            trade_creation_validation_error(&reference_before_settlement),
+            Some("New trades must start unsettled without a payment reference")
+        );
+    }
+
+    #[test]
+    fn trade_updates_only_allow_immutable_terms_and_one_way_settlement() {
+        let previous = valid_trade();
+        let settled = Trade {
+            settled: true,
+            payment_reference: Some("external:receipt-1".into()),
+            ..previous.clone()
+        };
+        assert_eq!(trade_update_validation_error(&previous, &settled), None);
+
+        let changed_terms = Trade {
+            amount_kwh: 3.0,
+            total_price: 0.36,
+            ..settled.clone()
+        };
+        assert_eq!(
+            trade_update_validation_error(&previous, &changed_terms),
+            Some("Trade terms are immutable after creation")
+        );
+
+        let rolled_back = valid_trade();
+        assert_eq!(
+            trade_update_validation_error(&settled, &rolled_back),
+            Some("Settled trades cannot be updated")
+        );
+    }
+
+    #[test]
+    fn settled_trades_require_non_empty_references() {
+        let mut trade = valid_trade();
+        trade.settled = true;
+        assert_eq!(
+            trade_validation_error(&trade),
+            Some("Settled trades require a non-empty payment reference")
+        );
+
+        trade.payment_reference = Some("   ".into());
+        assert_eq!(
+            trade_validation_error(&trade),
+            Some("Settled trades require a non-empty payment reference")
+        );
     }
 }
