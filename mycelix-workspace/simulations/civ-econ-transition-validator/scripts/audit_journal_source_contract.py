@@ -142,7 +142,7 @@ report_destination = os.environ.get("JOURNAL_AUDIT_REPORT_PATH")
 if report_destination:
     destination = Path(report_destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(report_json + "\\n", encoding="utf-8")
+    destination.write_text(report_json + "\n", encoding="utf-8")
 
 print(report_json)
 sys.exit(1 if failures else 0)
