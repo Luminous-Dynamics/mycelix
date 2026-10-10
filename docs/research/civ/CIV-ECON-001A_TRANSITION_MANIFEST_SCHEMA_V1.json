@@ -1,0 +1,1414 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/CIV-ECON-001A_TRANSITION_MANIFEST_SCHEMA_V1.json",
+  "title": "Mycelix Civilization OS Economic Transition Manifest v1",
+  "description": "Structural validation only; semantic authority, signatures, causality, settlement finality, rights, and resource truth require independent verification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "transition_id",
+    "status",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "transition_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "Draft",
+        "Frozen",
+        "Simulated",
+        "Qualified",
+        "Authorized",
+        "PilotActive",
+        "CutoverReady",
+        "CutoverCommitted",
+        "Reconciled",
+        "Completed",
+        "Rejected",
+        "Aborted",
+        "Quarantined",
+        "Indeterminate"
+      ]
+    },
+    "source_profile": {
+      "$ref": "#/$defs/policyProfileRef"
+    },
+    "target_profile": {
+      "$ref": "#/$defs/policyProfileRef"
+    },
+    "source_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frontier_ref",
+        "state_digest",
+        "captured_at",
+        "known_gaps"
+      ],
+      "properties": {
+        "frontier_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "known_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "conflict_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "plan_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item_id",
+          "kind"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "Claim",
+              "Obligation",
+              "Entitlement",
+              "Resource",
+              "Reservation",
+              "Dispute"
+            ]
+          },
+          "source_record_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        }
+      },
+      "description": "Inventory of every in-scope source item. Unique item_id and exact scope-to-mapping coverage are cross-record invariants for the executable validator."
+    },
+    "semantic_delta_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rights_floor_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/policyProfileRef"
+      }
+    },
+    "instrument_mappings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/instrumentMapping"
+      }
+    },
+    "resource_mappings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/resourceMapping"
+      }
+    },
+    "authorities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposer",
+        "evaluator",
+        "approver",
+        "executor",
+        "reconciler"
+      ],
+      "properties": {
+        "proposer": {
+          "$ref": "#/$defs/principalRef"
+        },
+        "evaluator": {
+          "$ref": "#/$defs/principalRef"
+        },
+        "approver": {
+          "$ref": "#/$defs/principalRef"
+        },
+        "executor": {
+          "$ref": "#/$defs/principalRef"
+        },
+        "reconciler": {
+          "$ref": "#/$defs/principalRef"
+        },
+        "separation_policy_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approval_receipt_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method_profile_ref",
+        "input_digest",
+        "subject_output_digest",
+        "oracle_profile_ref",
+        "result"
+      ],
+      "properties": {
+        "method_profile_ref": {
+          "$ref": "#/$defs/policyProfileRef"
+        },
+        "input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "oracle_profile_ref": {
+          "$ref": "#/$defs/policyProfileRef"
+        },
+        "result": {
+          "enum": [
+            "NotRun",
+            "Pass",
+            "Fail",
+            "Inconclusive"
+          ]
+        },
+        "receipt_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scenario_corpus_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "environment_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_output_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "report_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "pilot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "effect_mode",
+        "exit_conditions",
+        "stop_conditions"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "effect_mode": {
+          "enum": [
+            "SimulationOnly",
+            "ProposalOnly",
+            "SourceEffects",
+            "TargetEffects",
+            "ExternalSettlement"
+          ]
+        },
+        "start_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "scope_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exit_conditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "stop_conditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "receipt_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "cutover": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "idempotency_domain",
+        "all_items_dispositioned",
+        "external_obligations_resolved_or_explicitly_pending",
+        "resource_reservations_reconciled",
+        "rights_floor_check_ref",
+        "effects_started",
+        "effect_frontier_resolved"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "Atomic",
+            "Coordinated",
+            "Staged"
+          ]
+        },
+        "idempotency_domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "all_items_dispositioned": {
+          "type": "boolean"
+        },
+        "external_obligations_resolved_or_explicitly_pending": {
+          "type": "boolean"
+        },
+        "resource_reservations_reconciled": {
+          "type": "boolean"
+        },
+        "rights_floor_check_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authorized_exception_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "effect_receipt_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "effects_started": {
+          "type": "boolean"
+        },
+        "effect_frontier_resolved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_post_snapshot_ref",
+        "target_post_snapshot_ref",
+        "coverage",
+        "result",
+        "unresolved_refs",
+        "effect_frontier_resolved"
+      ],
+      "properties": {
+        "source_post_snapshot_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_post_snapshot_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "result": {
+          "enum": [
+            "NotRun",
+            "Pass",
+            "Fail",
+            "Inconclusive"
+          ]
+        },
+        "unresolved_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "report_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "verifier_receipt_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effect_frontier_resolved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "failure_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pre_commit",
+        "post_commit_uncertainty",
+        "correction_mode"
+      ],
+      "properties": {
+        "pre_commit": {
+          "enum": [
+            "Abort",
+            "Quarantine",
+            "RequireReauthorization"
+          ]
+        },
+        "post_commit_uncertainty": {
+          "enum": [
+            "Indeterminate",
+            "Quarantine",
+            "ReconcileForward"
+          ]
+        },
+        "correction_mode": {
+          "enum": [
+            "AppendOnly",
+            "CompensatingEntry",
+            "AuthorizedReversal"
+          ]
+        },
+        "policy_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "claim_ceiling": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "simulation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method_profile_ref",
+        "input_digest",
+        "output_digest",
+        "scenario_corpus_digest",
+        "environment_ref",
+        "run_receipt_ref",
+        "result"
+      ],
+      "properties": {
+        "method_profile_ref": {
+          "$ref": "#/$defs/policyProfileRef"
+        },
+        "input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "output_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "scenario_corpus_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "environment_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_receipt_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result": {
+          "enum": [
+            "NotRun",
+            "Completed",
+            "Failed",
+            "Inconclusive"
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "policyProfileRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "version",
+        "content_digest"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "authority_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "predecessor_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "instrumentRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instrument_id",
+        "version",
+        "content_digest",
+        "issuer_ref",
+        "economic_form_ref"
+      ],
+      "properties": {
+        "instrument_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "issuer_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "economic_form_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_profile_ref": {
+          "$ref": "#/$defs/policyProfileRef"
+        }
+      }
+    },
+    "unitRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit_id",
+        "version",
+        "content_digest",
+        "dimension",
+        "atomic_scale"
+      ],
+      "properties": {
+        "unit_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "dimension": {
+          "type": "string",
+          "minLength": 1
+        },
+        "atomic_scale": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    },
+    "principalRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal_id"
+      ],
+      "properties": {
+        "principal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_profile_ref": {
+          "$ref": "#/$defs/policyProfileRef"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "instrumentMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_item_ref",
+        "kind",
+        "source_instrument_ref",
+        "source_quantity_atomic",
+        "source_unit_ref",
+        "disposition",
+        "reason",
+        "evidence_refs"
+      ],
+      "properties": {
+        "source_instrument_ref": {
+          "$ref": "#/$defs/instrumentRef"
+        },
+        "source_quantity_atomic": {
+          "type": "string",
+          "pattern": "^-?(0|[1-9][0-9]*)$"
+        },
+        "source_unit_ref": {
+          "$ref": "#/$defs/unitRef"
+        },
+        "disposition": {
+          "enum": [
+            "Preserve",
+            "Convert",
+            "Novate",
+            "Discharge",
+            "Freeze",
+            "Dispute",
+            "Quarantine",
+            "RetainSourceOnly"
+          ]
+        },
+        "target_instrument_ref": {
+          "$ref": "#/$defs/instrumentRef"
+        },
+        "target_quantity_atomic": {
+          "type": "string",
+          "pattern": "^-?(0|[1-9][0-9]*)$"
+        },
+        "target_unit_ref": {
+          "$ref": "#/$defs/unitRef"
+        },
+        "conversion_profile_ref": {
+          "$ref": "#/$defs/policyProfileRef"
+        },
+        "authority_decision_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "counterparty_acceptance_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "discharge_receipt_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "source_item_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "Claim",
+            "Obligation",
+            "Entitlement",
+            "Dispute"
+          ]
+        },
+        "target_item_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "Preserve"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "target_instrument_ref",
+              "target_item_ref",
+              "target_quantity_atomic",
+              "target_unit_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "Convert"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "target_instrument_ref",
+              "target_item_ref",
+              "target_quantity_atomic",
+              "target_unit_ref",
+              "conversion_profile_ref",
+              "authority_decision_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "Novate"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "target_instrument_ref",
+              "target_item_ref",
+              "target_quantity_atomic",
+              "target_unit_ref",
+              "authority_decision_ref",
+              "counterparty_acceptance_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "Discharge"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "discharge_receipt_ref"
+            ]
+          }
+        }
+      ]
+    },
+    "resourceMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_item_ref",
+        "kind",
+        "quantity_atomic",
+        "unit_profile_ref",
+        "disposition",
+        "reason"
+      ],
+      "properties": {
+        "quantity_atomic": {
+          "type": "string",
+          "pattern": "^-?(0|[1-9][0-9]*)$"
+        },
+        "unit_profile_ref": {
+          "$ref": "#/$defs/unitRef"
+        },
+        "disposition": {
+          "enum": [
+            "Preserve",
+            "Convert",
+            "ReReserve",
+            "Release",
+            "Freeze",
+            "Dispute",
+            "Quarantine",
+            "RetainSourceOnly"
+          ]
+        },
+        "target_reservation_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "conversion_profile_ref": {
+          "$ref": "#/$defs/policyProfileRef"
+        },
+        "authority_decision_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_quantity_atomic": {
+          "type": "string",
+          "pattern": "^-?(0|[1-9][0-9]*)$"
+        },
+        "target_unit_profile_ref": {
+          "$ref": "#/$defs/unitRef"
+        },
+        "source_item_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "Resource",
+            "Reservation"
+          ]
+        },
+        "target_item_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "Preserve"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "target_item_ref",
+              "target_quantity_atomic",
+              "target_unit_profile_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "Convert"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "target_item_ref",
+              "target_quantity_atomic",
+              "target_unit_profile_ref",
+              "conversion_profile_ref",
+              "authority_decision_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "ReReserve"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "required": [
+              "target_item_ref",
+              "target_reservation_ref",
+              "target_quantity_atomic",
+              "target_unit_profile_ref",
+              "authority_decision_ref"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "Draft"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "source_profile",
+          "target_profile"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "Frozen",
+              "Simulated",
+              "Qualified",
+              "Authorized",
+              "PilotActive",
+              "CutoverReady",
+              "CutoverCommitted",
+              "Reconciled",
+              "Completed",
+              "Indeterminate"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "source_profile",
+          "target_profile",
+          "source_snapshot",
+          "plan_digest",
+          "scope",
+          "rights_floor_refs",
+          "instrument_mappings",
+          "resource_mappings",
+          "authorities"
+        ],
+        "properties": {
+          "source_profile": {
+            "required": [
+              "authority_ref"
+            ]
+          },
+          "target_profile": {
+            "required": [
+              "authority_ref"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "Simulated",
+              "Qualified",
+              "Authorized",
+              "PilotActive",
+              "CutoverReady",
+              "CutoverCommitted",
+              "Reconciled",
+              "Completed"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "simulation"
+        ],
+        "properties": {
+          "simulation": {
+            "required": [
+              "method_profile_ref",
+              "input_digest",
+              "output_digest",
+              "scenario_corpus_digest",
+              "environment_ref",
+              "run_receipt_ref",
+              "result"
+            ],
+            "properties": {
+              "result": {
+                "const": "Completed"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "Qualified",
+              "Authorized",
+              "PilotActive",
+              "CutoverReady",
+              "CutoverCommitted",
+              "Reconciled",
+              "Completed"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evaluation": {
+            "required": [
+              "method_profile_ref",
+              "input_digest",
+              "subject_output_digest",
+              "oracle_profile_ref",
+              "result",
+              "receipt_ref",
+              "scenario_corpus_digest",
+              "environment_ref",
+              "report_digest"
+            ],
+            "properties": {
+              "result": {
+                "const": "Pass"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "Qualified",
+              "Authorized",
+              "PilotActive",
+              "CutoverReady",
+              "CutoverCommitted",
+              "Reconciled",
+              "Completed"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "authorities": {
+            "properties": {
+              "evaluator": {
+                "required": [
+                  "decision_ref"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "Authorized",
+              "PilotActive",
+              "CutoverReady",
+              "CutoverCommitted",
+              "Reconciled",
+              "Completed"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "authorities": {
+            "required": [
+              "approval_receipt_ref"
+            ],
+            "properties": {
+              "approver": {
+                "required": [
+                  "decision_ref"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "PilotActive"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "pilot"
+        ],
+        "properties": {
+          "pilot": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "CutoverReady",
+              "CutoverCommitted",
+              "Reconciled",
+              "Completed"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "cutover"
+        ],
+        "properties": {
+          "cutover": {
+            "properties": {
+              "all_items_dispositioned": {
+                "const": true
+              },
+              "external_obligations_resolved_or_explicitly_pending": {
+                "const": true
+              },
+              "resource_reservations_reconciled": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "CutoverReady"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "cutover": {
+            "properties": {
+              "effects_started": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "CutoverCommitted",
+              "Reconciled",
+              "Completed"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "authorities": {
+            "properties": {
+              "executor": {
+                "required": [
+                  "decision_ref"
+                ]
+              }
+            }
+          },
+          "cutover": {
+            "required": [
+              "effect_receipt_refs"
+            ],
+            "properties": {
+              "effects_started": {
+                "const": true
+              },
+              "effect_receipt_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "Reconciled",
+              "Completed"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "reconciliation"
+        ],
+        "properties": {
+          "authorities": {
+            "properties": {
+              "reconciler": {
+                "required": [
+                  "decision_ref"
+                ]
+              }
+            }
+          },
+          "reconciliation": {
+            "required": [
+              "report_digest",
+              "verifier_receipt_ref",
+              "effect_frontier_resolved"
+            ],
+            "properties": {
+              "effect_frontier_resolved": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "Indeterminate"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "cutover"
+        ],
+        "properties": {
+          "cutover": {
+            "properties": {
+              "effects_started": {
+                "const": true
+              },
+              "effect_frontier_resolved": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "Completed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reconciliation": {
+            "required": [
+              "result",
+              "coverage",
+              "unresolved_refs",
+              "report_digest",
+              "verifier_receipt_ref"
+            ],
+            "properties": {
+              "result": {
+                "const": "Pass"
+              },
+              "coverage": {
+                "const": 1
+              },
+              "unresolved_refs": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
