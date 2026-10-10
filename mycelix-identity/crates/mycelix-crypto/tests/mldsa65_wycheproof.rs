@@ -119,9 +119,7 @@ fn complete_wycheproof_mldsa65_verification_corpus() {
                     invalid += 1;
                 }
                 "acceptable" => {
-                    panic!(
-                        "tcId {tc_id} is flagged acceptable; add an explicit reviewed policy                          instead of silently classifying it"
-                    );
+                    panic!("tcId {tc_id} is flagged acceptable; no explicit policy is defined");
                 }
                 other => panic!("tcId {tc_id} has unknown expected result {other:?}"),
             }
@@ -136,7 +134,11 @@ fn complete_wycheproof_mldsa65_verification_corpus() {
                     tc19_seen = true;
                 }
                 61 => {
-                    assert_eq!(expected, "valid", "tcId 61 must accept the valid near-boundary signature");
+                    assert_eq!(
+                        expected,
+                        "valid",
+                        "tcId 61 must accept the valid near-boundary signature"
+                    );
                     let flags = case["flags"]
                         .as_array()
                         .expect("tcId 61 must declare flags");
