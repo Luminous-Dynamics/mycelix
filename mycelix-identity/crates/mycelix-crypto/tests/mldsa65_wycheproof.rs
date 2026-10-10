@@ -124,13 +124,13 @@ fn exercise_corpus(source: &str, corpus_text: &str, expected_sha256: &str) {
                     if vector_context.is_empty() {
                         assert!(
                             result.is_ok(),
-                            "{source}: empty-context tcId {tc_id} expected valid but was rejected: {result:?}"
+                            "empty-context case {tc_id} unexpectedly failed: {result:?}"
                         );
                         valid_empty_context += 1;
                     } else {
                         assert!(
                             result.is_err(),
-                            "{source}: tcId {tc_id} is valid only under a non-empty context but was accepted by the empty-context verifier"
+                            "non-empty-context case {tc_id} was accepted"
                         );
                         valid_nonempty_context += 1;
                     }
@@ -143,20 +143,20 @@ fn exercise_corpus(source: &str, corpus_text: &str, expected_sha256: &str) {
                     invalid += 1;
                 }
                 "acceptable" => {
-                    panic!("{source}: tcId {tc_id} is flagged acceptable; no explicit policy is defined");
+                    panic!("{source}: tcId {tc_id} flagged acceptable");
                 }
                 other => panic!("{source}: tcId {tc_id} has unknown expected result {other:?}"),
             }
 
             match tc_id {
                 19 => {
-                    assert_eq!(expected, "invalid", "{source}: tcId 19 must reject repeated hint indices");
+                    assert_eq!(expected, "invalid", "tcId 19 must reject repeated hints");
                     let flags = case["flags"].as_array().expect("tcId 19 must declare flags");
                     assert!(flags.iter().any(|flag| flag.as_str() == Some("InvalidHintsEncoding")));
                     tc19_seen = true;
                 }
                 61 => {
-                    assert_eq!(expected, "valid", "{source}: tcId 61 must accept the valid near-boundary signature");
+                    assert_eq!(expected, "valid", "tcId 61 must accept a boundary signature");
                     let flags = case["flags"].as_array().expect("tcId 61 must declare flags");
                     assert!(flags.iter().any(|flag| flag.as_str() == Some("BoundaryCondition")));
                     tc61_seen = true;
@@ -170,7 +170,7 @@ fn exercise_corpus(source: &str, corpus_text: &str, expected_sha256: &str) {
     assert_eq!(total, 210, "{source}: not every corpus case was exercised");
     assert_eq!(valid, 79, "{source}: unexpected number of source-labeled valid cases");
     assert_eq!(valid_empty_context, 77, "{source}: expected 77 valid empty-context cases");
-    assert_eq!(valid_nonempty_context, 2, "{source}: expected 2 valid signatures bound to non-empty contexts");
+    assert_eq!(valid_nonempty_context, 2, "expected two non-empty-context valid vectors");
     assert_eq!(invalid, 131, "{source}: unexpected number of source-labeled invalid cases");
     assert!(tc19_seen, "{source}: required repeated-hint sentinel tcId 19 was not exercised");
     assert!(tc61_seen, "{source}: required valid-boundary sentinel tcId 61 was not exercised");
