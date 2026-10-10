@@ -753,7 +753,7 @@ mod tests {
         let temp = TempDir::new();
         let path = temp.journal_path();
         let encoded_id = encode_hex(b"legacy-j2-pending");
-        fs::write(&path, format!("J2\\tB\\t{}\\t{}\\n", encoded_id, REQUEST_A)).unwrap();
+        fs::write(&path, format!("J2\tB\t{}\t{}\n", encoded_id, REQUEST_A)).unwrap();
 
         let mut journal = DurableEffectJournal::open(&path).unwrap();
         assert_eq!(
