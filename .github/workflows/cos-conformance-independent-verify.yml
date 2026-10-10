@@ -38,7 +38,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    cache-mode: none
     outputs:
       pr_number: ${{ steps.target_binding.outputs.pr_number }}
       expected_head_sha: ${{ steps.target_binding.outputs.expected_head_sha }}
@@ -236,7 +235,6 @@ jobs:
     timeout-minutes: 25
     permissions:
       contents: read
-    cache-mode: none
     outputs:
       target_checkout_outcome: ${{ steps.target_checkout.outcome }}
       tested_commit_sha: ${{ steps.target_checkout.outputs.tested_commit_sha }}
@@ -332,7 +330,6 @@ jobs:
       contents: read
       pull-requests: read
       actions: read
-    cache-mode: none
     steps:
       - name: Download raw execution evidence
         id: download_execution
