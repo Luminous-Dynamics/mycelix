@@ -160,7 +160,7 @@ fn resolve_latest_record(mut record: Record) -> ExternResult<Record> {
         let latest_update = record_details
             .updates
             .into_iter()
-            .max_by_key(|update| update.action().timestamp());
+            .max_by_key(|update| update.action().timestamp().clone());
         if let Some(update) = latest_update {
             record = get(update.hashed.hash.clone(), GetOptions::default())?
                 .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
