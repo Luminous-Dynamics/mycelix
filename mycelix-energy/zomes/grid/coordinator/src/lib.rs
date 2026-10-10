@@ -548,6 +548,7 @@ pub fn get_offer_trades(offer_id: String) -> ExternResult<Vec<Record>> {
 /// only the serde wire shape). Variant names and their absence of
 /// associated data must stay in sync with the real enum in
 /// `mycelix-identity/zomes/trust_credential/integrity/src/lib.rs`.
+#[cfg(test)]
 #[derive(Deserialize, Debug, Clone, Copy, PartialEq)]
 enum TrustTier {
     Observer,
@@ -563,6 +564,7 @@ enum TrustTier {
 /// locally, no cross-cluster call needed for this step. Returns `None` for
 /// any DID that isn't a real, well-formed mycelix DID (including this
 /// crate's own test-data placeholders like "did:mycelix:verifier1").
+#[cfg(test)]
 fn agent_pub_key_from_did(did: &str) -> Option<AgentPubKey> {
     let agent_str = did.strip_prefix("did:mycelix:")?;
     AgentPubKey::try_from(agent_str).ok()
@@ -571,6 +573,7 @@ fn agent_pub_key_from_did(did: &str) -> Option<AgentPubKey> {
 /// Bind a claimed verifier DID to the actual agent making this zome call.
 /// Credential lookup alone is insufficient: otherwise any caller could name
 /// a trusted verifier and borrow that verifier's authorization.
+#[cfg(test)]
 fn verifier_did_matches_agent_key(verifier_did: &str, caller: &AgentPubKey) -> bool {
     agent_pub_key_from_did(verifier_did).as_ref() == Some(caller)
 }
@@ -582,6 +585,7 @@ fn verifier_did_matches_agent_key(verifier_did: &str, caller: &AgentPubKey) -> b
 /// marketplace is a comparable trust responsibility to that tier's
 /// existing bar, not a rubber stamp (Observer/Basic) but also not
 /// requiring full governance rights (Guardian).
+#[cfg(test)]
 fn tier_meets_verification_threshold(tier: TrustTier) -> bool {
     matches!(
         tier,
@@ -595,6 +599,7 @@ fn tier_meets_verification_threshold(tier: TrustTier) -> bool {
 /// into `mycelix-identity`'s actual `dna.yaml`, so it can't be called
 /// cross-cluster today). Returns `None` if the DID doesn't parse or the
 /// cross-cluster call fails.
+#[cfg(test)]
 fn verifier_trust_tier(verifier_did: &str) -> Option<TrustTier> {
     let agent = agent_pub_key_from_did(verifier_did)?;
     match call(
@@ -609,63 +614,15 @@ fn verifier_trust_tier(verifier_did: &str) -> Option<TrustTier> {
     }
 }
 
-/// Verify energy production (by verifier)
-///
-/// Previously an unauthenticated bool flip: any caller passing ANY
-/// `verifier_did` string could mark ANY production record verified,
-/// regardless of whether that DID belonged to a real, trusted identity.
-/// Now requires the claimed verifier to hold a real `trust_credential` at
-/// or above `tier_meets_verification_threshold` -- trust-weighted
-/// verification, not simple existence, per this repo's own DHT scalability
-/// rules (see feedback_dht_scalability_traps.md's "Translation Verification"
-/// section).
+/// Production verification is intentionally disabled until a signed,
+/// append-only ProductionVerification attestation is linked to the exact
+/// production action hash. Mutating EnergyProduction is forbidden by the
+/// integrity zome, so a boolean-flip implementation cannot be a valid verifier.
 #[hdk_extern]
-pub fn verify_production(input: VerifyProductionInput) -> ExternResult<Record> {
-    let caller = agent_info()?.agent_initial_pubkey;
-    if !verifier_did_matches_agent_key(&input.verifier_did, &caller) {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Verifier DID must identify the calling agent".into()
-        )));
-    }
-
-    let trust_tier = verifier_trust_tier(&input.verifier_did);
-    if !trust_tier.is_some_and(tier_meets_verification_threshold) {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Verifier {} does not hold a trust credential meeting the tier required \
-             to verify production records (tier: {:?})",
-            input.verifier_did, trust_tier
-        ))));
-    }
-
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::EnergyProduction,
-        )?))
-        .include_entries(true);
-
-    for record in query(filter)? {
-        if let Some(production) = record
-            .entry()
-            .to_app_option::<EnergyProduction>()
-            .ok()
-            .flatten()
-        {
-            if production.id == input.production_id {
-                let verified = EnergyProduction {
-                    verified: true,
-                    ..production
-                };
-                let action_hash = update_entry(
-                    record.action_address().clone(),
-                    &EntryTypes::EnergyProduction(verified),
-                )?;
-                return get(action_hash, GetOptions::default())?
-                    .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())));
-            }
-        }
-    }
+pub fn verify_production(_input: VerifyProductionInput) -> ExternResult<Record> {
     Err(wasm_error!(WasmErrorInner::Guest(
-        "Production record not found".into()
+        "Production verification is disabled until append-only attestations bound to exact production action hashes are implemented (#4944)"
+            .into()
     )))
 }
 
@@ -685,6 +642,7 @@ pub struct VerifyProductionInput {
 /// requiring an exact field-for-field mirror (map-based formats tolerate
 /// unknown keys; this would NOT be safe for a positional/array-based format).
 #[derive(Debug, Serialize, Deserialize, SerializedBytes)]
+#[cfg(test)]
 struct EnergyProjectTypeOnly {
     project_type: ProjectType,
 }
@@ -693,6 +651,7 @@ struct EnergyProjectTypeOnly {
 /// names and shapes (all fieldless except `Other`) must stay in sync with
 /// `mycelix-energy/zomes/projects/integrity/src/lib.rs`.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[cfg(test)]
 enum ProjectType {
     Solar,
     Wind,
@@ -712,6 +671,7 @@ enum ProjectType {
 /// generation. Hydrogen and Other are excluded because they don't carry an
 /// unambiguous displaced-fossil-fuel story (grey/blue/green hydrogen have
 /// very different real emissions profiles; "Other" is arbitrary).
+#[cfg(test)]
 fn project_type_is_renewable_eligible(project_type: &ProjectType) -> bool {
     matches!(
         project_type,
@@ -732,10 +692,12 @@ fn project_type_is_renewable_eligible(project_type: &ProjectType) -> bool {
 /// (e.g. eGRID subregion data, already vendored as a dataset in
 /// sol-atlas/terra-atlas-mvp/data/egrid2022.xlsx per this repo's own reuse
 /// map for this plan).
+#[cfg(test)]
 const ILLUSTRATIVE_GRID_EMISSION_FACTOR_KG_CO2_PER_KWH: f64 = 0.4;
 
 /// Estimated tonnes of CO2e avoided by `amount_kwh` of verified renewable
 /// generation, using `ILLUSTRATIVE_GRID_EMISSION_FACTOR_KG_CO2_PER_KWH`.
+#[cfg(test)]
 fn kwh_to_tonnes_co2e_avoided(amount_kwh: f64) -> f64 {
     amount_kwh * ILLUSTRATIVE_GRID_EMISSION_FACTOR_KG_CO2_PER_KWH / 1000.0
 }
@@ -745,136 +707,29 @@ fn kwh_to_tonnes_co2e_avoided(amount_kwh: f64) -> f64 {
 /// exact calendar/leap-year arithmetic -- adequate for a REC-style vintage
 /// label (which conventionally tolerates being off by one near a Dec
 /// 31/Jan 1 boundary) but NOT a general-purpose date library replacement.
+#[cfg(test)]
 fn approximate_vintage_year(timestamp: Timestamp) -> u32 {
     const MICROS_PER_YEAR: f64 = 365.25 * 24.0 * 3600.0 * 1_000_000.0;
     let years_since_epoch = timestamp.as_micros() as f64 / MICROS_PER_YEAR;
     (1970.0 + years_since_epoch).floor() as u32
 }
 
-/// Issue a renewable-energy carbon credit for a verified `EnergyProduction`
-/// record.
-///
-/// Deliberately a separate extern from `verify_production` rather than an
-/// automatic side effect of verification: crediting is an economically
-/// consequential, auditable action that callers should trigger explicitly,
-/// not something that happens invisibly the moment a verifier signs off.
-///
-/// Requires: the production record is already verified (via the
-/// credentialed path in `verify_production`), and its linked project's type
-/// is renewable-eligible (`project_type_is_renewable_eligible`) -- checked
-/// via a real local cross-zome call to `projects::get_project`, not
-/// assumed. Issues the credit via a real cross-cluster call to
-/// `climate::carbon::create_carbon_credit`.
+/// Carbon-credit issuance is deliberately fail-closed until the attestation
+/// scheme exists. A legacy `verified` boolean is not sufficient evidence of
+/// meter-backed production, even when reading records authored under an older
+/// integrity schema.
 #[hdk_extern]
 pub fn issue_renewable_carbon_credit(
-    input: IssueCarbonCreditInput,
+    _input: IssueCarbonCreditInput,
 ) -> ExternResult<CarbonCreditIssuance> {
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::EnergyProduction,
-        )?))
-        .include_entries(true);
-
-    let production = query(filter)?
-        .into_iter()
-        .find_map(|record| {
-            record
-                .entry()
-                .to_app_option::<EnergyProduction>()
-                .ok()
-                .flatten()
-                .filter(|p| p.id == input.production_id)
-        })
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Production record not found".into())))?;
-
-    if !production.verified {
-        return Ok(CarbonCreditIssuance {
-            issued: false,
-            reason: Some("Production record is not verified".into()),
-            credit_id: None,
-        });
-    }
-
-    let project_record = match call(
-        CallTargetCell::Local,
-        ZomeName::from("projects"),
-        FunctionName::from("get_project"),
-        None,
-        production.project_id.clone(),
-    ) {
-        Ok(ZomeCallResponse::Ok(result)) => result.decode::<Option<Record>>().ok().flatten(),
-        _ => None,
-    };
-    let project_type = project_record.and_then(|record| {
-        record
-            .entry()
-            .to_app_option::<EnergyProjectTypeOnly>()
-            .ok()
-            .flatten()
-            .map(|p| p.project_type)
-    });
-    let Some(project_type) = project_type else {
-        return Ok(CarbonCreditIssuance {
-            issued: false,
-            reason: Some(format!(
-                "Could not resolve project {} to determine renewable eligibility",
-                production.project_id
-            )),
-            credit_id: None,
-        });
-    };
-    if !project_type_is_renewable_eligible(&project_type) {
-        return Ok(CarbonCreditIssuance {
-            issued: false,
-            reason: Some(format!(
-                "Project type {project_type:?} is not renewable-eligible for carbon-credit issuance"
-            )),
-            credit_id: None,
-        });
-    }
-
-    let tonnes_co2e = kwh_to_tonnes_co2e_avoided(production.amount_kwh);
-    let vintage_year = approximate_vintage_year(production.timestamp);
-    let credit_id = format!("credit:{}:{}", production.id, sys_time()?.as_micros());
-
-    #[derive(Serialize, Debug)]
-    struct CreateCreditPayload {
-        id: String,
-        project_id: String,
-        vintage_year: u32,
-        tonnes_co2e: f64,
-        owner_did: String,
-    }
-
-    match call(
-        CallTargetCell::OtherRole("climate".into()),
-        ZomeName::from("carbon"),
-        FunctionName::from("create_carbon_credit"),
-        None,
-        CreateCreditPayload {
-            id: credit_id.clone(),
-            project_id: production.project_id.clone(),
-            vintage_year,
-            tonnes_co2e,
-            owner_did: production.producer_did.clone(),
-        },
-    ) {
-        Ok(ZomeCallResponse::Ok(_)) => Ok(CarbonCreditIssuance {
-            issued: true,
-            reason: None,
-            credit_id: Some(credit_id),
-        }),
-        Ok(other) => Ok(CarbonCreditIssuance {
-            issued: false,
-            reason: Some(format!("Climate cluster returned: {other:?}")),
-            credit_id: None,
-        }),
-        Err(e) => Ok(CarbonCreditIssuance {
-            issued: false,
-            reason: Some(format!("Climate cluster unreachable: {e:?}")),
-            credit_id: None,
-        }),
-    }
+    Ok(CarbonCreditIssuance {
+        issued: false,
+        reason: Some(
+            "Carbon-credit issuance is disabled until append-only ProductionVerification attestations bound to exact production action hashes are implemented (#4944)"
+                .into(),
+        ),
+        credit_id: None,
+    })
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1006,6 +861,13 @@ pub fn get_unsettled_trades(_: ()) -> ExternResult<Vec<Record>> {
     Ok(trades)
 }
 
+/// The legacy `EnergyProduction.verified` boolean is not an attestation.
+/// Keep trusted verified volume at zero until #4944 defines and verifies
+/// append-only attestations linked to exact production action hashes.
+fn verified_kwh_until_attestations_exist(_production: &EnergyProduction) -> f64 {
+    0.0
+}
+
 /// Get total production for a producer
 #[hdk_extern]
 pub fn get_producer_total_production(producer_did: String) -> ExternResult<ProducerStats> {
@@ -1028,9 +890,7 @@ pub fn get_producer_total_production(producer_did: String) -> ExternResult<Produ
         {
             if production.producer_did == producer_did {
                 total_kwh += production.amount_kwh;
-                if production.verified {
-                    verified_kwh += production.amount_kwh;
-                }
+                verified_kwh += verified_kwh_until_attestations_exist(&production);
                 record_count += 1;
             }
         }
@@ -1755,6 +1615,21 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn legacy_verified_boolean_does_not_count_as_attested_energy() {
+        let production = EnergyProduction {
+            id: "legacy-verified-flag".into(),
+            producer_did: "did:test:producer".into(),
+            project_id: "project-test".into(),
+            amount_kwh: 123.0,
+            timestamp: Timestamp::from_micros(1_700_000_000_000_000),
+            period_hours: 24.0,
+            meter_reading: Some(123.0),
+            verified: true,
+        };
+        assert_eq!(verified_kwh_until_attestations_exist(&production), 0.0);
+    }
+
     fn test_producer_stats_no_verified() {
         let stats = ProducerStats {
             producer_did: "did:mycelix:producer1".to_string(),
