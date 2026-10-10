@@ -48,14 +48,17 @@ provider ledger only; they do not contact or prove behavior of a real payment
 provider, bank, physical actuator, or settlement authority.
 
 The `external_effect_policy` module is a pure decision policy, not a provider
-adapter. With an unknown outcome, it permits a retry only when the same request
-is bound to a still-valid provider idempotency guarantee; at the guarantee's
-exact expiry second, it remains indeterminate. A fresh, request-bound, recent
-no-effect observation can authorize a new key only when it also asserts that no
-prior request remains in flight. Conflicting or misbound evidence is quarantined.
-The module does not authenticate those claims, query a provider, dispatch a
-request, or persist a retry authorization; those remain responsibilities of a
-verified adapter and the future transition driver.
+adapter. Provider observations and idempotency contracts are bound to an explicit
+provider-profile digest and the exact request digest; an applied result also
+carries a source-evidence digest that must be independently verified. With an
+unknown outcome, the policy permits a retry only when the same request and
+provider profile are bound to a still-valid idempotency guarantee; at the
+guarantee's exact expiry second, it remains indeterminate. A fresh, request-bound,
+recent no-effect observation can authorize a new key only when it also asserts
+that no prior request remains in flight. Conflicting or misbound evidence is
+quarantined. The module does not authenticate these claims, query a provider,
+dispatch a request, or persist a retry authorization; those remain responsibilities
+of a verified adapter and the future transition driver.
 
 This journal is not tamper-evident: it does not hash-chain or sign the log,
 and it trusts supplied request/receipt digests rather than computing or verifying
