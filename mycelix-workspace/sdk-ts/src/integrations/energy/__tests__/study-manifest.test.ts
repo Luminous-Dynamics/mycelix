@@ -19,6 +19,8 @@ const RUST_GOLDEN_DIGEST =
   '896b4579a632dac32bafd3b2347f19f5da5a74f7173c14cf818b00a8e5c484da';
 const RUST_CASE_GOLDEN_DIGEST =
   '1612238432409a5282145479c7c585c53b4ae9a45832de5213722ee75d438f63';
+const RUST_CASE_GOLDEN_DIGEST =
+  '1612238432409a5282145479c7c585c53b4ae9a45832de5213722ee75d438f63';
 
 function copyFixture(): EnergyStudyManifestV1 {
   return JSON.parse(JSON.stringify(fixture)) as EnergyStudyManifestV1;
@@ -66,12 +68,31 @@ describe('EnergyStudyManifestV1', () => {
     );
   });
 
+  it('computes the cross-language case digest independently of model and policy', async () => {
+    await expect(digestEnergyStudyCaseV1(fixture)).resolves.toBe(RUST_CASE_GOLDEN_DIGEST);
+
+    const changedModel = copyFixture();
+    changedModel.model.configuration_sha256 = '8'.repeat(64);
+    await expect(digestEnergyStudyCaseV1(changedModel)).resolves.toBe(RUST_CASE_GOLDEN_DIGEST);
+
+    const changedPolicy = copyFixture();
+    changedPolicy.policy.git_revision = '3'.repeat(40);
+    await expect(digestEnergyStudyCaseV1(changedPolicy)).resolves.toBe(RUST_CASE_GOLDEN_DIGEST);
+
+    const changedInput = copyFixture();
+    changedInput.datasets[0].content_sha256 = '9'.repeat(64);
+    await expect(digestEnergyStudyCaseV1(changedInput)).resolves.not.toBe(
+      RUST_CASE_GOLDEN_DIGEST
+    );
+  });
+
   it('canonicalizes dataset order without mutating the caller object', async () => {
     const reversed = copyFixture();
     const originalIds = reversed.datasets.map((dataset) => dataset.dataset_id);
     reversed.datasets.reverse();
 
     await expect(digestEnergyStudyManifestV1(reversed)).resolves.toBe(RUST_GOLDEN_DIGEST);
+    await expect(digestEnergyStudyCaseV1(reversed)).resolves.toBe(RUST_CASE_GOLDEN_DIGEST);
     await expect(digestEnergyStudyCaseV1(reversed)).resolves.toBe(RUST_CASE_GOLDEN_DIGEST);
     expect(reversed.datasets.map((dataset) => dataset.dataset_id)).toEqual(
       [...originalIds].reverse()
