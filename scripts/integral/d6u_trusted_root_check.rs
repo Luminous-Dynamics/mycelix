@@ -979,22 +979,33 @@ mod tests {
     fn rejects_policy_closure_and_alias_drift() {
         let valid = valid_policy_contract_fixture();
 
-        let altered_alias = valid.replace(
-            "\"trusted_artifact_fetcher\":{\"path\":\"scripts/integral/fetch_d6u_trusted_artifact.py\",\"blob_sha\":\"4c4d67f6f9a77c512728a8723cf2aa708687a395\"}",
-            "\"trusted_artifact_fetcher\":{\"path\":\"scripts/integral/verify_d6u_trusted_artifacts.py\",\"blob_sha\":\"de5b3275dda9cbeaa880d26a9ff2dc0e58d7d65e\"}"
+        let alias_marker = "\"trusted_artifact_fetcher\": {";
+        let alias_offset = valid.find(alias_marker).expect("alias fixture should exist");
+        let prefix = &valid[..alias_offset];
+        let tail = &valid[alias_offset..];
+        let changed_tail = tail.replacen(
+            "\"path\": \"scripts/integral/fetch_d6u_trusted_artifact.py\"",
+            "\"path\": \"scripts/integral/verify_d6u_trusted_artifacts.py\"",
+            1,
         );
+        let altered_alias = format!("{prefix}{changed_tail}");
+        assert_ne!(altered_alias, valid, "alias mutation must alter the fixture");
         assert!(validate_policy_contract(altered_alias.as_bytes()).is_err());
 
-        let altered_program_pin = valid.replace(
-            "\"blob_sha\":\"de5b3275dda9cbeaa880d26a9ff2dc0e58d7d65e\"",
-            "\"blob_sha\":\"0000000000000000000000000000000000000000\""
+        let altered_program_pin = valid.replacen(
+            "\"blob_sha\": \"de5b3275dda9cbeaa880d26a9ff2dc0e58d7d65e\"",
+            "\"blob_sha\": \"0000000000000000000000000000000000000000\"",
+            1,
         );
+        assert_ne!(altered_program_pin, valid, "program mutation must alter the fixture");
         assert!(validate_policy_contract(altered_program_pin.as_bytes()).is_err());
 
-        let extra_program = valid.replace(
-            "\"trusted_programs\":{",
-            "\"trusted_programs\":{\"scripts/integral/rogue.py\":{\"path\":\"scripts/integral/rogue.py\",\"blob_sha\":\"1111111111111111111111111111111111111111\"},"
+        let extra_program = valid.replacen(
+            "\"trusted_programs\": {",
+            "\"trusted_programs\": {\"scripts/integral/rogue.py\":{\"path\":\"scripts/integral/rogue.py\",\"blob_sha\":\"1111111111111111111111111111111111111111\"},",
+            1,
         );
+        assert_ne!(extra_program, valid, "closure mutation must alter the fixture");
         assert!(validate_policy_contract(extra_program.as_bytes()).is_err());
     }
 
