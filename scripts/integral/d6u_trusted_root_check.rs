@@ -417,12 +417,58 @@ const EXPECTED_RECEIPT_KEYS: [&str; 21] = [
     "container_image",
 ];
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct ReceiptSummary {
     candidate_sha: String,
+    trusted_evaluator_blob_sha: String,
+    trusted_rust_preflight_blob_sha: String,
+    trusted_source_commit_sha: String,
+    workflow_file_commit_sha: String,
+    workflow_ref: String,
     run_id: u64,
     run_attempt: u32,
     scope_items: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ReceiptExpectations {
+    candidate_sha: String,
+    trusted_evaluator_blob_sha: String,
+    trusted_rust_preflight_blob_sha: String,
+    trusted_source_commit_sha: String,
+    workflow_file_commit_sha: String,
+    workflow_ref: String,
+    run_id: u64,
+    run_attempt: u32,
+}
+
+fn validate_receipt_bindings(
+    summary: &ReceiptSummary,
+    expected: &ReceiptExpectations,
+) -> Result<(), String> {
+    for (field, observed, wanted) in [
+        ("candidate_sha", summary.candidate_sha.as_str(), expected.candidate_sha.as_str()),
+        ("trusted_evaluator_blob_sha", summary.trusted_evaluator_blob_sha.as_str(), expected.trusted_evaluator_blob_sha.as_str()),
+        ("trusted_rust_preflight_blob_sha", summary.trusted_rust_preflight_blob_sha.as_str(), expected.trusted_rust_preflight_blob_sha.as_str()),
+        ("trusted_source_commit_sha", summary.trusted_source_commit_sha.as_str(), expected.trusted_source_commit_sha.as_str()),
+        ("workflow_file_commit_sha", summary.workflow_file_commit_sha.as_str(), expected.workflow_file_commit_sha.as_str()),
+        ("workflow_ref", summary.workflow_ref.as_str(), expected.workflow_ref.as_str()),
+    ] {
+        if observed != wanted {
+            return Err(format!("receipt field {field} does not match the trusted run context"));
+        }
+    }
+    if summary.run_id != expected.run_id {
+        return Err("receipt run_id does not match the current workflow run".to_string());
+    }
+    if summary.run_attempt != expected.run_attempt {
+        return Err("receipt run_attempt does not match the current workflow attempt".to_string());
+    }
+    Ok(())
+}
+
+fn required_env(name: &str) -> Result<String, String> {
+    env::var(name).map_err(|_| format!("required trusted receipt context is missing: {name}"))
 }
 
 fn is_lower_hex(value: &str, length: usize) -> bool {
@@ -556,6 +602,11 @@ fn parse_receipt_bytes(bytes: &[u8]) -> Result<ReceiptSummary, String> {
 
     Ok(ReceiptSummary {
         candidate_sha: get("candidate_sha")?.to_string(),
+        trusted_evaluator_blob_sha: get("trusted_evaluator_blob_sha")?.to_string(),
+        trusted_rust_preflight_blob_sha: get("trusted_rust_preflight_blob_sha")?.to_string(),
+        trusted_source_commit_sha: get("trusted_source_commit_sha")?.to_string(),
+        workflow_file_commit_sha: get("workflow_file_commit_sha")?.to_string(),
+        workflow_ref: get("workflow_ref")?.to_string(),
         run_id,
         run_attempt,
         scope_items,
@@ -570,7 +621,19 @@ fn validate_receipt_file(path: &Path) -> Result<ReceiptSummary, String> {
     }
     let bytes = fs::read(path)
         .map_err(|error| format!("cannot read receipt {}: {error}", path.display()))?;
-    parse_receipt_bytes(&bytes)
+    let summary = parse_receipt_bytes(&bytes)?;
+    let expected = ReceiptExpectations {
+        candidate_sha: required_env("EXPECTED_CANDIDATE_SHA")?,
+        trusted_evaluator_blob_sha: required_env("EXPECTED_EVALUATOR_BLOB")?,
+        trusted_rust_preflight_blob_sha: required_env("EXPECTED_RUST_PREFLIGHT_BLOB")?,
+        trusted_source_commit_sha: required_env("EXPECTED_TRUSTED_SHA")?,
+        workflow_file_commit_sha: required_env("GITHUB_WORKFLOW_SHA")?,
+        workflow_ref: required_env("GITHUB_WORKFLOW_REF")?,
+        run_id: canonical_positive_integer::<u64>(&required_env("GITHUB_RUN_ID")?, "GITHUB_RUN_ID")?,
+        run_attempt: canonical_positive_integer::<u32>(&required_env("GITHUB_RUN_ATTEMPT")?, "GITHUB_RUN_ATTEMPT")?,
+    };
+    validate_receipt_bindings(&summary, &expected)?;
+    Ok(summary)
 }
 
 const TRUSTED_PINS: [Pin; 7] = [
@@ -904,6 +967,37 @@ mod tests {
         assert_eq!(parsed.run_id, 12);
         assert_eq!(parsed.run_attempt, 2);
         assert_eq!(parsed.scope_items, 10);
+        let expected = ReceiptExpectations {
+            candidate_sha: parsed.candidate_sha.clone(),
+            trusted_evaluator_blob_sha: parsed.trusted_evaluator_blob_sha.clone(),
+            trusted_rust_preflight_blob_sha: parsed.trusted_rust_preflight_blob_sha.clone(),
+            trusted_source_commit_sha: parsed.trusted_source_commit_sha.clone(),
+            workflow_file_commit_sha: parsed.workflow_file_commit_sha.clone(),
+            workflow_ref: parsed.workflow_ref.clone(),
+            run_id: parsed.run_id,
+            run_attempt: parsed.run_attempt,
+        };
+        assert!(validate_receipt_bindings(&parsed, &expected).is_ok());
+
+        let mut wrong_candidate = expected.clone();
+        wrong_candidate.candidate_sha = "9".repeat(40);
+        assert!(validate_receipt_bindings(&parsed, &wrong_candidate).is_err());
+
+        let mut wrong_evaluator = expected.clone();
+        wrong_evaluator.trusted_evaluator_blob_sha = "9".repeat(40);
+        assert!(validate_receipt_bindings(&parsed, &wrong_evaluator).is_err());
+
+        let mut wrong_rust = expected.clone();
+        wrong_rust.trusted_rust_preflight_blob_sha = "9".repeat(40);
+        assert!(validate_receipt_bindings(&parsed, &wrong_rust).is_err());
+
+        let mut wrong_run = expected.clone();
+        wrong_run.run_id += 1;
+        assert!(validate_receipt_bindings(&parsed, &wrong_run).is_err());
+
+        let mut wrong_attempt = expected.clone();
+        wrong_attempt.run_attempt += 1;
+        assert!(validate_receipt_bindings(&parsed, &wrong_attempt).is_err());
     }
 
     #[test]
