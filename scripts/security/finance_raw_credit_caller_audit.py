@@ -5,9 +5,10 @@
 
 Cross-zome calls are name-dispatched and can survive Rust compilation after an
 extern is made private. Search all Finance coordinator sources except the
-Payments coordinator itself, and require canonical/workspace mirrors to agree.
-Any remaining external reference blocks qualification; do not whitelist known
-callers merely to turn the check green.
+Payments coordinator itself, verify the ABI is private in both projections,
+and require canonical/workspace caller inventories to agree. Any remaining
+external reference blocks qualification; do not whitelist known callers merely
+to turn the check green.
 """
 
 from __future__ import annotations
@@ -17,8 +18,6 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-CANONICAL_ZOMES = ROOT / "mycelix-finance" / "zomes"
-WORKSPACE_ZOMES = ROOT / "mycelix-workspace" / "mycelix-finance" / "zomes"
 
 RAW_CREDIT_REFERENCE = re.compile(
     r'(?:FunctionName\s*::\s*from\s*\(\s*"credit_sap"\s*\)|'
@@ -48,25 +47,24 @@ def scan(zomes_root: Path) -> list[tuple[str, int, str]]:
             continue
 
         try:
-            lines = source.read_text(encoding="utf-8").splitlines()
+            source_text = source.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as exc:
             raise RuntimeError(f"cannot read {source}: {exc}") from exc
 
         # Search the complete source file: string-dispatched zome calls can be
         # formatted across several lines. A line-at-a-time search silently misses
         # those calls and could let a private-extern migration appear complete.
-        source_text = "\n".join(lines)
         for match in RAW_CREDIT_REFERENCE.finditer(source_text):
             line_number = source_text.count("\n", 0, match.start()) + 1
             hits.append((relative.as_posix(), line_number, match.group(0)))
     return hits
 
 
-def main() -> int:
-    missing = [
-        path for path in (CANONICAL_ZOMES, WORKSPACE_ZOMES)
-        if not path.is_dir()
-    ]
+def audit(root: Path = ROOT) -> int:
+    """Run the whole fail-closed ABI and caller audit under a project root."""
+    canonical_zomes = root / "mycelix-finance" / "zomes"
+    workspace_zomes = root / "mycelix-workspace" / "mycelix-finance" / "zomes"
+    missing = [path for path in (canonical_zomes, workspace_zomes) if not path.is_dir()]
     if missing:
         for path in missing:
             print(f"ERROR: required Finance source root missing: {path}", file=sys.stderr)
@@ -75,8 +73,8 @@ def main() -> int:
     # Audit the ABI itself as well as its consumers. Otherwise the caller census
     # could pass while an unrestricted raw-credit extern is accidentally restored.
     payments_coordinators = (
-        ROOT / "mycelix-finance" / "zomes" / "payments" / "coordinator" / "src" / "lib.rs",
-        ROOT / "mycelix-workspace" / "mycelix-finance" / "zomes" / "payments" / "coordinator" / "src" / "lib.rs",
+        root / "mycelix-finance" / "zomes" / "payments" / "coordinator" / "src" / "lib.rs",
+        root / "mycelix-workspace" / "mycelix-finance" / "zomes" / "payments" / "coordinator" / "src" / "lib.rs",
     )
     for path in payments_coordinators:
         try:
@@ -90,8 +88,8 @@ def main() -> int:
             return 1
 
     try:
-        canonical = scan(CANONICAL_ZOMES)
-        workspace = scan(WORKSPACE_ZOMES)
+        canonical = scan(canonical_zomes)
+        workspace = scan(workspace_zomes)
     except RuntimeError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -111,9 +109,13 @@ def main() -> int:
         print(f"Found {len(canonical)} call site(s) in each Finance projection.")
         return 1
 
-    print("PASS: no cross-zome raw payments::credit_sap references remain.")
+    print("PASS: raw credit ABI is private and no cross-zome raw-credit references remain.")
     print("This source audit does not prove SAP conservation or exact-once settlement.")
     return 0
+
+
+def main() -> int:
+    return audit(ROOT)
 
 
 if __name__ == "__main__":
