@@ -52,6 +52,7 @@ pub enum Violation {
     EffectFrontierUnresolved,
     ReconciliationSubjectMismatch,
     ReconciliationEvidenceMissing,
+    ReconciliationDigestChanged,
     ReconciliationFailed,
     MandatoryUnresolvedItems(usize),
     AbortAfterPossibleEffect,
@@ -570,6 +571,7 @@ pub struct TransitionMachine {
     stage: Stage,
     simulation_output_digest: Option<String>,
     simulation_scenario_corpus_digest: Option<String>,
+    reconciliation_digest: Option<String>,
     reconciliation_passed: bool,
     unresolved_mandatory_items: usize,
     history: Vec<StageEvent>,
@@ -582,6 +584,7 @@ impl TransitionMachine {
             stage: Stage::Draft,
             simulation_output_digest: None,
             simulation_scenario_corpus_digest: None,
+            reconciliation_digest: None,
             reconciliation_passed: false,
             unresolved_mandatory_items: 0,
             history: Vec::new(),
@@ -735,6 +738,7 @@ impl TransitionMachine {
                 }
                 let digest = ev.reconciliation_digest.as_deref().ok_or(Violation::ReconciliationEvidenceMissing)?;
                 validate_digest(digest, "reconciliation_digest")?;
+                self.reconciliation_digest = Some(digest.to_owned());
                 self.reconciliation_passed = ev.reconciliation_passed;
                 self.unresolved_mandatory_items = ev.unresolved_mandatory_items;
             }
@@ -743,8 +747,12 @@ impl TransitionMachine {
                 if ev.reconciliation_plan_digest.as_deref() != Some(self.manifest.plan_digest.as_str()) {
                     return Err(Violation::ReconciliationEvidenceMissing);
                 }
-                validate_digest(ev.reconciliation_digest.as_deref().unwrap_or(""), "reconciliation_digest")
+                let digest = ev.reconciliation_digest.as_deref().ok_or(Violation::ReconciliationEvidenceMissing)?;
+                validate_digest(digest, "reconciliation_digest")
                     .map_err(|_| Violation::ReconciliationEvidenceMissing)?;
+                if Some(digest) != self.reconciliation_digest.as_deref() {
+                    return Err(Violation::ReconciliationDigestChanged);
+                }
                 if !self.reconciliation_passed || !ev.reconciliation_passed {
                     return Err(Violation::ReconciliationFailed);
                 }
@@ -1201,6 +1209,36 @@ mod tests {
         m.advance(Stage::Reconciled, &recon).unwrap();
         assert_eq!(m.advance(Stage::Completed, &recon), Err(Violation::MandatoryUnresolvedItems(1)));
         assert_eq!(m.stage(), Stage::Reconciled);
+    }
+
+    #[test] fn completed_cannot_swap_the_reconciliation_report() {
+        let mut machine = TransitionMachine::new(manifest());
+        advance_to_authorized(&mut machine);
+        let mut ready = ev();
+        ready.rights_floors_satisfied = true;
+        ready.resource_reservations_reconciled = true;
+        ready.external_obligations_accounted = true;
+        machine.advance(Stage::CutoverReady, &ready).unwrap();
+
+        let mut commit = ev();
+        commit.cutover_effects_started = true;
+        commit.effect_receipts_durable = true;
+        machine.advance(Stage::CutoverCommitted, &commit).unwrap();
+
+        let mut recon = ev();
+        recon.effect_frontier_resolved = true;
+        recon.reconciliation_plan_digest = Some(A.into());
+        recon.reconciliation_digest = Some(B.into());
+        recon.reconciliation_passed = true;
+        recon.unresolved_mandatory_items = 0;
+        machine.advance(Stage::Reconciled, &recon).unwrap();
+
+        recon.reconciliation_digest = Some(C.into());
+        assert_eq!(
+            machine.advance(Stage::Completed, &recon),
+            Err(Violation::ReconciliationDigestChanged)
+        );
+        assert_eq!(machine.stage(), Stage::Reconciled);
     }
 
     #[test] fn effect_recording_is_idempotent_and_detects_payload_conflict() {
