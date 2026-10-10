@@ -1,0 +1,188 @@
+name: logistics-commons-s0
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/simulations/logistics-commons-s0/**"
+      - ".github/workflows/logistics-commons-s0.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "mycelix-workspace/simulations/logistics-commons-s0/**"
+      - ".github/workflows/logistics-commons-s0.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: logistics-commons-s0-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deterministic-twin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact tested source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+      - name: Assert exact qualification subject
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.99.0 --profile minimal
+      - name: Validate frozen manifest JSON
+        run: python3 -m json.tool mycelix-workspace/simulations/logistics-commons-s0/scenario-manifest.json > /dev/null
+      - name: Run unit and invariant tests
+        run: cargo +1.99.0 test --locked --manifest-path mycelix-workspace/simulations/logistics-commons-s0/Cargo.toml
+      - name: Reproduce the frozen multi-organization corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="mycelix-workspace/simulations/logistics-commons-s0/Cargo.toml"
+          output="$RUNNER_TEMP/logistics-commons-s0-canonical.txt"
+          first="$(mktemp)"
+          second="$(mktemp)"
+          trap 'rm -f "$first" "$second"' EXIT
+          cargo +1.99.0 run --quiet --locked --manifest-path "$manifest" -- --canonical > "$first"
+          cargo +1.99.0 run --quiet --locked --manifest-path "$manifest" -- --canonical > "$second"
+          if ! cmp -s "$first" "$second"; then
+            echo "FAIL: frozen scenario artifacts are not byte-identical"
+            diff -u "$first" "$second" | head -200 || true
+            exit 1
+          fi
+          if ! grep -q '"model_invariants_hold":true' "$first"; then
+            echo "FAIL: frozen scenario did not report model invariants held"
+            tail -n 5 "$first"
+            exit 1
+          fi
+          if ! grep -q '"independent_verifier_violations":0' "$first"; then
+            echo "FAIL: independent verifier reported one or more violations"
+            tail -n 5 "$first"
+            exit 1
+          fi
+          tail -n 1 "$first" | python3 -m json.tool > /dev/null
+          cp "$first" "$output"
+          artifact_sha="$(sha256sum "$output" | cut -d' ' -f1)"
+          manifest_sha="$(sha256sum mycelix-workspace/simulations/logistics-commons-s0/scenario-manifest.json | cut -d' ' -f1)"
+          workflow_blob_sha="$(git hash-object .github/workflows/logistics-commons-s0.yml)"
+          cargo_lock_sha="$(sha256sum mycelix-workspace/simulations/logistics-commons-s0/Cargo.lock | cut -d' ' -f1)"
+          rustc_version="$(rustc +1.99.0 --version)"
+          cargo_version="$(cargo +1.99.0 --version)"
+          rustc_host="$(rustc +1.99.0 -vV | sed -n 's/^host: //p')"
+          export ARTIFACT_PATH="$output"
+          export RECEIPT_PATH="$RUNNER_TEMP/logistics-commons-s0-qualification.json"
+          export MANIFEST_SHA="$manifest_sha"
+          export ARTIFACT_SHA="$artifact_sha"
+          export WORKFLOW_BLOB_SHA="$workflow_blob_sha"
+          export CARGO_LOCK_SHA="$cargo_lock_sha"
+          export RUSTC_VERSION="$rustc_version"
+          export CARGO_VERSION="$cargo_version"
+          export RUSTC_HOST="$rustc_host"
+          export RUNNER_IMAGE_OS="${ImageOS:-unknown}"
+          export RUNNER_IMAGE_VERSION="${ImageVersion:-unknown}"
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          artifact_path = Path(os.environ["ARTIFACT_PATH"])
+          lines = artifact_path.read_text(encoding="utf-8").splitlines()
+          summaries = [json.loads(line) for line in lines if line.startswith('{"record":"summary"')]
+          if len(summaries) != 1:
+              raise SystemExit(f"FAIL: expected one machine-readable summary, found {len(summaries)}")
+          summary = summaries[0]
+          if any(line.startswith('{"record":"violations"') for line in lines):
+              raise SystemExit("FAIL: artifact contains an independent-verifier violation record")
+          expected = {
+              "schema": "logistics-commons-s0/scenario-summary-v1",
+              "seed": 1511506142,
+              "organizations": 24,
+              "hubs": 8,
+              "sku_catalog_size": 2048,
+              "observed_skus": 2048,
+              "orders": 12000,
+              "hotspot_orders": 64,
+              "hotspot_conflicts": 64,
+              "independent_verifier_violations": 0,
+              "manifest_matches_generator": True,
+              "model_invariants_hold": True,
+          }
+          for key, value in expected.items():
+              if summary.get(key) != value:
+                  raise SystemExit(f"FAIL: summary {key}={summary.get(key)!r}; expected {value!r}")
+          outcome_total = sum(summary.get(key, -10**9) for key in (
+              "awaiting_authoritative_recheck",
+              "unresolved_conflicts",
+              "rejected",
+              "duplicate_aliases",
+          ))
+          if outcome_total != summary["orders"]:
+              raise SystemExit(f"FAIL: outcome total {outcome_total} != orders {summary['orders']}")
+
+          workflow_text = Path(".github/workflows/logistics-commons-s0.yml").read_text(encoding="utf-8")
+          action_refs = re.findall(r"uses:\s*(actions/(?:checkout|upload-artifact)@[0-9a-f]{40})", workflow_text)
+          checkout_refs = [reference for reference in action_refs if reference.startswith("actions/checkout@")]
+          upload_refs = [reference for reference in action_refs if reference.startswith("actions/upload-artifact@")]
+          if len(checkout_refs) != 1 or len(upload_refs) != 1:
+              raise SystemExit("FAIL: expected exactly one full-SHA checkout and artifact-upload action")
+          receipt = {
+              "schema": "logistics-commons-s0/qualification-receipt-v1",
+              "source_commit": os.environ["QUALIFIED_SHA"],
+              "workflow_event_sha": os.environ["GITHUB_SHA"],
+              "workflow_run_id": os.environ["GITHUB_RUN_ID"],
+              "workflow_run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "workflow_event": os.environ["GITHUB_EVENT_NAME"],
+              "runner": {
+                  "label": "ubuntu-24.04",
+                  "image_os": os.environ["RUNNER_IMAGE_OS"],
+                  "image_version": os.environ["RUNNER_IMAGE_VERSION"],
+              },
+              "toolchain": {
+                  "requested": "1.99.0",
+                  "rustc": os.environ["RUSTC_VERSION"],
+                  "cargo": os.environ["CARGO_VERSION"],
+                  "host": os.environ["RUSTC_HOST"],
+              },
+              "git_blob_sha_workflow": os.environ["WORKFLOW_BLOB_SHA"],
+              "actions": {
+                  "checkout": checkout_refs[0],
+                  "upload_artifact": upload_refs[0],
+              },
+              "sha256_cargo_lock": os.environ["CARGO_LOCK_SHA"],
+              "sha256_scenario_manifest": os.environ["MANIFEST_SHA"],
+              "sha256_scenario_artifact": os.environ["ARTIFACT_SHA"],
+              "sha256_scenario_summary_line": hashlib.sha256(
+                  next(line.encode("utf-8") for line in lines if line.startswith('{"record":"summary"'))
+              ).hexdigest(),
+              "deterministic_replay": True,
+              "scenario_summary": summary,
+              "receipt_status": "local-model-gates-passed",
+              "claim_ceiling": "synthetic-model-only; no physical-world or production-scale claim",
+              "signature_status": "unsigned-ci-record",
+          }
+          receipt_path = Path(os.environ["RECEIPT_PATH"])
+          receipt_path.write_text(
+              json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          print(f"scenario-artifact-sha256={os.environ['ARTIFACT_SHA']}")
+          print("scenario-summary-validation=PASS")
+          print("deterministic-replay=PASS")
+          PY
+          python3 -m json.tool "$RUNNER_TEMP/logistics-commons-s0-qualification.json" > /dev/null
+      - name: Upload frozen corpus and verification receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: logistics-commons-s0-${{ env.QUALIFIED_SHA }}
+          path: |
+            ${{ runner.temp }}/logistics-commons-s0-canonical.txt
+            ${{ runner.temp }}/logistics-commons-s0-qualification.json
+          if-no-files-found: error
+          retention-days: 30
