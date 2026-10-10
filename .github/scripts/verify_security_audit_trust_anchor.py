@@ -36,15 +36,15 @@ def reject_duplicate_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]
         result[key] = value
     return result
 ENGINE_REPO = "Luminous-Dynamics/luminous-platform"
-ENGINE_SHA = "85a8e6b808bab5197b3f0bc6f3b55cf55b22cad8"
+ENGINE_SHA = "bfb31da933077efbe3cb9b94b17fdb374da8db89"
 ENGINE_PATH = ".github/workflows/security-audit.yml"
-ENGINE_BLOB = "8d0580a710894c542da9ec01f4f0b94decfbe950"
+ENGINE_BLOB = "e1e08956d1c3f9bba59853060220f2760be51aa6"
 POLICY: dict[str, dict[str, Any]] = {
     "Luminous-Dynamics/mycelix": {
         "workflow_id": 379572428,
         "workflow_name": "Security Audit",
         "workflow_path": ".github/workflows/security-audit.yml",
-        "workflow_blob": "1b837b13e26a8ad949114b4a9836427aa92507ea",
+        "workflow_blob": "8629283efe0eff5d5936a6b67a23b2817a3f595e",
         "engine_sha": ENGINE_SHA,
         "audit_rust": True,
         "audit_node": True,
