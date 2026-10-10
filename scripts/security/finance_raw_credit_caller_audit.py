@@ -24,6 +24,14 @@ RAW_CREDIT_REFERENCE = re.compile(
     r'(?:FunctionName\s*::\s*from\s*\(\s*"credit_sap"\s*\)|'
     r'"credit_sap"\s*\.into\s*\(\s*\))'
 )
+PUBLIC_RAW_CREDIT_ABI = re.compile(
+    r"#\s*\[\s*hdk_extern\s*\]\s*(?:pub\s+)?fn\s+credit_sap\s*\("
+)
+
+
+def has_public_raw_credit_abi(source_text: str) -> bool:
+    """Return whether raw credit is still declared as a Holochain extern."""
+    return PUBLIC_RAW_CREDIT_ABI.search(source_text) is not None
 
 
 def scan(zomes_root: Path) -> list[tuple[str, int, str]]:
@@ -63,6 +71,23 @@ def main() -> int:
         for path in missing:
             print(f"ERROR: required Finance source root missing: {path}", file=sys.stderr)
         return 2
+
+    # Audit the ABI itself as well as its consumers. Otherwise the caller census
+    # could pass while an unrestricted raw-credit extern is accidentally restored.
+    payments_coordinators = (
+        ROOT / "mycelix-finance" / "zomes" / "payments" / "coordinator" / "src" / "lib.rs",
+        ROOT / "mycelix-workspace" / "mycelix-finance" / "zomes" / "payments" / "coordinator" / "src" / "lib.rs",
+    )
+    for path in payments_coordinators:
+        try:
+            source_text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            print(f"ERROR: cannot read required Payments coordinator {path}: {exc}", file=sys.stderr)
+            return 2
+        if has_public_raw_credit_abi(source_text):
+            print(f"FAIL: raw payments::credit_sap remains exposed as a Holochain extern: {path}")
+            print("Remove the extern only with its source-specific caller migration and runtime coverage.")
+            return 1
 
     try:
         canonical = scan(CANONICAL_ZOMES)
