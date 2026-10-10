@@ -1225,6 +1225,96 @@ mod strict_validation_regression_tests {
     }
 
     #[test]
+    fn grid_link_validation_binds_target_type_anchor_and_author() {
+        let seller = AgentPubKey::from_raw_32(vec![7u8; 32]);
+        let seller_did = format!("did:mycelix:{seller}");
+        let other = AgentPubKey::from_raw_32(vec![8u8; 32]);
+        let timestamp = Timestamp::from_micros(1_700_000_000_000_000);
+        let offer = TradeOffer {
+            seller_did: seller_did.clone(),
+            created: timestamp,
+            ..valid_offer()
+        };
+        let offer_entry = EntryTypes::TradeOffer(offer.clone());
+
+        assert_eq!(
+            grid_link_validation_error(
+                &energy_anchor_hash(&seller_did),
+                &offer_entry,
+                &LinkTypes::SellerToOffers,
+                &seller,
+            ),
+            None
+        );
+        assert!(grid_link_validation_error(
+            &energy_anchor_hash("did:mycelix:someone-else"),
+            &offer_entry,
+            &LinkTypes::SellerToOffers,
+            &seller,
+        )
+        .is_some());
+        assert!(grid_link_validation_error(
+            &energy_anchor_hash(&seller_did),
+            &offer_entry,
+            &LinkTypes::SellerToOffers,
+            &other,
+        )
+        .is_some());
+
+        let shard = format!("active_energy_offers:{}", offer_day_bucket(timestamp));
+        assert_eq!(
+            grid_link_validation_error(
+                &energy_anchor_hash(&shard),
+                &offer_entry,
+                &LinkTypes::ActiveOffers,
+                &seller,
+            ),
+            None
+        );
+        assert!(grid_link_validation_error(
+            &energy_anchor_hash("active_energy_offers:0"),
+            &offer_entry,
+            &LinkTypes::ActiveOffers,
+            &seller,
+        )
+        .is_some());
+
+        let buyer = AgentPubKey::from_raw_32(vec![9u8; 32]);
+        let buyer_did = format!("did:mycelix:{buyer}");
+        let trade = Trade {
+            buyer_did: buyer_did.clone(),
+            offer_id: offer.id.clone(),
+            ..valid_trade()
+        };
+        let trade_entry = EntryTypes::Trade(trade.clone());
+        assert_eq!(
+            grid_link_validation_error(
+                &energy_anchor_hash(&trade.offer_id),
+                &trade_entry,
+                &LinkTypes::OfferToTrades,
+                &buyer,
+            ),
+            None
+        );
+        assert_eq!(
+            grid_link_validation_error(
+                &energy_anchor_hash(&buyer_did),
+                &trade_entry,
+                &LinkTypes::BuyerToTrades,
+                &buyer,
+            ),
+            None
+        );
+        assert!(grid_link_validation_error(
+            &energy_anchor_hash(&trade.offer_id),
+            &EntryTypes::TradeOffer(offer),
+            &LinkTypes::OfferToTrades,
+            &buyer,
+        )
+        .is_some());
+    }
+
+    #[test]
     fn production_and_consumption_identity_must_match_the_author() {
         let author = AgentPubKey::from_raw_32(vec![7u8; 32]);
         let other = AgentPubKey::from_raw_32(vec![8u8; 32]);
