@@ -1467,20 +1467,28 @@ fn checked_channel_transfer_balances(
     from_a: bool,
 ) -> ExternResult<(u64, u64)> {
     if from_a {
-        let new_a = balance_a.checked_sub(amount).ok_or(wasm_error!(
-            WasmErrorInner::Guest("Insufficient balance for party A".into())
-        ))?;
-        let new_b = balance_b.checked_add(amount).ok_or(wasm_error!(
-            WasmErrorInner::Guest("Party B balance overflow".into())
-        ))?;
+        let new_a = balance_a
+            .checked_sub(amount)
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Insufficient balance for party A".into()
+            )))?;
+        let new_b = balance_b
+            .checked_add(amount)
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Party B balance overflow".into()
+            )))?;
         Ok((new_a, new_b))
     } else {
-        let new_a = balance_a.checked_add(amount).ok_or(wasm_error!(
-            WasmErrorInner::Guest("Party A balance overflow".into())
-        ))?;
-        let new_b = balance_b.checked_sub(amount).ok_or(wasm_error!(
-            WasmErrorInner::Guest("Insufficient balance for party B".into())
-        ))?;
+        let new_a = balance_a
+            .checked_add(amount)
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Party A balance overflow".into()
+            )))?;
+        let new_b = balance_b
+            .checked_sub(amount)
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Insufficient balance for party B".into()
+            )))?;
         Ok((new_a, new_b))
     }
 }
@@ -2567,4 +2575,3 @@ mod tests {
         assert!(checked_channel_transfer_balances(10, 1, 2, false).is_err());
     }
 }
-
