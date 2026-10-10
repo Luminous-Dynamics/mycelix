@@ -440,9 +440,13 @@ fn decode_hex(value: &str, line: usize) -> Result<Vec<u8>, JournalError> {
 /// record is corruption, even when all prior records were valid.
 fn read_bounded_record<R: BufRead>(
     reader: &mut R,
+    record: &mut Vec<u8>,
     line_no: usize,
-) -> Result<Option<Vec<u8>>, JournalError> {
-    let mut record = Vec::with_capacity(256);
+) -> Result<bool, JournalError> {
+    // Retain the buffer capacity between records to avoid one heap allocation
+    // per journal entry. It never grows beyond the configured record bound plus
+    // its delimiter.
+    record.clear();
     loop {
         let (consumed, complete) = {
             let available = reader
@@ -450,7 +454,7 @@ fn read_bounded_record<R: BufRead>(
                 .map_err(|err| io_error("read journal record", err))?;
             if available.is_empty() {
                 if record.is_empty() {
-                    return Ok(None);
+                    return Ok(false);
                 }
                 return Err(JournalError::CorruptJournal {
                     line: line_no,
@@ -476,7 +480,7 @@ fn read_bounded_record<R: BufRead>(
         if complete {
             // Remove the delimiter; the parser receives just the record bytes.
             record.pop();
-            return Ok(Some(record));
+            return Ok(true);
         }
     }
 }
@@ -484,8 +488,9 @@ fn read_bounded_record<R: BufRead>(
 fn replay<R: BufRead>(reader: &mut R) -> Result<HashMap<String, JournalEntry>, JournalError> {
     let mut entries: HashMap<String, JournalEntry> = HashMap::new();
     let mut line_no = 0usize;
+    let mut record = Vec::with_capacity(256);
 
-    while let Some(record) = read_bounded_record(reader, line_no + 1)? {
+    while read_bounded_record(reader, &mut record, line_no + 1)? {
         line_no += 1;
         let line = std::str::from_utf8(&record).map_err(|_| JournalError::CorruptJournal {
             line: line_no,
