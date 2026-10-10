@@ -1283,6 +1283,52 @@ mod strict_validation_regression_tests {
         };
         let offer_entry = EntryTypes::TradeOffer(offer.clone());
 
+        let production = EnergyProduction {
+            producer_did: seller_did.clone(),
+            ..valid_production()
+        };
+        assert_eq!(
+            grid_link_validation_error(
+                &energy_anchor_hash(&seller_did),
+                &EntryTypes::EnergyProduction(production.clone()),
+                &LinkTypes::ProducerToProduction,
+                &seller,
+            ),
+            None
+        );
+        assert!(grid_link_validation_error(
+            &energy_anchor_hash("did:mycelix:someone-else"),
+            &EntryTypes::EnergyProduction(production),
+            &LinkTypes::ProducerToProduction,
+            &seller,
+        )
+        .is_some());
+
+        let consumption = EnergyConsumption {
+            id: "consumption-link-test".into(),
+            consumer_did: seller_did.clone(),
+            amount_kwh: 1.0,
+            timestamp,
+            period_hours: 1.0,
+            meter_reading: None,
+        };
+        assert_eq!(
+            grid_link_validation_error(
+                &energy_anchor_hash(&seller_did),
+                &EntryTypes::EnergyConsumption(consumption.clone()),
+                &LinkTypes::ConsumerToConsumption,
+                &seller,
+            ),
+            None
+        );
+        assert!(grid_link_validation_error(
+            &energy_anchor_hash(&seller_did),
+            &EntryTypes::EnergyConsumption(consumption),
+            &LinkTypes::ConsumerToConsumption,
+            &other,
+        )
+        .is_some());
+
         assert_eq!(
             grid_link_validation_error(
                 &energy_anchor_hash(&seller_did),
