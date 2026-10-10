@@ -56,7 +56,10 @@ def _skip_rust_trivia(text: str, index: int) -> int:
             continue
         if text.startswith("//", index):
             newline = text.find("\n", index + 2)
-            return len(text) if newline < 0 else _skip_rust_trivia(text, newline + 1)
+            if newline < 0:
+                return len(text)
+            index = newline + 1
+            continue
         if text.startswith("/*", index):
             # Rust block comments may nest; avoid interpreting comment text as a token.
             depth = 1
@@ -91,6 +94,44 @@ def _literal_value(match: re.Match[str]) -> str | None:
     return value if isinstance(value, str) else None
 
 
+def _find_macro_close(source_text: str, opening: int) -> int:
+    """Find a matching ')' without counting parentheses inside literals/comments."""
+    depth = 1
+    cursor = opening + 1
+    while cursor < len(source_text):
+        if source_text.startswith("//", cursor):
+            newline = source_text.find("\n", cursor + 2)
+            cursor = len(source_text) if newline < 0 else newline + 1
+            continue
+        if source_text.startswith("/*", cursor):
+            depth_comment = 1
+            cursor += 2
+            while cursor < len(source_text) and depth_comment:
+                if source_text.startswith("/*", cursor):
+                    depth_comment += 1
+                    cursor += 2
+                elif source_text.startswith("*/", cursor):
+                    depth_comment -= 1
+                    cursor += 2
+                else:
+                    cursor += 1
+            if depth_comment:
+                return -1
+            continue
+        literal = RUST_STRING_LITERAL.match(source_text, cursor)
+        if literal is not None:
+            cursor = literal.end()
+            continue
+        if source_text[cursor] == "(":
+            depth += 1
+        elif source_text[cursor] == ")":
+            depth -= 1
+            if depth == 0:
+                return cursor
+        cursor += 1
+    return -1
+
+
 def _static_concat_hits(source_text: str) -> list[tuple[int, int, str]]:
     """Find concat! calls whose string-literal arguments resolve to credit_sap."""
     hits: list[tuple[int, int, str]] = []
@@ -99,9 +140,9 @@ def _static_concat_hits(source_text: str) -> list[tuple[int, int, str]]:
         opening = source_text.find("(", macro.start(), macro.end())
         if opening < 0:
             continue
-        # The target form contains only string-literal arguments, comments, commas,
-        # and whitespace; anything else is not treated as a statically proven match.
-        closing = source_text.find(")", opening + 1)
+        # Find the matching close without confusing ')' inside string literals
+        # or comments for the macro delimiter.
+        closing = _find_macro_close(source_text, opening)
         if closing < 0:
             continue
         end = closing + 1
