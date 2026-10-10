@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum JournalError {
     InvalidPath,
+    InsecurePermissions,
     InvalidEffectId,
     InvalidDigest,
     LockHeld,
@@ -29,6 +30,7 @@ impl fmt::Display for JournalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidPath => write!(f, "journal path must name a regular file in an existing directory"),
+            Self::InsecurePermissions => write!(f, "journal file permissions grant group or other users access"),
             Self::InvalidEffectId => write!(f, "effect identity is empty or non-canonical"),
             Self::InvalidDigest => write!(f, "digest must be canonical sha256 lowercase hex"),
             Self::LockHeld => write!(f, "journal is already open or has a stale lock; inspect before recovery"),
@@ -114,7 +116,14 @@ impl DurableEffectJournal {
         }
 
         let lock_path = parent.join(format!("{}.lock", name.to_string_lossy()));
-        let mut lock_file = OpenOptions::new().write(true).create_new(true).open(&lock_path)
+        let mut lock_options = OpenOptions::new();
+        lock_options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            lock_options.mode(0o600);
+        }
+        let mut lock_file = lock_options.open(&lock_path)
             .map_err(|err| if err.kind() == io::ErrorKind::AlreadyExists {
                 JournalError::LockHeld
             } else {
@@ -126,8 +135,16 @@ impl DurableEffectJournal {
         lock_file.sync_all().map_err(|err| io_error("sync lock marker", err))?;
         sync_directory(&parent)?;
 
-        let mut file = OpenOptions::new().read(true).append(true).create(true).open(&path)
+        let mut journal_options = OpenOptions::new();
+        journal_options.read(true).append(true).create(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            journal_options.mode(0o600);
+        }
+        let mut file = journal_options.open(&path)
             .map_err(|err| io_error("open journal", err))?;
+        ensure_private_file(&file)?;
         file.sync_all().map_err(|err| io_error("sync journal on open", err))?;
         sync_directory(&parent)?;
         file.seek(SeekFrom::Start(0)).map_err(|err| io_error("rewind journal", err))?;
@@ -248,6 +265,23 @@ fn io_error(operation: &'static str, err: io::Error) -> JournalError {
 fn sync_directory(path: &Path) -> Result<(), JournalError> {
     File::open(path).and_then(|dir| dir.sync_all())
         .map_err(|err| io_error("sync parent directory", err))
+}
+
+#[cfg(unix)]
+fn ensure_private_file(file: &File) -> Result<(), JournalError> {
+    use std::os::unix::fs::PermissionsExt;
+    let metadata = file.metadata().map_err(|err| io_error("inspect journal permissions", err))?;
+    if metadata.permissions().mode() & 0o077 != 0 {
+        return Err(JournalError::InsecurePermissions);
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn ensure_private_file(_file: &File) -> Result<(), JournalError> {
+    // The owner-only mode and permission-bit check are Unix-specific. Other
+    // platforms require their native ACL/permission policy to be verified.
+    Ok(())
 }
 fn validate_effect_id(id: &str) -> Result<(), JournalError> {
     if id.is_empty() || id.trim() != id || id.bytes().any(|b| b == b'\n' || b == b'\r' || b == b'\0') {
@@ -506,6 +540,39 @@ mod tests {
             DurableEffectJournal::open(temp.journal_path()),
             Err(JournalError::CorruptJournal { reason: "unsupported journal record version", .. })
         ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn created_journal_and_lock_are_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = TempDir::new();
+        let journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        let journal_mode = fs::metadata(journal.path()).unwrap().permissions().mode();
+        let lock_path = journal.path().with_file_name("effects.journal.lock");
+        let lock_mode = fs::metadata(lock_path).unwrap().permissions().mode();
+
+        assert_eq!(journal_mode & 0o077, 0);
+        assert_eq!(lock_mode & 0o077, 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn existing_journal_with_group_or_other_permissions_is_rejected() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = TempDir::new();
+        let path = temp.journal_path();
+        fs::write(&path, b"").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).unwrap();
+
+        assert!(matches!(
+            DurableEffectJournal::open(&path),
+            Err(JournalError::InsecurePermissions)
+        ));
+        assert!(!path.with_file_name("effects.journal.lock").exists());
+        assert_eq!(fs::read(&path).unwrap(), b"");
     }
 
     #[test]
