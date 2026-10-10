@@ -171,6 +171,12 @@ impl DurableEffectJournal {
         self.entries.get(id).map(|entry| entry.status.clone())
     }
 
+    /// Source-evidence digest for an acknowledged effect, or None for unresolved
+    /// effects and legacy J1 acknowledgements that did not persist this binding.
+    pub fn source_evidence_digest(&self, id: &str) -> Option<&str> {
+        self.entries.get(id).and_then(|entry| entry.source_evidence_digest.as_deref())
+    }
+
     /// Sorted IDs whose outcomes remain unresolved.
     pub fn unresolved_effect_ids(&self) -> Vec<String> {
         let mut ids: Vec<String> = self.entries.iter().filter_map(|(id, entry)| {
@@ -616,6 +622,74 @@ mod tests {
             DurableEffectJournal::open(temp.journal_path()),
             Err(JournalError::CorruptJournal { reason: "unsupported journal record version", .. })
         ));
+    }
+
+    #[test]
+    fn acknowledgement_cannot_be_rebound_to_different_source_evidence() {
+        let temp = TempDir::new();
+        let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        journal.begin_effect("payment-evidence", REQUEST_A).unwrap();
+        journal.acknowledge_effect(
+            "payment-evidence", REQUEST_A, RECEIPT_A, SOURCE_EVIDENCE_A
+        ).unwrap();
+
+        assert_eq!(
+            journal.acknowledge_effect(
+                "payment-evidence", REQUEST_A, RECEIPT_A, SOURCE_EVIDENCE_B
+            ),
+            Err(JournalError::EvidenceConflict),
+        );
+        assert_eq!(
+            journal.source_evidence_digest("payment-evidence"),
+            Some(SOURCE_EVIDENCE_A),
+        );
+    }
+
+    #[test]
+    fn legacy_j1_acknowledgement_replays_without_claiming_source_binding() {
+        let temp = TempDir::new();
+        let path = temp.journal_path();
+        let encoded_id = encode_hex(b"legacy-payment");
+        fs::write(
+            &path,
+            format!(
+                "J1\tB\t{}\t{}\nJ1\tA\t{}\t{}\t{}\n",
+                encoded_id, REQUEST_A, encoded_id, REQUEST_A, RECEIPT_A
+            ),
+        ).unwrap();
+
+        let mut journal = DurableEffectJournal::open(&path).unwrap();
+        assert_eq!(
+            journal.begin_effect("legacy-payment", REQUEST_A),
+            Ok(BeginResult::AlreadyAcknowledged {
+                receipt_digest: RECEIPT_A.to_owned(),
+                source_evidence_digest: None,
+            }),
+        );
+        assert_eq!(journal.source_evidence_digest("legacy-payment"), None);
+    }
+
+    #[test]
+    fn j2_acknowledgement_with_invalid_source_evidence_fails_closed() {
+        let temp = TempDir::new();
+        let path = temp.journal_path();
+        let encoded_id = encode_hex(b"bad-evidence");
+        fs::write(
+            &path,
+            format!(
+                "J2\tB\t{}\t{}\nJ2\tA\t{}\t{}\t{}\tsha256:BAD\n",
+                encoded_id, REQUEST_A, encoded_id, REQUEST_A, RECEIPT_A
+            ),
+        ).unwrap();
+
+        assert!(matches!(
+            DurableEffectJournal::open(&path),
+            Err(JournalError::CorruptJournal {
+                reason: "source evidence digest is invalid",
+                ..
+            })
+        ));
+        assert!(!path.with_file_name("effects.journal.lock").exists());
     }
 
     #[cfg(unix)]
