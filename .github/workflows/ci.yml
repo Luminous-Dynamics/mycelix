@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      energy: ${{ steps.filter.outputs.energy }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +81,8 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            energy:
+              - 'mycelix-energy/**'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -104,12 +107,14 @@ jobs:
           # single CI run surfaces every cluster's violations at once,
           # exiting non-zero at the end if any were found.
           status=0
-          for dir in mycelix-commons mycelix-civic mycelix-hearth mycelix-finance mycelix-governance mycelix-identity mycelix-personal mycelix-attribution; do
+          for dir in mycelix-commons mycelix-civic mycelix-hearth mycelix-finance mycelix-governance mycelix-identity mycelix-personal mycelix-attribution mycelix-energy; do
             echo "=== Checking $dir ==="
             (cd "$dir" && cargo fmt --all --check) || status=1
           done
           (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
+          # Excluded from the Energy workspace so its independently configured Sweettest crate needs its own format check.
+          (cd mycelix-energy/tests && cargo fmt --check) || status=1
           exit $status
 
   # Per-cluster test jobs
@@ -434,6 +439,27 @@ jobs:
       - name: Check prism-tauri (desktop shell, compile-only)
         run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
 
+  # Energy hApp: validate native integrity/coordinator logic and compile the deployed WASM artifacts.
+  test-energy:
+    needs: changes
+    if: needs.changes.outputs.energy == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-energy
+      - name: Test Energy zomes
+        run: cd mycelix-energy && cargo test --workspace
+      - name: Build Energy zomes for Holochain WASM
+        run: cd mycelix-energy && cargo build --workspace --target wasm32-unknown-unknown --release
+
   # Summary gate
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
@@ -452,6 +478,7 @@ jobs:
       - test-bridge
       - test-sdk
       - test-prism
+      - test-energy
     runs-on: ubuntu-latest
     steps:
       - name: Check results
@@ -472,9 +499,10 @@ jobs:
           echo "Bridge: ${{ needs.test-bridge.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
+          echo "Energy: ${{ needs.test-energy.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-energy.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
