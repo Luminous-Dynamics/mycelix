@@ -31,6 +31,7 @@ RUST_STRING_LITERAL = re.compile(
     re.DOTALL,
 )
 CONCAT_MACRO = re.compile(r"\bconcat!\s*\(")
+RUST_CHAR_LITERAL = re.compile(r"'(?P<character>\\u\{[0-9a-fA-F_]+\}|\\x[0-9a-fA-F]{2}|\\.|[^'\\])'", re.DOTALL)
 # Permit other outer attributes between hdk_extern and the function declaration.
 # Stop at the first function declaration so an unrelated extern cannot make a later
 # private helper look externally exported.
@@ -80,15 +81,8 @@ def _skip_rust_trivia(text: str, index: int) -> int:
     return index
 
 
-def _literal_value(match: re.Match[str]) -> str | None:
-    """Decode only the Rust string escapes understood by this static name scanner."""
-    if match.group("raw") is not None:
-        return match.group("raw")
-
-    spelling = match.group("quoted")
-    if spelling is None or len(spelling) < 2:
-        return None
-    body = spelling[1:-1]
+def _decode_rust_string_body(body: str) -> str | None:
+    """Decode the static Rust string/character escapes needed by this scanner."""
     decoded: list[str] = []
     index = 0
     simple_escapes = {
@@ -119,7 +113,7 @@ def _literal_value(match: re.Match[str]) -> str | None:
             if len(digits) != 2 or not re.fullmatch(r"[0-9a-fA-F]{2}", digits):
                 return None
             codepoint = int(digits, 16)
-            # Rust text-string \\x escapes are ASCII-only.
+            # Rust text-string \x escapes are ASCII-only.
             if codepoint > 0x7F:
                 return None
             decoded.append(chr(codepoint))
@@ -155,6 +149,23 @@ def _literal_value(match: re.Match[str]) -> str | None:
             continue
         return None
     return "".join(decoded)
+
+
+def _literal_value(match: re.Match[str]) -> str | None:
+    """Decode a Rust string literal; raw strings have no escape processing."""
+    if match.group("raw") is not None:
+        return match.group("raw")
+    spelling = match.group("quoted")
+    if spelling is None or len(spelling) < 2:
+        return None
+    return _decode_rust_string_body(spelling[1:-1])
+
+
+def _char_literal_value(match: re.Match[str]) -> str | None:
+    """Decode one Rust character literal if it is statically understood."""
+    character = match.group("character")
+    value = _decode_rust_string_body(character)
+    return value if value is not None and len(value) == 1 else None
 
 
 def _static_decoded_literal_hits(source_text: str) -> list[tuple[int, int, str]]:
