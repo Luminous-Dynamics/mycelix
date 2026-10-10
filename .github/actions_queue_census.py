@@ -72,6 +72,8 @@ def run_identity(run: dict[str, Any]) -> dict[str, Any]:
         "run_id": run.get("id"),
         "workflow": run.get("name"),
         "run_number": run.get("run_number"),
+        "workflow_id": run.get("workflow_id"),
+        "workflow_path": run.get("path"),
         "event": run.get("event"),
         "status": run.get("status"),
         "conclusion": run.get("conclusion"),
@@ -188,14 +190,16 @@ def build_census(repo: str, queued_payload: Any, active_payload: Any,
     if now.tzinfo is None:
         raise ValueError("capture timestamp must be timezone-aware")
     now = now.astimezone(timezone.utc)
-    queued_summary, _ = summarize_status(queued_payload, now)
-    active_summary, _ = summarize_status(active_payload, now)
+    queued_summary, queued_manifest = summarize_status(queued_payload, now)
+    active_summary, active_manifest = summarize_status(active_payload, now)
     return {
         "schema": SCHEMA,
         "captured_at": now.isoformat().replace("+00:00", "Z"),
         "repository": repo,
         "read_only": True,
         "statuses": {"queued": queued_summary, "in_progress": active_summary},
+        "queued_run_manifest": queued_manifest,
+        "in_progress_run_manifest": active_manifest,
         "queued_run_samples": [],
         "interpretation_boundary": (
             "This census records observed workflow-run/job metadata. It does not establish root cause, "
