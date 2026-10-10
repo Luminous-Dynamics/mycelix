@@ -344,16 +344,10 @@ fn whole_units_to_micro(whole_units: f64) -> Option<u64> {
     Some(rounded as u64)
 }
 
-/// Attempt settlement through the real SAP/TEND payment rail.
-///
-/// Ok(Some(reference)) means a payment receipt was decoded.
-/// Ok(None) means the currency has no internal settlement rail and therefore
-/// requires a non-empty external payment reference from the caller.
-/// Err means internal settlement could not be confirmed; callers must leave
-/// the trade unsettled rather than converting a failed payment into success.
-/// Gate paid settlements until the caller can validate an authenticated receipt,
-/// use a deterministic rail idempotency key, and recover ambiguous outcomes.
-/// Only genuinely free trades (zero unit and total price) may settle locally.
+/// Gate paid settlements until the caller can validate the finance payment's
+/// signed receipt, use a deterministic rail idempotency key, and recover
+/// ambiguous outcomes. The finance zome returns a Payment record while storing
+/// its signed Receipt separately; a payment-record hash alone is not proof.
 fn settlement_gate_error(trade: &Trade) -> Option<&'static str> {
     if !trade.price_per_kwh.is_finite()
         || trade.price_per_kwh < 0.0
@@ -370,7 +364,13 @@ fn settlement_gate_error(trade: &Trade) -> Option<&'static str> {
     )
 }
 
+/// Legacy helper retained for the zero-price path and regression coverage.
+/// Defense in depth: it cannot initiate a positive-value payment even if a new
+/// caller is added before #4940's idempotent receipt protocol is ready.
 fn settle_via_finance(trade: &Trade) -> Result<Option<String>, &'static str> {
+    if let Some(message) = settlement_gate_error(trade) {
+        return Err(message);
+    }
     // Explicitly priced-at-zero trades need no transfer on any currency rail.
     if trade.total_price == 0.0 {
         return Ok(Some(format!("no-payment-required:{}", trade.id)));
@@ -409,7 +409,7 @@ fn settle_via_finance(trade: &Trade) -> Result<Option<String>, &'static str> {
             .decode::<Record>()
             .ok()
             .map(|record| Some(format!("payments:{}", record.action_address())))
-            .ok_or("Payment rail response did not contain a verifiable receipt"),
+            .ok_or("Payment rail response did not contain a decodable Payment record"),
         Ok(_) => Err("Payment rail did not confirm the payment"),
         Err(_) => Err("Payment rail call failed; trade remains unsettled"),
     }
@@ -428,8 +428,14 @@ pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
             if trade.id != input.trade_id {
                 continue;
             }
+            let caller = agent_info()?.agent_initial_pubkey;
+            if !did_matches_agent(&trade.buyer_did, &caller) {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Only the trade buyer may settle this trade".into()
+                )));
+            }
             // Retries are idempotent at the local record level: never submit a
-            // second payment after this trade already has a settled receipt.
+            // second payment after this trade already has a settled reference.
             if trade.settled {
                 return Ok(record);
             }
@@ -1987,6 +1993,17 @@ mod settlement_amount_regression_tests {
             settled: false,
             payment_reference: None,
         }
+    }
+
+    #[test]
+    fn paid_finance_settlement_fails_before_any_payment_call() {
+        let trade = settlement_test_trade(0.12, 0.12);
+        assert_eq!(
+            settle_via_finance(&trade),
+            Err(
+                "Paid trade settlement is disabled until authenticated receipt verification, rail idempotency, and indeterminate-outcome recovery are implemented (#4940)"
+            )
+        );
     }
 
     #[test]
