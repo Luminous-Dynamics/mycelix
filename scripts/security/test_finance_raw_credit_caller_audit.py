@@ -8,7 +8,7 @@ from __future__ import annotations
 import io
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from finance_raw_credit_caller_audit import audit, has_public_raw_credit_abi, scan
@@ -300,6 +300,21 @@ class RawCreditCallerAuditTests(unittest.TestCase):
                 "payments/coordinator/src/lib.rs: content differs",
                 output.getvalue(),
             )
+
+    def test_whole_audit_rejects_symlinks_before_source_reads(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _canonical, workspace = seed_project(root)
+            linked_source = workspace / "bridge" / "coordinator" / "src" / "lib.rs"
+            linked_source.parent.mkdir(parents=True, exist_ok=True)
+            linked_source.symlink_to(root / "missing-source.rs")
+
+            errors = io.StringIO()
+            with redirect_stderr(errors):
+                status = audit(root)
+
+            self.assertEqual(status, 2)
+            self.assertIn("unexpected symlink in Finance zome projection", errors.getvalue())
 
     def test_whole_audit_passes_only_when_abi_is_private_and_no_callers_exist(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
