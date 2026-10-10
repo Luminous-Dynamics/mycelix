@@ -1308,11 +1308,21 @@ def exercise_main_record_guards(
     valid_record["status"] = "runtime-reference-evidence"
     valid_record["attestation_status"] = "deferred-to-trusted-builder"
 
+    # main() now independently re-fetches and validates the D6S1 corpus digest.
+    # Keep this main-path fixture self-consistent rather than mocking every API
+    # path to return the Cargo manifest bytes.
+    fixture_corpus_bytes = b"D6S1 main-record guard fixture\\n"
+    main_test_policy = dict(candidate_policy)
+    main_test_policy["d6s1_corpus_sha256"] = hashlib.sha256(
+        fixture_corpus_bytes
+    ).hexdigest()
+    valid_record["d6s1_corpus_sha256"] = main_test_policy["d6s1_corpus_sha256"]
+
     with tempfile.TemporaryDirectory() as scratch:
         scratch_path = pathlib.Path(scratch)
         policy_path = scratch_path / "policy.json"
         policy_path.write_text(
-            json.dumps(candidate_policy, sort_keys=True), encoding="utf-8"
+            json.dumps(main_test_policy, sort_keys=True), encoding="utf-8"
         )
         event_path = scratch_path / "event.json"
         executor_cfg = candidate_policy["executor_workflow"]
@@ -1349,6 +1359,15 @@ def exercise_main_record_guards(
         expected_manifest_blob = candidate_policy["required_source_blobs"][
             candidate_policy["lock_graph"]["manifest_path"]
         ]
+
+        def main_test_contents_bytes_from_api(
+            _repo: str, path: str, _ref: str, _token: str
+        ) -> bytes:
+            if path == main_test_policy["lock_graph"]["manifest_path"]:
+                return manifest_bytes
+            if path == "docs/integral/d6s-canon-1-golden-vectors.json":
+                return fixture_corpus_bytes
+            raise AssertionError(f"unexpected main-path source lookup: {path}")
 
         def invoke_main(observed_record: dict[str, str]) -> None:
             with (
@@ -1388,7 +1407,11 @@ def exercise_main_record_guards(
                     ),
                 ),
                 patch.object(verifier, "verify_cases"),
-                patch.object(verifier, "contents_bytes_from_api", return_value=manifest_bytes),
+                patch.object(
+                    verifier,
+                    "contents_bytes_from_api",
+                    side_effect=main_test_contents_bytes_from_api,
+                ),
                 patch.object(verifier, "_git_blob_sha1", return_value=expected_manifest_blob),
                 patch.object(verifier, "verify_lock"),
             ):
