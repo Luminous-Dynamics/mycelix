@@ -391,6 +391,9 @@ fn validate_policy_contract(bytes: &[u8]) -> Result<(), String> {
 // These values are intentionally literal. The source file itself is independently
 // blob-pinned by the calling workflow. Updating any pin requires reviewing the
 // policy and the complete trust closure, not just accepting a new digest.
+const MAX_TRUSTED_SOURCE_BYTES: u64 = 1_048_576;
+const MAX_RECEIPT_BYTES: u64 = 65_536;
+
 const EXPECTED_EVALUATION_SCOPE: &str = "policy-fingerprint,workflow-and-five-program-closure,canonical-path-and-symlink-containment,candidate-root-identity-and-cli-path-preservation,validated-source-snapshot-import,alias-pin-consistency,provenance-binding,artifact-integrity,redirect-safety,optimized-mode-refusal";
 
 const EXPECTED_RECEIPT_KEYS: [&str; 21] = [
@@ -619,6 +622,11 @@ fn validate_receipt_file(path: &Path) -> Result<ReceiptSummary, String> {
     if metadata.file_type().is_symlink() || !metadata.is_file() {
         return Err("receipt path must be a regular file, not a symlink".to_string());
     }
+    if metadata.len() > MAX_RECEIPT_BYTES {
+        return Err(format!(
+            "receipt exceeds the {MAX_RECEIPT_BYTES}-byte limit"
+        ));
+    }
     let bytes = fs::read(path)
         .map_err(|error| format!("cannot read receipt {}: {error}", path.display()))?;
     let summary = parse_receipt_bytes(&bytes)?;
@@ -772,6 +780,17 @@ fn read_candidate_snapshot(root: &Path, relative: &str) -> Result<Vec<u8>, Strin
         }
     }
 
+    let final_metadata = fs::symlink_metadata(&cursor)
+        .map_err(|error| format!("cannot inspect pinned path {relative}: {error}"))?;
+    if final_metadata.file_type().is_symlink() || !final_metadata.is_file() {
+        return Err(format!("pinned path changed type during inspection: {relative}"));
+    }
+    if final_metadata.len() > MAX_TRUSTED_SOURCE_BYTES {
+        return Err(format!(
+            "pinned source exceeds the {MAX_TRUSTED_SOURCE_BYTES}-byte limit: {relative}"
+        ));
+    }
+
     // Hash the bytes returned here, rather than asking Git to reopen this path.
     // No candidate source is executed by this preflight.
     fs::read(&cursor).map_err(|error| format!("cannot read pinned path {relative}: {error}"))
@@ -904,6 +923,17 @@ mod tests {
         assert!(candidate_root_from_arg("/tmp//candidate").is_err());
         assert!(candidate_root_from_arg("/tmp/candidate/").is_err());
         assert!(candidate_root_from_arg(r"/tmp\\candidate").is_err());
+    }
+
+    #[test]
+    fn rejects_oversized_pinned_source_snapshot() {
+        let scratch = scratch_dir("oversized-source");
+        let root = scratch.join("root");
+        fs::create_dir_all(&root).expect("candidate root should be created");
+        let oversized = vec![b'x'; MAX_TRUSTED_SOURCE_BYTES as usize + 1];
+        fs::write(root.join("oversized.txt"), oversized).expect("oversized file should be written");
+        assert!(read_candidate_snapshot(&root, "oversized.txt").is_err());
+        fs::remove_dir_all(scratch).expect("scratch tree should be removed");
     }
 
     #[test]
