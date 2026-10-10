@@ -147,7 +147,7 @@ impl DurableEffectJournal {
     /// Sorted IDs whose outcomes remain unresolved.
     pub fn unresolved_effect_ids(&self) -> Vec<String> {
         let mut ids: Vec<String> = self.entries.iter().filter_map(|(id, entry)| {
-            match entry.status {
+            match &entry.status {
                 EffectStatus::Pending | EffectStatus::Indeterminate => Some(id.clone()),
                 EffectStatus::Acknowledged { .. } => None,
             }
@@ -348,7 +348,7 @@ fn replay(bytes: &[u8]) -> Result<HashMap<String, JournalEntry>, JournalError> {
                     line: line_no, reason: "acknowledgement precedes begin"
                 })?;
                 if entry.request_digest != request_digest
-                    || !matches!(entry.status, EffectStatus::Pending | EffectStatus::Indeterminate)
+                    || !matches!(&entry.status, EffectStatus::Pending | EffectStatus::Indeterminate)
                 {
                     return Err(JournalError::CorruptJournal { line: line_no, reason: "invalid acknowledgement transition" });
                 }

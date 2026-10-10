@@ -16,7 +16,8 @@ reference model does not parse the schema file. It checks:
 - simulation run receipt, output digest, scenario-corpus digest, and environment binding;
 - evaluator binding to the exact simulation output and scenario corpus, with a separate evaluation report digest and receipt;
 - rights-floor, resource-reservation, external-obligation, cutover, and reconciliation gates;
-- idempotent effect identity, duplicate replay, and payload-conflict rejection.
+- idempotent effect identity, duplicate replay, and payload-conflict rejection;
+- append-only local effect intent/receipt journal with fsync before dispatch, strict replay, and unresolved-effect recovery.
 
 ## Run
 
@@ -28,10 +29,18 @@ From this directory:
 
 The crate has an isolated Cargo workspace and no third-party dependencies.
 
-The `EffectLedger` is intentionally an in-memory reference model: it can test
-same-process replay identity and request conflicts, but it is not durable across
-process restart and does not atomically commit an external side effect. Do not
-treat its tests as proof of exactly-once execution.
+The `EffectLedger` in `lib.rs` remains an in-memory reference model. The new
+`durable_journal::DurableEffectJournal` persists begin, indeterminate, and
+acknowledgement records to an append-only local file, syncs each record before
+returning success, refuses concurrent cooperating writers with a sidecar lock,
+and fails closed on truncated/corrupt history. A surviving Pending record after
+restart is a reconciliation requirement, never permission to dispatch again.
+
+This journal still cannot atomically commit a local record with an external
+bank/payment/physical side effect. Filesystem sync semantics are platform and
+storage dependent, stale lock files require deliberate operator recovery, and
+the caller must validate source-bound receipts. Do not describe this as exactly-
+once distributed execution.
 
 ## Claim ceiling
 
