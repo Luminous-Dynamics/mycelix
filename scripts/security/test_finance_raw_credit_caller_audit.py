@@ -330,6 +330,24 @@ class RawCreditCallerAuditTests(unittest.TestCase):
             self.assertEqual(status, 2)
             self.assertIn("unexpected symlink in Finance zome projection", errors.getvalue())
 
+    def test_whole_audit_rejects_symlinked_projection_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical, workspace = seed_project(root)
+            saved_workspace = root / "workspace-zomes-original"
+            workspace.rename(saved_workspace)
+            workspace.symlink_to(canonical, target_is_directory=True)
+
+            errors = io.StringIO()
+            with redirect_stderr(errors):
+                status = audit(root)
+
+            self.assertEqual(status, 2)
+            self.assertIn(
+                "unexpected symlink used as Finance zome projection root",
+                errors.getvalue(),
+            )
+
     def test_whole_audit_passes_only_when_abi_is_private_and_no_callers_exist(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
