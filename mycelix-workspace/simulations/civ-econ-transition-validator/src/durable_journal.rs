@@ -22,6 +22,7 @@ pub enum JournalError {
     UnknownEffect,
     RequestConflict,
     ReceiptConflict,
+    EvidenceConflict,
     CorruptJournal { line: usize, reason: &'static str },
     Io { operation: &'static str, kind: io::ErrorKind },
 }
@@ -38,6 +39,7 @@ impl fmt::Display for JournalError {
             Self::UnknownEffect => write!(f, "effect identity has no durable begin record"),
             Self::RequestConflict => write!(f, "effect identity was reused with a different request digest"),
             Self::ReceiptConflict => write!(f, "effect identity was acknowledged with a different receipt digest"),
+            Self::EvidenceConflict => write!(f, "effect identity was acknowledged with different or missing source evidence"),
             Self::CorruptJournal { line, reason } => write!(f, "corrupt effect journal at line {line}: {reason}"),
             Self::Io { operation, kind } => write!(f, "journal I/O failed during {operation}: {kind}"),
         }
@@ -59,7 +61,10 @@ pub enum BeginResult {
     /// A begin record survived. Do not automatically dispatch again.
     PendingNeedsReconciliation,
     IndeterminateNeedsReconciliation,
-    AlreadyAcknowledged { receipt_digest: String },
+    AlreadyAcknowledged {
+        receipt_digest: String,
+        source_evidence_digest: Option<String>,
+    },
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AcknowledgeResult { Acknowledged, AlreadyAcknowledged }
@@ -67,13 +72,18 @@ pub enum AcknowledgeResult { Acknowledged, AlreadyAcknowledged }
 pub enum IndeterminateResult {
     Marked,
     AlreadyIndeterminate,
-    AlreadyAcknowledged { receipt_digest: String },
+    AlreadyAcknowledged {
+        receipt_digest: String,
+        source_evidence_digest: Option<String>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct JournalEntry {
     request_digest: String,
     status: EffectStatus,
+    /// None for legacy J1 acknowledgements; new J2 acknowledgements require it.
+    source_evidence_digest: Option<String>,
 }
 
 struct LockGuard { path: PathBuf }
@@ -187,15 +197,17 @@ impl DurableEffectJournal {
                 EffectStatus::Pending => BeginResult::PendingNeedsReconciliation,
                 EffectStatus::Indeterminate => BeginResult::IndeterminateNeedsReconciliation,
                 EffectStatus::Acknowledged { receipt_digest } => BeginResult::AlreadyAcknowledged {
-                    receipt_digest: receipt_digest.clone()
+                    receipt_digest: receipt_digest.clone(),
+                    source_evidence_digest: existing.source_evidence_digest.clone(),
                 },
             });
         }
-        let record = format!("J1\tB\t{}\t{}\n", encode_hex(id.as_bytes()), request_digest);
+        let record = format!("J2\tB\t{}\t{}\n", encode_hex(id.as_bytes()), request_digest);
         self.append_and_sync(&record)?;
         self.entries.insert(id.to_owned(), JournalEntry {
             request_digest: request_digest.to_owned(),
-            status: EffectStatus::Pending
+            status: EffectStatus::Pending,
+            source_evidence_digest: None,
         });
         Ok(BeginResult::Started)
     }
@@ -203,22 +215,39 @@ impl DurableEffectJournal {
     /// Persist a source-bound receipt after the outcome has been established
     /// under the exact external rail / authority profile.
     pub fn acknowledge_effect(
-        &mut self, id: &str, request_digest: &str, receipt_digest: &str
+        &mut self,
+        id: &str,
+        request_digest: &str,
+        receipt_digest: &str,
+        source_evidence_digest: &str,
     ) -> Result<AcknowledgeResult, JournalError> {
         self.ensure_healthy()?;
         validate_effect_id(id)?;
         validate_digest(request_digest)?;
         validate_digest(receipt_digest)?;
+        validate_digest(source_evidence_digest)?;
         let existing = self.entries.get(id).ok_or(JournalError::UnknownEffect)?;
         if existing.request_digest != request_digest { return Err(JournalError::RequestConflict); }
         if let EffectStatus::Acknowledged { receipt_digest: old } = &existing.status {
-            return if old == receipt_digest { Ok(AcknowledgeResult::AlreadyAcknowledged) }
-                else { Err(JournalError::ReceiptConflict) };
+            if old != receipt_digest {
+                return Err(JournalError::ReceiptConflict);
+            }
+            if existing.source_evidence_digest.as_deref() != Some(source_evidence_digest) {
+                return Err(JournalError::EvidenceConflict);
+            }
+            return Ok(AcknowledgeResult::AlreadyAcknowledged);
         }
-        let record = format!("J1\tA\t{}\t{}\t{}\n", encode_hex(id.as_bytes()), request_digest, receipt_digest);
+        let record = format!(
+            "J2\tA\t{}\t{}\t{}\t{}\n",
+            encode_hex(id.as_bytes()),
+            request_digest,
+            receipt_digest,
+            source_evidence_digest,
+        );
         self.append_and_sync(&record)?;
         if let Some(entry) = self.entries.get_mut(id) {
             entry.status = EffectStatus::Acknowledged { receipt_digest: receipt_digest.to_owned() };
+            entry.source_evidence_digest = Some(source_evidence_digest.to_owned());
         }
         Ok(AcknowledgeResult::Acknowledged)
     }
@@ -234,13 +263,19 @@ impl DurableEffectJournal {
         if existing.request_digest != request_digest { return Err(JournalError::RequestConflict); }
         match &existing.status {
             EffectStatus::Acknowledged { receipt_digest } =>
-                return Ok(IndeterminateResult::AlreadyAcknowledged { receipt_digest: receipt_digest.clone() }),
+                return Ok(IndeterminateResult::AlreadyAcknowledged {
+                    receipt_digest: receipt_digest.clone(),
+                    source_evidence_digest: existing.source_evidence_digest.clone(),
+                }),
             EffectStatus::Indeterminate => return Ok(IndeterminateResult::AlreadyIndeterminate),
             EffectStatus::Pending => {}
         }
-        let record = format!("J1\tI\t{}\t{}\n", encode_hex(id.as_bytes()), request_digest);
+        let record = format!("J2\tI\t{}\t{}\n", encode_hex(id.as_bytes()), request_digest);
         self.append_and_sync(&record)?;
-        if let Some(entry) = self.entries.get_mut(id) { entry.status = EffectStatus::Indeterminate; }
+        if let Some(entry) = self.entries.get_mut(id) {
+            entry.status = EffectStatus::Indeterminate;
+            entry.source_evidence_digest = None;
+        }
         Ok(IndeterminateResult::Marked)
     }
 
@@ -342,15 +377,33 @@ fn replay(bytes: &[u8]) -> Result<HashMap<String, JournalEntry>, JournalError> {
     for (index, line) in text.split_terminator('\n').enumerate() {
         let line_no = index + 1;
         let fields: Vec<&str> = line.split('\t').collect();
-        let (event, encoded_id, request_digest) = match fields.as_slice() {
-            [version, event, id, request] if *version == "J1" && (*event == "B" || *event == "I") =>
-                (*event, *id, *request),
-            [version, event, id, request, _receipt] if *version == "J1" && *event == "A" =>
-                (*event, *id, *request),
-            [version, ..] if *version != "J1" =>
-                return Err(JournalError::CorruptJournal { line: line_no, reason: "unsupported journal record version" }),
-            _ => return Err(JournalError::CorruptJournal { line: line_no, reason: "invalid record shape or version" }),
-        };
+        let (_version, event, encoded_id, request_digest, receipt_digest, source_evidence_digest) =
+            match fields.as_slice() {
+                [version, event, id, request]
+                    if (*version == "J1" || *version == "J2")
+                        && (*event == "B" || *event == "I") =>
+                {
+                    (*version, *event, *id, *request, None, None)
+                }
+                [version, event, id, request, receipt]
+                    if *version == "J1" && *event == "A" =>
+                {
+                    (*version, *event, *id, *request, Some(*receipt), None)
+                }
+                [version, event, id, request, receipt, evidence]
+                    if *version == "J2" && *event == "A" =>
+                {
+                    (*version, *event, *id, *request, Some(*receipt), Some(*evidence))
+                }
+                [version, ..] if *version != "J1" && *version != "J2" =>
+                    return Err(JournalError::CorruptJournal {
+                        line: line_no,
+                        reason: "unsupported journal record version"
+                    }),
+                _ => return Err(JournalError::CorruptJournal {
+                    line: line_no, reason: "invalid record shape or version"
+                }),
+            };
         let id_bytes = decode_hex(encoded_id, line_no)?;
         let id = String::from_utf8(id_bytes).map_err(|_| JournalError::CorruptJournal {
             line: line_no, reason: "effect id is not UTF-8"
@@ -364,33 +417,51 @@ fn replay(bytes: &[u8]) -> Result<HashMap<String, JournalEntry>, JournalError> {
         match event {
             "B" => {
                 if entries.contains_key(&id) {
-                    return Err(JournalError::CorruptJournal { line: line_no, reason: "duplicate begin event" });
+                    return Err(JournalError::CorruptJournal {
+                        line: line_no, reason: "duplicate begin event"
+                    });
                 }
-                entries.insert(id, JournalEntry { request_digest: request_digest.to_owned(), status: EffectStatus::Pending });
+                entries.insert(id, JournalEntry {
+                    request_digest: request_digest.to_owned(),
+                    status: EffectStatus::Pending,
+                    source_evidence_digest: None,
+                });
             }
             "I" => {
                 let entry = entries.get_mut(&id).ok_or(JournalError::CorruptJournal {
                     line: line_no, reason: "indeterminate event precedes begin"
                 })?;
                 if entry.request_digest != request_digest || entry.status != EffectStatus::Pending {
-                    return Err(JournalError::CorruptJournal { line: line_no, reason: "invalid indeterminate transition" });
+                    return Err(JournalError::CorruptJournal {
+                        line: line_no, reason: "invalid indeterminate transition"
+                    });
                 }
                 entry.status = EffectStatus::Indeterminate;
             }
             "A" => {
-                let receipt = fields[4];
+                let receipt = receipt_digest.ok_or(JournalError::CorruptJournal {
+                    line: line_no, reason: "acknowledgement receipt is missing"
+                })?;
                 validate_digest(receipt).map_err(|_| JournalError::CorruptJournal {
                     line: line_no, reason: "receipt digest is invalid"
                 })?;
+                if let Some(evidence) = source_evidence_digest {
+                    validate_digest(evidence).map_err(|_| JournalError::CorruptJournal {
+                        line: line_no, reason: "source evidence digest is invalid"
+                    })?;
+                }
                 let entry = entries.get_mut(&id).ok_or(JournalError::CorruptJournal {
                     line: line_no, reason: "acknowledgement precedes begin"
                 })?;
                 if entry.request_digest != request_digest
                     || !matches!(&entry.status, EffectStatus::Pending | EffectStatus::Indeterminate)
                 {
-                    return Err(JournalError::CorruptJournal { line: line_no, reason: "invalid acknowledgement transition" });
+                    return Err(JournalError::CorruptJournal {
+                        line: line_no, reason: "invalid acknowledgement transition"
+                    });
                 }
                 entry.status = EffectStatus::Acknowledged { receipt_digest: receipt.to_owned() };
+                entry.source_evidence_digest = source_evidence_digest.map(str::to_owned);
             }
             _ => unreachable!("record shape validates event discriminator"),
         }
@@ -427,6 +498,8 @@ mod tests {
     const REQUEST_B: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     const RECEIPT_A: &str = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
     const RECEIPT_B: &str = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+    const SOURCE_EVIDENCE_A: &str = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    const SOURCE_EVIDENCE_B: &str = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
     #[test]
     fn pending_intent_survives_restart_and_is_not_replayed_automatically() {
@@ -447,11 +520,14 @@ mod tests {
         {
             let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
             journal.begin_effect("payment-2", REQUEST_A).unwrap();
-            assert_eq!(journal.acknowledge_effect("payment-2", REQUEST_A, RECEIPT_A), Ok(AcknowledgeResult::Acknowledged));
+            assert_eq!(journal.acknowledge_effect("payment-2", REQUEST_A, RECEIPT_A, SOURCE_EVIDENCE_A), Ok(AcknowledgeResult::Acknowledged));
         }
         let mut recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
         assert_eq!(recovered.begin_effect("payment-2", REQUEST_A),
-            Ok(BeginResult::AlreadyAcknowledged { receipt_digest: RECEIPT_A.to_owned() }));
+            Ok(BeginResult::AlreadyAcknowledged {
+                receipt_digest: RECEIPT_A.to_owned(),
+                source_evidence_digest: Some(SOURCE_EVIDENCE_A.to_owned()),
+            }));
         assert!(recovered.unresolved_effect_ids().is_empty());
     }
 
@@ -465,7 +541,7 @@ mod tests {
         }
         let mut recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
         assert_eq!(recovered.status("payment-3"), Some(EffectStatus::Indeterminate));
-        recovered.acknowledge_effect("payment-3", REQUEST_A, RECEIPT_A).unwrap();
+        recovered.acknowledge_effect("payment-3", REQUEST_A, RECEIPT_A, SOURCE_EVIDENCE_A).unwrap();
         assert_eq!(recovered.status("payment-3"), Some(EffectStatus::Acknowledged { receipt_digest: RECEIPT_A.to_owned() }));
     }
 
@@ -481,12 +557,12 @@ mod tests {
     fn acknowledgement_must_match_request_and_receipt() {
         let temp = TempDir::new();
         let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
-        assert_eq!(journal.acknowledge_effect("missing", REQUEST_A, RECEIPT_A), Err(JournalError::UnknownEffect));
+        assert_eq!(journal.acknowledge_effect("missing", REQUEST_A, RECEIPT_A, SOURCE_EVIDENCE_A), Err(JournalError::UnknownEffect));
         journal.begin_effect("payment-5", REQUEST_A).unwrap();
-        assert_eq!(journal.acknowledge_effect("payment-5", REQUEST_B, RECEIPT_A), Err(JournalError::RequestConflict));
-        journal.acknowledge_effect("payment-5", REQUEST_A, RECEIPT_A).unwrap();
-        assert_eq!(journal.acknowledge_effect("payment-5", REQUEST_A, RECEIPT_B), Err(JournalError::ReceiptConflict));
-        assert_eq!(journal.acknowledge_effect("payment-5", REQUEST_A, RECEIPT_A), Ok(AcknowledgeResult::AlreadyAcknowledged));
+        assert_eq!(journal.acknowledge_effect("payment-5", REQUEST_B, RECEIPT_A, SOURCE_EVIDENCE_A), Err(JournalError::RequestConflict));
+        journal.acknowledge_effect("payment-5", REQUEST_A, RECEIPT_A, SOURCE_EVIDENCE_A).unwrap();
+        assert_eq!(journal.acknowledge_effect("payment-5", REQUEST_A, RECEIPT_B, SOURCE_EVIDENCE_A), Err(JournalError::ReceiptConflict));
+        assert_eq!(journal.acknowledge_effect("payment-5", REQUEST_A, RECEIPT_A, SOURCE_EVIDENCE_A), Ok(AcknowledgeResult::AlreadyAcknowledged));
     }
 
     #[test]
@@ -519,7 +595,7 @@ mod tests {
         journal.begin_effect("a-first", REQUEST_B).unwrap();
         journal.mark_indeterminate("a-first", REQUEST_B).unwrap();
         journal.begin_effect("done", REQUEST_A).unwrap();
-        journal.acknowledge_effect("done", REQUEST_A, RECEIPT_A).unwrap();
+        journal.acknowledge_effect("done", REQUEST_A, RECEIPT_A, SOURCE_EVIDENCE_A).unwrap();
         assert_eq!(journal.unresolved_effect_ids(), vec!["a-first".to_owned(), "z-last".to_owned()]);
     }
 
@@ -535,7 +611,7 @@ mod tests {
     #[test]
     fn unsupported_journal_record_version_fails_closed() {
         let temp = TempDir::new();
-        fs::write(temp.journal_path(), format!("J2\tB\t{}\t{}\n", encode_hex(b"effect"), REQUEST_A)).unwrap();
+        fs::write(temp.journal_path(), format!("J3\tB\t{}\t{}\n", encode_hex(b"effect"), REQUEST_A)).unwrap();
         assert!(matches!(
             DurableEffectJournal::open(temp.journal_path()),
             Err(JournalError::CorruptJournal { reason: "unsupported journal record version", .. })
