@@ -6,6 +6,7 @@ from pathlib import Path
 SCHEMA="SYM-CIVIC-019-RECEIPT-PROOF-BINDING-V1"
 CORPUS_SCHEMA="SYM-CIVIC-019-RECEIPT-PROOF-BINDING-CORPUS-V1"
 EXPECTED_MUTATION_CASE_COUNT=25
+MAX_SYNTHETIC_TREE_SIZE = 1 << 62
 TAG_COSE_SIGN1=18
 ALG_EDDSA=-8
 VDS_RFC9162_SHA256=1
@@ -270,6 +271,7 @@ def receipt_a(raw,stmt,corpus):
     pb=bi(pa.children[0],"Receipt proof"); pn=arr(Reader(pb).parse(),"Receipt proof")
     if len(pn.children)!=3: raise Reject("proof arity")
     size=ii(pn.children[0],"tree_size"); idx=ii(pn.children[1],"leaf_index"); pathn=arr(pn.children[2],"path")
+    if size > MAX_SYNTHETIC_TREE_SIZE: raise Reject("tree_size exceeds synthetic profile ceiling")
     path=[bi(x,"path node") for x in pathn.children]
     root=s["payload"]
     if root is None or len(root)!=32: raise Reject("root must be SHA-256 bstr")
@@ -306,6 +308,7 @@ def receipt_b(raw,stmt,corpus):
     proof=bi(pa.children[0],"reference proof"); pn=arr(Reader(proof).parse(),"reference proof")
     if len(pn.children)!=3: raise Reject("reference proof arity")
     size=ii(pn.children[0],"reference tree size"); idx=ii(pn.children[1],"reference leaf index"); pathn=arr(pn.children[2],"reference path")
+    if size > MAX_SYNTHETIC_TREE_SIZE: raise Reject("reference tree_size exceeds synthetic profile ceiling")
     path=[bi(x,"reference path node") for x in pathn.children]; payload=bi(body.children[2],"reference root"); sig=bi(body.children[3],"reference signature")
     key_matches=[x for x in corpus["ts_key_registry"] if x["raw_kid_hex"]==kid.hex()]
     if len(key_matches)!=1: raise Reject("reference TS key resolution is not unique")
@@ -513,6 +516,15 @@ def run(corpus_path,report):
     proof=bytes.fromhex(c["tree"]["proof_hex"]); bad=mutate_byte(proof)
     case("PROOF_PATH_MUTATION",independent(receipt_mut(ra,proof=bad),stmt,c),"REJECT")
     eq=ar([cu(1),cu(1),ar([])]); case("LEAF_INDEX_EQUALS_TREE_SIZE",independent(receipt_mut(ra,proof=eq),stmt,c),"REJECT")
+    over_limit_proof=ar([cu(MAX_SYNTHETIC_TREE_SIZE+1),cu(0),ar([])])
+    over_limit_result=independent(receipt_mut(ra,proof=over_limit_proof),stmt,c)
+    tree_size_reason_match=(
+        over_limit_result.get("disposition")=="REJECT"
+        and over_limit_result.get("agreement")=="PASS"
+        and over_limit_result.get("primary",{}).get("error")=="tree_size exceeds synthetic profile ceiling"
+        and over_limit_result.get("reference",{}).get("error")=="reference tree_size exceeds synthetic profile ceiling"
+    )
+    case("TREE_SIZE_OVER_SYNTHETIC_PROFILE_CEILING",over_limit_result,"REJECT")
     case("VDS_SELECTOR_MUTATION",independent(receipt_mut(ra,repl={HP_VDS:ci(999)}),entry,c),"REJECT")
     case("MISSING_RECEIPT_KID",independent(receipt_mut(ra,remove={HP_KID}),entry,c),"REJECT")
     case("UNTAGGED_RECEIPT",independent(receipt_mut(ra,tag=False),entry,c),"REJECT")
@@ -551,7 +563,20 @@ def run(corpus_path,report):
     bads=[]
     for n,v in cases.items():
         if v["result"].get("disposition")!=v["qualification"]: bads.append((n,v["qualification"],v["result"].get("disposition")))
+    if not tree_size_reason_match:
+        bads.append(("TREE_SIZE_OVER_SYNTHETIC_PROFILE_CEILING","both independent implementations must reject for the pinned ceiling reason","reason mismatch"))
     if len(cases) != EXPECTED_MUTATION_CASE_COUNT:
+        diagnostic={
+            "schema":SCHEMA,
+            "claim_ceiling":"SYNTHETIC_RESEARCH_ONLY",
+            "qualification":"FAIL",
+            "expected_metamorphic_case_count":EXPECTED_MUTATION_CASE_COUNT,
+            "metamorphic_case_count":len(cases),
+            "case_ids":list(cases),
+            "cases":cases,
+            "failures":bads + [("MATRIX_CARDINALITY","expected exactly the pinned case count",len(cases))],
+        }
+        if report: Path(report).write_text(json.dumps(diagnostic,indent=2,sort_keys=True)+"\\n")
         raise Reject("mutation case count disagrees with verifier constant")
     result={"schema":SCHEMA,"claim_ceiling":"SYNTHETIC_RESEARCH_ONLY","issuer_signature_verification":"NOT_EVALUATED","exact_object_identity_scope":"BYTE_EXACT_ONLY","qualification":"FAIL" if bads else "PASS",
             "semantic_duplicate_key_rejection": True,
