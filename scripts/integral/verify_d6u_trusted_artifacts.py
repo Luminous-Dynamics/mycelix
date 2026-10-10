@@ -7,13 +7,40 @@ import json
 import os
 import re
 import sys
+import tomllib
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
 
+
+if not __debug__:
+    raise RuntimeError("trusted D6U program must not run with Python optimization enabled")
+
 ROOT = Path(__file__).parents[2]
 POLICY = ROOT / "docs/integral/d6u-trusted-builder-policy.json"
+
+MAX_GITHUB_JSON_BYTES = 8 * 1024 * 1024
+LOCK_PACKAGE_VERSION_PATTERN = re.compile(
+    r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
+)
+
+
+class NoAuthorizationRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Never forward the GitHub Actions bearer token across a redirect."""
+
+    def redirect_request(self, req, fp, code, msg, hdrs, newurl):
+        redirected = super().redirect_request(req, fp, code, msg, hdrs, newurl)
+        if redirected is not None:
+            parsed = urllib.parse.urlsplit(newurl)
+            assert parsed.scheme == "https", (
+                "trusted GitHub API redirect must remain on HTTPS"
+            )
+            assert parsed.username is None and parsed.password is None, (
+                "trusted GitHub API redirect must not introduce URL credentials"
+            )
+            redirected.remove_header("Authorization")
+        return redirected
 
 
 def github_get(repo: str, api_path: str, token: str) -> dict:
@@ -27,8 +54,19 @@ def github_get(repo: str, api_path: str, token: str) -> dict:
             "User-Agent": "mycelix-d6u-trusted-builder",
         },
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)
+    opener = urllib.request.build_opener(NoAuthorizationRedirectHandler())
+    with opener.open(request, timeout=30) as response:
+        final_url = urllib.parse.urlsplit(response.geturl())
+        assert final_url.scheme == "https"
+        assert final_url.hostname == "api.github.com"
+        assert final_url.username is None and final_url.password is None
+        assert final_url.port in (None, 443)
+        payload = response.read(MAX_GITHUB_JSON_BYTES + 1)
+        if len(payload) > MAX_GITHUB_JSON_BYTES:
+            raise RuntimeError(
+                f"GitHub API response exceeded {MAX_GITHUB_JSON_BYTES} bytes"
+            )
+        return json.loads(payload)
 
 
 def sha256(path: Path) -> str:
@@ -226,22 +264,56 @@ def verify_executor_workflow_record(
     )
 
 
+def verify_executor_run_event(
+    executor_run: dict,
+    policy: dict,
+    repo: str,
+) -> None:
+    cfg = policy["executor_workflow"]
+    expected_repository_id = int(policy["repository_identity"]["repository_id"])
+    assert executor_run["name"] == cfg["name"], "executor workflow name mismatch"
+    assert executor_run["path"] == cfg["path"], "executor workflow path mismatch"
+    assert executor_run["event"] == "workflow_run", "executor event type mismatch"
+    assert executor_run["conclusion"] == "success", "executor run did not succeed"
+    assert executor_run["repository"]["full_name"] == repo, "executor repository name mismatch"
+    assert int(executor_run["repository"]["id"]) == expected_repository_id, (
+        "executor repository ID mismatch"
+    )
+    assert executor_run["head_repository"]["full_name"] == repo, (
+        "executor head repository name mismatch"
+    )
+    assert int(executor_run["head_repository"]["id"]) == expected_repository_id, (
+        "executor head repository ID mismatch"
+    )
+    assert executor_run["head_branch"] == "main", "executor workflow ref is not main"
+    head_sha = executor_run["head_sha"]
+    assert isinstance(head_sha, str) and re.fullmatch(r"[0-9a-f]{40}", head_sha), (
+        "executor workflow commit SHA is not canonical"
+    )
+    for key in ("id", "run_attempt"):
+        value = executor_run[key]
+        assert isinstance(value, int) and not isinstance(value, bool) and value > 0, (
+            f"executor {key} is not a positive integer"
+        )
+
+
 def verify_executor_run_record(
     executor_run: dict,
     record: dict[str, str],
     policy: dict,
     repo: str,
 ) -> None:
-    cfg = policy["executor_workflow"]
-    assert executor_run["name"] == cfg["name"]
-    assert executor_run["path"] == cfg["path"]
-    assert executor_run["event"] == "workflow_run"
-    assert executor_run["conclusion"] == "success"
-    assert executor_run["repository"]["full_name"] == repo
-    assert executor_run["head_repository"]["full_name"] == repo
-    assert executor_run["head_branch"] == "main"
-    assert executor_run["id"] == int(record["executor_run_id"])
-    assert executor_run["run_attempt"] == int(record["executor_run_attempt"])
+    verify_executor_run_event(executor_run, policy, repo)
+    head_sha = executor_run["head_sha"]
+    assert record["executor_workflow_commit_sha"] == head_sha, (
+        "executor workflow commit does not match evidence record"
+    )
+    assert executor_run["id"] == int(record["executor_run_id"]), (
+        "executor run ID does not match evidence record"
+    )
+    assert executor_run["run_attempt"] == int(record["executor_run_attempt"]), (
+        "executor run attempt does not match evidence record"
+    )
 
 
 def verify_executor_workflow_against_run_head(
@@ -250,8 +322,11 @@ def verify_executor_workflow_against_run_head(
     repo: str,
     token: str,
 ) -> None:
+    expected_repository_id = int(policy["repository_identity"]["repository_id"])
     assert executor_run["repository"]["full_name"] == repo
+    assert int(executor_run["repository"]["id"]) == expected_repository_id
     assert executor_run["head_repository"]["full_name"] == repo
+    assert int(executor_run["head_repository"]["id"]) == expected_repository_id
     assert executor_run["head_branch"] == "main"
     head_sha = executor_run["head_sha"]
     assert re.fullmatch(r"[0-9a-f]{40}", head_sha)
@@ -283,13 +358,18 @@ def verify_trigger_run_record(
     repo: str,
 ) -> None:
     cfg = policy["trigger_workflow"]
+    expected_repository_id = int(policy["repository_identity"]["repository_id"])
     assert trigger["name"] == cfg["name"]
     assert trigger["path"] == cfg["path"]
+    assert int(trigger["workflow_id"]) == int(cfg["workflow_id"])
     assert trigger["event"] == "pull_request"
     assert trigger["conclusion"] == "success"
     assert trigger["head_repository"]["full_name"] == repo
+    assert int(trigger["head_repository"]["id"]) == expected_repository_id
     assert trigger["repository"]["full_name"] == repo
+    assert int(trigger["repository"]["id"]) == expected_repository_id
     assert trigger["head_branch"] == policy["source_branch"]
+    assert trigger["id"] == int(record["trigger_workflow_run_id"])
     assert trigger["run_attempt"] == int(record["trigger_workflow_run_attempt"])
     assert trigger["head_sha"] == record["source_commit"]
     assert record["trigger_workflow_name"] == trigger["name"]
@@ -330,6 +410,25 @@ def verify_trigger_run(
 
 
 def verify_record_metadata(record: dict[str, str], policy: dict) -> None:
+    expected_record_fields = set(policy["record_fields"])
+    assert len(expected_record_fields) == len(policy["record_fields"])
+    assert set(record) == expected_record_fields, (
+        f"runtime evidence record schema mismatch: "
+        f"expected={sorted(expected_record_fields)!r}, observed={sorted(record)!r}"
+    )
+    for key in (
+        "workflow_run_id",
+        "workflow_run_attempt",
+        "trigger_workflow_run_id",
+        "trigger_workflow_run_attempt",
+        "executor_run_id",
+        "executor_run_attempt",
+    ):
+        assert re.fullmatch(r"[1-9][0-9]*", record[key]), (
+            f"runtime evidence run identity is not canonical: {key}={record[key]!r}"
+        )
+    assert record["workflow_run_id"] == record["executor_run_id"]
+    assert record["workflow_run_attempt"] == record["executor_run_attempt"]
     assert record["d6s2_authority_ledger_schema"] == policy["d6s2_authority_ledger_schema"]
     assert record["d6s1_corpus_sha256"] == policy["d6s1_corpus_sha256"]
 
@@ -422,10 +521,223 @@ def verify_cases(log: str, policy: dict) -> None:
     assert len(app) == 1
 
 
-def verify_lock(path: Path, policy: dict) -> None:
-    import tomllib
+def _git_blob_sha1(content: bytes) -> str:
+    header = f"blob {len(content)}\0".encode("utf-8")
+    return hashlib.sha1(header + content).hexdigest()
 
+
+def _manifest_dependency_names(manifest: dict) -> set[str]:
+    names: set[str] = set()
+
+    def consume(table: object) -> None:
+        assert isinstance(table, dict)
+        for alias, specification in table.items():
+            assert isinstance(alias, str) and alias
+            if isinstance(specification, dict):
+                package_name = specification.get("package", alias)
+                assert isinstance(package_name, str) and package_name
+            else:
+                package_name = alias
+            names.add(package_name)
+
+    for section in ("dependencies", "dev-dependencies", "build-dependencies"):
+        if section in manifest:
+            consume(manifest[section])
+
+    targets = manifest.get("target", {})
+    if targets:
+        assert isinstance(targets, dict)
+        for target in targets.values():
+            assert isinstance(target, dict)
+            for section in ("dependencies", "dev-dependencies", "build-dependencies"):
+                if section in target:
+                    consume(target[section])
+
+    return names
+
+
+def _parse_lock_dependency(reference: str) -> tuple[str, str | None, str | None]:
+    assert isinstance(reference, str) and reference
+    value = reference.strip()
+    source: str | None = None
+    if value.endswith(")") and " (" in value:
+        value, source_with_paren = value.rsplit(" (", 1)
+        source = source_with_paren[:-1]
+        assert source
+    parts = value.rsplit(" ", 1)
+    if len(parts) == 2 and LOCK_PACKAGE_VERSION_PATTERN.fullmatch(parts[1]):
+        return parts[0], parts[1], source
+    assert " " not in value, f"malformed Cargo.lock dependency reference: {reference!r}"
+    return value, None, source
+
+
+def _resolve_lock_dependency(
+    reference: str,
+    packages_by_name: dict[str, list[tuple[str, str, str | None]]],
+) -> tuple[str, str, str | None]:
+    name, version, source = _parse_lock_dependency(reference)
+    candidates = packages_by_name.get(name, [])
+    if version is not None:
+        candidates = [candidate for candidate in candidates if candidate[1] == version]
+    if source is not None:
+        candidates = [candidate for candidate in candidates if candidate[2] == source]
+    assert len(candidates) == 1, (
+        f"Cargo.lock dependency reference is missing or ambiguous: "
+        f"reference={reference!r}, candidates={candidates!r}"
+    )
+    return candidates[0]
+
+
+def verify_lock_graph_against_manifest(
+    lock: dict,
+    manifest: dict,
+    policy: dict,
+) -> None:
+    graph_policy = policy["lock_graph"]
+    packages = lock["package"]
+    local_packages = set(graph_policy["allowed_local_packages"])
+    local_nodes = [
+        package
+        for package in packages
+        if package.get("source") is None
+    ]
+    assert local_nodes == [
+        package
+        for package in packages
+        if package.get("name") in local_packages
+    ], "Cargo.lock local-package surface does not match policy"
+    assert len(local_nodes) == 1, (
+        f"Cargo.lock must contain exactly one local root package, observed {len(local_nodes)}"
+    )
+
+    manifest_package = manifest.get("package")
+    assert isinstance(manifest_package, dict), "trusted Cargo.toml must define [package]"
+    root = local_nodes[0]
+    assert root.get("name") == manifest_package.get("name"), (
+        "Cargo.lock root package name does not match the trusted Cargo.toml package name"
+    )
+    assert root.get("version") == manifest_package.get("version"), (
+        "Cargo.lock root package version does not match the trusted Cargo.toml package version"
+    )
+
+    expected_direct = _manifest_dependency_names(manifest)
+    root_dependencies = root.get("dependencies", [])
+    assert isinstance(root_dependencies, list)
+    observed_direct: set[str] = set()
+    seen_direct: set[str] = set()
+    packages_by_name: dict[str, list[tuple[str, str, str | None]]] = {}
+    identity_set: set[tuple[str, str, str | None]] = set()
+
+    for package in packages:
+        identity = (
+            package["name"],
+            package["version"],
+            package.get("source"),
+        )
+        assert identity not in identity_set, f"duplicate Cargo.lock package identity: {identity!r}"
+        identity_set.add(identity)
+        packages_by_name.setdefault(identity[0], []).append(identity)
+
+    for reference in root_dependencies:
+        name, _, _ = _parse_lock_dependency(reference)
+        assert name not in seen_direct, (
+            f"duplicate direct dependency reference in Cargo.lock root: {reference!r}"
+        )
+        seen_direct.add(name)
+        observed_direct.add(name)
+        _resolve_lock_dependency(reference, packages_by_name)
+
+    assert observed_direct == expected_direct, (
+        f"Cargo.lock root dependencies do not match trusted Cargo.toml: "
+        f"expected={sorted(expected_direct)!r}, observed={sorted(observed_direct)!r}"
+    )
+
+    adjacency: dict[tuple[str, str, str | None], set[tuple[str, str, str | None]]] = {}
+    for package in packages:
+        identity = (package["name"], package["version"], package.get("source"))
+        references = package.get("dependencies", [])
+        assert isinstance(references, list)
+        edges: set[tuple[str, str, str | None]] = set()
+        for reference in references:
+            resolved = _resolve_lock_dependency(reference, packages_by_name)
+            assert resolved not in edges, (
+                f"duplicate Cargo.lock dependency edge: "
+                f"package={identity!r}, reference={reference!r}"
+            )
+            edges.add(resolved)
+        adjacency[identity] = edges
+
+    root_identity = (
+        root["name"],
+        root["version"],
+        root.get("source"),
+    )
+    reachable: set[tuple[str, str, str | None]] = set()
+    pending = [root_identity]
+    while pending:
+        current = pending.pop()
+        if current in reachable:
+            continue
+        reachable.add(current)
+        pending.extend(sorted(adjacency[current] - reachable))
+
+    assert reachable == identity_set, (
+        f"Cargo.lock contains unreachable package nodes: "
+        f"{sorted(identity_set - reachable)!r}"
+    )
+
+
+def verify_lock_graph_integrity(lock: dict, policy: dict) -> None:
+    packages = lock.get("package", [])
+    assert isinstance(packages, list) and packages
+    graph_policy = policy["lock_graph"]
+    local_packages = set(graph_policy["allowed_local_packages"])
+    assert local_packages
+    observed_local = []
+    seen = set()
+    for package in packages:
+        assert isinstance(package, dict)
+        name = package.get("name")
+        version = package.get("version")
+        assert isinstance(name, str) and name
+        assert isinstance(version, str) and version
+        identity = (name, version, package.get("source"))
+        assert identity not in seen, f"duplicate Cargo.lock package identity: {identity!r}"
+        seen.add(identity)
+        if name in local_packages:
+            assert package.get("source") is None
+            assert package.get("checksum") is None
+            observed_local.append(name)
+            continue
+        assert package.get("source") == graph_policy["required_registry_source"], (
+            f"Cargo.lock package {name!r} resolves from an untrusted source: "
+            f"{package.get('source')!r}"
+        )
+        checksum = package.get("checksum", "")
+        assert re.fullmatch(r"[0-9a-f]{64}", checksum), (
+            f"Cargo.lock registry package {name!r} must include a 64-hex checksum"
+        )
+
+    assert observed_local == sorted(local_packages), (
+        f"Cargo.lock local package set mismatch: expected={sorted(local_packages)!r}, "
+        f"observed={sorted(observed_local)!r}"
+    )
+
+
+def verify_lock(
+    path: Path,
+    policy: dict,
+    trusted_manifest: dict | None = None,
+) -> None:
     lock = tomllib.loads(path.read_text(encoding="utf-8"))
+    expected_format_version = int(policy["lock_graph"]["lockfile_format_version"])
+    assert lock.get("version") == expected_format_version, (
+        f"Cargo.lock format version mismatch: "
+        f"expected={expected_format_version}, observed={lock.get('version')!r}"
+    )
+    verify_lock_graph_integrity(lock, policy)
+    if trusted_manifest is not None:
+        verify_lock_graph_against_manifest(lock, trusted_manifest, policy)
     packages = lock.get("package", [])
     for name, version in policy["lock_packages"].items():
         matches = [p for p in packages if p.get("name") == name]
@@ -456,10 +768,7 @@ def main() -> None:
     )
 
     assert event["repository"]["full_name"] == repo
-    verify_executor_run_record(executor_run, {
-        "executor_run_id": str(executor_run["id"]),
-        "executor_run_attempt": str(executor_run["run_attempt"]),
-    }, policy, repo)
+    verify_executor_run_event(executor_run, policy, repo)
     verify_executor_workflow_against_run_head(
         executor_run,
         policy,
@@ -489,12 +798,13 @@ def main() -> None:
     record = load_record(evidence)
 
     assert set(record) == set(policy["record_fields"])
-    assert record["status"] == "runtime-reference-evidence"
+    verify_executor_run_record(executor_run, record, policy, repo)
+    assert record["status"] == "runtime-reference-evidence", "runtime evidence status mismatch"
     assert record["workflow_run_id"] == str(executor_run["id"])
     assert record["workflow_run_attempt"] == str(executor_run["run_attempt"])
     assert record["executor_run_id"] == str(executor_run["id"])
     assert record["executor_run_attempt"] == str(executor_run["run_attempt"])
-    assert record["attestation_status"] == "deferred-to-trusted-builder"
+    assert record["attestation_status"] == "deferred-to-trusted-builder", "trusted-builder handoff status mismatch"
     assert record["claim_ceiling"] == policy["claim_ceiling"]
     verify_record_metadata(record, policy)
 
@@ -508,7 +818,20 @@ def main() -> None:
     assert record["cargo_lock_sha256"] == sha256(lockfile)
 
     verify_cases(test_log.read_text(encoding="utf-8"), policy)
-    verify_lock(lockfile, policy)
+    trusted_manifest_bytes = contents_bytes_from_api(
+        repo,
+        policy["lock_graph"]["manifest_path"],
+        record["source_commit"],
+        token,
+    )
+    expected_manifest_blob = policy["required_source_blobs"][
+        policy["lock_graph"]["manifest_path"]
+    ]
+    assert _git_blob_sha1(trusted_manifest_bytes) == expected_manifest_blob, (
+        "trusted Cargo.toml bytes do not match the policy-pinned Git blob"
+    )
+    trusted_manifest = tomllib.loads(trusted_manifest_bytes.decode("utf-8"))
+    verify_lock(lockfile, policy, trusted_manifest)
 
     d6s1 = contents_bytes_from_api(
         repo,

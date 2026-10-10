@@ -1,9 +1,13 @@
 {
-  "policy_version": 26,
+  "policy_version": 62,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
   "claim_ceiling": "ReferenceModelOnly",
+  "repository_identity": {
+    "full_name": "Luminous-Dynamics/mycelix",
+    "repository_id": 1176351975
+  },
   "runtime": {
     "holochain": "0.7.0",
     "hdk": "0.7.0",
@@ -16,6 +20,8 @@
   ],
   "record_fields": [
     "status",
+    "workflow_run_id",
+    "workflow_run_attempt",
     "source_commit",
     "source_branch",
     "source_repository",
@@ -134,6 +140,17 @@
     "holochain_types": "0.7.0"
   },
   "lock_source": "registry+https://github.com/rust-lang/crates.io-index",
+  "lock_graph": {
+    "required_registry_source": "registry+https://github.com/rust-lang/crates.io-index",
+    "allowed_local_packages": [
+      "d6u-runtime-harness"
+    ],
+    "lockfile_format_version": 4,
+    "manifest_path": "d6u-runtime-harness/Cargo.toml",
+    "require_manifest_root_binding": true,
+    "require_dependency_edge_closure": true,
+    "require_all_packages_reachable": true
+  },
   "manifest_version": 11,
   "d6s2_authority_ledger_schema": "v1",
   "d6s2_manifest_git_blob_sha": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
@@ -158,7 +175,9 @@
   "source_branch": "myc-int-demo-d6u-holochain-07-runtime",
   "trigger_workflow": {
     "name": "D6S Canonical Qualification",
-    "path": ".github/workflows/d6s-canonical-qualification.yml"
+    "path": ".github/workflows/d6s-canonical-qualification.yml",
+    "workflow_id": 371215723,
+    "blob_sha": "e2ee0dd880d5ee0b48ef9667608294d46b2fc1b4"
   },
   "executor_workflow": {
     "name": "D6U Exact-Head Runtime Executor",
@@ -178,7 +197,7 @@
     "scripts/integral/verify_d6u_runtime_record.py": "3527dc4757163e8fed7edf734ecb99190e2c24ce",
     "docs/integral/d6s-canon-2-manifest.json": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
     "docs/integral/d6s-canon-2-authority-boundary-fixture.json": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1",
-    ".github/workflows/d6s-canonical-qualification.yml": "6d06f3cbefa17ac2eb55b778791a2d3a4a593eda",
+    ".github/workflows/d6s-canonical-qualification.yml": "e2ee0dd880d5ee0b48ef9667608294d46b2fc1b4",
     "docs/integral/d6s-canon-1-manifest.json": "53d88a67c48c8adbf783d1df290b3c591cd15566",
     "docs/integral/d6s-canon-1-golden-vectors.json": "5e359549623101fe5997d0cfe8c7acb9c50cd57b",
     "scripts/integral/verify_d6s_canon_1.py": "fad033cb88ca88b0b6a116dfadd799ac73e1233e",
@@ -206,7 +225,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "e1fc28cc508e6f9bcf97ad6b07167b55f3765f5a"
+    "blob_sha": "652f81c65cdf6d6138ff2c7f4be5b0bd74ae3d61"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -218,17 +237,36 @@
     "reject_encrypted_members": true,
     "reject_symlink_members": true,
     "expected_member_count": 3,
-    "policy_revision": 26
+    "policy_revision": 30,
+    "allowed_compression_methods": [
+      "stored",
+      "deflate"
+    ]
   },
   "trusted_artifact_fetcher": {
     "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-    "blob_sha": "a249c8f0b014beb07060b33b93382adbbc37eb96"
+    "blob_sha": "4c4d67f6f9a77c512728a8723cf2aa708687a395"
+  },
+  "attestation_publication": {
+    "push_to_registry": false,
+    "create_storage_record": false,
+    "show_summary": false
   },
   "trusted_permissions": {
-    "actions": "read",
-    "contents": "read",
-    "id-token": "write",
-    "attestations": "write"
+    "verifier": {
+      "actions": "read",
+      "contents": "read"
+    },
+    "signer": {
+      "contents": "read",
+      "id-token": "write",
+      "attestations": "write"
+    },
+    "auditor": {
+      "actions": "read",
+      "contents": "read",
+      "attestations": "read"
+    }
   },
   "attestation_verification": {
     "signer_workflow": "Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-evidence-attestation.yml",
@@ -239,7 +277,8 @@
     "source_digest_source": "GITHUB_SHA",
     "source_ref_source": "GITHUB_REF",
     "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
-    "predicate_schema": "d6u-trusted-runtime-evidence/v1",
+    "predicate_schema": "d6u-trusted-runtime-evidence-attestation/v2",
+    "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
     "current_run_identity": {
       "certificate_field": "runInvocationURI",
       "template": "https://github.com/{repository}/actions/runs/{run_id}/attempts/{run_attempt}"
@@ -248,28 +287,34 @@
     "require_subject_digest_match": true,
     "subject_set_exact": true,
     "require_signed_predicate_subject_binding": true,
-    "require_verified_timestamp": true
+    "require_verified_timestamp": true,
+    "require_verified_tlog": true,
+    "max_report_bytes": 4194304
   },
   "trusted_attestation_verifier": {
     "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-    "blob_sha": "c7f36ab104197e8deaac94a5fdcdf967a315e467"
+    "blob_sha": "91331c11f6c6de76f44c8d977629971193e2c0ba"
   },
   "trusted_programs": {
     "scripts/integral/verify_d6u_trusted_artifacts.py": {
       "path": "scripts/integral/verify_d6u_trusted_artifacts.py",
-      "blob_sha": "f7e99b89732b89927c0006e488753e89e8476c89"
+      "blob_sha": "de5b3275dda9cbeaa880d26a9ff2dc0e58d7d65e"
     },
     "scripts/integral/fetch_d6u_trusted_artifact.py": {
       "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
-      "blob_sha": "a249c8f0b014beb07060b33b93382adbbc37eb96"
+      "blob_sha": "4c4d67f6f9a77c512728a8723cf2aa708687a395"
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-      "blob_sha": "c7f36ab104197e8deaac94a5fdcdf967a315e467"
+      "blob_sha": "91331c11f6c6de76f44c8d977629971193e2c0ba"
     },
     "scripts/integral/emit_d6u_trusted_attestation_predicate.py": {
       "path": "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
-      "blob_sha": "77eb6d7869b85d7f8444131ae9c8899770b79c7e"
+      "blob_sha": "ce32e161d3f45918ba8ea5545d02e233af331ead"
+    },
+    "scripts/integral/verify_d6u_trusted_attestation_retention.py": {
+      "path": "scripts/integral/verify_d6u_trusted_attestation_retention.py",
+      "blob_sha": "df1e4fd9ba3c924037ef7ae97d087751ac8e122f"
     }
   },
   "trusted_actions": {
@@ -280,6 +325,10 @@
     "actions/attest": {
       "ref": "1e69f48acb82d1966a394da916b4c169aa569d6",
       "version": "v4.2.2"
+    },
+    "actions/upload-artifact": {
+      "ref": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "version": "v4.6.2"
     }
   },
   "trusted_cli": {
@@ -291,6 +340,121 @@
       "GH_HOST",
       "GH_ENTERPRISE_TOKEN",
       "GH_REPO"
+    ],
+    "executable_path_must_not_resolve_under": [
+      "${{ github.workspace }}",
+      "${{ runner.temp }}"
     ]
+  },
+  "trusted_network": {
+    "github_api_response_max_bytes": 8388608
+  },
+  "attestation_retention": {
+    "schema": "d6u-attestation-retention/v2",
+    "expected_file_count": 15,
+    "max_file_bytes": 4194304,
+    "max_trusted_root_bytes": 2097152,
+    "max_total_bytes": 18874368,
+    "max_jsonl_lines": 64,
+    "subjects": [
+      "d6u-runtime-evidence.txt",
+      "d6u-runtime-test.log",
+      "Cargo.lock"
+    ],
+    "trusted_root_filename": "trusted_root.jsonl",
+    "offline_verified": true,
+    "online_verified": true,
+    "require_public_good_instance": true,
+    "public_good_instance": "sigstore-public-good",
+    "require_tlog": true,
+    "require_no_public_good_rejection": true,
+    "retention_artifact": {
+      "name_template": "d6u-trusted-attestation-retention-run-{run_id}-attempt-{run_attempt}",
+      "retention_days": 90
+    },
+    "negative_control_schema": "d6u-no-public-good-control/v1",
+    "retain_online_verification": true,
+    "retain_negative_control": true,
+    "max_attestations_per_verify": 8,
+    "predicate_schema": "d6u-trusted-runtime-evidence-attestation/v2",
+    "canonical_predicate_filename": "d6u-trusted-evidence-predicate.json",
+    "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
+    "retain_canonical_predicate": true
+  },
+  "attestation_integrity_revision": 62,
+  "attestation_commitment": {
+    "schema": "d6u-trusted-runtime-evidence-attestation/v2",
+    "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
+    "canonical_predicate_schema": "d6u-trusted-runtime-evidence/v1",
+    "canonical_predicate_filename": "d6u-trusted-evidence-predicate.json",
+    "subject_source": "verifier_job_outputs",
+    "signing_mode": "digest-only-subject-checksums",
+    "signer_must_not_receive_original_subject_files": true,
+    "signer_must_not_download_auditor_handoff": true
+  },
+  "auditor_handoff": {
+    "schema": "d6u-trusted-auditor-handoff/v1",
+    "expected_file_count": 6,
+    "manifest_filename": "d6u-auditor-handoff.manifest.sha256",
+    "context_filename": "d6u-auditor-context.txt",
+    "predicate_filename": "d6u-trusted-evidence-predicate.json",
+    "subject_files": [
+      "d6u-runtime-evidence.txt",
+      "d6u-runtime-test.log",
+      "Cargo.lock"
+    ],
+    "artifact_name_template": "d6u-trusted-auditor-handoff-run-{run_id}-attempt-{run_attempt}",
+    "retention_days": 1,
+    "require_exact_file_set": true,
+    "require_manifest_sha256": true,
+    "require_current_run_context": true,
+    "claim_ceiling": "ReferenceModelOnly",
+    "artifact_max_bytes": {
+      "d6u-runtime-evidence.txt": 262144,
+      "d6u-runtime-test.log": 8388608,
+      "Cargo.lock": 4194304,
+      "d6u-auditor-context.txt": 4096,
+      "d6u-auditor-handoff.manifest.sha256": 1024,
+      "d6u-trusted-evidence-predicate.json": 16384
+    },
+    "artifact_max_entries": 16,
+    "artifact_max_total_bytes": 12866560,
+    "artifact_max_archive_bytes": 13631488,
+    "expected_member_count": 6,
+    "require_match_after_download": true,
+    "archive_format": "zip",
+    "extraction_mode": "bounded-members",
+    "reject_encrypted_members": true,
+    "reject_symlink_members": true,
+    "reject_zip64": true,
+    "eocd_entry_count_preflight": true,
+    "allowed_compression_methods": [
+      "stored",
+      "deflate"
+    ]
+  },
+  "workflow_default_permissions": {},
+  "attestation_trigger": {
+    "workflow_name": "D6U Exact-Head Runtime Executor",
+    "event": "workflow_run",
+    "types": [
+      "completed"
+    ],
+    "conclusion": "success",
+    "repository": "Luminous-Dynamics/mycelix",
+    "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+    "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+    "require_record_source_binding": true,
+    "require_record_executor_run_binding": true
+  },
+  "artifact_run_binding": {
+    "require_exact_run_attempt": true,
+    "require_head_branch_match_trigger": true,
+    "require_head_sha_match_trigger": true
+  },
+  "trusted_source_root": {
+    "ref": "refs/heads/main",
+    "commit_sha": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+    "purpose": "Immutable source root for policy-pinned D6S workflow definition."
   }
 }

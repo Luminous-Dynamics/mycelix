@@ -7,6 +7,10 @@ import sys
 from pathlib import Path
 
 
+
+if not __debug__:
+    raise RuntimeError("trusted D6U program must not run with Python optimization enabled")
+
 ROOT = Path(__file__).parents[2]
 POLICY = ROOT / "docs/integral/d6u-trusted-builder-policy.json"
 

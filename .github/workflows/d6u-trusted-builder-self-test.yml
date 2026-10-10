@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/d6u-trusted-evidence-attestation.yml"
+      - ".github/workflows/d6u-trusted-builder-self-test.yml"
       - ".github/workflows/d6u-exact-head-runtime-executor.yml"
       - "docs/integral/d6u-trusted-builder-policy.json"
       - "scripts/integral/verify_d6u_trusted_artifacts.py"
@@ -11,10 +12,10 @@ on:
       - "scripts/integral/fetch_d6u_trusted_artifact.py"
       - "scripts/integral/verify_d6u_trusted_attestation.py"
       - "scripts/integral/emit_d6u_trusted_attestation_predicate.py"
+      - "scripts/integral/verify_d6u_trusted_attestation_retention.py"
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: d6u-trusted-builder-self-test-${{ github.event.pull_request.number || github.ref }}
@@ -22,17 +23,146 @@ concurrency:
 
 jobs:
   self-test:
+    permissions:
+      contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
-      - name: Compile trusted verifier
-        run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py scripts/integral/test_d6u_trusted_artifacts.py
+      - name: Assert exact test head
+        env:
+          EXPECTED_TEST_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          observed="$(git rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_TEST_HEAD"
 
-      - name: Run trusted verifier self-tests
-        working-directory: scripts/integral
-        run: python3 test_d6u_trusted_artifacts.py
+      - name: Checkout pinned trusted D6S source root
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: 445a84abdaa64f3d05e2d5c51115e4d060b78ec7
+          path: _trusted-main
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert pinned trusted D6S source root
+        env:
+          EXPECTED_TRUSTED_ROOT: 445a84abdaa64f3d05e2d5c51115e4d060b78ec7
+        run: |
+          observed="$(git -C _trusted-main rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_TRUSTED_ROOT"
+
+      # Provisional integration: immutable commit and blob are pinned below,
+      # but the evaluator is not yet a trusted-main artifact. Promotion must
+      # wait until its code has been independently reviewed and landed/pinned
+      # from the trusted source root.
+      - name: Checkout immutable independent evaluator candidate
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: f384894a86455fcfbc1c389d00b18795df6ac1a6
+          path: _independent-evaluator
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert independent evaluator commit and blob
+        env:
+          EXPECTED_EVALUATOR_COMMIT: f384894a86455fcfbc1c389d00b18795df6ac1a6
+          EXPECTED_EVALUATOR_BLOB: 0eb67587eb95bf8e0b3da3dffd5aa01bb92073a6
+          EXPECTED_RUST_EVALUATOR_BLOB: ad32bf4181fdfefe8cc8cb72d9334788a9da6576
+        run: |
+          observed_commit="$(git -C _independent-evaluator rev-parse HEAD)"
+          test "$observed_commit" = "$EXPECTED_EVALUATOR_COMMIT"
+          observed_blob="$(git -C _independent-evaluator rev-parse HEAD:scripts/integral/evaluate_d6u_trusted_verifier_independently.py)"
+          test "$observed_blob" = "$EXPECTED_EVALUATOR_BLOB"
+          observed_rust_blob="$(git -C _independent-evaluator rev-parse HEAD:scripts/integral/d6u_trusted_root_check.rs)"
+          test "$observed_rust_blob" = "$EXPECTED_RUST_EVALUATOR_BLOB"
+
+      - name: Install pinned Rust for the source-integrity preflight
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
+        with:
+          toolchain: 1.96.0
+
+      - name: Assert Rust compiler identity
+        run: test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+
+      - name: Run pinned Rust preflight and receipt regression tests
+        run: |
+          set -euo pipefail
+          rustc +1.96.0 --edition=2024 --test \
+            _independent-evaluator/scripts/integral/d6u_trusted_root_check.rs \
+            -o "$RUNNER_TEMP/d6u-trusted-root-check-tests"
+          "$RUNNER_TEMP/d6u-trusted-root-check-tests"
+
+      - name: Run independent Rust trust-root preflight
+        run: |
+          set -euo pipefail
+          rustc +1.96.0 --edition=2024 -D warnings \
+            _independent-evaluator/scripts/integral/d6u_trusted_root_check.rs \
+            -o "$RUNNER_TEMP/d6u-trusted-root-check"
+          "$RUNNER_TEMP/d6u-trusted-root-check" --candidate-root "$GITHUB_WORKSPACE"
+
+      - name: Run immutable independent evaluator in a restricted container
+        run: |
+          set -euo pipefail
+          image='python:3.12-slim-bookworm@sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4'
+          docker pull "$image"
+          docker image inspect "$image" --format '{{json .RepoDigests}}' | grep -Fq 'sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4'
+          docker run --rm \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit=64 \
+            --memory=512m \
+            --cpus=1 \
+            --user 65534:65534 \
+            --tmpfs /tmp:rw,noexec,nosuid,size=32m,mode=1777 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/candidate,readonly" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/_independent-evaluator,dst=/evaluator,readonly" \
+            --workdir /evaluator \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            --env LANG=C.UTF-8 \
+            --env PYTHONDONTWRITEBYTECODE=1 \
+            "$image" \
+            python3 scripts/integral/evaluate_d6u_trusted_verifier_independently.py \
+              --candidate-root /candidate
+
+      - name: Compile and run candidate-owned tests in a restricted container
+        run: |
+          set -euo pipefail
+          image='python:3.12-slim-bookworm@sha256:9901e0a8d75037d8242ed43155cbcb2d1f61be1356383d8054afb59fd50e39c4'
+          docker run --rm \
+            --network none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit=64 \
+            --memory=512m \
+            --cpus=1 \
+            --user 65534:65534 \
+            --tmpfs /tmp:rw,noexec,nosuid,size=32m,mode=1777 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/candidate,readonly" \
+            --workdir /candidate \
+            --env HOME=/tmp \
+            --env TMPDIR=/tmp \
+            --env LANG=C.UTF-8 \
+            --env PYTHONDONTWRITEBYTECODE=1 \
+            --env PYTHONPYCACHEPREFIX=/tmp/pycache \
+            "$image" \
+            sh -euc ' \
+              mkdir -p /tmp/pycache; \
+              python3 -m py_compile \
+                scripts/integral/verify_d6u_trusted_artifacts.py \
+                scripts/integral/fetch_d6u_trusted_artifact.py \
+                scripts/integral/verify_d6u_trusted_attestation.py \
+                scripts/integral/emit_d6u_trusted_attestation_predicate.py \
+                scripts/integral/verify_d6u_trusted_attestation_retention.py \
+                scripts/integral/test_d6u_trusted_artifacts.py; \
+              cd scripts/integral; \
+              D6U_TRUSTED_SOURCE_ROOT=/candidate/_trusted-main \
+                python3 test_d6u_trusted_artifacts.py'
