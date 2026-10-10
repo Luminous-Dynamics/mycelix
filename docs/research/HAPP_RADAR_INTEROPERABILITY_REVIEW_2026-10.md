@@ -116,6 +116,14 @@ Source: https://github.com/Sensorica/nondominium/blob/dev/README.md
 
 Source: https://github.com/lightningrodlabs/moss/blob/main/README.md
 
+**Requests and Offers — a small, concrete economic user journey.** `happenings-community/requests-and-offers` implements a peer-to-peer request/offer board, is explicitly marked alpha/not production ready, and its package manifest wires a Sweettest suite plus UI unit/integration tests. Its documented MVP is intentionally a listing board with contact, ownership controls, and search; agreement, exchange, reputation and matching are later features. That scope discipline is useful for Mycelix: first prove one simple request → offer → commitment → delivery/receipt → SAP/TEND settlement path works end-to-end, instead of trying to launch all economic and civic domains at once.
+
+The repository also provides a compatibility caution: its current `download-hrea` script fetches the pinned `happ-0.4.0-beta/hrea.dna` artifact, while the current hREA in-repository guide describes the later `happ-0.5.0-beta` / Holochain 0.7 line. Pinning an older supported artifact is fine, but integration claims must follow the exact artifact and matching conductor/client/GraphQL package—not the newest README alone. The project's own README calls it alpha, so its documented test surfaces are a pattern to benchmark, not proof of production readiness.
+
+Sources:
+- https://github.com/happenings-community/requests-and-offers/blob/main/README.md
+- https://github.com/happenings-community/requests-and-offers/blob/main/package.json
+
 **AD4M — semantic interoperability and signed agent-authored expressions.** `coasys/ad4m` describes pluggable “Languages” for bridging protocols/storage systems, cryptographically signed expressions, semantic perspectives, and a local agent-centric runtime. It also documents both Holochain-backed synchronization and a self-hosted server-backed link-language option, plus multi-node test commands. This is worth studying for Mycelix's federation of personal, commons, and civic meanings: how to preserve provenance while allowing different applications to interpret shared relations. Do not assume its semantic layer substitutes for integrity-zome validation, authorization, or a domain ontology.
 
 Its repository uses the Cryptographic Autonomy License (CAL-1.0). Review the actual CAL conditions and compatibility before reusing code; source inspiration and independent protocol implementation are different from copying a licensed implementation.
@@ -141,6 +149,23 @@ Sources:
 - https://github.com/Luminous-Dynamics/mycelix/blob/main/LICENSING.md
 - https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/Cargo.toml
 - https://github.com/h-REA/hREA/blob/sprout/docs/README.md
+
+## Recommended Mycelix proof-of-integration slice
+
+The comparative work suggests the next useful demonstration is a small, complete and independently verifiable journey, not a new domain cluster.
+
+1. A participant posts a resource request or offer.
+2. The counterpart accepts an explicit scoped commitment/agreement.
+3. Completion is recorded as an economic event with a receipt/evidence reference.
+4. Settlement uses the selected SAP/TEND path, with exact typed effects and idempotency.
+5. A verifier can independently inspect the provenance trail and report unresolved or forked states honestly.
+6. The UI supports cancellation, dispute, retry/recovery and data export—not only the happy path.
+
+Implement it as a thin vertical slice across the existing Mycelix domain code, backed by an explicitly versioned ValueFlows mapping. For the first iteration, keep the ValueFlows/hREA edge read-only/export-only until conductor/client compatibility and economic mutation guarantees are established. Do not let the adapter write authoritative balances. Reuse the existing AC-176/AC-153/FIN-SAFE source tracks rather than duplicating their ledger work.
+
+**Qualification ladder:** (a) pure transition/economic-effect unit tests, (b) integrity validators, (c) two- and three-agent Sweettests on the exact target toolchain, (d) response-loss/replay/fork/network-partition tests, (e) packaged clean installation and multi-step UI E2E, (f) exact-head CI evidence. A queued or skipped run is not a pass. Record each layer independently so that a successful unit test never gets reported as a completed distributed-safety theorem.
+
+This slice would let Mycelix demonstrate breadth through one coherent outcome while preserving sovereignty and evidence discipline. It would also produce a useful reference integration for future hApps.
 
 ## Prioritized execution plan
 
