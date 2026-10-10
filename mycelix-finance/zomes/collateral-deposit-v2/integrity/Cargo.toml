@@ -1,0 +1,17 @@
+[package]
+name = "collateral_deposit_v2_integrity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Integrity zome for immutable FIN-SAFE-008 collateral deposit requests"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "collateral_deposit_v2_integrity"
+
+[dependencies]
+holochain_serialized_bytes = { workspace = true }
+hdi = { workspace = true }
+serde = { workspace = true }
+finance-collateral-deposit = { path = "../../../crates/finance-collateral-deposit" }
+mycelix-bridge-entry-types = { path = "../../../../crates/mycelix-bridge-entry-types" }

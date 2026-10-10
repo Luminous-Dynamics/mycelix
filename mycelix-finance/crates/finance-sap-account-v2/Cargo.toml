@@ -1,0 +1,13 @@
+[package]
+name = "finance-sap-account-v2"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "FIN-SAFE-014 owner-authored SAP V2 collateral claim journal and projection kernel"
+
+[dependencies]
+serde = { workspace = true }
+finance-collateral-issuance-persistence = { path = "../finance-collateral-issuance-persistence" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
