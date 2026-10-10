@@ -26,7 +26,7 @@ enum JsonValue {
     Array(Vec<JsonValue>),
     String(String),
     Number(String),
-    Boolean(bool),
+    Boolean,
     Null,
 }
 
@@ -66,11 +66,11 @@ impl<'a> JsonParser<'a> {
             Some(b'"') => self.parse_string().map(JsonValue::String),
             Some(b't') => {
                 self.expect_literal(b"true")?;
-                Ok(JsonValue::Boolean(true))
+                Ok(JsonValue::Boolean)
             }
             Some(b'f') => {
                 self.expect_literal(b"false")?;
-                Ok(JsonValue::Boolean(false))
+                Ok(JsonValue::Boolean)
             }
             Some(b'n') => {
                 self.expect_literal(b"null")?;
@@ -920,27 +920,51 @@ mod tests {
     }
 
     fn valid_policy_contract_fixture() -> String {
-        format!(
-            concat!(
-                "{{",
-                "\"policy_version\":62,",
-                "\"claim_ceiling\":\"ReferenceModelOnly\",",
-                "\"repository_identity\":{{\"full_name\":\"Luminous-Dynamics/mycelix\",\"repository_id\":1176351975}},",
-                "\"trusted_workflow\":{{\"path\":\".github/workflows/d6u-trusted-evidence-attestation.yml\",\"blob_sha\":\"652f81c65cdf6d6138ff2c7f4be5b0bd74ae3d61\"}},",
-                "\"trusted_programs\":{{",
-                "\"scripts/integral/verify_d6u_trusted_artifacts.py\":{{\"path\":\"scripts/integral/verify_d6u_trusted_artifacts.py\",\"blob_sha\":\"de5b3275dda9cbeaa880d26a9ff2dc0e58d7d65e\"}},",
-                "\"scripts/integral/fetch_d6u_trusted_artifact.py\":{{\"path\":\"scripts/integral/fetch_d6u_trusted_artifact.py\",\"blob_sha\":\"4c4d67f6f9a77c512728a8723cf2aa708687a395\"}},",
-                "\"scripts/integral/verify_d6u_trusted_attestation.py\":{{\"path\":\"scripts/integral/verify_d6u_trusted_attestation.py\",\"blob_sha\":\"91331c11f6c6de76f44c8d977629971193e2c0ba\"}},",
-                "\"scripts/integral/emit_d6u_trusted_attestation_predicate.py\":{{\"path\":\"scripts/integral/emit_d6u_trusted_attestation_predicate.py\",\"blob_sha\":\"ce32e161d3f45918ba8ea5545d02e233af331ead\"}},",
-                "\"scripts/integral/verify_d6u_trusted_attestation_retention.py\":{{\"path\":\"scripts/integral/verify_d6u_trusted_attestation_retention.py\",\"blob_sha\":\"df1e4fd9ba3c924037ef7ae97d087751ac8e122f\"}}",
-                "}},",
-                "\"trusted_artifact_fetcher\":{{\"path\":\"scripts/integral/fetch_d6u_trusted_artifact.py\",\"blob_sha\":\"4c4d67f6f9a77c512728a8723cf2aa708687a395\"}},",
-                "\"trusted_attestation_verifier\":{{\"path\":\"scripts/integral/verify_d6u_trusted_attestation.py\",\"blob_sha\":\"91331c11f6c6de76f44c8d977629971193e2c0ba\"}}",
-                "}}"
-            )
+        String::from(
+            r#"{
+              "policy_version": 62,
+              "claim_ceiling": "ReferenceModelOnly",
+              "repository_identity": {
+                "full_name": "Luminous-Dynamics/mycelix",
+                "repository_id": 1176351975
+              },
+              "trusted_workflow": {
+                "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
+                "blob_sha": "652f81c65cdf6d6138ff2c7f4be5b0bd74ae3d61"
+              },
+              "trusted_programs": {
+                "scripts/integral/verify_d6u_trusted_artifacts.py": {
+                  "path": "scripts/integral/verify_d6u_trusted_artifacts.py",
+                  "blob_sha": "de5b3275dda9cbeaa880d26a9ff2dc0e58d7d65e"
+                },
+                "scripts/integral/fetch_d6u_trusted_artifact.py": {
+                  "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
+                  "blob_sha": "4c4d67f6f9a77c512728a8723cf2aa708687a395"
+                },
+                "scripts/integral/verify_d6u_trusted_attestation.py": {
+                  "path": "scripts/integral/verify_d6u_trusted_attestation.py",
+                  "blob_sha": "91331c11f6c6de76f44c8d977629971193e2c0ba"
+                },
+                "scripts/integral/emit_d6u_trusted_attestation_predicate.py": {
+                  "path": "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
+                  "blob_sha": "ce32e161d3f45918ba8ea5545d02e233af331ead"
+                },
+                "scripts/integral/verify_d6u_trusted_attestation_retention.py": {
+                  "path": "scripts/integral/verify_d6u_trusted_attestation_retention.py",
+                  "blob_sha": "df1e4fd9ba3c924037ef7ae97d087751ac8e122f"
+                }
+              },
+              "trusted_artifact_fetcher": {
+                "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
+                "blob_sha": "4c4d67f6f9a77c512728a8723cf2aa708687a395"
+              },
+              "trusted_attestation_verifier": {
+                "path": "scripts/integral/verify_d6u_trusted_attestation.py",
+                "blob_sha": "91331c11f6c6de76f44c8d977629971193e2c0ba"
+              }
+            }"#,
         )
     }
-
     #[test]
     fn validates_exact_policy_program_set_and_aliases() {
         assert!(validate_policy_contract(valid_policy_contract_fixture().as_bytes()).is_ok());
