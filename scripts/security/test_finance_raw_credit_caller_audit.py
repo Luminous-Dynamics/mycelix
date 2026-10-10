@@ -400,7 +400,7 @@ class RawCreditCallerAuditTests(unittest.TestCase):
             self.assertEqual(status, 0)
             self.assertIn("ABI is private", output.getvalue())
             self.assertIn(
-                "no direct, escaped, or statically concatenated raw-credit function-name reference remains",
+                "no direct, escaped/Unicode-escaped, or statically concatenated raw-credit function-name reference remains",
                 output.getvalue(),
             )
 
