@@ -29,11 +29,15 @@ pub enum Violation {
     StaleSourceSnapshot,
     SimulationInputMismatch,
     MissingSimulationOutput,
+    MissingSimulationReceipt,
+    SimulationCorpusMismatch,
     EvaluationInputMismatch,
     EvaluationOutputMismatch,
     EvaluationNotIndependent,
     QualificationFailed,
     MissingEvaluationReceipt,
+    MissingEvaluationReportDigest,
+    MissingEvaluationEnvironment,
     MissingApprovalReceipt,
     EvaluatorIdentityMismatch,
     ApprovalInputMismatch,
@@ -63,6 +67,7 @@ pub struct ProfileRef {
     pub id: String,
     pub version: String,
     pub content_digest: String,
+    pub authority_ref: String,
 }
 
 impl ProfileRef {
@@ -70,7 +75,39 @@ impl ProfileRef {
         if self.id.trim().is_empty() || self.version.trim().is_empty() {
             return Err(Violation::EmptyField(field));
         }
+        if self.authority_ref.trim().is_empty() {
+            return Err(Violation::EmptyField("profile authority_ref"));
+        }
         validate_digest(&self.content_digest, field)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct InstrumentRef {
+    pub instrument_id: String,
+    pub version: String,
+    pub content_digest: String,
+    pub issuer_ref: String,
+    pub economic_form_ref: String,
+    pub source_profile_ref: Option<ProfileRef>,
+}
+
+impl InstrumentRef {
+    fn validate(&self) -> Result<(), Violation> {
+        if self.instrument_id.trim().is_empty() || self.version.trim().is_empty() {
+            return Err(Violation::EmptyField("instrument identity"));
+        }
+        if self.issuer_ref.trim().is_empty() {
+            return Err(Violation::EmptyField("instrument issuer_ref"));
+        }
+        if self.economic_form_ref.trim().is_empty() {
+            return Err(Violation::EmptyField("instrument economic_form_ref"));
+        }
+        validate_digest(&self.content_digest, "instrument content_digest")?;
+        if let Some(profile) = &self.source_profile_ref {
+            profile.validate("instrument source_profile_ref")?;
+        }
+        Ok(())
     }
 }
 
@@ -92,7 +129,9 @@ pub enum ItemKind {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnitRef {
-    pub profile: ProfileRef,
+    pub unit_id: String,
+    pub version: String,
+    pub content_digest: String,
     pub dimension: String,
     /// Positive count of atomic units per display unit, encoded as canonical decimal digits.
     pub atomic_scale: String,
@@ -100,7 +139,10 @@ pub struct UnitRef {
 
 impl UnitRef {
     fn validate(&self) -> Result<(), Violation> {
-        self.profile.validate("unit_profile")?;
+        if self.unit_id.trim().is_empty() || self.version.trim().is_empty() {
+            return Err(Violation::EmptyField("unit identity"));
+        }
+        validate_digest(&self.content_digest, "unit content_digest")?;
         if self.dimension.trim().is_empty() {
             return Err(Violation::EmptyField("unit dimension"));
         }
@@ -118,7 +160,7 @@ pub struct EconomicIdentity {
     /// Immutable provenance identity; conversion does not silently replace it.
     pub origin_ref: String,
     /// Absent for purely physical resources; present for monetary claim instruments.
-    pub instrument_ref: Option<ProfileRef>,
+    pub instrument_ref: Option<InstrumentRef>,
     pub unit_ref: UnitRef,
 }
 
@@ -129,7 +171,7 @@ impl EconomicIdentity {
         }
         self.unit_ref.validate()?;
         if let Some(instrument) = &self.instrument_ref {
-            instrument.validate("instrument_profile")?;
+            instrument.validate()?;
         } else if matches!(kind, ItemKind::Claim | ItemKind::Obligation) {
             return Err(Violation::EmptyField("instrument_profile"));
         }
@@ -483,8 +525,15 @@ pub struct StageEvidence {
     pub source_snapshot_current: bool,
     pub simulation_input_digest: Option<String>,
     pub simulation_output_digest: Option<String>,
+    pub simulation_receipt_ref: Option<String>,
+    pub simulation_scenario_corpus_digest: Option<String>,
+    pub simulation_environment_ref: Option<String>,
     pub evaluation_plan_digest: Option<String>,
-    pub evaluation_output_digest: Option<String>,
+    /// Digest of the candidate output being evaluated, not the evaluation report.
+    pub evaluation_subject_digest: Option<String>,
+    pub evaluation_scenario_corpus_digest: Option<String>,
+    pub evaluation_environment_ref: Option<String>,
+    pub evaluation_report_digest: Option<String>,
     pub evaluation_passed: bool,
     pub evaluation_receipt_ref: Option<String>,
     pub independent_oracle: bool,
@@ -519,6 +568,7 @@ pub struct TransitionMachine {
     manifest: TransitionManifest,
     stage: Stage,
     simulation_output_digest: Option<String>,
+    simulation_scenario_corpus_digest: Option<String>,
     reconciliation_passed: bool,
     unresolved_mandatory_items: usize,
     history: Vec<StageEvent>,
@@ -530,6 +580,7 @@ impl TransitionMachine {
             manifest,
             stage: Stage::Draft,
             simulation_output_digest: None,
+            simulation_scenario_corpus_digest: None,
             reconciliation_passed: false,
             unresolved_mandatory_items: 0,
             history: Vec::new(),
@@ -599,15 +650,31 @@ impl TransitionMachine {
                 }
                 let output = ev.simulation_output_digest.as_deref().ok_or(Violation::MissingSimulationOutput)?;
                 validate_digest(output, "simulation_output_digest")?;
+                if ev.simulation_receipt_ref.as_deref().map(str::trim).filter(|s| !s.is_empty()).is_none() {
+                    return Err(Violation::MissingSimulationReceipt);
+                }
+                let corpus = ev.simulation_scenario_corpus_digest.as_deref()
+                    .ok_or(Violation::MissingSimulationOutput)?;
+                validate_digest(corpus, "simulation_scenario_corpus_digest")?;
+                let environment = ev.simulation_environment_ref.as_deref()
+                    .map(str::trim).filter(|s| !s.is_empty())
+                    .ok_or(Violation::MissingSimulationOutput)?;
                 self.simulation_output_digest = Some(output.to_owned());
+                self.simulation_scenario_corpus_digest = Some(corpus.to_owned());
             }
             (Stage::Simulated, Stage::Qualified) => {
                 require_current_snapshot(ev)?;
                 if ev.evaluation_plan_digest.as_deref() != Some(self.manifest.plan_digest.as_str()) {
                     return Err(Violation::EvaluationInputMismatch);
                 }
-                if ev.evaluation_output_digest != self.simulation_output_digest {
+                if ev.evaluation_subject_digest != self.simulation_output_digest {
                     return Err(Violation::EvaluationOutputMismatch);
+                }
+                if ev.evaluation_scenario_corpus_digest != self.simulation_scenario_corpus_digest {
+                    return Err(Violation::SimulationCorpusMismatch);
+                }
+                if ev.evaluation_environment_ref.as_deref().map(str::trim).filter(|s| !s.is_empty()).is_none() {
+                    return Err(Violation::MissingEvaluationEnvironment);
                 }
                 if !ev.independent_oracle {
                     return Err(Violation::EvaluationNotIndependent);
@@ -621,6 +688,9 @@ impl TransitionMachine {
                 if ev.evaluation_receipt_ref.as_deref().map(str::trim).filter(|s| !s.is_empty()).is_none() {
                     return Err(Violation::MissingEvaluationReceipt);
                 }
+                let report = ev.evaluation_report_digest.as_deref()
+                    .ok_or(Violation::MissingEvaluationReportDigest)?;
+                validate_digest(report, "evaluation_report_digest")?;
             }
             (Stage::Qualified, Stage::Authorized) => {
                 require_current_snapshot(ev)?;
@@ -752,12 +822,24 @@ mod tests {
     const C: &str = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 
     fn profile(id: &str, digest: &str) -> ProfileRef {
-        ProfileRef { id: id.into(), version: "1.0.0".into(), content_digest: digest.into() }
+        ProfileRef {
+            id: id.into(),
+            version: "1.0.0".into(),
+            content_digest: digest.into(),
+            authority_ref: format!("authority:{id}"),
+        }
     }
 
     fn identity(origin: &str, kind: ItemKind) -> EconomicIdentity {
         let instrument_ref = if matches!(kind, ItemKind::Claim | ItemKind::Obligation | ItemKind::Entitlement | ItemKind::Dispute) {
-            Some(profile("instrument:synthetic", C))
+            Some(InstrumentRef {
+                instrument_id: "instrument:synthetic".into(),
+                version: "1.0.0".into(),
+                content_digest: C.into(),
+                issuer_ref: "issuer:synthetic".into(),
+                economic_form_ref: "synthetic-claim".into(),
+                source_profile_ref: Some(profile("profile:synthetic-instrument", A)),
+            })
         } else {
             None
         };
@@ -766,7 +848,9 @@ mod tests {
             origin_ref: origin.into(),
             instrument_ref,
             unit_ref: UnitRef {
-                profile: profile("unit:synthetic", B),
+                unit_id: "unit:synthetic".into(),
+                version: "1.0.0".into(),
+                content_digest: B.into(),
                 dimension: dimension.into(),
                 atomic_scale: "1000000".into(),
             },
@@ -829,9 +913,9 @@ mod tests {
     fn advance_to_authorized(machine: &mut TransitionMachine) {
         let mut e = ev(); e.frozen_plan_digest = Some(A.into());
         machine.advance(Stage::Frozen, &e).unwrap();
-        let mut e = ev(); e.simulation_input_digest = Some(A.into()); e.simulation_output_digest = Some(C.into());
+        let mut e = ev(); e.simulation_input_digest = Some(A.into()); e.simulation_output_digest = Some(C.into()); e.simulation_receipt_ref = Some("simulation-receipt-1".into()); e.simulation_scenario_corpus_digest = Some(B.into()); e.simulation_environment_ref = Some("simulation-env-v1".into());
         machine.advance(Stage::Simulated, &e).unwrap();
-        let mut e = ev(); e.evaluation_plan_digest = Some(A.into()); e.evaluation_output_digest = Some(C.into());
+        let mut e = ev(); e.evaluation_plan_digest = Some(A.into()); e.evaluation_subject_digest = Some(C.into()); e.evaluation_scenario_corpus_digest = Some(B.into()); e.evaluation_environment_ref = Some("verifier-env-v1".into()); e.evaluation_report_digest = Some(A.into());
         e.evaluation_passed = true; e.evaluation_receipt_ref = Some("eval-receipt-1".into()); e.independent_oracle = true; e.evaluator_id = Some("e".into());
         machine.advance(Stage::Qualified, &e).unwrap();
         let mut e = ev(); e.approval_plan_digest = Some(A.into()); e.approver_id = Some("a".into());
@@ -878,6 +962,7 @@ mod tests {
         mapping.conversion_profile_ref = Some(profile("conversion-policy-v1", C));
         mapping.authority_decision_ref = Some("authority-approval-1".into());
         mapping.target_identity.as_mut().unwrap().origin_ref = "foreign-origin".into();
+        mapping.target_identity.as_mut().unwrap().instrument_ref.as_mut().unwrap().instrument_id = "target-instrument".into();
         assert_eq!(m.validate(), Err(Violation::OriginChanged("claim-1".into())));
     }
 
@@ -947,14 +1032,83 @@ mod tests {
     #[test] fn stale_source_blocks_simulation() {
         let mut m = TransitionMachine::new(manifest()); let mut e = ev(); e.frozen_plan_digest = Some(A.into());
         m.advance(Stage::Frozen, &e).unwrap();
-        let mut e = ev(); e.source_snapshot_current = false; e.simulation_input_digest = Some(A.into()); e.simulation_output_digest = Some(C.into());
+        let mut e = ev(); e.source_snapshot_current = false; e.simulation_input_digest = Some(A.into()); e.simulation_output_digest = Some(C.into()); e.simulation_receipt_ref = Some("simulation-receipt-1".into()); e.simulation_scenario_corpus_digest = Some(B.into()); e.simulation_environment_ref = Some("simulation-env-v1".into());
         assert_eq!(m.advance(Stage::Simulated, &e), Err(Violation::StaleSourceSnapshot));
+    }
+
+    #[test] fn simulation_requires_durable_run_receipt() {
+        let mut m = TransitionMachine::new(manifest());
+        let mut freeze = ev(); freeze.frozen_plan_digest = Some(A.into());
+        m.advance(Stage::Frozen, &freeze).unwrap();
+        let mut sim = ev();
+        sim.simulation_input_digest = Some(A.into());
+        sim.simulation_output_digest = Some(C.into());
+        sim.simulation_scenario_corpus_digest = Some(B.into());
+        sim.simulation_environment_ref = Some("simulation-env-v1".into());
+        assert_eq!(m.advance(Stage::Simulated, &sim), Err(Violation::MissingSimulationReceipt));
+    }
+
+    #[test] fn evaluator_must_use_the_same_scenario_corpus() {
+        let mut m = TransitionMachine::new(manifest());
+        let mut freeze = ev(); freeze.frozen_plan_digest = Some(A.into());
+        m.advance(Stage::Frozen, &freeze).unwrap();
+        let mut sim = ev();
+        sim.simulation_input_digest = Some(A.into());
+        sim.simulation_output_digest = Some(C.into());
+        sim.simulation_receipt_ref = Some("simulation-receipt".into());
+        sim.simulation_scenario_corpus_digest = Some(B.into());
+        sim.simulation_environment_ref = Some("simulation-env-v1".into());
+        m.advance(Stage::Simulated, &sim).unwrap();
+        let mut eval = ev();
+        eval.evaluation_plan_digest = Some(A.into());
+        eval.evaluation_subject_digest = Some(C.into());
+        eval.evaluation_scenario_corpus_digest = Some(C.into());
+        eval.evaluation_environment_ref = Some("verifier-env-v1".into());
+        eval.evaluation_report_digest = Some(A.into());
+        eval.evaluation_receipt_ref = Some("evidence-receipt".into());
+        eval.evaluation_passed = true;
+        eval.independent_oracle = true;
+        eval.evaluator_id = Some("e".into());
+        assert_eq!(m.advance(Stage::Qualified, &eval), Err(Violation::SimulationCorpusMismatch));
+    }
+
+    #[test] fn qualification_requires_report_digest_separate_from_subject_digest() {
+        let mut m = TransitionMachine::new(manifest());
+        let mut freeze = ev(); freeze.frozen_plan_digest = Some(A.into());
+        m.advance(Stage::Frozen, &freeze).unwrap();
+        let mut sim = ev();
+        sim.simulation_input_digest = Some(A.into());
+        sim.simulation_output_digest = Some(C.into());
+        sim.simulation_receipt_ref = Some("simulation-receipt".into());
+        sim.simulation_scenario_corpus_digest = Some(B.into());
+        sim.simulation_environment_ref = Some("simulation-env-v1".into());
+        m.advance(Stage::Simulated, &sim).unwrap();
+        let mut eval = ev();
+        eval.evaluation_plan_digest = Some(A.into());
+        eval.evaluation_subject_digest = Some(C.into());
+        eval.evaluation_scenario_corpus_digest = Some(B.into());
+        eval.evaluation_environment_ref = Some("verifier-env-v1".into());
+        eval.evaluation_receipt_ref = Some("evidence-receipt".into());
+        eval.evaluation_passed = true;
+        eval.independent_oracle = true;
+        eval.evaluator_id = Some("e".into());
+        assert_eq!(m.advance(Stage::Qualified, &eval), Err(Violation::MissingEvaluationReportDigest));
+    }
+
+    #[test] fn source_only_disposition_rejects_target_reference() {
+        let mut m = manifest();
+        let mapping = &mut m.mappings[0];
+        mapping.disposition = Disposition::Quarantine;
+        mapping.target_ref = Some("ghost-target".into());
+        mapping.target_identity = None;
+        mapping.target_quantity_atomic = None;
+        assert_eq!(m.validate(), Err(Violation::UnexpectedTargetMapping("claim-1".into())));
     }
 
     #[test] fn evaluation_must_bind_exact_simulation_output() {
         let mut m = TransitionMachine::new(manifest()); let mut e = ev(); e.frozen_plan_digest = Some(A.into()); m.advance(Stage::Frozen, &e).unwrap();
-        let mut e = ev(); e.simulation_input_digest = Some(A.into()); e.simulation_output_digest = Some(C.into()); m.advance(Stage::Simulated, &e).unwrap();
-        let mut e = ev(); e.evaluation_plan_digest = Some(A.into()); e.evaluation_output_digest = Some(B.into());
+        let mut e = ev(); e.simulation_input_digest = Some(A.into()); e.simulation_output_digest = Some(C.into()); e.simulation_receipt_ref = Some("simulation-receipt-1".into()); e.simulation_scenario_corpus_digest = Some(B.into()); e.simulation_environment_ref = Some("simulation-env-v1".into()); m.advance(Stage::Simulated, &e).unwrap();
+        let mut e = ev(); e.evaluation_plan_digest = Some(A.into()); e.evaluation_subject_digest = Some(B.into()); e.evaluation_scenario_corpus_digest = Some(B.into()); e.evaluation_environment_ref = Some("verifier-env-v1".into()); e.evaluation_report_digest = Some(A.into());
         e.evaluation_passed = true; e.independent_oracle = true; e.evaluator_id = Some("e".into());
         assert_eq!(m.advance(Stage::Qualified, &e), Err(Violation::EvaluationOutputMismatch));
     }
@@ -962,8 +1116,9 @@ mod tests {
     #[test] fn qualification_requires_verifier_receipt() {
         let mut m = TransitionMachine::new(manifest());
         let mut e = ev(); e.frozen_plan_digest = Some(A.into()); m.advance(Stage::Frozen, &e).unwrap();
-        let mut e = ev(); e.simulation_input_digest = Some(A.into()); e.simulation_output_digest = Some(C.into()); m.advance(Stage::Simulated, &e).unwrap();
-        let mut e = ev(); e.evaluation_plan_digest = Some(A.into()); e.evaluation_output_digest = Some(C.into());
+        let mut e = ev(); e.simulation_input_digest = Some(A.into()); e.simulation_output_digest = Some(C.into()); e.simulation_receipt_ref = Some("simulation-receipt-1".into()); e.simulation_scenario_corpus_digest = Some(B.into()); e.simulation_environment_ref = Some("simulation-env-v1".into()); m.advance(Stage::Simulated, &e).unwrap();
+        let mut e = ev(); e.evaluation_plan_digest = Some(A.into()); e.evaluation_subject_digest = Some(C.into()); e.evaluation_scenario_corpus_digest = Some(B.into()); e.evaluation_environment_ref = Some("verifier-env-v1".into()); e.evaluation_report_digest = Some(A.into());
+        e.evaluation_scenario_corpus_digest = Some(B.into()); e.evaluation_environment_ref = Some("verifier-env-v1".into()); e.evaluation_report_digest = Some(A.into());
         e.evaluation_passed = true; e.independent_oracle = true; e.evaluator_id = Some("e".into());
         assert_eq!(m.advance(Stage::Qualified, &e), Err(Violation::MissingEvaluationReceipt));
     }
@@ -971,8 +1126,8 @@ mod tests {
     #[test] fn authorization_requires_approval_receipt() {
         let mut m = TransitionMachine::new(manifest());
         let mut e = ev(); e.frozen_plan_digest = Some(A.into()); m.advance(Stage::Frozen, &e).unwrap();
-        let mut e = ev(); e.simulation_input_digest = Some(A.into()); e.simulation_output_digest = Some(C.into()); m.advance(Stage::Simulated, &e).unwrap();
-        let mut e = ev(); e.evaluation_plan_digest = Some(A.into()); e.evaluation_output_digest = Some(C.into());
+        let mut e = ev(); e.simulation_input_digest = Some(A.into()); e.simulation_output_digest = Some(C.into()); e.simulation_receipt_ref = Some("simulation-receipt-1".into()); e.simulation_scenario_corpus_digest = Some(B.into()); e.simulation_environment_ref = Some("simulation-env-v1".into()); m.advance(Stage::Simulated, &e).unwrap();
+        let mut e = ev(); e.evaluation_plan_digest = Some(A.into()); e.evaluation_subject_digest = Some(C.into()); e.evaluation_scenario_corpus_digest = Some(B.into()); e.evaluation_environment_ref = Some("verifier-env-v1".into()); e.evaluation_report_digest = Some(A.into());
         e.evaluation_passed = true; e.evaluation_receipt_ref = Some("eval-receipt".into()); e.independent_oracle = true; e.evaluator_id = Some("e".into());
         m.advance(Stage::Qualified, &e).unwrap();
         let mut e = ev(); e.approval_plan_digest = Some(A.into()); e.approver_id = Some("a".into()); e.approval_current = true;
