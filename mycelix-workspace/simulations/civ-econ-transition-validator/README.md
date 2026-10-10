@@ -48,12 +48,15 @@ provider, bank, physical actuator, or settlement authority.
 
 This journal is not tamper-evident: it does not hash-chain or sign the log,
 and it trusts supplied request/receipt digests rather than computing or verifying
-their source evidence. File permissions and external evidence verification are
-separate requirements. It also cannot atomically commit a local record with an
-external bank/payment/physical side effect. Filesystem sync semantics are
-platform and storage dependent, stale lock files require deliberate operator
-recovery, and the caller must validate source-bound receipts. Do not describe
-this as exactly-once distributed execution.
+their source evidence. On Unix, new journal and lock files are created with
+owner-only mode (0600), and an existing journal with group/other permission bits
+is rejected. The parent directory must still be trusted and protected against
+unauthorized replacement; non-Unix deployments must verify their native ACL
+policy. These controls do not authenticate external evidence. The journal also
+cannot atomically commit a local record with an external bank/payment/physical
+side effect. Filesystem sync semantics are platform and storage dependent, stale
+lock files require deliberate operator recovery, and the caller must validate
+source-bound receipts. Do not describe this as exactly-once distributed execution.
 
 ## Claim ceiling
 
