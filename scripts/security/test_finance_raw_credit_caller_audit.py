@@ -103,6 +103,20 @@ class RawCreditCallerAuditTests(unittest.TestCase):
             )
             self.assertEqual(len(scan(root)), 1)
 
+    def test_compile_time_concat_dispatch_is_detected(self) -> None:
+        for source in (
+            'let function = FunctionName::from(concat!(\n    "credit_",\n    "sap"\n));\n',
+            'let function = FunctionName::from(concat!(r#"credit_"#, /* ) */ r#"sap"#));\n',
+        ):
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                caller = root / "bridge" / "coordinator" / "src" / "lib.rs"
+                caller.parent.mkdir(parents=True)
+                caller.write_text(source, encoding="utf-8")
+                hits = scan(root)
+                self.assertEqual(len(hits), 1)
+                self.assertIn('static function name "credit_sap"', hits[0][2])
+
     def test_alternate_dispatch_constructors_are_detected(self) -> None:
         for source in (
             'FunctionName::try_from("credit_sap")',
