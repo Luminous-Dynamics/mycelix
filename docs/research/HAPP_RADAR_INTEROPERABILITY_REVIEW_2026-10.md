@@ -198,21 +198,36 @@ Sources:
 - https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/Cargo.toml
 - https://github.com/h-REA/hREA/blob/sprout/docs/README.md
 
-## Follow-up qualification snapshot — 2026-10-10
+## Follow-up qualification snapshot — 2026-10-10, refreshed after ABI-audit hardening
 
-A subsequent exact-head status check confirms that the relevant Finance work remains stacked and unmerged:
+The latest inspected AC-176 source SHA is `93390ffb96563ca9c654ebd04cc0325b5e2ed635`. [PR #4520](https://github.com/Luminous-Dynamics/mycelix/pull/4520) and its [qualification-only mirror #4521](https://github.com/Luminous-Dynamics/mycelix/pull/4521) both point to this exact SHA. The mirror was advanced with a guarded fast-forward, not a force update.
 
-- [AC-176 PR #4520](https://github.com/Luminous-Dynamics/mycelix/pull/4520), head `1bc4c492639847f65a2be526138bfb86db46f779`: open; D6S Canonical Qualification, Mycelix CI, and Finance Exact-Head Qualification were all **queued** at the time checked. Queued is not a pass.
-- [AC-153 PR #4594](https://github.com/Luminous-Dynamics/mycelix/pull/4594), head `a793324ec0554dcae4cea327e94153ad39714356`: open; no PR-triggered workflow run was returned for that exact SHA by the available query.
-- [FIN-SAFE-013 PR #4708](https://github.com/Luminous-Dynamics/mycelix/pull/4708), head `4e012a8ef711595cc7fe153868c78a652cb022ab`: open; no PR-triggered workflow run was returned for that exact SHA by the available query.
+### What is now locally exercised
 
-Absence of returned workflow runs does not prove that no run exists in any other context; it means no exact-head PR run was evidenced by this query. Do not infer qualification from the PR description, the existence of a workflow, or an empty run list.
+- The caller audit searches multiline source, compares canonical/workspace inventories, and checks both Payments coordinator projections for a restored `#[hdk_extern] credit_sap` declaration.
+- The standard-library regression suite now has **six cases**: public raw-credit ABI is detected; private helper and unrelated extern are not misclassified; both supported cross-zome dispatch spellings are found across lines; reported line numbers remain correct; the Payments-coordinator and non-coordinator exclusions remain effective.
+- A local run of the fetched/recreated test sources passed all six cases. A synthetic two-projection source tree with the four known caller patterns made the full audit exit non-zero and reported four sites in each projection, as intended.
+- A fresh GitHub source fetch confirms canonical/workspace content is byte-identical for each caller source, with the same four raw callsites: `currency-mint:179`, `bridge:663`, `bridge:2417`, and `staking:379`.
 
-PR #4520's current body now explicitly enumerates four remaining `credit_sap` external call sites across currency-mint, bridge collateral deposit, bridge fiat-deposit verification, and staking return. The caller audit CI gate is a useful defense against future false-green builds, but the gate must itself run on the exact head and the external call sites must be migrated to authorized entrypoints before the public function is removed.
+This is local regression/static-audit evidence; it is not evidence that Rust/Sweettest/WASM qualification ran on the exact repo checkout.
 
-**Subsequent caller-audit hardening (2026-10-10):** AC-176 / PR #4520 advanced to exact source head `48fb49ecd2047b7501796fb7831c203ba9341e0e`. The caller audit now searches the whole file, rather than one physical line at a time, and a new standard-library `unittest` suite covers both supported dispatch spellings across newlines, verifies reported line numbers, and confirms the Payments-coordinator exclusion and non-coordinator exclusion. The CI workflow invokes those regression tests before the expected-to-fail caller census.
+### Exact-head workflow state
 
-The first status query after the mirror fast-forward returned no runs, but a subsequent exact-head refresh showed Mycelix CI run `38069865405`, D6S canonical qualification run `38069865338`, and Finance Exact-Head Qualification run `38069865343` all **queued** on `48fb49ecd2047b7501796fb7831c203ba9341e0e`. On the superseded source head `1bc4c492639847f65a2be526138bfb86db46f779`, the Mycelix CI and D6S runs completed as cancelled while Finance Exact-Head Qualification remained queued. **Queued is not PASS, and cancelled jobs provide no pass evidence for either subject.** The four known callers still exist, so AC-176 remains blocked on source-authorized migrations (or explicit feature disablement) plus completed exact-head execution and log inspection.
+The direct GitHub Actions API query for `93390ffb96563ca9c654ebd04cc0325b5e2ed635` returned these PR-triggered runs, all **queued**:
+
+- Mycelix CI: run `38074359555`
+- D6S canonical qualification: run `38074359471`
+- Finance exact-head qualification: run `38074359467`
+
+Queued is not PASS; at the latest inspection, no steps had started on these jobs.
+
+Two separate D6U runtime-executor runs on the same commit (`38074355928` and `38074286983`) show workflow conclusion `failure`, but the Actions jobs endpoint returns zero job records for both. They expose no steps, test logs, or artifacts. They therefore do **not** demonstrate a Rust/test failure or runtime execution. Because the published D6U workflow is configured for a `workflow_run` event limited to a different source branch while these records show the AC-176 branch, this needs separate workflow-event/filter investigation; do not merge it into the runner-assignment diagnosis or assert a root cause from these records alone.
+
+[CI-OPS-001 / #697](https://github.com/Luminous-Dynamics/mycelix/issues/697) remains an independent infrastructure blocker: several ordinary hosted-runner jobs are queued before steps. The [public GitHub Status page](https://www.githubstatus.com/) reported all systems operational on October 10, with the recent October 5 Actions incident marked resolved. That does not rule out account/org policy or a repo-specific queue. Inspect Actions Settings, hosted-runner usage/quota, repository and organization Actions policy, spending/suspension state and any UI errors; if those are clean, escalate the representative stuck run IDs to GitHub Support.
+
+### Merge boundary
+
+AC-176 is still **not qualified or ready to merge**. The caller audit should continue to fail until all four external callers are migrated to source-specific authorization or deliberately disabled with explicit behavior. The public-ABI guard and six local tests improve the gate, but do not prove source authorization, SAP conservation, exactly-once behavior, or runtime success. The existing V2 account/transfer lanes remain draft and disabled by default; they are not a shortcut for wiring the legacy callers.
 
 ## Recommended Mycelix proof-of-integration slice
 
