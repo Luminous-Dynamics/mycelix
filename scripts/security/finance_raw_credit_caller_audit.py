@@ -20,11 +20,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 RAW_CREDIT_REFERENCE = re.compile(
-    r'(?:FunctionName\s*::\s*from\s*\(\s*"credit_sap"\s*\)|'
-    r'"credit_sap"\s*\.into\s*\(\s*\))'
+    r'(?:FunctionName\s*::\s*(?:from|try_from)\s*\(\s*"credit_sap"\s*\)|'
+    r'"credit_sap"\s*\.\s*(?:into|to_string)\s*\(\s*\))'
 )
+# Permit other outer attributes between hdk_extern and the function declaration.
+# Stop at the first function declaration so an unrelated extern cannot make a later
+# private helper look externally exported.
 PUBLIC_RAW_CREDIT_ABI = re.compile(
-    r"#\s*\[\s*hdk_extern\s*\]\s*(?:pub\s+)?fn\s+credit_sap\s*\("
+    r"#\s*\[\s*hdk_extern\s*\]"
+    r"(?:\s*#\s*\[[^\]]*\]\s*)*"
+    r"\s*(?:pub\s+)?fn\s+credit_sap\s*\("
 )
 
 
