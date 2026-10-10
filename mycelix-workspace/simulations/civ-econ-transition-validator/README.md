@@ -31,10 +31,18 @@ The crate has an isolated Cargo workspace and no third-party dependencies.
 
 The `EffectLedger` in `lib.rs` remains an in-memory reference model. The new
 `durable_journal::DurableEffectJournal` persists begin, indeterminate, and
-acknowledgement records to an append-only local file with a versioned J1 record format, syncs each record before
-returning success, refuses concurrent cooperating writers with a PID-marked sidecar lock,
-and fails closed on truncated/corrupt history. A surviving Pending record after
-restart is a reconciliation requirement, never permission to dispatch again.
+acknowledgement records to an append-only local file with a versioned J1
+record format, syncs each record before returning success, refuses concurrent
+cooperating writers with a PID-marked sidecar lock, and fails closed on
+truncated/corrupt history. A surviving Pending record after restart is a
+reconciliation requirement, never permission to dispatch again.
+
+The integration test in `tests/crash_recovery.rs` launches a child process that
+records a synthetic external effect and terminates before journal acknowledgement.
+The parent explicitly clears the dead child's stale test lock, reopens the journal,
+reconciles against a synthetic provider ledger, and asserts no duplicate dispatch.
+This is process-boundary test coverage only; it does not contact or prove behavior
+of a real payment provider, bank, physical actuator, or settlement authority.
 
 This journal is not tamper-evident: it does not hash-chain or sign the log,
 and it trusts supplied request/receipt digests rather than computing or verifying
@@ -54,7 +62,7 @@ verify conversion arithmetic from source data, establish legal discharge, or
 establish external settlement finality. Production work still needs the JSON
 adapter, live evidence bindings, and independent qualification.
 
-The unit tests in this source are authored regression tests, not a PASS claim
+The unit and integration tests are authored regression tests, not a PASS claim
 until the exact-head CI run executes and succeeds. Even then, passing them proves
 only the local invariants actually tested, not end-to-end transition correctness
 or production readiness.
