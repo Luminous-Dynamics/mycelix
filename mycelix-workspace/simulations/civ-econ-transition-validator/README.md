@@ -31,8 +31,8 @@ The crate has an isolated Cargo workspace and no third-party dependencies.
 
 The `EffectLedger` in `lib.rs` remains an in-memory reference model. The new
 `durable_journal::DurableEffectJournal` persists begin, indeterminate, and
-acknowledgement records to an append-only local file, syncs each record before
-returning success, refuses concurrent cooperating writers with a sidecar lock,
+acknowledgement records to an append-only local file with a versioned J1 record format, syncs each record before
+returning success, refuses concurrent cooperating writers with a PID-marked sidecar lock,
 and fails closed on truncated/corrupt history. A surviving Pending record after
 restart is a reconciliation requirement, never permission to dispatch again.
 

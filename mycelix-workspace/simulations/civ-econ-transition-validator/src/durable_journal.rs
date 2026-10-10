@@ -121,7 +121,7 @@ impl DurableEffectJournal {
                 io_error("create exclusive lock", err)
             })?;
         let lock = LockGuard { path: lock_path };
-        lock_file.write_all(b"civ-effect-journal-lock-v1\n")
+        lock_file.write_all(format!("civ-effect-journal-lock-v1\npid={}\n", std::process::id()).as_bytes())
             .map_err(|err| io_error("write lock marker", err))?;
         lock_file.sync_all().map_err(|err| io_error("sync lock marker", err))?;
         sync_directory(&parent)?;
@@ -174,7 +174,7 @@ impl DurableEffectJournal {
                 },
             });
         }
-        let record = format!("B\t{}\t{}\n", encode_hex(id.as_bytes()), request_digest);
+        let record = format!("J1\tB\t{}\t{}\n", encode_hex(id.as_bytes()), request_digest);
         self.append_and_sync(&record)?;
         self.entries.insert(id.to_owned(), JournalEntry {
             request_digest: request_digest.to_owned(),
@@ -198,7 +198,7 @@ impl DurableEffectJournal {
             return if old == receipt_digest { Ok(AcknowledgeResult::AlreadyAcknowledged) }
                 else { Err(JournalError::ReceiptConflict) };
         }
-        let record = format!("A\t{}\t{}\t{}\n", encode_hex(id.as_bytes()), request_digest, receipt_digest);
+        let record = format!("J1\tA\t{}\t{}\t{}\n", encode_hex(id.as_bytes()), request_digest, receipt_digest);
         self.append_and_sync(&record)?;
         if let Some(entry) = self.entries.get_mut(id) {
             entry.status = EffectStatus::Acknowledged { receipt_digest: receipt_digest.to_owned() };
@@ -221,7 +221,7 @@ impl DurableEffectJournal {
             EffectStatus::Indeterminate => return Ok(IndeterminateResult::AlreadyIndeterminate),
             EffectStatus::Pending => {}
         }
-        let record = format!("I\t{}\t{}\n", encode_hex(id.as_bytes()), request_digest);
+        let record = format!("J1\tI\t{}\t{}\n", encode_hex(id.as_bytes()), request_digest);
         self.append_and_sync(&record)?;
         if let Some(entry) = self.entries.get_mut(id) { entry.status = EffectStatus::Indeterminate; }
         Ok(IndeterminateResult::Marked)
@@ -309,9 +309,13 @@ fn replay(bytes: &[u8]) -> Result<HashMap<String, JournalEntry>, JournalError> {
         let line_no = index + 1;
         let fields: Vec<&str> = line.split('\t').collect();
         let (event, encoded_id, request_digest) = match fields.as_slice() {
-            [event, id, request] if *event == "B" || *event == "I" => (*event, *id, *request),
-            [event, id, request, _receipt] if *event == "A" => (*event, *id, *request),
-            _ => return Err(JournalError::CorruptJournal { line: line_no, reason: "invalid record shape" }),
+            [version, event, id, request] if *version == "J1" && (*event == "B" || *event == "I") =>
+                (*event, *id, *request),
+            [version, event, id, request, _receipt] if *version == "J1" && *event == "A" =>
+                (*event, *id, *request),
+            [version, ..] if *version != "J1" =>
+                return Err(JournalError::CorruptJournal { line: line_no, reason: "unsupported journal record version" }),
+            _ => return Err(JournalError::CorruptJournal { line: line_no, reason: "invalid record shape or version" }),
         };
         let id_bytes = decode_hex(encoded_id, line_no)?;
         let id = String::from_utf8(id_bytes).map_err(|_| JournalError::CorruptJournal {
@@ -469,7 +473,7 @@ mod tests {
     #[test]
     fn out_of_order_acknowledgement_is_corruption() {
         let temp = TempDir::new();
-        fs::write(temp.journal_path(), format!("A\t{}\t{}\t{}\n", encode_hex(b"never-begun"), REQUEST_A, RECEIPT_A)).unwrap();
+        fs::write(temp.journal_path(), format!("J1\tA\t{}\t{}\t{}\n", encode_hex(b"never-begun"), REQUEST_A, RECEIPT_A)).unwrap();
         assert!(matches!(DurableEffectJournal::open(temp.journal_path()), Err(JournalError::CorruptJournal { .. })));
     }
 
@@ -492,6 +496,16 @@ mod tests {
         for _ in 0..2 {
             assert!(matches!(DurableEffectJournal::open(temp.journal_path()), Err(JournalError::CorruptJournal { .. })));
         }
+    }
+
+    #[test]
+    fn unsupported_journal_record_version_fails_closed() {
+        let temp = TempDir::new();
+        fs::write(temp.journal_path(), format!("J2\tB\t{}\t{}\n", encode_hex(b"effect"), REQUEST_A)).unwrap();
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal { reason: "unsupported journal record version", .. })
+        ));
     }
 
     #[test]
