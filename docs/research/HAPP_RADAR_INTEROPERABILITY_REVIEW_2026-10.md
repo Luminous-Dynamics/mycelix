@@ -168,6 +168,18 @@ Sources:
 - https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/Cargo.toml
 - https://github.com/h-REA/hREA/blob/sprout/docs/README.md
 
+## Follow-up qualification snapshot — 2026-10-10
+
+A subsequent exact-head status check confirms that the relevant Finance work remains stacked and unmerged:
+
+- [AC-176 PR #4520](https://github.com/Luminous-Dynamics/mycelix/pull/4520), head `1bc4c492639847f65a2be526138bfb86db46f779`: open; D6S Canonical Qualification, Mycelix CI, and Finance Exact-Head Qualification were all **queued** at the time checked. Queued is not a pass.
+- [AC-153 PR #4594](https://github.com/Luminous-Dynamics/mycelix/pull/4594), head `a793324ec0554dcae4cea327e94153ad39714356`: open; no PR-triggered workflow run was returned for that exact SHA by the available query.
+- [FIN-SAFE-013 PR #4708](https://github.com/Luminous-Dynamics/mycelix/pull/4708), head `4e012a8ef711595cc7fe153868c78a652cb022ab`: open; no PR-triggered workflow run was returned for that exact SHA by the available query.
+
+Absence of returned workflow runs does not prove that no run exists in any other context; it means no exact-head PR run was evidenced by this query. Do not infer qualification from the PR description, the existence of a workflow, or an empty run list.
+
+PR #4520's current body now explicitly enumerates four remaining `credit_sap` external call sites across currency-mint, bridge collateral deposit, bridge fiat-deposit verification, and staking return. The caller audit CI gate is a useful defense against future false-green builds, but the gate must itself run on the exact head and the external call sites must be migrated to authorized entrypoints before the public function is removed.
+
 ## Recommended Mycelix proof-of-integration slice
 
 The comparative work suggests the next useful demonstration is a small, complete and independently verifiable journey, not a new domain cluster.
