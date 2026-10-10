@@ -55,6 +55,7 @@ pub enum Violation {
     ReconciliationFailed,
     MandatoryUnresolvedItems(usize),
     AbortAfterPossibleEffect,
+    PossibleEffectMustBeIndeterminate,
     IndeterminateWithoutPossibleEffect,
     QuarantineReasonMissing,
     EffectIdEmpty,
@@ -597,6 +598,9 @@ impl TransitionMachine {
         }
 
         if next == Stage::Quarantined {
+            if ev.cutover_effects_started && !ev.effect_frontier_resolved {
+                return Err(Violation::PossibleEffectMustBeIndeterminate);
+            }
             if ev.quarantine_reason.as_deref().map(str::trim).filter(|s| !s.is_empty()).is_none() {
                 return Err(Violation::QuarantineReasonMissing);
             }
@@ -1208,6 +1212,18 @@ mod tests {
 
     #[test] fn length_prefixed_effect_identity_avoids_separator_collision() {
         assert_ne!(effect_id("a:b", "c", "d"), effect_id("a", "b:c", "d"));
+    }
+
+    #[test] fn quarantine_cannot_hide_unresolved_post_effect_uncertainty() {
+        let mut machine = TransitionMachine::new(manifest());
+        let mut evidence = ev();
+        evidence.quarantine_reason = Some("external effect may have occurred".into());
+        evidence.cutover_effects_started = true;
+        evidence.effect_frontier_resolved = false;
+        assert_eq!(
+            machine.advance(Stage::Quarantined, &evidence),
+            Err(Violation::PossibleEffectMustBeIndeterminate)
+        );
     }
 
     #[test] fn quarantined_transition_is_not_reopened() {
