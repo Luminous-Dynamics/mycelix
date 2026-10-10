@@ -1615,7 +1615,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn legacy_verified_boolean_does_not_count_as_attested_energy() {
         let production = EnergyProduction {
             id: "legacy-verified-flag".into(),
@@ -1630,6 +1629,7 @@ mod tests {
         assert_eq!(verified_kwh_until_attestations_exist(&production), 0.0);
     }
 
+    #[test]
     fn test_producer_stats_no_verified() {
         let stats = ProducerStats {
             producer_did: "did:mycelix:producer1".to_string(),
