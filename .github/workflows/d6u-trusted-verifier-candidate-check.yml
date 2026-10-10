@@ -51,7 +51,7 @@ jobs:
           EXPECTED_TRUSTED_SHA: ${{ github.sha }}
           EXPECTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
           EXPECTED_EVALUATOR_BLOB: 0eb67587eb95bf8e0b3da3dffd5aa01bb92073a6
-          EXPECTED_RUST_PREFLIGHT_BLOB: cb11766616a4b250b380295a7a454d1c0f151bf5
+          EXPECTED_RUST_PREFLIGHT_BLOB: 6d7a94256ad49d96af3d51f884ab9e57fe33e3c0
         run: |
           set -euo pipefail
           observed_commit="$(git rev-parse HEAD)"
@@ -139,7 +139,7 @@ jobs:
         env:
           EXPECTED_CANDIDATE_SHA: ${{ steps.validate.outputs.sha }}
           EXPECTED_EVALUATOR_BLOB: 0eb67587eb95bf8e0b3da3dffd5aa01bb92073a6
-          EXPECTED_RUST_PREFLIGHT_BLOB: cb11766616a4b250b380295a7a454d1c0f151bf5
+          EXPECTED_RUST_PREFLIGHT_BLOB: 6d7a94256ad49d96af3d51f884ab9e57fe33e3c0
           EXPECTED_TRUSTED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
