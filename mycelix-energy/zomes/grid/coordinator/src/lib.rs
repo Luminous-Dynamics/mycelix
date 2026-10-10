@@ -6,8 +6,9 @@
 use grid_integrity::*;
 use hdk::prelude::*;
 use mycelix_bridge_proc::{mycelix_zome_fn, sovereign_gated};
+use std::collections::HashSet;
 use mycelix_energy_shared::anchors::anchor_hash;
-use mycelix_energy_shared::batch::{filter_records_by, links_to_records};
+use mycelix_energy_shared::batch::links_to_records;
 use mycelix_zome_helpers as _;
 
 #[hdk_extern]
@@ -131,6 +132,55 @@ fn offer_is_current(offer: &TradeOffer, now: Timestamp) -> bool {
     offer.available_from <= now && now <= offer.available_until
 }
 
+/// Resolve a record's linear update chain to its latest valid version.
+///
+/// CRUD metadata is attached to action hashes, while links commonly continue
+/// to target the original create action. Reading the linked record alone can
+/// therefore return stale offer/trade state. A single child update is expected
+/// because the integrity rules bind updates to the original author; multiple
+/// child updates are treated as a conflict instead of silently choosing one.
+fn resolve_latest_record(mut record: Record) -> ExternResult<Record> {
+    const MAX_UPDATE_HOPS: usize = 256;
+
+    for _ in 0..MAX_UPDATE_HOPS {
+        let details = get_details(record.action_address().clone(), GetOptions::default())?
+            .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+                "Record update metadata is unavailable".into()
+            )))?;
+        let record_details = match details {
+            Details::Record(details) => details,
+            _ => {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Expected record metadata for action hash".into()
+                )));
+            }
+        };
+
+        if record_details.updates.len() > 1 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Conflicting record updates require explicit resolution".into()
+            )));
+        }
+        if let Some(update) = record_details.updates.into_iter().next() {
+            record = get(update.hashed.hash.clone(), GetOptions::default())?
+                .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+                    "Updated record is unavailable".into()
+                )))?;
+            continue;
+        }
+        if !record_details.deletes.is_empty() {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Record has been deleted and has no current update".into()
+            )));
+        }
+        return Ok(record);
+    }
+
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Record update chain exceeds the safe traversal limit".into()
+    )))
+}
+
 /// Compute the residual offer quantity without allowing floating-point rounding
 /// to turn a positive fill into a no-op. Used before any trade entry is written.
 fn checked_remaining_offer_amount(
@@ -162,7 +212,8 @@ pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::TradeOffer,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
     for record in query(filter)? {
         if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
             if offer.id == input.offer_id
@@ -272,7 +323,8 @@ pub struct ExecuteTradeInput {
 
 /// Get all active trade offers
 ///
-/// OPTIMIZED: Uses batch query to avoid N+1 pattern
+/// Batch-fetches each time shard, then resolves the offer's update chain to
+/// avoid showing stale amounts/statuses from the original create action.
 ///
 /// Expiry is enforced here on read rather than by mutating stored offers:
 /// only an offer's own seller agent can `update_entry` it in Holochain, so a
@@ -296,13 +348,24 @@ pub fn get_active_offers(_: ()) -> ExternResult<Vec<Record>> {
             LinkQuery::try_new(anchor, LinkTypes::ActiveOffers)?,
             GetStrategy::default(),
         )?;
-        // FIXED N+1: Batch fetch all records per shard, then filter
-        all_records.extend(links_to_records(links)?);
+        // Batch-fetch the linked create records first, then follow each record's
+        // metadata chain. The anchor links still target immutable create actions.
+        for record in links_to_records(links)? {
+            all_records.push(resolve_latest_record(record)?);
+        }
     }
-    Ok(filter_records_by::<TradeOffer, _>(&all_records, |offer| {
-        (offer.status == OfferStatus::Active || offer.status == OfferStatus::PartiallyFilled)
-            && offer_is_current(offer, now)
-    }))
+
+    let mut active_records = Vec::new();
+    for record in all_records {
+        if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
+            if (offer.status == OfferStatus::Active || offer.status == OfferStatus::PartiallyFilled)
+                && offer_is_current(&offer, now)
+            {
+                active_records.push(record);
+            }
+        }
+    }
+    Ok(active_records)
 }
 
 /// Micro-units per whole SAP/TEND, matching the display convention used
@@ -395,7 +458,8 @@ pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Trade,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
     for record in query(filter)? {
         if let Some(trade) = record.entry().to_app_option::<Trade>().ok().flatten() {
             if trade.id != input.trade_id {
@@ -465,8 +529,10 @@ pub fn get_seller_offers(seller_did: String) -> ExternResult<Vec<Record>> {
         LinkQuery::try_new(anchor_hash(&seller_did)?, LinkTypes::SellerToOffers)?,
         GetStrategy::default(),
     )?;
-    // FIXED N+1: Use batch fetch instead of individual get() calls
-    links_to_records(links)
+    links_to_records(links)?
+        .into_iter()
+        .map(resolve_latest_record)
+        .collect()
 }
 
 /// Get buyer's trade history
@@ -478,8 +544,10 @@ pub fn get_buyer_trades(buyer_did: String) -> ExternResult<Vec<Record>> {
         LinkQuery::try_new(anchor_hash(&buyer_did)?, LinkTypes::BuyerToTrades)?,
         GetStrategy::default(),
     )?;
-    // FIXED N+1: Use batch fetch instead of individual get() calls
-    links_to_records(links)
+    links_to_records(links)?
+        .into_iter()
+        .map(resolve_latest_record)
+        .collect()
 }
 
 /// Get trades for an offer
@@ -491,8 +559,10 @@ pub fn get_offer_trades(offer_id: String) -> ExternResult<Vec<Record>> {
         LinkQuery::try_new(anchor_hash(&offer_id)?, LinkTypes::OfferToTrades)?,
         GetStrategy::default(),
     )?;
-    // FIXED N+1: Use batch fetch instead of individual get() calls
-    links_to_records(links)
+    links_to_records(links)?
+        .into_iter()
+        .map(resolve_latest_record)
+        .collect()
 }
 
 /// Wire-compatible mirror of `mycelix-identity`'s `trust_credential::TrustTier`
@@ -850,7 +920,8 @@ pub fn cancel_offer(input: CancelOfferInput) -> ExternResult<Record> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::TradeOffer,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     for record in query(filter)? {
         if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
@@ -898,7 +969,8 @@ pub fn get_trade(trade_id: String) -> ExternResult<Option<Record>> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Trade,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     for record in query(filter)? {
         if let Some(trade) = record.entry().to_app_option::<Trade>().ok().flatten() {
@@ -917,7 +989,8 @@ pub fn get_offer(offer_id: String) -> ExternResult<Option<Record>> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::TradeOffer,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     for record in query(filter)? {
         if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
@@ -936,11 +1009,19 @@ pub fn get_unsettled_trades(_: ()) -> ExternResult<Vec<Record>> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Trade,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     let mut trades = Vec::new();
+    let mut seen_trade_ids = HashSet::new();
     for record in query(filter)? {
         if let Some(trade) = record.entry().to_app_option::<Trade>().ok().flatten() {
+            // The descending source-chain query returns the newest version first.
+            // Process each logical trade exactly once, so a settled update doesn't
+            // leave its original unsettled create record in this result.
+            if !seen_trade_ids.insert(trade.id.clone()) {
+                continue;
+            }
             if !trade.settled {
                 trades.push(record);
             }
@@ -1023,7 +1104,8 @@ pub fn update_offer_price(input: UpdateOfferPriceInput) -> ExternResult<Record> 
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::TradeOffer,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     for record in query(filter)? {
         if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
@@ -1074,13 +1156,18 @@ pub fn get_grid_summary(_: ()) -> ExternResult<GridSummary> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::TradeOffer,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     let mut active_offers = 0;
     let mut total_kwh_available = 0.0;
+    let mut seen_offer_ids = HashSet::new();
 
     for record in query(offer_filter)? {
         if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
+            if !seen_offer_ids.insert(offer.id.clone()) {
+                continue;
+            }
             if offer.status == OfferStatus::Active || offer.status == OfferStatus::PartiallyFilled {
                 active_offers += 1;
                 total_kwh_available += offer.amount_kwh;
@@ -1092,14 +1179,19 @@ pub fn get_grid_summary(_: ()) -> ExternResult<GridSummary> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Trade,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     let mut total_trades = 0;
     let mut total_kwh_traded = 0.0;
     let mut total_value_traded = 0.0;
+    let mut seen_trade_ids = HashSet::new();
 
     for record in query(trade_filter)? {
         if let Some(trade) = record.entry().to_app_option::<Trade>().ok().flatten() {
+            if !seen_trade_ids.insert(trade.id.clone()) {
+                continue;
+            }
             total_trades += 1;
             total_kwh_traded += trade.amount_kwh;
             total_value_traded += trade.total_price;
