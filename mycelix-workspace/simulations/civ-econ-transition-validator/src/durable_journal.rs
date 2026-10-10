@@ -11,6 +11,10 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
+/// Prevent malformed local history from causing unbounded per-record decoding.
+const MAX_EFFECT_ID_BYTES: usize = 1024;
+const MAX_JOURNAL_RECORD_BYTES: usize = 4096;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum JournalError {
     InvalidPath,
@@ -385,7 +389,7 @@ fn ensure_private_file(_file: &File) -> Result<(), JournalError> {
     Ok(())
 }
 fn validate_effect_id(id: &str) -> Result<(), JournalError> {
-    if id.is_empty() || id.trim() != id || id.bytes().any(|b| b == b'\n' || b == b'\r' || b == b'\0') {
+    if id.is_empty() || id.len() > MAX_EFFECT_ID_BYTES || id.trim() != id || id.bytes().any(|b| b == b'\n' || b == b'\r' || b == b'\0') {
         return Err(JournalError::InvalidEffectId);
     }
     Ok(())
@@ -442,6 +446,11 @@ fn replay(bytes: &[u8]) -> Result<HashMap<String, JournalEntry>, JournalError> {
     let mut entries: HashMap<String, JournalEntry> = HashMap::new();
     for (index, line) in text.split_terminator('\n').enumerate() {
         let line_no = index + 1;
+        if line.len() > MAX_JOURNAL_RECORD_BYTES {
+            return Err(JournalError::CorruptJournal {
+                line: line_no, reason: "record exceeds maximum size"
+            });
+        }
         let fields: Vec<&str> = line.split('\t').collect();
         let (event, encoded_id, request_digest, provider_profile_digest, receipt_digest, source_evidence_digest) =
             match fields.as_slice() {
@@ -479,6 +488,11 @@ fn replay(bytes: &[u8]) -> Result<HashMap<String, JournalEntry>, JournalError> {
                     line: line_no, reason: "invalid record shape or version"
                 }),
             };
+        if encoded_id.len() > MAX_EFFECT_ID_BYTES * 2 {
+            return Err(JournalError::CorruptJournal {
+                line: line_no, reason: "effect id exceeds maximum size"
+            });
+        }
         let id_bytes = decode_hex(encoded_id, line_no)?;
         let id = String::from_utf8(id_bytes).map_err(|_| JournalError::CorruptJournal {
             line: line_no, reason: "effect id is not UTF-8"
@@ -579,6 +593,16 @@ mod tests {
         fn drop(&mut self) { let _ = fs::remove_dir_all(&self.0); }
     }
 
+    fn write_journal_fixture(path: &Path, contents: &[u8]) {
+        fs::write(path, contents).expect("write journal fixture");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+                .expect("restrict journal fixture permissions");
+        }
+    }
+
     const PROVIDER_A: &str = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
     const PROVIDER_B: &str = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
     const REQUEST_A: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -663,7 +687,7 @@ mod tests {
     #[test]
     fn truncated_journal_is_not_silently_repaired() {
         let temp = TempDir::new();
-        fs::write(temp.journal_path(), b"B\t7061796d656e742d36\tsha256:aaaaaaaa").unwrap();
+        write_journal_fixture(&temp.journal_path(), b"B\t7061796d656e742d36\tsha256:aaaaaaaa");
         assert!(matches!(DurableEffectJournal::open(temp.journal_path()), Err(JournalError::CorruptJournal { .. })));
         assert!(!temp.journal_path().with_file_name("effects.journal.lock").exists());
     }
@@ -671,7 +695,7 @@ mod tests {
     #[test]
     fn out_of_order_acknowledgement_is_corruption() {
         let temp = TempDir::new();
-        fs::write(temp.journal_path(), format!("J1\tA\t{}\t{}\t{}\n", encode_hex(b"never-begun"), REQUEST_A, RECEIPT_A)).unwrap();
+        write_journal_fixture(&temp.journal_path(), format!("J1\tA\t{}\t{}\t{}\n", encode_hex(b"never-begun"), REQUEST_A, RECEIPT_A).as_bytes());
         assert!(matches!(DurableEffectJournal::open(temp.journal_path()), Err(JournalError::CorruptJournal { .. })));
     }
 
@@ -690,7 +714,7 @@ mod tests {
     #[test]
     fn stale_corruption_lock_is_released_when_open_fails() {
         let temp = TempDir::new();
-        fs::write(temp.journal_path(), b"not-a-journal\n").unwrap();
+        write_journal_fixture(&temp.journal_path(), b"not-a-journal\n");
         for _ in 0..2 {
             assert!(matches!(DurableEffectJournal::open(temp.journal_path()), Err(JournalError::CorruptJournal { .. })));
         }
@@ -699,7 +723,7 @@ mod tests {
     #[test]
     fn unsupported_journal_record_version_fails_closed() {
         let temp = TempDir::new();
-        fs::write(temp.journal_path(), format!("J4\tB\t{}\t{}\n", encode_hex(b"effect"), REQUEST_A)).unwrap();
+        write_journal_fixture(&temp.journal_path(), format!("J4\tB\t{}\t{}\n", encode_hex(b"effect"), REQUEST_A).as_bytes());
         assert!(matches!(
             DurableEffectJournal::open(temp.journal_path()),
             Err(JournalError::CorruptJournal { reason: "unsupported journal record version", .. })
@@ -733,7 +757,7 @@ mod tests {
         let temp = TempDir::new();
         let path = temp.journal_path();
         let encoded_id = encode_hex(b"legacy-pending");
-        fs::write(&path, format!("J1\tB\t{}\t{}\n", encoded_id, REQUEST_A)).unwrap();
+        write_journal_fixture(&path, format!("J1\tB\t{}\t{}\n", encoded_id, REQUEST_A).as_bytes());
 
         let mut journal = DurableEffectJournal::open(&path).unwrap();
         assert_eq!(
@@ -753,7 +777,7 @@ mod tests {
         let temp = TempDir::new();
         let path = temp.journal_path();
         let encoded_id = encode_hex(b"legacy-j2-pending");
-        fs::write(&path, format!("J2\tB\t{}\t{}\n", encoded_id, REQUEST_A)).unwrap();
+        write_journal_fixture(&path, format!("J2\tB\t{}\t{}\n", encoded_id, REQUEST_A).as_bytes());
 
         let mut journal = DurableEffectJournal::open(&path).unwrap();
         assert_eq!(
@@ -767,14 +791,14 @@ mod tests {
         let temp = TempDir::new();
         let path = temp.journal_path();
         let encoded_id = encode_hex(b"cross-profile");
-        fs::write(
+        write_journal_fixture(
             &path,
             format!(
                 "J3\tB\t{}\t{}\t{}\nJ3\tA\t{}\t{}\t{}\t{}\t{}\n",
                 encoded_id, REQUEST_A, PROVIDER_A,
                 encoded_id, REQUEST_A, PROVIDER_B, RECEIPT_A, SOURCE_EVIDENCE_A
-            ),
-        ).unwrap();
+            ).as_bytes(),
+        );
 
         assert!(matches!(
             DurableEffectJournal::open(&path),
@@ -812,13 +836,13 @@ mod tests {
         let temp = TempDir::new();
         let path = temp.journal_path();
         let encoded_id = encode_hex(b"legacy-payment");
-        fs::write(
+        write_journal_fixture(
             &path,
             format!(
                 "J1\tB\t{}\t{}\nJ1\tA\t{}\t{}\t{}\n",
                 encoded_id, REQUEST_A, encoded_id, REQUEST_A, RECEIPT_A
-            ),
-        ).unwrap();
+            ).as_bytes(),
+        );
 
         let mut journal = DurableEffectJournal::open(&path).unwrap();
         assert_eq!(
@@ -837,13 +861,13 @@ mod tests {
         let temp = TempDir::new();
         let path = temp.journal_path();
         let encoded_id = encode_hex(b"bad-evidence");
-        fs::write(
+        write_journal_fixture(
             &path,
             format!(
                 "J2\tB\t{}\t{}\nJ2\tA\t{}\t{}\t{}\tsha256:BAD\n",
                 encoded_id, REQUEST_A, encoded_id, REQUEST_A, RECEIPT_A
-            ),
-        ).unwrap();
+            ).as_bytes(),
+        );
 
         assert!(matches!(
             DurableEffectJournal::open(&path),
@@ -886,6 +910,53 @@ mod tests {
         ));
         assert!(!path.with_file_name("effects.journal.lock").exists());
         assert_eq!(fs::read(&path).unwrap(), b"");
+    }
+
+
+    #[test]
+    fn oversized_effect_id_is_rejected_before_append() {
+        let temp = TempDir::new();
+        let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        let oversized_id = "e".repeat(MAX_EFFECT_ID_BYTES + 1);
+
+        assert_eq!(
+            journal.begin_effect(&oversized_id, REQUEST_A, PROVIDER_A),
+            Err(JournalError::InvalidEffectId),
+        );
+        assert!(journal.unresolved_effect_ids().is_empty());
+    }
+
+    #[test]
+    fn oversized_encoded_effect_id_fails_closed_before_decoding() {
+        let temp = TempDir::new();
+        let encoded_id = "a".repeat(MAX_EFFECT_ID_BYTES * 2 + 2);
+        let record = format!("J3\\tB\\t{}\\t{}\\t{}\\n", encoded_id, REQUEST_A, PROVIDER_A);
+        write_journal_fixture(&temp.journal_path(), record.as_bytes());
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "effect id exceeds maximum size",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn oversized_journal_record_fails_closed_before_field_parsing() {
+        let temp = TempDir::new();
+        let mut record = "malformed\\t".to_owned();
+        record.push_str(&"x".repeat(MAX_JOURNAL_RECORD_BYTES));
+        record.push('\\n');
+        write_journal_fixture(&temp.journal_path(), record.as_bytes());
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "record exceeds maximum size",
+                ..
+            })
+        ));
     }
 
     #[test]
