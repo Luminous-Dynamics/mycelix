@@ -94,6 +94,26 @@ def _literal_value(match: re.Match[str]) -> str | None:
     return value if isinstance(value, str) else None
 
 
+def _static_decoded_literal_hits(source_text: str) -> list[tuple[int, int, str]]:
+    """Find escaped normal string literals that decode to the raw-credit name."""
+    hits: list[tuple[int, int, str]] = []
+    for literal in RUST_STRING_LITERAL.finditer(source_text):
+        spelling = literal.group(0)
+        # Exact normal/raw literals already have their own finding.
+        if RAW_CREDIT_REFERENCE.fullmatch(spelling):
+            continue
+        if _literal_value(literal) == "credit_sap":
+            line_number = source_text.count("\n", 0, literal.start()) + 1
+            hits.append(
+                (
+                    literal.start(),
+                    line_number,
+                    f'{spelling} => decoded static string "credit_sap"',
+                )
+            )
+    return hits
+
+
 def _find_macro_close(source_text: str, opening: int) -> int:
     """Find a matching ')' without counting parentheses inside literals/comments."""
     depth = 1
@@ -206,8 +226,9 @@ def scan(zomes_root: Path) -> list[tuple[str, int, str]]:
             )
             for match in RAW_CREDIT_REFERENCE.finditer(source_text)
         ]
-        # Also inspect statically-composed Rust concat! string literals. Arbitrary
-        # const indirection or runtime string assembly remains outside this scanner.
+        # Also inspect escaped literals and statically composed Rust concat! calls.
+        # Arbitrary const indirection or runtime string assembly remains outside.
+        file_hits.extend(_static_decoded_literal_hits(source_text))
         file_hits.extend(_static_concat_hits(source_text))
         for _offset, line_number, spelling in sorted(file_hits):
             hits.append((relative.as_posix(), line_number, spelling))
