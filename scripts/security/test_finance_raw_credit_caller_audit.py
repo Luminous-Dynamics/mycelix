@@ -211,6 +211,7 @@ class RawCreditCallerAuditTests(unittest.TestCase):
             "needs.changes.outputs.finance_raw_credit_audit == 'true'",
             job_block,
         )
+        self.assertIn("github.event_name == 'workflow_dispatch'", job_block)
         self.assertIn(
             "python3 -m unittest discover -s scripts/security -p 'test_finance_raw_credit_caller_audit.py' -v",
             job_block,
@@ -218,6 +219,7 @@ class RawCreditCallerAuditTests(unittest.TestCase):
         ci_pass_start = workflow.index("  ci-pass:")
         ci_pass_end = workflow.index("\n    runs-on:", ci_pass_start)
         ci_pass = workflow[ci_pass_start:ci_pass_end]
+        self.assertIn("- changes", ci_pass)
         self.assertIn("- finance-raw-credit-caller-audit", ci_pass)
         failure_loop_start = workflow.index("for result in ", ci_pass_start)
         failure_loop = workflow[failure_loop_start:]
@@ -226,6 +228,16 @@ class RawCreditCallerAuditTests(unittest.TestCase):
             failure_loop,
         )
         self.assertIn('if [ "$result" = "failure" ]; then exit 1; fi', failure_loop)
+        self.assertIn(
+            'if [ "${{ needs.changes.result }}" != "success" ]; then',
+            failure_loop,
+        )
+        self.assertIn('needs.changes.outputs.finance_raw_credit_audit', failure_loop)
+        self.assertIn('|| [ "${{ github.event_name }}" = "workflow_dispatch" ]; then', failure_loop)
+        self.assertIn(
+            'if [ "${{ needs.finance-raw-credit-caller-audit.result }}" != "success" ]; then',
+            failure_loop,
+        )
 
     def test_whole_audit_fails_if_public_credit_abi_is_restored(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
