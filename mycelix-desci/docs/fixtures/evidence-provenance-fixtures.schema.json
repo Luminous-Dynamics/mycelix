@@ -1,0 +1,326 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/rfc/desci-science-allocation-001/mycelix-desci/docs/fixtures/evidence-provenance-fixtures.schema.json",
+  "title": "Mycelix DeSci evidence-provenance synthetic fixture corpus",
+  "description": "Schema for draft contract fixtures only. It does not define the production provenance event schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fixture_schema_version",
+    "status",
+    "note",
+    "contract",
+    "cases"
+  ],
+  "properties": {
+    "fixture_schema_version": {
+      "const": "evidence-provenance-fixtures/0.1.0"
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contract": {
+      "const": "evidence-provenance-contract/0.1.0"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^blake3:[0-9a-f]{64}$"
+    },
+    "parentArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "content_hash"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "content_hash",
+        "role"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "role": {
+          "enum": [
+            "primary_observation",
+            "reused_input",
+            "derived_dataset",
+            "analysis_output",
+            "synthetic_data",
+            "protocol_or_method",
+            "reference_material",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "provenanceAssertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provenance_record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "study_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "collection_activity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin_relation": {
+          "enum": [
+            "new_collection",
+            "derived_from",
+            "copied_or_repackaged_from",
+            "same_data_reanalysis",
+            "partially_overlapping",
+            "external_reference",
+            "unknown"
+          ]
+        },
+        "parent_artifacts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "$ref": "#/$defs/parentArtifact"
+              }
+            ]
+          }
+        },
+        "protocol_reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "collection_manifest_commitment": {
+          "$ref": "#/$defs/hash"
+        },
+        "supporting_provenance_artifacts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "declared_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "active",
+            "superseded",
+            "withdrawn",
+            "disputed"
+          ]
+        },
+        "qualification": {
+          "enum": [
+            "asserted",
+            "unknown",
+            "disputed",
+            "qualified_for_profile"
+          ]
+        },
+        "evaluator_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "overlap_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "unit",
+            "shared",
+            "total"
+          ],
+          "properties": {
+            "unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "shared": {
+              "type": "number",
+              "minimum": 0
+            },
+            "total": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "artifact_id"
+          ]
+        },
+        {
+          "required": [
+            "provenance_record_id"
+          ]
+        }
+      ]
+    },
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "evidence_artifact_ids",
+        "declared_by"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "independent_replication",
+            "computational_reproduction"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "supports",
+            "does_not_support",
+            "inconclusive"
+          ]
+        },
+        "evidence_artifact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "declared_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_schema_version": {
+          "type": "integer",
+          "minimum": 2
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "integrity",
+        "lineage",
+        "qualification",
+        "reason_code"
+      ],
+      "properties": {
+        "integrity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lineage": {
+          "type": "string",
+          "minLength": 1
+        },
+        "qualification": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason_code": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "possible_classification": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "artifacts",
+        "provenance_assertions",
+        "attestation",
+        "expected"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^EPC-[0-9]{3}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        },
+        "provenance_assertions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/provenanceAssertion"
+          }
+        },
+        "attestation": {
+          "$ref": "#/$defs/attestation"
+        },
+        "expected": {
+          "$ref": "#/$defs/expected"
+        }
+      }
+    }
+  }
+}
