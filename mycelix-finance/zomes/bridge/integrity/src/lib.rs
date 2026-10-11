@@ -2530,7 +2530,7 @@ mod tests {
     #[test]
     fn test_multi_position_rejects_weights_that_disagree_with_component_values() {
         let mut p = valid_multi_position();
-        p.components_json = r#"[{"type":"Cryptocurrency","asset_id":"eth-1","weight":0.9,"current_value":90000},{"type":"RealEstate","asset_id":"home-1","weight":0.1,"current_value":10000}]"#.into();
+        p.components_json = r#"[{"type":"Cryptocurrency","asset_id":"eth-1","weight":0.5,"current_value":90000},{"type":"RealEstate","asset_id":"home-1","weight":0.5,"current_value":10000}]"#.into();
         p.diversification_bonus = 0.05;
         p.effective_ltv = 0.45;
         let result = validate_create_multi_collateral_position(
