@@ -78,6 +78,27 @@ class EconomyAtlasRegistryTests(unittest.TestCase):
             ))
         self.assertEqual(validate_registry(self.registry), [])
 
+    def test_hearth_compost_delivery_status_finding_is_explicit(self) -> None:
+        finance = next(
+            model for model in self.registry["models"]
+            if model["model_id"] == "mycelix.finance.tricurrency.v1"
+        )
+        finding = next(
+            item for item in finance["validation_findings"]
+            if item["finding_id"] == "FIN-ATLAS-COMPOST-DELIVERY-STATUS-001"
+        )
+        coordinator = "mycelix-finance/zomes/payments/coordinator/src/lib.rs"
+        self.assertEqual(finding["source_file"], coordinator)
+        self.assertTrue(any(
+            source["path"] == coordinator
+            and source["ref"] == finding["source_commit"]
+            and source["url"].endswith(f"/{finding['source_commit']}/{coordinator}")
+            for source in finance["source_refs"]
+        ))
+        self.assertIn("redistributed: true", finding["observation"])
+        self.assertIn("failed hearth deliveries", finding["required_follow_up"])
+        self.assertEqual(validate_registry(self.registry), [])
+
     def test_dangling_validation_finding_source_fails(self) -> None:
         finance = next(
             model for model in self.registry["models"]
