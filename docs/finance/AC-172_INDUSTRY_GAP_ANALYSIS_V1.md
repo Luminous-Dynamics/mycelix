@@ -59,7 +59,7 @@ Minimum required scenarios:
 
 ### G2 — Retry work is durable, but recovery operations need explicit SLOs
 
-The outbox is a recovery source of truth, not a continuously running delivery service by itself. post_commit is best-effort and can be skipped operationally if a process/cell is unavailable; failed items require another drain invocation. Define an explicit worker/operator trigger, next-attempt policy, exponential backoff with jitter, bounded per-cycle work, durable attempt timestamps/counts, oldest-pending age, and a dead-letter/reconciliation state. Avoid tight repeated calls and avoid reporting a queue as healthy merely because an item is still stored.
+The outbox is a recovery source of truth, not a continuously running delivery service by itself. post_commit is best-effort and can be skipped operationally if a process/cell is unavailable; failed items require another drain invocation. The hook now dispatches only when a newly committed queue tag has retry_count = 0, so metadata changes after a failed delivery do not recursively trigger immediate drain loops. An explicit worker/operator trigger, next-attempt policy, exponential backoff with jitter, bounded per-cycle work, durable attempt timestamps, oldest-pending age, and a dead-letter/reconciliation state are still needed. Avoid reporting a queue as healthy merely because an item is still stored.
 
 A fee-bearing Payment must remain Pending while delivery is unresolved. Provide a read-only queue inspection surface and alert on oldest pending age, repeated delivery failures, orphaned claim/payment evidence, and mismatched Treasury receipts. Do not put raw provider error text or secrets into public evidence.
 
