@@ -50,6 +50,7 @@ REQUIRED_TESTS = {
     "action_and_reason_must_be_semantically_compatible",
     "identifiers_with_control_characters_are_rejected",
     "wire_contract_rejects_unknown_fields",
+    "malformed_input_digests_are_rejected",
     "duplicate_references_are_rejected_deterministically",
 }
 
@@ -147,10 +148,18 @@ def main() -> int:
         "model_version",
         "skill_id",
         "curriculum_revision",
-        "input_digest",
     ):
         require(properties.get(field, {}).get("maxLength") == max_identifier_chars,
                 f"{field} maxLength must match Rust", errors)
+
+    digest = properties.get("input_digest", {})
+    require(digest.get("minLength") == 71 and digest.get("maxLength") == 71
+            and digest.get("pattern") == "^blake3:[0-9a-f]{64}$",
+            "input digest must be exactly blake3: plus 64 lowercase hex characters", errors)
+    require("fn valid_blake3_digest(value: &str) -> bool" in source,
+            "Rust must validate canonical BLAKE3 digest format", errors)
+    require("if !valid_blake3_digest(&candidate.input_digest)" in source,
+            "Rust must reject malformed input digests", errors)
 
     require("#[serde(deny_unknown_fields)]" in source,
             "Rust wire type must reject unknown fields", errors)
