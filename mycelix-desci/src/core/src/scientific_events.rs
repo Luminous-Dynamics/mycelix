@@ -3439,6 +3439,26 @@ mod tests {
     }
 
     #[test]
+    fn raw_supportive_counts_do_not_promote_maturity_without_qualification() {
+        let profile = EvidenceProfile {
+            supportive_reproduction_count: 2,
+            supportive_independent_replication_count: 3,
+            ..EvidenceProfile::default()
+        };
+        let assessment = EvidenceAssessment::derive(&profile, &ClaimLifecycle::Active);
+        assert_eq!(assessment.policy_version, "1.2.0");
+        assert_eq!(assessment.maturity, EvidenceMaturity::Proposed);
+        assert_eq!(profile.qualified_reproduction_count, 0);
+        assert_eq!(profile.qualified_independent_replication_count, 0);
+        assert!(assessment.reasons.iter().any(|reason| {
+            reason.contains("remain unqualified by an independent provenance assessment")
+        }));
+        assert!(assessment.reasons.iter().any(|reason| {
+            reason.contains("computational-reproduction source attribution(s) remain unqualified")
+        }));
+    }
+
+    #[test]
     fn provenance_declaration_requires_schema_v4() {
         let claim_id = ClaimId::new();
         let genesis = SignedScientificEvent::sign(
