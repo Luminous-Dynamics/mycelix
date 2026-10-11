@@ -91,12 +91,40 @@ pub fn treasury_zome(cell: &SweetCell) -> holochain::sweettest::SweetZome {
     cell.zome("treasury")
 }
 
-/// Create a test payment input
+/// Generate a unique, non-secret key for a new logical payment in a test process.
+fn unique_payment_idempotency_key() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT_KEY: AtomicU64 = AtomicU64::new(0);
+    format!(
+        "finance-test-payment-{}",
+        NEXT_KEY.fetch_add(1, Ordering::Relaxed)
+    )
+}
+
+/// Create a test payment input with a fresh key for a new logical payment.
 pub fn create_test_payment_input(
     from_did: &str,
     to_did: &str,
     amount: u64,
     payment_type: PaymentType,
+) -> SendPaymentInput {
+    create_test_payment_input_with_key(
+        from_did,
+        to_did,
+        amount,
+        payment_type,
+        &unique_payment_idempotency_key(),
+    )
+}
+
+/// Create a payment fixture with an explicit key for exact retry/conflict tests.
+/// Reuse this key only when the logical operation is the same.
+pub fn create_test_payment_input_with_key(
+    from_did: &str,
+    to_did: &str,
+    amount: u64,
+    payment_type: PaymentType,
+    idempotency_key: &str,
 ) -> SendPaymentInput {
     SendPaymentInput {
         from_did: from_did.to_string(),
@@ -105,6 +133,7 @@ pub fn create_test_payment_input(
         currency: TEST_CURRENCY_SAP.to_string(),
         payment_type,
         memo: Some("Test payment".to_string()),
+        idempotency_key: idempotency_key.to_string(),
     }
 }
 
