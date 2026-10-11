@@ -88,6 +88,7 @@ pub enum BeginResult {
     /// A legacy J1/J2 pending effect has no recorded rail identity and cannot
     /// be resumed under a caller-selected provider automatically.
     ProviderProfileUnboundNeedsReconciliation,
+    /// Legacy J3 state lacks the original key; do not invent one during recovery.
     IdempotencyKeyUnboundNeedsReconciliation,
     AlreadyAcknowledged {
         receipt_digest: String,
@@ -138,6 +139,10 @@ pub struct DurableEffectJournal {
 
 impl DurableEffectJournal {
     /// Open a single-writer journal. Parent directory must exist.
+    /// On Unix, group/other write access on that directory is rejected.
+    /// Non-Unix native ACLs are not inspected by this crate.
+    /// J4 stores original idempotency keys in recoverable form; the journal
+    /// and its parent must be treated as sensitive local state.
     /// A lock left by a crash is not broken automatically.
     pub fn open<P: AsRef<Path>>(requested: P) -> Result<Self, JournalError> {
         let requested = requested.as_ref();
@@ -256,6 +261,11 @@ impl DurableEffectJournal {
     /// Only Started permits a first dispatch. Every other result forbids an
     /// automatic duplicate dispatch and requires reconciliation or reuse of
     /// the already acknowledged receipt.
+    ///
+    /// \x60idempotency_key\x60 is the exact original key the first dispatcher will use;
+    /// None explicitly records that no key is used. J4 stores this value in
+    /// recoverable (hex-encoded, not encrypted) form, so callers must not treat
+    /// it as confidential once it leaves this file/permission boundary.
     pub fn begin_effect(
         &mut self,
         id: &str,
