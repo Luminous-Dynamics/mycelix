@@ -49,6 +49,12 @@
           "path": "mycelix-workspace/sdk/src/economics/decay_garden.rs",
           "ref": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
           "url": "https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/mycelix-workspace/sdk/src/economics/decay_garden.rs"
+        },
+        {
+          "repository": "Luminous-Dynamics/mycelix",
+          "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+          "ref": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/mycelix-finance/zomes/payments/coordinator/src/lib.rs"
         }
       ],
       "currency_contract": {
@@ -111,6 +117,15 @@
           "observation": "The low-level calculate_demurrage function returns zero for annual_rate <= 0 and does not itself enforce the DemurrageConfig comment's constitutional 1–5% bound.",
           "required_follow_up": "Trace config construction and mutation validators; the Atlas adapter must enforce the documented domain before it calls the arithmetic primitive.",
           "source_repository": "Luminous-Dynamics/mycelix"
+        },
+        {
+          "finding_id": "FIN-ATLAS-COMPOST-DELIVERY-STATUS-001",
+          "severity": "false-success status / possible unaccounted compost; confirm call-path reachability with integration tests",
+          "source_repository": "Luminous-Dynamics/mycelix",
+          "source_file": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+          "source_commit": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "observation": "In apply_hearth_demurrage, the SAP deduction and pool update occur before treasury delivery attempts. Delivery-call errors are logged but are not queued for retry, and the function then returns redistributed: true unconditionally. It also skips any pool whose optional destination ID is absent. The personal apply_demurrage path has a pending queue for failed calls, but also skips absent optional destination IDs without setting fully_redistributed = false. Both active-zome paths assign integer-division residual to the global allocation, unlike the separate SDK CompostDistribution::distribute helper. This is a source-level control-flow finding, not a claim that a production loss has been observed.",
+          "required_follow_up": "Make redistribution status reflect each tier's amount and delivery result. A nonzero tier with no destination must be recorded as not redistributed or routed to a defined canonical destination; failed hearth deliveries should reuse or extend the pending-queue/recovery pattern. Add regression/integration tests for missing IDs, each failed treasury call, successful retries/queue drain, and conservation between deducted amount, delivered amount, and pending amount. Do not change live finance behavior until these contracts and recovery semantics are agreed and tested."
         }
       ]
     },
