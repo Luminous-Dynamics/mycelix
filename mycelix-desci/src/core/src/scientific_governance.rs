@@ -615,7 +615,7 @@ where
     ) -> Result<ClaimProjection> {
         let mut authority_qualified_evaluation_event_ids = BTreeSet::new();
 
-        if self.receipt_signing_key.is_some() {
+        if !self.trusted_receipt_service_keys.is_empty() {
             let trusted_service_keys = &self.trusted_receipt_service_keys;
             for event in events {
                 if !matches!(
@@ -637,7 +637,7 @@ where
                         "committed provenance evaluation has no retrievable authority receipt"
                             .to_string(),
                     ))?;
-                receipt.verify_for_event(event, &trusted_service_keys)?;
+                receipt.verify_for_event(event, trusted_service_keys)?;
                 if receipt.receipt.action != ScientificAction::EvaluateEvidenceProvenance {
                     return Err(Error::VerificationFailed(
                         "authority receipt does not authorize provenance evaluation".to_string(),
