@@ -607,6 +607,7 @@ pub struct GovernedScientificEventLog<L, R, P> {
 impl<L, R, P> GovernedScientificEventLog<L, R, P>
 where
     L: ScientificEventLog,
+    P: ScientificAuthorizationPolicy,
 {
     async fn build_authority_aware_projection(
         &self,
@@ -641,6 +642,16 @@ where
                     return Err(Error::VerificationFailed(
                         "authority receipt does not authorize provenance evaluation".to_string(),
                     ));
+                }
+                // Qualification requires a receipt issued under the active
+                // authorization policy and a reviewer role captured in that
+                // exact receipt. A formerly trusted but weaker policy is kept
+                // as history, not silently promoted under the current policy.
+                if !receipt.receipt.authorized_roles.contains(&ScientificRole::Reviewer)
+                    || receipt.receipt.policy_id != self.policy.policy_id()
+                    || receipt.receipt.policy_version != self.policy.policy_version()
+                {
+                    continue;
                 }
                 authority_qualified_evaluation_event_ids.insert(event.envelope.event_id);
             }
