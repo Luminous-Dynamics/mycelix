@@ -308,7 +308,7 @@ pub struct PendingCompost {
     pub pool_tier: CompostPoolTier,
     /// When this pending delivery was created
     pub created_at_micros: i64,
-    /// Number of retry attempts so far
+    /// Number of delivery attempts recorded across failed drain cycles.
     pub retry_count: u32,
 }
 
