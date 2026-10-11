@@ -80,6 +80,8 @@ pub enum RecoveryAction {
 pub fn decide_recovery(
     expected_provider_profile_digest: &str,
     expected_request_digest: &str,
+    /// Exact key durably bound to the original dispatch; None means no key is recorded.
+    expected_idempotency_key: Option<&str>,
     observation: &ProviderObservation,
     idempotency: &ProviderIdempotencyContract,
     now_unix_seconds: u64,
@@ -172,6 +174,7 @@ pub fn decide_recovery(
                 idempotency,
                 expected_provider_profile_digest,
                 expected_request_digest,
+                expected_idempotency_key,
                 now_unix_seconds,
             ) {
                 Ok(Some(key)) => RecoveryAction::RetryWithSameKey {
@@ -196,6 +199,7 @@ pub fn decide_recovery(
                 idempotency,
                 expected_provider_profile_digest,
                 expected_request_digest,
+                expected_idempotency_key,
                 now_unix_seconds,
             ) {
                 Ok(Some(key)) => RecoveryAction::RetryWithSameKey {
@@ -219,6 +223,7 @@ fn usable_idempotency_key<'a>(
     contract: &'a ProviderIdempotencyContract,
     expected_provider_profile_digest: &str,
     expected_request_digest: &str,
+    expected_idempotency_key: Option<&str>,
     now_unix_seconds: u64,
 ) -> Result<Option<&'a str>, &'static str> {
     match contract {
@@ -237,6 +242,11 @@ fn usable_idempotency_key<'a>(
             }
             if idempotency_key.trim().is_empty() {
                 return Err("provider idempotency key is empty");
+            }
+            match expected_idempotency_key {
+                Some(original_key) if original_key == idempotency_key => {}
+                Some(_) => return Err("provider idempotency key differs from original attempt"),
+                None => return Err("original attempt has no idempotency-key binding"),
             }
             if validate_digest(request_digest).is_err() {
                 return Err("provider contract request digest is not canonical");
@@ -305,6 +315,7 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
+                Some("effect-key-1"),
                 &ProviderObservation::Applied {
                     provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
@@ -328,6 +339,7 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
+                Some("effect-key-1"),
                 &ProviderObservation::Applied {
                     provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_B.to_owned(),
@@ -350,6 +362,7 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
+                Some("effect-key-1"),
                 &ProviderObservation::Applied {
                     provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
@@ -367,7 +380,10 @@ mod tests {
     #[test]
     fn unknown_outcome_can_retry_only_with_same_live_key_and_request() {
         assert_eq!(
-            decide_recovery(PROVIDER_A, REQUEST_A, &unknown(), &live_contract(), NOW, 30),
+            decide_recovery(
+                PROVIDER_A,
+                REQUEST_A,
+                Some("effect-key-1"), &unknown(), &live_contract(), NOW, 30),
             RecoveryAction::RetryWithSameKey {
                 idempotency_key: "effect-key-1".to_owned(),
             },
@@ -383,7 +399,10 @@ mod tests {
             guaranteed_until_unix_seconds: NOW,
         };
         assert!(matches!(
-            decide_recovery(PROVIDER_A, REQUEST_A, &unknown(), &contract, NOW, 30),
+            decide_recovery(
+                PROVIDER_A,
+                REQUEST_A,
+                Some("effect-key-1"), &unknown(), &contract, NOW, 30),
             RecoveryAction::RemainIndeterminate { .. },
         ));
     }
@@ -397,7 +416,10 @@ mod tests {
             guaranteed_until_unix_seconds: NOW + 100,
         };
         assert!(matches!(
-            decide_recovery(PROVIDER_A, REQUEST_A, &unknown(), &contract, NOW, 30),
+            decide_recovery(
+                PROVIDER_A,
+                REQUEST_A,
+                Some("effect-key-1"), &unknown(), &contract, NOW, 30),
             RecoveryAction::Quarantine { .. },
         ));
     }
@@ -408,6 +430,7 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
+                Some("effect-key-1"),
                 &ProviderObservation::DefinitelyNotApplied {
                     provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
@@ -436,6 +459,7 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
+                Some("effect-key-1"),
                 &ProviderObservation::DefinitelyNotApplied {
                     provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
@@ -457,6 +481,7 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
+                Some("effect-key-1"),
                 &ProviderObservation::DefinitelyNotApplied {
                     provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
@@ -478,6 +503,7 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
+                Some("effect-key-1"),
                 &ProviderObservation::DefinitelyNotApplied {
                     provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
@@ -499,6 +525,7 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
+                Some("effect-key-1"),
                 &ProviderObservation::DefinitelyNotApplied {
                     provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_B.to_owned(),
@@ -520,6 +547,7 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
+                Some("effect-key-1"),
                 &ProviderObservation::ConflictingEvidence,
                 &live_contract(),
                 NOW,
@@ -535,6 +563,7 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 "not-a-digest",
+                Some("effect-key-1"),
                 &unknown(),
                 &live_contract(),
                 NOW,
@@ -550,6 +579,7 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
+                Some("effect-key-1"),
                 &ProviderObservation::Applied {
                     provider_profile_digest: PROVIDER_B.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
@@ -572,6 +602,7 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
+                Some("effect-key-1"),
                 &ProviderObservation::Unknown {
                     provider_profile_digest: PROVIDER_B.to_owned(),
                 },
@@ -586,6 +617,48 @@ mod tests {
     }
 
     #[test]
+    fn unknown_outcome_rejects_a_different_key_even_for_the_same_request() {
+        let contract = ProviderIdempotencyContract::SameKeySameRequest {
+            provider_profile_digest: PROVIDER_A.to_owned(),
+            idempotency_key: "replacement-key".to_owned(),
+            request_digest: REQUEST_A.to_owned(),
+            guaranteed_until_unix_seconds: NOW + 100,
+        };
+        assert_eq!(
+            decide_recovery(
+                PROVIDER_A,
+                REQUEST_A,
+                Some("effect-key-1"),
+                &unknown(),
+                &contract,
+                NOW,
+                30,
+            ),
+            RecoveryAction::Quarantine {
+                reason: "provider idempotency key differs from original attempt",
+            },
+        );
+    }
+
+    #[test]
+    fn unknown_outcome_cannot_retry_when_original_key_was_not_recorded() {
+        assert_eq!(
+            decide_recovery(
+                PROVIDER_A,
+                REQUEST_A,
+                None,
+                &unknown(),
+                &live_contract(),
+                NOW,
+                30,
+            ),
+            RecoveryAction::Quarantine {
+                reason: "original attempt has no idempotency-key binding",
+            },
+        );
+    }
+
+    #[test]
     fn idempotency_contract_from_another_provider_profile_is_quarantined() {
         let contract = ProviderIdempotencyContract::SameKeySameRequest {
             provider_profile_digest: PROVIDER_B.to_owned(),
@@ -594,7 +667,10 @@ mod tests {
             guaranteed_until_unix_seconds: NOW + 100,
         };
         assert!(matches!(
-            decide_recovery(PROVIDER_A, REQUEST_A, &unknown(), &contract, NOW, 30),
+            decide_recovery(
+                PROVIDER_A,
+                REQUEST_A,
+                Some("effect-key-1"), &unknown(), &contract, NOW, 30),
             RecoveryAction::Quarantine {
                 reason: "provider idempotency contract is bound to a different provider profile",
             },
@@ -607,6 +683,7 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
+                Some("effect-key-1"),
                 &ProviderObservation::Applied {
                     provider_profile_digest: PROVIDER_A.to_owned(),
                     request_digest: REQUEST_A.to_owned(),
@@ -632,7 +709,10 @@ mod tests {
             guaranteed_until_unix_seconds: NOW + 100,
         };
         assert!(matches!(
-            decide_recovery(PROVIDER_A, REQUEST_A, &unknown(), &contract, NOW, 30),
+            decide_recovery(
+                PROVIDER_A,
+                REQUEST_A,
+                Some("effect-key-1"), &unknown(), &contract, NOW, 30),
             RecoveryAction::Quarantine { .. },
         ));
     }
