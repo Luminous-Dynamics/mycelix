@@ -2159,7 +2159,9 @@ impl ClaimProjection {
         scope: EvidenceProvenanceEvaluationScope,
     ) -> bool {
         self.provenance_evaluations.iter().any(|entry| {
-            &entry.evaluator == actor
+            self.authority_qualified_evaluation_event_ids
+                .contains(&entry.evaluation_event_id)
+                && &entry.evaluator == actor
                 && entry.evaluation.scope == scope
                 && evidence_ids.contains(&entry.evaluation.artifact_id)
         })
