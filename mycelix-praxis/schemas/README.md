@@ -59,7 +59,7 @@ request digest, trusted per-turn action and reason allowlists, and content-ID
 allowlist. Schema-valid output is not proof of factual correctness, learning
 effectiveness, mastery, credential eligibility, or authorization.
 
-The Rust `parse_symthaea_advisory_response` helper enforces a 16 KiB raw-byte
+The Rust `parse_symthaea_advice_response` helper enforces a 16 KiB raw-byte
 ceiling before deserializing and rejects malformed/unknown-field responses.
 Transport timeouts, process authentication, and calling this helper on every
 production adapter response remain responsibilities of the host adapter. JSON
