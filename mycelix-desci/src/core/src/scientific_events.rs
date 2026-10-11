@@ -2031,11 +2031,11 @@ impl ClaimProjection {
             })
             .collect::<Vec<_>>();
         if !evaluations.is_empty() {
-            let outcomes = evaluations.iter().map(|entry| entry.evaluation.outcome).collect::<BTreeSet<_>>();
-            if outcomes.len() != 1 {
+            let outcomes = evaluations.iter().map(|entry| entry.evaluation.outcome).collect::<Vec<_>>();
+            if outcomes.iter().any(|outcome| *outcome != outcomes[0]) {
                 return EvidenceProvenanceDisposition::ConflictingEvaluationsIndeterminate;
             }
-            match *outcomes.iter().next().unwrap() {
+            match outcomes[0] {
                 EvidenceProvenanceEvaluationOutcome::QualifiedForProfile => {
                     return match (record.declaration.origin_relation, evaluations[0].evaluation.scope) {
                         (EvidenceOriginRelation::NewCollection, EvidenceProvenanceEvaluationScope::IndependentReplication) => {
@@ -2113,6 +2113,10 @@ impl ClaimProjection {
         // one organization (or by mixing an organization-bound and unbound identity).
         let mut independent_replication_attributions: BTreeMap<ActorId, BTreeSet<String>> =
             BTreeMap::new();
+        let mut qualified_reproduction_attributions: BTreeMap<ActorId, BTreeSet<String>> =
+            BTreeMap::new();
+        let mut qualified_replication_attributions: BTreeMap<ActorId, BTreeSet<String>> =
+            BTreeMap::new();
         let mut non_supporting = BTreeSet::new();
         let mut inconclusive = BTreeSet::new();
         let mut critiques = BTreeSet::new();
@@ -2145,7 +2149,18 @@ impl ClaimProjection {
                         reproduction_attributions
                             .entry(record.actor.clone())
                             .or_default()
-                            .insert(source);
+                            .insert(source.clone());
+                        if !record.attestation.evidence_ids.is_empty()
+                            && record.attestation.evidence_ids.iter().all(|id| {
+                                self.provenance_disposition(*id)
+                                    == EvidenceProvenanceDisposition::QualifiedComputationalReproduction
+                            })
+                        {
+                            qualified_reproduction_attributions
+                                .entry(record.actor.clone())
+                                .or_default()
+                                .insert(source);
+                        }
                     }
                     EvidenceOutcome::DoesNotSupport => {
                         non_supporting.insert(source);
@@ -2166,7 +2181,18 @@ impl ClaimProjection {
                             independent_replication_attributions
                                 .entry(record.actor.clone())
                                 .or_default()
-                                .insert(source);
+                                .insert(source.clone());
+                            if !record.attestation.evidence_ids.is_empty()
+                                && record.attestation.evidence_ids.iter().all(|id| {
+                                    self.provenance_disposition(*id)
+                                        == EvidenceProvenanceDisposition::QualifiedIndependentReplication
+                                })
+                            {
+                                qualified_replication_attributions
+                                    .entry(record.actor.clone())
+                                    .or_default()
+                                    .insert(source);
+                            }
                         }
                         EvidenceOutcome::Supports => {}
                         EvidenceOutcome::DoesNotSupport => {
@@ -2194,10 +2220,16 @@ impl ClaimProjection {
         let (independent_replications, ambiguous_replication_actor_count) =
             collapse_unambiguous_actor_sources(independent_replication_attributions);
         profile.ambiguous_replication_actor_count += ambiguous_replication_actor_count;
+        let (qualified_reproductions, _) =
+            collapse_unambiguous_actor_sources(qualified_reproduction_attributions);
+        let (qualified_replications, _) =
+            collapse_unambiguous_actor_sources(qualified_replication_attributions);
 
         profile.review_count = reviewers.len();
         profile.supportive_reproduction_count = reproductions.len();
         profile.supportive_independent_replication_count = independent_replications.len();
+        profile.qualified_reproduction_count = qualified_reproductions.len();
+        profile.qualified_independent_replication_count = qualified_replications.len();
         profile.non_supporting_result_count = non_supporting.len();
         profile.inconclusive_result_count = inconclusive.len();
         profile.critique_count = critiques.len();
