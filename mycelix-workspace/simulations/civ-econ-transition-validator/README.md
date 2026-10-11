@@ -102,7 +102,10 @@ binding alongside the provider-profile digest; acknowledgements also bind the
 receipt and source-evidence digests. Keys are hex-encoded for unambiguous record
 framing, **not encrypted**; the journal contains the recoverable key and must be
 treated as sensitive local state even though the Unix journal/lock files are
-created owner-only. Legacy J1/J2 entries replay with no provider-
+created owner-only. On Unix, the parent directory must not be group/other-writable;
+put the journal in a private state directory rather than a shared temporary
+directory. On non-Unix platforms this crate does not inspect native ACLs, which
+must be independently verified before using the journal for sensitive keys. Legacy J1/J2 entries replay with no provider-
 profile binding, and legacy J1/J2/J3 entries replay with no original-key binding.
 These missing facts remain explicit and require reconciliation rather than being
 upgraded. Startup replay is streaming: a bounded reader
