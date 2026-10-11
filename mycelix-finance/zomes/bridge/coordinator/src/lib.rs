@@ -572,10 +572,8 @@ pub fn get_payment_history(input: GetPaymentHistoryInput) -> ExternResult<Vec<Re
 // Collateral Bridge Deposit functions
 // ---------------------------------------------------------------------------
 
-/// Deposit collateral to mint SAP.
-/// Creates a CollateralBridgeDeposit entry recording the collateral-to-SAP conversion.
-///
-/// DISABLED: legacy collateral SAP issuance has no authenticated custody/valuation receipt.
+/// DISABLED: legacy collateral deposits must not create pending records or SAP until
+/// authenticated custody/valuation evidence and a source-specific issuance receipt exist.
 #[hdk_extern]
 pub fn deposit_collateral(_input: DepositCollateralInput) -> ExternResult<Record> {
     Err(wasm_error!(WasmErrorInner::Guest(
