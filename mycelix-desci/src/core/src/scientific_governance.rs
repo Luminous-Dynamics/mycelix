@@ -984,10 +984,19 @@ mod tests {
         );
         assert!(!policy.authorize(&contributor_context, &evaluation_event, Some(&projection)).allowed);
 
+        let self_review_event = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &declaration,
+                collector.clone(),
+                now.clone() + Duration::seconds(4),
+                evaluation_event.envelope.payload.clone(),
+            ).unwrap(),
+            &collector_key,
+        ).unwrap();
         let self_review_context = profile(
             collector, &collector_key, ScientificRole::Reviewer, &now,
         );
-        assert!(!policy.authorize(&self_review_context, &evaluation_event, Some(&projection)).allowed);
+        assert!(!policy.authorize(&self_review_context, &self_review_event, Some(&projection)).allowed);
     }
 
     fn proposed(claim_id: ClaimId) -> ScientificEventPayload {
