@@ -2070,7 +2070,7 @@ pub fn initiate_exit(input: InitiateExitInput) -> ExternResult<Record> {
                     currency: "SAP".to_string(),
                     payment_type: PaymentType::CommonsContribution("exit-succession".to_string()),
                     memo: Some("Exit succession: SAP to local commons pool".to_string()),
-                    idempotency_key: "exit-succession-v1:commons".to_string(),
+                    idempotency_key: "exit-succession-v1:member-exit".to_string(),
                 })?;
             }
             SuccessionPreference::Designee(designee_did) => {
@@ -2081,7 +2081,7 @@ pub fn initiate_exit(input: InitiateExitInput) -> ExternResult<Record> {
                     currency: "SAP".to_string(),
                     payment_type: PaymentType::Direct,
                     memo: Some("Exit succession to designated heir".to_string()),
-                    idempotency_key: "exit-succession-v1:designee".to_string(),
+                    idempotency_key: "exit-succession-v1:member-exit".to_string(),
                 })?;
             }
             SuccessionPreference::Redemption => {
@@ -2094,7 +2094,7 @@ pub fn initiate_exit(input: InitiateExitInput) -> ExternResult<Record> {
                     currency: "SAP".to_string(),
                     payment_type: PaymentType::Direct,
                     memo: Some("Exit succession: SAP queued for collateral redemption".to_string()),
-                    idempotency_key: "exit-succession-v1:redemption".to_string(),
+                    idempotency_key: "exit-succession-v1:member-exit".to_string(),
                 })?;
             }
         }
