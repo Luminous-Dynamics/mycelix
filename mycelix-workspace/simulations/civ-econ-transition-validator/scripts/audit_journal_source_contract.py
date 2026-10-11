@@ -293,7 +293,7 @@ files = (
 check(
     "report hashes include transition, recovery policy, and crash integration source",
     all(
-        name in audit_script
+        name in hash_list_source
         for name in (
             "TRANSITION_PATH,",
             "RECOVERY_POLICY_PATH,",
