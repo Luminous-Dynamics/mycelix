@@ -14,6 +14,8 @@ on:
       - 'mycelix-workspace/mycelix-finance/zomes/payments/**'
       - 'mycelix-finance/tests/payments_test.rs'
       - 'mycelix-workspace/mycelix-finance/tests/payments_test.rs'
+      - 'mycelix-finance/tests/fixtures/mod.rs'
+      - 'mycelix-workspace/mycelix-finance/tests/fixtures/mod.rs'
       - 'mycelix-finance/tests/sweettest_integration.rs'
       - 'mycelix-workspace/mycelix-finance/tests/sweettest_integration.rs'
       - 'mycelix-finance/apps/leptos/**'
