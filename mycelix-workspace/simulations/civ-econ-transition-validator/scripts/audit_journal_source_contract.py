@@ -114,6 +114,22 @@ check(
     and "now_unix_seconds >= *guaranteed_until_unix_seconds" in recovery_policy,
 )
 check(
+    "same-key recovery retry must match original dispatch key",
+    "expected_idempotency_key: Option<&str>" in recovery_policy
+    and "Some(original_key) if original_key == idempotency_key" in recovery_policy
+    and "provider idempotency key differs from original attempt" in recovery_policy
+    and "original attempt has no idempotency-key binding" in recovery_policy,
+)
+for test_name in (
+    "unknown_outcome_rejects_a_different_key_even_for_the_same_request",
+    "unknown_outcome_cannot_retry_when_original_key_was_not_recorded",
+):
+    annotated_test = re.search(
+        r"#\[test\]\s*fn\s+" + re.escape(test_name) + r"\(",
+        recovery_policy,
+    )
+    check(f"original-key recovery regression test is annotated: {test_name}", annotated_test is not None)
+check(
     "no-effect retry requires no in-flight attempt and a fresh observation",
     "if !no_in_flight_attempt" in recovery_policy
     and "now_unix_seconds - *observed_at_unix_seconds" in recovery_policy
