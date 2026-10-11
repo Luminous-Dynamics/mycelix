@@ -183,6 +183,9 @@ pub fn revoke_amber_exemption(member_did: String) -> ExternResult<Record> {
 /// Returns the amount deducted. If 0, no update is persisted.
 #[hdk_extern]
 pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResult> {
+    // A member may trigger demurrage only for their own source-chain balance.
+    verify_caller_is_did(&input.member_did)?;
+
     // Opportunistically drain pending compost queue
     let _ = drain_pending_compost_inner();
 
@@ -288,6 +291,14 @@ struct ReceiveCompostPayload {
     pub source_member_did: String,
     #[serde(default)]
     pub effect_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct VerifyPendingCompostEffectInput {
+    pub commons_pool_id: String,
+    pub amount: u64,
+    pub source_member_did: String,
+    pub effect_id: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -408,6 +419,42 @@ fn queue_pending_compost(
         amount, pool_id, pending.pool_tier, source_did
     );
     Ok(())
+}
+
+/// Verify that a requested compost credit corresponds to exactly one durable,
+/// committed outbox item with the exact destination, amount, source and effect ID.
+/// Treasury calls this before creating a new receipt; the read-only result is not
+/// itself an authorization to create an outbox item.
+#[hdk_extern]
+pub fn verify_pending_compost_effect(input: VerifyPendingCompostEffectInput) -> ExternResult<bool> {
+    if input.effect_id.is_empty() || input.amount == 0 {
+        return Ok(false);
+    }
+    let anchor = anchor_hash(PENDING_COMPOST_ANCHOR)?;
+    let links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::PendingCompostQueue)?,
+        GetStrategy::default(),
+    )?;
+    let mut matching = 0usize;
+
+    for link in links {
+        let pending: PendingCompost = match serde_json::from_slice(link.tag.as_ref()) {
+            Ok(pending) => pending,
+            Err(_) => continue,
+        };
+        if pending.effect_id != input.effect_id {
+            continue;
+        }
+        if pending.commons_pool_id != input.commons_pool_id
+            || pending.amount != input.amount
+            || pending.source_member_did != input.source_member_did
+        {
+            return Ok(false);
+        }
+        matching += 1;
+    }
+
+    Ok(matching == 1)
 }
 
 /// Drain the pending compost queue by retrying all queued deliveries.
@@ -2439,6 +2486,10 @@ pub fn withdraw_from_hearth_pool(input: WithdrawFromHearthInput) -> ExternResult
 /// Returns the amount deducted. If 0, no update is persisted.
 #[hdk_extern]
 pub fn apply_hearth_demurrage(input: ApplyHearthDemurrageInput) -> ExternResult<DemurrageResult> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    let caller_did = format!("did:mycelix:{}", caller);
+    verify_hearth_membership_strict(&caller_did, &input.hearth_did)?;
+
     let mut pool = get_or_create_hearth_pool(&input.hearth_did)?;
     let now = sys_time()?;
     let elapsed = elapsed_seconds(pool.last_demurrage_at, now);
@@ -2681,6 +2732,46 @@ fn verify_hearth_membership(caller_did: &str, hearth_did: &str) -> ExternResult<
             );
             Ok(())
         }
+    }
+}
+
+/// Unlike the legacy convenience helper, this version fails closed when the
+/// Hearth role or membership proof is unavailable. Use it before any effect-bearing
+/// operation whose authority depends on Hearth membership.
+fn verify_hearth_membership_strict(caller_did: &str, hearth_did: &str) -> ExternResult<()> {
+    #[derive(Serialize, Deserialize, Debug)]
+    struct MembershipQuery {
+        member_did: String,
+        hearth_did: String,
+    }
+
+    match call(
+        CallTargetCell::OtherRole("hearth".into()),
+        ZomeName::from("hearth_bridge"),
+        FunctionName::from("is_hearth_member"),
+        None,
+        MembershipQuery {
+            member_did: caller_did.to_string(),
+            hearth_did: hearth_did.to_string(),
+        },
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => match result.decode::<bool>() {
+            Ok(true) => Ok(()),
+            Ok(false) => Err(wasm_error!(WasmErrorInner::Guest(
+                "Not a member of this hearth".into()
+            ))),
+            Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Hearth membership result could not be decoded: {e}"
+            )))),
+        },
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Hearth membership check returned an unsupported response: {:?}",
+            other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Hearth membership check unavailable; refusing compost effect: {:?}",
+            e
+        )))),
     }
 }
 
