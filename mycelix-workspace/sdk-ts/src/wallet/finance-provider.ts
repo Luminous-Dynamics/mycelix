@@ -50,6 +50,25 @@ function createPaymentIdempotencyKey(): string {
   return `wallet-payment:${cryptoApi.randomUUID()}`;
 }
 
+/**
+ * A send call failed before it returned a definitive payment record.
+ *
+ * The underlying zome call may have committed even when its response was lost.
+ * Retry the exact same request with this idempotencyKey; do not mint a new key.
+ */
+export class PaymentSubmissionError extends Error {
+  readonly idempotencyKey: string;
+  readonly originalError: unknown;
+
+  constructor(idempotencyKey: string, originalError: unknown) {
+    super('Payment submission returned no definitive result; resolve by retrying with the same idempotency key');
+    this.name = 'PaymentSubmissionError';
+    this.idempotencyKey = idempotencyKey;
+    this.originalError = originalError;
+  }
+}
+
+
 // =============================================================================
 // Zome Types (mirroring Rust types)
 // =============================================================================
@@ -427,8 +446,14 @@ export class HolochainFinanceProvider implements FinanceProvider {
     }
 
     // Otherwise, send directly with the caller-stable operation identity.
-    const tx = await this.sendDirect(to, amount, currency, memo, operationKey);
-    return tx.id;
+    try {
+      const tx = await this.sendDirect(to, amount, currency, memo, operationKey);
+      return tx.id;
+    } catch (error) {
+      // A transport error is not evidence that the zome transaction did not commit.
+      // Return the generated key to callers so they can resolve the same operation.
+      throw new PaymentSubmissionError(operationKey, error);
+    }
   }
 
   /**
