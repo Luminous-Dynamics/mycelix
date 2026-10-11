@@ -45,6 +45,7 @@ struct AtlasModel {
 struct AtlasValidationFinding {
     finding_id: String,
     severity: String,
+    source_repository: String,
     source_file: String,
     source_commit: String,
     observation: String,
@@ -126,6 +127,7 @@ fn render_model_card(model: AtlasModel) -> impl IntoView {
                             {validation_findings.into_iter().map(|finding| {
                                 let finding_id = finding.finding_id;
                                 let severity = finding.severity;
+                                let source_repository = finding.source_repository;
                                 let source_file = finding.source_file;
                                 let source_commit = finding.source_commit;
                                 let observation = finding.observation;
@@ -139,7 +141,7 @@ fn render_model_card(model: AtlasModel) -> impl IntoView {
                                             <strong>"Required follow-up: "</strong>
                                             {follow_up}
                                         </p>
-                                        <p class="atlas-model-id">{format!("{source_file} @ {source_commit}")}</p>
+                                        <p class="atlas-model-id">{format!("{source_repository}/{source_file} @ {source_commit}")}</p>
                                     </div>
                                 }
                             }).collect_view()}
@@ -363,5 +365,28 @@ mod tests {
             }
         }
         assert_eq!(sources, 11);
+    }
+
+    #[test]
+    fn every_validation_finding_binds_to_an_exact_registered_source() {
+        let registry = registry();
+        let mut count = 0usize;
+        for model in &registry.models {
+            for finding in &model.validation_findings {
+                count += 1;
+                assert!(
+                    model.source_refs.iter().any(|source| {
+                        source.repository == finding.source_repository
+                            && source.path == finding.source_file
+                            && source.ref_ == finding.source_commit
+                    }),
+                    "finding {} is not bound to a model source permalink",
+                    finding.finding_id
+                );
+                assert!(!finding.observation.trim().is_empty());
+                assert!(!finding.required_follow_up.trim().is_empty());
+            }
+        }
+        assert_eq!(count, 3);
     }
 }
