@@ -42,6 +42,14 @@ import type {
   SyncEvent,
 } from './offline-queue.js';
 
+function createPaymentIdempotencyKey(): string {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi || typeof cryptoApi.randomUUID !== 'function') {
+    throw new Error('Secure UUID support is required to create a payment idempotency key');
+  }
+  return `wallet-payment:${cryptoApi.randomUUID()}`;
+}
+
 // =============================================================================
 // Zome Types (mirroring Rust types)
 // =============================================================================
@@ -54,6 +62,7 @@ interface SendPaymentInput {
   currency: string;
   payment_type: PaymentType;
   memo?: string;
+  idempotency_key: string;
 }
 
 /** Payment type enum matching Rust */
@@ -399,21 +408,26 @@ export class HolochainFinanceProvider implements FinanceProvider {
     amount: number,
     currency: Currency,
     memo?: string,
-    _signature?: Uint8Array
+    _signature?: Uint8Array,
+    idempotencyKey?: string
   ): Promise<string> {
     // Validate from matches myDid
     if (from !== this.myDid && this.myDid) {
       throw new Error(`Cannot send from ${from} - myDid is ${this.myDid}`);
     }
 
-    // If we have an offline queue and we're offline, queue it
+    // Create this once at the public API boundary. Queue retries retain the same key;
+    // callers can pass their own key to recover an ambiguous direct-call result.
+    const operationKey = idempotencyKey ?? createPaymentIdempotencyKey();
+
+    // If we have an offline queue and we're offline, persist the same key with the work.
     if (this.offlineQueue && !this.conductor.isOnline) {
-      const tx = await this.queueSend(to, amount, currency, memo);
+      const tx = await this.queueSend(to, amount, currency, memo, operationKey);
       return tx.id;
     }
 
-    // Otherwise, send directly
-    const tx = await this.sendDirect(to, amount, currency, memo);
+    // Otherwise, send directly with the caller-stable operation identity.
+    const tx = await this.sendDirect(to, amount, currency, memo, operationKey);
     return tx.id;
   }
 
@@ -466,7 +480,8 @@ export class HolochainFinanceProvider implements FinanceProvider {
     to: string,
     amount: number,
     currency: Currency,
-    memo?: string
+    memo: string | undefined,
+    idempotencyKey: string
   ): Promise<Transaction> {
     const input: SendPaymentInput = {
       from_did: this.myDid,
@@ -475,6 +490,7 @@ export class HolochainFinanceProvider implements FinanceProvider {
       currency,
       payment_type: { Direct: null },
       memo,
+      idempotency_key: idempotencyKey,
     };
 
     const record = await this.conductor.callZome<{ entry: PaymentRecord }>({
@@ -503,13 +519,16 @@ export class HolochainFinanceProvider implements FinanceProvider {
     to: string,
     amount: number,
     currency: Currency,
-    memo?: string
+    memo: string | undefined,
+    idempotencyKey: string
   ): Promise<Transaction> {
     if (!this.offlineQueue) {
       throw new Error('Offline queue not configured');
     }
 
-    const queued = await this.offlineQueue.enqueueSend(to, amount, currency, memo);
+    const queued = await this.offlineQueue.enqueueSend(to, amount, currency, memo, {
+      idempotencyKey,
+    });
 
     // Create optimistic transaction (optimistic IDs have a prefix we can track)
     const transaction: Transaction = {
@@ -618,7 +637,21 @@ export class HolochainFinanceProvider implements FinanceProvider {
 
         try {
           const payload = operation.payload;
-          await this.sendDirect(payload.to, payload.amount, payload.currency, payload.memo);
+          const idempotencyKey = payload.idempotencyKey ?? operation.idempotencyKey;
+          if (!idempotencyKey) {
+            return {
+              success: false,
+              error: 'Queued payment has no stable idempotency key; refusing automatic dispatch',
+              retryable: false,
+            };
+          }
+          await this.sendDirect(
+            payload.to,
+            payload.amount,
+            payload.currency,
+            payload.memo,
+            idempotencyKey
+          );
           return { success: true };
         } catch (error) {
           return {
