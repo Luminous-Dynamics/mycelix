@@ -94,6 +94,46 @@ These are risks to measure, not findings that a mechanism is necessarily wrong.
 
 Every hypothesis must declare its failure condition before execution. Record null and disappointing results as well as wins.
 
+## Constitutional anti-Ponzi and finite-resource invariants
+
+“Ponzi-like” is a useful systems metaphor here, not a legal diagnosis of every part of the global economy. The engineering target is a system that cannot silently sustain itself by rolling forward unfulfillable obligations, transferring losses to weaker parties, treating ecological sinks as infinite, or classifying coercion as efficiency.
+
+This is not solved by declaring money “backed by real assets” in the abstract. Productive credit can finance future activity; the question is whether the future activity has a plausible cash-flow and physical-capacity path, who carries downside risk, and what happens when the path fails. Financial claims, real capacity, liquidity, solvency, valuation uncertainty, and ecological viability must be modeled separately.
+
+The public evidence makes finite-resource and distributional limits material design inputs, not optional externalities. UNEP’s Global Resources Outlook 2024 reports that global material extraction has tripled over five decades and could rise by almost 60% from 2020 levels by 2060 without change; it also reports strongly unequal resource footprints and impacts across income groups. The 2025 Planetary Health Check reports that seven of nine planetary boundaries have been breached. The IPCC’s AR6 synthesis says equity, social justice, inclusion, and just-transition processes can enable stronger climate action and more sustainable outcomes. These are reasons to design explicit constraints and distributional tests, not evidence that a specific economic OS has already solved them.
+
+### Non-negotiable system invariants
+
+1. **No paper prosperity.** Credit issuance, token issuance, rising asset valuations, refinancing, or ledger transfers alone do not count as need fulfilment or net real wealth creation. Report financial claims and real deliveries as separate quantities.
+2. **No invisible rollover.** Every obligation records its principal, unit/denomination, maturity, repayment or settlement source, counterparty, contingency, and loss-allocation rule. Refinancing moves the obligation forward; it does not erase the obligation or count as repayment. Stress scenarios must include correlated defaults and refinancing freezes.
+3. **No “unknown equals zero.”** Missing prices, missing resource quantities, stale observations, and failed external attestations remain Unknown. They must not default to a zero cost, zero risk, healthy state, or proven insolvency.
+4. **No unlimited physical throughput.** Every material resource or ecological impact relevant to a scenario records a unit, time interval, geography, provenance, and absolute budget/constraint. Efficiency gains must not be used to hide rising absolute throughput. Recycling assumptions need measured recovery rates, quality loss, energy, and material losses.
+5. **No export of harm by accounting boundary.** Include relevant upstream/downstream supply-chain impacts, unpaid care burdens, displacement, occupational harms, pollution exposure, and public subsidy where data permit. Report missing coverage and uncertainty; do not mark a cost as internalized merely because a field exists.
+6. **No coercion as an optimization win.** Forced or unsafe labour, dispossession, retaliation for dissent, denial of essential needs as leverage, and suppression of exit/appeal are hard failures, not compensable losses that can be offset by aggregate output gains. Protect informed consent, collective bargaining/voice, due process, and non-retaliatory complaints.
+7. **No rights-versus-efficiency trade-down.** Define critical-need floors and rights constraints before optimizing. A policy cannot trade away an individual or group's protected floor merely because aggregate utility or GDP-like throughput increases.
+8. **No unaccountable loss socialization.** When a policy or institution gains privately and produces a loss borne by other communities, workers, taxpayers, or future generations, record the beneficiary, affected parties, transfers, and remediation. Make sure the people exposed to the risk have meaningful authority and recourse.
+9. **No single global scalar.** Publish the Pareto profile of fulfilment, distribution, risk, ecological throughput, autonomy, and resilience. Any composite score must expose weights and show whether a worse outcome in one dimension was hidden by gains elsewhere.
+
+### Failure tests to add to the frozen scenario corpus
+
+- **Refinancing freeze:** demand falls, maturities cluster, collateral values drop, and lenders stop rolling obligations. Fail the policy if it calls rollover “repayment,” hides arrears, or meets balance-sheet targets only by denying essential needs.
+- **Collateral-price outage:** an oracle becomes unavailable or returns a stale/degraded value. The system must preserve Unknown, stop new automated risk decisions that need the missing value, and never convert missing evidence into either “healthy” or liquidation evidence.
+- **Physical-capacity shortfall:** the financial budget can buy more units than a local water, energy, housing, food, care, or material supply can deliver. Allocation must reserve only verified feasible capacity and surface unmet need, not synthesize supply.
+- **Externalized production:** a cheaper supplier has unrecorded pollution, unsafe work, coercion, dispossession, or displacement. Compare apparent cost with the expanded impact ledger; any fundamental-rights violation triggers a hard failure, not a priced offset.
+- **Rebound effect:** per-unit resource use falls while total output rises enough that absolute material/energy impact increases. Report both intensity and absolute impact; do not claim ecological progress from intensity alone.
+- **Unequal transition:** the policy reduces carbon/material throughput but shifts costs onto low-income households, workers, or resource-poor regions while leaving high-consumption beneficiaries protected. Evaluate who gains, who pays, whether minimum needs remain met, and whether remediation/voice is effective.
+- **Unpaid-care substitution:** a nominally efficient allocation reduces public/accounted cost by shifting additional unpaid care and time burden to already overburdened households. Time is a finite resource and its distribution must be measured.
+
+For each test, publish predeclared failure criteria, beneficiary and burden analysis, ecological totals and uncertainty, and the exact decision that was prevented or permitted. An “ethics” section in a README is not evidence that these invariants hold.
+
+### Research references
+
+- [UNEP / International Resource Panel, Global Resources Outlook 2024](https://www.unep.org/resources/Global-Resource-Outlook-2024) — resource extraction trajectories, unequal footprints, and resource-use pathways.
+- [Earth Commission, 2025 Planetary Health Check summary](https://earthcommission.org/planetary-health-check-7-of-9-boundaries-breached/) — reports seven of nine planetary boundaries breached.
+- [IPCC AR6 Synthesis Report, Summary for Policymakers](https://www.ipcc.ch/site/assets/uploads/2023/03/Doc4_Approved_AR6_SYR_SPM.pdf) — equity, justice, inclusion, and just-transition findings.
+
+These references establish external risk context; they do not establish that Mycelix's implementation satisfies the invariants above.
+
 ## Minimum reproducible economic benchmark
 
 Create a versioned scenario corpus before reducing the OS to a single score:
