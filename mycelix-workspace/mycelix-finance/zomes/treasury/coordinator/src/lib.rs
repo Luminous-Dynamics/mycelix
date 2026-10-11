@@ -12,6 +12,7 @@ use treasury_integrity::*;
 
 use mycelix_zome_helpers as _;
 const DEFAULT_LIST_LIMIT: usize = 100;
+const MAX_COMPOST_EFFECT_ID_LEN: usize = 256;
 
 /// Verify the caller is a registered governance agent, or allow any agent during
 /// bootstrap (before the first governance agent is registered) — the same pattern
@@ -1188,6 +1189,17 @@ fn compost_receival_id(pool_id: &str, effect_id: &str) -> ExternResult<String> {
     Ok(format!("compost-effect:v1:{}", anchor_hash(&material)?))
 }
 
+fn compost_receipt_matches(
+    receival: &CompostReceival,
+    input: &ReceiveCompostInput,
+    receipt_id: &str,
+) -> bool {
+    receival.id == receipt_id
+        && receival.commons_pool_id == input.commons_pool_id
+        && receival.amount == input.amount
+        && receival.source_member_did == input.source_member_did
+}
+
 fn existing_compost_effect(
     input: &ReceiveCompostInput,
     receipt_id: &str,
@@ -1225,10 +1237,7 @@ fn existing_compost_effect(
         if receival.id != receipt_id {
             continue;
         }
-        if receival.commons_pool_id != input.commons_pool_id
-            || receival.amount != input.amount
-            || receival.source_member_did != input.source_member_did
-        {
+        if !compost_receipt_matches(&receival, input, receipt_id) {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Compost effect ID was reused with a conflicting pool, amount, or source".into()
             )));
@@ -1268,7 +1277,7 @@ pub fn receive_compost(input: ReceiveCompostInput) -> ExternResult<Record> {
 
     let receipt_id = if let Some(effect_id) = input.effect_id.as_deref() {
         if effect_id.is_empty()
-            || effect_id.len() > MAX_ID_LEN
+            || effect_id.len() > MAX_COMPOST_EFFECT_ID_LEN
             || effect_id.chars().any(char::is_control)
         {
             return Err(wasm_error!(WasmErrorInner::Guest(
@@ -1602,3 +1611,64 @@ pub struct DkgAllocationInput {
     /// Threshold signature bytes from the DKG committee
     pub threshold_signature: Vec<u8>,
 }
+
+#[cfg(test)]
+mod compost_effect_identity_tests {
+    use super::*;
+
+    fn input() -> ReceiveCompostInput {
+        ReceiveCompostInput {
+            commons_pool_id: "global-fee-pool".into(),
+            amount: 125,
+            source_member_did: "did:mycelix:sender".into(),
+            effect_id: Some("payment-fee:v1:operation-1".into()),
+        }
+    }
+
+    fn receival(input: &ReceiveCompostInput, id: String) -> CompostReceival {
+        CompostReceival {
+            id,
+            commons_pool_id: input.commons_pool_id.clone(),
+            amount: input.amount,
+            source_member_did: input.source_member_did.clone(),
+            timestamp: Timestamp::from_micros(1_000_000),
+        }
+    }
+
+    #[test]
+    fn effect_receipt_id_is_stable_and_pool_scoped() {
+        let a = compost_receival_id("global-fee-pool", "payment-fee:op-1").unwrap();
+        let b = compost_receival_id("global-fee-pool", "payment-fee:op-1").unwrap();
+        let other_pool = compost_receival_id("other-pool", "payment-fee:op-1").unwrap();
+
+        assert_eq!(a, b);
+        assert_ne!(a, other_pool);
+        assert!(a.starts_with("compost-effect:v1:"));
+    }
+
+    #[test]
+    fn exact_effect_retry_matches_existing_receipt() {
+        let input = input();
+        let id = compost_receival_id(
+            &input.commons_pool_id,
+            input.effect_id.as_deref().unwrap(),
+        )
+        .unwrap();
+        let receipt = receival(&input, id.clone());
+
+        assert!(compost_receipt_matches(&receipt, &input, &id));
+
+        let mut changed_amount = input.clone();
+        changed_amount.amount += 1;
+        assert!(!compost_receipt_matches(&receipt, &changed_amount, &id));
+
+        let mut changed_source = input.clone();
+        changed_source.source_member_did = "did:mycelix:other".into();
+        assert!(!compost_receipt_matches(&receipt, &changed_source, &id));
+
+        let mut changed_pool = input.clone();
+        changed_pool.commons_pool_id = "other-pool".into();
+        assert!(!compost_receipt_matches(&receipt, &changed_pool, &id));
+    }
+}
+
