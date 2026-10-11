@@ -431,7 +431,7 @@ fn payment_fee_outbox_matches(
         && payment.fee == input.amount
         && payment.from_did == input.source_member_did
         && payment.fee > 0
-        && matches!(payment.status, TransferStatus::Pending | TransferStatus::Processing)
+        && matches!(&payment.status, TransferStatus::Pending | TransferStatus::Processing)
         && payment.completed.is_none()
 }
 
