@@ -2050,6 +2050,39 @@ mod tests {
     }
 
     #[test]
+    fn test_health_rejects_zero_current_value_even_with_liquidation_sentinel() {
+        let mut h = valid_health();
+        h.current_value = 0;
+        h.ltv_ratio = 999.0;
+        h.status = "Liquidation".into();
+        let result =
+            validate_create_collateral_health(EntryCreationAction::Create(make_create()), h)
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_health_rejects_ratio_that_disagrees_with_source_amounts() {
+        let mut h = valid_health();
+        h.ltv_ratio = 0.90;
+        h.status = "MarginCall".into();
+        let result =
+            validate_create_collateral_health(EntryCreationAction::Create(make_create()), h)
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_health_rejects_status_that_disagrees_with_ratio() {
+        let mut h = valid_health();
+        h.status = "Liquidation".into();
+        let result =
+            validate_create_collateral_health(EntryCreationAction::Create(make_create()), h)
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
     fn test_health_rejects_empty_collateral_id() {
         let mut h = valid_health();
         h.collateral_id = "".into();
@@ -2352,7 +2385,7 @@ mod tests {
             aggregate_value: 100_000,
             aggregate_obligation: 50_000,
             diversification_bonus: 0.05,
-            effective_ltv: 0.5,
+            effective_ltv: 0.45,
             status: "Healthy".into(),
             created_at: ts(1_000_000),
             last_revalued_at: ts(1_000_000),
@@ -2367,6 +2400,44 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_zero_aggregate_value() {
+        let mut p = valid_multi_position();
+        p.aggregate_value = 0;
+        p.effective_ltv = 999.0;
+        p.status = "Liquidation".into();
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_effective_ltv_mismatch() {
+        let mut p = valid_multi_position();
+        p.effective_ltv = 0.50;
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_status_mismatch() {
+        let mut p = valid_multi_position();
+        p.status = "Liquidation".into();
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
