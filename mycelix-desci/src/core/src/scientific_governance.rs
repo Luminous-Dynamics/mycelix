@@ -260,6 +260,7 @@ pub enum ScientificAction {
     ProposeClaim,
     ImportLegacyClaim,
     AttachEvidence,
+    DeclareEvidenceProvenance,
     RecordAttestation,
     CorrectAttestation,
     WithdrawAttestation,
@@ -278,6 +279,7 @@ impl ScientificAction {
             Self::WithdrawAttestation => 6,
             Self::SupersedeClaim => 7,
             Self::RetractClaim => 8,
+            Self::DeclareEvidenceProvenance => 9,
         }
     }
 
@@ -286,6 +288,7 @@ impl ScientificAction {
             ScientificEventPayload::ClaimProposed { .. } => Self::ProposeClaim,
             ScientificEventPayload::LegacyClaimImported { .. } => Self::ImportLegacyClaim,
             ScientificEventPayload::EvidenceAttached { .. } => Self::AttachEvidence,
+            ScientificEventPayload::EvidenceProvenanceDeclared { .. } => Self::DeclareEvidenceProvenance,
             ScientificEventPayload::AttestationRecorded { .. } => Self::RecordAttestation,
             ScientificEventPayload::AttestationCorrected { .. } => Self::CorrectAttestation,
             ScientificEventPayload::AttestationWithdrawn { .. } => Self::WithdrawAttestation,
@@ -397,6 +400,32 @@ impl ScientificAuthorizationPolicy for DefaultScientificAuthorizationPolicy {
                         "only the claim owner or governed editor may attach evidence",
                     )
                 }
+            }
+            (
+                ScientificEventPayload::EvidenceProvenanceDeclared { declaration, .. },
+                Some(projection),
+            ) => {
+                if !actor.has_any_role(&[
+                    ScientificRole::Contributor,
+                    ScientificRole::Reviewer,
+                    ScientificRole::Editor,
+                    ScientificRole::Institution,
+                ]) {
+                    return AuthorizationDecision::deny(
+                        "actor lacks a scientific role for provenance declaration",
+                    );
+                }
+                if !projection.evidence.iter().any(|artifact| {
+                    artifact.id == declaration.artifact_id
+                        && artifact.content_hash == declaration.content_hash
+                }) {
+                    return AuthorizationDecision::deny(
+                        "provenance declaration does not match an attached evidence artifact",
+                    );
+                }
+                AuthorizationDecision::allow(
+                    "authorized actor may declare provenance; declaration is not independent qualification",
+                )
             }
             (ScientificEventPayload::AttestationRecorded { attestation }, Some(projection)) => {
                 if !actor.has_any_role(&[
