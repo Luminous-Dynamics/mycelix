@@ -30,6 +30,14 @@ def check(name: str, condition: bool) -> None:
     (passed if condition else failures).append(name)
 
 
+def ordered_tokens(source: str, *tokens: str) -> bool:
+    """Require every token to exist and appear in the requested strict order."""
+    positions = [source.find(token) for token in tokens]
+    return all(position >= 0 for position in positions) and all(
+        left < right for left, right in zip(positions, positions[1:])
+    )
+
+
 def read(path: Path) -> str:
     if not path.is_file():
         failures.append(f"required file exists: {path.relative_to(ROOT)}")
@@ -61,8 +69,11 @@ check(
 )
 check(
     "encoded effect ID limit is checked before decoding",
-    journal.find("if encoded_id.len() > MAX_EFFECT_ID_BYTES * 2")
-    < journal.find("let id_bytes = decode_hex(encoded_id, line_no)?"),
+    ordered_tokens(
+        journal,
+        "if encoded_id.len() > MAX_EFFECT_ID_BYTES * 2",
+        "let id_bytes = decode_hex(encoded_id, line_no)?",
+    ),
 )
 for test_name in (
     "streaming_replay_handles_history_larger_than_reader_buffer",
@@ -88,6 +99,12 @@ check("Cargo.lock resolves the local validator package", 'name = "civ-econ-trans
 check("locked Cargo input is included in report hash set", "MANIFEST_PATH, LOCKFILE_PATH, README_PATH" in audit_script)
 check("README states measurements are not established yet", "has not itself established performance numbers" in " ".join(readme.split()))
 check("README documents how to run source preflight", "python3 scripts/audit_journal_source_contract.py" in readme)
+check(
+    "audit ordering helper rejects missing or reversed markers",
+    ordered_tokens("first ... second", "first", "second")
+    and not ordered_tokens("present", "absent", "present")
+    and not ordered_tokens("second first", "first", "second"),
+)
 check("README documents combined report/smoke artifact and limits", "JSON audit report and replay-smoke log are bundled" in " ".join(readme.split()) and "not immutable long-term archival" in " ".join(readme.split()) and "smoke figures are not capacity benchmarks" in " ".join(readme.split()))
 check("audit fails closed when Git subject is absent", 'check("Git commit identity is available"' in audit_script)
 check("audit compares checked-out subject to QUALIFIED_SHA", 'if expected_subject:' in audit_script and "commit == expected_subject" in audit_script)
@@ -108,10 +125,20 @@ check("workflow uploads the report even when prior steps fail", "Upload journal 
 check("artifact upload action is pinned to reviewed v7.0.2", "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in workflow and "# v7.0.2" in workflow)
 check("artifact name includes run ID and exact subject", "github.run_id" in workflow and "env.QUALIFIED_SHA" in workflow)
 check("audit writes a newline-terminated JSON report", "JOURNAL_AUDIT_REPORT_PATH" in audit_script and "destination.write_text(report_json" in audit_script and "encoding=\"utf-8\"" in audit_script)
-check("workflow validates persisted JSON before any Cargo build", workflow.index("Validate persisted journal source-contract report JSON") < workflow.index("Run dependency-free validator tests"))
+check(
+    "workflow validates persisted JSON before any Cargo build",
+    ordered_tokens(
+        workflow,
+        "name: Validate persisted journal source-contract report JSON",
+        "name: Run dependency-free validator tests",
+    ),
+)
 check("workflow captures replay smoke output in a durable log", 'report="$RUNNER_TEMP/journal-replay-smoke.log"' in workflow and '2>&1 | tee -a "$report"' in workflow)
 check("smoke records the qualification subject and run ID", 'echo "qualified_sha=$QUALIFIED_SHA" | tee -a "$report"' in workflow and 'echo "github_run_id=${GITHUB_RUN_ID:-unknown}" | tee -a "$report"' in workflow)
-check("smoke records host metadata before attempting the build", workflow.index('echo "runner_image=') < workflow.index("cargo +1.96.0 build --release"))
+check(
+    "smoke records host metadata before attempting the build",
+    ordered_tokens(workflow, 'echo "runner_image=', "cargo +1.96.0 build --release"),
+)
 check("smoke pipeline fails on command failures", "set -euo pipefail" in workflow)
 check("smoke log captures non-zero probe status through tee", "/usr/bin/time -v \"$bin\" 10000 \"$scenario\" 2>&1 | tee -a \"$report\"" in workflow and "set -euo pipefail" in workflow)
 check("README documents why smoke uses pipefail", "`set -euo pipefail`" in readme and "cannot be hidden by a successful `tee` process" in " ".join(readme.split()))
