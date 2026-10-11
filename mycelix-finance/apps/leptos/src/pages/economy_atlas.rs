@@ -73,6 +73,7 @@ struct AtlasResearchReference {
     reference_type: String,
     #[serde(default)]
     published_year: Option<u16>,
+    retrieved_on: String,
     url: String,
 }
 
@@ -233,12 +234,13 @@ fn render_model_card(model: AtlasModel) -> impl IntoView {
                                 let year = reference.published_year
                                     .map(|value| format!(" · {value}"))
                                     .unwrap_or_default();
+                                let retrieved_on = reference.retrieved_on;
                                 let url = reference.url;
                                 view! {
                                     <p class="atlas-source-link">
                                         <a href=url target="_blank" rel="noopener noreferrer">{title}</a>
                                         <small class="atlas-research-meta">
-                                            {format!("{publisher} · {reference_type}{year}")}
+                                            {format!("{publisher} · {reference_type}{year} · Retrieved {retrieved_on}")}
                                         </small>
                                     </p>
                                 }
