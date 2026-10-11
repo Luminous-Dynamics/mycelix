@@ -270,7 +270,7 @@ def main() -> int:
         errors,
     )
     require(
-        "pub fn read_bounded_and_validate_symthaea_advice(" in adapter_source,
+        "pub fn read_bounded_and_validate_symthaea_advice<R: Read>(" in adapter_source,
         "adapter must expose a read-plus-semantic-validation integration path",
         errors,
     )
