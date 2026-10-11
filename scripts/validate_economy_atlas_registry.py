@@ -22,11 +22,17 @@ EPISTEMIC_STATUSES = {
     "design_only",
     "conceptual",
     "discovery_required",
+    "external_framework",
 }
 REQUIRED_VARIANTS = {
     "mycelix.finance.tricurrency.v1",
     "symthaea.economy.thermodynamic-ledger.v1",
     "symthaea.concepts.tricurrency.essay16.v1",
+}
+REQUIRED_REGENERATIVE_MODELS = {
+    "regenerative.economics.energy-network-science.v1",
+    "regenerative.doughnut.place-portrait.v1",
+    "regenerative.circular-economy.v1",
 }
 
 
@@ -109,8 +115,42 @@ def validate_registry(data: object) -> list[str]:
         if not isinstance(sources, list):
             errors.append(f"{prefix}.source_refs must be an array")
             continue
-        if status != "discovery_required" and not sources:
-            errors.append(f"{prefix} has no sources but is not marked discovery_required")
+        if status not in {"discovery_required", "external_framework"} and not sources:
+            errors.append(f"{prefix} has no sources but is not marked discovery_required/external_framework")
+
+        # External references are a separate evidence channel: they must never be
+        # misrepresented as a commit-pinned in-repository implementation source.
+        research_refs = model.get("research_refs", [])
+        if not isinstance(research_refs, list):
+            errors.append(f"{prefix}.research_refs must be an array")
+            research_refs = []
+        if status == "external_framework" and not research_refs:
+            errors.append(f"{prefix} external_framework requires at least one research_ref")
+        seen_research_urls: set[str] = set()
+        for research_index, research_ref in enumerate(research_refs):
+            rp = f"{prefix}.research_refs[{research_index}]"
+            if not isinstance(research_ref, dict):
+                errors.append(f"{rp} must be a JSON object")
+                continue
+            for field in ("title", "publisher", "reference_type", "url"):
+                value = research_ref.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    errors.append(f"{rp}.{field} must be a non-empty string")
+            research_url = research_ref.get("url")
+            if isinstance(research_url, str):
+                parsed_research_url = urlparse(research_url)
+                if parsed_research_url.scheme != "https" or not parsed_research_url.netloc:
+                    errors.append(f"{rp}.url must be an absolute HTTPS URL")
+                if research_url in seen_research_urls:
+                    errors.append(f"{rp}.url duplicates another research reference in this model")
+                seen_research_urls.add(research_url)
+            published_year = research_ref.get("published_year")
+            if published_year is not None and (
+                not isinstance(published_year, int)
+                or isinstance(published_year, bool)
+                or not 1800 <= published_year <= 2200
+            ):
+                errors.append(f"{rp}.published_year must be a plausible integer year")
 
         seen_source_keys: set[tuple[str, str, str]] = set()
         for source_index, source in enumerate(sources):
@@ -204,6 +244,10 @@ def validate_registry(data: object) -> list[str]:
     missing_variants = REQUIRED_VARIANTS - present_ids
     if missing_variants:
         errors.append("required semantically distinct currency variants missing: " + ", ".join(sorted(missing_variants)))
+
+    missing_regenerative = REQUIRED_REGENERATIVE_MODELS - present_ids
+    if missing_regenerative:
+        errors.append("required regenerative-economics frameworks missing: " + ", ".join(sorted(missing_regenerative)))
 
     # This v1 registry is only a source inventory. It cannot authorize execution.
     if data.get("registry_status") != "initial_discovery_inventory":
