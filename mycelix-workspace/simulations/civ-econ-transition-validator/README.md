@@ -69,7 +69,7 @@ Build the dependency-free scale probe once, then run each size separately so
       done
     done
 
-The probe generates a synthetic J3 journal, syncs it, then reports journal bytes,
+The probe generates a synthetic J4 journal, syncs it, then reports journal bytes,
 bytes per effect, generation time, and open-plus-replay time. Scenarios cover
 Pending, Indeterminate, acknowledged directly, and Indeterminate-to-acknowledged
 reconciliation. It verifies total replayed identity count, unresolved count, and
