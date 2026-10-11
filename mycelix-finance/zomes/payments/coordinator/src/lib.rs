@@ -222,41 +222,46 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
     let regional_amount = deduction * COMPOST_REGIONAL_PCT / 100;
     let global_amount = deduction - local_amount - regional_amount; // remainder to global
 
-    // Redistribute via treasury zome cross-zome calls with retry + queue
+    // Write durable outbox records into this transaction. Treasury effects are
+    // delivered only after these balance writes commit, from post_commit/drain.
     let mut fully_redistributed = true;
 
-    if let Some(ref pool_id) = input.local_commons_pool_id {
-        if !try_deliver_compost(pool_id, local_amount, &input.member_did) {
-            fully_redistributed = false;
+    if local_amount > 0 {
+        if let Some(ref pool_id) = input.local_commons_pool_id {
             queue_pending_compost(
                 pool_id,
                 local_amount,
                 &input.member_did,
                 CompostPoolTier::Local,
+                None,
             )?;
         }
+        // Outbox dispatch is asynchronous relative to this balance update.
+        fully_redistributed = false;
     }
-    if let Some(ref pool_id) = input.regional_commons_pool_id {
-        if !try_deliver_compost(pool_id, regional_amount, &input.member_did) {
-            fully_redistributed = false;
+    if regional_amount > 0 {
+        if let Some(ref pool_id) = input.regional_commons_pool_id {
             queue_pending_compost(
                 pool_id,
                 regional_amount,
                 &input.member_did,
                 CompostPoolTier::Regional,
+                None,
             )?;
         }
+        fully_redistributed = false;
     }
-    if let Some(ref pool_id) = input.global_commons_pool_id {
-        if !try_deliver_compost(pool_id, global_amount, &input.member_did) {
-            fully_redistributed = false;
+    if global_amount > 0 {
+        if let Some(ref pool_id) = input.global_commons_pool_id {
             queue_pending_compost(
                 pool_id,
                 global_amount,
                 &input.member_did,
                 CompostPoolTier::Global,
+                None,
             )?;
         }
+        fully_redistributed = false;
     }
 
     Ok(DemurrageResult {
