@@ -83,6 +83,12 @@ pub struct AdviceValidationContext<'a> {
     pub curriculum_revision: &'a str,
     pub input_digest: &'a str,
     pub allowed_content_ids: &'a BTreeSet<String>,
+    /// Actions eligible under trusted Praxis policy for this exact turn.
+    /// The model may only choose from this set; it cannot authorize itself.
+    pub allowed_actions: &'a [LearningSuggestion],
+    /// Reason codes supported by the trusted evidence/request context.
+    /// This prevents the model from fabricating claims such as "learner asked".
+    pub allowed_reasons: &'a [AdviceReason],
 }
 
 /// Why a candidate was rejected. Rejections are safe to surface as diagnostics.
@@ -97,6 +103,8 @@ pub enum AdviceRejection {
     SkillMismatch,
     CurriculumRevisionMismatch,
     StaleInput,
+    ActionNotAllowed,
+    ReasonNotAllowed,
     InvalidConfidence,
     TooManyContentReferences,
     DuplicateContentReference,
@@ -168,6 +176,12 @@ pub fn validate_symthaea_advice(
     }
     if candidate.input_digest != context.input_digest {
         return Err(AdviceRejection::StaleInput);
+    }
+    if !context.allowed_actions.contains(&candidate.action) {
+        return Err(AdviceRejection::ActionNotAllowed);
+    }
+    if !context.allowed_reasons.contains(&candidate.reason) {
+        return Err(AdviceRejection::ReasonNotAllowed);
     }
     if candidate.reported_confidence_permille > 1000 {
         return Err(AdviceRejection::InvalidConfidence);
@@ -246,6 +260,23 @@ mod tests {
         ["lesson.fractions.01".to_string()].into_iter().collect()
     }
 
+    const DEFAULT_ALLOWED_ACTIONS: &[LearningSuggestion] = &[
+        LearningSuggestion::OfferHint,
+        LearningSuggestion::NoSuggestion,
+    ];
+    const DEFAULT_ALLOWED_REASONS: &[AdviceReason] = &[
+        AdviceReason::RepeatedIncorrectAttempts,
+        AdviceReason::InsufficientEvidence,
+    ];
+    const BREAK_ALLOWED_ACTIONS: &[LearningSuggestion] = &[
+        LearningSuggestion::OfferBreak,
+        LearningSuggestion::NoSuggestion,
+    ];
+    const BREAK_ALLOWED_REASONS: &[AdviceReason] = &[
+        AdviceReason::LearnerRequestedBreak,
+        AdviceReason::InsufficientEvidence,
+    ];
+
     fn context<'a>(
         advisor_enabled: bool,
         sandbox_active: bool,
@@ -260,6 +291,25 @@ mod tests {
             curriculum_revision: "caps-2026.1",
             input_digest: "blake3:request-abc",
             allowed_content_ids,
+            allowed_actions: DEFAULT_ALLOWED_ACTIONS,
+            allowed_reasons: DEFAULT_ALLOWED_REASONS,
+        }
+    }
+
+    fn context_with_break_requested<'a>(
+        allowed_content_ids: &'a BTreeSet<String>,
+    ) -> AdviceValidationContext<'a> {
+        AdviceValidationContext {
+            advisor_enabled: true,
+            sandbox_active: false,
+            expected_model_id: "symthaea-advisor",
+            expected_model_version: "0.1.0",
+            skill_id: "math.fractions",
+            curriculum_revision: "caps-2026.1",
+            input_digest: "blake3:request-abc",
+            allowed_content_ids,
+            allowed_actions: BREAK_ALLOWED_ACTIONS,
+            allowed_reasons: BREAK_ALLOWED_REASONS,
         }
     }
 
@@ -362,16 +412,42 @@ mod tests {
     }
 
     #[test]
-    fn a_model_cannot_order_a_break_from_inferred_state() {
+    fn a_model_cannot_order_a_break_even_by_claiming_the_learner_requested_it() {
         let ids = allowed_content();
         let mut advice = candidate();
         advice.action = LearningSuggestion::OfferBreak;
-        advice.reason = AdviceReason::RepeatedIncorrectAttempts;
+        advice.reason = AdviceReason::LearnerRequestedBreak;
         advice.supporting_content_ids.clear();
         assert_eq!(
             validate_symthaea_advice(advice, &context(true, false, &ids)),
-            Err(AdviceRejection::InvalidActionReasonPair)
+            Err(AdviceRejection::ActionNotAllowed)
         );
+    }
+
+    #[test]
+    fn model_cannot_fabricate_a_learner_requested_reason() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.reason = AdviceReason::LearnerRequestedBreak;
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::ReasonNotAllowed)
+        );
+    }
+
+    #[test]
+    fn break_is_allowed_only_when_trusted_context_enables_it() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.action = LearningSuggestion::OfferBreak;
+        advice.reason = AdviceReason::LearnerRequestedBreak;
+        advice.supporting_content_ids.clear();
+        let accepted = validate_symthaea_advice(
+            advice,
+            &context_with_break_requested(&ids),
+        )
+        .expect("trusted learner-request state can enable an optional break");
+        assert_eq!(accepted.action, LearningSuggestion::OfferBreak);
     }
 
     #[test]
