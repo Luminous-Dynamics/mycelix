@@ -1,6 +1,6 @@
 //! Reproducible scale probe for durable journal startup replay.
 //!
-//! Generates a local synthetic J3 journal, then measures write/generation time
+//! Generates a local synthetic J4 journal, then measures write/generation time
 //! separately from opening and replaying it. Use /usr/bin/time -v around the
 //! already-built executable to record peak resident memory. This is a diagnostic
 //! harness, not a benchmark result or a production workload model.
@@ -147,21 +147,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         let encoded_id = hex_encode(id.as_bytes());
         writeln!(
             writer,
-            "J3\tB\t{}\t{}\t{}",
+            "J4\tB\t{}\t{}\t{}\t-",
             encoded_id, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST
         )?;
 
         if matches!(scenario, Scenario::Indeterminate | Scenario::Reconciled) {
             writeln!(
                 writer,
-                "J3\tI\t{}\t{}\t{}",
+                "J4\tI\t{}\t{}\t{}\t-",
                 encoded_id, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST
             )?;
         }
         if matches!(scenario, Scenario::Acknowledged | Scenario::Reconciled) {
             writeln!(
                 writer,
-                "J3\tA\t{}\t{}\t{}\t{}\t{}",
+                "J4\tA\t{}\t{}\t{}\t-\t{}\t{}",
                 encoded_id,
                 REQUEST_DIGEST,
                 PROVIDER_PROFILE_DIGEST,
