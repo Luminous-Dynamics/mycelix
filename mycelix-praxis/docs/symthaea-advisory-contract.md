@@ -8,8 +8,13 @@
 
 Use Symthaea as an optional, replaceable **pedagogical advisor**, not as an unrestricted tutor agent or source of educational truth. Praxis owns learner consent, curriculum scope, assessment policy, learner state, and every consequential write. A Symthaea response may select an allowed next-step suggestion; it cannot change a grade, mastery estimate, credential, curriculum enrollment, privacy setting, progress record, or DHT entry.
 
-The initial Rust contract is implemented in
-`crates/praxis-core/src/symthaea_advisory.rs`. It validates response shape and bindings. It is **not** a live Symthaea transport, is not wired into the Leptos interface, and is not evidence that Symthaea improves learning outcomes.
+The Rust contract and bounded wire parser are implemented in
+`crates/praxis-core/src/symthaea_advisory.rs`. The parser rejects raw response
+bodies above 16 KiB before JSON deserialization, then applies the strict
+unknown-field-rejecting wire type. The semantic validator separately checks
+request scope and trusted allowlists. This is **not** a live Symthaea transport,
+is not wired into the Leptos interface, and is not evidence that Symthaea
+improves learning outcomes.
 
 ## Packaging and transport boundary
 
@@ -28,9 +33,11 @@ built, put it behind a separate host-only boundary and pin the exact Symthaea
 source commit, features, toolchain, and dependency lock. Prefer a local sidecar
 for a desktop/offline deployment or an explicitly opted-in authenticated
 service for browser deployments. Do not use an unauthenticated loopback HTTP
-endpoint as a shortcut. The adapter must cap response bytes before parsing,
-hash the exact bytes it sends using `digest_advisory_request_bytes`, and
-preserve the standard deterministic fallback when no advisor is available.
+endpoint as a shortcut. The adapter must use `parse_symthaea_advice_response` (which enforces a 16 KiB
+pre-deserialization limit), authenticate its process/transport independently,
+hash the exact request bytes it sends using `digest_advisory_request_bytes`, and
+preserve the standard deterministic fallback when no advisor is available. The
+parser guard does not provide transport timeouts or process authentication.
 
 This is a deployment recommendation derived from source inspection, not an
 implemented transport or proof that the current Symthaea facade can yet satisfy
@@ -151,15 +158,16 @@ Implemented in this branch:
 - a strict JSON Schema that rejects unknown fields and has exact enum parity with the Rust contract;
 - an independent standard-library Python checker for schema/Rust enum parity, response bounds, trust gates, and the required adversarial test inventory;
 - a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, `praxis-core` formatting/tests, and clippy, including while the PR is a draft;
-- twenty-three authored Rust contract regression tests, including the BLAKE3 empty-input golden vector.
+- a 16 KiB bounded JSON parser that rejects oversized bodies before deserialization and rejects malformed or unknown-field responses;
+- twenty-six authored Rust regression tests covering contract validation, bounded wire decoding, adversarial cases, and BLAKE3 golden vectors.
 
 Not yet implemented or qualified:
 - live Symthaea service/process adapter;
 - trusted request assembly/serialization, and a live call path that hashes exactly the transmitted bytes;
-- adapter/process authentication and pre-deserialization size limits;
+- transport/process authentication, timeouts, and production call-site wiring to the bounded parser;
 - linkage to the evidence-bound PRAX projection pipeline;
 - UI accept/dismiss wiring and accessibility checks;
 - local inference/remote-provider privacy enforcement;
 - Rust build/tests, formatter, clippy, workflow execution, runtime, or learning-outcome qualification.
 
-The claim ceiling for this branch is **contract prototype only**. No live integration, educational-effectiveness result, validated cognitive-state inference, credential authority, or production readiness is claimed.
+The claim ceiling for this branch is **contract plus bounded wire-parser prototype only**. No live integration, educational-effectiveness result, validated cognitive-state inference, credential authority, or production readiness is claimed.
