@@ -56,6 +56,7 @@ REQUIRED_TESTS = {
     "duplicate_references_are_rejected_deterministically",
     "bounded_wire_parser_accepts_a_valid_contract_response",
     "bounded_wire_parser_rejects_oversized_response_before_json_parsing",
+    "bounded_wire_parser_accepts_limit_length_for_parsing",
     "bounded_wire_parser_rejects_malformed_json",
 }
 
