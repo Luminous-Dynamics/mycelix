@@ -653,7 +653,8 @@ pub struct CollateralComponent {
     pub asset_id: String,
     /// Type of the underlying asset
     pub asset_class: CollateralAssetClass,
-    /// Weight in the position (0.0 - 1.0, all weights must sum to 1.0)
+    /// Share of aggregate value (0.0 - 1.0); must match current_value / aggregate_value,
+    /// and all component weights must sum to 1.0.
     pub weight: f64,
     /// Current SAP-equivalent value
     pub current_value: u64,
