@@ -2073,6 +2073,19 @@ impl ClaimProjection {
         }
     }
 
+    fn evaluator_is_attestation_author(
+        &self,
+        actor: &ActorId,
+        evidence_ids: &[ArtifactId],
+        scope: EvidenceProvenanceEvaluationScope,
+    ) -> bool {
+        self.provenance_evaluations.iter().any(|entry| {
+            &entry.evaluator == actor
+                && entry.evaluation.scope == scope
+                && evidence_ids.contains(&entry.evaluation.artifact_id)
+        })
+    }
+
     fn ensure_unique_active_attestation(
         &self,
         actor: &ActorId,
@@ -2151,6 +2164,11 @@ impl ClaimProjection {
                             .or_default()
                             .insert(source.clone());
                         if !record.attestation.evidence_ids.is_empty()
+                            && !self.evaluator_is_attestation_author(
+                                &record.actor,
+                                &record.attestation.evidence_ids,
+                                EvidenceProvenanceEvaluationScope::ComputationalReproduction,
+                            )
                             && record.attestation.evidence_ids.iter().all(|id| {
                                 self.provenance_disposition(*id)
                                     == EvidenceProvenanceDisposition::QualifiedComputationalReproduction
@@ -2183,6 +2201,11 @@ impl ClaimProjection {
                                 .or_default()
                                 .insert(source.clone());
                             if !record.attestation.evidence_ids.is_empty()
+                                && !self.evaluator_is_attestation_author(
+                                    &record.actor,
+                                    &record.attestation.evidence_ids,
+                                    EvidenceProvenanceEvaluationScope::IndependentReplication,
+                                )
                                 && record.attestation.evidence_ids.iter().all(|id| {
                                     self.provenance_disposition(*id)
                                         == EvidenceProvenanceDisposition::QualifiedIndependentReplication
@@ -2368,6 +2391,25 @@ fn validate_provenance_evaluation(
     if declaration.actor == *evaluator {
         return Err(Error::Validation(
             "provenance declaration author cannot evaluate their own declaration".to_string(),
+        ));
+    }
+    let evaluator_is_attester = projection.attestations.iter().any(|record| {
+        record.is_active()
+            && record.actor == *evaluator
+            && record.attestation.evidence_ids.contains(&evaluation.artifact_id)
+            && match evaluation.scope {
+                EvidenceProvenanceEvaluationScope::IndependentReplication => {
+                    matches!(record.attestation.kind, AttestationKind::IndependentReplication { .. })
+                }
+                EvidenceProvenanceEvaluationScope::ComputationalReproduction => {
+                    matches!(record.attestation.kind, AttestationKind::ComputationalReproduction { .. })
+                }
+            }
+    });
+    if evaluator_is_attester {
+        return Err(Error::Validation(
+            "an attestation author cannot independently evaluate evidence in their own attestation"
+                .to_string(),
         ));
     }
     if declaration.declaration.artifact_id != evaluation.artifact_id
