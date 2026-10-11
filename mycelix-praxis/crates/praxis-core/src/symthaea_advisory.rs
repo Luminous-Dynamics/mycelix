@@ -321,7 +321,7 @@ mod tests {
             expected_model_version: "0.1.0",
             skill_id: "math.fractions",
             curriculum_revision: "caps-2026.1",
-            input_digest: "blake3:request-abc",
+            input_digest: "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             allowed_content_ids,
             allowed_actions: BREAK_ALLOWED_ACTIONS,
             allowed_reasons: BREAK_ALLOWED_REASONS,
