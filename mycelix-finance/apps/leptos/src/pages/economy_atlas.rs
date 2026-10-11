@@ -476,6 +476,26 @@ mod tests {
     }
 
     #[test]
+    fn regenerative_framework_contracts_survive_registry_deserialization() {
+        let registry = registry();
+        let find_model = |id: &str| {
+            registry
+                .models
+                .iter()
+                .find(|model| model.model_id == id)
+                .unwrap_or_else(|| panic!("missing framework: {id}"))
+        };
+        assert!(find_model("regenerative.economics.energy-network-science.v1")
+            .details.contains_key("measurable_dimensions"));
+        assert!(find_model("regenerative.doughnut.place-portrait.v1")
+            .details.contains_key("normalization_contract"));
+        assert!(find_model("regenerative.circular-economy.v1")
+            .details.contains_key("core_principles"));
+        assert!(find_model("regenerative.land.agroecology-outcomes.v1")
+            .details.contains_key("candidate_outcomes"));
+    }
+
+    #[test]
     fn model_ids_are_unique_and_currency_contracts_are_separate() {
         let registry = registry();
         let ids = registry
