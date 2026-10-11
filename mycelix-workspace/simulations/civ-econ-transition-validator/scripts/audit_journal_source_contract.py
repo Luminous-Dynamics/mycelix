@@ -71,6 +71,26 @@ check(
     and "InsecureDirectory" in journal,
 )
 check(
+    "journal parent directory gate precedes lock creation",
+    ordered_tokens(
+        journal,
+        "let parent = fs::canonicalize(requested_parent)",
+        "ensure_secure_parent_directory(&parent)?;",
+        "let lock_path = parent.join(",
+        "let mut lock_file = lock_options.open(&lock_path)",
+    ),
+)
+check(
+    "J4 begin intent is synced before Started is returned",
+    ordered_tokens(
+        journal,
+        '"J4\\tB\\t{}\\t{}\\t{}\\t{}\\n"',
+        "self.append_and_sync(&record)?;",
+        "self.entries.insert(id.to_owned(), JournalEntry {",
+        "Ok(BeginResult::Started)",
+    ),
+)
+check(
     "journal writes explicit J4 original-key bindings",
     '"J4\\tB' in journal
     and '"J4\\tI' in journal
