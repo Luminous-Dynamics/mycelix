@@ -214,6 +214,23 @@ impl MemoryScientificIdentityResolver {
                 actor.actor
             )));
         }
+        // One signing key must not be aliased into multiple actor identities.
+        // Otherwise one key holder could appear as two distinct reviewers and
+        // satisfy the provenance quorum using separate actor labels. Keep the
+        // reservation even for expired/revoked keys so historical attribution
+        // cannot be reassigned to another actor.
+        if let Some(existing) = actors.values().find(|existing| {
+            existing.authorized_keys.iter().any(|existing_key| {
+                actor.authorized_keys.iter().any(|new_key| {
+                    new_key.public_key == existing_key.public_key
+                })
+            })
+        }) {
+            return Err(Error::Validation(format!(
+                "authorized signing key is already bound to another scientific actor: {}",
+                existing.actor
+            )));
+        }
         actors.insert(actor.actor.clone(), actor);
         Ok(())
     }
@@ -1352,6 +1369,40 @@ mod tests {
             roles: BTreeSet::from([role]),
             authority_revision: None,
         }
+    }
+
+    #[tokio::test]
+    async fn memory_resolver_rejects_public_key_alias_across_actors() {
+        let now = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let shared_key = key(71);
+        let reviewer_a = actor("did:key:reviewer-a");
+        let reviewer_b = actor("did:key:reviewer-b");
+        let resolver = MemoryScientificIdentityResolver::new();
+
+        resolver
+            .register(profile(
+                reviewer_a.clone(),
+                &shared_key,
+                ScientificRole::Reviewer,
+                &now,
+            ))
+            .await
+            .unwrap();
+
+        let error = resolver
+            .register(profile(
+                reviewer_b.clone(),
+                &shared_key,
+                ScientificRole::Reviewer,
+                &now,
+            ))
+            .await
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("authorized signing key is already bound to another scientific actor"));
+        assert!(resolver.resolve(&reviewer_a, &now).await.unwrap().is_some());
+        assert!(resolver.resolve(&reviewer_b, &now).await.unwrap().is_none());
     }
 
     #[tokio::test]
