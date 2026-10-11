@@ -10,6 +10,7 @@ from finance_compost_callsite_audit import (
     MIRRORED_PAIRS,
     audit_repository,
     compost_callsite_issues,
+    post_commit_contract_issues,
 )
 
 
@@ -87,6 +88,26 @@ class CompostCallsiteAuditTests(unittest.TestCase):
         issues, count = compost_callsite_issues("lifetime.rs", source)
         self.assertEqual(count, 1)
         self.assertEqual(issues, [])
+
+    def test_holochain_post_commit_infallible_signature_passes(self) -> None:
+        source = '''
+#[hdk_extern(infallible)]
+pub fn post_commit(_actions: Vec<SignedActionHashed>) {
+    // Failure is logged; durable queue remains for recovery.
+}
+'''
+        self.assertEqual(post_commit_contract_issues("payments.rs", source), [])
+
+    def test_holochain_post_commit_fallible_signature_fails(self) -> None:
+        source = '''
+#[hdk_extern]
+pub fn post_commit(_actions: Vec<SignedActionHashed>) -> ExternResult<()> {
+    Ok(())
+}
+'''
+        issues = post_commit_contract_issues("payments.rs", source)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("infallible", issues[0])
 
     def test_repository_audit_detects_mirror_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
