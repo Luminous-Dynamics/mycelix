@@ -175,7 +175,7 @@ This page is a **registry explorer**, not yet a simulation runner. It deliberate
 
 ## Regenerative economics as a first-class Atlas lens
 
-The registry now includes three externally documented framework families, each marked `external_framework` with `execution_status` explicitly stating that a local runner has not been implemented. Their links live in `research_refs[]`, not `source_refs[]`: an external paper or website is research provenance, not evidence that Mycelix contains executable code.
+The registry now includes three externally documented framework families, each marked `external_framework` with `execution_status` explicitly stating that a local runner has not been implemented. Their links live in `research_refs[]`, not `source_refs[]`: an external paper or website is research provenance, not evidence that Mycelix contains executable code. Each link records `retrieved_on` so future edits to a mutable webpage do not silently change the evidence snapshot; a retrieval date does not make that webpage immutable.
 
 ### 1. Energy Network Science / regenerative economics
 
