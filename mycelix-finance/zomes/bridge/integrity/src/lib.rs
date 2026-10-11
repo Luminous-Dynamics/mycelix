@@ -10,6 +10,7 @@
 
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::CrossClusterNotification;
+use mycelix_finance_types::CollateralHealthStatus;
 
 // =============================================================================
 // STRING LENGTH LIMITS — Prevent DHT bloat attacks
@@ -860,6 +861,19 @@ fn validate_update_covenant(
 // CollateralHealth validation
 // =============================================================================
 
+/// Ratios are recomputed from integer source fields; tolerate only floating-point
+/// representation error, not a caller-supplied classification or valuation.
+fn ltv_values_match(actual: f64, expected: f64) -> bool {
+    actual.is_finite()
+        && expected.is_finite()
+        && (actual - expected).abs() <= 1e-12_f64.max(expected.abs() * 1e-12)
+}
+
+fn ltv_status_matches(ltv: f64, status: &str) -> bool {
+    let expected = CollateralHealthStatus::from_ltv(ltv);
+    expected != CollateralHealthStatus::Invalid && expected.as_str() == status
+}
+
 fn validate_create_collateral_health(
     _action: EntryCreationAction,
     health: CollateralHealth,
@@ -869,17 +883,26 @@ fn validate_create_collateral_health(
             "Collateral ID invalid".into(),
         ));
     }
+    if health.current_value == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Collateral value must be positive; unpriced collateral cannot be classified".into(),
+        ));
+    }
     if !health.ltv_ratio.is_finite() || health.ltv_ratio < 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "LTV ratio must be a finite non-negative number".into(),
         ));
     }
-    let valid_statuses = ["Healthy", "Warning", "MarginCall", "Liquidation"];
-    if !valid_statuses.contains(&health.status.as_str()) {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "Invalid health status: {}. Must be one of: {:?}",
-            health.status, valid_statuses
-        )));
+    let expected_ltv = health.obligation_amount as f64 / health.current_value as f64;
+    if !ltv_values_match(health.ltv_ratio, expected_ltv) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "LTV ratio does not match obligation_amount / current_value".into(),
+        ));
+    }
+    if !ltv_status_matches(health.ltv_ratio, &health.status) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Collateral health status does not match the validated LTV ratio".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -1085,6 +1108,33 @@ fn validate_update_agricultural_asset(
 // MultiCollateralPosition validation
 // =============================================================================
 
+fn validate_multi_collateral_economics(
+    pos: &MultiCollateralPosition,
+) -> Result<(), &'static str> {
+    if pos.aggregate_value == 0 {
+        return Err("Aggregate collateral value must be positive; unpriced positions cannot be classified");
+    }
+    if !pos.diversification_bonus.is_finite()
+        || pos.diversification_bonus < 0.0
+        || pos.diversification_bonus > 0.20
+    {
+        return Err("Diversification bonus must be finite and between 0.0 and 0.20");
+    }
+    if !pos.effective_ltv.is_finite() || pos.effective_ltv < 0.0 {
+        return Err("Effective LTV must be a finite non-negative number");
+    }
+
+    let base_ltv = pos.aggregate_obligation as f64 / pos.aggregate_value as f64;
+    let expected_ltv = (base_ltv - pos.diversification_bonus).max(0.0);
+    if !ltv_values_match(pos.effective_ltv, expected_ltv) {
+        return Err("Effective LTV does not match aggregate obligation, value, and bonus");
+    }
+    if !ltv_status_matches(pos.effective_ltv, &pos.status) {
+        return Err("Multi-collateral status does not match the validated effective LTV");
+    }
+    Ok(())
+}
+
 fn validate_create_multi_collateral_position(
     _action: EntryCreationAction,
     pos: MultiCollateralPosition,
@@ -1102,18 +1152,8 @@ fn validate_create_multi_collateral_position(
             "Components JSON must be non-empty and within size limits".into(),
         ));
     }
-    if !pos.diversification_bonus.is_finite()
-        || pos.diversification_bonus < 0.0
-        || pos.diversification_bonus > 1.0
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Diversification bonus must be between 0.0 and 1.0".into(),
-        ));
-    }
-    if !pos.effective_ltv.is_finite() || pos.effective_ltv < 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Effective LTV must be a finite non-negative number".into(),
-        ));
+    if let Err(reason) = validate_multi_collateral_economics(&pos) {
+        return Ok(ValidateCallbackResult::Invalid(reason.into()));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -1125,10 +1165,8 @@ fn validate_update_multi_collateral_position(
     if !pos.holder_did.starts_with("did:") || pos.holder_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid("Holder DID invalid".into()));
     }
-    if !pos.effective_ltv.is_finite() || pos.effective_ltv < 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Effective LTV must be a finite non-negative number".into(),
-        ));
+    if let Err(reason) = validate_multi_collateral_economics(&pos) {
+        return Ok(ValidateCallbackResult::Invalid(reason.into()));
     }
     Ok(ValidateCallbackResult::Valid)
 }
