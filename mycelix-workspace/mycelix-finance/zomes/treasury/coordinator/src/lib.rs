@@ -1185,7 +1185,16 @@ pub struct ContributeToCommonsInput {
 
 /// Stable receipt identity for one compost effect scoped to its destination pool.
 fn compost_receival_id(pool_id: &str, effect_id: &str) -> ExternResult<String> {
-    let material = format!("treasury-compost-effect-v1|{pool_id}|{effect_id}");
+    // Encode the tuple rather than concatenating fields with a delimiter; pool
+    // identifiers and caller-provided effect IDs must not create ambiguous keys.
+    let material = serde_json::to_string(&(
+        "treasury-compost-effect-v1",
+        pool_id,
+        effect_id,
+    ))
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+        "Compost receipt identity serialization failed: {e}"
+    ))))?;
     Ok(format!("compost-effect:v1:{}", anchor_hash(&material)?))
 }
 
