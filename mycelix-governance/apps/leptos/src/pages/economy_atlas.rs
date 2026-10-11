@@ -10,7 +10,9 @@
 use leptos::prelude::*;
 use serde::Deserialize;
 use serde_json::Value;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
+#[cfg(test)]
+use std::collections::HashSet;
 
 const MODEL_REGISTRY_JSON: &str =
     include_str!("../../../../../docs/economy-atlas/model-registry.v1.json");
@@ -156,7 +158,7 @@ pub fn EconomyAtlasPage() -> impl IntoView {
             let (query, set_query) = signal(String::new());
             let (status_filter, set_status_filter) = signal("all".to_string());
 
-            let filtered_models = move || {
+            let filtered_models = Memo::new(move |_| {
                 let needle = query.get().trim().to_lowercase();
                 let selected_status = status_filter.get();
                 models
@@ -168,7 +170,9 @@ pub fn EconomyAtlasPage() -> impl IntoView {
                     })
                     .cloned()
                     .collect::<Vec<_>>()
-            };
+            });
+            let filtered_for_count = filtered_models.clone();
+            let filtered_for_list = filtered_models.clone();
 
             view! {
                 <section class="economy-atlas-page" aria-labelledby="atlas-title">
@@ -243,13 +247,13 @@ pub fn EconomyAtlasPage() -> impl IntoView {
                             <option value="discovery_required">"Discovery required"</option>
                         </select>
                         <span class="atlas-result-count" aria-live="polite">
-                            {move || format!("Showing {} of {} models", filtered_models().len(), total)}
+                            {move || format!("Showing {} of {} models", filtered_for_count.get().len(), total)}
                         </span>
                     </div>
 
                     <div class="atlas-model-list" aria-label="Economic model catalogue">
                         <For
-                            each=move || filtered_models()
+                            each=move || filtered_for_list.get()
                             key=|model| model.model_id.clone()
                             children=move |model: AtlasModel| {
                                 let class = status_css(&model.epistemic_status);
