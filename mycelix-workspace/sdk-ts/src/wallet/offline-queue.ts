@@ -82,6 +82,12 @@ export interface QueuedOperation<T = unknown> {
   idempotencyKey?: string;
 }
 
+/** Result of atomically claiming a key in the durable queue store. */
+export interface QueueStorageIdempotencyClaim {
+  kind: 'inserted' | 'existing';
+  item: QueuedOperation;
+}
+
 /** Send operation payload */
 export interface SendPayload {
   to: string;
@@ -143,6 +149,12 @@ export interface QueueConfig {
 export interface QueueStorage {
   getAll(): Promise<QueuedOperation[]>;
   save(item: QueuedOperation): Promise<void>;
+  /**
+   * Atomically claim a previously unused idempotency key, or return its existing
+   * record. Implementations must serialize this read/check/write across callers
+   * sharing the same durable store (including separate browser tabs).
+   */
+  claimIdempotencyKey(item: QueuedOperation): Promise<QueueStorageIdempotencyClaim>;
   delete(id: QueueItemId): Promise<void>;
   clear(): Promise<void>;
 }
@@ -183,6 +195,24 @@ class InMemoryQueueStorage implements QueueStorage {
     return Array.from(this.items.values());
   }
 
+  async claimIdempotencyKey(item: QueuedOperation): Promise<QueueStorageIdempotencyClaim> {
+    const key = item.idempotencyKey;
+    if (!key) throw new Error('Cannot claim an empty idempotency key');
+
+    const matches = Array.from(this.items.values()).filter(
+      (stored) => stored.idempotencyKey === key
+    );
+    if (matches.length > 1) {
+      throw new Error('Ambiguous queue state: multiple records already use this idempotency key');
+    }
+    if (matches.length === 1) return { kind: 'existing', item: matches[0] };
+
+    // No await occurs between lookup and insertion, so this default store's claim
+    // is atomic within the JavaScript agent.
+    this.items.set(item.id, item);
+    return { kind: 'inserted', item };
+  }
+
   async save(item: QueuedOperation): Promise<void> {
     this.items.set(item.id, item);
   }
@@ -216,21 +246,36 @@ export class IndexedDBQueueStorage implements QueueStorage {
     if (this.db) return this.db;
 
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, 1);
+      const request = indexedDB.open(this.dbName, 2);
 
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
-        this.db = request.result;
-        resolve(request.result);
+        const db = request.result;
+        this.db = db;
+        // Let a newer tab upgrade the database instead of leaving it blocked.
+        db.onversionchange = () => {
+          db.close();
+          if (this.db === db) this.db = null;
+        };
+        resolve(db);
       };
 
       request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
+        const openRequest = event.target as IDBOpenDBRequest;
+        const db = openRequest.result;
+        let store: IDBObjectStore;
         if (!db.objectStoreNames.contains(this.storeName)) {
-          const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
+          store = db.createObjectStore(this.storeName, { keyPath: 'id' });
           store.createIndex('status', 'status', { unique: false });
           store.createIndex('createdAt', 'createdAt', { unique: false });
           store.createIndex('priority', 'priority', { unique: false });
+        } else {
+          store = openRequest.transaction!.objectStore(this.storeName);
+        }
+        // Non-unique so legacy duplicate data does not make the schema upgrade
+        // fail. claimIdempotencyKey detects duplicates and quarantines ambiguity.
+        if (!store.indexNames.contains('idempotencyKey')) {
+          store.createIndex('idempotencyKey', 'idempotencyKey', { unique: false });
         }
       };
     });
@@ -248,15 +293,73 @@ export class IndexedDBQueueStorage implements QueueStorage {
     });
   }
 
+  async claimIdempotencyKey(item: QueuedOperation): Promise<QueueStorageIdempotencyClaim> {
+    const key = item.idempotencyKey;
+    if (!key) throw new Error('Cannot claim an empty idempotency key');
+
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      // A read/write transaction on the same object store serializes this
+      // lookup/check/insert across storage instances and browser tabs.
+      const tx = db.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      const lookup = store.index('idempotencyKey').getAll(key);
+      let outcome: QueueStorageIdempotencyClaim | undefined;
+      let failure: Error | undefined;
+
+      lookup.onerror = () => {
+        failure = lookup.error ?? new Error('Unable to read queue idempotency index');
+      };
+      lookup.onsuccess = () => {
+        const matches = lookup.result as QueuedOperation[];
+        if (matches.length > 1) {
+          failure = new Error(
+            'Ambiguous queue state: multiple records already use this idempotency key'
+          );
+          return;
+        }
+        if (matches.length === 1) {
+          outcome = { kind: 'existing', item: matches[0] };
+          return;
+        }
+
+        const insert = store.add(item);
+        insert.onsuccess = () => {
+          outcome = { kind: 'inserted', item };
+        };
+        insert.onerror = () => {
+          failure = insert.error ?? new Error('Unable to persist queue idempotency claim');
+        };
+      };
+
+      tx.oncomplete = () => {
+        if (failure) {
+          reject(failure);
+        } else if (outcome) {
+          resolve(outcome);
+        } else {
+          reject(new Error('IndexedDB idempotency transaction completed without a result'));
+        }
+      };
+      tx.onabort = () => {
+        reject(failure ?? tx.error ?? new Error('IndexedDB idempotency transaction aborted'));
+      };
+      tx.onerror = () => {
+        failure ??= tx.error ?? new Error('IndexedDB idempotency transaction failed');
+      };
+    });
+  }
+
   async save(item: QueuedOperation): Promise<void> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readwrite');
       const store = tx.objectStore(this.storeName);
-      const request = store.put(item);
+      store.put(item);
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error ?? new Error('Queue save transaction aborted'));
+      tx.onerror = () => reject(tx.error ?? new Error('Queue save transaction failed'));
     });
   }
 
@@ -522,27 +625,6 @@ export class OfflineQueue {
       idempotencyKey?: string;
     }
   ): Promise<QueuedOperation<T>> {
-    // Check for duplicate by idempotency key inside the serialized critical section.
-    if (options?.idempotencyKey) {
-      const existing = this._state$.value.items.find(
-        (i) => i.idempotencyKey === options.idempotencyKey
-      );
-      if (existing) {
-        const samePayload =
-          existing.type === type &&
-          JSON.stringify(existing.payload) === JSON.stringify(payload);
-        if (!samePayload) {
-          throw new Error('Idempotency key reused with a different queued operation payload');
-        }
-        if (existing.status === 'failed' || existing.status === 'cancelled') {
-          throw new Error(
-            'Idempotency key already belongs to a failed or cancelled queue item; retry that item explicitly or use a fresh key for a new logical payment'
-          );
-        }
-        return existing as QueuedOperation<T>;
-      }
-    }
-
     const item: QueuedOperation<T> = {
       id: generateQueueItemId(),
       type,
@@ -556,19 +638,55 @@ export class OfflineQueue {
       idempotencyKey: options?.idempotencyKey,
     };
 
-    await this.storage.save(item as QueuedOperation);
-    const items = [...this._state$.value.items, item as QueuedOperation];
+    let persistedItem = item as QueuedOperation;
+    if (persistedItem.idempotencyKey) {
+      // The storage transaction, not this instance's cache, is the authority.
+      // That is what makes key claims safe across separate tabs/instances.
+      const claim = await this.storage.claimIdempotencyKey(persistedItem);
+      persistedItem = claim.item;
+
+      if (claim.kind === 'existing') {
+        const samePayload =
+          persistedItem.type === type &&
+          JSON.stringify(persistedItem.payload) === JSON.stringify(payload);
+        if (!samePayload) {
+          throw new Error('Idempotency key reused with a different queued operation payload');
+        }
+        if (persistedItem.status === 'failed' || persistedItem.status === 'cancelled') {
+          throw new Error(
+            'Idempotency key already belongs to a failed or cancelled queue item; retry that item explicitly or use a fresh key for a new logical payment'
+          );
+        }
+      }
+    } else {
+      await this.storage.save(persistedItem);
+    }
+
+    // Replace a stale local copy of this key with the storage-authoritative record.
+    const items = [
+      ...this._state$.value.items.filter(
+        (stored) =>
+          stored.id !== persistedItem.id &&
+          (!persistedItem.idempotencyKey || stored.idempotencyKey !== persistedItem.idempotencyKey)
+      ),
+      persistedItem,
+    ];
     this.updateState({
       items,
       pendingCount: items.filter((i) => i.status === 'pending' || i.status === 'syncing').length,
     });
 
     // Try immediate sync if online and autoSync is enabled
-    if (this.config.autoSync && this._state$.value.isOnline && !this._state$.value.isSyncing) {
+    if (
+      persistedItem.status === 'pending' &&
+      this.config.autoSync &&
+      this._state$.value.isOnline &&
+      !this._state$.value.isSyncing
+    ) {
       void this.sync();
     }
 
-    return item;
+    return persistedItem as QueuedOperation<T>;
   }
 
   /**
