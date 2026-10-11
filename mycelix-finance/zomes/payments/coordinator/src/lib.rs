@@ -421,6 +421,18 @@ fn queue_pending_compost(
     Ok(())
 }
 
+fn payment_fee_outbox_matches(
+    payment: &Payment,
+    payment_id: &str,
+    input: &VerifyPendingCompostEffectInput,
+) -> bool {
+    payment.id == payment_id
+        && payment.currency == "SAP"
+        && payment.fee == input.amount
+        && payment.from_did == input.source_member_did
+        && payment.fee > 0
+}
+
 /// Verify that a requested compost credit corresponds to exactly one durable,
 /// committed outbox item with the exact destination, amount, source and effect ID.
 /// Treasury calls this before creating a new receipt; the read-only result is not
@@ -488,12 +500,7 @@ pub fn verify_pending_compost_effect(input: VerifyPendingCompostEffectInput) -> 
             .ok_or(wasm_error!(WasmErrorInner::Guest(
                 "Payment fee outbox index resolved to the wrong entry type".into()
             )))?;
-        if payment.id != payment_id
-            || payment.currency != "SAP"
-            || payment.fee != input.amount
-            || payment.from_did != input.source_member_did
-            || payment.fee == 0
-        {
+        if !payment_fee_outbox_matches(&payment, payment_id, &input) {
             return Ok(false);
         }
     }
@@ -3004,6 +3011,47 @@ mod payment_idempotency_tests {
         let mut changed_kind = sample_input();
         changed_kind.payment_type = PaymentType::CommonsContribution("pool-b".to_string());
         assert_ne!(base_fingerprint, payment_request_fingerprint(&changed_kind).unwrap());
+    }
+
+
+    #[test]
+    fn payment_fee_outbox_requires_matching_committed_payment_fields() {
+        let input = VerifyPendingCompostEffectInput {
+            commons_pool_id: "global-fee-pool".into(),
+            amount: 75,
+            source_member_did: "did:mycelix:uhCAksender".into(),
+            effect_id: "payment-fee:v1:payment-op:v1:abc".into(),
+        };
+        let payment = Payment {
+            id: "payment-op:v1:abc".into(),
+            from_did: "did:mycelix:uhCAksender".into(),
+            to_did: "did:mycelix:uhCAkrecipient".into(),
+            amount: 1_000,
+            fee: 75,
+            currency: "SAP".into(),
+            payment_type: PaymentType::Direct,
+            status: TransferStatus::Completed,
+            memo: None,
+            created: Timestamp::from_micros(1_000),
+            completed: Some(Timestamp::from_micros(2_000)),
+        };
+        assert!(payment_fee_outbox_matches(&payment, "payment-op:v1:abc", &input));
+
+        let mut wrong_amount = input.clone();
+        wrong_amount.amount += 1;
+        assert!(!payment_fee_outbox_matches(&payment, "payment-op:v1:abc", &wrong_amount));
+
+        let mut wrong_source = input.clone();
+        wrong_source.source_member_did = "did:mycelix:other".into();
+        assert!(!payment_fee_outbox_matches(&payment, "payment-op:v1:abc", &wrong_source));
+
+        let mut wrong_payment = payment.clone();
+        wrong_payment.currency = "TEND".into();
+        assert!(!payment_fee_outbox_matches(&wrong_payment, "payment-op:v1:abc", &input));
+
+        let mut zero_fee = payment.clone();
+        zero_fee.fee = 0;
+        assert!(!payment_fee_outbox_matches(&zero_fee, "payment-op:v1:abc", &input));
     }
 
     #[test]
