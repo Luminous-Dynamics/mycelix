@@ -434,6 +434,15 @@ impl ScientificAuthorizationPolicy for DefaultScientificAuthorizationPolicy {
                 ScientificEventPayload::EvidenceProvenanceEvaluated { evaluation, .. },
                 Some(projection),
             ) => {
+                if evaluation.policy_id
+                    != crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID
+                    || evaluation.policy_version
+                        != crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION
+                {
+                    return AuthorizationDecision::deny(
+                        "new provenance evaluations must use the current pinned policy ID/version",
+                    );
+                }
                 if !actor.has_role(ScientificRole::Reviewer) {
                     return AuthorizationDecision::deny(
                         "provenance evaluation requires the reviewer role",
