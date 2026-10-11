@@ -19,6 +19,7 @@ const MAX_JOURNAL_RECORD_BYTES: usize = 4096;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum JournalError {
     InvalidPath,
+    InsecureDirectory,
     InsecurePermissions,
     InvalidEffectId,
     InvalidIdempotencyKey,
@@ -40,6 +41,7 @@ impl fmt::Display for JournalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidPath => write!(f, "journal path must name a regular file in an existing directory"),
+            Self::InsecureDirectory => write!(f, "journal parent directory is writable by group or other users"),
             Self::InsecurePermissions => write!(f, "journal file permissions grant group or other users access"),
             Self::InvalidEffectId => write!(f, "effect identity is empty or non-canonical"),
             Self::InvalidIdempotencyKey => write!(f, "idempotency key is empty, non-canonical, or too large"),
@@ -148,6 +150,7 @@ impl DurableEffectJournal {
             .unwrap_or_else(|| Path::new("."));
         let parent = fs::canonicalize(requested_parent)
             .map_err(|err| io_error("canonicalize journal directory", err))?;
+        ensure_secure_parent_directory(&parent)?;
         let path = parent.join(&name);
 
         match fs::symlink_metadata(&path) {
@@ -442,6 +445,24 @@ fn io_error(operation: &'static str, err: io::Error) -> JournalError {
 fn sync_directory(path: &Path) -> Result<(), JournalError> {
     File::open(path).and_then(|dir| dir.sync_all())
         .map_err(|err| io_error("sync parent directory", err))
+}
+
+#[cfg(unix)]
+fn ensure_secure_parent_directory(path: &Path) -> Result<(), JournalError> {
+    use std::os::unix::fs::PermissionsExt;
+    let metadata = fs::metadata(path)
+        .map_err(|err| io_error("inspect journal directory permissions", err))?;
+    if !metadata.is_dir() || metadata.permissions().mode() & 0o022 != 0 {
+        return Err(JournalError::InsecureDirectory);
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn ensure_secure_parent_directory(path: &Path) -> Result<(), JournalError> {
+    let metadata = fs::metadata(path)
+        .map_err(|err| io_error("inspect journal directory", err))?;
+    if metadata.is_dir() { Ok(()) } else { Err(JournalError::InvalidPath) }
 }
 
 #[cfg(unix)]
@@ -1240,6 +1261,25 @@ mod tests {
             })
         ));
         assert!(!path.with_file_name("effects.journal.lock").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn group_or_other_writable_parent_directory_is_rejected_before_lock_creation() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = TempDir::new();
+        let parent = temp.0.join("shared");
+        fs::create_dir(&parent).unwrap();
+        fs::set_permissions(&parent, fs::Permissions::from_mode(0o0777)).unwrap();
+        let path = parent.join("effects.journal");
+
+        assert!(matches!(
+            DurableEffectJournal::open(&path),
+            Err(JournalError::InsecureDirectory),
+        ));
+        assert!(!path.exists());
+        assert!(!parent.join("effects.journal.lock").exists());
     }
 
     #[cfg(unix)]
