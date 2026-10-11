@@ -99,7 +99,9 @@ Returns the independently persisted receipt-time authority evidence and receipt 
 
 Set `JWT_SECRET`, `JWT_ISSUER`, and `JWT_AUDIENCE` for bearer authentication. Tokens issued for another service are rejected even when they use the same HMAC secret.
 
-Canonical identity authority comes from the append-only scientific credential registry:
+Canonical identity authority comes from the append-only scientific credential registry. For reviewer quorum, distinct actor IDs must not be accepted as distinct reviewers when they are backed by the same signing public key. The in-memory identity resolver now reserves each signing key to one actor across current, expired, and revoked key records; production credential-registry adapters must enforce the equivalent global key-owner invariant, including historical records, before actor-ID distinctness is treated as reviewer independence.
+
+Registry configuration:
 
 - `DESCI_CREDENTIAL_REGISTRY_BACKEND=file`
 - `DESCI_CREDENTIAL_REGISTRY_PATH=./data/scientific-credentials.json`
