@@ -405,6 +405,7 @@ pub enum EvidenceProvenanceDisposition {
     NoProvenance,
     AssertedNewCollectionUnqualified,
     EvaluationAwaitingAuthorityReceipt,
+    EvaluationPolicyNotCurrent,
     InsufficientIndependentEvaluations,
     QualifiedIndependentReplication,
     QualifiedComputationalReproduction,
@@ -460,13 +461,6 @@ impl EvidenceProvenanceEvaluation {
         }
         validate_canonical_identifier(&self.policy_id, "provenance evaluation policy ID")?;
         validate_canonical_identifier(&self.policy_version, "provenance evaluation policy version")?;
-        if self.policy_id != EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID
-            || self.policy_version != EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION
-        {
-            return Err(Error::Validation(
-                "unsupported provenance evaluation policy ID/version".to_string(),
-            ));
-        }
         if self.reason.trim().is_empty() {
             return Err(Error::Validation(
                 "provenance evaluation reason cannot be empty".to_string(),
@@ -2080,14 +2074,20 @@ impl ClaimProjection {
             return EvidenceProvenanceDisposition::IdenticalContentDigestIndeterminate;
         }
 
-        let matching_evaluations = self
+        let all_declaration_evaluations = self
             .provenance_evaluations
             .iter()
             .filter(|entry| {
                 entry.evaluation.provenance_event_id == record.provenance_event_id
                     && entry.evaluation.artifact_id == artifact_id
                     && entry.evaluation.content_hash == record.declaration.content_hash
-                    && entry.evaluation.policy_id == EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID
+            })
+            .collect::<Vec<_>>();
+        let matching_evaluations = all_declaration_evaluations
+            .iter()
+            .copied()
+            .filter(|entry| {
+                entry.evaluation.policy_id == EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID
                     && entry.evaluation.policy_version == EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION
             })
             .collect::<Vec<_>>();
@@ -2096,6 +2096,9 @@ impl ClaimProjection {
             .copied()
             .filter(|entry| self.authority_qualified_evaluation_event_ids.contains(&entry.evaluation_event_id))
             .collect::<Vec<_>>();
+        if matching_evaluations.is_empty() && !all_declaration_evaluations.is_empty() {
+            return EvidenceProvenanceDisposition::EvaluationPolicyNotCurrent;
+        }
         if !matching_evaluations.is_empty() && evaluations.is_empty() {
             return EvidenceProvenanceDisposition::EvaluationAwaitingAuthorityReceipt;
         }
