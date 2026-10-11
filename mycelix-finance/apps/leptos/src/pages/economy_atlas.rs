@@ -43,7 +43,7 @@ struct AtlasModel {
 struct AtlasSource {
     repository: String,
     path: String,
-    #[serde(default)]
+    #[serde(default, rename = "ref")]
     ref_: String,
     url: String,
 }
@@ -70,6 +70,64 @@ fn evidence_class(status: &str) -> &'static str {
     }
 }
 
+fn render_model_card(model: AtlasModel) -> impl IntoView {
+    let model_id = model.model_id.clone();
+    let title = model.title.clone();
+    let domain = model.domain.join(" · ");
+    let status_label = evidence_label(&model.epistemic_status);
+    let status_class = evidence_class(&model.epistemic_status);
+    let execution_status = model.execution_status.replace('_', " ");
+    let limitations = model.limitations;
+    let source_refs = model.source_refs;
+
+    view! {
+        <article class="dash-card atlas-model-card">
+            <div class="atlas-card-top">
+                <span class=format!("badge {status_class}")>{status_label}</span>
+                <span class="atlas-domain">{domain}</span>
+            </div>
+            <h2>{title}</h2>
+            <p class="atlas-model-id">{model_id.clone()}</p>
+            <p>
+                <strong>"Execution: "</strong>
+                {execution_status}
+            </p>
+            <details>
+                <summary>"Assumptions, limitations and source files"</summary>
+                <p class="atlas-model-id">{model_id}</p>
+                <h3>"Known limitations / open questions"</h3>
+                <ul>
+                    {limitations.into_iter().map(|limitation| view! {
+                        <li>{limitation}</li>
+                    }).collect_view()}
+                </ul>
+                <h3>"Source references"</h3>
+                {if source_refs.is_empty() {
+                    view! {
+                        <p>
+                            "No canonical source resolved yet; this absence is not a claim the model does not exist."
+                        </p>
+                    }.into_any()
+                } else {
+                    source_refs.into_iter().map(|source| {
+                        let short_ref = &source.ref_[..source.ref_.len().min(12)];
+                        let label = format!("{} · {} · {}", source.repository, source.path, short_ref);
+                        let url = source.url;
+                        view! {
+                            <p class="atlas-source-link">
+                                <a href=url target="_blank" rel="noopener noreferrer">{label}</a>
+                            </p>
+                        }
+                    }).collect_view().into_any()
+                }}
+                <p class="atlas-disclaimer">
+                    "A source link establishes traceability, not model correctness, runtime execution or empirical validity."
+                </p>
+            </details>
+        </article>
+    }
+}
+
 #[component]
 pub fn EconomyAtlasPage() -> impl IntoView {
     let registry = match serde_json::from_str::<AtlasRegistry>(REGISTRY_JSON) {
@@ -82,7 +140,7 @@ pub fn EconomyAtlasPage() -> impl IntoView {
                         "The versioned model registry could not be read. No fallback model data was substituted."
                     </p>
                     <pre>{error.to_string()}</pre>
-                }
+                </section>
             }
             .into_any();
         }
@@ -90,16 +148,16 @@ pub fn EconomyAtlasPage() -> impl IntoView {
 
     let model_count = registry.models.len();
     let source_count: usize = registry.models.iter().map(|model| model.source_refs.len()).sum();
-    let mut snapshot_lines = registry
+    let source_snapshots = registry
         .generated_from
         .pinned_source_snapshots
         .iter()
-        .map(|(repository, commit)| format!("{repository} @ {commit}"));
-    let source_snapshots = snapshot_lines.by_ref().collect::<Vec<_>>().join(" · ");
+        .map(|(repository, commit)| format!("{repository} @ {commit}"))
+        .collect::<Vec<_>>()
+        .join(" · ");
     let registry_status = registry.registry_status.clone();
     let execution_qualified = registry.qualified_for_execution;
-    let models = registry.models;
-    let models_for_view = models.clone();
+    let models_for_view = registry.models;
     let (query, set_query) = signal(String::new());
 
     view! {
@@ -155,7 +213,7 @@ pub fn EconomyAtlasPage() -> impl IntoView {
             <div class="dashboard-grid atlas-model-grid">
                 {move || {
                     let term = query.get().trim().to_lowercase();
-                    let cards = models_for_view
+                    let filtered: Vec<AtlasModel> = models_for_view
                         .iter()
                         .filter(|model| {
                             if term.is_empty() {
@@ -172,63 +230,15 @@ pub fn EconomyAtlasPage() -> impl IntoView {
                             .to_lowercase();
                             haystack.contains(&term)
                         })
-                        .map(|model| {
-                            let model_id = model.model_id.clone();
-                            let title = model.title.clone();
-                            let domain = model.domain.join(" · ");
-                            let evidence_status = model.epistemic_status.clone();
-                            let status_label = evidence_label(&model.epistemic_status);
-                            let status_class = evidence_class(&model.epistemic_status);
-                            let execution_status = model.execution_status.replace('_', " ");
-                            let limitations = model.limitations.clone();
-                            let source_refs = model.source_refs.clone();
-                            view! {
-                                <article class="dash-card atlas-model-card">
-                                    <div class="atlas-card-top">
-                                        <span class=format!("badge {status_class}")>{status_label}</span>
-                                        <span class="atlas-domain">{domain}</span>
-                                    </div>
-                                    <h2>{title}</h2>
-                                    <p class="atlas-model-id">{model_id.clone()}</p>
-                                    <p>
-                                        <strong>"Execution: "</strong>
-                                        {execution_status}
-                                    </p>
-                                    <details>
-                                        <summary>"Assumptions, limitations and source files"</summary>
-                                        <p class="atlas-model-id">{model_id}</p>
-                                        <h3>"Known limitations / open questions"</h3>
-                                        <ul>
-                                            {limitations.into_iter().map(|limitation| view! {
-                                                <li>{limitation}</li>
-                                            }).collect_view()}
-                                        </ul>
-                                        <h3>"Source references"</h3>
-                                        {if source_refs.is_empty() {
-                                            view! { <p>"No canonical source resolved yet; this absence is not a claim the model does not exist."</p> }.into_any()
-                                        } else {
-                                            source_refs.into_iter().map(|source| {
-                                                let label = format!("{} · {} · {}", source.repository, source.path, &source.ref_[..source.ref_.len().min(12)]);
-                                                let url = source.url.clone();
-                                                view! {
-                                                    <p class="atlas-source-link">
-                                                        <a href=url target="_blank" rel="noopener noreferrer">{label}</a>
-                                                    </p>
-                                                }
-                                            }).collect_view().into_any()
-                                        }}
-                                        <p class="atlas-disclaimer">
-                                            "A source link establishes traceability, not model correctness, runtime execution or empirical validity."
-                                        </p>
-                                    </details>
-                                </article>
-                            }
-                        })
-                        .collect_view();
-                    if cards.is_empty() {
-                        view! { <p class="subtitle">"No models match this search."</p> }.into_any()
+                        .cloned()
+                        .collect();
+                    if filtered.is_empty() {
+                        view! {
+                            <p class="subtitle">"No models match this search."</p>
+                        }
+                        .into_any()
                     } else {
-                        cards.into_any()
+                        filtered.into_iter().map(render_model_card).collect_view().into_any()
                     }
                 }}
             </div>
