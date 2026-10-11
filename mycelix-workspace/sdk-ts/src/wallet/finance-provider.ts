@@ -18,8 +18,16 @@
  * // Get balances
  * const balances = await finance.getBalances();
  *
- * // Send payment (queued if offline)
- * const tx = await finance.send('@alice', 100, 'MYC', 'Coffee');
+ * // Send payment (queued if offline). Reuse this key for an exact retry.
+ * const tx = await finance.send(
+ *   'did:mycelix:alice',
+ *   'did:mycelix:bob',
+ *   100,
+ *   'TEND',
+ *   'Coffee',
+ *   undefined,
+ *   'coffee-order-2026-10-001',
+ * );
  * ```
  */
 
