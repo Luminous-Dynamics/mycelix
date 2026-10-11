@@ -59,7 +59,7 @@ that is a larger query/index design, not log compaction.
 ## 3. Candidate format
 
 If measurement justifies implementation, introduce a new explicit checkpoint
-format rather than rewriting J1/J2/J3 records ambiguously. The checkpoint must
+format rather than rewriting J1/J2/J3/J4 records ambiguously. The checkpoint must
 have a header with a format version and declared entry count, followed by one
 canonical row per identity in deterministic identity order. Each row preserves:
 
@@ -106,7 +106,7 @@ proof that no live selector references them; premature deletion is forbidden.
 
 ## 5. Required verification before merge
 
-- Golden replay tests for J1, J2, J3, and the checkpoint format.
+- Golden replay tests for J1, J2, J3, J4, and the checkpoint format.
 - Round-trip test asserting every JournalEntry field is identical before and
   after snapshot/replay, including legacy missing bindings.
 - Duplicate identity and conflicting receipt/evidence rejection.
