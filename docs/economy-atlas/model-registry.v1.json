@@ -6,7 +6,11 @@
   "generated_from": {
     "repository": "Luminous-Dynamics/mycelix",
     "ref": "feat/economy-atlas-model-registry-v1",
-    "note": "Registry records source discovery and evidence class. It is not yet a runnable adapter manifest. Pin immutable source commits and runner contracts before qualifying any run."
+    "note": "Source refs below are pinned to exact repository commits for reproducible discovery. This does not qualify code execution or empirical validity; moving sources require a new reviewed registry revision.",
+    "pinned_source_snapshots": {
+      "Luminous-Dynamics/mycelix": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+      "Luminous-Dynamics/symthaea": "b9af191f380d635f0459b24284c1d1fd6a5516aa"
+    }
   },
   "status_vocabulary": {
     "implemented_source": "Implementation source exists; exact runnable adapter still requires qualification.",
@@ -31,14 +35,14 @@
         {
           "repository": "Luminous-Dynamics/mycelix",
           "path": "mycelix-finance/README.md",
-          "ref": "main (mutable; pin before qualification)",
-          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/README.md"
+          "ref": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/mycelix-finance/README.md"
         },
         {
           "repository": "Luminous-Dynamics/mycelix",
           "path": "README.md",
-          "ref": "main (mutable; pin before qualification)",
-          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/main/README.md"
+          "ref": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/README.md"
         }
       ],
       "currency_contract": {
@@ -90,14 +94,14 @@
         {
           "repository": "Luminous-Dynamics/symthaea",
           "path": "crates/domains/symthaea-economics/README.md",
-          "ref": "main (mutable; pin before qualification)",
-          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/main/crates/domains/symthaea-economics/README.md"
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/crates/domains/symthaea-economics/README.md"
         },
         {
           "repository": "Luminous-Dynamics/symthaea",
           "path": "crates/domains/symthaea-economics/src/lib.rs",
-          "ref": "main (mutable; pin before qualification)",
-          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/main/crates/domains/symthaea-economics/src/lib.rs"
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/crates/domains/symthaea-economics/src/lib.rs"
         }
       ],
       "capabilities": [
@@ -128,8 +132,8 @@
         {
           "repository": "Luminous-Dynamics/symthaea",
           "path": "crates/core/symthaea-infrastructure/src/economy.rs",
-          "ref": "main (mutable; pin before qualification)",
-          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/main/crates/core/symthaea-infrastructure/src/economy.rs"
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/crates/core/symthaea-infrastructure/src/economy.rs"
         }
       ],
       "documented_equations": {
@@ -165,8 +169,8 @@
         {
           "repository": "Luminous-Dynamics/symthaea",
           "path": "crates/core/symthaea-core/src/physics/economics.rs",
-          "ref": "main (mutable; pin before qualification)",
-          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/main/crates/core/symthaea-core/src/physics/economics.rs"
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/crates/core/symthaea-core/src/physics/economics.rs"
         }
       ],
       "documented_equation": "LCOE = (Capital × CRF + O&M + Fuel) / (Capacity × CapacityFactor × 8760)",
@@ -192,8 +196,8 @@
         {
           "repository": "Luminous-Dynamics/symthaea",
           "path": "papers/governance/planetary-civilization/planetary_civilization.tex",
-          "ref": "main (mutable; pin before qualification)",
-          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/main/papers/governance/planetary-civilization/planetary_civilization.tex"
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/papers/governance/planetary-civilization/planetary_civilization.tex"
         }
       ],
       "paper_described_features": [
@@ -220,8 +224,8 @@
         {
           "repository": "Luminous-Dynamics/symthaea",
           "path": "papers/governance/embodied-governance/embodied_governance.tex",
-          "ref": "main (mutable; pin before qualification)",
-          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/main/papers/governance/embodied-governance/embodied_governance.tex"
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/papers/governance/embodied-governance/embodied_governance.tex"
         }
       ],
       "paper_reported_results": [
@@ -248,8 +252,8 @@
         {
           "repository": "Luminous-Dynamics/mycelix",
           "path": "docs/finance/FIN_SYS_SOURCE_PROFILE_V1.md",
-          "ref": "main (mutable; pin before qualification)",
-          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/finance/FIN_SYS_SOURCE_PROFILE_V1.md"
+          "ref": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/docs/finance/FIN_SYS_SOURCE_PROFILE_V1.md"
         }
       ],
       "source_families": [
@@ -277,8 +281,8 @@
         {
           "repository": "Luminous-Dynamics/symthaea",
           "path": "book/src/sovereignty/essay-16.md",
-          "ref": "main (mutable; pin before qualification)",
-          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/main/book/src/sovereignty/essay-16.md"
+          "ref": "b9af191f380d635f0459b24284c1d1fd6a5516aa",
+          "url": "https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/book/src/sovereignty/essay-16.md"
         }
       ],
       "currency_contract": {
