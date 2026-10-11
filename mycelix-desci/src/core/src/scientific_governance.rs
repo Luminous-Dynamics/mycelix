@@ -598,6 +598,9 @@ pub struct GovernedScientificEventLog<L, R, P> {
     policy: P,
     authority_audit: Arc<dyn ScientificAuthorityAuditStore>,
     receipt_signing_key: Option<Arc<SigningKey>>,
+    /// Historical service keys remain trusted for receipt verification across
+    /// rotation; the active receipt signer is included at construction time.
+    trusted_receipt_service_keys: BTreeSet<[u8; 32]>,
     atomic_committer: Option<Arc<dyn AtomicScientificCommitStore>>,
 }
 
@@ -611,9 +614,8 @@ where
     ) -> Result<ClaimProjection> {
         let mut authority_qualified_evaluation_event_ids = BTreeSet::new();
 
-        if let Some(signing_key) = &self.receipt_signing_key {
-            let trusted_service_keys =
-                BTreeSet::from([signing_key.verifying_key().to_bytes()]);
+        if self.receipt_signing_key.is_some() {
+            let trusted_service_keys = &self.trusted_receipt_service_keys;
             for event in events {
                 if !matches!(
                     &event.envelope.payload,
@@ -670,14 +672,43 @@ impl<L, R, P> GovernedScientificEventLog<L, R, P> {
         authority_audit: Arc<dyn ScientificAuthorityAuditStore>,
         receipt_signing_key: Option<Arc<SigningKey>>,
     ) -> Self {
+        let mut trusted_receipt_service_keys = BTreeSet::new();
+        if let Some(signing_key) = &receipt_signing_key {
+            trusted_receipt_service_keys.insert(signing_key.verifying_key().to_bytes());
+        }
         Self {
             inner,
             resolver,
             policy,
             authority_audit,
             receipt_signing_key,
+            trusted_receipt_service_keys,
             atomic_committer: None,
         }
+    }
+
+    /// Configure retained trusted authority-receipt service keys across key
+    /// rotation. The active receipt signer must remain in the trusted set.
+    pub fn with_trusted_receipt_service_keys(
+        mut self,
+        trusted_keys: BTreeSet<[u8; 32]>,
+    ) -> Result<Self> {
+        if trusted_keys.is_empty() && self.receipt_signing_key.is_some() {
+            return Err(Error::Validation(
+                "trusted receipt service key set cannot be empty while signing is enabled"
+                    .to_string(),
+            ));
+        }
+        if let Some(signing_key) = &self.receipt_signing_key {
+            if !trusted_keys.contains(&signing_key.verifying_key().to_bytes()) {
+                return Err(Error::Validation(
+                    "trusted receipt service keys must include the active receipt signer"
+                        .to_string(),
+                ));
+            }
+        }
+        self.trusted_receipt_service_keys = trusted_keys;
+        Ok(self)
     }
 
     pub fn with_atomic_committer(
