@@ -32,7 +32,6 @@ pub fn Nav() -> impl IntoView {
                 <A href="/payments" attr:class="nav-link nav-finance" attr:data-nav="payments">"SAP"</A>
                 <A href="/recognition" attr:class="nav-link nav-finance" attr:data-nav="recognition">"MYCEL"</A>
                 <A href="/treasury" attr:class="nav-link nav-finance" attr:data-nav="treasury">"Treasury"</A>
-                <A href="/economy-atlas" attr:class="nav-link nav-finance" attr:data-nav="economy-atlas">"Atlas"</A>
             </div>
 
             <div class="nav-meta">
