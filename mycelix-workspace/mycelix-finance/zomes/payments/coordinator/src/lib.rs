@@ -670,14 +670,16 @@ fn drain_pending_compost_inner() -> ExternResult<u32> {
                     e
                 )))
             })?;
-            let queue_anchor = anchor_hash(PENDING_COMPOST_ANCHOR)?;
-            create_link(
-                queue_anchor.clone(),
-                queue_anchor,
-                LinkTypes::PendingCompostQueue,
-                retry_tag,
-            )?;
-            delete_link(link.create_link_hash.clone(), GetOptions::default())?;
+            if updated_pending.retry_count > pending.retry_count {
+                let queue_anchor = anchor_hash(PENDING_COMPOST_ANCHOR)?;
+                create_link(
+                    queue_anchor.clone(),
+                    queue_anchor,
+                    LinkTypes::PendingCompostQueue,
+                    retry_tag,
+                )?;
+                delete_link(link.create_link_hash.clone(), GetOptions::default())?;
+            }
             debug!(
                 "Pending compost still undeliverable after {} delivery attempts: {} micro-SAP to pool {} from {} (total attempts {}, queued at {})",
                 COMPOST_MAX_RETRIES,
