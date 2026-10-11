@@ -46,6 +46,19 @@ Key entry types:
 - **VerifiableCredential**: W3C VCs for achievements
 - **Proposal**: Governance proposals
 
+## Symthaea Advisory Response v1
+
+`symthaea-advisory-v1.schema.json` defines the strict JSON shape for an optional
+Symthaea learning recommendation. It rejects unknown fields and bounds the action,
+reason, identifiers, confidence metadata, and content-reference list.
+
+The JSON Schema is only the structural boundary. Runtime Praxis validation must
+also match the exact configured model/version, active skill and curriculum revision,
+request digest, trusted per-turn action and reason allowlists, and content-ID
+allowlist. Schema-valid output is not proof of factual correctness, learning
+effectiveness, mastery, credential eligibility, or authorization. Raw response
+bytes must be bounded before JSON deserialization.
+
 ## Validation
 
 - **VC schemas**: Validated against JSON Schema draft 2020-12
