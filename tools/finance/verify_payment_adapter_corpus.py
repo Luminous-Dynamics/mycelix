@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA = "mycelix.payment-adapter-qualification/v1"
-MIN_CASES = 25
+MIN_CASES = 26
 CASE_ID_RE = re.compile(r"^PAY-[A-Z0-9]+-\d{3}$")
 CASE_FIELDS = {
     "id", "adapter_class", "condition", "event_sequence",
@@ -148,10 +148,19 @@ CRITICAL_CASES: dict[str, dict[str, Any]] = {
         "required_evidence_contains": ["source_outbox_lookup_result", "payment_record_lookup_result", "balance_before", "balance_after"],
         "forbidden_claims_contains": ["effect_id_alone_authorizes_credit"],
     },
+    "PAY-MYC-003": {
+        "expected_disposition": "SenderScopedOperationsIsolated",
+        "event_sequence_contains": ["sender_scoped_operation_identity_resolution"],
+        "required_evidence_contains": ["sender_A_identity", "sender_B_identity", "operation_id_A", "operation_id_B"],
+        "forbidden_claims_contains": [
+            "same_key_is_globally_unique_across_senders",
+            "one_senders_retry_may_resolve_another_senders_payment",
+        ],
+    },
     "PAY-TREASURY-003": {
         "expected_disposition": "ConcurrentCreditsSerialized",
         "event_sequence_contains": ["concurrent_credit_attempts", "destination_balance_checked_arithmetically"],
-        "required_evidence_contains": ["balance_before", "balance_after", "destination_scoped_receipts"],
+        "required_evidence_contains": ["balance_before", "balance_after", "maximum_representable_balance", "destination_scoped_receipts"],
         "forbidden_claims_contains": ["competing_credits_may_overflow_shared_pool", "every_competing_credit_must_succeed"],
     },
 }
@@ -279,6 +288,7 @@ def run_self_tests(document: dict[str, Any]) -> list[str]:
     changed("conflicting local payload dispatch regression", lambda d: _mutate_case(d, "PAY-MYC-002", "external_dispatch_allowed", True))
     changed("Treasury effect-ID-as-authority regression", lambda d: _mutate_case(d, "PAY-TREASURY-002", "forbidden_claims", ["effect_id_is_authority"]))
     changed("receipt replay duplicate-credit regression", lambda d: _mutate_case(d, "PAY-TREASURY-001", "forbidden_claims", ["some-other-claim"]))
+    changed("cross-sender idempotency scope regression", lambda d: _mutate_case(d, "PAY-MYC-003", "forbidden_claims", ["same_key_is_globally_unique_across_senders"]))
 
     failures = [
         f"mutation was not rejected: {label}"
@@ -323,7 +333,7 @@ def main(argv: list[str] | None = None) -> int:
             for error in test_errors:
                 print(f" - {error}")
             return 1
-        print("PASS: 11 negative mutation tests rejected unsafe corpus changes")
+        print("PASS: 12 negative mutation tests rejected unsafe corpus changes")
     return 0
 
 
