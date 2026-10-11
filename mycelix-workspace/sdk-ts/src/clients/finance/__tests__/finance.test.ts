@@ -381,9 +381,10 @@ describe('PaymentsClient', () => {
       from_did: 'did:mycelix:alice',
       to_did: 'did:mycelix:bob',
       amount: 100,
-      currency: 'MYC',
+      currency: 'TEND',
       payment_type: 'Direct' as const,
       memo: 'Rent payment',
+      idempotency_key: 'rent-invoice-test-001',
     };
     const result = await payments.sendPayment(input);
 
