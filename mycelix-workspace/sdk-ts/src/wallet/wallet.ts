@@ -591,8 +591,11 @@ export class Wallet {
    * // Send to nickname
    * await wallet.send('@alice', 50);
    *
-   * // Send with memo
-   * await wallet.send('@bob', 100, 'MYC', { memo: 'Thanks!' });
+   * // Supply a stable key when you may need to retry an ambiguous result.
+   * await wallet.send('@bob', 100, 'TEND', {
+   *   memo: 'Thanks!',
+   *   idempotencyKey: 'invoice-2026-10-001',
+   * });
    *
    * // Send with callbacks
    * await wallet.send('@alice', 50, 'MYC', {
