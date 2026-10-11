@@ -276,14 +276,25 @@ mod tests {
 
     #[test]
     fn unknown_and_duplicate_json_fields_are_rejected() {
-        assert!(serde_json::from_str::<SpaceEngineeringEvidence>(
-            r#"{"schema":"x","unexpected":true}"#
-        )
-        .is_err());
-        assert!(serde_json::from_str::<SpaceEngineeringEvidence>(
-            r#"{"schema":"first","schema":"second"}"#
-        )
-        .is_err());
+        let valid_json = serde_json::to_string(&blocked()).unwrap();
+
+        // Keep every required field valid so the unknown-key failure cannot
+        // be attributed to unrelated missing-field validation.
+        let with_unknown = valid_json.replacen("{", r#"{"unexpected":true,"#, 1);
+        let error = serde_json::from_str::<SpaceEngineeringEvidence>(&with_unknown)
+            .expect_err("unknown field must be rejected");
+        assert!(error.to_string().contains("unexpected"));
+
+        // Duplicate a field in an otherwise valid record, so this specifically
+        // exercises duplicate-field handling rather than missing fields.
+        let with_duplicate = valid_json.replacen(
+            r#"{"schema":"#,
+            r#"{"schema":"first","schema":"#,
+            1,
+        );
+        let error = serde_json::from_str::<SpaceEngineeringEvidence>(&with_duplicate)
+            .expect_err("duplicate field must be rejected");
+        assert!(error.to_string().contains("duplicate field"));
     }
 
     #[test]
