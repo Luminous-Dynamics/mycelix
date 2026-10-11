@@ -228,7 +228,8 @@
           "then": {
             "required": [
               "study_id",
-              "collection_activity_id"
+              "collection_activity_id",
+              "parent_artifacts"
             ],
             "properties": {
               "parent_artifacts": {
