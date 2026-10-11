@@ -12,6 +12,7 @@ use treasury_integrity::*;
 
 use mycelix_zome_helpers as _;
 const DEFAULT_LIST_LIMIT: usize = 100;
+const MAX_COMPOST_EFFECT_ID_LEN: usize = 256;
 
 /// Verify the caller is a registered governance agent, or allow any agent during
 /// bootstrap (before the first governance agent is registered) — the same pattern
@@ -1268,7 +1269,7 @@ pub fn receive_compost(input: ReceiveCompostInput) -> ExternResult<Record> {
 
     let receipt_id = if let Some(effect_id) = input.effect_id.as_deref() {
         if effect_id.is_empty()
-            || effect_id.len() > MAX_ID_LEN
+            || effect_id.len() > MAX_COMPOST_EFFECT_ID_LEN
             || effect_id.chars().any(char::is_control)
         {
             return Err(wasm_error!(WasmErrorInner::Guest(
