@@ -66,13 +66,12 @@ check("effect ID limit is 1024 bytes", "MAX_EFFECT_ID_BYTES: usize = 1024;" in j
 check("idempotency key limit is 1024 bytes", "MAX_IDEMPOTENCY_KEY_BYTES: usize = 1024;" in journal)
 check(
     "journal writes explicit J4 original-key bindings",
-    '"J4\\\\tB' in journal
-    and '"J4\\\\tI' in journal
-    and '"J4\\\\tA' in journal
+    '"J4\\tB' in journal
+    and '"J4\\tI' in journal
+    and '"J4\\tA' in journal
     and "pub fn idempotency_key_binding" in journal
     and "IdempotencyKeyBinding::NotUsed" in journal,
-)
-check("replay uses the bounded record reader", "read_bounded_record(reader, &mut record, line_no + 1)?" in journal)
+)check("replay uses the bounded record reader", "read_bounded_record(reader, &mut record, line_no + 1)?" in journal)
 check("bounded reader uses fill_buf/consume", re.search(r"reader\s*\.fill_buf\(\)", journal) is not None and "reader.consume(consumed)" in journal)
 check("no full-file read_to_end replay path", "read_to_end(" not in journal)
 check("hex parser uses pinned-toolchain is_multiple_of idiom", "!value.len().is_multiple_of(2)" in journal)
@@ -167,9 +166,9 @@ scenarios = ("pending", "indeterminate", "acknowledged", "reconciled")
 check("scale probe has the one-million-effect ceiling", "const MAX_EFFECTS: usize = 1_000_000;" in scale)
 check(
     "scale probe generates current J4 records with explicit no-key binding",
-    '"J4\\\\tB' in scale and '"J4\\\\tI' in scale and '"J4\\\\tA' in scale and "synthetic J4 journal" in scale,
-)
-check("scale probe verifies total count and unresolved count", "journal.effect_count()" in scale and "journal.unresolved_effect_count()" in scale)
+    '"J4\\tB' in scale and '"J4\\tI' in scale and '"J4\\tA' in scale
+    and "synthetic J4 journal" in scale,
+)check("scale probe verifies total count and unresolved count", "journal.effect_count()" in scale and "journal.unresolved_effect_count()" in scale)
 check("scale probe verifies first and last states", "first_status_matches" in scale and "last_status_matches" in scale)
 check("scale probe writes and syncs its generated journal before replay", "writer.flush()?;" in scale and "writer.get_ref().sync_all()?;" in scale)
 for scenario in scenarios:
@@ -179,7 +178,7 @@ check("scale binary is registered in Cargo manifest", 'name = "journal-replay-sc
 check("crate remains dependency-free", "[dependencies]" not in manifest)
 check("Cargo.lock resolves the local validator package", 'name = "civ-econ-transition-validator"' in lockfile)
 hash_list_start = audit_script.find("files = (")
-hash_list_end = audit_script.find("\\n)\\n", hash_list_start)
+hash_list_end = audit_script.find("\n)\n", hash_list_start)
 hash_list_source = audit_script[hash_list_start:hash_list_end + 3] if hash_list_start >= 0 and hash_list_end > hash_list_start else ""
 check(
     "report hash set includes manifest, lockfile, and documentation",
