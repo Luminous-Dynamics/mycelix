@@ -1166,6 +1166,183 @@ fn elapsed_seconds(from: Timestamp, to: Timestamp) -> u64 {
     }
 }
 
+#[derive(Serialize)]
+struct PaymentRequestFingerprint<'a> {
+    schema: &'static str,
+    from_did: &'a str,
+    to_did: &'a str,
+    amount: u64,
+    currency: &'a str,
+    payment_type: &'a PaymentType,
+    memo: &'a Option<String>,
+}
+
+fn payment_operation_id(from_did: &str, idempotency_key: &str) -> ExternResult<String> {
+    if idempotency_key.is_empty()
+        || idempotency_key.len() > 128
+        || idempotency_key.trim() != idempotency_key
+        || idempotency_key.chars().any(char::is_control)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Idempotency key must be 1-128 non-control characters with no surrounding whitespace".into()
+        )));
+    }
+    let scoped_key = format!("mycelix-payment-operation-v1|{from_did}|{idempotency_key}");
+    let digest = anchor_hash(&scoped_key)?;
+    Ok(format!("payment-op:v1:{digest}"))
+}
+
+fn payment_request_fingerprint(input: &SendPaymentInput) -> ExternResult<String> {
+    let canonical = serde_json::to_string(&PaymentRequestFingerprint {
+        schema: "mycelix-payment-request-v1",
+        from_did: &input.from_did,
+        to_did: &input.to_did,
+        amount: input.amount,
+        currency: &input.currency,
+        payment_type: &input.payment_type,
+        memo: &input.memo,
+    })
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+        "Payment request fingerprint serialization failed: {e}"
+    ))))?;
+    let digest = anchor_hash(&canonical)?;
+    Ok(format!("fingerprint:v1:{digest}"))
+}
+
+/// Resolve a previously-claimed logical operation. Link count is used only to
+/// reject ambiguous evidence; a single mutable index link is not a uniqueness
+/// proof. Sender-bound creation claims are the durable operation record, and
+/// conflicting/partial visibility fails closed rather than replaying effects.
+fn resolve_existing_payment_operation(
+    input: &SendPaymentInput,
+    operation_id: &str,
+    request_fingerprint: &str,
+) -> ExternResult<Option<Record>> {
+    let claim_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(operation_id)?,
+            LinkTypes::PaymentCreationClaimIdToClaim,
+        )?,
+        GetStrategy::default(),
+    )?;
+    let payment_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(operation_id)?,
+            LinkTypes::PaymentIdToPayment,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    if claim_links.is_empty() {
+        if !payment_links.is_empty() {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Payment exists for this operation ID without a creation claim; refusing replay".into()
+            )));
+        }
+        return Ok(None);
+    }
+
+    // A link index is a discovery mechanism, not uniqueness authority. More
+    // than one candidate means the state is ambiguous and must be investigated.
+    if claim_links.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Multiple creation-claim candidates for one operation ID; refusing replay".into()
+        )));
+    }
+    let claim_action = ActionHash::try_from(claim_links[0].target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Creation-claim index target is not an ActionHash".into()
+        )))?;
+    let claim_record = get(claim_action, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "Creation claim is indexed but not readable; operation is indeterminate".into()
+        )
+    ))?;
+    let claim = claim_record
+        .entry()
+        .to_app_option::<PaymentCreationClaim>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Creation claim decode failed: {e}"
+        ))))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Creation-claim index resolved to the wrong entry type".into()
+        )))?;
+
+    if claim.operation_id != operation_id
+        || claim.request_fingerprint != request_fingerprint
+        || claim.from_did != input.from_did
+        || claim.to_did != input.to_did
+        || claim.amount != input.amount
+        || claim.currency != input.currency
+        || claim.payment_type != input.payment_type
+        || claim.memo != input.memo
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Idempotency key is already claimed by a different payment payload".into()
+        )));
+    }
+
+    if payment_links.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Creation claim exists but payment evidence is missing or ambiguous; refusing to repeat possible effects".into()
+        )));
+    }
+    let payment_action = ActionHash::try_from(payment_links[0].target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Payment index target is not an ActionHash".into()
+        )))?;
+    let payment_record = follow_update_chain(payment_action)?;
+    let payment = payment_record
+        .entry()
+        .to_app_option::<Payment>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Payment record decode failed during idempotent replay: {e}"
+        ))))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Payment index resolved to the wrong entry type".into()
+        )))?;
+
+    if payment.id != operation_id
+        || payment.from_did != claim.from_did
+        || payment.to_did != claim.to_did
+        || payment.amount != claim.amount
+        || payment.currency != claim.currency
+        || payment.payment_type != claim.payment_type
+        || payment.memo != claim.memo
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Stored payment does not match its immutable creation claim; refusing replay".into()
+        )));
+    }
+
+    Ok(Some(payment_record))
+}
+
+fn create_payment_creation_claim(
+    input: &SendPaymentInput,
+    operation_id: &str,
+    request_fingerprint: &str,
+) -> ExternResult<()> {
+    let claim = PaymentCreationClaim {
+        operation_id: operation_id.to_string(),
+        from_did: input.from_did.clone(),
+        to_did: input.to_did.clone(),
+        amount: input.amount,
+        currency: input.currency.clone(),
+        payment_type: input.payment_type.clone(),
+        memo: input.memo.clone(),
+        request_fingerprint: request_fingerprint.to_string(),
+    };
+    let claim_action = create_entry(&EntryTypes::PaymentCreationClaim(claim))?;
+    create_link(
+        anchor_hash(operation_id)?,
+        claim_action,
+        LinkTypes::PaymentCreationClaimIdToClaim,
+        (),
+    )?;
+    Ok(())
+}
+
 #[hdk_extern]
 pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
     verify_participant_tier()?;
@@ -1177,6 +1354,14 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Currency must be \"SAP\" or \"TEND\"".into()
         )));
+    }
+
+    let operation_id = payment_operation_id(&input.from_did, &input.idempotency_key)?;
+    let request_fingerprint = payment_request_fingerprint(&input)?;
+    if let Some(existing) =
+        resolve_existing_payment_operation(&input, &operation_id, &request_fingerprint)?
+    {
+        return Ok(existing);
     }
 
     let now = sys_time()?;
@@ -1205,6 +1390,11 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
             (),
         )?;
     }
+
+    // Claim the logical operation before any value-moving work. All local
+    // chain writes must commit with this successful zome call; retries resolve
+    // the same claim and Payment ID instead of creating a timestamp-based ID.
+    create_payment_creation_claim(&input, &operation_id, &request_fingerprint)?;
 
     // If sending SAP, enforce on-chain balance with demurrage + progressive fee
     let (memo, fee_amount) = if input.currency == "SAP" {
@@ -1250,7 +1440,7 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
     };
 
     let payment = Payment {
-        id: format!("payment:{}:{}", input.from_did, now.as_micros()),
+        id: operation_id.clone(),
         from_did: input.from_did.clone(),
         to_did: input.to_did.clone(),
         amount: input.amount,
@@ -1332,6 +1522,9 @@ pub struct SendPaymentInput {
     pub currency: String,
     pub payment_type: PaymentType,
     pub memo: Option<String>,
+    /// Stable per-logical-operation client key. This must be reused for retries,
+    /// must not contain secrets, and may not be reused for a different payload.
+    pub idempotency_key: String,
 }
 
 #[hdk_extern]
@@ -1859,6 +2052,7 @@ pub fn initiate_exit(input: InitiateExitInput) -> ExternResult<Record> {
                     currency: "SAP".to_string(),
                     payment_type: PaymentType::CommonsContribution("exit-succession".to_string()),
                     memo: Some("Exit succession: SAP to local commons pool".to_string()),
+                    idempotency_key: "exit-succession-v1:commons".to_string(),
                 })?;
             }
             SuccessionPreference::Designee(designee_did) => {
@@ -1869,6 +2063,7 @@ pub fn initiate_exit(input: InitiateExitInput) -> ExternResult<Record> {
                     currency: "SAP".to_string(),
                     payment_type: PaymentType::Direct,
                     memo: Some("Exit succession to designated heir".to_string()),
+                    idempotency_key: "exit-succession-v1:designee".to_string(),
                 })?;
             }
             SuccessionPreference::Redemption => {
@@ -1881,6 +2076,7 @@ pub fn initiate_exit(input: InitiateExitInput) -> ExternResult<Record> {
                     currency: "SAP".to_string(),
                     payment_type: PaymentType::Direct,
                     memo: Some("Exit succession: SAP queued for collateral redemption".to_string()),
+                    idempotency_key: "exit-succession-v1:redemption".to_string(),
                 })?;
             }
         }
