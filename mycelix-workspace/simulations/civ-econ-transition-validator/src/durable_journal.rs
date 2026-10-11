@@ -603,31 +603,70 @@ fn replay<R: BufRead>(reader: &mut R) -> Result<HashMap<String, JournalEntry>, J
         let fifth = fields.next();
         let sixth = fields.next();
         let seventh = fields.next();
+        let eighth = fields.next();
         if fields.next().is_some() {
             return Err(JournalError::CorruptJournal {
                 line: line_no, reason: "invalid record shape or version"
             });
         }
 
-        if version != "J1" && version != "J2" && version != "J3" {
+        if version != "J1" && version != "J2" && version != "J3" && version != "J4" {
             return Err(JournalError::CorruptJournal {
                 line: line_no, reason: "unsupported journal record version"
             });
         }
 
-        let (provider_profile_digest, receipt_digest, source_evidence_digest) =
-            match (version, event, fifth, sixth, seventh) {
-                ("J1" | "J2", "B" | "I", None, None, None) => (None, None, None),
-                ("J3", "B" | "I", Some(profile), None, None) => (Some(profile), None, None),
-                ("J1", "A", Some(receipt), None, None) => (None, Some(receipt), None),
-                ("J2", "A", Some(receipt), Some(evidence), None) =>
-                    (None, Some(receipt), Some(evidence)),
-                ("J3", "A", Some(profile), Some(receipt), Some(evidence)) =>
-                    (Some(profile), Some(receipt), Some(evidence)),
+        let (provider_profile_digest, key_binding_field, receipt_digest, source_evidence_digest) =
+            match (version, event, fifth, sixth, seventh, eighth) {
+                ("J1" | "J2", "B" | "I", None, None, None, None) =>
+                    (None, None, None, None),
+                ("J3", "B" | "I", Some(profile), None, None, None) =>
+                    (Some(profile), None, None, None),
+                ("J4", "B" | "I", Some(profile), Some(key_binding), None, None) =>
+                    (Some(profile), Some(key_binding), None, None),
+                ("J1", "A", Some(receipt), None, None, None) =>
+                    (None, None, Some(receipt), None),
+                ("J2", "A", Some(receipt), Some(evidence), None, None) =>
+                    (None, None, Some(receipt), Some(evidence)),
+                ("J3", "A", Some(profile), Some(receipt), Some(evidence), None) =>
+                    (Some(profile), None, Some(receipt), Some(evidence)),
+                ("J4", "A", Some(profile), Some(key_binding), Some(receipt), Some(evidence)) =>
+                    (Some(profile), Some(key_binding), Some(receipt), Some(evidence)),
                 _ => return Err(JournalError::CorruptJournal {
                     line: line_no, reason: "invalid record shape or version"
                 }),
             };
+        let idempotency_key_binding = match key_binding_field {
+            None => IdempotencyKeyBinding::LegacyUnbound,
+            Some("-") => IdempotencyKeyBinding::NotUsed,
+            Some("?") => IdempotencyKeyBinding::LegacyUnbound,
+            Some(encoded_key) => {
+                if encoded_key.len() > MAX_IDEMPOTENCY_KEY_BYTES * 2 {
+                    return Err(JournalError::CorruptJournal {
+                        line: line_no, reason: "idempotency key exceeds maximum size"
+                    });
+                }
+                let key_bytes = decode_hex(encoded_key, line_no).map_err(|_| {
+                    JournalError::CorruptJournal {
+                        line: line_no, reason: "idempotency key is not canonical lowercase hex"
+                    }
+                })?;
+                let key = String::from_utf8(key_bytes).map_err(|_| JournalError::CorruptJournal {
+                    line: line_no, reason: "idempotency key is not UTF-8"
+                })?;
+                validate_idempotency_key(&key).map_err(|_| JournalError::CorruptJournal {
+                    line: line_no, reason: "idempotency key is non-canonical"
+                })?;
+                IdempotencyKeyBinding::Bound(key)
+            }
+        };
+        if version == "J4" && event == "B"
+            && matches!(&idempotency_key_binding, IdempotencyKeyBinding::LegacyUnbound)
+        {
+            return Err(JournalError::CorruptJournal {
+                line: line_no, reason: "new begin record cannot leave idempotency-key binding unknown"
+            });
+        }
         if encoded_id.len() > MAX_EFFECT_ID_BYTES * 2 {
             return Err(JournalError::CorruptJournal {
                 line: line_no, reason: "effect id exceeds maximum size"
@@ -658,6 +697,7 @@ fn replay<R: BufRead>(reader: &mut R) -> Result<HashMap<String, JournalEntry>, J
                 entries.insert(id, JournalEntry {
                     request_digest: request_digest.to_owned(),
                     provider_profile_digest: provider_profile_digest.map(str::to_owned),
+                    idempotency_key_binding,
                     status: EffectStatus::Pending,
                     source_evidence_digest: None,
                 });
@@ -668,6 +708,7 @@ fn replay<R: BufRead>(reader: &mut R) -> Result<HashMap<String, JournalEntry>, J
                 })?;
                 if entry.request_digest != request_digest
                     || entry.provider_profile_digest.as_deref() != provider_profile_digest
+                    || entry.idempotency_key_binding != idempotency_key_binding
                     || entry.status != EffectStatus::Pending
                 {
                     return Err(JournalError::CorruptJournal {
@@ -693,6 +734,7 @@ fn replay<R: BufRead>(reader: &mut R) -> Result<HashMap<String, JournalEntry>, J
                 })?;
                 if entry.request_digest != request_digest
                     || entry.provider_profile_digest.as_deref() != provider_profile_digest
+                    || entry.idempotency_key_binding != idempotency_key_binding
                     || !matches!(&entry.status, EffectStatus::Pending | EffectStatus::Indeterminate)
                 {
                     return Err(JournalError::CorruptJournal {
