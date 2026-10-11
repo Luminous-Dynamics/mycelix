@@ -71,7 +71,8 @@ check(
     and '"J4\\tA' in journal
     and "pub fn idempotency_key_binding" in journal
     and "IdempotencyKeyBinding::NotUsed" in journal,
-)check("replay uses the bounded record reader", "read_bounded_record(reader, &mut record, line_no + 1)?" in journal)
+)
+check("replay uses the bounded record reader", "read_bounded_record(reader, &mut record, line_no + 1)?" in journal)
 check("bounded reader uses fill_buf/consume", re.search(r"reader\s*\.fill_buf\(\)", journal) is not None and "reader.consume(consumed)" in journal)
 check("no full-file read_to_end replay path", "read_to_end(" not in journal)
 check("hex parser uses pinned-toolchain is_multiple_of idiom", "!value.len().is_multiple_of(2)" in journal)
@@ -110,6 +111,8 @@ for test_name in (
     "maximum_effect_id_and_idempotency_key_fit_bounded_ack_record",
     "legacy_j3_pending_effect_keeps_original_key_unbound",
     "j4_replay_rejects_key_change_between_begin_and_ack",
+    "explicit_no_key_binding_survives_restart_and_rejects_later_key",
+    "j4_replay_rejects_key_change_between_begin_and_indeterminate",
     "invalid_original_idempotency_key_is_rejected_before_append",
 ):
     annotated_test = re.search(r"#\[test\]\s*fn\s+" + re.escape(test_name) + r"\(", journal)
@@ -175,7 +178,8 @@ check(
     "scale probe generates current J4 records with explicit no-key binding",
     '"J4\\tB' in scale and '"J4\\tI' in scale and '"J4\\tA' in scale
     and "synthetic J4 journal" in scale,
-)check("scale probe verifies total count and unresolved count", "journal.effect_count()" in scale and "journal.unresolved_effect_count()" in scale)
+)
+check("scale probe verifies total count and unresolved count", "journal.effect_count()" in scale and "journal.unresolved_effect_count()" in scale)
 check("scale probe verifies first and last states", "first_status_matches" in scale and "last_status_matches" in scale)
 check("scale probe writes and syncs its generated journal before replay", "writer.flush()?;" in scale and "writer.get_ref().sync_all()?;" in scale)
 for scenario in scenarios:
@@ -206,10 +210,11 @@ check(
 )
 check("README documents combined report/smoke artifact and limits", "JSON audit report and replay-smoke log are bundled" in " ".join(readme.split()) and "not immutable long-term archival" in " ".join(readme.split()) and "smoke figures are not capacity benchmarks" in " ".join(readme.split()))
 check(
-    "README discloses original idempotency-key persistence integration gap",
-    "quarantines both a replacement key and a missing original-key binding" in " ".join(readme.split())
-    and "The current J3 journal does not yet persist the original dispatch idempotency key" in " ".join(readme.split())
-    and "not yet sufficient to authorize automated same-key retries" in " ".join(readme.split()),
+    "README documents J4 original-key persistence and remaining adapter boundary",
+    "J4 records now persist the original key" in " ".join(readme.split())
+    and "not encrypted" in " ".join(readme.split())
+    and "must read the J4 key binding" in " ".join(readme.split())
+    and "provider observations/contracts still require independent authentication" in " ".join(readme.split()),
 )
 audit_exec_start = audit_script.find("\ntry:\n    commit = subprocess.run", hash_list_start)
 audit_identity_start = audit_script.find('expected_subject = os.environ.get("QUALIFIED_SHA")', audit_exec_start)
