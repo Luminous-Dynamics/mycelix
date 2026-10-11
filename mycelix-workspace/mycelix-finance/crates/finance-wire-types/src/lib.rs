@@ -143,6 +143,9 @@ pub struct SendPaymentInput {
     pub currency: String,
     pub payment_type: PaymentType,
     pub memo: Option<String>,
+    /// Stable key for one logical payment operation; reuse only for exact retries.
+    /// This is an identifier, not a secret or authorization token.
+    pub idempotency_key: String,
 }
 
 /// Input for querying payment history.
