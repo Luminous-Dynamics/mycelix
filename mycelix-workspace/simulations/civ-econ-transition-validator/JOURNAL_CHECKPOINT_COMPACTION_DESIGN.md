@@ -126,8 +126,8 @@ proof that no live selector references them; premature deletion is forbidden.
   digest, missing final newline, truncated checkpoint, and appended-garbage tests.
 - Disk-full/write failure simulation where feasible; after a possibly partial
   write, the live instance must be poisoned and must require reopen/reconcile.
-- Unix permission/symlink tests and documented native ACL/rename tests for any
-  supported non-Unix platform.
+- Unix parent-directory write-permission, file-permission, and symlink tests;
+  documented native ACL/rename tests for any supported non-Unix platform.
 - Scale comparison before/after on the same host, including open/replay latency,
   peak RSS, disk bytes, and effect-count correctness for repeated runs.
 - Exact-head formatting, unit/integration tests, and strict Clippy results.
