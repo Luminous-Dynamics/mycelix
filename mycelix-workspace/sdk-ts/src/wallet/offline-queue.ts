@@ -525,7 +525,7 @@ export class OfflineQueue {
     // Check for duplicate by idempotency key inside the serialized critical section.
     if (options?.idempotencyKey) {
       const existing = this._state$.value.items.find(
-        (i) => i.idempotencyKey === options.idempotencyKey && i.status !== 'failed' && i.status !== 'cancelled'
+        (i) => i.idempotencyKey === options.idempotencyKey
       );
       if (existing) {
         const samePayload =
@@ -533,6 +533,11 @@ export class OfflineQueue {
           JSON.stringify(existing.payload) === JSON.stringify(payload);
         if (!samePayload) {
           throw new Error('Idempotency key reused with a different queued operation payload');
+        }
+        if (existing.status === 'failed' || existing.status === 'cancelled') {
+          throw new Error(
+            'Idempotency key already belongs to a failed or cancelled queue item; retry that item explicitly or use a fresh key for a new logical payment'
+          );
         }
         return existing as QueuedOperation<T>;
       }
