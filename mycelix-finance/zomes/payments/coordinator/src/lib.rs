@@ -1192,6 +1192,12 @@ fn payment_operation_id(from_did: &str, idempotency_key: &str) -> ExternResult<S
     Ok(format!("payment-op:v1:{digest}"))
 }
 
+fn checked_total_debit(amount: u64, fee: u64) -> ExternResult<u64> {
+    amount.checked_add(fee).ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Payment amount plus fee overflows u64".into()
+    )))
+}
+
 fn payment_request_fingerprint(input: &SendPaymentInput) -> ExternResult<String> {
     let canonical = serde_json::to_string(&PaymentRequestFingerprint {
         schema: "mycelix-payment-request-v1",
@@ -1401,7 +1407,7 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         // input.amount is already in micro-SAP (u64)
         // Compute progressive fee based on sender's MYCEL score
         let fee = compute_sap_fee(&input.from_did, input.amount)?;
-        let total_debit = input.amount + fee;
+        let total_debit = checked_total_debit(input.amount, fee)?;
 
         // Debit sender's SAP balance (amount + fee, applies demurrage)
         debit_sap(DebitSapInput {
@@ -1419,7 +1425,7 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
 
         // Route fee to commons via treasury (if fee > 0)
         if fee > 0 {
-            if let Err(e) = call(
+            match call(
                 CallTargetCell::Local,
                 ZomeName::from("treasury"),
                 FunctionName::from("receive_compost"),
@@ -1430,7 +1436,19 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
                     source_member_did: input.from_did.clone(),
                 },
             ) {
-                debug!("Fee routing to global-fee-pool failed: {:?}", e);
+                Ok(ZomeCallResponse::Ok(_)) => {}
+                Ok(other) => {
+                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                        "SAP fee routing returned an unexpected response: {:?}",
+                        other
+                    ))));
+                }
+                Err(e) => {
+                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                        "SAP fee routing failed; payment rolled back: {:?}",
+                        e
+                    ))));
+                }
             }
         }
 
@@ -2715,3 +2733,99 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
         domain_tag: domain_tag.as_str().to_string(),
     })
 }
+#[cfg(test)]
+mod payment_idempotency_tests {
+    use super::*;
+
+    fn sample_input() -> SendPaymentInput {
+        SendPaymentInput {
+            from_did: "did:mycelix:uhCAksender".to_string(),
+            to_did: "did:mycelix:uhCAkrecipient".to_string(),
+            amount: 1_250_000,
+            currency: "SAP".to_string(),
+            payment_type: PaymentType::Direct,
+            memo: Some("invoice-42".to_string()),
+            idempotency_key: "client-op-42".to_string(),
+        }
+    }
+
+    #[test]
+    fn operation_id_is_stable_and_sender_scoped() {
+        let a = payment_operation_id("did:mycelix:uhCAksender", "client-op-42").unwrap();
+        let b = payment_operation_id("did:mycelix:uhCAksender", "client-op-42").unwrap();
+        let other_sender =
+            payment_operation_id("did:mycelix:uhCAkother", "client-op-42").unwrap();
+        let other_key =
+            payment_operation_id("did:mycelix:uhCAksender", "client-op-43").unwrap();
+
+        assert_eq!(a, b);
+        assert_ne!(a, other_sender);
+        assert_ne!(a, other_key);
+        assert!(a.starts_with("payment-op:v1:"));
+        assert!(!a.contains("client-op-42"), "raw key must not leak into the public operation ID");
+    }
+
+    #[test]
+    fn invalid_idempotency_keys_fail_closed() {
+        for key in ["", " key", "key ", "line\nbreak"] {
+            assert!(
+                payment_operation_id("did:mycelix:uhCAksender", key).is_err(),
+                "invalid key should fail: {key:?}"
+            );
+        }
+        assert!(
+            payment_operation_id("did:mycelix:uhCAksender", &"x".repeat(129)).is_err(),
+            "overlong key should fail"
+        );
+    }
+
+    #[test]
+    fn request_fingerprint_binds_money_and_payee_fields() {
+        let base = sample_input();
+        let base_fingerprint = payment_request_fingerprint(&base).unwrap();
+
+        let mut changed_amount = sample_input();
+        changed_amount.amount += 1;
+        assert_ne!(base_fingerprint, payment_request_fingerprint(&changed_amount).unwrap());
+
+        let mut changed_payee = sample_input();
+        changed_payee.to_did = "did:mycelix:uhCAkother".to_string();
+        assert_ne!(base_fingerprint, payment_request_fingerprint(&changed_payee).unwrap());
+
+        let mut changed_currency = sample_input();
+        changed_currency.currency = "TEND".to_string();
+        assert_ne!(base_fingerprint, payment_request_fingerprint(&changed_currency).unwrap());
+
+        let mut changed_memo = sample_input();
+        changed_memo.memo = Some("different invoice".to_string());
+        assert_ne!(base_fingerprint, payment_request_fingerprint(&changed_memo).unwrap());
+
+        let mut changed_kind = sample_input();
+        changed_kind.payment_type = PaymentType::CommonsContribution("pool-b".to_string());
+        assert_ne!(base_fingerprint, payment_request_fingerprint(&changed_kind).unwrap());
+    }
+
+    #[test]
+    fn amount_plus_fee_overflow_is_rejected() {
+        assert_eq!(checked_total_debit(100, 5).unwrap(), 105);
+        assert!(checked_total_debit(u64::MAX, 1).is_err());
+        assert!(checked_total_debit(u64::MAX - 5, 5).is_ok());
+    }
+
+    #[test]
+    fn same_key_can_name_retry_but_payload_fingerprint_changes() {
+        let first = sample_input();
+        let mut conflicting = sample_input();
+        conflicting.amount += 100;
+
+        assert_eq!(
+            payment_operation_id(&first.from_did, &first.idempotency_key).unwrap(),
+            payment_operation_id(&conflicting.from_did, &conflicting.idempotency_key).unwrap()
+        );
+        assert_ne!(
+            payment_request_fingerprint(&first).unwrap(),
+            payment_request_fingerprint(&conflicting).unwrap()
+        );
+    }
+}
+
