@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/feat/economy-atlas-model-registry-v1/docs/economy-atlas/model-registry.schema.json",
   "title": "Mycelix Economy Atlas discovery registry v1",
-  "description": "Schema for the source-pinned discovery inventory. This v1 schema intentionally forbids asserting execution qualification.",
+  "description": "Schema for the source-pinned Economy Atlas discovery inventory, including separately classified external research/framework references. This v1 schema intentionally forbids asserting execution qualification.",
   "type": "object",
   "required": [
     "schema_version",
@@ -100,7 +100,8 @@
               "paper_reported",
               "design_only",
               "conceptual",
-              "discovery_required"
+              "discovery_required",
+              "external_framework"
             ]
           },
           "execution_status": {
@@ -191,9 +192,72 @@
               },
               "additionalProperties": true
             }
+          },
+          "research_refs": {
+            "type": "array",
+            "description": "External framework, methodology, or research references. These do not count as in-repository implementation source refs.",
+            "items": {
+              "type": "object",
+              "required": [
+                "title",
+                "publisher",
+                "reference_type",
+                "url"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "publisher": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reference_type": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "published_year": {
+                  "type": "integer",
+                  "minimum": 1800,
+                  "maximum": 2200
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri",
+                  "pattern": "^https://"
+                }
+              },
+              "additionalProperties": true
+            }
           }
         },
-        "additionalProperties": true
+        "additionalProperties": true,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "epistemic_status": {
+                  "const": "external_framework"
+                }
+              },
+              "required": [
+                "epistemic_status"
+              ]
+            },
+            "then": {
+              "required": [
+                "research_refs"
+              ],
+              "properties": {
+                "research_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            }
+          }
+        ]
       }
     }
   },
