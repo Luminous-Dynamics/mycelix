@@ -46,6 +46,31 @@ This is a deployment recommendation derived from source inspection, not an
 implemented transport or proof that the current Symthaea facade can yet satisfy
 the Praxis tutoring contract.
 
+## Host-only bounded reader
+
+The workspace now includes `crates/praxis-symthaea-adapter`, a native-only
+boundary with no Symthaea-runtime or HTTP-client dependency. It depends on
+`praxis-core` only for the versioned wire type and strict JSON parser. A
+`compile_error!` prevents this crate from being built for WASM targets, and no
+guest zome depends on it.
+
+`read_bounded_symthaea_advice(reader)` wraps the supplied `Read` stream with
+Rust's `Read::take(MAX_ADVISORY_RESPONSE_BYTES + 1)`, reads at most 16,385
+bytes, and rejects the result if it exceeds the 16 KiB contract limit. Only a
+body within the limit is passed to JSON deserialization. This follows Rust
+standard-library reader limiting semantics and addresses oversized payload
+allocation at the host-reader boundary; see the
+[Rust `Read::take` documentation](https://doc.rust-lang.org/stable/std/io/trait.Read.html#method.take)
+and OWASP's [API4:2023 unrestricted resource consumption guidance](https://api-security.owasp.org/editions/2023/en/0xa4-unrestricted-resource-consumption/).
+
+The host adapter remains a **bounded decoder**, not a live transport. The
+supplied reader must still have appropriate authentication and read-timeout
+behavior. After decoding, callers must validate the candidate using the
+trusted per-turn `AdviceValidationContext`; parsing alone does not authorize
+a suggestion. Regression tests assert that an oversized stream is read only
+through the maximum-plus-one byte, that an exact-limit body proceeds to the
+JSON parser, and that I/O and malformed-body failures fail closed.
+
 ## Why this boundary
 
 The OECD's *Digital Education Outlook 2026* reports that generative AI can improve task output while excessive dependence can reduce metacognitive engagement and durable learning. Systems designed around explicit pedagogical strategies show more promise than unconstrained answer generation. A 2025 systematic review of 28 K–12 intelligent-tutoring studies covering 4,597 learners found generally positive effects, but the benefits were often smaller when compared with other intelligent tutoring systems, and the evidence base needs longer, more diverse evaluations.
@@ -160,14 +185,14 @@ Implemented in this branch:
 - action/reason pairing rules (including learner-requested breaks only);
 - a strict JSON Schema that rejects unknown fields and has exact enum parity with the Rust contract;
 - an independent standard-library Python checker for schema/Rust enum parity, response bounds, trust gates, and the required adversarial test inventory;
-- a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, `praxis-core` formatting/tests, and clippy, including while the PR is a draft;
-- a 16 KiB bounded JSON parser that rejects oversized bodies before deserialization and rejects malformed or unknown-field responses;
-- twenty-seven authored Rust regression tests covering contract validation, bounded wire decoding, adversarial cases, and BLAKE3 golden vectors.
+- a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, formatting/tests for both advisory crates, and clippy, including while the PR is a draft;
+- a 16 KiB bounded JSON parser in `praxis-core` plus a native-only host reader that caps streaming reads at 16,385 bytes before rejecting oversize bodies;
+- twenty-seven `praxis-core` regression tests and five host-adapter tests covering valid decoding, oversized and exact-limit streams, malformed JSON, read failures, contract trust gates, and BLAKE3 golden vectors.
 
 Not yet implemented or qualified:
-- live Symthaea service/process adapter;
+- live Symthaea service/process transport or production call site (the new host crate provides only bounded reader/decoder primitives);
 - trusted request assembly/serialization, and a live call path that hashes exactly the transmitted bytes;
-- transport/process authentication, timeouts, and production call-site wiring to the bounded parser;
+- transport/process authentication, configured timeouts, and production call-site wiring to the bounded reader;
 - linkage to the evidence-bound PRAX projection pipeline;
 - UI accept/dismiss wiring and accessibility checks;
 - local inference/remote-provider privacy enforcement;
