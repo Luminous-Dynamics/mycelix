@@ -454,7 +454,7 @@
           "title": "Doughnut Data Portraits: A Methodological Guide",
           "publisher": "Doughnut Economics Action Lab (DEAL)",
           "reference_type": "methodology_guide",
-          "url": "https://doughnuteconomics.org/tools"
+          "url": "https://doughnuteconomics.org/tools/doughnut-data-portraits-a-methodological-guide"
         }
       ],
       "framework_summary": "A social foundation and an ecological ceiling: assess whether a place meets human needs while remaining within planetary limits. DEAL's current Data Portrait workflow organizes indicators through four lenses formed by two domains (social/ecological) and two scales (local/global), with 44 dimensions in the published tool description.",
@@ -523,6 +523,51 @@
         "A high recycling or recirculation rate alone does not demonstrate lower total extraction, lower absolute impacts, or ecosystem recovery.",
         "Material-flow accounting needs consistent units, product lifetimes, imports/exports, system boundaries, and treatment of downcycling and quality loss.",
         "Do not add money, tonnes, biodiversity indicators, and wellbeing measures into one score without an explicit reviewed methodology."
+      ]
+    },
+    {
+      "model_id": "regenerative.land.agroecology-outcomes.v1",
+      "title": "Regenerative Land and Agriculture — Outcomes Framework",
+      "domain": [
+        "regenerative_economics",
+        "agroecology",
+        "soil_health",
+        "water_cycles",
+        "biodiversity",
+        "rural_livelihoods"
+      ],
+      "epistemic_status": "external_framework",
+      "execution_status": "outcomes_framework; local_observation_dataset_and_runner_not_implemented",
+      "source_refs": [],
+      "research_refs": [
+        {
+          "title": "What Is Regenerative Agriculture? A Review of Scholar and Practitioner Definitions Based on Processes and Outcomes",
+          "publisher": "Frontiers in Sustainable Food Systems / FAO AGRIS",
+          "reference_type": "peer_reviewed_review",
+          "published_year": 2020,
+          "url": "https://doi.org/10.3389/fsufs.2020.577723"
+        },
+        {
+          "title": "Regenerative Agriculture — Practices and Innovation for Sustainable Agriculture",
+          "publisher": "Food and Agriculture Organization of the United Nations (FAO)",
+          "reference_type": "sector_framework_overview",
+          "url": "https://www.fao.org/americas/priorities/agricultura-sostenible/practicas-innovacion/3.-regenerative-agriculture/en"
+        }
+      ],
+      "framework_summary": "A land- and food-system lens for checking whether production practices contribute to restorative outcomes such as soil health, hydrological function, biodiversity and ecosystem services, while also considering productivity, resilience, input use, and local livelihoods. Definitions vary; a list of practices alone is not proof of regeneration.",
+      "candidate_outcomes": [
+        "Soil organic matter/carbon and soil structure measured against a site-specific baseline",
+        "Water infiltration, retention, runoff, and water-quality indicators",
+        "On-farm and landscape biodiversity using a declared observation method",
+        "Input intensity and nutrient/pesticide loss where relevant and measured",
+        "Yield stability and farm income/livelihood resilience over multiple seasons",
+        "Restoration outcomes by location, baseline, measurement period and verification source"
+      ],
+      "limitations": [
+        "A 2020 review of scholarly and practitioner definitions found substantial variation and no widely accepted common definition at that time; define the intended contract and context instead of assuming consensus.",
+        "Practices (such as cover crops or reduced tillage) are intervention descriptors, not direct proof that soil, biodiversity or water outcomes improved.",
+        "Outcome measurement requires repeated, location-specific baselines and explicit methods; climate, soil type, farm context and time horizon affect comparison.",
+        "Do not represent this external framework as a Mycelix implementation or infer verified carbon removal, biodiversity gain, or social benefit without source data and a suitable measurement method."
       ]
     },
     {
