@@ -80,7 +80,7 @@ pub enum RecoveryAction {
 pub fn decide_recovery(
     expected_provider_profile_digest: &str,
     expected_request_digest: &str,
-    /// Exact key durably bound to the original dispatch; None means no key is recorded.
+    /// Key supplied from the authoritative durable dispatch record; None means no key is recorded.
     expected_idempotency_key: Option<&str>,
     observation: &ProviderObservation,
     idempotency: &ProviderIdempotencyContract,
