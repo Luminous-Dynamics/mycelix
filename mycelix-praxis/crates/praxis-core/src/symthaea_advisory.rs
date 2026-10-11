@@ -401,6 +401,14 @@ mod tests {
     }
 
     #[test]
+    fn request_digest_matches_blake3_nonempty_golden_vector() {
+        assert_eq!(
+            digest_advisory_request_bytes(b"abc"),
+            "blake3:6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85"
+        );
+    }
+
+    #[test]
     fn malformed_input_digests_are_rejected() {
         let ids = allowed_content();
         for digest in [
