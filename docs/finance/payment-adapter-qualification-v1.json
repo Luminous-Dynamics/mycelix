@@ -100,6 +100,18 @@
       "url": "https://developer.visa.com/capabilities/visa-direct-connect/error-codes",
       "observed_on": "2026-10-11",
       "relevance": "Visa Direct documents client-reference conflict and amount/currency inconsistency errors for previously processed payout requests; exact handling remains bound to the applicable product profile."
+    },
+    {
+      "id": "STRIPE_IDEMPOTENCY",
+      "url": "https://docs.stripe.com/api/idempotent_requests",
+      "observed_on": "2026-10-11",
+      "relevance": "Stripe documents request parameter consistency and idempotency-key pruning after at least 24 hours; a pruned key can be treated as a new request."
+    },
+    {
+      "id": "ADYEN_IDEMPOTENCY",
+      "url": "https://docs.adyen.com/development-resources/api-idempotency",
+      "observed_on": "2026-10-11",
+      "relevance": "Adyen documents company-account scope, a 7–14 day key-retention window, and regional endpoint isolation for duplicate detection; exact behavior must be bound to the selected product contract."
     }
   ],
   "cases": [
@@ -318,6 +330,34 @@
       "forbidden_claims": [
         "changed_payload_under_same_client_reference_is_a_new_payment",
         "provider_conflict_can_be_bypassed_without_new_authorized_intent"
+      ]
+    },
+    {
+      "id": "PAY-IDEM-001",
+      "adapter_class": "all_external_adapters",
+      "condition": "The provider-side idempotency retention window has expired or is unknown while the original logical operation outcome remains unresolved.",
+      "event_sequence": [
+        "original_submission_recorded",
+        "provider_key_retention_expired_or_unknown",
+        "local_operation_lookup",
+        "provider_query_or_reconciliation"
+      ],
+      "expected_disposition": "IndeterminateAfterProviderKeyExpiry",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "do not dispatch under a fresh provider key; resolve the original provider operation using its reference/query contract or hold for reconciliation",
+      "required_evidence": [
+        "provider_profile_id",
+        "key_namespace_scope",
+        "retention_policy_version",
+        "first_submission_at",
+        "idempotency_key_digest",
+        "provider_reference_or_client_reference",
+        "query_result_or_reconciliation_record"
+      ],
+      "forbidden_claims": [
+        "local_key_persistence_extends_provider_key_retention",
+        "expired_or_unknown_provider_key_is_safe_to_replay",
+        "same_key_is_globally_deduplicated_across_regions"
       ]
     },
     {
