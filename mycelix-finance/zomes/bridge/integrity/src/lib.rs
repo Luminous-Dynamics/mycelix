@@ -1124,10 +1124,31 @@ fn validate_multi_collateral_economics(
         return Err("Effective LTV must be a finite non-negative number");
     }
 
+    #[derive(Deserialize)]
+    struct ComponentType {
+        #[serde(rename = "type")]
+        asset_type: String,
+    }
+    let components: Vec<ComponentType> = serde_json::from_str(&pos.components_json)
+        .map_err(|_| "Components JSON is invalid")?;
+    if components.is_empty() || components.iter().any(|component| component.asset_type.trim().is_empty()) {
+        return Err("Components must include at least one non-empty asset type");
+    }
+    let mut distinct_types: Vec<&str> = components
+        .iter()
+        .map(|component| component.asset_type.as_str())
+        .collect();
+    distinct_types.sort_unstable();
+    distinct_types.dedup();
+    let expected_bonus = (distinct_types.len().saturating_sub(1) as f64 * 0.05).min(0.20);
+    if !ltv_values_match(pos.diversification_bonus, expected_bonus) {
+        return Err("Diversification bonus does not match distinct component asset types");
+    }
+
     let base_ltv = pos.aggregate_obligation as f64 / pos.aggregate_value as f64;
-    let expected_ltv = (base_ltv - pos.diversification_bonus).max(0.0);
+    let expected_ltv = (base_ltv - expected_bonus).max(0.0);
     if !ltv_values_match(pos.effective_ltv, expected_ltv) {
-        return Err("Effective LTV does not match aggregate obligation, value, and bonus");
+        return Err("Effective LTV does not match aggregate obligation, value, and verified bonus");
     }
     if !ltv_status_matches(pos.effective_ltv, &pos.status) {
         return Err("Multi-collateral status does not match the validated effective LTV");
@@ -2384,8 +2405,8 @@ mod tests {
             components_json: r#"[{"type":"ETH","amount":1000}]"#.into(),
             aggregate_value: 100_000,
             aggregate_obligation: 50_000,
-            diversification_bonus: 0.05,
-            effective_ltv: 0.45,
+            diversification_bonus: 0.0,
+            effective_ltv: 0.5,
             status: "Healthy".into(),
             created_at: ts(1_000_000),
             last_revalued_at: ts(1_000_000),
@@ -2408,6 +2429,19 @@ mod tests {
         p.aggregate_value = 0;
         p.effective_ltv = 999.0;
         p.status = "Liquidation".into();
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_unearned_diversification_bonus() {
+        let mut p = valid_multi_position();
+        p.diversification_bonus = 0.05;
+        p.effective_ltv = 0.45;
         let result = validate_create_multi_collateral_position(
             EntryCreationAction::Create(make_create()),
             p,
