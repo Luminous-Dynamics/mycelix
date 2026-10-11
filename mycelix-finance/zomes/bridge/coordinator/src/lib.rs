@@ -2251,6 +2251,14 @@ pub fn create_multi_collateral_position(
             "Aggregate value does not match the component valuations".into()
         )));
     }
+    for component in &components {
+        let expected_weight = component.current_value as f64 / aggregate_value as f64;
+        if (component.weight - expected_weight).abs() > 1e-6 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Each component weight must match its share of aggregate value".into()
+            )));
+        }
+    }
     let diversification_bonus = compute_diversification_bonus(&components);
 
     let base_ltv = input.aggregate_obligation as f64 / input.aggregate_value as f64;
