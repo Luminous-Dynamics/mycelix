@@ -256,3 +256,67 @@ pub fn EconomyAtlasPage() -> impl IntoView {
     }
     .into_any()
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    fn registry() -> AtlasRegistry {
+        serde_json::from_str(REGISTRY_JSON).expect("checked-in Economy Atlas registry must parse")
+    }
+
+    #[test]
+    fn registry_is_visible_but_not_execution_qualified() {
+        let registry = registry();
+        assert_eq!(registry.registry_status, "initial_discovery_inventory");
+        assert!(!registry.qualified_for_execution);
+        assert_eq!(registry.models.len(), 9);
+    }
+
+    #[test]
+    fn model_ids_are_unique_and_currency_contracts_are_separate() {
+        let registry = registry();
+        let ids = registry.models.iter().map(|model| model.model_id.as_str()).collect::<HashSet<_>>();
+        assert_eq!(ids.len(), registry.models.len());
+
+        for required in [
+            "mycelix.finance.tricurrency.v1",
+            "symthaea.economy.thermodynamic-ledger.v1",
+            "symthaea.concepts.tricurrency.essay16.v1",
+        ] {
+            assert!(ids.contains(required), "missing distinct currency variant: {required}");
+        }
+    }
+
+    #[test]
+    fn every_registered_source_permalink_is_pinned_and_self_consistent() {
+        let registry = registry();
+        let mut sources = 0usize;
+        for model in &registry.models {
+            for source in &model.source_refs {
+                sources += 1;
+                assert_eq!(source.ref_.len(), 40, "source ref is not a Git SHA: {}", model.model_id);
+                assert!(source.ref_.bytes().all(|byte| byte.is_ascii_hexdigit()));
+                let expected = format!(
+                    "https://github.com/{}/blob/{}/{}/",
+                    source.repository,
+                    source.ref_,
+                    ""
+                );
+                assert!(
+                    source.url.starts_with(&expected.trim_end_matches('/')),
+                    "source URL is not pinned to its declared repository/revision: {}",
+                    source.url
+                );
+                assert!(
+                    source.url.ends_with(&source.path),
+                    "source URL path does not match declared source path: {}",
+                    source.url
+                );
+            }
+        }
+        assert_eq!(sources, 10);
+    }
+}
