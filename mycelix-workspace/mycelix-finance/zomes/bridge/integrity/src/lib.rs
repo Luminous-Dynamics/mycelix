@@ -1113,6 +1113,9 @@ fn validate_update_agricultural_asset(
 fn validate_multi_collateral_economics(
     pos: &MultiCollateralPosition,
 ) -> Result<(), &'static str> {
+    if pos.components_json.is_empty() || pos.components_json.len() > MAX_COMPONENTS_JSON_LEN {
+        return Err("Components JSON must be non-empty and within size limits");
+    }
     if pos.aggregate_value == 0 {
         return Err("Aggregate collateral value must be positive; unpriced positions cannot be classified");
     }
@@ -1170,6 +1173,12 @@ fn validate_multi_collateral_economics(
     }
     if aggregate_value != pos.aggregate_value {
         return Err("Aggregate value does not match the component valuations");
+    }
+    for component in &components {
+        let expected_weight = component.current_value as f64 / aggregate_value as f64;
+        if (component.weight - expected_weight).abs() > 1e-6 {
+            return Err("Component weight must match its share of aggregate value");
+        }
     }
 
     let expected_bonus = compute_diversification_bonus(&components);
@@ -2113,6 +2122,32 @@ mod tests {
     }
 
     #[test]
+    fn test_health_rejects_non_finite_ltv() {
+        for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let mut health = valid_health();
+            health.ltv_ratio = invalid;
+            let result = validate_create_collateral_health(
+                EntryCreationAction::Create(make_create()),
+                health,
+            )
+            .unwrap();
+            assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        }
+    }
+
+    #[test]
+    fn test_health_rejects_persisted_invalid_status_label() {
+        let mut health = valid_health();
+        health.status = "Invalid".into();
+        let result = validate_create_collateral_health(
+            EntryCreationAction::Create(make_create()),
+            health,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
     fn test_health_rejects_ratio_that_disagrees_with_source_amounts() {
         let mut h = valid_health();
         h.ltv_ratio = 0.90;
@@ -2489,6 +2524,28 @@ mod tests {
             p,
         )
         .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_weights_that_disagree_with_component_values() {
+        let mut p = valid_multi_position();
+        p.components_json = r#"[{"type":"Cryptocurrency","asset_id":"eth-1","weight":0.9,"current_value":90000},{"type":"RealEstate","asset_id":"home-1","weight":0.1,"current_value":10000}]"#.into();
+        p.diversification_bonus = 0.05;
+        p.effective_ltv = 0.45;
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_update_rejects_oversized_components_json() {
+        let mut p = valid_multi_position();
+        p.components_json = " ".repeat(MAX_COMPONENTS_JSON_LEN + 1);
+        let result = validate_update_multi_collateral_position(make_update(), p).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
