@@ -353,8 +353,51 @@ fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str, effect_id: 
 
 /// Count the bounded attempts made during a failed compost-delivery cycle.
 /// Saturation prevents metadata overflow from making the queue unwriteable.
+const COMPOST_RETRY_BASE_BACKOFF_SECONDS: u64 = 5;
+const COMPOST_RETRY_MAX_BACKOFF_SECONDS: u64 = 3_600;
+
 fn retry_count_after_failed_delivery(current: u32, attempts: u32) -> u32 {
     current.saturating_add(attempts)
+}
+
+/// Deterministic exponential backoff with bounded per-effect jitter. Stable
+/// effect IDs spread retries without introducing a non-reproducible RNG in tests.
+fn compost_retry_delay_seconds(retry_count: u32, effect_id: &str) -> u64 {
+    let failed_cycles = retry_count
+        .saturating_add(COMPOST_MAX_RETRIES.saturating_sub(1))
+        / COMPOST_MAX_RETRIES;
+    let exponent = failed_cycles.saturating_sub(1).min(10);
+    let base = COMPOST_RETRY_BASE_BACKOFF_SECONDS
+        .saturating_mul(1u64 << exponent)
+        .min(COMPOST_RETRY_MAX_BACKOFF_SECONDS);
+    let jitter_seed = effect_id.as_bytes().iter().fold(0u64, |state, byte| {
+        state.wrapping_mul(33).wrapping_add(u64::from(*byte))
+    });
+    let jitter_span = (base / 4).max(1);
+    base.saturating_add(jitter_seed % (jitter_span + 1))
+        .min(COMPOST_RETRY_MAX_BACKOFF_SECONDS)
+}
+
+fn record_pending_compost_delivery_failure(
+    pending: &PendingCompost,
+    attempted_count: u32,
+    attempted_at_micros: i64,
+) -> PendingCompost {
+    let retry_count = retry_count_after_failed_delivery(pending.retry_count, attempted_count);
+    let delay_seconds = compost_retry_delay_seconds(retry_count, &pending.effect_id);
+    let delay_micros = delay_seconds
+        .saturating_mul(1_000_000)
+        .min(i64::MAX as u64) as i64;
+    let next_attempt_at_micros = attempted_at_micros
+        .checked_add(delay_micros)
+        .unwrap_or(i64::MAX);
+
+    PendingCompost {
+        retry_count,
+        last_attempt_at_micros: Some(attempted_at_micros),
+        next_attempt_at_micros: Some(next_attempt_at_micros),
+        ..pending.clone()
+    }
 }
 
 /// Enqueue a durable compost outbox effect in the current source-chain transaction.
@@ -405,6 +448,8 @@ fn queue_pending_compost(
         pool_tier: tier,
         created_at_micros: now.as_micros(),
         retry_count: 0,
+        last_attempt_at_micros: None,
+        next_attempt_at_micros: None,
     };
     let tag_bytes = serde_json::to_vec(&pending).map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -613,6 +658,7 @@ fn drain_pending_compost_inner() -> ExternResult<u32> {
     }
 
     let mut drained = 0u32;
+    let drain_now_micros = sys_time()?.as_micros();
     for link in &links {
         let tag_bytes = link.tag.as_ref();
         let pending: PendingCompost = match serde_json::from_slice(tag_bytes) {
@@ -637,6 +683,14 @@ fn drain_pending_compost_inner() -> ExternResult<u32> {
             continue;
         }
 
+        // Respect the persisted retry schedule even if another local operation
+        // happens to trigger a queue drain before the next-attempt time.
+        if let Some(next_attempt_at_micros) = pending.next_attempt_at_micros {
+            if drain_now_micros < next_attempt_at_micros {
+                continue;
+            }
+        }
+
         if try_deliver_compost(
             &pending.commons_pool_id,
             pending.amount,
@@ -657,13 +711,11 @@ fn drain_pending_compost_inner() -> ExternResult<u32> {
             // Persist attempts from this failed delivery cycle. The link tag is the
             // durable queue record, so replace it atomically rather than mutating
             // only an in-memory copy that will be lost on return.
-            let updated_pending = PendingCompost {
-                retry_count: retry_count_after_failed_delivery(
-                    pending.retry_count,
-                    COMPOST_MAX_RETRIES,
-                ),
-                ..pending.clone()
-            };
+            let updated_pending = record_pending_compost_delivery_failure(
+                &pending,
+                COMPOST_MAX_RETRIES,
+                sys_time()?.as_micros(),
+            );
             let retry_tag = serde_json::to_vec(&updated_pending).map_err(|e| {
                 wasm_error!(WasmErrorInner::Guest(format!(
                     "Failed to serialize retried PendingCompost: {:?}",
@@ -3228,6 +3280,8 @@ mod payment_idempotency_tests {
             pool_tier: CompostPoolTier::Global,
             created_at_micros: 1_000,
             retry_count,
+            last_attempt_at_micros: None,
+            next_attempt_at_micros: None,
         }
     }
 
@@ -3238,6 +3292,34 @@ mod payment_idempotency_tests {
         assert!(is_fresh_pending_compost_tag(&fresh));
         assert!(!is_fresh_pending_compost_tag(&retried));
         assert!(!is_fresh_pending_compost_tag(b"not-a-pending-compost-record"));
+    }
+
+    #[test]
+    fn compost_retry_backoff_is_exponential_jittered_and_capped() {
+        let first = compost_retry_delay_seconds(COMPOST_MAX_RETRIES, "effect:a");
+        let second = compost_retry_delay_seconds(COMPOST_MAX_RETRIES * 2, "effect:a");
+        assert!((5..=6).contains(&first));
+        assert!((10..=12).contains(&second));
+        assert!(second > first);
+        assert_eq!(
+            compost_retry_delay_seconds(u32::MAX, "effect:a"),
+            COMPOST_RETRY_MAX_BACKOFF_SECONDS
+        );
+    }
+
+    #[test]
+    fn failed_compost_delivery_persists_attempt_times_and_due_time() {
+        let pending = sample_pending_compost(0);
+        let failed = record_pending_compost_delivery_failure(
+            &pending,
+            COMPOST_MAX_RETRIES,
+            1_000_000,
+        );
+        assert_eq!(failed.retry_count, COMPOST_MAX_RETRIES);
+        assert_eq!(failed.last_attempt_at_micros, Some(1_000_000));
+        assert!(failed.next_attempt_at_micros.unwrap() > 1_000_000);
+        assert_eq!(failed.effect_id, pending.effect_id);
+        assert!(pending.next_attempt_at_micros.is_none());
     }
 
     #[test]
