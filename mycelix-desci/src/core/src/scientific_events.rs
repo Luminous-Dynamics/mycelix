@@ -48,6 +48,8 @@ pub const EVIDENCE_PROVENANCE_SCHEMA_VERSION: u16 = 1;
 /// Default explanatory assessment policy.
 pub const DEFAULT_EVIDENCE_POLICY_ID: &str = "mycelix-evidence-policy";
 pub const DEFAULT_EVIDENCE_POLICY_VERSION: &str = "1.2.0";
+pub const EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID: &str = "mycelix-evidence-provenance-evaluation";
+pub const EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION: &str = "1.0.0";
 /// Client clocks may be slightly ahead, but cannot place authoritative events
 /// arbitrarily into the future.
 pub const MAX_EVENT_FUTURE_SKEW_SECONDS: i64 = 300;
@@ -400,11 +402,74 @@ impl EvidenceProvenanceDeclaration {
 pub enum EvidenceProvenanceDisposition {
     NoProvenance,
     AssertedNewCollectionUnqualified,
+    QualifiedIndependentReplication,
+    QualifiedComputationalReproduction,
+    NotQualified,
     NotNewCollection,
     PartialOverlapIndeterminate,
     IdenticalContentDigestIndeterminate,
     ConflictingDeclarationsIndeterminate,
+    ConflictingEvaluationsIndeterminate,
     UnknownIndeterminate,
+}
+
+/// Use-case the independent evaluator is assessing. It must match the declared
+/// data lineage; these labels do not substitute for scientific judgment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceProvenanceEvaluationScope {
+    IndependentReplication,
+    ComputationalReproduction,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceProvenanceEvaluationOutcome {
+    QualifiedForProfile,
+    NotQualified,
+    Indeterminate,
+}
+
+/// Immutable evaluation that names an exact provenance event, artifact digest,
+/// scope, evaluator policy/version, and reason. The event envelope supplies the
+/// evaluator identity; replay rejects self-evaluation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceProvenanceEvaluation {
+    pub evaluation_schema_version: u16,
+    pub provenance_event_id: ScientificEventId,
+    pub artifact_id: ArtifactId,
+    pub content_hash: ContentHash,
+    pub scope: EvidenceProvenanceEvaluationScope,
+    pub outcome: EvidenceProvenanceEvaluationOutcome,
+    pub policy_id: String,
+    pub policy_version: String,
+    pub reason: String,
+}
+
+impl EvidenceProvenanceEvaluation {
+    pub fn validate(&self) -> Result<()> {
+        if self.evaluation_schema_version != 1 {
+            return Err(Error::Validation(format!(
+                "unsupported evidence provenance evaluation schema version: {}",
+                self.evaluation_schema_version
+            )));
+        }
+        validate_canonical_identifier(&self.policy_id, "provenance evaluation policy ID")?;
+        validate_canonical_identifier(&self.policy_version, "provenance evaluation policy version")?;
+        if self.policy_id != EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID
+            || self.policy_version != EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION
+        {
+            return Err(Error::Validation(
+                "unsupported provenance evaluation policy ID/version".to_string(),
+            ));
+        }
+        if self.reason.trim().is_empty() {
+            return Err(Error::Validation(
+                "provenance evaluation reason cannot be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -588,6 +653,11 @@ pub enum ScientificEventPayload {
         claim_id: ClaimId,
         declaration: EvidenceProvenanceDeclaration,
     },
+    /// Independent evaluator decision bound to the exact declaration and data digest.
+    EvidenceProvenanceEvaluated {
+        claim_id: ClaimId,
+        evaluation: EvidenceProvenanceEvaluation,
+    },
 }
 
 impl ScientificEventPayload {
@@ -599,7 +669,8 @@ impl ScientificEventPayload {
             | Self::AttestationWithdrawn { claim_id, .. }
             | Self::ClaimSuperseded { claim_id, .. }
             | Self::ClaimRetracted { claim_id, .. }
-            | Self::EvidenceProvenanceDeclared { claim_id, .. } => *claim_id,
+            | Self::EvidenceProvenanceDeclared { claim_id, .. }
+            | Self::EvidenceProvenanceEvaluated { claim_id, .. } => *claim_id,
             Self::AttestationRecorded { attestation } => attestation.claim_id,
         }
     }
@@ -629,6 +700,7 @@ impl ScientificEventPayload {
             }
             Self::EvidenceAttached { artifact, .. } => artifact.validate()?,
             Self::EvidenceProvenanceDeclared { declaration, .. } => declaration.validate()?,
+            Self::EvidenceProvenanceEvaluated { evaluation, .. } => evaluation.validate()?,
             Self::AttestationRecorded { attestation } => attestation.validate()?,
             Self::AttestationCorrected {
                 claim_id,
@@ -840,10 +912,11 @@ impl ScientificEventEnvelope {
             && matches!(
                 &self.payload,
                 ScientificEventPayload::EvidenceProvenanceDeclared { .. }
+                    | ScientificEventPayload::EvidenceProvenanceEvaluated { .. }
             )
         {
             return Err(Error::Validation(
-                "evidence_provenance_declared requires scientific event schema v4".to_string(),
+                "evidence provenance events require scientific event schema v4".to_string(),
             ));
         }
         self.actor.validate()?;
@@ -1644,6 +1717,15 @@ pub struct RecordedEvidenceProvenance {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordedEvidenceProvenanceEvaluation {
+    pub evaluation_event_id: ScientificEventId,
+    pub sequence: u64,
+    pub evaluation: EvidenceProvenanceEvaluation,
+    pub evaluator: ActorId,
+    pub acting_organization: Option<OrganizationId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimProjection {
     pub origin: ClaimOrigin,
     pub research_object: ResearchObject,
@@ -1659,6 +1741,10 @@ pub struct ClaimProjection {
     /// Actor-attributed provenance assertions. Missing means unknown, not independent.
     #[serde(default)]
     pub provenance_declarations: Vec<RecordedEvidenceProvenance>,
+    /// Evaluation records are append-only. Contradictions remain visible and
+    /// never use last-writer-wins qualification.
+    #[serde(default)]
+    pub provenance_evaluations: Vec<RecordedEvidenceProvenanceEvaluation>,
     pub event_count: u64,
     pub last_event_hash: ContentHash,
 }
@@ -1709,6 +1795,7 @@ impl ClaimProjection {
             evidence: Vec::new(),
             attestations: Vec::new(),
             provenance_declarations: Vec::new(),
+            provenance_evaluations: Vec::new(),
             event_count: 1,
             last_event_hash: first.event_hash()?,
         };
@@ -1762,6 +1849,20 @@ impl ClaimProjection {
                         sequence: event.envelope.sequence,
                         declaration: declaration.clone(),
                         actor: event.envelope.actor.clone(),
+                        acting_organization: event.envelope.acting_organization.clone(),
+                    });
+                }
+                ScientificEventPayload::EvidenceProvenanceEvaluated { evaluation, .. } => {
+                    validate_provenance_evaluation(
+                        evaluation,
+                        &event.envelope.actor,
+                        &projection,
+                    )?;
+                    projection.provenance_evaluations.push(RecordedEvidenceProvenanceEvaluation {
+                        evaluation_event_id: event.envelope.event_id,
+                        sequence: event.envelope.sequence,
+                        evaluation: evaluation.clone(),
+                        evaluator: event.envelope.actor.clone(),
                         acting_organization: event.envelope.acting_organization.clone(),
                     });
                 }
@@ -1892,8 +1993,8 @@ impl ClaimProjection {
             .find(|record| record.attestation.id == id)
     }
 
-    /// Reports only what the recorded declaration supports. Even a new-
-    /// collection assertion is unqualified until a separate independent check.
+    /// Reports provenance after considering the append-only independent evaluation
+    /// records. Only a current-policy, non-self evaluation can qualify a relation.
     pub fn provenance_disposition(
         &self,
         artifact_id: ArtifactId,
@@ -1908,16 +2009,56 @@ impl ClaimProjection {
             [record] => *record,
             _ => return EvidenceProvenanceDisposition::ConflictingDeclarationsIndeterminate,
         };
+
+        // Duplicate bytes under different IDs are a red flag but do not prove
+        // either reuse or independent collection. Keep them indeterminate.
+        if self.evidence.iter().any(|artifact| {
+            artifact.id != artifact_id
+                && artifact.content_hash == record.declaration.content_hash
+        }) {
+            return EvidenceProvenanceDisposition::IdenticalContentDigestIndeterminate;
+        }
+
+        let evaluations = self
+            .provenance_evaluations
+            .iter()
+            .filter(|entry| {
+                entry.evaluation.provenance_event_id == record.provenance_event_id
+                    && entry.evaluation.artifact_id == artifact_id
+                    && entry.evaluation.content_hash == record.declaration.content_hash
+                    && entry.evaluation.policy_id == EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID
+                    && entry.evaluation.policy_version == EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION
+            })
+            .collect::<Vec<_>>();
+        if !evaluations.is_empty() {
+            let outcomes = evaluations.iter().map(|entry| entry.evaluation.outcome).collect::<BTreeSet<_>>();
+            if outcomes.len() != 1 {
+                return EvidenceProvenanceDisposition::ConflictingEvaluationsIndeterminate;
+            }
+            match *outcomes.iter().next().unwrap() {
+                EvidenceProvenanceEvaluationOutcome::QualifiedForProfile => {
+                    return match (record.declaration.origin_relation, evaluations[0].evaluation.scope) {
+                        (EvidenceOriginRelation::NewCollection, EvidenceProvenanceEvaluationScope::IndependentReplication) => {
+                            EvidenceProvenanceDisposition::QualifiedIndependentReplication
+                        }
+                        (EvidenceOriginRelation::SameDataReanalysis, EvidenceProvenanceEvaluationScope::ComputationalReproduction) => {
+                            EvidenceProvenanceDisposition::QualifiedComputationalReproduction
+                        }
+                        _ => EvidenceProvenanceDisposition::ConflictingEvaluationsIndeterminate,
+                    };
+                }
+                EvidenceProvenanceEvaluationOutcome::NotQualified => {
+                    return EvidenceProvenanceDisposition::NotQualified;
+                }
+                EvidenceProvenanceEvaluationOutcome::Indeterminate => {
+                    return EvidenceProvenanceDisposition::UnknownIndeterminate;
+                }
+            }
+        }
+
         match record.declaration.origin_relation {
             EvidenceOriginRelation::NewCollection => {
-                if self.evidence.iter().any(|artifact| {
-                    artifact.id != artifact_id
-                        && artifact.content_hash == record.declaration.content_hash
-                }) {
-                    EvidenceProvenanceDisposition::IdenticalContentDigestIndeterminate
-                } else {
-                    EvidenceProvenanceDisposition::AssertedNewCollectionUnqualified
-                }
+                EvidenceProvenanceDisposition::AssertedNewCollectionUnqualified
             }
             EvidenceOriginRelation::DerivedFrom
             | EvidenceOriginRelation::CopiedOrRepackagedFrom
@@ -2168,6 +2309,67 @@ fn validate_provenance_references(
     Ok(())
 }
 
+fn validate_provenance_evaluation(
+    evaluation: &EvidenceProvenanceEvaluation,
+    evaluator: &ActorId,
+    projection: &ClaimProjection,
+) -> Result<()> {
+    evaluation.validate()?;
+    let matching = projection
+        .provenance_declarations
+        .iter()
+        .filter(|record| record.provenance_event_id == evaluation.provenance_event_id)
+        .collect::<Vec<_>>();
+    let declaration = match matching.as_slice() {
+        [record] => *record,
+        [] => {
+            return Err(Error::Validation(
+                "provenance evaluation references an unknown declaration event".to_string(),
+            ));
+        }
+        _ => {
+            return Err(Error::Validation(
+                "provenance evaluation reference is ambiguous".to_string(),
+            ));
+        }
+    };
+    if declaration.actor == *evaluator {
+        return Err(Error::Validation(
+            "provenance declaration author cannot evaluate their own declaration".to_string(),
+        ));
+    }
+    if declaration.declaration.artifact_id != evaluation.artifact_id
+        || declaration.declaration.content_hash != evaluation.content_hash
+    {
+        return Err(Error::Validation(
+            "provenance evaluation does not bind the declaration's exact artifact and digest"
+                .to_string(),
+        ));
+    }
+    if projection.provenance_declarations.iter().any(|record| {
+        record.declaration.artifact_id == evaluation.artifact_id
+            && record.provenance_event_id != evaluation.provenance_event_id
+    }) {
+        return Err(Error::Validation(
+            "cannot evaluate provenance while conflicting declarations exist for the artifact"
+                .to_string(),
+        ));
+    }
+    let expected_relation = match evaluation.scope {
+        EvidenceProvenanceEvaluationScope::IndependentReplication => EvidenceOriginRelation::NewCollection,
+        EvidenceProvenanceEvaluationScope::ComputationalReproduction => EvidenceOriginRelation::SameDataReanalysis,
+    };
+    if evaluation.outcome == EvidenceProvenanceEvaluationOutcome::QualifiedForProfile
+        && declaration.declaration.origin_relation != expected_relation
+    {
+        return Err(Error::Validation(
+            "qualified provenance evaluation scope does not match the declared origin relation"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
 fn validate_attestation_evidence(
     attestation: &Attestation,
     evidence_ids: &HashSet<ArtifactId>,
@@ -2383,6 +2585,29 @@ impl CanonicalEncoder {
         });
     }
 
+    fn provenance_evaluation(
+        &mut self,
+        evaluation: &EvidenceProvenanceEvaluation,
+    ) -> Result<()> {
+        self.u16(evaluation.evaluation_schema_version);
+        self.uuid(evaluation.provenance_event_id.0);
+        self.uuid(evaluation.artifact_id.0);
+        self.hash(evaluation.content_hash);
+        self.u8(match evaluation.scope {
+            EvidenceProvenanceEvaluationScope::IndependentReplication => 1,
+            EvidenceProvenanceEvaluationScope::ComputationalReproduction => 2,
+        });
+        self.u8(match evaluation.outcome {
+            EvidenceProvenanceEvaluationOutcome::QualifiedForProfile => 1,
+            EvidenceProvenanceEvaluationOutcome::NotQualified => 2,
+            EvidenceProvenanceEvaluationOutcome::Indeterminate => 3,
+        });
+        self.string(&evaluation.policy_id)?;
+        self.string(&evaluation.policy_version)?;
+        self.string(&evaluation.reason)?;
+        Ok(())
+    }
+
     fn provenance_declaration(
         &mut self,
         declaration: &EvidenceProvenanceDeclaration,
@@ -2516,6 +2741,12 @@ impl CanonicalEncoder {
                 self.u16(9);
                 self.uuid(claim_id.0);
                 self.provenance_declaration(declaration)?;
+            }
+            ScientificEventPayload::EvidenceProvenanceEvaluated { claim_id, evaluation } => {
+                // Numeric tag 10 is additive. Existing tags remain stable.
+                self.u16(10);
+                self.uuid(claim_id.0);
+                self.provenance_evaluation(evaluation)?;
             }
         }
         Ok(())
