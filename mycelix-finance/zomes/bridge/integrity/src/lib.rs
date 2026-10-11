@@ -2122,6 +2122,32 @@ mod tests {
     }
 
     #[test]
+    fn test_health_rejects_non_finite_ltv() {
+        for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let mut health = valid_health();
+            health.ltv_ratio = invalid;
+            let result = validate_create_collateral_health(
+                EntryCreationAction::Create(make_create()),
+                health,
+            )
+            .unwrap();
+            assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        }
+    }
+
+    #[test]
+    fn test_health_rejects_persisted_invalid_status_label() {
+        let mut health = valid_health();
+        health.status = "Invalid".into();
+        let result = validate_create_collateral_health(
+            EntryCreationAction::Create(make_create()),
+            health,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
     fn test_health_rejects_ratio_that_disagrees_with_source_amounts() {
         let mut h = valid_health();
         h.ltv_ratio = 0.90;
