@@ -4,7 +4,7 @@ Status: **design only; not implemented or qualified**.
 
 This note specifies the evidence and failure cases required before changing the
 journal's on-disk recovery format. It is deliberately separate from the current
-J1/J2 reader and J3 writer. Do not infer checkpoint support from the existence
+J1/J2/J3 reader and J4 writer. Do not infer checkpoint support from the existence
 of this document or from passing the current journal tests.
 
 ## 1. What the measurements must answer first
@@ -40,7 +40,7 @@ that is a larger query/index design, not log compaction.
    source-evidence bindings they did not record. An absent digest remains absent.
 4. **No cross-profile transitions.** Checkpoint serialization/replay must retain
    and validate request, provider, receipt, and source-evidence bindings exactly
-   as the J3 journal does today.
+   as the J4 journal does today.
 5. **No silent repair.** Truncated, corrupt, unknown-version, duplicate-ID, or
    inconsistent checkpoint content must fail closed. Do not skip a bad suffix and
    do not fall back to an older checkpoint if a newer committed checkpoint is
