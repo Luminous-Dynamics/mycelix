@@ -15,6 +15,9 @@ ROOT = Path(__file__).resolve().parents[4]
 CRATE = ROOT / "mycelix-workspace/simulations/civ-econ-transition-validator"
 JOURNAL_PATH = CRATE / "src/durable_journal.rs"
 SCALE_PATH = CRATE / "src/journal_replay_scale.rs"
+TRANSITION_PATH = CRATE / "src/lib.rs"
+RECOVERY_POLICY_PATH = CRATE / "src/external_effect_policy.rs"
+CRASH_TEST_PATH = CRATE / "tests/crash_recovery.rs"
 MANIFEST_PATH = CRATE / "Cargo.toml"
 LOCKFILE_PATH = CRATE / "Cargo.lock"
 README_PATH = CRATE / "README.md"
@@ -47,6 +50,9 @@ def read(path: Path) -> str:
 
 journal = read(JOURNAL_PATH)
 scale = read(SCALE_PATH)
+transition = read(TRANSITION_PATH)
+recovery_policy = read(RECOVERY_POLICY_PATH)
+crash_test = read(CRASH_TEST_PATH)
 manifest = read(MANIFEST_PATH)
 lockfile = read(LOCKFILE_PATH)
 readme = read(README_PATH)
@@ -84,6 +90,42 @@ for test_name in (
 ):
     annotated_test = re.search(r"#\[test\]\s*fn\s+" + re.escape(test_name) + r"\(", journal)
     check(f"regression test is annotated: {test_name}", annotated_test is not None)
+
+# Cross-check that the state machine and external recovery policy remain in the audit set.
+check(
+    "transition safety facts are monotonic before recovery gating",
+    ordered_tokens(
+        transition,
+        "if ev.cutover_effects_started",
+        "self.effects_may_have_started = true;",
+        "let effect_recovery_transition = matches!",
+        "if self.effects_may_have_started && !self.effect_frontier_resolved",
+    ),
+)
+check(
+    "unknown external outcome remains indeterminate without a live key",
+    "Ok(None) => RecoveryAction::RemainIndeterminate" in recovery_policy
+    and "outcome is unknown and no live idempotency guarantee permits a retry" in recovery_policy,
+)
+check(
+    "retry policy binds exact provider and request and respects idempotency deadline",
+    "provider_profile_digest != expected_provider_profile_digest" in recovery_policy
+    and "request_digest != expected_request_digest" in recovery_policy
+    and "now_unix_seconds >= *guaranteed_until_unix_seconds" in recovery_policy,
+)
+check(
+    "no-effect retry requires no in-flight attempt and a fresh observation",
+    "if !no_in_flight_attempt" in recovery_policy
+    and "now_unix_seconds - *observed_at_unix_seconds" in recovery_policy
+    and "max_no_effect_observation_age_seconds" in recovery_policy,
+)
+check(
+    "crash recovery integration test remains present and exercises process exit",
+    "Command::new" in crash_test
+    and "process::exit" in crash_test
+    and "crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispatch" in crash_test
+    and "acknowledged_receipt_survives_process_exit_before_caller_observes_success" in crash_test,
+)
 
 # Scale probe and build registration must describe the same four lifecycle paths.
 scenarios = ("pending", "indeterminate", "acknowledged", "reconciled")
@@ -162,7 +204,19 @@ check("README documents why smoke uses pipefail", "`set -euo pipefail`" in readm
 check("one artifact includes source report and runtime smoke log", "journal-source-contract-report.json" in workflow and "journal-replay-smoke.log" in workflow and "Upload journal qualification evidence" in workflow)
 check("combined evidence upload remains failure-tolerant and 14-day", "Upload journal qualification evidence\n        if: always()" in workflow and "retention-days: 14" in workflow)
 
-files = (JOURNAL_PATH, SCALE_PATH, MANIFEST_PATH, LOCKFILE_PATH, README_PATH, DESIGN_PATH, WORKFLOW_PATH, SCRIPT_PATH)
+files = (
+    JOURNAL_PATH,
+    SCALE_PATH,
+    TRANSITION_PATH,
+    RECOVERY_POLICY_PATH,
+    CRASH_TEST_PATH,
+    MANIFEST_PATH,
+    LOCKFILE_PATH,
+    README_PATH,
+    DESIGN_PATH,
+    WORKFLOW_PATH,
+    SCRIPT_PATH,
+)
 try:
     commit = subprocess.run(
         ["git", "rev-parse", "HEAD"],
