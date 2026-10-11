@@ -614,6 +614,7 @@ where
         events: &[SignedScientificEvent],
     ) -> Result<ClaimProjection> {
         let mut authority_qualified_evaluation_event_ids = BTreeSet::new();
+        let mut authority_policy_rejected_evaluation_event_ids = BTreeSet::new();
 
         if !self.trusted_receipt_service_keys.is_empty() {
             let trusted_service_keys = &self.trusted_receipt_service_keys;
@@ -651,15 +652,18 @@ where
                     || receipt.receipt.policy_id != self.policy.policy_id()
                     || receipt.receipt.policy_version != self.policy.policy_version()
                 {
+                    authority_policy_rejected_evaluation_event_ids
+                        .insert(event.envelope.event_id);
                     continue;
                 }
                 authority_qualified_evaluation_event_ids.insert(event.envelope.event_id);
             }
         }
 
-        ClaimProjection::rebuild_with_authorized_evaluations(
+        ClaimProjection::rebuild_with_evaluation_authority(
             events,
             &authority_qualified_evaluation_event_ids,
+            &authority_policy_rejected_evaluation_event_ids,
         )
     }
 
