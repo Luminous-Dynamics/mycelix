@@ -1745,6 +1745,12 @@ pub struct RecordedEvidenceProvenanceEvaluation {
     pub sequence: u64,
     pub evaluation: EvidenceProvenanceEvaluation,
     pub evaluator: ActorId,
+    /// Signing-key fingerprint material from the signed event. Actor IDs alone
+    /// are not independent when an incorrectly configured/imported identity
+    /// registry aliases two actors to the same key; missing historical values
+    /// fail closed for qualification.
+    #[serde(default)]
+    pub evaluator_signer_public_key: Option<[u8; 32]>,
     pub acting_organization: Option<OrganizationId>,
 }
 
@@ -1980,6 +1986,7 @@ impl ClaimProjection {
                         sequence: event.envelope.sequence,
                         evaluation: evaluation.clone(),
                         evaluator: event.envelope.actor.clone(),
+                        evaluator_signer_public_key: Some(event.signer_public_key),
                         acting_organization: event.envelope.acting_organization.clone(),
                     });
                 }
@@ -2208,7 +2215,18 @@ impl ClaimProjection {
                 .iter()
                 .map(|entry| entry.evaluator.clone())
                 .collect::<BTreeSet<_>>();
-            if distinct_reviewers.len() < EVIDENCE_PROVENANCE_EVALUATION_MIN_REVIEWERS {
+            let distinct_reviewer_keys = evaluations
+                .iter()
+                .filter_map(|entry| entry.evaluator_signer_public_key)
+                .collect::<BTreeSet<_>>();
+            // Defense in depth for imported/raw streams: an identity adapter
+            // should enforce a global key-owner invariant, but quorum itself
+            // must not count two actor labels backed by the same Ed25519 key.
+            // Unknown signer attribution and duplicate keys fail closed.
+            if distinct_reviewers.len() < EVIDENCE_PROVENANCE_EVALUATION_MIN_REVIEWERS
+                || distinct_reviewer_keys.len() < EVIDENCE_PROVENANCE_EVALUATION_MIN_REVIEWERS
+                || distinct_reviewer_keys.len() != evaluations.len()
+            {
                 return EvidenceProvenanceDisposition::InsufficientIndependentEvaluations;
             }
             let outcomes = evaluations.iter().map(|entry| entry.evaluation.outcome).collect::<Vec<_>>();
@@ -4524,6 +4542,96 @@ mod tests {
         assert_eq!(projection.evidence_profile.supportive_reproduction_count, 1);
         assert_eq!(projection.evidence_profile.qualified_reproduction_count, 1);
         assert_eq!(projection.maturity(), EvidenceMaturity::ComputationallyReproduced);
+    }
+
+    #[test]
+    fn reviewer_quorum_rejects_distinct_actor_aliases_with_the_same_signing_key() {
+        let claim_id = ClaimId::new();
+        let t0 = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:creator"), t0.clone(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let data = artifact_with(ArtifactId::new(), b"aliased reviewer keys", "ipfs://aliased-reviewer-keys");
+        let attached = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis, actor("did:key:creator"), t0.clone() + Duration::seconds(10),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: data.clone() },
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let declaration = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attached, actor("did:key:collector"), t0.clone() + Duration::seconds(20),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: provenance_assertion(&data, EvidenceOriginRelation::NewCollection, Vec::new()),
+                },
+            ).unwrap(), &key(2),
+        ).unwrap();
+        let attestation = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &declaration, actor("did:key:replicator"), t0.clone() + Duration::seconds(30),
+                ScientificEventPayload::AttestationRecorded {
+                    attestation: Attestation {
+                        id: AttestationId::new(),
+                        claim_id,
+                        kind: AttestationKind::IndependentReplication {
+                            outcome: EvidenceOutcome::Supports,
+                        },
+                        evidence_ids: vec![data.id],
+                        statement: Some("Synthetic replication fixture".to_string()),
+                        protocol_reference: Some("protocol:replication-v1".to_string()),
+                    },
+                },
+            ).unwrap(), &key(3),
+        ).unwrap();
+
+        let shared_reviewer_key = key(4);
+        let first = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attestation, actor("did:key:reviewer-a"), t0.clone() + Duration::seconds(40),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &data,
+                        EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        "First actor label",
+                    ),
+                },
+            ).unwrap(), &shared_reviewer_key,
+        ).unwrap();
+        let second = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &first, actor("did:key:reviewer-b"), t0.clone() + Duration::seconds(50),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &data,
+                        EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        "Second actor label, but same signing key",
+                    ),
+                },
+            ).unwrap(), &shared_reviewer_key,
+        ).unwrap();
+
+        let authorized_evaluations = BTreeSet::from([
+            first.envelope.event_id,
+            second.envelope.event_id,
+        ]);
+        let projection = ClaimProjection::rebuild_with_authorized_evaluations(
+            &[genesis, attached, declaration, attestation, first, second],
+            &authorized_evaluations,
+        ).unwrap();
+
+        assert_eq!(
+            projection.provenance_disposition(data.id),
+            EvidenceProvenanceDisposition::InsufficientIndependentEvaluations,
+        );
+        assert_eq!(projection.evidence_profile.qualified_independent_replication_count, 0);
     }
 
     #[test]
