@@ -98,7 +98,7 @@ check(
 )
 check(
     "acknowledged recovery results carry the original-key binding",
-    journal.count("idempotency_key_binding: IdempotencyKeyBinding,") == 2
+    journal.count("idempotency_key_binding: IdempotencyKeyBinding,") == 3
     and journal.count("idempotency_key_binding: existing.idempotency_key_binding.clone()") == 2
     and "already_acknowledged_indeterminate_result_returns_original_key_binding" in journal,
 )
