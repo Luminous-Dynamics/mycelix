@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 
 /// Prevent malformed local history from causing unbounded per-record decoding.
 const MAX_EFFECT_ID_BYTES: usize = 1024;
+const MAX_IDEMPOTENCY_KEY_BYTES: usize = 1024;
 const MAX_JOURNAL_RECORD_BYTES: usize = 4096;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -20,6 +21,8 @@ pub enum JournalError {
     InvalidPath,
     InsecurePermissions,
     InvalidEffectId,
+    InvalidIdempotencyKey,
+    IdempotencyKeyConflict,
     InvalidDigest,
     LockHeld,
     Poisoned,
@@ -39,6 +42,8 @@ impl fmt::Display for JournalError {
             Self::InvalidPath => write!(f, "journal path must name a regular file in an existing directory"),
             Self::InsecurePermissions => write!(f, "journal file permissions grant group or other users access"),
             Self::InvalidEffectId => write!(f, "effect identity is empty or non-canonical"),
+            Self::InvalidIdempotencyKey => write!(f, "idempotency key is empty, non-canonical, or too large"),
+            Self::IdempotencyKeyConflict => write!(f, "effect identity was reused with a different idempotency-key binding"),
             Self::InvalidDigest => write!(f, "digest must be canonical sha256 lowercase hex"),
             Self::LockHeld => write!(f, "journal is already open or has a stale lock; inspect before recovery"),
             Self::Poisoned => write!(f, "journal had a write/sync failure; reopen and reconcile before further use"),
@@ -62,6 +67,15 @@ pub enum EffectStatus {
     Acknowledged { receipt_digest: String },
 }
 
+/// Binding for the original dispatch idempotency key.
+/// LegacyUnbound is distinct from an explicit NotUsed declaration.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IdempotencyKeyBinding {
+    LegacyUnbound,
+    NotUsed,
+    Bound(String),
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BeginResult {
     /// Newly appended and synced; only this result permits dispatch attempt.
@@ -72,6 +86,7 @@ pub enum BeginResult {
     /// A legacy J1/J2 pending effect has no recorded rail identity and cannot
     /// be resumed under a caller-selected provider automatically.
     ProviderProfileUnboundNeedsReconciliation,
+    IdempotencyKeyUnboundNeedsReconciliation,
     AlreadyAcknowledged {
         receipt_digest: String,
         source_evidence_digest: Option<String>,
@@ -96,6 +111,8 @@ struct JournalEntry {
     request_digest: String,
     /// None for legacy J1/J2 records, which did not bind the provider rail.
     provider_profile_digest: Option<String>,
+    /// The J4 binding for the original dispatch, or LegacyUnbound for J1/J2/J3.
+    idempotency_key_binding: IdempotencyKeyBinding,
     status: EffectStatus,
     /// None for legacy J1 acknowledgements; J2/J3 can persist this digest.
     source_evidence_digest: Option<String>,
@@ -195,6 +212,11 @@ impl DurableEffectJournal {
         self.entries.len()
     }
 
+    /// Return the original dispatch key binding; LegacyUnbound is not proof that no key was used.
+    pub fn idempotency_key_binding(&self, id: &str) -> Option<IdempotencyKeyBinding> {
+        self.entries.get(id).map(|entry| entry.idempotency_key_binding.clone())
+    }
+
     /// Number of identities whose external outcome is not yet acknowledged.
     ///
     /// This walks the in-memory index without allocating a copied or sorted ID
@@ -236,11 +258,15 @@ impl DurableEffectJournal {
         id: &str,
         request_digest: &str,
         provider_profile_digest: &str,
+        idempotency_key: Option<&str>,
     ) -> Result<BeginResult, JournalError> {
         self.ensure_healthy()?;
         validate_effect_id(id)?;
         validate_digest(request_digest)?;
         validate_digest(provider_profile_digest)?;
+        if let Some(key) = idempotency_key {
+            validate_idempotency_key(key)?;
+        }
         if let Some(existing) = self.entries.get(id) {
             if existing.request_digest != request_digest {
                 return Err(JournalError::RequestConflict);
@@ -252,6 +278,19 @@ impl DurableEffectJournal {
             } else if !matches!(&existing.status, EffectStatus::Acknowledged { .. }) {
                 return Ok(BeginResult::ProviderProfileUnboundNeedsReconciliation);
             }
+            match &existing.idempotency_key_binding {
+                IdempotencyKeyBinding::LegacyUnbound
+                    if !matches!(&existing.status, EffectStatus::Acknowledged { .. }) =>
+                {
+                    return Ok(BeginResult::IdempotencyKeyUnboundNeedsReconciliation);
+                }
+                IdempotencyKeyBinding::LegacyUnbound => {}
+                IdempotencyKeyBinding::NotUsed if idempotency_key.is_none() => {}
+                IdempotencyKeyBinding::Bound(recorded) if Some(recorded.as_str()) == idempotency_key => {}
+                IdempotencyKeyBinding::NotUsed | IdempotencyKeyBinding::Bound(_) => {
+                    return Err(JournalError::IdempotencyKeyConflict);
+                }
+            }
             return Ok(match &existing.status {
                 EffectStatus::Pending => BeginResult::PendingNeedsReconciliation,
                 EffectStatus::Indeterminate => BeginResult::IndeterminateNeedsReconciliation,
@@ -262,16 +301,22 @@ impl DurableEffectJournal {
                 },
             });
         }
+        let key_binding = idempotency_key
+            .map(|key| IdempotencyKeyBinding::Bound(key.to_owned()))
+            .unwrap_or(IdempotencyKeyBinding::NotUsed);
+        let encoded_key_binding = encode_idempotency_key_binding(&key_binding);
         let record = format!(
-            "J3\tB\t{}\t{}\t{}\n",
+            "J4\tB\t{}\t{}\t{}\t{}\n",
             encode_hex(id.as_bytes()),
             request_digest,
             provider_profile_digest,
+            encoded_key_binding,
         );
         self.append_and_sync(&record)?;
         self.entries.insert(id.to_owned(), JournalEntry {
             request_digest: request_digest.to_owned(),
             provider_profile_digest: Some(provider_profile_digest.to_owned()),
+            idempotency_key_binding: key_binding,
             status: EffectStatus::Pending,
             source_evidence_digest: None,
         });
@@ -312,11 +357,13 @@ impl DurableEffectJournal {
             }
             return Ok(AcknowledgeResult::AlreadyAcknowledged);
         }
+        let encoded_key_binding = encode_idempotency_key_binding(&existing.idempotency_key_binding);
         let record = format!(
-            "J3\tA\t{}\t{}\t{}\t{}\t{}\n",
+            "J4\tA\t{}\t{}\t{}\t{}\t{}\t{}\n",
             encode_hex(id.as_bytes()),
             request_digest,
             provider_profile_digest,
+            encoded_key_binding,
             receipt_digest,
             source_evidence_digest,
         );
@@ -358,11 +405,13 @@ impl DurableEffectJournal {
             EffectStatus::Indeterminate => return Ok(IndeterminateResult::AlreadyIndeterminate),
             EffectStatus::Pending => {}
         }
+        let encoded_key_binding = encode_idempotency_key_binding(&existing.idempotency_key_binding);
         let record = format!(
-            "J3\tI\t{}\t{}\t{}\n",
+            "J4\tI\t{}\t{}\t{}\t{}\n",
             encode_hex(id.as_bytes()),
             request_digest,
             provider_profile_digest,
+            encoded_key_binding,
         );
         self.append_and_sync(&record)?;
         if let Some(entry) = self.entries.get_mut(id) {
@@ -417,6 +466,25 @@ fn validate_effect_id(id: &str) -> Result<(), JournalError> {
     }
     Ok(())
 }
+fn validate_idempotency_key(key: &str) -> Result<(), JournalError> {
+    if key.is_empty()
+        || key.len() > MAX_IDEMPOTENCY_KEY_BYTES
+        || key.trim() != key
+        || key.bytes().any(|byte| byte.is_ascii_control())
+    {
+        return Err(JournalError::InvalidIdempotencyKey);
+    }
+    Ok(())
+}
+
+fn encode_idempotency_key_binding(binding: &IdempotencyKeyBinding) -> String {
+    match binding {
+        IdempotencyKeyBinding::LegacyUnbound => "?".to_owned(),
+        IdempotencyKeyBinding::NotUsed => "-".to_owned(),
+        IdempotencyKeyBinding::Bound(key) => encode_hex(key.as_bytes()),
+    }
+}
+
 fn validate_digest(digest: &str) -> Result<(), JournalError> {
     let Some(hex) = digest.strip_prefix("sha256:") else { return Err(JournalError::InvalidDigest); };
     if hex.len() != 64 || !hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) {
