@@ -3040,8 +3040,30 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
 /// `send_payment` or `apply_demurrage` could credit Treasury before the local
 /// debit/outbox has committed. The durable queue is the recovery source of truth;
 /// failures are logged and left queued for a later drain attempt.
+/// Return true only for a freshly committed queue item. Replacing a failed item's
+/// tag increments retry_count and must not recursively trigger another immediate
+/// drain from the resulting post_commit callback.
+fn is_fresh_pending_compost_tag(tag: &[u8]) -> bool {
+    serde_json::from_slice::<PendingCompost>(tag)
+        .map(|pending| !pending.effect_id.is_empty() && pending.retry_count == 0)
+        .unwrap_or(false)
+}
+
+fn has_new_pending_compost_outbox(actions: &[SignedActionHashed]) -> bool {
+    actions.iter().any(|signed| match &signed.action().data {
+        ActionData::CreateLink(create_link) => {
+            is_fresh_pending_compost_tag(create_link.tag.as_ref())
+        }
+        _ => false,
+    })
+}
+
 #[hdk_extern(infallible)]
-pub fn post_commit(_actions: Vec<SignedActionHashed>) {
+pub fn post_commit(actions: Vec<SignedActionHashed>) {
+    if !has_new_pending_compost_outbox(&actions) {
+        return;
+    }
+
     match call(
         CallTargetCell::Local,
         ZomeName::from("payments"),
@@ -3195,6 +3217,27 @@ mod payment_idempotency_tests {
         assert_eq!(checked_total_debit(100, 5).unwrap(), 105);
         assert!(checked_total_debit(u64::MAX, 1).is_err());
         assert!(checked_total_debit(u64::MAX - 5, 5).is_ok());
+    }
+
+    fn sample_pending_compost(retry_count: u32) -> PendingCompost {
+        PendingCompost {
+            effect_id: "effect:v1:sample".into(),
+            commons_pool_id: "global-fee-pool".into(),
+            amount: 75,
+            source_member_did: "did:mycelix:uhCAksender".into(),
+            pool_tier: CompostPoolTier::Global,
+            created_at_micros: 1_000,
+            retry_count,
+        }
+    }
+
+    #[test]
+    fn post_commit_only_drains_fresh_outbox_items() {
+        let fresh = serde_json::to_vec(&sample_pending_compost(0)).unwrap();
+        let retried = serde_json::to_vec(&sample_pending_compost(COMPOST_MAX_RETRIES)).unwrap();
+        assert!(is_fresh_pending_compost_tag(&fresh));
+        assert!(!is_fresh_pending_compost_tag(&retried));
+        assert!(!is_fresh_pending_compost_tag(b"not-a-pending-compost-record"));
     }
 
     #[test]
