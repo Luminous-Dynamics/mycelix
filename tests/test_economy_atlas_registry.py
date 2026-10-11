@@ -164,11 +164,10 @@ class EconomyAtlasRegistryTests(unittest.TestCase):
         for model_id in expected:
             model = models[model_id]
             self.assertEqual(model["epistemic_status"], "external_framework")
-            self.assertEqual(model["execution_status"].split(";")[0] in {
-                "research_framework",
-                "external_methodology",
-                "principles_documented",
-            }, True)
+            self.assertIn(
+                model["execution_status"].split(";")[0],
+                {"research_framework", "external_methodology", "principles_documented"},
+            )
             self.assertEqual(model["source_refs"], [])
             self.assertGreaterEqual(len(model["research_refs"]), 1)
 
@@ -179,6 +178,26 @@ class EconomyAtlasRegistryTests(unittest.TestCase):
                 for field in ("title", "publisher", "reference_type"):
                     self.assertTrue(ref[field].strip(), (model["model_id"], field))
         self.assertEqual(validate_registry(self.registry), [])
+
+    def test_required_regenerative_model_families_cannot_be_removed(self) -> None:
+        regenerative_ids = {
+            "regenerative.economics.energy-network-science.v1",
+            "regenerative.doughnut.place-portrait.v1",
+            "regenerative.circular-economy.v1",
+        }
+        self.registry["models"] = [
+            model for model in self.registry["models"]
+            if model["model_id"] != "regenerative.doughnut.place-portrait.v1"
+        ]
+        errors = validate_registry(self.registry)
+        self.assertTrue(any(
+            "required regenerative-economics frameworks missing" in error
+            and "regenerative.doughnut.place-portrait.v1" in error
+            for error in errors
+        ), errors)
+        self.assertTrue(regenerative_ids.difference(
+            model["model_id"] for model in self.registry["models"]
+        ))
 
     def test_external_framework_without_research_reference_fails(self) -> None:
         model = next(
