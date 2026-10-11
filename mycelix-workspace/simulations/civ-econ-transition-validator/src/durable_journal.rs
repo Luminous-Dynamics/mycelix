@@ -738,7 +738,7 @@ fn replay<R: BufRead>(reader: &mut R) -> Result<HashMap<String, JournalEntry>, J
                     || !matches!(&entry.status, EffectStatus::Pending | EffectStatus::Indeterminate)
                 {
                     return Err(JournalError::CorruptJournal {
-                        line: line_no, reason: "invalid acknowledgement transition or provider binding"
+                        line: line_no, reason: "invalid acknowledgement transition or provider/key binding"
                     });
                 }
                 entry.status = EffectStatus::Acknowledged { receipt_digest: receipt.to_owned() };
@@ -905,11 +905,114 @@ mod tests {
     #[test]
     fn unsupported_journal_record_version_fails_closed() {
         let temp = TempDir::new();
-        write_journal_fixture(&temp.journal_path(), format!("J4\tB\t{}\t{}\n", encode_hex(b"effect"), REQUEST_A).as_bytes());
+        write_journal_fixture(&temp.journal_path(), format!("J5\tB\t{}\t{}\n", encode_hex(b"effect"), REQUEST_A).as_bytes());
         assert!(matches!(
             DurableEffectJournal::open(temp.journal_path()),
             Err(JournalError::CorruptJournal { reason: "unsupported journal record version", .. })
         ));
+    }
+
+    #[test]
+    fn original_idempotency_key_binding_survives_restart_and_is_immutable() {
+        let temp = TempDir::new();
+        {
+            let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+            assert_eq!(
+                journal.begin_effect("key-bound", REQUEST_A, PROVIDER_A, Some("provider-key-1")),
+                Ok(BeginResult::Started),
+            );
+            assert_eq!(
+                journal.idempotency_key_binding("key-bound"),
+                Some(IdempotencyKeyBinding::Bound("provider-key-1".to_owned())),
+            );
+            assert_eq!(
+                journal.begin_effect("key-bound", REQUEST_A, PROVIDER_A, Some("replacement-key")),
+                Err(JournalError::IdempotencyKeyConflict),
+            );
+            journal.mark_indeterminate("key-bound", REQUEST_A, PROVIDER_A).unwrap();
+            journal.acknowledge_effect(
+                "key-bound", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A
+            ).unwrap();
+        }
+
+        let mut recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(
+            recovered.idempotency_key_binding("key-bound"),
+            Some(IdempotencyKeyBinding::Bound("provider-key-1".to_owned())),
+        );
+        assert_eq!(
+            recovered.begin_effect("key-bound", REQUEST_A, PROVIDER_A, Some("provider-key-1")),
+            Ok(BeginResult::AlreadyAcknowledged {
+                receipt_digest: RECEIPT_A.to_owned(),
+                source_evidence_digest: Some(SOURCE_EVIDENCE_A.to_owned()),
+                provider_profile_digest: Some(PROVIDER_A.to_owned()),
+            }),
+        );
+    }
+
+    #[test]
+    fn legacy_j3_pending_effect_keeps_original_key_unbound() {
+        let temp = TempDir::new();
+        let path = temp.journal_path();
+        let encoded_id = encode_hex(b"legacy-j3-pending");
+        write_journal_fixture(
+            &path,
+            format!("J3\\tB\\t{}\\t{}\\t{}\\n", encoded_id, REQUEST_A, PROVIDER_A).as_bytes(),
+        );
+
+        let mut journal = DurableEffectJournal::open(&path).unwrap();
+        assert_eq!(
+            journal.idempotency_key_binding("legacy-j3-pending"),
+            Some(IdempotencyKeyBinding::LegacyUnbound),
+        );
+        assert_eq!(
+            journal.begin_effect("legacy-j3-pending", REQUEST_A, PROVIDER_A, Some("guessed-key")),
+            Ok(BeginResult::IdempotencyKeyUnboundNeedsReconciliation),
+        );
+    }
+
+    #[test]
+    fn j4_replay_rejects_key_change_between_begin_and_ack() {
+        let temp = TempDir::new();
+        let encoded_id = encode_hex(b"cross-key");
+        let key_a = encode_hex(b"original-key");
+        let key_b = encode_hex(b"replacement-key");
+        write_journal_fixture(
+            &temp.journal_path(),
+            format!(
+                "J4\\tB\\t{}\\t{}\\t{}\\t{}\\nJ4\\tA\\t{}\\t{}\\t{}\\t{}\\t{}\\t{}\\n",
+                encoded_id, REQUEST_A, PROVIDER_A, key_a,
+                encoded_id, REQUEST_A, PROVIDER_A, key_b, RECEIPT_A, SOURCE_EVIDENCE_A
+            ).as_bytes(),
+        );
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "invalid acknowledgement transition or provider/key binding",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn invalid_original_idempotency_key_is_rejected_before_append() {
+        let temp = TempDir::new();
+        let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(
+            journal.begin_effect("invalid-key", REQUEST_A, PROVIDER_A, Some("bad\\nkey")),
+            Err(JournalError::InvalidIdempotencyKey),
+        );
+        assert_eq!(
+            journal.begin_effect(
+                "oversized-key",
+                REQUEST_A,
+                PROVIDER_A,
+                Some(&"k".repeat(MAX_IDEMPOTENCY_KEY_BYTES + 1)),
+            ),
+            Err(JournalError::InvalidIdempotencyKey),
+        );
+        assert_eq!(journal.effect_count(), 0);
     }
 
     #[test]
@@ -985,7 +1088,7 @@ mod tests {
         assert!(matches!(
             DurableEffectJournal::open(&path),
             Err(JournalError::CorruptJournal {
-                reason: "invalid acknowledgement transition or provider binding",
+                reason: "invalid acknowledgement transition or provider/key binding",
                 ..
             })
         ));
