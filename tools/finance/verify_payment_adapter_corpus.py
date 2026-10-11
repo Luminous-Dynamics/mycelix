@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA = "mycelix.payment-adapter-qualification/v1"
-MIN_CASES = 20
+MIN_CASES = 25
 CASE_ID_RE = re.compile(r"^PAY-[A-Z0-9]+-\d{3}$")
 CASE_FIELDS = {
     "id", "adapter_class", "condition", "event_sequence",
@@ -120,6 +120,39 @@ CRITICAL_CASES: dict[str, dict[str, Any]] = {
         "required_evidence_contains": [
             "official_product_url", "legal_provider_identity", "settlement_counterparty",
         ],
+    },
+    "PAY-MYC-001": {
+        "expected_disposition": "SingleOperationResolved",
+        "event_sequence_contains": ["concurrent_payment_submissions", "claim_index_conflict_resolution"],
+        "required_evidence_contains": ["winning_claim_hash", "outbox_effect_id"],
+        "forbidden_claims_contains": ["each_retry_is_a_new_payment"],
+    },
+    "PAY-MYC-002": {
+        "expected_disposition": "IdempotencyConflict",
+        "external_dispatch_allowed": False,
+        "event_sequence_contains": ["request_fingerprint_comparison"],
+        "forbidden_claims_contains": [
+            "changed_payload_under_same_sender_key_is_a_new_payment",
+            "conflicting_retry_may_update_the_original_payment",
+        ],
+    },
+    "PAY-TREASURY-001": {
+        "expected_disposition": "ExistingReceiptResolved",
+        "event_sequence_contains": ["treasury_receipt_committed", "payment_status_write_failed", "receipt_lookup"],
+        "required_evidence_contains": ["destination_scoped_receipt_id", "balance_delta"],
+        "forbidden_claims_contains": ["receipt_replay_adds_another_balance_credit"],
+    },
+    "PAY-TREASURY-002": {
+        "expected_disposition": "UnanchoredEffectRejected",
+        "external_dispatch_allowed": False,
+        "required_evidence_contains": ["source_outbox_lookup_result", "payment_record_lookup_result", "balance_before", "balance_after"],
+        "forbidden_claims_contains": ["effect_id_alone_authorizes_credit"],
+    },
+    "PAY-TREASURY-003": {
+        "expected_disposition": "ConcurrentCreditsSerialized",
+        "event_sequence_contains": ["concurrent_credit_attempts", "destination_balance_checked_arithmetically"],
+        "required_evidence_contains": ["balance_before", "balance_after", "destination_scoped_receipts"],
+        "forbidden_claims_contains": ["competing_credits_may_overflow_shared_pool", "every_competing_credit_must_succeed"],
     },
 }
 
@@ -243,6 +276,9 @@ def run_self_tests(document: dict[str, Any]) -> list[str]:
     changed("missing-source lineage", lambda d: d.__setitem__("source_refs", []))
     changed("scenario removed", lambda d: d["cases"].pop())
     changed("missing required evidence", lambda d: _mutate_case(d, "PAY-VISA-001", "required_evidence", []))
+    changed("conflicting local payload dispatch regression", lambda d: _mutate_case(d, "PAY-MYC-002", "external_dispatch_allowed", True))
+    changed("Treasury effect-ID-as-authority regression", lambda d: _mutate_case(d, "PAY-TREASURY-002", "forbidden_claims", ["effect_id_is_authority"]))
+    changed("receipt replay duplicate-credit regression", lambda d: _mutate_case(d, "PAY-TREASURY-001", "forbidden_claims", ["some-other-claim"]))
 
     failures = [
         f"mutation was not rejected: {label}"
@@ -287,7 +323,7 @@ def main(argv: list[str] | None = None) -> int:
             for error in test_errors:
                 print(f" - {error}")
             return 1
-        print("PASS: 8 negative mutation tests rejected unsafe corpus changes")
+        print("PASS: 11 negative mutation tests rejected unsafe corpus changes")
     return 0
 
 
