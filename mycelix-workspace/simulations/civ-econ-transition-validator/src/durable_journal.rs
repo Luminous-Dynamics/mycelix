@@ -712,7 +712,7 @@ fn replay<R: BufRead>(reader: &mut R) -> Result<HashMap<String, JournalEntry>, J
                     || entry.status != EffectStatus::Pending
                 {
                     return Err(JournalError::CorruptJournal {
-                        line: line_no, reason: "invalid indeterminate transition or provider binding"
+                        line: line_no, reason: "invalid indeterminate transition or provider/key binding"
                     });
                 }
                 entry.status = EffectStatus::Indeterminate;
@@ -1020,6 +1020,56 @@ mod tests {
             recovered.idempotency_key_binding(&id),
             Some(IdempotencyKeyBinding::Bound(key)),
         );
+    }
+
+    #[test]
+    fn explicit_no_key_binding_survives_restart_and_rejects_later_key() {
+        let temp = TempDir::new();
+        {
+            let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+            assert_eq!(
+                journal.begin_effect("no-key", REQUEST_A, PROVIDER_A, None),
+                Ok(BeginResult::Started),
+            );
+            assert_eq!(
+                journal.idempotency_key_binding("no-key"),
+                Some(IdempotencyKeyBinding::NotUsed),
+            );
+        }
+
+        let mut recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(
+            recovered.idempotency_key_binding("no-key"),
+            Some(IdempotencyKeyBinding::NotUsed),
+        );
+        assert_eq!(
+            recovered.begin_effect("no-key", REQUEST_A, PROVIDER_A, Some("late-key")),
+            Err(JournalError::IdempotencyKeyConflict),
+        );
+    }
+
+    #[test]
+    fn j4_replay_rejects_key_change_between_begin_and_indeterminate() {
+        let temp = TempDir::new();
+        let encoded_id = encode_hex(b"cross-key-indeterminate");
+        let key_a = encode_hex(b"original-key");
+        let key_b = encode_hex(b"replacement-key");
+        write_journal_fixture(
+            &temp.journal_path(),
+            format!(
+                "J4\tB\t{}\t{}\t{}\t{}\nJ4\tI\t{}\t{}\t{}\t{}\n",
+                encoded_id, REQUEST_A, PROVIDER_A, key_a,
+                encoded_id, REQUEST_A, PROVIDER_A, key_b
+            ).as_bytes(),
+        );
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "invalid indeterminate transition or provider/key binding",
+                ..
+            })
+        ));
     }
 
     #[test]
