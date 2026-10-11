@@ -61,4 +61,4 @@ jobs:
           npx vitest run
           src/clients/finance/__tests__/finance.test.ts
           tests/wallet.test.ts
-          -t "sendPayment extracts entry from record|HolochainFinanceProvider payment idempotency|should dedupe exact payloads by idempotency key|should serialize concurrent enqueues with the same key|should reject changed payload under an existing idempotency key|should preserve key binding after a queue item is cancelled|should preserve an explicit payment key in the persisted payload|should forward the persisted payment key to the executor"
+          -t "sendPayment extracts entry from record|HolochainFinanceProvider payment idempotency|should dedupe exact payloads by idempotency key|should serialize concurrent enqueues with the same key|should resolve the same key across separate queue instances|should reject changed payload under an existing idempotency key|should preserve key binding after a queue item is cancelled|should preserve an explicit payment key in the persisted payload|should forward the persisted payment key to the executor"
