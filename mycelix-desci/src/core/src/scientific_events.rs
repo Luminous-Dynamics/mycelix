@@ -405,6 +405,7 @@ pub enum EvidenceProvenanceDisposition {
     NoProvenance,
     AssertedNewCollectionUnqualified,
     EvaluationAwaitingAuthorityReceipt,
+    EvaluationAuthorityPolicyNotCurrent,
     EvaluationPolicyNotCurrent,
     InsufficientIndependentEvaluations,
     QualifiedIndependentReplication,
@@ -1760,6 +1761,10 @@ pub struct ClaimProjection {
     /// Plain event replay never marks an evaluator decision authority-qualified.
     #[serde(default)]
     pub authority_qualified_evaluation_event_ids: BTreeSet<ScientificEventId>,
+    /// Exact evaluation events with a valid committed receipt that failed the
+    /// current authorization-policy/reviewer-role gate.
+    #[serde(default)]
+    pub authority_policy_rejected_evaluation_event_ids: BTreeSet<ScientificEventId>,
     pub event_count: u64,
     pub last_event_hash: ContentHash,
 }
@@ -1778,6 +1783,18 @@ impl ClaimProjection {
         events: &[SignedScientificEvent],
         authority_qualified_evaluation_event_ids: &BTreeSet<ScientificEventId>,
     ) -> Result<Self> {
+        Self::rebuild_with_evaluation_authority(
+            events,
+            authority_qualified_evaluation_event_ids,
+            &BTreeSet::new(),
+        )
+    }
+
+    pub(crate) fn rebuild_with_evaluation_authority(
+        events: &[SignedScientificEvent],
+        authority_qualified_evaluation_event_ids: &BTreeSet<ScientificEventId>,
+        authority_policy_rejected_evaluation_event_ids: &BTreeSet<ScientificEventId>,
+    ) -> Result<Self> {
         let observed_evaluation_ids = events
             .iter()
             .filter_map(|event| match &event.envelope.payload {
@@ -1789,10 +1806,20 @@ impl ClaimProjection {
             .collect::<BTreeSet<_>>();
         if authority_qualified_evaluation_event_ids
             .iter()
+            .chain(authority_policy_rejected_evaluation_event_ids)
             .any(|event_id| !observed_evaluation_ids.contains(event_id))
         {
             return Err(Error::Validation(
-                "authority-qualified evaluation ID is not an evaluation event in the replay stream"
+                "authority evaluation status ID is not an evaluation event in the replay stream"
+                    .to_string(),
+            ));
+        }
+        if authority_qualified_evaluation_event_ids
+            .iter()
+            .any(|event_id| authority_policy_rejected_evaluation_event_ids.contains(event_id))
+        {
+            return Err(Error::Validation(
+                "an evaluation event cannot be both authority-qualified and policy-rejected"
                     .to_string(),
             ));
         }
@@ -1843,6 +1870,7 @@ impl ClaimProjection {
             provenance_declarations: Vec::new(),
             provenance_evaluations: Vec::new(),
             authority_qualified_evaluation_event_ids: authority_qualified_evaluation_event_ids.clone(),
+            authority_policy_rejected_evaluation_event_ids: authority_policy_rejected_evaluation_event_ids.clone(),
             event_count: 1,
             last_event_hash: first.event_hash()?,
         };
@@ -2100,6 +2128,12 @@ impl ClaimProjection {
             return EvidenceProvenanceDisposition::EvaluationPolicyNotCurrent;
         }
         if !matching_evaluations.is_empty() && evaluations.is_empty() {
+            if matching_evaluations.iter().any(|entry| {
+                self.authority_policy_rejected_evaluation_event_ids
+                    .contains(&entry.evaluation_event_id)
+            }) {
+                return EvidenceProvenanceDisposition::EvaluationAuthorityPolicyNotCurrent;
+            }
             return EvidenceProvenanceDisposition::EvaluationAwaitingAuthorityReceipt;
         }
         if !evaluations.is_empty() {
