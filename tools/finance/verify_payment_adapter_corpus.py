@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA = "mycelix.payment-adapter-qualification/v1"
-MIN_CASES = 18
+MIN_CASES = 19
 CASE_ID_RE = re.compile(r"^PAY-[A-Z0-9]+-\d{3}$")
 CASE_FIELDS = {
     "id", "adapter_class", "condition", "event_sequence",
@@ -57,6 +57,19 @@ CRITICAL_CASES: dict[str, dict[str, Any]] = {
         "expected_disposition": "AppendReturnAndReconcile",
         "event_sequence_contains": ["return_notification_received"],
         "forbidden_claims_contains": ["prior_payout_evidence_is_deleted"],
+    },
+    "PAY-VISA-005": {
+        "expected_disposition": "IdempotencyConflict",
+        "external_dispatch_allowed": False,
+        "event_sequence_contains": ["request_identity_comparison"],
+        "required_evidence_contains": [
+            "client_reference_id", "prior_request_digest", "new_request_digest",
+            "prior_amount_and_currency", "new_amount_and_currency", "provider_error_or_query_result",
+        ],
+        "forbidden_claims_contains": [
+            "changed_payload_under_same_client_reference_is_a_new_payment",
+            "provider_conflict_can_be_bypassed_without_new_authorized_intent",
+        ],
     },
     "PAY-CARD-001": {
         "expected_disposition": "AuthorizedNotSettled",
