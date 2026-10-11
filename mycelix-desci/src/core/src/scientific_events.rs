@@ -3928,7 +3928,25 @@ mod tests {
             ).unwrap(), &key(4),
         ).unwrap();
 
-        let projection = ClaimProjection::rebuild(&[genesis, attached, declaration, attestation, evaluation]).unwrap();
+        let evaluation_two = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &evaluation, actor("did:key:independent-reviewer-two"), t0 + Duration::seconds(50),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &data,
+                        EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        "Second independent reviewer agrees with qualification",
+                    ),
+                },
+            ).unwrap(),
+            &key(5),
+        ).unwrap();
+        let projection = ClaimProjection::rebuild(&[
+            genesis, attached, declaration, attestation, evaluation, evaluation_two,
+        ]).unwrap();
+        assert_eq!(projection.provenance_evaluations.len(), 2);
         assert_eq!(projection.provenance_disposition(data.id), EvidenceProvenanceDisposition::QualifiedIndependentReplication);
         assert_eq!(projection.evidence_profile.supportive_independent_replication_count, 1);
         assert_eq!(projection.evidence_profile.qualified_independent_replication_count, 1);
