@@ -48,7 +48,11 @@
     "Missing provider, jurisdiction, message-version, authorization, or finality profiles fail closed before dispatch.",
     "Credentials, secrets, full PANs and reusable authentication material never enter portable receipts or the fixture corpus.",
     "Lossy mappings are declared; required authority-bearing fields must not be invented or silently defaulted.",
-    "Analytical output from Symthaea cannot grant payment authority or upgrade settlement state."
+    "Analytical output from Symthaea cannot grant payment authority or upgrade settlement state.",
+    "Concurrent submissions with the same sender-scoped key and fingerprint resolve to one operation; a conflicting fingerprint creates no second payment or outbox effect.",
+    "A Treasury effect ID is deduplication metadata, not authority: an exact committed Payments outbox record and matching Payment intent are required before a credit.",
+    "If a Treasury receipt commits before the Payment status update, recovery queries the exact destination-scoped receipt before applying any balance change.",
+    "Concurrent effects targeting one Treasury destination require serialized receipt identity and checked balance constraints; every effect is applied at most once."
   ],
   "source_refs": [
     {
@@ -597,6 +601,139 @@
       "forbidden_claims": [
         "product_name_alone_identifies_a_payment_rail",
         "unverified_product_is_integrated"
+      ]
+    },
+    {
+      "id": "PAY-MYC-001",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "Concurrent authenticated submissions use the same sender-scoped idempotency key and identical request fingerprint.",
+      "event_sequence": [
+        "concurrent_payment_submissions",
+        "claim_index_conflict_resolution",
+        "committed_payment_and_outbox_resolution"
+      ],
+      "expected_disposition": "SingleOperationResolved",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "Exactly one logical Payment, creation claim, and stable outbox effect is created; exact retries resolve to the original operation without repeating value effects or mutation bookkeeping.",
+      "required_evidence": [
+        "sender_identity",
+        "operation_id_digest",
+        "request_fingerprint",
+        "winning_claim_hash",
+        "source_payment_id",
+        "outbox_effect_id",
+        "race_result"
+      ],
+      "forbidden_claims": [
+        "each_retry_is_a_new_payment",
+        "local_operation_id_proves_external_provider_deduplication"
+      ]
+    },
+    {
+      "id": "PAY-MYC-002",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "Concurrent submissions reuse one sender-scoped idempotency key with different request fingerprints, such as amount, recipient, currency, payment type, or memo.",
+      "event_sequence": [
+        "concurrent_payment_submissions",
+        "claim_index_conflict_resolution",
+        "request_fingerprint_comparison"
+      ],
+      "expected_disposition": "IdempotencyConflict",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "Only the winning request may create the operation; every conflicting fingerprint fails closed without another Payment, outbox effect, or mutation-side bookkeeping.",
+      "required_evidence": [
+        "sender_identity",
+        "operation_id_digest",
+        "winning_request_fingerprint",
+        "conflicting_request_fingerprint",
+        "winning_claim_hash",
+        "conflict_result"
+      ],
+      "forbidden_claims": [
+        "changed_payload_under_same_sender_key_is_a_new_payment",
+        "conflicting_retry_may_update_the_original_payment"
+      ]
+    },
+    {
+      "id": "PAY-TREASURY-001",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "Treasury commits a destination-scoped receipt, then the caller fails before the Payments source record can advance from Pending; a later drain retries the same effect.",
+      "event_sequence": [
+        "payments_outbox_committed",
+        "treasury_receipt_committed",
+        "payment_status_write_failed",
+        "receipt_lookup",
+        "payment_status_reconciled"
+      ],
+      "expected_disposition": "ExistingReceiptResolved",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "Recovery finds the exact existing receipt for the same destination and effect identity, confirms it against the committed outbox and Payment intent, and advances local status without applying a second Treasury balance change.",
+      "required_evidence": [
+        "source_outbox_hash",
+        "effect_id",
+        "destination_scope",
+        "destination_scoped_receipt_id",
+        "payment_status_before",
+        "payment_status_after",
+        "balance_delta"
+      ],
+      "forbidden_claims": [
+        "receipt_replay_adds_another_balance_credit",
+        "pending_payment_status_proves_no_treasury_receipt_exists"
+      ]
+    },
+    {
+      "id": "PAY-TREASURY-002",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "A Treasury credit arrives with an effect ID but no exact committed Payments outbox record and matching Payment intent.",
+      "event_sequence": [
+        "treasury_credit_requested",
+        "source_outbox_lookup",
+        "payment_record_lookup",
+        "authority_binding_check"
+      ],
+      "expected_disposition": "UnanchoredEffectRejected",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "No Treasury balance change occurs; the effect is rejected or held for reconciliation until exact committed source evidence is available.",
+      "required_evidence": [
+        "effect_id",
+        "source_outbox_lookup_result",
+        "payment_record_lookup_result",
+        "authority_binding_evaluation",
+        "rejection_reason",
+        "balance_before",
+        "balance_after"
+      ],
+      "forbidden_claims": [
+        "effect_id_alone_authorizes_credit",
+        "missing_source_evidence_may_be_bypassed_for_retry"
+      ]
+    },
+    {
+      "id": "PAY-TREASURY-003",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "Many valid fee effects and duplicate retries concurrently target one Treasury destination whose balance is near its configured ceiling.",
+      "event_sequence": [
+        "concurrent_credit_attempts",
+        "destination_scoped_receipt_deduplication",
+        "destination_balance_checked_arithmetically",
+        "serialized_receipt_commit"
+      ],
+      "expected_disposition": "ConcurrentCreditsSerialized",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "Each stable effect ID contributes at most once; destination balance never exceeds its configured ceiling; credits that cannot satisfy the checked balance constraint are rejected without a receipt or partial balance change.",
+      "required_evidence": [
+        "destination_scope",
+        "balance_before",
+        "balance_after",
+        "configured_balance_ceiling",
+        "effect_id_set",
+        "destination_scoped_receipts",
+        "rejected_effect_ids"
+      ],
+      "forbidden_claims": [
+        "competing_credits_may_overflow_shared_pool",
+        "every_competing_credit_must_succeed"
       ]
     }
   ]
