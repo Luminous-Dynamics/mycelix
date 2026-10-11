@@ -22,8 +22,11 @@
  * });
  *
  * // Now everything works against real zomes!
- * const balance = await wallet.getBalance('MYC');
- * await wallet.send('@alice', 100, 'MYC', 'Coffee');
+ * const balance = await wallet.getBalance('TEND');
+ * await wallet.send('@alice', 100, 'TEND', {
+ *   memo: 'Coffee',
+ *   idempotencyKey: 'coffee-order-2026-10-001',
+ * });
  * ```
  */
 
