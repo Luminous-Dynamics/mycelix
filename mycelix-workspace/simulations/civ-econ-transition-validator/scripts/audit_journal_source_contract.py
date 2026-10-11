@@ -204,9 +204,9 @@ check(
     and "The current J3 journal does not yet persist the original dispatch idempotency key" in " ".join(readme.split())
     and "not yet sufficient to authorize automated same-key retries" in " ".join(readme.split()),
 )
-audit_exec_start = audit_script.find("\\ntry:\\n    commit = subprocess.run", hash_list_start)
+audit_exec_start = audit_script.find("\ntry:\n    commit = subprocess.run", hash_list_start)
 audit_identity_start = audit_script.find('expected_subject = os.environ.get("QUALIFIED_SHA")', audit_exec_start)
-audit_report_start = audit_script.find("\\nreport = {", audit_identity_start)
+audit_report_start = audit_script.find("\nreport = {", audit_identity_start)
 audit_report_json_start = audit_script.find("report_json = json.dumps(report", audit_report_start)
 audit_identity_source = audit_script[audit_exec_start:audit_report_start]
 audit_report_source = audit_script[audit_report_start:audit_report_json_start]
