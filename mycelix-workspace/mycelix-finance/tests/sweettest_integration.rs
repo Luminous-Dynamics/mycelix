@@ -899,6 +899,7 @@ mod three_currency_lifecycle {
             currency: "SAP".to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Lifecycle test SAP payment".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Result<Record, _> = conductor
