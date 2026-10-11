@@ -440,9 +440,10 @@ const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 /// IMPORTANT SECURITY BOUNDARY: this raw helper itself does not authenticate the
 /// source of a positive credit or bind it to a typed economic cause. It must remain
 /// private, and each internal caller must independently prove its allowed operation.
-/// This branch removes the public extern but does not by itself migrate historical
-/// cross-zome callers, which are tracked in AC-176 / #4519 and fail the companion
-/// caller audit until migrated to source-specific authorization or deliberately disabled.
+/// AC-176 removed the four legacy cross-zome callers using fail-closed containment.
+/// The companion source audit enforces that no such string-dispatched call remains.
+/// This does not prove issuance provenance, source-specific authorization, or
+/// exactly-once settlement; those remain AC-154 work.
 /// A private helper is not a conservation theorem; source-specific proofs and exact-head
 /// runtime coverage are still required for every issuance, transfer, and return path.
 fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
