@@ -151,7 +151,7 @@ Implemented in this branch:
 - a strict JSON Schema that rejects unknown fields and has exact enum parity with the Rust contract;
 - an independent standard-library Python checker for schema/Rust enum parity, response bounds, trust gates, and the required adversarial test inventory;
 - a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, `praxis-core` formatting/tests, and clippy, including while the PR is a draft;
-- twenty-two authored Rust contract regression tests, including the BLAKE3 empty-input golden vector.
+- twenty-three authored Rust contract regression tests, including the BLAKE3 empty-input golden vector.
 
 Not yet implemented or qualified:
 - live Symthaea service/process adapter;
