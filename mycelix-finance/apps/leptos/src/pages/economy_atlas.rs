@@ -297,12 +297,19 @@ pub fn EconomyAtlasPage() -> impl IntoView {
                     .map(|source| format!("{} {} {}", source.repository, source.path, source.url))
                     .collect::<Vec<_>>()
                     .join(" ");
+                let research_text = model.research_refs.iter()
+                    .map(|reference| format!(
+                        "{} {} {} {}",
+                        reference.title, reference.publisher, reference.reference_type, reference.url
+                    ))
+                    .collect::<Vec<_>>()
+                    .join(" ");
                 let finding_text = model.validation_findings.iter()
                     .map(|finding| format!("{} {} {}", finding.finding_id, finding.observation, finding.required_follow_up))
                     .collect::<Vec<_>>()
                     .join(" ");
                 let haystack = format!(
-                    "{} {} {} {} {} {} {} {}",
+                    "{} {} {} {} {} {} {} {} {}",
                     model.model_id,
                     model.title,
                     model.domain.join(" "),
@@ -310,7 +317,8 @@ pub fn EconomyAtlasPage() -> impl IntoView {
                     model.execution_status,
                     model.limitations.join(" "),
                     metadata,
-                    format!("{} {}", source_text, finding_text)
+                    source_text,
+                    format!("{} {}", research_text, finding_text)
                 )
                 .to_lowercase();
                 (term.is_empty() || haystack.contains(&term))
