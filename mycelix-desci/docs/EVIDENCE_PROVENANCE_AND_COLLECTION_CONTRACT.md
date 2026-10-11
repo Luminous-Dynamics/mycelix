@@ -1,6 +1,6 @@
 # Evidence Provenance and Collection Contract
 
-**Status:** proposed qualification contract; not yet implemented or runtime-qualified  
+**Status:** specification with a first schema-v4 declaration/projection slice drafted in [PR #4953](https://github.com/Luminous-Dynamics/mycelix/pull/4953); not merged or runtime-qualified. Independent evaluator events remain unimplemented.  
 **Draft contract version:** `evidence-provenance-contract/0.1.0`  
 **Scope:** evidence identity, data lineage, collection provenance, and qualification boundaries for reproduction/replication claims
 
@@ -16,9 +16,10 @@ Static source inspection of the canonical event path found:
 
 - `EvidenceAttached` signs and records an `EvidenceArtifact` with an ID, content hash, media type, locator, license, and availability.
 - An attestation must reference evidence IDs that already exist in the stream.
-- `ClaimProjection` currently retains a bare list of artifacts; attachment actor/organization and a study/collection identity are not retained next to each artifact.
-- `IndependentReplication` requires a protocol reference and evidence IDs, but those fields alone do not establish newly collected data.
-- The signed event envelope already supplies an actor and optional acting organization; the authority receipt path binds acceptance to an authority snapshot. Neither proves that the actor's data-origin statement is scientifically accurate.
+- On the default branch, `ClaimProjection` retains a bare list of artifacts; attachment actor/organization and study/collection identity are not retained next to each artifact. Draft PR #4953 adds a separate `EvidenceProvenanceDeclared` schema-v4 event and stores its event/actor/organization context in a deterministic projection.
+- `IndependentReplication` requires a protocol reference and evidence IDs, but those fields alone do not establish newly collected data. The new declaration makes lineage mechanically inspectable, not independently qualified.
+- Raw supportive reproduction/replication counts no longer promote maturity in draft policy 1.2.0 without separately qualified counters. Those counters remain zero until an independent evaluator event/policy is implemented.
+- The signed event envelope and authority receipt bind who made/accepted an assertion. Neither proves that the asserted real-world data collection occurred.
 
 These are source observations, not runtime/test results. See [Canonical Scientific Event API](CANONICAL_EVENT_API.md), [Scientific Authority Receipts](AUTHORITY_RECEIPTS.md), and the [due-diligence RFC](SCIENTIFIC_DUE_DILIGENCE_AND_ALLOCATION_RFC.md).
 
@@ -89,9 +90,9 @@ For any evidence that may increase a claim's replication maturity:
 
 Do not add fields to existing schema-v2/v3 signed payloads in place. Their canonical bytes and historical signatures must remain verifiable.
 
-Implement in a separate, reviewed change:
+Draft PR #4953 now contains the first step of this plan: a schema-v4 provenance declaration event using additive canonical payload tag 9, deterministic parent/hash checks, cycle rejection, and actor-attributed projection records. That draft has not been merged or runtime-qualified. The remaining implementation/review work includes:
 
-1. Add a new schema-v4 payload/event for a provenance declaration bound to an already attached artifact, with a stable explicit canonical codec tag and golden byte vectors.
+1. Add/verify golden byte vectors for the new schema-v4 payload and prove old payload tags and schema-v2/v3 signatures remain verifiable.
 2. Validate that the artifact ID and content hash exactly match the artifact in the same stream; validate every parent artifact reference and reject self/cyclic lineage.
 3. Preserve event actor/organization and authority receipt when projecting the declaration. Conflicting active declarations must not use last-writer-wins semantics.
 4. Add a correction/supersession mechanism that appends history and preserves prior declarations and earlier assessment decisions.
