@@ -329,8 +329,8 @@ fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str, effect_id: 
     false
 }
 
-/// Enqueue a failed compost delivery for later processing.
-/// Stores a serialized `PendingCompost` in the link tag from the pending compost anchor.
+/// Enqueue a durable compost outbox effect in the current source-chain transaction.
+/// Treasury delivery is performed after commit and retries use the same effect ID.
 fn queue_pending_compost(
     pool_id: &str,
     amount: u64,
@@ -340,7 +340,13 @@ fn queue_pending_compost(
 ) -> ExternResult<()> {
     let now = sys_time()?;
     let effect_id = match requested_effect_id {
-        Some(effect_id) if !effect_id.is_empty() => effect_id,
+        Some(effect_id)
+            if !effect_id.is_empty()
+                && effect_id.len() <= 256
+                && !effect_id.chars().any(char::is_control) =>
+        {
+            effect_id
+        },
         Some(_) => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Pending compost effect ID cannot be empty".into()
@@ -2735,6 +2741,29 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
         domain_tag: domain_tag.as_str().to_string(),
     })
 }
+
+/// Dispatch queued compost only after the source-chain transaction commits.
+///
+/// Treasury writes are a separate zome-call transaction, so doing this inside
+/// `send_payment` or `apply_demurrage` could credit Treasury before the local
+/// debit/outbox has committed. The durable queue is the recovery source of truth;
+/// failures are logged and left queued for a later drain attempt.
+#[hdk_extern]
+pub fn post_commit(_actions: Vec<SignedActionHashed>) -> ExternResult<()> {
+    match call(
+        CallTargetCell::Local,
+        ZomeName::from("payments"),
+        FunctionName::from("drain_pending_compost"),
+        None,
+        (),
+    ) {
+        Ok(ZomeCallResponse::Ok(_)) => {}
+        Ok(other) => debug!("post_commit compost drain returned unexpected response: {:?}", other),
+        Err(e) => debug!("post_commit compost drain failed; durable outbox retained: {:?}", e),
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod payment_idempotency_tests {
     use super::*;
