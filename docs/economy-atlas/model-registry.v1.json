@@ -17,7 +17,8 @@
     "paper_reported": "Claim or result is reported in a paper; not reproduced by this registry.",
     "design_only": "Specification/source profile only; no execution authority implied.",
     "conceptual": "Narrative proposal; distinct from implementations with similar names.",
-    "discovery_required": "Canonical source and implementation status unresolved."
+    "discovery_required": "Canonical source and implementation status unresolved.",
+    "external_framework": "Externally documented framework or methodology; source-linked for study but not implemented or executed by this repository."
   },
   "models": [
     {
@@ -367,6 +368,161 @@
       },
       "limitations": [
         "Do not merge with mycelix.finance.tricurrency.v1 without an explicit decision record identifying the intended canonical semantics."
+      ]
+    },
+    {
+      "model_id": "regenerative.economics.energy-network-science.v1",
+      "title": "Regenerative Economics — Energy Network Science (10-principle framework)",
+      "domain": [
+        "regenerative_economics",
+        "ecological_economics",
+        "socio_ecological_networks",
+        "resilience",
+        "collective_learning"
+      ],
+      "epistemic_status": "external_framework",
+      "execution_status": "research_framework; runner_not_implemented",
+      "source_refs": [],
+      "research_refs": [
+        {
+          "title": "Measuring regenerative economics: 10 principles and measures undergirding systemic economic health",
+          "publisher": "Global Transitions / ScienceDirect",
+          "reference_type": "peer_reviewed_research_paper",
+          "published_year": 2019,
+          "url": "https://doi.org/10.1016/j.glt.2019.02.002"
+        },
+        {
+          "title": "Measuring regenerative economics: 10 principles and measures undergirding systemic economic health",
+          "publisher": "Directory of Open Access Journals (DOAJ)",
+          "reference_type": "bibliographic_record",
+          "published_year": 2019,
+          "url": "https://doaj.org/article/176752b20697478f8e7236819256d030"
+        }
+      ],
+      "framework_summary": "An energy-flow and network-science approach to socio-economic health. It emphasizes where money, resources, energy, and information circulate; reinvestment in human, social, natural, and physical capacities; reliable inputs and healthy outputs; balancing efficiency with resilience; diversity of roles and organizations; mutually beneficial relations; reducing excessive extraction/speculation; and adaptive collective learning.",
+      "framework_categories": [
+        "circulation",
+        "organizational_structure",
+        "relationships_and_values",
+        "collective_learning"
+      ],
+      "measurable_dimensions": [
+        "Cross-scale circulation / total system throughflow relative to external input (network aggradation)",
+        "Internal reinvestment and cycling (including Finn Cycling Index where the required flow matrix is available)",
+        "Reliability of critical inputs and environmental/social quality of outputs",
+        "Efficiency–resilience balance / window of vitality",
+        "Diversity of roles and organizations",
+        "Direct and indirect mutualism in network relationships",
+        "Constructive investment versus extractive or speculative flows",
+        "Indicators of human needs, capacity use, education, and collective learning"
+      ],
+      "limitations": [
+        "This is an external research framework, not an implementation or endorsement by Mycelix.",
+        "Several metrics require a bounded, typed network flow matrix, an explicit system boundary, and justified aggregation; values cannot be computed from currency balances alone.",
+        "The authors explicitly call for further application, testing, interpretation, and refinement when transferring network measures to socio-economic settings.",
+        "Do not collapse the dimensions into one regenerative score until normalization, weights, missing-data behavior, and trade-offs are justified and reviewed."
+      ]
+    },
+    {
+      "model_id": "regenerative.doughnut.place-portrait.v1",
+      "title": "Doughnut Economics — Place-Based Social and Ecological Portrait",
+      "domain": [
+        "regenerative_economics",
+        "wellbeing",
+        "planetary_boundaries",
+        "place_based_policy",
+        "social_foundation"
+      ],
+      "epistemic_status": "external_framework",
+      "execution_status": "external_methodology; local_dataset_and_runner_not_implemented",
+      "source_refs": [],
+      "research_refs": [
+        {
+          "title": "What is the Doughnut?",
+          "publisher": "Doughnut Economics Action Lab (DEAL)",
+          "reference_type": "framework_overview",
+          "url": "https://doughnuteconomics.org/doughnut/"
+        },
+        {
+          "title": "Doughnut Data Portraits: Visualiser & Data Hub (v1.1)",
+          "publisher": "Doughnut Economics Action Lab (DEAL)",
+          "reference_type": "interactive_methodology_tool",
+          "published_year": 2026,
+          "url": "https://doughnuteconomics.org/tools/doughnut-data-portraits-visualiser-data-hub"
+        },
+        {
+          "title": "Doughnut Data Portraits: A Methodological Guide",
+          "publisher": "Doughnut Economics Action Lab (DEAL)",
+          "reference_type": "methodology_guide",
+          "url": "https://doughnuteconomics.org/tools"
+        }
+      ],
+      "framework_summary": "A social foundation and an ecological ceiling: assess whether a place meets human needs while remaining within planetary limits. DEAL's current Data Portrait workflow organizes indicators through four lenses formed by two domains (social/ecological) and two scales (local/global), with 44 dimensions in the published tool description.",
+      "dimensions_count": 44,
+      "four_lenses": [
+        "local_social",
+        "local_ecological",
+        "global_social",
+        "global_ecological"
+      ],
+      "normalization_contract": {
+        "social_lenses": "The visualiser expects a 0–1 ratio, with 0 representing deprivation and 1 the social target.",
+        "ecological_lenses": "The visualiser expects 0 or greater, with 1 at the target boundary and values greater than 1 indicating overshoot.",
+        "comparison_warning": "These are visualization conventions. Raw indicators may use different units, directionality, and target transformations; preserve those definitions and data lineage."
+      },
+      "limitations": [
+        "This is an external framework/tool specification; Mycelix has not implemented its visualiser or supplied a place dataset.",
+        "Indicator targets, transformations, geographic scope, period, source quality, and missingness must accompany the numbers; values without these fields are not comparable.",
+        "DEAL's documentation notes that the current public data table alone is insufficient to replicate analyses without separate indicator-source and methods documentation.",
+        "A visually filled wedge is not proof of valid data or causal policy impact; unknown data must remain visible as unknown in the Atlas."
+      ]
+    },
+    {
+      "model_id": "regenerative.circular-economy.v1",
+      "title": "Circular Economy — Materials Circulation and Nature Regeneration",
+      "domain": [
+        "regenerative_economics",
+        "circular_economy",
+        "material_flows",
+        "waste_prevention",
+        "ecosystem_regeneration"
+      ],
+      "epistemic_status": "external_framework",
+      "execution_status": "principles_documented; material_flow_model_not_implemented",
+      "source_refs": [],
+      "research_refs": [
+        {
+          "title": "The Circular Economy — Definition and Model",
+          "publisher": "Ellen MacArthur Foundation",
+          "reference_type": "framework_overview",
+          "url": "https://www.ellenmacarthurfoundation.org/topics/circular-economy-introduction/overview"
+        },
+        {
+          "title": "Circular Economy Principles",
+          "publisher": "Ellen MacArthur Foundation",
+          "reference_type": "principles",
+          "published_year": 2024,
+          "url": "https://www.ellenmacarthurfoundation.org/circular-economy-principles"
+        }
+      ],
+      "framework_summary": "A design approach built around three principles: eliminate waste and pollution, circulate products and materials at their highest value, and regenerate nature. Recycling is one loop among maintenance, reuse, refurbishment, remanufacture, and biological return; circularity is not synonymous with regeneration unless ecological outcomes are measured.",
+      "core_principles": [
+        "Eliminate waste and pollution",
+        "Circulate products and materials at their highest value",
+        "Regenerate nature"
+      ],
+      "candidate_atlas_indicators": [
+        "Virgin-material input and material throughput by type and lifecycle stage",
+        "Product lifetime, repair, reuse, refurbishment and remanufacturing flows",
+        "Waste and pollution generated, prevented, reused, and leaked to the environment",
+        "Biological nutrient return and technical-material recovery kept as distinct flows",
+        "Measured ecological restoration outcomes with baseline, location, time horizon, and verification source"
+      ],
+      "limitations": [
+        "The candidate indicators above are proposed for the Atlas; they are not represented as a single official Ellen MacArthur Foundation metric set.",
+        "A high recycling or recirculation rate alone does not demonstrate lower total extraction, lower absolute impacts, or ecosystem recovery.",
+        "Material-flow accounting needs consistent units, product lifetimes, imports/exports, system boundaries, and treatment of downcycling and quality loss.",
+        "Do not add money, tonnes, biodiversity indicators, and wellbeing measures into one score without an explicit reviewed methodology."
       ]
     },
     {
