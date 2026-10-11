@@ -139,3 +139,19 @@ python3 -m unittest discover -s tests -p 'test_economy_atlas_registry.py'
 
 These checks validate registry contract and provenance metadata only. They do not execute Rust models, prove that the pinned source implements the documented equations, reproduce a paper, or qualify an economic claim.
 
+## SDK arithmetic findings surfaced by the Atlas
+
+A source review of the shared SDK's [decay_garden.rs](https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/mycelix-workspace/sdk/src/economics/decay_garden.rs) added three findings to the registry and the Leptos page:
+
+1. `CompostDistribution::is_valid` checks only whether the sum of the ratios is approximately one. It does not separately enforce that each ratio is finite and within `[0, 1]`. A ratio set such as `(1.1, -0.1, 0.0)` satisfies the sum check but can allocate more compost to one pool than was received after float-to-integer conversion.
+2. `CompostDistribution::distribute` truncates each ratio allocation independently. For total 11 at 70/20/10, the allocations are 7, 2 and 1, leaving one unit undistributed. The intended remainder policy is not documented in that primitive.
+3. The low-level `calculate_demurrage` primitive returns zero when the rate is non-positive, but does not itself enforce the `DemurrageConfig` comment's constitutional 1–5% interval.
+
+These are source-level arithmetic/contract findings, not proof of a reachable production exploit or ledger corruption. We have not yet traced every constructor, coordinator, and caller to establish reachability or existing upstream validation. The Atlas therefore reports them as review findings with required follow-up, not as a qualified incident. The next code change should add or confirm domain validation at the narrowest shared trust boundary, define deterministic residual allocation, and add regression tests only after call-site analysis establishes the intended contract.
+
+## Leptos integration status
+
+The PR now also adds a registry-driven page at `/atlas` in the existing Finance Leptos app. It loads the checked-in JSON at compile time, exposes source snapshots, searches model titles/domains/statuses/limitations, and renders limitations and the structured findings above. A malformed registry produces an explicit error state; it does not substitute mock entries.
+
+This page is a **registry explorer**, not yet a simulation runner. It deliberately does not import the entire SDK into the browser WASM bundle or call live finance mutations. The standalone HTML workbench remains a separate illustrative prototype. The next runtime milestone is a narrow, versioned adapter that invokes a source-backed economic primitive and returns a replayable run receipt.
+
