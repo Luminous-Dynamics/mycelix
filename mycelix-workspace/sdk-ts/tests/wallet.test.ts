@@ -930,8 +930,48 @@ import {
   createOfflineQueue,
   createWalletExecutor,
   type QueueItemId,
+  type QueueStorage,
+  type QueueStorageIdempotencyClaim,
+  type QueuedOperation,
   type SendPayload,
 } from '../src/wallet/offline-queue.js';
+
+/**
+ * Shared contract-test store: separate OfflineQueue instances can race through
+ * stale local snapshots, so the storage's claim operation must be authoritative.
+ * IndexedDBQueueStorage implements the same contract in one read/write transaction.
+ */
+class SharedAtomicQueueStorage implements QueueStorage {
+  private readonly items = new Map<QueueItemId, QueuedOperation>();
+
+  async getAll(): Promise<QueuedOperation[]> {
+    return [...this.items.values()];
+  }
+
+  async save(item: QueuedOperation): Promise<void> {
+    this.items.set(item.id, item);
+  }
+
+  async claimIdempotencyKey(item: QueuedOperation): Promise<QueueStorageIdempotencyClaim> {
+    const key = item.idempotencyKey;
+    if (!key) throw new Error('Cannot claim an empty idempotency key');
+    const matches = [...this.items.values()].filter((stored) => stored.idempotencyKey === key);
+    if (matches.length > 1) {
+      throw new Error('Ambiguous queue state: multiple records already use this idempotency key');
+    }
+    if (matches.length === 1) return { kind: 'existing', item: matches[0] };
+    this.items.set(item.id, item);
+    return { kind: 'inserted', item };
+  }
+
+  async delete(id: QueueItemId): Promise<void> {
+    this.items.delete(id);
+  }
+
+  async clear(): Promise<void> {
+    this.items.clear();
+  }
+}
 
 describe('HolochainFinanceProvider payment idempotency', () => {
   it('preserves the operation key after an ambiguous direct-send failure', async () => {
@@ -1034,6 +1074,48 @@ describe('OfflineQueue', () => {
       expect(first.id).toBe(second.id);
       expect(queue.state.items.filter((item) => item.idempotencyKey === 'concurrent-queue-key')).toHaveLength(1);
       expect(queue.pendingCount).toBe(1);
+    });
+
+    it('should resolve the same key across separate queue instances', async () => {
+      const storage = new SharedAtomicQueueStorage();
+      const queueA = createOfflineQueue(storage, undefined, { autoSync: false });
+      const queueB = createOfflineQueue(storage, undefined, { autoSync: false });
+
+      try {
+        // Both instances load an empty snapshot before either enqueue starts.
+        await Promise.all([queueA.initialize(), queueB.initialize()]);
+        const [first, second] = await Promise.all([
+          queueA.enqueue('send', { to: '@alice', amount: 100 }, {
+            idempotencyKey: 'cross-instance-key',
+          }),
+          queueB.enqueue('send', { to: '@alice', amount: 100 }, {
+            idempotencyKey: 'cross-instance-key',
+          }),
+        ]);
+
+        expect(first.id).toBe(second.id);
+        expect((await storage.getAll()).filter(
+          (item) => item.idempotencyKey === 'cross-instance-key'
+        )).toHaveLength(1);
+        expect(queueA.state.items.filter(
+          (item) => item.idempotencyKey === 'cross-instance-key'
+        )).toHaveLength(1);
+        expect(queueB.state.items.filter(
+          (item) => item.idempotencyKey === 'cross-instance-key'
+        )).toHaveLength(1);
+
+        await expect(
+          queueB.enqueue('send', { to: '@mallory', amount: 100 }, {
+            idempotencyKey: 'cross-instance-key',
+          })
+        ).rejects.toThrow('Idempotency key reused with a different queued operation payload');
+        expect((await storage.getAll()).filter(
+          (item) => item.idempotencyKey === 'cross-instance-key'
+        )).toHaveLength(1);
+      } finally {
+        queueA.destroy();
+        queueB.destroy();
+      }
     });
 
     it('should reject changed payload under an existing idempotency key', async () => {
