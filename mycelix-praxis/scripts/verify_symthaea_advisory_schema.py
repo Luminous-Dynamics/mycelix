@@ -16,6 +16,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 RUST_PATH = ROOT / "crates/praxis-core/src/symthaea_advisory.rs"
 SCHEMA_PATH = ROOT / "schemas/symthaea-advisory-v1.schema.json"
+ADAPTER_PATH = ROOT / "crates/praxis-symthaea-adapter/src/lib.rs"
+ADAPTER_CARGO_PATH = ROOT / "crates/praxis-symthaea-adapter/Cargo.toml"
+WORKSPACE_PATH = ROOT / "Cargo.toml"
 
 EXPECTED_FIELDS = {
     "schema_version",
@@ -28,6 +31,14 @@ EXPECTED_FIELDS = {
     "reported_confidence_permille",
     "reason",
     "supporting_content_ids",
+}
+
+ADAPTER_REQUIRED_TESTS = {
+    "reads_a_valid_response_from_a_host_reader",
+    "rejects_oversized_stream_after_reading_only_limit_plus_one",
+    "exact_limit_body_reaches_parser_without_crossing_the_size_gate",
+    "malformed_json_is_rejected",
+    "reader_errors_fail_closed",
 }
 
 REQUIRED_TESTS = {
@@ -98,6 +109,9 @@ def main() -> int:
     errors: list[str] = []
     try:
         source = RUST_PATH.read_text(encoding="utf-8")
+        adapter_source = ADAPTER_PATH.read_text(encoding="utf-8")
+        adapter_manifest = ADAPTER_CARGO_PATH.read_text(encoding="utf-8")
+        workspace_manifest = WORKSPACE_PATH.read_text(encoding="utf-8")
         schema: dict[str, Any] = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         print(f"Symthaea advisory static conformance FAILED: {error}", file=sys.stderr)
@@ -198,7 +212,61 @@ def main() -> int:
 
     authored_tests = set(re.findall(r"fn\s+([a-zA-Z0-9_]+)\s*\(\s*\)\s*\{", source))
     missing_tests = sorted(REQUIRED_TESTS - authored_tests)
-    require(not missing_tests, f"missing authored Rust regression tests: {missing_tests}", errors)
+    require(not missing_tests, f"missing authored praxis-core regression tests: {missing_tests}", errors)
+
+    adapter_tests = set(
+        re.findall(r"fn\s+([a-zA-Z0-9_]+)\s*\(\s*\)\s*\{", adapter_source)
+    )
+    missing_adapter_tests = sorted(ADAPTER_REQUIRED_TESTS - adapter_tests)
+    require(
+        not missing_adapter_tests,
+        f"missing host-adapter regression tests: {missing_adapter_tests}",
+        errors,
+    )
+    require(
+        '"crates/praxis-symthaea-adapter"' in workspace_manifest,
+        "host-only adapter must be an explicit workspace member so CI cannot silently skip it",
+        errors,
+    )
+    require(
+        'praxis-core = { path = "../praxis-core" }' in adapter_manifest,
+        "host adapter must depend on the shared contract through the local path",
+        errors,
+    )
+    require(
+        not re.search(r"(?m)^\s*symthaea(?:-[a-z0-9_-]+)?\s*=", adapter_manifest),
+        "host adapter must not pull the Symthaea runtime into the contract workspace boundary",
+        errors,
+    )
+    require(
+        '#![forbid(unsafe_code)]' in adapter_source
+        and 'compile_error!("praxis-symthaea-adapter is host-only' in adapter_source,
+        "host adapter must forbid unsafe code and refuse WASM guest compilation",
+        errors,
+    )
+    require(
+        "reader.take((MAX_ADVISORY_RESPONSE_BYTES + 1) as u64)" in adapter_source,
+        "host adapter must cap bytes at maximum plus one before buffering",
+        errors,
+    )
+    require(
+        "bounded.read_to_end(&mut bytes)" in adapter_source,
+        "host adapter must read only from the bounded reader",
+        errors,
+    )
+    size_check = adapter_source.find("if bytes.len() > MAX_ADVISORY_RESPONSE_BYTES")
+    parse_call = adapter_source.find("parse_symthaea_advice_response(&bytes)")
+    require(
+        size_check >= 0 and parse_call > size_check,
+        "host adapter must reject oversized streams before JSON decoding",
+        errors,
+    )
+    require(
+        "observed_bytes.load(Ordering::SeqCst)" in adapter_source
+        and "MAX_ADVISORY_RESPONSE_BYTES + 1" in adapter_source,
+        "adapter regression test must assert the exact maximum-plus-one read bound",
+        errors,
+    )
 
     if errors:
         print("Symthaea advisory static conformance FAILED:", file=sys.stderr)
@@ -209,8 +277,9 @@ def main() -> int:
     print(
         "Symthaea advisory static conformance PASS: "
         f"{len(action_variants)} actions, {len(reason_variants)} reasons, "
-        f"{len(REQUIRED_TESTS)} required Rust test cases, "
-        "strict schema/source parity and authority-boundary checks."
+        f"{len(REQUIRED_TESTS)} praxis-core tests and "
+        f"{len(ADAPTER_REQUIRED_TESTS)} host-adapter tests, "
+        "strict schema/source parity and bounded-reader checks."
     )
     print("Claim ceiling: static source/schema conformance only; Rust runtime tests remain separate.")
     return 0
