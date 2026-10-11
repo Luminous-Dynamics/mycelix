@@ -54,6 +54,43 @@ class EconomyAtlasRegistryTests(unittest.TestCase):
         errors = validate_registry(self.registry)
         self.assertTrue(any("no sources but is not marked discovery_required" in error for error in errors), errors)
 
+    def test_validation_findings_bind_to_pinned_source_refs(self) -> None:
+        finance = next(
+            model for model in self.registry["models"]
+            if model["model_id"] == "mycelix.finance.tricurrency.v1"
+        )
+        self.assertEqual(len(finance["validation_findings"]), 3)
+        for finding in finance["validation_findings"]:
+            self.assertTrue(any(
+                source["repository"] == finding["source_repository"]
+                and source["path"] == finding["source_file"]
+                and source["ref"] == finding["source_commit"]
+                for source in finance["source_refs"]
+            ))
+        self.assertEqual(validate_registry(self.registry), [])
+
+    def test_dangling_validation_finding_source_fails(self) -> None:
+        finance = next(
+            model for model in self.registry["models"]
+            if model["model_id"] == "mycelix.finance.tricurrency.v1"
+        )
+        finance["validation_findings"][0]["source_file"] = "missing/source.rs"
+        errors = validate_registry(self.registry)
+        self.assertTrue(
+            any("exact source_refs repository/path/commit" in error for error in errors),
+            errors,
+        )
+
+    def test_duplicate_validation_finding_ids_fail(self) -> None:
+        finance = next(
+            model for model in self.registry["models"]
+            if model["model_id"] == "mycelix.finance.tricurrency.v1"
+        )
+        duplicate = copy.deepcopy(finance["validation_findings"][0])
+        finance["validation_findings"].append(duplicate)
+        errors = validate_registry(self.registry)
+        self.assertTrue(any("duplicate validation finding ID" in error for error in errors), errors)
+
     def test_currency_semantics_remain_separate_variants(self) -> None:
         self.registry["models"] = [
             m for m in self.registry["models"]
