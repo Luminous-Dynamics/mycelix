@@ -90,7 +90,9 @@ fn display_registry_value(value: &Value) -> String {
     value
         .as_str()
         .map(str::to_owned)
-        .unwrap_or_else(|| serde_json::to_string_pretty(value).unwrap_or_else(|_| value.to_string()))
+        .unwrap_or_else(|| {
+            serde_json::to_string_pretty(value).unwrap_or_else(|_| value.to_string())
+        })
 }
 
 fn render_model_card(model: AtlasModel) -> impl IntoView {
@@ -396,7 +398,11 @@ mod tests {
     #[test]
     fn model_ids_are_unique_and_currency_contracts_are_separate() {
         let registry = registry();
-        let ids = registry.models.iter().map(|model| model.model_id.as_str()).collect::<HashSet<_>>();
+        let ids = registry
+            .models
+            .iter()
+            .map(|model| model.model_id.as_str())
+            .collect::<HashSet<_>>();
         assert_eq!(ids.len(), registry.models.len());
 
         for required in [
@@ -429,7 +435,12 @@ mod tests {
         for model in &registry.models {
             for source in &model.source_refs {
                 sources += 1;
-                assert_eq!(source.ref_.len(), 40, "source ref is not a Git SHA: {}", model.model_id);
+                assert_eq!(
+                    source.ref_.len(),
+                    40,
+                    "source ref is not a Git SHA: {}",
+                    model.model_id
+                );
                 assert!(source.ref_.bytes().all(|byte| byte.is_ascii_hexdigit()));
                 assert_eq!(
                     source.ref_,
@@ -449,7 +460,7 @@ mod tests {
                 );
             }
         }
-        assert_eq!(sources, 11);
+        assert_eq!(sources, 12);
     }
 
     #[test]
@@ -472,6 +483,6 @@ mod tests {
                 assert!(!finding.required_follow_up.trim().is_empty());
             }
         }
-        assert_eq!(count, 3);
+        assert_eq!(count, 4);
     }
 }
