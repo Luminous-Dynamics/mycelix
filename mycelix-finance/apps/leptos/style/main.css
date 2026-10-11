@@ -408,6 +408,17 @@
 .atlas-evidence-design { color: #fbbf24; border-color: #f59e0b; }
 .atlas-evidence-concept { color: #c4b5fd; border-color: #a78bfa; }
 .atlas-evidence-unknown { color: #fca5a5; border-color: #f87171; }
+.atlas-evidence-external { color: #67e8f9; border-color: #22d3ee; }
+
+.atlas-research-meta {
+    display: block;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    margin-top: 0.15rem;
+}
+
 
 @media (max-width: 720px) {
     .atlas-filter-row {
