@@ -43,6 +43,12 @@
           "path": "README.md",
           "ref": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
           "url": "https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/README.md"
+        },
+        {
+          "repository": "Luminous-Dynamics/mycelix",
+          "path": "mycelix-workspace/sdk/src/economics/decay_garden.rs",
+          "ref": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "url": "https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/mycelix-workspace/sdk/src/economics/decay_garden.rs"
         }
       ],
       "currency_contract": {
