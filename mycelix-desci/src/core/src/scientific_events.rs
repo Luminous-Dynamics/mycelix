@@ -2399,10 +2399,10 @@ fn validate_provenance_evaluation(
             && record.attestation.evidence_ids.contains(&evaluation.artifact_id)
             && match evaluation.scope {
                 EvidenceProvenanceEvaluationScope::IndependentReplication => {
-                    matches!(record.attestation.kind, AttestationKind::IndependentReplication { .. })
+                    matches!(&record.attestation.kind, AttestationKind::IndependentReplication { .. })
                 }
                 EvidenceProvenanceEvaluationScope::ComputationalReproduction => {
-                    matches!(record.attestation.kind, AttestationKind::ComputationalReproduction { .. })
+                    matches!(&record.attestation.kind, AttestationKind::ComputationalReproduction { .. })
                 }
             }
     });
