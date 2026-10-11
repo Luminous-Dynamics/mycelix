@@ -118,7 +118,8 @@ check(
     "expected_idempotency_key: Option<&str>" in recovery_policy
     and "Some(original_key) if original_key == idempotency_key" in recovery_policy
     and "provider idempotency key differs from original attempt" in recovery_policy
-    and "original attempt has no idempotency-key binding" in recovery_policy,
+    and "original attempt has no idempotency-key binding" in recovery_policy
+    and "authoritative durable dispatch record" in recovery_policy,
 )
 for test_name in (
     "unknown_outcome_rejects_a_different_key_even_for_the_same_request",
@@ -165,6 +166,12 @@ check(
     and not ordered_tokens("second first", "first", "second"),
 )
 check("README documents combined report/smoke artifact and limits", "JSON audit report and replay-smoke log are bundled" in " ".join(readme.split()) and "not immutable long-term archival" in " ".join(readme.split()) and "smoke figures are not capacity benchmarks" in " ".join(readme.split()))
+check(
+    "README discloses original idempotency-key persistence integration gap",
+    "quarantines both a replacement key and a missing original-key binding" in " ".join(readme.split())
+    and "The current J3 journal does not yet persist the original dispatch idempotency key" in " ".join(readme.split())
+    and "not yet sufficient to authorize automated same-key retries" in " ".join(readme.split()),
+)
 check("audit fails closed when Git subject is absent", 'check("Git commit identity is available"' in audit_script)
 check("audit compares checked-out subject to QUALIFIED_SHA", 'if expected_subject:' in audit_script and "commit == expected_subject" in audit_script)
 check("audit report records expected subject comparison", '"expected_subject": expected_subject' in audit_script and '"subject_matches_expected"' in audit_script)
