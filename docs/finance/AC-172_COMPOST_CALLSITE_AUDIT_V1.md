@@ -18,6 +18,8 @@ The audit:
 - checks byte identity for the canonical/workspace Payments coordinator, Payments integrity, Treasury coordinator, Finance types, and finance-wire-types files;
 - includes fixture tests for keyed/unkeyed calls, commented-out examples, call-like text inside raw strings, Rust lifetime syntax, nested delimiters in strings, and mirror drift.
 
+The same guard checks the Payments zome's `post_commit` callback uses Holochain's `#[hdk_extern(infallible)]` ABI with no return value. The implementation was corrected to this contract because Holochain invokes `post_commit` after successful source-chain commit, disallows writes from the hook, and requires it to handle follow-up errors itself. See the official [callback/lifecycle hook contract](https://developer.holochain.org/build/callbacks-and-lifecycle-hooks/) and [atomic zome function transaction model](https://developer.holochain.org/build/zome-functions/).
+
 This is a static compatibility guard. It does not prove that a call's effect ID is authorized, that every dynamically constructed function name is discovered, that the outbox effect committed, or that Holochain concurrency semantics are correct. Those require source integrity checks and Holochain integration tests.
 
 ## Scope boundary
