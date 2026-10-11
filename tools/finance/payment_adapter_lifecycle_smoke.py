@@ -126,7 +126,7 @@ class PaymentClaimLedger:
 
     @staticmethod
     def operation_id(sender: str, key: str) -> str:
-        material = f"mycelix.payment-operation/v1\\0{sender}\\0{key}".encode()
+        material = b"mycelix.payment-operation/v1\\x00" + sender.encode() + b"\\x00" + key.encode()
         return hashlib.sha256(material).hexdigest()
 
     def submit(self, sender: str, key: str, fingerprint: str) -> tuple[str, str]:
