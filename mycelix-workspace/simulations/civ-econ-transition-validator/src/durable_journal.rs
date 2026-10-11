@@ -988,6 +988,26 @@ mod tests {
     }
 
     #[test]
+    fn already_acknowledged_indeterminate_result_returns_original_key_binding() {
+        let temp = TempDir::new();
+        let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        journal.begin_effect("ack-before-mark", REQUEST_A, PROVIDER_A, Some("provider-key-ack")).unwrap();
+        journal.acknowledge_effect(
+            "ack-before-mark", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A
+        ).unwrap();
+
+        assert_eq!(
+            journal.mark_indeterminate("ack-before-mark", REQUEST_A, PROVIDER_A),
+            Ok(IndeterminateResult::AlreadyAcknowledged {
+                receipt_digest: RECEIPT_A.to_owned(),
+                source_evidence_digest: Some(SOURCE_EVIDENCE_A.to_owned()),
+                provider_profile_digest: Some(PROVIDER_A.to_owned()),
+                idempotency_key_binding: IdempotencyKeyBinding::Bound("provider-key-ack".to_owned()),
+            }),
+        );
+    }
+
+    #[test]
     fn legacy_j3_pending_effect_keeps_original_key_unbound() {
         let temp = TempDir::new();
         let path = temp.journal_path();
