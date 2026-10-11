@@ -2588,6 +2588,17 @@ mod tests {
     }
 
     #[test]
+    fn test_collateral_health_status_invalid_numbers_never_default_to_healthy() {
+        for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.01] {
+            assert_eq!(
+                CollateralHealthStatus::from_ltv(invalid),
+                CollateralHealthStatus::Invalid
+            );
+        }
+        assert_eq!(CollateralHealthStatus::Invalid.as_str(), "Invalid");
+    }
+
+    #[test]
     fn test_collateral_health_status_liquidation() {
         assert_eq!(
             CollateralHealthStatus::from_ltv(0.951),
