@@ -780,7 +780,17 @@ async fn test_multi_collateral_position() {
                 );
             }
             // With 3 types: base LTV = 0.5, diversification = 0.10
-            // effective LTV = 0.40 => "Healthy"
+            // effective LTV = 0.40 => "Healthy".
+            let bonus: f64 = extract_entry_field(&record, "diversification_bonus")
+                .expect("bonus should be recorded")
+                .parse()
+                .expect("bonus should be numeric");
+            let effective_ltv: f64 = extract_entry_field(&record, "effective_ltv")
+                .expect("effective LTV should be recorded")
+                .parse()
+                .expect("effective LTV should be numeric");
+            assert!((bonus - 0.10).abs() < 1e-12);
+            assert!((effective_ltv - 0.40).abs() < 1e-12);
             if let Some(status) = extract_entry_field(&record, "status") {
                 assert_eq!(
                     status, "Healthy",
