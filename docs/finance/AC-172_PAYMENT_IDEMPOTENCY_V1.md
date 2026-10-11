@@ -56,7 +56,10 @@ The claim index is a discovery mechanism. A count of mutable links is **not** tr
 
 - Request retries resolve before rate-limit bookkeeping so they do not count as a new logical payment.
 - SAP amount-plus-fee uses `checked_add` rather than unchecked `u64` arithmetic.
-- Treasury fee routing treats unexpected zome responses and call errors as failures, rather than logging and returning a completed payment with an unaccounted fee.
+- Payment fees and demurrage compost are written to a durable pending-compost outbox in the same local source-chain transaction as the source balance update. The payments zome's `post_commit` hook drains the outbox only after that source-chain transaction commits.
+- Treasury compost delivery carries a stable effect ID. `receive_compost` checks the immutable receipt for that pool/effect before crediting the balance; a retry after a committed delivery returns current pool state rather than applying the amount again.
+- Treasury receipt IDs bind the destination pool and effect ID. Reusing the key with changed amount/source is rejected. Legacy calls without an effect ID remain wire-compatible but do not obtain idempotent retry guarantees.
+- SAP amount-plus-fee uses `checked_add` rather than unchecked `u64` arithmetic.
 - Payment identity, parties, amount, fee, currency, payment type, memo, and creation time are immutable across later status updates.
 - Both canonical and workspace copies are updated byte-for-byte together; entry-type and link-type variants are append-only to preserve existing indices.
 
@@ -81,6 +84,8 @@ Integrity unit tests cover:
 - An exact retry returns the original/latest Payment record and does not run debit/credit/fee operations again.
 - Same key with changed request payload fails as an idempotency conflict.
 - Claim present but Payment missing/unreadable, or any ambiguous discovery state, returns an error and does not try to execute again. This is intentionally fail-closed but currently requires operator/reconciliation work to resolve; this patch does not implement an orphan-claim recovery worker.
+- New fee and demurrage compost items have stable effect IDs, and delivery is initiated from `post_commit` after the payment/balance transaction commits. If Treasury commits but the queue-removal transaction fails, the next drain resolves the same effect ID and must not credit twice.
+- Pending-compost rows created by older code without an effect ID are left queued and logged for reconciliation instead of being automatically retried, because a prior attempt may already have committed despite losing its response.
 - The coordinator's local source-chain/concurrent-call behavior must be tested with Holochain integration tests (e.g., same-agent competing calls, response loss after commit, and competing calls that observe a moved chain head). Unit tests alone cannot qualify that boundary.
 - This affects local Mycelix SAP/TEND payment records only. It does not establish bank-side idempotency, Visa payout idempotency, cross-hApp atomicity, external finality, legal discharge, or production readiness.
 
@@ -92,6 +97,6 @@ cargo test -p payments_integrity
 cargo test -p finance-wire-types
 ```
 
-Run these in both the canonical and workspace project locations where their manifests differ. Before merge, run the Holochain integration corpus for concurrent same-key submissions, sequential exact retry, conflicting payload reuse, lost response after commit, missing claim/payment evidence, and Treasury failure rollback.
+Run these in both the canonical and workspace project locations where their manifests differ. Before merge, run the Holochain integration corpus for concurrent same-key submissions, sequential exact retry, conflicting payload reuse, lost response after commit, missing claim/payment evidence, and Treasury delivery response loss, idempotent receipt retry, and legacy outbox reconciliation.
 
 **Environment note:** this change was authored through repository file operations without a local Rust checkout/toolchain available in this session. The source and mirrored-file consistency were inspected via repository read-back, but the Rust tests and Holochain integration tests have not been run here.
