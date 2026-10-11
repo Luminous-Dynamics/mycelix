@@ -199,13 +199,15 @@ build-sdk:
     @echo "🔨 Building mycelix-sdk (Rust)..."
     cd sdk && cargo build --release
 
-# Build the TypeScript SDK
+# Build, typecheck, lint, and test the TypeScript SDK from the Nix store.
+# package-lock.json remains the dependency graph; importNpmLock materializes it.
 build-sdk-ts:
-    @echo "🔨 Building @mycelix/sdk (TypeScript)..."
+    @echo "🔨 Building @mycelix/sdk (TypeScript) with Nix..."
     @if [ -f "sdk-ts/package.json" ]; then \
-        cd sdk-ts && pnpm install && pnpm build; \
+        nix build .#sdk-ts; \
     else \
         echo "⚠️  sdk-ts not found"; \
+        exit 1; \
     fi
 
 # Build Commons cluster (split into land + care sub-cluster DNAs)
@@ -632,14 +634,10 @@ test-sdk-rust:
     @echo "🧪 Testing mycelix-sdk (Rust)..."
     cd sdk && cargo test
 
-# Run TypeScript SDK tests
+# Run the full typecheck/lint/test/build gate using the pinned Nix SDK derivation.
 test-sdk-ts:
-    @echo "🧪 Testing @mycelix/sdk (TypeScript)..."
-    @if [ -f "sdk-ts/package.json" ]; then \
-        cd sdk-ts && pnpm test; \
-    else \
-        echo "⚠️  sdk-ts not found, skipping"; \
-    fi
+    @echo "🧪 Testing @mycelix/sdk (TypeScript) with Nix..."
+    @nix build .#sdk-ts
 
 # Run Python SDK tests
 test-sdk-python:
@@ -723,10 +721,10 @@ check-zomes:
     cd ../mycelix-mail/holochain && cargo check
     @echo "All zomes check passed!"
 
-# Check SDK-TS
+# Check SDK-TS using the same offline Nix derivation used by CI.
 check-sdk-ts:
-    @echo "Running SDK-TS tests..."
-    cd sdk-ts && npm test
+    @echo "Running SDK-TS typecheck, lint, tests, and build through Nix..."
+    nix build .#sdk-ts
 
 # Migrate a specific hApp to Holochain 0.6
 migrate-happ happ:
@@ -1035,32 +1033,20 @@ verify-symlinks:
 # SDK-TS SPECIFIC
 # ============================================================
 
-# Run SDK-TS with coverage
+# Build an offline Nix derivation and retain the generated coverage report.
 test-sdk-ts-coverage:
-    @echo "📊 Testing SDK-TS with coverage..."
-    @if [ -f "sdk-ts/package.json" ]; then \
-        cd sdk-ts && pnpm test:coverage; \
-    else \
-        echo "⚠️  sdk-ts not found"; \
-    fi
+    @echo "📊 Testing SDK-TS with coverage through Nix..."
+    nix build .#sdk-ts-coverage
 
-# Lint TypeScript SDK
+# Run lint from the same offline, lockfile-derived SDK build used in CI.
 lint-sdk-ts:
-    @echo "🔍 Linting @mycelix/sdk..."
-    @if [ -f "sdk-ts/package.json" ]; then \
-        cd sdk-ts && pnpm lint; \
-    else \
-        echo "⚠️  sdk-ts not found"; \
-    fi
+    @echo "🔍 Running SDK-TS quality gates through Nix..."
+    nix build .#sdk-ts
 
-# Generate SDK-TS documentation
+# Generate TypeDoc in a pinned Nix derivation; output is under result/docs.
 docs-sdk-ts:
-    @echo "📚 Generating SDK-TS documentation..."
-    @if [ -f "sdk-ts/package.json" ]; then \
-        cd sdk-ts && pnpm docs; \
-    else \
-        echo "⚠️  sdk-ts not found"; \
-    fi
+    @echo "📚 Generating SDK-TS documentation through Nix..."
+    nix build .#sdk-ts-docs
 
 # ============================================================
 # ECOSYSTEM TESTS
@@ -1433,10 +1419,11 @@ test-civic-unit:
     @echo "🧪 Running mycelix-civic unit tests..."
     @cd ../mycelix-civic && cargo test
 
-# Run all cluster tests (Rust unit + SDK TS)
+# Run Commons/Civic unit tests and the full SDK test suite through its Nix derivation.
+# The default Vitest suite already includes tests/cluster-integration.test.ts.
 test-clusters: test-commons-unit test-civic-unit
-    @echo "🧪 Running SDK cluster integration tests..."
-    @cd sdk-ts && npx vitest run tests/cluster-integration.test.ts
+    @echo "🧪 Running SDK cluster integration coverage through Nix..."
+    @nix build .#sdk-ts
     @echo "✅ All cluster tests passed!"
 
 # ============================================================

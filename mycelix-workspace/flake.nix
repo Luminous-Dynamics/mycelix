@@ -87,11 +87,110 @@
 
         # Node.js packages
         nodeEnv = with pkgs; [
-          nodejs_20
+          nodejs_24
           nodePackages.pnpm
           nodePackages.typescript
           nodePackages.typescript-language-server
         ];
+
+        # Keep this focused SDK shell self-contained within the flake source.
+        # The general Holochain shells intentionally reuse ../nix/modules, which
+        # is outside this nested flake root; the SDK shell must not require
+        # impure evaluation just to obtain its toolchain.
+        sdkRustToolchain = pkgs.rust-bin.stable."1.96.0".default.override {
+          targets = [ "wasm32-unknown-unknown" ];
+          extensions = [ "rust-src" "rust-analyzer" "clippy" "rustfmt" ];
+        };
+        sdkClangResourceDir = "${pkgs.llvmPackages.clang.cc}/lib/clang/${pkgs.lib.versions.major pkgs.llvmPackages.clang.version}/include";
+        sdkBindgenArgs = builtins.concatStringsSep " " [
+          "-I${pkgs.glibc.dev}/include"
+          "-I${sdkClangResourceDir}"
+        ];
+
+        # Resolve the committed package-lock.json into Nix-store dependency paths.
+        # For a package build, use buildNpmPackage + importNpmLock's package hook;
+        # the buildNodeModules/linkNodeModulesHook pair is for dev-shell workflows.
+        # No second package-manager lockfile or hand-maintained dependency hash is
+        # needed: importNpmLock consumes the committed lockfile integrity metadata.
+        sdkTsPackage = builtins.fromJSON (builtins.readFile ./sdk-ts/package.json);
+        sdkTsDependencies = pkgs.importNpmLock {
+          npmRoot = ./sdk-ts;
+        };
+        sdkTs = pkgs.buildNpmPackage {
+          pname = "mycelix-sdk-ts";
+          version = sdkTsPackage.version;
+          src = ./sdk-ts;
+          npmDeps = sdkTsDependencies;
+          npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+          # Pin the runtime used by the builder and fail closed on missing local deps.
+          nodejs = pkgs.nodejs_24;
+          npm_config_offline = "true";
+          npm_config_audit = "false";
+          npm_config_fund = "false";
+
+          # Run the quality gates before the normal npm build hook runs "build".
+          preBuild = ''
+            npm run typecheck
+            npm run lint
+            npm test
+          '';
+
+          installPhase = ''
+            runHook preInstall
+            mkdir -p "$out"
+            cp -r dist "$out/dist"
+            cp package.json README.md LICENSE "$out/"
+            runHook postInstall
+          '';
+
+          meta = {
+            description = "Nix-built Mycelix TypeScript SDK; typecheck, lint, tests and build are required";
+            platforms = pkgs.nodejs_24.meta.platforms;
+          };
+        };
+
+        # Optional outputs use the same lockfile-derived dependency sources and
+        # offline lifecycle hook as the main SDK package. These are deliberately
+        # separate from checks.sdk-ts so normal CI does not pay for coverage/docs.
+        sdkTsCoverage = sdkTs.overrideAttrs (oldAttrs: {
+          pname = "mycelix-sdk-ts-coverage";
+          name = "mycelix-sdk-ts-coverage-${sdkTsPackage.version}";
+          npmBuildScript = "test:coverage";
+          preBuild = ''
+            npm run typecheck
+            npm run lint
+          '';
+          installPhase = ''
+            runHook preInstall
+            test -d coverage
+            mkdir -p "$out"
+            cp -r coverage "$out/coverage"
+            runHook postInstall
+          '';
+          meta = oldAttrs.meta // {
+            description = "Coverage report for the Mycelix TypeScript SDK, built with Nix";
+          };
+        });
+
+        sdkTsDocs = sdkTs.overrideAttrs (oldAttrs: {
+          pname = "mycelix-sdk-ts-docs";
+          name = "mycelix-sdk-ts-docs-${sdkTsPackage.version}";
+          npmBuildScript = "docs";
+          preBuild = ''
+            npm run typecheck
+            npm run lint
+          '';
+          installPhase = ''
+            runHook preInstall
+            test -d docs
+            mkdir -p "$out"
+            cp -r docs "$out/docs"
+            runHook postInstall
+          '';
+          meta = oldAttrs.meta // {
+            description = "Typedoc documentation for the Mycelix TypeScript SDK, built with Nix";
+          };
+        });
 
       in {
         devShells = {
@@ -144,7 +243,7 @@
               holochainPackages.holochain
               holochainPackages.hc
               holochainBase.rustToolchain
-              nodejs_20
+              nodejs_24
               nodePackages.pnpm
               pythonEnv
               just
@@ -156,6 +255,32 @@
             inherit (holochainBase.envVars)
               LIBCLANG_PATH BINDGEN_EXTRA_CLANG_ARGS
               OPENSSL_DIR OPENSSL_LIB_DIR OPENSSL_INCLUDE_DIR;
+          };
+
+          # Focused SDK CI environment: pinned Rust and Node, without the full
+          # Holochain/Python ML development closure used by .#ci. This output
+          # deliberately avoids the parent-directory module import so pure
+          # flake evaluation works when this nested flake is used directly.
+          sdk-ci = pkgs.mkShell {
+            name = "mycelix-sdk-ci";
+            buildInputs = [
+              sdkRustToolchain
+              pkgs.nodejs_24
+              pkgs.pkg-config
+              pkgs.openssl
+              pkgs.openssl.dev
+              pkgs.llvmPackages.libclang
+              pkgs.llvmPackages.clang
+              pkgs.glibc.dev
+              pkgs.stdenv.cc
+            ];
+
+            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+            BINDGEN_EXTRA_CLANG_ARGS = sdkBindgenArgs;
+            OPENSSL_DIR = "${pkgs.openssl.dev}";
+            OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
+            OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
+            PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
           };
 
           # Holochain-only environment (focused zome development)
@@ -191,7 +316,7 @@
           docs = pkgs.mkShell {
             name = "mycelix-docs";
             buildInputs = with pkgs; [
-              nodejs_20
+              nodejs_24
               nodePackages.pnpm
               mdbook
               graphviz
@@ -207,6 +332,12 @@
 
         # Packages
         packages = {
+          # Build, typecheck, lint, and test the TypeScript SDK entirely from
+          # the flake-pinned Node toolchain and Nix-materialized lockfile.
+          sdk-ts = sdkTs;
+          sdk-ts-coverage = sdkTsCoverage;
+          sdk-ts-docs = sdkTsDocs;
+
           # Build all core zomes from workspace
           all-zomes = pkgs.stdenv.mkDerivation {
             name = "mycelix-all-zomes";
@@ -237,6 +368,10 @@
             '';
           };
         };
+
+        # Include the same derivation in nix flake check; packages.sdk-ts is
+        # also available for direct builds and CI evidence collection.
+        checks.sdk-ts = sdkTs;
       }
     );
 }

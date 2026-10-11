@@ -36,7 +36,7 @@ jobs:
           persist-credentials: false
 
       - name: Assert exact qualification subject
-        run: test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
 
       - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
@@ -77,24 +77,24 @@ jobs:
           tampered_lock=$(mktemp)
           cp Cargo.lock "$tampered_lock"
           python3 - "$tampered_lock" <<'PY'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-inside_holochain = False
-for index, line in enumerate(lines):
-    if line == "[[package]]":
-        inside_holochain = False
-    elif line == 'name = "holochain"':
-        inside_holochain = True
-    elif inside_holochain and line == 'version = "0.7.0"':
-        lines[index] = 'version = "0.0.0"'
-        break
-else:
-    raise SystemExit("holochain lock package/version not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
+          import pathlib
+          import sys
+          
+          path = pathlib.Path(sys.argv[1])
+          lines = path.read_text(encoding="utf-8").splitlines()
+          inside_holochain = False
+          for index, line in enumerate(lines):
+              if line == "[[package]]":
+                  inside_holochain = False
+              elif line == 'name = "holochain"':
+                  inside_holochain = True
+              elif inside_holochain and line == 'version = "0.7.0"':
+                  lines[index] = 'version = "0.0.0"'
+                  break
+          else:
+              raise SystemExit("holochain lock package/version not found")
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
           if python3 ../scripts/integral/verify_d6u_runtime_lock.py "$tampered_lock"; then
             echo "tampered Cargo.lock version was incorrectly accepted"
             exit 1
@@ -102,24 +102,24 @@ PY
 
           cp Cargo.lock "$tampered_lock"
           python3 - "$tampered_lock" <<'PY'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-inside_holochain = False
-for index, line in enumerate(lines):
-    if line == "[[package]]":
-        inside_holochain = False
-    elif line == 'name = "holochain"':
-        inside_holochain = True
-    elif inside_holochain and line == 'source = "registry+https://github.com/rust-lang/crates.io-index"':
-        lines[index] = 'source = "registry+https://example.invalid/index"'
-        break
-else:
-    raise SystemExit("holochain lock package/source not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
+          import pathlib
+          import sys
+          
+          path = pathlib.Path(sys.argv[1])
+          lines = path.read_text(encoding="utf-8").splitlines()
+          inside_holochain = False
+          for index, line in enumerate(lines):
+              if line == "[[package]]":
+                  inside_holochain = False
+              elif line == 'name = "holochain"':
+                  inside_holochain = True
+              elif inside_holochain and line == 'source = "registry+https://github.com/rust-lang/crates.io-index"':
+                  lines[index] = 'source = "registry+https://example.invalid/index"'
+                  break
+          else:
+              raise SystemExit("holochain lock package/source not found")
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
           if python3 ../scripts/integral/verify_d6u_runtime_lock.py "$tampered_lock"; then
             echo "tampered Cargo.lock registry source was incorrectly accepted"
             exit 1
@@ -127,25 +127,25 @@ PY
 
           cp Cargo.lock "$tampered_lock"
           python3 - "$tampered_lock" <<'PY'
-import pathlib
-import re
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-inside_holochain = False
-for index, line in enumerate(lines):
-    if line == "[[package]]":
-        inside_holochain = False
-    elif line == 'name = "holochain"':
-        inside_holochain = True
-    elif inside_holochain and re.fullmatch(r'checksum = "[0-9a-f]{64}"', line):
-        lines[index] = 'checksum = "' + ("0" * 64) + '"'
-        break
-else:
-    raise SystemExit("holochain lock package/checksum not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
+          import pathlib
+          import re
+          import sys
+          
+          path = pathlib.Path(sys.argv[1])
+          lines = path.read_text(encoding="utf-8").splitlines()
+          inside_holochain = False
+          for index, line in enumerate(lines):
+              if line == "[[package]]":
+                  inside_holochain = False
+              elif line == 'name = "holochain"':
+                  inside_holochain = True
+              elif inside_holochain and re.fullmatch(r'checksum = "[0-9a-f]{64}"', line):
+                  lines[index] = 'checksum = "' + ("0" * 64) + '"'
+                  break
+          else:
+              raise SystemExit("holochain lock package/checksum not found")
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
           if python3 ../scripts/integral/verify_d6u_runtime_lock.py "$tampered_lock"; then
             echo "tampered Cargo.lock checksum was incorrectly accepted"
             exit 1
@@ -182,21 +182,21 @@ PY
           tampered_log=$(mktemp)
           cp d6u-runtime-test.log "$tampered_log"
           python3 - "$tampered_log" <<'PY'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
-for index, line in enumerate(lines):
-    if line.startswith("D6U_CASE\tcanonical-payload-accepted\t"):
-        parts = line.split("\t")
-        parts[2] = "semantic-rejected"
-        lines[index] = "\t".join(parts)
-        break
-else:
-    raise SystemExit("canonical acceptance evidence line not found")
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
+          import pathlib
+          import sys
+          
+          path = pathlib.Path(sys.argv[1])
+          lines = path.read_text(encoding="utf-8").splitlines()
+          for index, line in enumerate(lines):
+              if line.startswith("D6U_CASE\tcanonical-payload-accepted\t"):
+                  parts = line.split("\t")
+                  parts[2] = "semantic-rejected"
+                  lines[index] = "\t".join(parts)
+                  break
+          else:
+              raise SystemExit("canonical acceptance evidence line not found")
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
           if python3 ../scripts/integral/verify_d6u_runtime_evidence.py "$tampered_log"; then
             echo "tampered runtime evidence was incorrectly accepted"
             exit 1
@@ -205,27 +205,52 @@ PY
 
       - name: Emit runtime evidence record
         working-directory: d6u-runtime-harness
+        env:
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+          WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SOURCE_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          TRIGGER_WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          TRIGGER_WORKFLOW_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          TRIGGER_WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          TRIGGER_WORKFLOW_PATH: ${{ github.event.workflow_run.path }}
+          EXECUTOR_RUN_ID: ${{ github.run_id }}
+          EXECUTOR_RUN_ATTEMPT: ${{ github.run_attempt }}
+          EXECUTOR_WORKFLOW_COMMIT_SHA: ${{ github.workflow_sha }}
+          EXECUTOR_WORKFLOW_REF: ${{ github.workflow_ref }}
+          EXECUTOR_WORKFLOW_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
+          [[ "$SOURCE_REPOSITORY" == "Luminous-Dynamics/mycelix" ]]
+          [[ "$TRIGGER_WORKFLOW_NAME" == "D6S Canonical Qualification" ]]
+          [[ "$TRIGGER_WORKFLOW_PATH" == ".github/workflows/d6s-canonical-qualification.yml" ]]
+          [[ "$EXECUTOR_WORKFLOW_REPOSITORY" == "Luminous-Dynamics/mycelix" ]]
+          [[ "$SOURCE_BRANCH" == "myc-int-demo-d6u-holochain-07-runtime" ]]
+          [[ "$WORKFLOW_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$WORKFLOW_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          [[ "$TRIGGER_WORKFLOW_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$TRIGGER_WORKFLOW_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          [[ "$EXECUTOR_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$EXECUTOR_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          [[ "$EXECUTOR_WORKFLOW_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
           {
             echo "D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE"
             echo "status=runtime-reference-evidence"
             echo "source_commit=$(git rev-parse HEAD)"
-            echo "workflow_run_id=${{ github.run_id }}"
-            echo "workflow_run_attempt=${{ github.run_attempt }}"
+            echo "workflow_run_id=${WORKFLOW_RUN_ID}"
+            echo "workflow_run_attempt=${WORKFLOW_RUN_ATTEMPT}"
             echo "source_branch=${SOURCE_BRANCH}"
-            echo "source_repository=${{ github.event.workflow_run.head_repository.full_name }}"
-            echo "trigger_workflow_run_id=${{ github.event.workflow_run.id }}"
-            echo "trigger_workflow_run_attempt=${{ github.event.workflow_run.run_attempt }}"
-            echo "trigger_workflow_name=${{ github.event.workflow_run.name }}"
-            echo "trigger_workflow_path=${{ github.event.workflow_run.path }}"
+            echo "source_repository=${SOURCE_REPOSITORY}"
+            echo "trigger_workflow_run_id=${TRIGGER_WORKFLOW_RUN_ID}"
+            echo "trigger_workflow_run_attempt=${TRIGGER_WORKFLOW_RUN_ATTEMPT}"
+            echo "trigger_workflow_name=${TRIGGER_WORKFLOW_NAME}"
+            echo "trigger_workflow_path=${TRIGGER_WORKFLOW_PATH}"
             echo "trigger_workflow_blob_sha=$(git hash-object ../.github/workflows/d6s-canonical-qualification.yml)"
-            echo "executor_run_id=${{ github.run_id }}"
-            echo "executor_run_attempt=${{ github.run_attempt }}"
-            echo "executor_workflow_commit_sha=${{ github.workflow_sha }}"
-            echo "executor_workflow_ref=${{ github.workflow_ref }}"
+            echo "executor_run_id=${EXECUTOR_RUN_ID}"
+            echo "executor_run_attempt=${EXECUTOR_RUN_ATTEMPT}"
+            echo "executor_workflow_commit_sha=${EXECUTOR_WORKFLOW_COMMIT_SHA}"
+            echo "executor_workflow_ref=${EXECUTOR_WORKFLOW_REF}"
             echo "executor_workflow_file_path=.github/workflows/d6u-exact-head-runtime-executor.yml"
-            echo "executor_workflow_repository=${{ github.repository }}"
+            echo "executor_workflow_repository=${EXECUTOR_WORKFLOW_REPOSITORY}"
             echo "attestation_status=deferred-to-trusted-builder"
             echo "d6s2_manifest_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-manifest.json)"
             echo "d6s2_fixture_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
