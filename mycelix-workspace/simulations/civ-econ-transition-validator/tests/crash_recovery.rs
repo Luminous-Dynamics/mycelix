@@ -6,7 +6,7 @@
 //! explicit test-only stale-lock recovery that production must gate on operator
 //! evidence that the previous owner is no longer running.
 
-use civ_econ_transition_validator::durable_journal::{BeginResult, DurableEffectJournal};
+use civ_econ_transition_validator::durable_journal::{BeginResult, DurableEffectJournal, IdempotencyKeyBinding};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -17,6 +17,7 @@ const CHILD_MODE: &str = "MYCELIX_CIV_ECON_CRASH_TEST_CHILD";
 const JOURNAL_ENV: &str = "MYCELIX_CIV_ECON_CRASH_TEST_JOURNAL";
 const PROVIDER_ENV: &str = "MYCELIX_CIV_ECON_CRASH_TEST_PROVIDER_LOG";
 const EFFECT_ID: &str = "payment-crash-1";
+const IDEMPOTENCY_KEY: &str = "synthetic-key-payment-crash-1";
 const PROVIDER_PROFILE_DIGEST: &str =
     "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 const REQUEST_DIGEST: &str =
@@ -59,7 +60,7 @@ fn dispatch_only_if_started(
     provider_path: &Path,
 ) -> BeginResult {
     let result = journal
-        .begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST, None)
+        .begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST, Some(IDEMPOTENCY_KEY))
         .expect("begin or recover synthetic effect");
 
     if result == BeginResult::Started {
@@ -141,6 +142,11 @@ fn crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispa
     {
         let mut recovered =
             DurableEffectJournal::open(&journal_path).expect("reopen journal after crash");
+        assert_eq!(
+            recovered.idempotency_key_binding(EFFECT_ID),
+            Some(IdempotencyKeyBinding::Bound(IDEMPOTENCY_KEY.to_owned())),
+            "the original dispatch key binding must survive process death",
+        );
 
         // A surviving intent is not permission to dispatch again. The caller
         // queries the synthetic provider ledger and records its observed result.
@@ -162,7 +168,12 @@ fn crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispa
     let mut verified =
         DurableEffectJournal::open(&journal_path).expect("reopen reconciled journal");
     assert_eq!(
-        verified.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST, None),
+        verified.idempotency_key_binding(EFFECT_ID),
+        Some(IdempotencyKeyBinding::Bound(IDEMPOTENCY_KEY.to_owned())),
+        "acknowledgement must preserve the original dispatch key binding",
+    );
+    assert_eq!(
+        verified.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST, Some(IDEMPOTENCY_KEY)),
         Ok(BeginResult::AlreadyAcknowledged {
             receipt_digest: RECEIPT_DIGEST.to_owned(),
             source_evidence_digest: Some(SOURCE_EVIDENCE_DIGEST.to_owned()),
@@ -197,7 +208,7 @@ fn acknowledged_receipt_survives_process_exit_before_caller_observes_success() {
         let mut journal =
             DurableEffectJournal::open(&journal_path).expect("open child journal");
         assert_eq!(
-            journal.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST, None),
+            journal.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST, Some(IDEMPOTENCY_KEY)),
             Ok(BeginResult::Started),
         );
 
@@ -255,7 +266,12 @@ fn acknowledged_receipt_survives_process_exit_before_caller_observes_success() {
     let mut recovered =
         DurableEffectJournal::open(&journal_path).expect("reopen acknowledged journal");
     assert_eq!(
-        recovered.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST, None),
+        recovered.idempotency_key_binding(EFFECT_ID),
+        Some(IdempotencyKeyBinding::Bound(IDEMPOTENCY_KEY.to_owned())),
+        "lost caller response must not lose key binding",
+    );
+    assert_eq!(
+        recovered.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST, Some(IDEMPOTENCY_KEY)),
         Ok(BeginResult::AlreadyAcknowledged {
             receipt_digest: RECEIPT_DIGEST.to_owned(),
             source_evidence_digest: Some(SOURCE_EVIDENCE_DIGEST.to_owned()),
