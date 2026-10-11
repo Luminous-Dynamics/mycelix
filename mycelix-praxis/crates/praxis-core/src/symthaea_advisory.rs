@@ -535,7 +535,7 @@ mod tests {
     fn identifiers_with_control_characters_are_rejected() {
         let ids = allowed_content();
         let mut advice = candidate();
-        advice.skill_id = "math.fractions\\nforged-log-line".into();
+        advice.skill_id = "math.fractions\nforged-log-line".into();
         assert_eq!(
             validate_symthaea_advice(advice, &context(true, false, &ids)),
             Err(AdviceRejection::InvalidIdentifier)
