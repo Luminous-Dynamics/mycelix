@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 /// Prevent malformed local history from causing unbounded per-record decoding.
 const MAX_EFFECT_ID_BYTES: usize = 1024;
-const MAX_IDEMPOTENCY_KEY_BYTES: usize = 1024;
+const MAX_IDEMPOTENCY_KEY_BYTES: usize = 768;
 const MAX_JOURNAL_RECORD_BYTES: usize = 4096;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -993,6 +993,33 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn maximum_effect_id_and_idempotency_key_fit_bounded_ack_record() {
+        let temp = TempDir::new();
+        let id = "i".repeat(MAX_EFFECT_ID_BYTES);
+        let key = "k".repeat(MAX_IDEMPOTENCY_KEY_BYTES);
+        {
+            let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+            journal.begin_effect(&id, REQUEST_A, PROVIDER_A, Some(key.as_str())).unwrap();
+            journal.acknowledge_effect(
+                &id, REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A
+            ).unwrap();
+        }
+
+        let bytes = fs::read(temp.journal_path()).unwrap();
+        assert!(
+            bytes.split(|byte| *byte == b'\\n')
+                .filter(|record| !record.is_empty())
+                .all(|record| record.len() <= MAX_JOURNAL_RECORD_BYTES),
+            "every persisted record must fit the bounded replay limit",
+        );
+        let recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(
+            recovered.idempotency_key_binding(&id),
+            Some(IdempotencyKeyBinding::Bound(key)),
+        );
     }
 
     #[test]
