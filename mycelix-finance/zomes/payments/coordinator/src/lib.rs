@@ -431,6 +431,83 @@ fn payment_fee_outbox_matches(
         && payment.fee == input.amount
         && payment.from_did == input.source_member_did
         && payment.fee > 0
+        && matches!(payment.status, TransferStatus::Pending | TransferStatus::Processing)
+        && payment.completed.is_none()
+}
+
+fn initial_payment_lifecycle(
+    fee_amount: u64,
+    now: &Timestamp,
+) -> (TransferStatus, Option<Timestamp>) {
+    if fee_amount > 0 {
+        // Principal transfer is local, but the full payment lifecycle includes
+        // the fee effect. Do not claim Completed until Treasury confirms it.
+        (TransferStatus::Pending, None)
+    } else {
+        (TransferStatus::Completed, Some(now.clone()))
+    }
+}
+
+/// Advance a fee-bearing payment only after Treasury acknowledged the stable
+/// receipt. This function runs in the Payments outbox-drain transaction; if it
+/// fails, the queue item remains and the existing Treasury receipt makes retry safe.
+fn mark_payment_fee_settled(effect_id: &str) -> ExternResult<()> {
+    let Some(payment_id) = effect_id.strip_prefix("payment-fee:v1:") else {
+        return Ok(());
+    };
+    if payment_id.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Payment fee effect ID has an empty payment identity".into()
+        )));
+    }
+
+    let links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(payment_id)?,
+            LinkTypes::PaymentIdToPayment,
+        )?,
+        GetStrategy::default(),
+    )?;
+    if links.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Payment fee receipt cannot resolve exactly one Payment record".into()
+        )));
+    }
+    let action_hash = ActionHash::try_from(links[0].target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Payment fee receipt index target is not an ActionHash".into()
+        )))?;
+    let record = follow_update_chain(action_hash)?;
+    let mut payment = record
+        .entry()
+        .to_app_option::<Payment>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Payment fee receipt target decode failed: {e}"
+        ))))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Payment fee receipt index resolved to the wrong entry type".into()
+        )))?;
+
+    if payment.id != payment_id || payment.fee == 0 || payment.currency != "SAP" {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Payment fee receipt does not match the committed Payment".into()
+        )));
+    }
+    if payment.status == TransferStatus::Completed && payment.completed.is_some() {
+        // Recovery after Treasury committed and a previous queue-removal/update
+        // attempt failed. This is an already-completed retry, not a new effect.
+        return Ok(());
+    }
+    if !payment.status.can_transition_to(&TransferStatus::Completed) || payment.completed.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Payment cannot be marked completed from its current fee lifecycle state".into()
+        )));
+    }
+
+    payment.status = TransferStatus::Completed;
+    payment.completed = Some(sys_time()?);
+    update_entry(record.action_address().clone(), &EntryTypes::Payment(payment))?;
+    Ok(())
 }
 
 /// Verify that a requested compost credit corresponds to exactly one durable,
@@ -560,6 +637,9 @@ fn drain_pending_compost_inner() -> ExternResult<u32> {
             &pending.source_member_did,
             &pending.effect_id,
         ) {
+            // Treasury receipt is confirmed. For fee outbox items, advance the
+            // Payment lifecycle before deleting the durable retry record.
+            mark_payment_fee_settled(&pending.effect_id)?;
             // Success — remove from queue
             delete_link(link.create_link_hash.clone(), GetOptions::default())?;
             drained += 1;
@@ -1612,6 +1692,7 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         (input.memo.clone(), 0)
     };
 
+    let (initial_status, completed) = initial_payment_lifecycle(fee_amount, &now);
     let payment = Payment {
         id: operation_id.clone(),
         from_did: input.from_did.clone(),
@@ -1620,10 +1701,10 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         fee: fee_amount,
         currency: input.currency.clone(),
         payment_type: input.payment_type,
-        status: TransferStatus::Completed, // Simplified: immediate completion
+        status: initial_status,
         memo,
         created: now,
-        completed: Some(now),
+        completed,
     };
 
     let action_hash = create_entry(&EntryTypes::Payment(payment.clone()))?;
@@ -3052,6 +3133,19 @@ mod payment_idempotency_tests {
         let mut zero_fee = payment.clone();
         zero_fee.fee = 0;
         assert!(!payment_fee_outbox_matches(&zero_fee, "payment-op:v1:abc", &input));
+    }
+
+
+    #[test]
+    fn fee_bearing_payment_stays_pending_until_fee_receipt() {
+        let now = Timestamp::from_micros(1_000);
+        let (status_with_fee, completed_with_fee) = initial_payment_lifecycle(1, &now);
+        assert_eq!(status_with_fee, TransferStatus::Pending);
+        assert!(completed_with_fee.is_none());
+
+        let (status_without_fee, completed_without_fee) = initial_payment_lifecycle(0, &now);
+        assert_eq!(status_without_fee, TransferStatus::Completed);
+        assert_eq!(completed_without_fee, Some(now));
     }
 
     #[test]
