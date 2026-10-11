@@ -117,17 +117,16 @@ def mask_rust_source(source: str, *, keep_string_literals: bool) -> str:
                 blank_span(start, i)
             continue
 
-        # Char literals, but not Rust lifetimes such as &'a or 'static.
+        # Character literals are short and closed; don't confuse Rust lifetimes
+        # such as &'a or 'static with a quoted character.
         if source[i] == "'":
-            j = i + 1
-            if j < length and source[j] == "\\":
-                j += 2
-                while j < length and source[j] != "'" and source[j] not in "\r\n":
-                    j += 1
-                char_end = j + 1 if j < length and source[j] == "'" else i
-            else:
-                j = source.find("'", j, min(length, i + 12))
-                char_end = j + 1 if j >= 0 else i
+            char_end = i
+            if i + 2 < length and source[i + 2] == "'":
+                char_end = i + 3
+            elif i + 1 < length and source[i + 1] == "\\":
+                closing = source.find("'", i + 2, min(length, i + 20))
+                if closing >= 0 and "\\n" not in source[i:closing] and "\\r" not in source[i:closing]:
+                    char_end = closing + 1
             if char_end > i:
                 if not keep_string_literals:
                     blank_span(i, char_end)
@@ -159,7 +158,13 @@ def compost_callsite_issues(path: str, source: str) -> tuple[list[str], int]:
     comment_mask = mask_rust_source(source, keep_string_literals=True)
     code_mask = mask_rust_source(source, keep_string_literals=False)
     issues: list[str] = []
-    matches = list(CALL_MARKER.finditer(comment_mask))
+    # The marker includes a quoted function name. Filter out lookalikes embedded
+    # inside a larger Rust string/raw-string literal using the fully masked view.
+    matches = [
+        match
+        for match in CALL_MARKER.finditer(comment_mask)
+        if code_mask[match.start():match.start() + len("FunctionName")] == "FunctionName"
+    ]
 
     for number, match in enumerate(matches, start=1):
         starts = [item for item in CALL_START.finditer(code_mask, 0, match.start())]
