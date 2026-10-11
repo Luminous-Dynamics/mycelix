@@ -2116,11 +2116,24 @@ impl ClaimProjection {
             return EvidenceProvenanceDisposition::IdenticalContentDigestIndeterminate;
         }
 
+        // Evaluation quorum is scoped to the relation being qualified.
+        // A decision about replication must not veto or satisfy the separate
+        // computational-reproduction decision (and vice versa).
+        let applicable_scope = match record.declaration.origin_relation {
+            EvidenceOriginRelation::NewCollection => {
+                Some(EvidenceProvenanceEvaluationScope::IndependentReplication)
+            }
+            EvidenceOriginRelation::SameDataReanalysis => {
+                Some(EvidenceProvenanceEvaluationScope::ComputationalReproduction)
+            }
+            _ => None,
+        };
         let all_declaration_evaluations = self
             .provenance_evaluations
             .iter()
             .filter(|entry| {
-                entry.evaluation.provenance_event_id == record.provenance_event_id
+                applicable_scope == Some(entry.evaluation.scope)
+                    && entry.evaluation.provenance_event_id == record.provenance_event_id
                     && entry.evaluation.artifact_id == artifact_id
                     && entry.evaluation.content_hash == record.declaration.content_hash
             })
@@ -4472,6 +4485,91 @@ mod tests {
         assert_eq!(projection.evidence_profile.supportive_reproduction_count, 1);
         assert_eq!(projection.evidence_profile.qualified_reproduction_count, 1);
         assert_eq!(projection.maturity(), EvidenceMaturity::ComputationallyReproduced);
+    }
+
+    #[test]
+    fn evaluation_in_another_scope_does_not_veto_replication_quorum() {
+        let claim_id = ClaimId::new();
+        let t0 = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:creator"), t0.clone(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let data = artifact_with(ArtifactId::new(), b"scope-isolation-data", "ipfs://scope-isolation");
+        let attached = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis, actor("did:key:creator"), t0.clone() + Duration::seconds(10),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: data.clone() },
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let declaration = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attached, actor("did:key:collector"), t0.clone() + Duration::seconds(20),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: provenance_assertion(&data, EvidenceOriginRelation::NewCollection, Vec::new()),
+                },
+            ).unwrap(), &key(2),
+        ).unwrap();
+        let replication_a = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &declaration, actor("did:key:reviewer-a"), t0.clone() + Duration::seconds(30),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &data,
+                        EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        "Replication reviewer A qualifies the new collection",
+                    ),
+                },
+            ).unwrap(), &key(3),
+        ).unwrap();
+        let replication_b = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &replication_a, actor("did:key:reviewer-b"), t0.clone() + Duration::seconds(40),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &data,
+                        EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        "Replication reviewer B qualifies the new collection",
+                    ),
+                },
+            ).unwrap(), &key(4),
+        ).unwrap();
+        // A different reviewer records a separate, explicitly scoped opinion.
+        // It is not a third replication ballot and must not veto replication quorum.
+        let reproduction_opinion = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &replication_b, actor("did:key:reviewer-c"), t0.clone() + Duration::seconds(50),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &data,
+                        EvidenceProvenanceEvaluationScope::ComputationalReproduction,
+                        EvidenceProvenanceEvaluationOutcome::NotQualified,
+                        "This artifact is not being qualified as a computational reproduction",
+                    ),
+                },
+            ).unwrap(), &key(5),
+        ).unwrap();
+        let qualified_ids = BTreeSet::from([
+            replication_a.envelope.event_id,
+            replication_b.envelope.event_id,
+            reproduction_opinion.envelope.event_id,
+        ]);
+        let projection = ClaimProjection::rebuild_with_authorized_evaluations(
+            &[genesis, attached, declaration, replication_a, replication_b, reproduction_opinion],
+            &qualified_ids,
+        ).unwrap();
+        assert_eq!(
+            projection.provenance_disposition(data.id),
+            EvidenceProvenanceDisposition::QualifiedIndependentReplication,
+        );
     }
 
     #[test]
