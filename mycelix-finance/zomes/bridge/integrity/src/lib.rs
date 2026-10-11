@@ -2481,9 +2481,57 @@ mod tests {
     }
 
     #[test]
+    fn test_multi_position_rejects_aggregate_value_mismatch() {
+        let mut p = valid_multi_position();
+        p.aggregate_value = 99_999;
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_non_normalized_component_weights() {
+        let mut p = valid_multi_position();
+        p.components_json = r#"[{"type":"Cryptocurrency","asset_id":"eth-1","weight":0.5,"current_value":100000}]"#.into();
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_duplicate_asset_ids() {
+        let mut p = valid_multi_position();
+        p.components_json = r#"[{"type":"Cryptocurrency","asset_id":"eth-1","weight":0.5,"current_value":50000},{"type":"RealEstate","asset_id":"eth-1","weight":0.5,"current_value":50000}]"#.into();
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_unknown_asset_class() {
+        let mut p = valid_multi_position();
+        p.components_json = r#"[{"type":"UnverifiedThing","asset_id":"x","weight":1.0,"current_value":100000}]"#.into();
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
     fn test_multi_position_rejects_effective_ltv_mismatch() {
         let mut p = valid_multi_position();
-        p.effective_ltv = 0.50;
+        p.effective_ltv = 0.55;
         let result = validate_create_multi_collateral_position(
             EntryCreationAction::Create(make_create()),
             p,
