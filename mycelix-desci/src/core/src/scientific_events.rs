@@ -404,6 +404,7 @@ impl EvidenceProvenanceDeclaration {
 pub enum EvidenceProvenanceDisposition {
     NoProvenance,
     AssertedNewCollectionUnqualified,
+    EvaluationAwaitingAuthorityReceipt,
     InsufficientIndependentEvaluations,
     QualifiedIndependentReplication,
     QualifiedComputationalReproduction,
@@ -1761,12 +1762,46 @@ pub struct ClaimProjection {
     /// never use last-writer-wins qualification.
     #[serde(default)]
     pub provenance_evaluations: Vec<RecordedEvidenceProvenanceEvaluation>,
+    /// Evaluation IDs with a separately verified, committed authority receipt.
+    /// Plain event replay never marks an evaluator decision authority-qualified.
+    #[serde(default)]
+    pub authority_qualified_evaluation_event_ids: BTreeSet<ScientificEventId>,
     pub event_count: u64,
     pub last_event_hash: ContentHash,
 }
 
 impl ClaimProjection {
+    /// Rebuild a source-only projection. Signed evaluator events remain
+    /// unreceipted here and cannot promote qualified evidence maturity.
     pub fn rebuild(events: &[SignedScientificEvent]) -> Result<Self> {
+        Self::rebuild_with_authorized_evaluations(events, &BTreeSet::new())
+    }
+
+    /// Rebuild with evaluation event IDs that the caller has independently
+    /// verified against committed, trusted authority receipts. This entry point
+    /// is crate-private so raw clients cannot self-assert authority qualification.
+    pub(crate) fn rebuild_with_authorized_evaluations(
+        events: &[SignedScientificEvent],
+        authority_qualified_evaluation_event_ids: &BTreeSet<ScientificEventId>,
+    ) -> Result<Self> {
+        let observed_evaluation_ids = events
+            .iter()
+            .filter_map(|event| match &event.envelope.payload {
+                ScientificEventPayload::EvidenceProvenanceEvaluated { .. } => {
+                    Some(event.envelope.event_id)
+                }
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
+        if authority_qualified_evaluation_event_ids
+            .iter()
+            .any(|event_id| !observed_evaluation_ids.contains(event_id))
+        {
+            return Err(Error::Validation(
+                "authority-qualified evaluation ID is not an evaluation event in the replay stream"
+                    .to_string(),
+            ));
+        }
         let first = events
             .first()
             .ok_or_else(|| Error::Validation("cannot project an empty event stream".to_string()))?;
@@ -1813,6 +1848,7 @@ impl ClaimProjection {
             attestations: Vec::new(),
             provenance_declarations: Vec::new(),
             provenance_evaluations: Vec::new(),
+            authority_qualified_evaluation_event_ids: authority_qualified_evaluation_event_ids.clone(),
             event_count: 1,
             last_event_hash: first.event_hash()?,
         };
@@ -2044,7 +2080,7 @@ impl ClaimProjection {
             return EvidenceProvenanceDisposition::IdenticalContentDigestIndeterminate;
         }
 
-        let evaluations = self
+        let matching_evaluations = self
             .provenance_evaluations
             .iter()
             .filter(|entry| {
@@ -2055,6 +2091,14 @@ impl ClaimProjection {
                     && entry.evaluation.policy_version == EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION
             })
             .collect::<Vec<_>>();
+        let evaluations = matching_evaluations
+            .iter()
+            .copied()
+            .filter(|entry| self.authority_qualified_evaluation_event_ids.contains(&entry.evaluation_event_id))
+            .collect::<Vec<_>>();
+        if !matching_evaluations.is_empty() && evaluations.is_empty() {
+            return EvidenceProvenanceDisposition::EvaluationAwaitingAuthorityReceipt;
+        }
         if !evaluations.is_empty() {
             let distinct_reviewers = evaluations
                 .iter()
