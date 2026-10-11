@@ -65,7 +65,7 @@ pub struct SymthaeaAdvice {
     pub input_digest: String,
     pub action: LearningSuggestion,
     /// Self-reported model confidence (0..=1000); not a calibrated probability.
-    pub confidence_permille: u16,
+    pub reported_confidence_permille: u16,
     pub reason: AdviceReason,
     /// Must refer only to curriculum/content identifiers supplied as allowable
     /// context by Praxis. These identifiers are not automatically citations to
@@ -115,7 +115,7 @@ pub struct ValidatedAdvisorySuggestion {
     pub curriculum_revision: String,
     pub input_digest: String,
     pub action: LearningSuggestion,
-    pub confidence_permille: u16,
+    pub reported_confidence_permille: u16,
     pub reason: AdviceReason,
     pub supporting_content_ids: Vec<String>,
 }
@@ -169,7 +169,7 @@ pub fn validate_symthaea_advice(
     if candidate.input_digest != context.input_digest {
         return Err(AdviceRejection::StaleInput);
     }
-    if candidate.confidence_permille > 1000 {
+    if candidate.reported_confidence_permille > 1000 {
         return Err(AdviceRejection::InvalidConfidence);
     }
     if candidate.supporting_content_ids.len() > MAX_SUPPORTING_CONTENT_IDS {
@@ -204,7 +204,7 @@ pub fn validate_symthaea_advice(
         curriculum_revision: candidate.curriculum_revision,
         input_digest: candidate.input_digest,
         action: candidate.action,
-        confidence_permille: candidate.confidence_permille,
+        reported_confidence_permille: candidate.reported_confidence_permille,
         reason: candidate.reason,
         supporting_content_ids: candidate.supporting_content_ids,
     })
@@ -272,7 +272,7 @@ mod tests {
             curriculum_revision: "caps-2026.1".into(),
             input_digest: "blake3:request-abc".into(),
             action: LearningSuggestion::OfferHint,
-            confidence_permille: 720,
+            reported_confidence_permille: 720,
             reason: AdviceReason::RepeatedIncorrectAttempts,
             supporting_content_ids: vec!["lesson.fractions.01".into()],
         }
@@ -285,7 +285,7 @@ mod tests {
         let accepted = result.expect("valid advisory response should be accepted");
         assert_eq!(accepted.action, LearningSuggestion::OfferHint);
         assert_eq!(accepted.skill_id, "math.fractions");
-        assert_eq!(accepted.supporting_content_ids, vec!["lesson.fractions.01"]);
+        assert_eq!(accepted.supporting_content_ids, vec!["lesson.fractions.01".to_string()]);
     }
 
     #[test]
@@ -343,7 +343,7 @@ mod tests {
     fn unsupported_confidence_range_is_rejected() {
         let ids = allowed_content();
         let mut advice = candidate();
-        advice.confidence_permille = 1001;
+        advice.reported_confidence_permille = 1001;
         assert_eq!(
             validate_symthaea_advice(advice, &context(true, false, &ids)),
             Err(AdviceRejection::InvalidConfidence)
