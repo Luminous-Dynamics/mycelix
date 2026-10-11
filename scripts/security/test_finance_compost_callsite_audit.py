@@ -83,7 +83,7 @@ class CompostCallsiteAuditTests(unittest.TestCase):
         self.assertEqual(issues, [])
 
     def test_rust_lifetime_does_not_break_call_scanning(self) -> None:
-        source = "fn lifetime_example<'a>() { let _: Option<&'a str> = None; }\\n" + SAFE
+        source = "fn lifetime_example<'a>() { let _: Option<&'a str> = None; }\n" + SAFE
         issues, count = compost_callsite_issues("lifetime.rs", source)
         self.assertEqual(count, 1)
         self.assertEqual(issues, [])
