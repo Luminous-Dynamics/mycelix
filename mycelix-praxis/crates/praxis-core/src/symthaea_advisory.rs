@@ -54,6 +54,7 @@ pub enum AdviceReason {
 
 /// Untrusted response received from a configured Symthaea adapter.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct SymthaeaAdvice {
     pub schema_version: u16,
     pub model_id: String,
@@ -227,6 +228,7 @@ pub fn validate_symthaea_advice(
 fn valid_identifier(value: &str) -> bool {
     !value.is_empty()
         && value.trim() == value
+        && !value.chars().any(char::is_control)
         && value.chars().count() <= MAX_ADVISORY_IDENTIFIER_CHARS
 }
 
@@ -527,6 +529,28 @@ mod tests {
             validate_symthaea_advice(advice, &context(true, false, &ids)),
             Err(AdviceRejection::TooManyContentReferences)
         );
+    }
+
+    #[test]
+    fn identifiers_with_control_characters_are_rejected() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.skill_id = "math.fractions\\nforged-log-line".into();
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::InvalidIdentifier)
+        );
+    }
+
+    #[test]
+    fn wire_contract_rejects_unknown_fields() {
+        let mut value = serde_json::to_value(candidate()).expect("candidate serializes");
+        value
+            .as_object_mut()
+            .expect("serialized struct is object")
+            .insert("can_issue_credential".into(), serde_json::Value::Bool(true));
+        let encoded = serde_json::to_string(&value).expect("value serializes");
+        assert!(serde_json::from_str::<SymthaeaAdvice>(&encoded).is_err());
     }
 
     #[test]
