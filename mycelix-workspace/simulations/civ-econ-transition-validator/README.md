@@ -91,18 +91,18 @@ it is not a substitute for repeated 100k/1m runs on a documented benchmark host.
 
 Before implementing compaction, use the explicit [checkpoint/compaction design gate](JOURNAL_CHECKPOINT_COMPACTION_DESIGN.md). It records why acknowledged effect IDs must remain as no-redispatch tombstones, which crash boundaries require tests, and why compaction alone cannot reduce the memory needed for the full identity index. The current replay parser also uses borrowed fixed-field splitting rather than allocating a Vec of fields per record.
 
-The recovery-policy API now requires the original idempotency key explicitly and quarantines both a replacement key and a missing original-key binding on unknown outcomes. That key must come from an authoritative durable dispatch record, not be guessed from the recovery contract. **The current J3 journal does not yet persist the original dispatch idempotency key**, and the pure policy is not integrated with a production dispatcher. Therefore the current journal + policy are not yet sufficient to authorize automated same-key retries; an adapter and durable attempt-key binding are required first.
+The recovery-policy API requires the original idempotency key explicitly and quarantines both a replacement key and a missing original-key binding on unknown outcomes. J4 records now persist the original key (hex-encoded) or an explicit no-key marker and replay rejects key-binding changes; legacy J1/J2/J3 entries remain marked `LegacyUnbound`, never treated as proof that no key was used. The pure policy is still not integrated with a production dispatcher, and provider observations/contracts still require independent authentication. A future adapter must read the J4 key binding, verify provider evidence, and couple recovery decisions to durable journal updates before authorizing dispatch.
 
 The `EffectLedger` in `lib.rs` remains an in-memory reference model. The new
 `durable_journal::DurableEffectJournal` persists begin, indeterminate, and
-acknowledgement records to an append-only local file. It reads legacy J1/J2
-records and writes J3 records, syncing each before returning success. New J3
-begin/indeterminate/acknowledgement records bind the operation to a provider-profile
-digest; acknowledgements also bind the receipt and source-evidence digests. Legacy
-J1/J2 entries replay with no provider-profile binding and may not be automatically
-resumed or acknowledged under a caller-selected provider: they require explicit
-reconciliation. Legacy acknowledgements report absent bindings as `None`, rather
-than upgrading their evidence claim. Startup replay is streaming: a bounded reader
+acknowledgement records to an append-only local file. It reads legacy J1/J2/J3
+records and writes J4 records, syncing each before returning success. J4
+begin/indeterminate/acknowledgement records preserve the original idempotency-key
+binding alongside the provider-profile digest; acknowledgements also bind the
+receipt and source-evidence digests. Legacy J1/J2 entries replay with no provider-
+profile binding, and legacy J1/J2/J3 entries replay with no original-key binding.
+These missing facts remain explicit and require reconciliation rather than being
+upgraded. Startup replay is streaming: a bounded reader
 processes one newline-terminated record at a time (maximum 4,096 record bytes and
 1,024 decoded effect-ID bytes), rejects an unterminated final record, and does not
 create a second in-memory copy of the complete journal. The effect index itself
