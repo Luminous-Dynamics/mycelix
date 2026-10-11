@@ -88,6 +88,8 @@ export interface SendPayload {
   amount: number;
   currency: string;
   memo?: string;
+  /** Same stable key is reused by every executor retry. Optional only for legacy persisted items. */
+  idempotencyKey?: string;
 }
 
 /** Request payment payload */
@@ -503,6 +505,12 @@ export class OfflineQueue {
         (i) => i.idempotencyKey === options.idempotencyKey && i.status !== 'failed' && i.status !== 'cancelled'
       );
       if (existing) {
+        const samePayload =
+          existing.type === type &&
+          JSON.stringify(existing.payload) === JSON.stringify(payload);
+        if (!samePayload) {
+          throw new Error('Idempotency key reused with a different queued operation payload');
+        }
         return existing as QueuedOperation<T>;
       }
     }
@@ -543,14 +551,15 @@ export class OfflineQueue {
     amount: number,
     currency: string,
     memo?: string,
-    options?: { priority?: number }
+    options?: { priority?: number; idempotencyKey?: string }
   ): Promise<QueuedOperation<SendPayload>> {
+    const idempotencyKey = options?.idempotencyKey ?? `send:${generateQueueItemId()}`;
     return this.enqueue<SendPayload>(
       'send',
-      { to, amount, currency, memo },
+      { to, amount, currency, memo, idempotencyKey },
       {
         ...options,
-        idempotencyKey: `send:${to}:${amount}:${currency}:${Date.now()}`,
+        idempotencyKey,
       }
     );
   }
@@ -930,14 +939,34 @@ function createNoOpExecutor(): QueueExecutor {
  * Create an executor that delegates to the wallet
  */
 export function createWalletExecutor(wallet: {
-  send(to: string, amount: number, currency: string, memo?: string): Promise<unknown>;
+  send(
+    to: string,
+    amount: number,
+    currency: string,
+    memo?: string,
+    idempotencyKey?: string
+  ): Promise<unknown>;
 }): QueueExecutor {
   return {
     execute: async (operation) => {
       if (operation.type === 'send') {
         const payload = operation.payload as SendPayload;
         try {
-          await wallet.send(payload.to, payload.amount, payload.currency, payload.memo);
+          const idempotencyKey = payload.idempotencyKey ?? operation.idempotencyKey;
+          if (!idempotencyKey) {
+            return {
+              success: false,
+              error: 'Queued payment has no stable idempotency key; refusing automatic dispatch',
+              retryable: false,
+            };
+          }
+          await wallet.send(
+            payload.to,
+            payload.amount,
+            payload.currency,
+            payload.memo,
+            idempotencyKey
+          );
           return { success: true };
         } catch (error) {
           return {
