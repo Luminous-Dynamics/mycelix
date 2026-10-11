@@ -437,7 +437,7 @@ mod tests {
         let registry = registry();
         assert_eq!(registry.registry_status, "initial_discovery_inventory");
         assert!(!registry.qualified_for_execution);
-        assert_eq!(registry.models.len(), 12);
+        assert_eq!(registry.models.len(), 13);
     }
 
     #[test]
@@ -448,13 +448,14 @@ mod tests {
             "regenerative.economics.energy-network-science.v1",
             "regenerative.doughnut.place-portrait.v1",
             "regenerative.circular-economy.v1",
+            "regenerative.land.agroecology-outcomes.v1",
         ] {
             assert!(ids.contains(id), "missing regenerative framework: {id}");
         }
         let external = registry.models.iter()
             .filter(|model| model.epistemic_status == "external_framework")
             .collect::<Vec<_>>();
-        assert_eq!(external.len(), 3);
+        assert_eq!(external.len(), 4);
         for model in external {
             assert!(model.source_refs.is_empty(), "external refs must not masquerade as implementation source refs");
             assert!(!model.research_refs.is_empty(), "external framework needs source links");
