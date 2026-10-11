@@ -61,9 +61,10 @@ effectiveness, mastery, credential eligibility, or authorization.
 
 The Rust `parse_symthaea_advice_response` helper enforces a 16 KiB raw-byte
 ceiling before deserializing and rejects malformed/unknown-field responses.
-Transport timeouts, process authentication, and calling this helper on every
-production adapter response remain responsibilities of the host adapter. JSON
-Schema cannot enforce a limit on the original wire-body byte length.
+Transport streaming limits (to avoid buffering an oversized body first),
+timeouts, process authentication, and calling this helper on every production
+adapter response remain responsibilities of the host adapter. JSON Schema
+cannot enforce a limit on the original wire-body byte length.
 
 ## Validation
 
