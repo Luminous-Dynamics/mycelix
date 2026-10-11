@@ -583,56 +583,13 @@ pub fn deposit_collateral(_input: DepositCollateralInput) -> ExternResult<Record
 
 /// Confirm a pending deposit after collateral has been verified.
 ///
-/// Only the original depositor can confirm. Transitions Pending -> Confirmed.
-/// Uses link-based indexing for O(1) lookup instead of chain scan.
+/// DISABLED: legacy confirmation must remain unavailable while deposits lack
+/// authenticated custody evidence and source-specific SAP issuance receipts.
 #[hdk_extern]
-pub fn confirm_deposit(deposit_id: String) -> ExternResult<Record> {
-    let links = get_links(
-        LinkQuery::try_new(anchor_hash(&deposit_id)?, LinkTypes::DepositIdToDeposit)?,
-        GetStrategy::default(),
-    )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Deposit not found".into()
-    )))?;
-    let hash = ActionHash::try_from(link.target.clone())
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-    let record = follow_update_chain(hash)?;
-    let deposit = record
-        .entry()
-        .to_app_option::<CollateralBridgeDeposit>()
-        .map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Deserialization error: {:?}",
-                e
-            )))
-        })?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Deposit entry missing".into()
-        )))?;
-
-    verify_caller_is_did(&deposit.depositor_did)?;
-
-    if deposit.status != BridgeDepositStatus::Pending {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Deposit is {:?}, only Pending deposits can be confirmed",
-            deposit.status
-        ))));
-    }
-
-    let now = sys_time()?;
-    let confirmed = CollateralBridgeDeposit {
-        status: BridgeDepositStatus::Confirmed,
-        completed_at: Some(now),
-        ..deposit
-    };
-
-    let action_hash = update_entry(
-        record.action_address().clone(),
-        &EntryTypes::CollateralBridgeDeposit(confirmed),
-    )?;
-
-    get(action_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())))
+pub fn confirm_deposit(_deposit_id: String) -> ExternResult<Record> {
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Legacy collateral confirmation is disabled until authenticated custody/valuation evidence and source-specific issuance receipts are available".into()
+    )))
 }
 
 /// Redeem collateral by marking a deposit as redeemed (SAP returned, collateral released).
@@ -2151,69 +2108,11 @@ pub struct DepositFiatInput {
     pub external_reference: String,
 }
 
-/// Create a fiat bridge deposit (inbound: fiat -> SAP). Requires Citizen+ tier verifier.
+/// DISABLED: fiat intake must not create pending records without authenticated external-resource evidence and a qualified issuance path.
 #[hdk_extern]
-pub fn deposit_fiat(input: DepositFiatInput) -> ExternResult<Record> {
-    verify_citizen_tier()?;
-    verify_caller_is_did(&input.verifier_did)?;
-    let now = sys_time()?;
-
-    if input.fiat_amount == 0 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Fiat amount must be positive".into()
-        )));
-    }
-    if !input.exchange_rate.is_finite() || input.exchange_rate <= 0.0 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Exchange rate must be a finite positive number".into()
-        )));
-    }
-
-    let sap_minted = (input.fiat_amount as f64 * input.exchange_rate) as u64;
-
-    let deposit_id = format!(
-        "fiat:{}:{}:{}",
-        input.depositor_did,
-        input.fiat_currency,
-        now.as_micros()
-    );
-
-    let deposit = FiatBridgeDeposit {
-        id: deposit_id.clone(),
-        depositor_did: input.depositor_did.clone(),
-        fiat_currency: input.fiat_currency,
-        fiat_amount: input.fiat_amount,
-        sap_minted,
-        exchange_rate: input.exchange_rate,
-        verifier_did: input.verifier_did,
-        status: "Pending".into(),
-        external_reference: input.external_reference,
-        created_at: now,
-        verified_at: None,
-    };
-
-    let hash = create_entry(&EntryTypes::FiatBridgeDeposit(deposit))?;
-
-    create_link(
-        anchor_hash("fiat_deposits")?,
-        hash.clone(),
-        LinkTypes::FiatDepositRegistry,
-        (),
-    )?;
-
-    broadcast_finance_event(BroadcastFinanceEventInput {
-        event_type: FinanceEventType::FiatDeposited,
-        subject_did: input.depositor_did,
-        amount: Some(sap_minted),
-        payload: serde_json::json!({
-            "deposit_id": deposit_id,
-            "fiat_amount": input.fiat_amount,
-        })
-        .to_string(),
-    })?;
-
-    get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Fiat deposit not found".into()
+pub fn deposit_fiat(_input: DepositFiatInput) -> ExternResult<Record> {
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Fiat deposit intake is disabled until external-resource authority, exact deposit identity, and a source-specific non-replayable SAP issuance receipt are implemented".into()
     )))
 }
 
