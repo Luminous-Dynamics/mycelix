@@ -50,6 +50,8 @@ pub const DEFAULT_EVIDENCE_POLICY_ID: &str = "mycelix-evidence-policy";
 pub const DEFAULT_EVIDENCE_POLICY_VERSION: &str = "1.2.0";
 pub const EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID: &str = "mycelix-evidence-provenance-evaluation";
 pub const EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION: &str = "1.0.0";
+/// The pinned v1.0.0 evaluation policy requires two distinct reviewers to agree.
+pub const EVIDENCE_PROVENANCE_EVALUATION_MIN_REVIEWERS: usize = 2;
 /// Client clocks may be slightly ahead, but cannot place authoritative events
 /// arbitrarily into the future.
 pub const MAX_EVENT_FUTURE_SKEW_SECONDS: i64 = 300;
@@ -402,6 +404,7 @@ impl EvidenceProvenanceDeclaration {
 pub enum EvidenceProvenanceDisposition {
     NoProvenance,
     AssertedNewCollectionUnqualified,
+    InsufficientIndependentEvaluations,
     QualifiedIndependentReplication,
     QualifiedComputationalReproduction,
     NotQualified,
@@ -1717,6 +1720,16 @@ pub struct RecordedEvidenceProvenance {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordedEvidenceAttachment {
+    pub evidence_event_id: ScientificEventId,
+    pub sequence: u64,
+    pub artifact_id: ArtifactId,
+    pub content_hash: ContentHash,
+    pub actor: ActorId,
+    pub acting_organization: Option<OrganizationId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordedEvidenceProvenanceEvaluation {
     pub evaluation_event_id: ScientificEventId,
     pub sequence: u64,
@@ -1737,6 +1750,9 @@ pub struct ClaimProjection {
     pub lifecycle: ClaimLifecycle,
     pub evidence_profile: EvidenceProfile,
     pub evidence: Vec<EvidenceArtifact>,
+    /// Actor-attributed evidence submission events; retained for independence checks.
+    #[serde(default)]
+    pub evidence_attachments: Vec<RecordedEvidenceAttachment>,
     pub attestations: Vec<RecordedAttestation>,
     /// Actor-attributed provenance assertions. Missing means unknown, not independent.
     #[serde(default)]
@@ -1793,6 +1809,7 @@ impl ClaimProjection {
             lifecycle: ClaimLifecycle::Active,
             evidence_profile: EvidenceProfile::default(),
             evidence: Vec::new(),
+            evidence_attachments: Vec::new(),
             attestations: Vec::new(),
             provenance_declarations: Vec::new(),
             provenance_evaluations: Vec::new(),
@@ -1837,6 +1854,14 @@ impl ClaimProjection {
                         ));
                     }
                     projection.evidence.push(artifact.clone());
+                    projection.evidence_attachments.push(RecordedEvidenceAttachment {
+                        evidence_event_id: event.envelope.event_id,
+                        sequence: event.envelope.sequence,
+                        artifact_id: artifact.id,
+                        content_hash: artifact.content_hash,
+                        actor: event.envelope.actor.clone(),
+                        acting_organization: event.envelope.acting_organization.clone(),
+                    });
                 }
                 ScientificEventPayload::EvidenceProvenanceDeclared { declaration, .. } => {
                     validate_provenance_references(
@@ -2031,6 +2056,13 @@ impl ClaimProjection {
             })
             .collect::<Vec<_>>();
         if !evaluations.is_empty() {
+            let distinct_reviewers = evaluations
+                .iter()
+                .map(|entry| entry.evaluator.clone())
+                .collect::<BTreeSet<_>>();
+            if distinct_reviewers.len() < EVIDENCE_PROVENANCE_EVALUATION_MIN_REVIEWERS {
+                return EvidenceProvenanceDisposition::InsufficientIndependentEvaluations;
+            }
             let outcomes = evaluations.iter().map(|entry| entry.evaluation.outcome).collect::<Vec<_>>();
             if outcomes.iter().any(|outcome| *outcome != outcomes[0]) {
                 return EvidenceProvenanceDisposition::ConflictingEvaluationsIndeterminate;
@@ -2391,6 +2423,26 @@ fn validate_provenance_evaluation(
     if declaration.actor == *evaluator {
         return Err(Error::Validation(
             "provenance declaration author cannot evaluate their own declaration".to_string(),
+        ));
+    }
+    if projection.evidence_attachments.iter().any(|record| {
+        record.artifact_id == evaluation.artifact_id && record.actor == *evaluator
+    }) {
+        return Err(Error::Validation(
+            "evidence uploader cannot independently evaluate their own artifact submission"
+                .to_string(),
+        ));
+    }
+    if projection.provenance_evaluations.iter().any(|record| {
+        record.evaluator == *evaluator
+            && record.evaluation.provenance_event_id == evaluation.provenance_event_id
+            && record.evaluation.scope == evaluation.scope
+            && record.evaluation.policy_id == evaluation.policy_id
+            && record.evaluation.policy_version == evaluation.policy_version
+    }) {
+        return Err(Error::Validation(
+            "reviewer may submit only one evaluation per declaration, scope, and policy version"
+                .to_string(),
         ));
     }
     let evaluator_is_attester = projection.attestations.iter().any(|record| {
