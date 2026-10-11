@@ -33,6 +33,8 @@ import {
   filter,
   distinctUntilChanged,
 } from '../src/reactive/index.js';
+import { HolochainFinanceProvider, PaymentSubmissionError } from '../src/wallet/finance-provider.js';
+import type { ConductorManager } from '../src/wallet/conductor.js';
 import {
   IdentityCache,
   formatIdentity,
@@ -930,6 +932,46 @@ import {
   type QueueItemId,
   type SendPayload,
 } from '../src/wallet/offline-queue.js';
+
+describe('HolochainFinanceProvider payment idempotency', () => {
+  it('preserves the operation key after an ambiguous direct-send failure', async () => {
+    const transportError = new Error('response lost after possible commit');
+    const callZome = vi.fn().mockRejectedValue(transportError);
+    const conductor = {
+      isOnline: true,
+      isConnected: true,
+      callZome,
+    } as unknown as ConductorManager;
+    const provider = new HolochainFinanceProvider(conductor, {
+      myDid: 'did:mycelix:alice',
+    });
+
+    let caught: unknown;
+    try {
+      await provider.send(
+        'did:mycelix:alice',
+        'did:mycelix:bob',
+        100,
+        'TEND',
+        'invoice',
+        undefined,
+        'stable-payment-key'
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(PaymentSubmissionError);
+    expect((caught as PaymentSubmissionError).idempotencyKey).toBe('stable-payment-key');
+    expect((caught as PaymentSubmissionError).originalError).toBe(transportError);
+    expect(callZome).toHaveBeenCalledWith(expect.objectContaining({
+      zome_name: 'payments',
+      fn_name: 'send_payment',
+      payload: expect.objectContaining({ idempotency_key: 'stable-payment-key' }),
+    }));
+    provider.destroy();
+  });
+});
 
 describe('OfflineQueue', () => {
   let queue: OfflineQueue;
