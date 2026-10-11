@@ -10,7 +10,9 @@
 
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::CrossClusterNotification;
-use mycelix_finance_types::CollateralHealthStatus;
+use mycelix_finance_types::{
+    compute_diversification_bonus, CollateralAssetClass, CollateralComponent, CollateralHealthStatus,
+};
 
 // =============================================================================
 // STRING LENGTH LIMITS — Prevent DHT bloat attacks
@@ -1125,26 +1127,55 @@ fn validate_multi_collateral_economics(
     }
 
     #[derive(Deserialize)]
-    struct ComponentType {
+    struct ComponentInput {
         #[serde(rename = "type")]
-        asset_type: String,
+        asset_class: CollateralAssetClass,
+        asset_id: String,
+        weight: f64,
+        current_value: u64,
     }
-    let components: Vec<ComponentType> = serde_json::from_str(&pos.components_json)
+    let raw_components: Vec<ComponentInput> = serde_json::from_str(&pos.components_json)
         .map_err(|_| "Components JSON is invalid")?;
-    if components.is_empty() || components.iter().any(|component| component.asset_type.trim().is_empty()) {
-        return Err("Components must include at least one non-empty asset type");
-    }
-    let mut distinct_types: Vec<&str> = components
-        .iter()
-        .map(|component| component.asset_type.as_str())
-        .collect();
-    distinct_types.sort_unstable();
-    distinct_types.dedup();
-    let expected_bonus = (distinct_types.len().saturating_sub(1) as f64 * 0.05).min(0.20);
-    if !ltv_values_match(pos.diversification_bonus, expected_bonus) {
-        return Err("Diversification bonus does not match distinct component asset types");
+    if raw_components.is_empty() {
+        return Err("Components must include at least one collateral asset");
     }
 
+    let mut seen_ids = std::collections::HashSet::new();
+    let mut aggregate_value = 0u64;
+    let mut weight_total = 0.0f64;
+    let mut components = Vec::with_capacity(raw_components.len());
+    for component in raw_components {
+        if component.asset_id.trim().is_empty() || !seen_ids.insert(component.asset_id.clone()) {
+            return Err("Component asset IDs must be non-empty and unique");
+        }
+        if !component.weight.is_finite() || component.weight <= 0.0 || component.weight > 1.0 {
+            return Err("Component weights must be finite and in (0, 1]");
+        }
+        if component.current_value == 0 {
+            return Err("Every collateral component must have a positive valuation");
+        }
+        aggregate_value = aggregate_value
+            .checked_add(component.current_value)
+            .ok_or("Aggregate collateral value overflow")?;
+        weight_total += component.weight;
+        components.push(CollateralComponent {
+            asset_id: component.asset_id,
+            asset_class: component.asset_class,
+            weight: component.weight,
+            current_value: component.current_value,
+        });
+    }
+    if (weight_total - 1.0).abs() > 1e-6 {
+        return Err("Component weights must sum to 1.0");
+    }
+    if aggregate_value != pos.aggregate_value {
+        return Err("Aggregate value does not match the component valuations");
+    }
+
+    let expected_bonus = compute_diversification_bonus(&components);
+    if !ltv_values_match(pos.diversification_bonus, expected_bonus) {
+        return Err("Diversification bonus does not match distinct component asset classes");
+    }
     let base_ltv = pos.aggregate_obligation as f64 / pos.aggregate_value as f64;
     let expected_ltv = (base_ltv - expected_bonus).max(0.0);
     if !ltv_values_match(pos.effective_ltv, expected_ltv) {
@@ -1155,7 +1186,6 @@ fn validate_multi_collateral_economics(
     }
     Ok(())
 }
-
 fn validate_create_multi_collateral_position(
     _action: EntryCreationAction,
     pos: MultiCollateralPosition,
@@ -2402,7 +2432,7 @@ mod tests {
         MultiCollateralPosition {
             id: "mcp:test:001".into(),
             holder_did: "did:mycelix:alice".into(),
-            components_json: r#"[{"type":"ETH","amount":1000}]"#.into(),
+            components_json: r#"[{"type":"Cryptocurrency","asset_id":"eth-1","weight":1.0,"current_value":100000}]"#.into(),
             aggregate_value: 100_000,
             aggregate_obligation: 50_000,
             diversification_bonus: 0.0,
