@@ -43,6 +43,17 @@ A model result intended to support a decision must bind the following into one i
 
 Never cite a newer source revision using an older run's output. If a source, input, solver, configuration or test changes, the evidence status becomes stale until rerun or an explicit impact analysis shows why the change is irrelevant.
 
+## Type-appropriate promotion requirements
+
+The record state is interpreted together with its evidence class. Do not make a source fact pretend to be a solver run, and do not let a model result omit its execution identity.
+
+- **Derived / ModelResult:** `PassedAtSpecifiedFidelity` requires an immutable run-manifest digest, analysis-tool fingerprint and at least one content-addressed result artifact.
+- **SourceFact / Measurement / EngineeringAssumption:** a passed record requires the content-addressed source or measurement/assumption artifact, but does not require a solver run or analysis-tool fingerprint merely because it is being reviewed. Measurement records should bind calibration and collection-method material in their source/evidence artifacts.
+- **IndependentCheck:** a passed record requires a separate independent-check record that binds its method, tool fingerprint and result artifact. It must not reuse the primary implementation as an “independent” check.
+- **TestFixture:** may exercise validators and state transitions, but can never be promoted as passed engineering evidence.
+
+The typed envelope validates these requirements and digest shape. The artifact verifier must still fetch the cited bytes and recompute digests; the receipt verifier must still authenticate signatures and authority. A structurally valid record is not proof that these external bytes, signatures or scientific claims are correct.
+
 ## Evidence-state vocabulary
 
 Use machine-readable states that never imply more than they establish:
