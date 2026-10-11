@@ -1278,6 +1278,29 @@ mod tests {
         assert_eq!(authoritative_projection.maturity(), crate::scientific_events::EvidenceMaturity::IndependentlyReplicated);
     }
 
+    #[test]
+    fn trusted_receipt_service_keys_preserve_rotation_history_without_distrusting_active_key() {
+        let resolver = MemoryScientificIdentityResolver::new();
+        let log = governed(resolver);
+        let active_key = key(250).verifying_key().to_bytes();
+        let previous_key = key(249).verifying_key().to_bytes();
+
+        let rotated = log
+            .clone()
+            .with_trusted_receipt_service_keys(BTreeSet::from([active_key, previous_key]))
+            .unwrap();
+        assert!(rotated.trusted_receipt_service_keys.contains(&active_key));
+        assert!(rotated.trusted_receipt_service_keys.contains(&previous_key));
+
+        assert!(log
+            .clone()
+            .with_trusted_receipt_service_keys(BTreeSet::from([previous_key]))
+            .is_err(), "active signer cannot be excluded from the trusted receipt set");
+        assert!(log
+            .with_trusted_receipt_service_keys(BTreeSet::new())
+            .is_err(), "trusted receipt keys cannot be empty while signing is enabled");
+    }
+
     fn proposed(claim_id: ClaimId) -> ScientificEventPayload {
         let object_id = ResearchObjectId::new();
         ScientificEventPayload::ClaimProposed {
