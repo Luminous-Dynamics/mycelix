@@ -121,6 +121,38 @@ class EconomyAtlasRegistryTests(unittest.TestCase):
         errors = validate_registry(self.registry)
         self.assertTrue(any("duplicate validation finding ID" in error for error in errors), errors)
 
+    def test_all_findings_are_structured_and_bound_to_exact_sources(self) -> None:
+        seen_ids: set[str] = set()
+        for model in self.registry["models"]:
+            sources = {
+                (source["repository"], source["path"], source["ref"])
+                for source in model["source_refs"]
+            }
+            for finding in model.get("validation_findings", []):
+                self.assertIsInstance(finding, dict)
+                for field in (
+                    "finding_id",
+                    "severity",
+                    "source_repository",
+                    "source_file",
+                    "source_commit",
+                    "observation",
+                    "required_follow_up",
+                ):
+                    self.assertIsInstance(finding.get(field), str)
+                    self.assertTrue(finding[field].strip(), (model["model_id"], field))
+                self.assertNotIn(finding["finding_id"], seen_ids)
+                seen_ids.add(finding["finding_id"])
+                self.assertIn(
+                    (
+                        finding["source_repository"],
+                        finding["source_file"],
+                        finding["source_commit"],
+                    ),
+                    sources,
+                )
+        self.assertEqual(len(seen_ids), 7)
+
     def test_currency_semantics_remain_separate_variants(self) -> None:
         self.registry["models"] = [
             m for m in self.registry["models"]
