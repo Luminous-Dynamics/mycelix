@@ -72,6 +72,7 @@ def validate_registry(data: object) -> list[str]:
         return errors
 
     seen_ids: set[str] = set()
+    seen_finding_ids: set[str] = set()
     present_ids: set[str] = set()
     for index, model in enumerate(models):
         prefix = f"models[{index}]"
@@ -159,6 +160,41 @@ def validate_registry(data: object) -> list[str]:
                 if key in seen_source_keys:
                     errors.append(f"{sp} duplicates the same repository/path/commit reference")
                 seen_source_keys.add(key)
+
+        findings = model.get("validation_findings", [])
+        if not isinstance(findings, list):
+            errors.append(f"{prefix}.validation_findings must be an array")
+            findings = []
+        source_triplets = {
+            (source.get("repository"), source.get("path"), source.get("ref"))
+            for source in sources
+            if isinstance(source, dict)
+        }
+        for finding_index, finding in enumerate(findings):
+            fp = f"{prefix}.validation_findings[{finding_index}]"
+            if not isinstance(finding, dict):
+                errors.append(f"{fp} must be a JSON object")
+                continue
+            for field in (
+                "finding_id", "severity", "source_file", "source_commit",
+                "observation", "required_follow_up"
+            ):
+                value = finding.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    errors.append(f"{fp}.{field} must be a non-empty string")
+            finding_id = finding.get("finding_id")
+            if isinstance(finding_id, str) and finding_id:
+                if finding_id in seen_finding_ids:
+                    errors.append(f"duplicate validation finding ID: {finding_id}")
+                seen_finding_ids.add(finding_id)
+            source_file = finding.get("source_file")
+            source_commit = finding.get("source_commit")
+            if not isinstance(source_commit, str) or not SHA40.fullmatch(source_commit):
+                errors.append(f"{fp}.source_commit must be a lowercase 40-hex Git commit SHA")
+            if (not isinstance(source_file, str) or not isinstance(source_commit, str)
+                    or not any(path == source_file and ref == source_commit
+                               for _repo, path, ref in source_triplets)):
+                errors.append(f"{fp} must bind to an exact source_refs path and commit in the same model record")
 
     missing_variants = REQUIRED_VARIANTS - present_ids
     if missing_variants:
