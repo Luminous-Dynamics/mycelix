@@ -76,11 +76,11 @@ pub enum RecoveryAction {
 /// inputs so tests are deterministic and the caller's clock assumptions remain
 /// visible. This function does not verify observations or guarantee truth; it
 /// only enforces the policy over the facts supplied by a separately verified
-/// adapter.
+/// adapter. `expected_idempotency_key` must come from the authoritative durable
+/// dispatch record; `None` means no original key is recorded.
 pub fn decide_recovery(
     expected_provider_profile_digest: &str,
     expected_request_digest: &str,
-    /// Key supplied from the authoritative durable dispatch record; None means no key is recorded.
     expected_idempotency_key: Option<&str>,
     observation: &ProviderObservation,
     idempotency: &ProviderIdempotencyContract,
@@ -383,7 +383,8 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
-                Some("effect-key-1"), &unknown(), &live_contract(), NOW, 30),
+                Some("effect-key-1"),
+                &unknown(), &live_contract(), NOW, 30),
             RecoveryAction::RetryWithSameKey {
                 idempotency_key: "effect-key-1".to_owned(),
             },
@@ -402,7 +403,8 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
-                Some("effect-key-1"), &unknown(), &contract, NOW, 30),
+                Some("effect-key-1"),
+                &unknown(), &contract, NOW, 30),
             RecoveryAction::RemainIndeterminate { .. },
         ));
     }
@@ -419,7 +421,8 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
-                Some("effect-key-1"), &unknown(), &contract, NOW, 30),
+                Some("effect-key-1"),
+                &unknown(), &contract, NOW, 30),
             RecoveryAction::Quarantine { .. },
         ));
     }
@@ -670,7 +673,8 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
-                Some("effect-key-1"), &unknown(), &contract, NOW, 30),
+                Some("effect-key-1"),
+                &unknown(), &contract, NOW, 30),
             RecoveryAction::Quarantine {
                 reason: "provider idempotency contract is bound to a different provider profile",
             },
@@ -712,7 +716,8 @@ mod tests {
             decide_recovery(
                 PROVIDER_A,
                 REQUEST_A,
-                Some("effect-key-1"), &unknown(), &contract, NOW, 30),
+                Some("effect-key-1"),
+                &unknown(), &contract, NOW, 30),
             RecoveryAction::Quarantine { .. },
         ));
     }
