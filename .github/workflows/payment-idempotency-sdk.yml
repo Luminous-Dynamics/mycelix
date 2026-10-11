@@ -1,0 +1,49 @@
+name: Payment Idempotency SDK Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/sdk-ts/src/clients/finance/**'
+      - 'mycelix-workspace/sdk-ts/src/wallet/**'
+      - 'mycelix-workspace/sdk-ts/tests/wallet.test.ts'
+      - 'mycelix-workspace/sdk-ts/package.json'
+      - 'mycelix-workspace/sdk-ts/package-lock.json'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/payment-idempotency-sdk.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: payment-idempotency-sdk-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  payment-idempotency-sdk:
+    name: Wallet and Finance idempotency contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # actions/setup-node v7.1.0
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mycelix-workspace/sdk-ts/package-lock.json
+      - name: Install TypeScript SDK dependencies
+        working-directory: mycelix-workspace/sdk-ts
+        run: npm ci
+      - name: Typecheck SDK source
+        working-directory: mycelix-workspace/sdk-ts
+        run: npm run typecheck
+      - name: Run focused payment idempotency regressions
+        working-directory: mycelix-workspace/sdk-ts
+        run: >-
+          npx vitest run
+          src/clients/finance/__tests__/finance.test.ts
+          tests/wallet.test.ts
+          -t "sendPayment extracts entry from record|HolochainFinanceProvider payment idempotency|should dedupe exact payloads by idempotency key|should reject changed payload under an existing idempotency key|should preserve an explicit payment key in the persisted payload|should forward the persisted payment key to the executor"
