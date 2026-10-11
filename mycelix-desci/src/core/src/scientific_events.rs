@@ -3780,6 +3780,166 @@ mod tests {
     }
 
     #[test]
+    fn independent_evaluation_qualifies_new_collection_for_replication_count() {
+        let claim_id = ClaimId::new();
+        let t0 = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:creator"), t0.clone(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let data = artifact_with(ArtifactId::new(), b"independent study data", "ipfs://study-data");
+        let attached = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis, actor("did:key:creator"), t0.clone() + Duration::seconds(10),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: data.clone() },
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let declaration = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attached, actor("did:key:collector"), t0.clone() + Duration::seconds(20),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: provenance_assertion(&data, EvidenceOriginRelation::NewCollection, Vec::new()),
+                },
+            ).unwrap(), &key(2),
+        ).unwrap();
+        let attestation = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &declaration, actor("did:key:replicator"), t0.clone() + Duration::seconds(30),
+                ScientificEventPayload::AttestationRecorded {
+                    attestation: Attestation {
+                        id: AttestationId::new(), claim_id,
+                        kind: AttestationKind::IndependentReplication { outcome: EvidenceOutcome::Supports },
+                        evidence_ids: vec![data.id],
+                        statement: Some("Synthetic supportive replication".to_string()),
+                        protocol_reference: Some("protocol:replication-v1".to_string()),
+                    },
+                },
+            ).unwrap(), &key(3),
+        ).unwrap();
+        let evaluation = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attestation, actor("did:key:independent-reviewer"), t0 + Duration::seconds(40),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &data,
+                        EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        "Synthetic fixture: provenance independently reviewed",
+                    ),
+                },
+            ).unwrap(), &key(4),
+        ).unwrap();
+
+        let projection = ClaimProjection::rebuild(&[genesis, attached, declaration, attestation, evaluation]).unwrap();
+        assert_eq!(projection.provenance_disposition(data.id), EvidenceProvenanceDisposition::QualifiedIndependentReplication);
+        assert_eq!(projection.evidence_profile.supportive_independent_replication_count, 1);
+        assert_eq!(projection.evidence_profile.qualified_independent_replication_count, 1);
+        assert_eq!(projection.maturity(), EvidenceMaturity::IndependentlyReplicated);
+    }
+
+    #[test]
+    fn conflicting_provenance_evaluations_are_indeterminate_not_last_writer_wins() {
+        let claim_id = ClaimId::new();
+        let t0 = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:creator"), t0.clone(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let data = artifact_with(ArtifactId::new(), b"contested study data", "ipfs://contested-data");
+        let attached = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis, actor("did:key:creator"), t0.clone() + Duration::seconds(10),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: data.clone() },
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let declaration = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attached, actor("did:key:collector"), t0.clone() + Duration::seconds(20),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: provenance_assertion(&data, EvidenceOriginRelation::NewCollection, Vec::new()),
+                },
+            ).unwrap(), &key(2),
+        ).unwrap();
+        let first = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &declaration, actor("did:key:reviewer-a"), t0.clone() + Duration::seconds(30),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &data,
+                        EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        "Reviewer A qualifies",
+                    ),
+                },
+            ).unwrap(), &key(3),
+        ).unwrap();
+        let second = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &first, actor("did:key:reviewer-b"), t0 + Duration::seconds(40),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &data,
+                        EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        EvidenceProvenanceEvaluationOutcome::NotQualified,
+                        "Reviewer B finds provenance insufficient",
+                    ),
+                },
+            ).unwrap(), &key(4),
+        ).unwrap();
+        let projection = ClaimProjection::rebuild(&[genesis, attached, declaration, first, second]).unwrap();
+        assert_eq!(projection.provenance_disposition(data.id), EvidenceProvenanceDisposition::ConflictingEvaluationsIndeterminate);
+        assert_eq!(projection.evidence_profile.qualified_independent_replication_count, 0);
+        assert_ne!(projection.maturity(), EvidenceMaturity::IndependentlyReplicated);
+    }
+
+    #[test]
+    fn provenance_declaration_author_cannot_evaluate_their_own_record() {
+        let claim_id = ClaimId::new();
+        let t0 = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:creator"), t0.clone(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let data = artifact_with(ArtifactId::new(), b"self-evaluation", "ipfs://self-evaluation");
+        let attached = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis, actor("did:key:creator"), t0.clone() + Duration::seconds(10),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: data.clone() },
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let declaration = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attached, actor("did:key:collector"), t0.clone() + Duration::seconds(20),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: provenance_assertion(&data, EvidenceOriginRelation::NewCollection, Vec::new()),
+                },
+            ).unwrap(), &key(2),
+        ).unwrap();
+        let self_review = provenance_evaluation(
+            declaration.envelope.event_id, &data,
+            EvidenceProvenanceEvaluationScope::IndependentReplication,
+            EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+            "Self review must not be accepted",
+        );
+        let projection = ClaimProjection::rebuild(&[genesis, attached, declaration]).unwrap();
+        assert!(validate_provenance_evaluation(
+            &self_review, &actor("did:key:collector"), &projection
+        ).unwrap_err().to_string().contains("cannot evaluate their own declaration"));
+    }
+
+    #[test]
     fn provenance_declaration_requires_schema_v4() {
         let claim_id = ClaimId::new();
         let genesis = SignedScientificEvent::sign(
