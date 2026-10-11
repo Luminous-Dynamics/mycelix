@@ -500,6 +500,18 @@ class RawCreditCallerAuditTests(unittest.TestCase):
         self.assertIn("Non-zero staking returns are disabled", return_body)
         self.assertNotIn("call(", return_body)
 
+    def test_staking_withdrawal_requires_return_before_terminal_mutation(self) -> None:
+        repository_root = Path(__file__).resolve().parents[2]
+        source = (
+            repository_root / "mycelix-finance/zomes/staking/coordinator/src/lib.rs"
+        ).read_text(encoding="utf-8")
+        body = rust_function_body(source, "withdraw_stake")
+        return_at = body.find("return_stake_sap(")
+        terminal_mutation_at = body.find("let action_hash = update_entry(")
+        self.assertGreaterEqual(return_at, 0)
+        self.assertGreater(terminal_mutation_at, return_at)
+        self.assertIn(")?;", body[return_at:terminal_mutation_at])
+
 
 if __name__ == "__main__":
     unittest.main()
