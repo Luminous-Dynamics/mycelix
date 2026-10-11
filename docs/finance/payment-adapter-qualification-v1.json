@@ -59,9 +59,9 @@
     },
     {
       "id": "SWIFT_CBPR_PLUS_ADDRESS_CUTOVER",
-      "url": "https://www.swift.com/standards/iso-20022/iso-20022-bytes/call-action-november-2026",
+      "url": "https://www.swift.com/insights/news/iso-20022-bytes-payments-call-action-november-2026",
       "observed_on": "2026-10-11",
-      "relevance": "Swift says that after 2026-11-14 unstructured postal addresses will no longer be accepted in the cross-border space; scope the fixture to the named Swift CBPR+ market-practice profile, not all ISO 20022 uses."
+      "relevance": "Swift's May 2026 guidance for the November 2026 CBPR+ milestone; scope remains profile-specific, not a rule for every ISO 20022 usage."
     },
     {
       "id": "VISA_DIRECT_CONNECT",
@@ -94,6 +94,12 @@
       "id": "MYCELIX_BANKING_CONTROL_PLANE",
       "url": "https://github.com/Luminous-Dynamics/mycelix/pull/4466",
       "relevance": "Existing professional banking and finance control-plane proposal."
+    },
+    {
+      "id": "VISA_DIRECT_ERROR_CODES",
+      "url": "https://developer.visa.com/capabilities/visa-direct-connect/error-codes",
+      "observed_on": "2026-10-11",
+      "relevance": "Visa Direct documents client-reference conflict and amount/currency inconsistency errors for previously processed payout requests; exact handling remains bound to the applicable product profile."
     }
   ],
   "cases": [
@@ -287,6 +293,31 @@
       "forbidden_claims": [
         "silent_identifier_truncation",
         "provider_reference_is_globally_unique_without_scope"
+      ]
+    },
+    {
+      "id": "PAY-VISA-005",
+      "adapter_class": "visa_direct_payout",
+      "condition": "A request reuses a Client Reference ID previously processed with a different request identity, amount, or currency.",
+      "event_sequence": [
+        "prior_request_accepted_or_processed",
+        "conflicting_request_received",
+        "request_identity_comparison"
+      ],
+      "expected_disposition": "IdempotencyConflict",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "none from the conflicting request; preserve the original operation identity and reconcile its provider state",
+      "required_evidence": [
+        "client_reference_id",
+        "prior_request_digest",
+        "new_request_digest",
+        "prior_amount_and_currency",
+        "new_amount_and_currency",
+        "provider_error_or_query_result"
+      ],
+      "forbidden_claims": [
+        "changed_payload_under_same_client_reference_is_a_new_payment",
+        "provider_conflict_can_be_bypassed_without_new_authorized_intent"
       ]
     },
     {
