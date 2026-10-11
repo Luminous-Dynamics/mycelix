@@ -34,6 +34,17 @@ use std::path::PathBuf;
 // Test Utilities
 // ============================================================================
 
+/// Fresh operation key for each test payment; retries in a test reuse the input value.
+fn unique_test_idempotency_key() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT_KEY: AtomicU64 = AtomicU64::new(0);
+    format!(
+        "sweettest-payment-{}-{}",
+        chrono::Utc::now().timestamp_micros(),
+        NEXT_KEY.fetch_add(1, Ordering::Relaxed)
+    )
+}
+
 /// Path to the pre-built DNA bundle
 fn dna_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
