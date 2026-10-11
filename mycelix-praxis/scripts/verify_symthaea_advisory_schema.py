@@ -39,6 +39,8 @@ ADAPTER_REQUIRED_TESTS = {
     "exact_limit_body_reaches_parser_without_crossing_the_size_gate",
     "malformed_json_is_rejected",
     "reader_errors_fail_closed",
+    "trusted_validation_path_returns_only_a_validated_suggestion",
+    "trusted_validation_path_rejects_an_unallowed_action",
 }
 
 REQUIRED_TESTS = {
@@ -265,6 +267,23 @@ def main() -> int:
         "observed_bytes.load(Ordering::SeqCst)" in adapter_source
         and "MAX_ADVISORY_RESPONSE_BYTES + 1" in adapter_source,
         "adapter regression test must assert the exact maximum-plus-one read bound",
+        errors,
+    )
+    require(
+        "pub fn read_bounded_and_validate_symthaea_advice(" in adapter_source,
+        "adapter must expose a read-plus-semantic-validation integration path",
+        errors,
+    )
+    parse_candidate = adapter_source.find("let candidate = parse_bounded_response(&bytes)?;")
+    semantic_validation = adapter_source.find("validate_symthaea_advice(candidate, context)")
+    require(
+        parse_candidate >= 0 and semantic_validation > parse_candidate,
+        "preferred host integration path must semantically validate after bounded parsing",
+        errors,
+    )
+    require(
+        "BoundedAdviceReadError::Rejected" in adapter_source,
+        "semantic rejection must fail closed through the adapter result",
         errors,
     )
 
