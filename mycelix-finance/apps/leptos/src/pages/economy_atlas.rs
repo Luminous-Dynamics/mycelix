@@ -110,7 +110,7 @@ fn render_model_card(model: AtlasModel) -> impl IntoView {
                     }.into_any()
                 } else {
                     source_refs.into_iter().map(|source| {
-                        let short_ref = &source.ref_[..source.ref_.len().min(12)];
+                        let short_ref = source.ref_.chars().take(12).collect::<String>();
                         let label = format!("{} · {} · {}", source.repository, source.path, short_ref);
                         let url = source.url;
                         view! {
@@ -220,10 +220,11 @@ pub fn EconomyAtlasPage() -> impl IntoView {
                                 return true;
                             }
                             let haystack = format!(
-                                "{} {} {} {} {}",
+                                "{} {} {} {} {} {}",
                                 model.model_id,
                                 model.title,
                                 model.domain.join(" "),
+                                model.epistemic_status,
                                 model.execution_status,
                                 model.limitations.join(" ")
                             )
@@ -299,14 +300,13 @@ mod tests {
                 sources += 1;
                 assert_eq!(source.ref_.len(), 40, "source ref is not a Git SHA: {}", model.model_id);
                 assert!(source.ref_.bytes().all(|byte| byte.is_ascii_hexdigit()));
-                let expected = format!(
-                    "https://github.com/{}/blob/{}/{}/",
+                let expected_prefix = format!(
+                    "https://github.com/{}/blob/{}/",
                     source.repository,
-                    source.ref_,
-                    ""
+                    source.ref_
                 );
                 assert!(
-                    source.url.starts_with(&expected.trim_end_matches('/')),
+                    source.url.starts_with(&expected_prefix),
                     "source URL is not pinned to its declared repository/revision: {}",
                     source.url
                 );
