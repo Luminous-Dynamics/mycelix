@@ -456,8 +456,18 @@ class RawCreditCallerAuditTests(unittest.TestCase):
             ),
             (
                 "mycelix-finance/zomes/bridge/coordinator/src/lib.rs",
+                "deposit_fiat",
+                "Fiat deposit intake is disabled",
+            ),
+            (
+                "mycelix-finance/zomes/bridge/coordinator/src/lib.rs",
                 "verify_fiat_deposit",
                 "Fiat-deposit verification and SAP issuance are disabled",
+            ),
+            (
+                "mycelix-finance/zomes/bridge/coordinator/src/lib.rs",
+                "confirm_deposit",
+                "Legacy collateral confirmation is disabled",
             ),
             (
                 "mycelix-finance/zomes/staking/coordinator/src/lib.rs",
