@@ -81,6 +81,12 @@ check(
     ),
 )
 check(
+    "public journal API documents key confidentiality and native ACL boundary",
+    "The idempotency_key parameter is the exact original key" in journal
+    and "recoverable (hex-encoded, not encrypted) form" in journal
+    and "Non-Unix native ACLs are not inspected by this crate." in journal,
+)
+check(
     "J4 begin intent is synced before Started is returned",
     ordered_tokens(
         journal,
