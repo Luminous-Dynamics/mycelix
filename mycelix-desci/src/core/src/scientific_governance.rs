@@ -261,6 +261,7 @@ pub enum ScientificAction {
     ImportLegacyClaim,
     AttachEvidence,
     DeclareEvidenceProvenance,
+    EvaluateEvidenceProvenance,
     RecordAttestation,
     CorrectAttestation,
     WithdrawAttestation,
@@ -280,6 +281,7 @@ impl ScientificAction {
             Self::SupersedeClaim => 7,
             Self::RetractClaim => 8,
             Self::DeclareEvidenceProvenance => 9,
+            Self::EvaluateEvidenceProvenance => 10,
         }
     }
 
@@ -289,6 +291,7 @@ impl ScientificAction {
             ScientificEventPayload::LegacyClaimImported { .. } => Self::ImportLegacyClaim,
             ScientificEventPayload::EvidenceAttached { .. } => Self::AttachEvidence,
             ScientificEventPayload::EvidenceProvenanceDeclared { .. } => Self::DeclareEvidenceProvenance,
+            ScientificEventPayload::EvidenceProvenanceEvaluated { .. } => Self::EvaluateEvidenceProvenance,
             ScientificEventPayload::AttestationRecorded { .. } => Self::RecordAttestation,
             ScientificEventPayload::AttestationCorrected { .. } => Self::CorrectAttestation,
             ScientificEventPayload::AttestationWithdrawn { .. } => Self::WithdrawAttestation,
@@ -350,7 +353,7 @@ impl ScientificAuthorizationPolicy for DefaultScientificAuthorizationPolicy {
     }
 
     fn policy_version(&self) -> &'static str {
-        "1.1.0"
+        "1.2.0"
     }
 
     fn authorize(
@@ -425,6 +428,43 @@ impl ScientificAuthorizationPolicy for DefaultScientificAuthorizationPolicy {
                 }
                 AuthorizationDecision::allow(
                     "authorized actor may declare provenance; declaration is not independent qualification",
+                )
+            }
+            (
+                ScientificEventPayload::EvidenceProvenanceEvaluated { evaluation, .. },
+                Some(projection),
+            ) => {
+                if !actor.has_role(ScientificRole::Reviewer) {
+                    return AuthorizationDecision::deny(
+                        "provenance evaluation requires the reviewer role",
+                    );
+                }
+                let declaration = match projection
+                    .provenance_declarations
+                    .iter()
+                    .find(|record| record.provenance_event_id == evaluation.provenance_event_id)
+                {
+                    Some(record) => record,
+                    None => {
+                        return AuthorizationDecision::deny(
+                            "provenance evaluation references an unknown declaration",
+                        );
+                    }
+                };
+                if declaration.actor == actor.actor {
+                    return AuthorizationDecision::deny(
+                        "provenance declaration author cannot evaluate their own declaration",
+                    );
+                }
+                if declaration.declaration.artifact_id != evaluation.artifact_id
+                    || declaration.declaration.content_hash != evaluation.content_hash
+                {
+                    return AuthorizationDecision::deny(
+                        "provenance evaluation must bind the exact declaration artifact and digest",
+                    );
+                }
+                AuthorizationDecision::allow(
+                    "independent reviewer may evaluate provenance under the declared policy version",
                 )
             }
             (ScientificEventPayload::AttestationRecorded { attestation }, Some(projection)) => {
@@ -840,6 +880,22 @@ mod tests {
             ScientificAction::DeclareEvidenceProvenance
         );
         assert_eq!(ScientificAction::DeclareEvidenceProvenance.code(), 9);
+        let evaluation_payload = ScientificEventPayload::EvidenceProvenanceEvaluated {
+            claim_id: ClaimId::new(),
+            evaluation: crate::scientific_events::EvidenceProvenanceEvaluation {
+                evaluation_schema_version: 1,
+                provenance_event_id: crate::scientific_events::ScientificEventId::new(),
+                artifact_id: crate::scientific_events::ArtifactId::new(),
+                content_hash: crate::scientific_events::ContentHash::digest(b"fixture"),
+                scope: crate::scientific_events::EvidenceProvenanceEvaluationScope::IndependentReplication,
+                outcome: crate::scientific_events::EvidenceProvenanceEvaluationOutcome::Indeterminate,
+                policy_id: crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID.to_string(),
+                policy_version: crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION.to_string(),
+                reason: "synthetic fixture evaluation".to_string(),
+            },
+        };
+        assert_eq!(ScientificAction::from_payload(&evaluation_payload), ScientificAction::EvaluateEvidenceProvenance);
+        assert_eq!(ScientificAction::EvaluateEvidenceProvenance.code(), 10);
         assert_eq!(ScientificAction::AttachEvidence.code(), 3);
         assert_eq!(ScientificAction::RecordAttestation.code(), 4);
         assert_eq!(ScientificAction::RetractClaim.code(), 8);
