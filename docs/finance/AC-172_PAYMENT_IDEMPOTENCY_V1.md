@@ -58,7 +58,7 @@ The claim index is a discovery mechanism. A count of mutable links is **not** tr
 - SAP amount-plus-fee uses `checked_add` rather than unchecked `u64` arithmetic.
 - Payment fees and demurrage compost are written to a durable pending-compost outbox in the same local source-chain transaction as the source balance update. The payments zome's `post_commit` hook drains the outbox only after that source-chain transaction commits.
 - Treasury compost delivery carries a stable effect ID. `receive_compost` checks the immutable receipt for that pool/effect before crediting the balance; a retry after a committed delivery returns current pool state rather than applying the amount again.
-- Treasury receipt IDs bind the destination pool and effect ID. Reusing the key with changed amount/source is rejected. Treasury requires a matching committed payments outbox record before creating a new receipt; the effect ID alone is not authority. Direct unkeyed compost credits are rejected.
+- Treasury receipt IDs bind the destination pool and effect ID. Reusing the key with changed amount/source is rejected. Treasury requires a matching committed payments outbox record before creating a new receipt; the effect ID alone is not authority. For `payment-fee:v1:<payment-id>`, the Payments verifier additionally resolves exactly one committed Payment record and checks its ID, SAP currency, fee amount, and sender before authorizing Treasury. Direct unkeyed compost credits are rejected.
 - This separation follows Holochain's transaction model: source-chain writes from one zome function call commit atomically, but work performed through a nested zome call is its own call/transaction. The durable queue is committed with the payment first; `post_commit` then dispatches Treasury work. See [Holochain zome function transactions](https://developer.holochain.org/build/zome-functions/) and [post_commit lifecycle contract](https://developer.holochain.org/build/callbacks-and-lifecycle-hooks/).
 - SAP amount-plus-fee uses `checked_add` rather than unchecked `u64` arithmetic.
 - Payment identity, parties, amount, fee, currency, payment type, memo, and creation time are immutable across later status updates.
@@ -73,6 +73,7 @@ Coordinator unit tests cover:
 - fingerprint changes for amount, payee, currency, payment type, and memo;
 - same key/same sender with changed payload retaining the same operation ID but changing the fingerprint;
 - checked debit-total overflow.
+- committed Payment record binding for fee outbox destination, amount, SAP currency, and sender.
 
 Integrity unit tests cover:
 - valid sender-authored creation claims;
