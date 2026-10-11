@@ -159,7 +159,7 @@ Implemented in this branch:
 - an independent standard-library Python checker for schema/Rust enum parity, response bounds, trust gates, and the required adversarial test inventory;
 - a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, `praxis-core` formatting/tests, and clippy, including while the PR is a draft;
 - a 16 KiB bounded JSON parser that rejects oversized bodies before deserialization and rejects malformed or unknown-field responses;
-- twenty-six authored Rust regression tests covering contract validation, bounded wire decoding, adversarial cases, and BLAKE3 golden vectors.
+- twenty-seven authored Rust regression tests covering contract validation, bounded wire decoding, adversarial cases, and BLAKE3 golden vectors.
 
 Not yet implemented or qualified:
 - live Symthaea service/process adapter;
