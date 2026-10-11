@@ -926,6 +926,7 @@ describe('Contact Utilities', () => {
 import {
   OfflineQueue,
   createOfflineQueue,
+  createWalletExecutor,
   type QueueItemId,
   type SendPayload,
 } from '../src/wallet/offline-queue.js';
@@ -997,6 +998,25 @@ describe('OfflineQueue', () => {
       });
       expect(item.idempotencyKey).toBe('logical-payment-123');
       expect((item.payload as SendPayload).idempotencyKey).toBe('logical-payment-123');
+    });
+
+    it('should forward the persisted payment key to the executor', async () => {
+      const item = await queue.enqueueSend('@alice', 100, 'TEND', 'invoice', {
+        idempotencyKey: 'logical-payment-456',
+      });
+      const send = vi.fn().mockResolvedValue({ id: 'payment-op:v1:receipt' });
+      const executor = createWalletExecutor({ send });
+
+      const result = await executor.execute(item);
+
+      expect(result.success).toBe(true);
+      expect(send).toHaveBeenCalledWith(
+        '@alice',
+        100,
+        'TEND',
+        'invoice',
+        'logical-payment-456'
+      );
     });
   });
 
