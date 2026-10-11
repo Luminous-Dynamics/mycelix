@@ -454,7 +454,51 @@ pub fn verify_pending_compost_effect(input: VerifyPendingCompostEffectInput) -> 
         matching += 1;
     }
 
-    Ok(matching == 1)
+    if matching != 1 {
+        return Ok(false);
+    }
+
+    // A payment-fee effect must be linked to the committed Payment record itself;
+    // a queue tag alone must not be sufficient evidence for Treasury to credit it.
+    if let Some(payment_id) = input.effect_id.strip_prefix("payment-fee:v1:") {
+        if payment_id.is_empty() {
+            return Ok(false);
+        }
+        let payment_links = get_links(
+            LinkQuery::try_new(
+                anchor_hash(payment_id)?,
+                LinkTypes::PaymentIdToPayment,
+            )?,
+            GetStrategy::default(),
+        )?;
+        if payment_links.len() != 1 {
+            return Ok(false);
+        }
+        let payment_action = ActionHash::try_from(payment_links[0].target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "Payment fee outbox index target is not an ActionHash".into()
+            )))?;
+        let payment_record = follow_update_chain(payment_action)?;
+        let payment = payment_record
+            .entry()
+            .to_app_option::<Payment>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                "Payment fee outbox target decode failed: {e}"
+            ))))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Payment fee outbox index resolved to the wrong entry type".into()
+            )))?;
+        if payment.id != payment_id
+            || payment.currency != "SAP"
+            || payment.fee != input.amount
+            || payment.from_did != input.source_member_did
+            || payment.fee == 0
+        {
+            return Ok(false);
+        }
+    }
+
+    Ok(true)
 }
 
 /// Drain the pending compost queue by retrying all queued deliveries.
