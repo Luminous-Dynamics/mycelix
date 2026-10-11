@@ -41,6 +41,12 @@ CALL_MARKER = re.compile(
 )
 CALL_START = re.compile(r"\bcall\s*\(")
 EFFECT_ID = re.compile(r"\beffect_id\s*:\s*Some\s*\(")
+POST_COMMIT_MARKER = re.compile(
+    r"#\s*\[\s*hdk_extern\s*\(\s*infallible\s*\)\s*\]\s*"
+    r"pub\s+fn\s+post_commit\s*\([^)]*\)\s*\{",
+    re.DOTALL,
+)
+POST_COMMIT_NAME = re.compile(r"\bfn\s+post_commit\s*\(")
 
 
 def mask_rust_source(source: str, *, keep_string_literals: bool) -> str:
@@ -187,6 +193,22 @@ def compost_callsite_issues(path: str, source: str) -> tuple[list[str], int]:
     return issues, len(matches)
 
 
+def post_commit_contract_issues(path: str, source: str) -> list[str]:
+    """Enforce Holochain's infallible, no-return post_commit callback contract."""
+    code_mask = mask_rust_source(source, keep_string_literals=False)
+    declarations = list(POST_COMMIT_NAME.finditer(code_mask))
+    if len(declarations) != 1:
+        return [
+            f"{path}: expected exactly one post_commit declaration; found {len(declarations)}"
+        ]
+    valid = list(POST_COMMIT_MARKER.finditer(code_mask))
+    if len(valid) != 1:
+        return [
+            f"{path}: post_commit must use #[hdk_extern(infallible)] and have no return type"
+        ]
+    return []
+
+
 def audit_repository(root: Path) -> tuple[list[str], int, list[str]]:
     issues: list[str] = []
     mirror_passes: list[str] = []
@@ -200,10 +222,16 @@ def audit_repository(root: Path) -> tuple[list[str], int, list[str]]:
         if not right.is_file():
             issues.append(f"missing workspace Finance mirror: {right_rel}")
             continue
+        left_source = left.read_text(encoding="utf-8")
+        right_source = right.read_text(encoding="utf-8")
         if left.read_bytes() != right.read_bytes():
             issues.append(f"Finance mirrors are not byte-identical: {left_rel} != {right_rel}")
         else:
             mirror_passes.append(left_rel)
+
+        if left_rel.endswith("payments/coordinator/src/lib.rs"):
+            issues.extend(post_commit_contract_issues(left_rel, left_source))
+            issues.extend(post_commit_contract_issues(right_rel, right_source))
 
     total_calls = 0
     excluded_parts = {".git", "target", "node_modules", "vendor"}
