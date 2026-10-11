@@ -1113,6 +1113,9 @@ fn validate_update_agricultural_asset(
 fn validate_multi_collateral_economics(
     pos: &MultiCollateralPosition,
 ) -> Result<(), &'static str> {
+    if pos.components_json.is_empty() || pos.components_json.len() > MAX_COMPONENTS_JSON_LEN {
+        return Err("Components JSON must be non-empty and within size limits");
+    }
     if pos.aggregate_value == 0 {
         return Err("Aggregate collateral value must be positive; unpriced positions cannot be classified");
     }
@@ -1170,6 +1173,12 @@ fn validate_multi_collateral_economics(
     }
     if aggregate_value != pos.aggregate_value {
         return Err("Aggregate value does not match the component valuations");
+    }
+    for component in &components {
+        let expected_weight = component.current_value as f64 / aggregate_value as f64;
+        if (component.weight - expected_weight).abs() > 1e-6 {
+            return Err("Component weight must match its share of aggregate value");
+        }
     }
 
     let expected_bonus = compute_diversification_bonus(&components);
