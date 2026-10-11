@@ -37,6 +37,8 @@ struct AtlasModel {
     #[serde(default)]
     source_refs: Vec<AtlasSource>,
     #[serde(default)]
+    research_refs: Vec<AtlasResearchReference>,
+    #[serde(default)]
     limitations: Vec<String>,
     #[serde(default)]
     validation_findings: Vec<AtlasValidationFinding>,
@@ -64,6 +66,16 @@ struct AtlasSource {
     url: String,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasResearchReference {
+    title: String,
+    publisher: String,
+    reference_type: String,
+    #[serde(default)]
+    published_year: Option<u16>,
+    url: String,
+}
+
 fn evidence_label(status: &str) -> &'static str {
     match status {
         "implemented_source" => "Implementation source exists",
@@ -71,6 +83,7 @@ fn evidence_label(status: &str) -> &'static str {
         "design_only" => "Design-only",
         "conceptual" => "Conceptual",
         "discovery_required" => "Discovery required",
+        "external_framework" => "External framework",
         _ => "Unknown status",
     }
 }
@@ -82,6 +95,7 @@ fn evidence_class(status: &str) -> &'static str {
         "design_only" => "atlas-evidence-design",
         "conceptual" => "atlas-evidence-concept",
         "discovery_required" => "atlas-evidence-unknown",
+        "external_framework" => "atlas-evidence-external",
         _ => "atlas-evidence-unknown",
     }
 }
@@ -104,6 +118,7 @@ fn render_model_card(model: AtlasModel) -> impl IntoView {
     let execution_status = model.execution_status.replace('_', " ");
     let limitations = model.limitations;
     let source_refs = model.source_refs;
+    let research_refs = model.research_refs;
     let validation_findings = model.validation_findings;
     let details = model.details;
 
@@ -392,7 +407,7 @@ mod tests {
         let registry = registry();
         assert_eq!(registry.registry_status, "initial_discovery_inventory");
         assert!(!registry.qualified_for_execution);
-        assert_eq!(registry.models.len(), 9);
+        assert_eq!(registry.models.len(), 12);
     }
 
     #[test]
