@@ -48,8 +48,60 @@ def write_callers(zomes_root: Path) -> None:
 
 
 
+def _rust_lexeme_end(source: str, index: int) -> int:
+    """Return the end of a comment/string/char token, or index if none begins."""
+    if source.startswith("//", index):
+        newline = source.find("\n", index + 2)
+        return len(source) if newline < 0 else newline + 1
+
+    if source.startswith("/*", index):
+        depth = 1
+        cursor = index + 2
+        while cursor < len(source) and depth:
+            if source.startswith("/*", cursor):
+                depth += 1
+                cursor += 2
+            elif source.startswith("*/", cursor):
+                depth -= 1
+                cursor += 2
+            else:
+                cursor += 1
+        if depth:
+            raise AssertionError("unterminated Rust block comment in function body")
+        return cursor
+
+    # Raw Rust string tokens: r"...", r##"..."##, br"...", br##"..."##.
+    prefix = re.match(r"(?:br|cr|r)(?P<hashes>#{0,})\"", source[index:])
+    if prefix is not None:
+        hashes = prefix.group("hashes")
+        opening_quote = index + prefix.end() - 1
+        closing = source.find("\"" + hashes, opening_quote + 1)
+        if closing < 0:
+            raise AssertionError("unterminated Rust raw string in function body")
+        return closing + 1 + len(hashes)
+
+    # Ordinary (including byte/C-prefixed, which are skipped at their quote).
+    if source[index] == '"':
+        cursor = index + 1
+        while cursor < len(source):
+            if source[cursor] == "\\":
+                cursor += 2
+            elif source[cursor] == '"':
+                return cursor + 1
+            else:
+                cursor += 1
+        raise AssertionError("unterminated Rust string in function body")
+
+    # A lifetime such as 'a is not a character literal; only skip a complete
+    # one-scalar/escaped Rust character token.
+    char_literal = re.match(r"'(?:\\.|[^'\\])'", source[index:])
+    if char_literal is not None:
+        return index + char_literal.end()
+    return index
+
+
 def rust_function_body(source: str, name: str) -> str:
-    """Extract a simple Rust function body for source-level fail-closed guards."""
+    """Extract a Rust function body while ignoring braces in comments/literals."""
     marker = f"fn {name}("
     start = source.find(marker)
     if start < 0:
@@ -57,18 +109,44 @@ def rust_function_body(source: str, name: str) -> str:
     opening = source.find("{", start)
     if opening < 0:
         raise AssertionError(f"missing body for Rust function {name}")
+
     depth = 0
-    for index in range(opening, len(source)):
+    index = opening
+    while index < len(source):
+        lexeme_end = _rust_lexeme_end(source, index)
+        if lexeme_end != index:
+            index = lexeme_end
+            continue
         if source[index] == "{":
             depth += 1
         elif source[index] == "}":
             depth -= 1
             if depth == 0:
                 return source[opening + 1:index]
+        index += 1
     raise AssertionError(f"unterminated Rust function {name}")
 
-
 class RawCreditCallerAuditTests(unittest.TestCase):
+    def test_rust_function_body_ignores_braces_in_literals_and_nested_comments(self) -> None:
+        source = r'''
+fn disabled(_input: String) -> Result<(), String> {
+    let ordinary = "brace } and opener {";
+    let raw = r###"raw } { // not a comment"###;
+    let escaped = "quoted \\" } text";
+    /* outer close } /* nested opener { */ outer tail { */
+    // line comment contains } and {
+    if ordinary.len() + raw.len() + escaped.len() > 0 {
+        return Err("disabled".into());
+    }
+}
+fn later() { panic!("must not be part of disabled body"); }
+'''
+        body = rust_function_body(source, "disabled")
+        self.assertIn("outer tail", body)
+        self.assertIn('return Err("disabled".into())', body)
+        self.assertNotIn("fn later()", body)
+
+
     def test_public_hdk_extern_raw_credit_is_detected(self) -> None:
         source = (
             "#[hdk_extern]\n"
