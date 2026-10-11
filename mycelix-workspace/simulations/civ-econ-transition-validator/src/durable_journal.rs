@@ -1010,7 +1010,7 @@ mod tests {
 
         let bytes = fs::read(temp.journal_path()).unwrap();
         assert!(
-            bytes.split(|byte| *byte == b'\\n')
+            bytes.split(|byte| *byte == b'\n')
                 .filter(|record| !record.is_empty())
                 .all(|record| record.len() <= MAX_JOURNAL_RECORD_BYTES),
             "every persisted record must fit the bounded replay limit",
@@ -1027,7 +1027,7 @@ mod tests {
         let temp = TempDir::new();
         let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
         assert_eq!(
-            journal.begin_effect("invalid-key", REQUEST_A, PROVIDER_A, Some("bad\\nkey")),
+            journal.begin_effect("invalid-key", REQUEST_A, PROVIDER_A, Some("bad\nkey")),
             Err(JournalError::InvalidIdempotencyKey),
         );
         let oversized_key = "k".repeat(MAX_IDEMPOTENCY_KEY_BYTES + 1);
