@@ -94,6 +94,7 @@ pub enum BeginResult {
         receipt_digest: String,
         source_evidence_digest: Option<String>,
         provider_profile_digest: Option<String>,
+        idempotency_key_binding: IdempotencyKeyBinding,
     },
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -106,6 +107,7 @@ pub enum IndeterminateResult {
         receipt_digest: String,
         source_evidence_digest: Option<String>,
         provider_profile_digest: Option<String>,
+        idempotency_key_binding: IdempotencyKeyBinding,
     },
 }
 
@@ -311,6 +313,7 @@ impl DurableEffectJournal {
                     receipt_digest: receipt_digest.clone(),
                     source_evidence_digest: existing.source_evidence_digest.clone(),
                     provider_profile_digest: existing.provider_profile_digest.clone(),
+                    idempotency_key_binding: existing.idempotency_key_binding.clone(),
                 },
             });
         }
@@ -414,6 +417,7 @@ impl DurableEffectJournal {
                     receipt_digest: receipt_digest.clone(),
                     source_evidence_digest: existing.source_evidence_digest.clone(),
                     provider_profile_digest: existing.provider_profile_digest.clone(),
+                    idempotency_key_binding: existing.idempotency_key_binding.clone(),
                 }),
             EffectStatus::Indeterminate => return Ok(IndeterminateResult::AlreadyIndeterminate),
             EffectStatus::Pending => {}
@@ -852,6 +856,7 @@ mod tests {
                 receipt_digest: RECEIPT_A.to_owned(),
                 source_evidence_digest: Some(SOURCE_EVIDENCE_A.to_owned()),
                 provider_profile_digest: Some(PROVIDER_A.to_owned()),
+                idempotency_key_binding: IdempotencyKeyBinding::NotUsed,
             }));
         assert!(recovered.unresolved_effect_ids().is_empty());
     }
@@ -977,6 +982,7 @@ mod tests {
                 receipt_digest: RECEIPT_A.to_owned(),
                 source_evidence_digest: Some(SOURCE_EVIDENCE_A.to_owned()),
                 provider_profile_digest: Some(PROVIDER_A.to_owned()),
+                idempotency_key_binding: IdempotencyKeyBinding::Bound("provider-key-1".to_owned()),
             }),
         );
     }
@@ -1245,6 +1251,7 @@ mod tests {
                 receipt_digest: RECEIPT_A.to_owned(),
                 source_evidence_digest: None,
                 provider_profile_digest: None,
+                idempotency_key_binding: IdempotencyKeyBinding::LegacyUnbound,
             }),
         );
         assert_eq!(journal.source_evidence_digest("legacy-payment"), None);
