@@ -11,6 +11,31 @@ Use Symthaea as an optional, replaceable **pedagogical advisor**, not as an unre
 The initial Rust contract is implemented in
 `crates/praxis-core/src/symthaea_advisory.rs`. It validates response shape and bindings. It is **not** a live Symthaea transport, is not wired into the Leptos interface, and is not evidence that Symthaea improves learning outcomes.
 
+## Packaging and transport boundary
+
+A source review of the standalone Symthaea repository at commit
+[`b9af191f380d635f0459b24284c1d1fd6a5516aa`](https://github.com/Luminous-Dynamics/symthaea/commit/b9af191f380d635f0459b24284c1d1fd6a5516aa)
+shows that its root package is part of a multi-crate workspace, while
+`symthaea-core` has its own non-trivial dependency set and default
+`simd` / `parallel` features. Praxis `praxis-core` is shared with Holochain
+zomes, so pulling the full Symthaea facade into `praxis-core` would couple a
+small protocol/wire crate to a much larger runtime and could contaminate WASM
+dependency resolution.
+
+**Do not add a Symthaea dependency to `praxis-core` or the Holochain guest
+zomes.** Keep this schema and validator lightweight. When a real adapter is
+built, put it behind a separate host-only boundary and pin the exact Symthaea
+source commit, features, toolchain, and dependency lock. Prefer a local sidecar
+for a desktop/offline deployment or an explicitly opted-in authenticated
+service for browser deployments. Do not use an unauthenticated loopback HTTP
+endpoint as a shortcut. The adapter must cap response bytes before parsing,
+hash the exact bytes it sends using `digest_advisory_request_bytes`, and
+preserve the standard deterministic fallback when no advisor is available.
+
+This is a deployment recommendation derived from source inspection, not an
+implemented transport or proof that the current Symthaea facade can yet satisfy
+the Praxis tutoring contract.
+
 ## Why this boundary
 
 The OECD's *Digital Education Outlook 2026* reports that generative AI can improve task output while excessive dependence can reduce metacognitive engagement and durable learning. Systems designed around explicit pedagogical strategies show more promise than unconstrained answer generation. A 2025 systematic review of 28 K–12 intelligent-tutoring studies covering 4,597 learners found generally positive effects, but the benefits were often smaller when compared with other intelligent tutoring systems, and the evidence base needs longer, more diverse evaluations.
