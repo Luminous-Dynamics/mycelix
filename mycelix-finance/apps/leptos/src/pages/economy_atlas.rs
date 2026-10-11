@@ -347,20 +347,21 @@ mod tests {
                 sources += 1;
                 assert_eq!(source.ref_.len(), 40, "source ref is not a Git SHA: {}", model.model_id);
                 assert!(source.ref_.bytes().all(|byte| byte.is_ascii_hexdigit()));
-                let expected_prefix = format!(
-                    "https://github.com/{}/blob/{}/",
-                    source.repository,
+                assert_eq!(
+                    source.ref_,
+                    source.ref_.to_ascii_lowercase(),
+                    "source ref must use lowercase hexadecimal: {}",
                     source.ref_
                 );
-                assert!(
-                    source.url.starts_with(&expected_prefix),
-                    "source URL is not pinned to its declared repository/revision: {}",
-                    source.url
+                let expected_url = format!(
+                    "https://github.com/{}/blob/{}/{}",
+                    source.repository,
+                    source.ref_,
+                    source.path
                 );
-                assert!(
-                    source.url.ends_with(&source.path),
-                    "source URL path does not match declared source path: {}",
-                    source.url
+                assert_eq!(
+                    source.url, expected_url,
+                    "source URL must exactly match repository/path/commit"
                 );
             }
         }
