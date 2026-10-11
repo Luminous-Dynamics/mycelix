@@ -441,7 +441,7 @@ fn hex_nibble(byte: u8) -> Option<u8> {
     }
 }
 fn decode_hex(value: &str, line: usize) -> Result<Vec<u8>, JournalError> {
-    if value.is_empty() || value.len() % 2 != 0
+    if value.is_empty() || !value.len().is_multiple_of(2)
         || !value.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
     {
         return Err(JournalError::CorruptJournal { line, reason: "effect id is not canonical lowercase hex" });
