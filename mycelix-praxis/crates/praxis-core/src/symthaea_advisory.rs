@@ -643,6 +643,16 @@ mod tests {
     }
 
     #[test]
+    fn bounded_wire_parser_accepts_limit_length_for_parsing() {
+        // Exact-limit bytes pass the size gate; JSON validity is checked next.
+        let encoded = vec![b' '; MAX_ADVISORY_RESPONSE_BYTES];
+        assert_eq!(
+            parse_symthaea_advice_response(&encoded),
+            Err(AdviceWireRejection::MalformedJson)
+        );
+    }
+
+    #[test]
     fn bounded_wire_parser_rejects_malformed_json() {
         assert_eq!(
             parse_symthaea_advice_response(b"{"),
