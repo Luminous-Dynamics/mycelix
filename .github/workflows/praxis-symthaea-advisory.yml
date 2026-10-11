@@ -5,6 +5,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     paths:
       - "mycelix-praxis/crates/praxis-core/**"
+      - "mycelix-praxis/crates/praxis-symthaea-adapter/**"
+      - "mycelix-praxis/Cargo.toml"
       - "mycelix-praxis/schemas/symthaea-advisory-v1.schema.json"
       - "mycelix-praxis/schemas/README.md"
       - "mycelix-praxis/docs/symthaea-advisory-contract.md"
@@ -14,6 +16,8 @@ on:
     branches: [main]
     paths:
       - "mycelix-praxis/crates/praxis-core/**"
+      - "mycelix-praxis/crates/praxis-symthaea-adapter/**"
+      - "mycelix-praxis/Cargo.toml"
       - "mycelix-praxis/schemas/symthaea-advisory-v1.schema.json"
       - "mycelix-praxis/schemas/README.md"
       - "mycelix-praxis/docs/symthaea-advisory-contract.md"
@@ -55,11 +59,14 @@ jobs:
       - name: Verify schema and source contracts
         run: python3 mycelix-praxis/scripts/verify_symthaea_advisory_schema.py
 
-      - name: Check praxis-core formatting
-        run: cargo fmt --manifest-path mycelix-praxis/Cargo.toml -p praxis-core -- --check
+      - name: Check advisory crates formatting
+        run: cargo fmt --manifest-path mycelix-praxis/Cargo.toml -p praxis-core -p praxis-symthaea-adapter -- --check
 
       - name: Test praxis-core
         run: cargo test --manifest-path mycelix-praxis/Cargo.toml -p praxis-core
 
-      - name: Lint praxis-core
-        run: cargo clippy --manifest-path mycelix-praxis/Cargo.toml -p praxis-core --all-targets -- -D warnings
+      - name: Test bounded host adapter
+        run: cargo test --manifest-path mycelix-praxis/Cargo.toml -p praxis-symthaea-adapter
+
+      - name: Lint advisory crates
+        run: cargo clippy --manifest-path mycelix-praxis/Cargo.toml -p praxis-core -p praxis-symthaea-adapter --all-targets -- -D warnings
