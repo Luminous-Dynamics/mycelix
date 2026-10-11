@@ -381,6 +381,20 @@ impl EvidenceProvenanceDeclaration {
                             .to_string(),
                     ));
                 }
+                if !self.parent_artifacts.is_empty() {
+                    return Err(Error::Validation(
+                        "new-collection provenance cannot inherit a prior data lineage; use partial_overlap or a derived relation"
+                            .to_string(),
+                    ));
+                }
+                if self.collection_manifest_commitment.is_none()
+                    && self.supporting_provenance_artifact_ids.is_empty()
+                {
+                    return Err(Error::Validation(
+                        "new-collection provenance requires a collection manifest commitment or supporting provenance artifact"
+                            .to_string(),
+                    ));
+                }
             }
             EvidenceOriginRelation::DerivedFrom
             | EvidenceOriginRelation::CopiedOrRepackagedFrom
@@ -3605,6 +3619,30 @@ mod tests {
             },
         };
         assert_eq!(hex::encode(envelope.signing_bytes().unwrap()), "4d5943454c49582d44455343492d4556454e54000000000d6d7963656c69782d646573636900010000001b6d7963656c69782d63616e6f6e6963616c2d62696e6172792d7631000400000000000000000000000000000001000000000000000000000000000000020000000000000001011111111111111111111111111111111111111111111111111111111111111111000000196469643a6b65793a666978747572652d6576616c7561746f72010000000f726f723a666978747572652d6c6162000000006553f1000000007b010000000c6576616c2d66697874757265000a000000000000000000000000000000020001000000000000000000000000000000040000000000000000000000000000000322222222222222222222222222222222222222222222222222222222222222220101000000266d7963656c69782d65766964656e63652d70726f76656e616e63652d6576616c756174696f6e00000005312e302e300000001473796e746865746963206576616c756174696f6e");
+    }
+
+    #[test]
+    fn new_collection_requires_a_provenance_anchor_and_no_inherited_data_parent() {
+        let data = artifact_with(ArtifactId::new(), b"new collection", "ipfs://new-collection");
+        let mut declaration = provenance_assertion(
+            &data,
+            EvidenceOriginRelation::NewCollection,
+            Vec::new(),
+        );
+        declaration.collection_manifest_commitment = None;
+        declaration.supporting_provenance_artifact_ids.clear();
+        assert!(declaration.validate().unwrap_err().to_string().contains(
+            "requires a collection manifest commitment or supporting provenance artifact"
+        ));
+
+        declaration.collection_manifest_commitment = Some(ContentHash::digest(b"manifest"));
+        declaration.parent_artifacts.push(EvidenceProvenanceParent {
+            artifact_id: ArtifactId::new(),
+            content_hash: ContentHash::digest(b"prior data"),
+        });
+        assert!(declaration.validate().unwrap_err().to_string().contains(
+            "cannot inherit a prior data lineage"
+        ));
     }
 
     #[test]
