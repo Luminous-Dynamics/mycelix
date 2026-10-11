@@ -119,10 +119,27 @@ Authority-receipt protocol v2 binds the exact credential-registry head used to r
 
 ## Schema compatibility
 
-- Schema v2 native events remain verifiable and replayable.
-- New events are emitted as schema v3.
-- `legacy_claim_imported` requires schema v3.
-- Adding an event payload does not change the canonical bytes of existing payload types because every event type has an explicit numeric codec tag.
+- Schema v2 and v3 events remain verifiable and replayable.
+- New events are emitted as schema v4.
+- `legacy_claim_imported` requires schema v3 or newer.
+- `evidence_provenance_declared` requires schema v4 and uses additive canonical payload tag 9. `evidence_provenance_evaluated` also requires schema v4 and uses additive tag 10. Existing payload tags 1–8 remain unchanged.
+- Adding a payload does not renumber the explicit numeric codec tags of existing payload types.
+
+### Evidence provenance evaluation (schema v4)
+
+`evidence_provenance_evaluated` binds an immutable decision to an exact provenance declaration event ID, artifact ID/content digest, scope (`independent_replication` or `computational_reproduction`), outcome (`qualified_for_profile`, `not_qualified`, or `indeterminate`), policy ID/version, and non-empty reason.
+
+The draft evaluation policy uses a fixed policy ID/version and requires the reviewer role at the governed authorization layer. Policy v1.0.0 requires two distinct reviewer identities to agree on the same outcome before a determination can take effect; one reviewer alone is insufficient. Each reviewer may submit only one evaluation per declaration, scope and policy version. An evaluator must differ from the declaration author, artifact uploader, and any replication/reproduction attester using that artifact. A qualified independent-replication decision must target a `new_collection` declaration; computational reproduction must target `same_data_reanalysis`. Evaluations must refer to an already replayed declaration and match its exact artifact/hash.
+
+Current-policy evaluator disagreement yields an indeterminate disposition. A single receipt-backed decision yields `insufficient_independent_evaluations`, not qualification; an unreceipted decision yields `evaluation_awaiting_authority_receipt`. An evaluation on a different artifact, digest, unknown declaration, wrong schema, self-evaluation, or evaluation of one's own uploaded/attested evidence fails closed. Older evaluation policy IDs/versions remain replayable for audit but produce `evaluation_policy_not_current`; new evaluation writes must use the current pinned policy ID/version. Only a two-reviewer unanimous current-policy qualified disposition with committed, trusted authority receipts for both exact evaluation events can contribute to the corresponding qualified counter, and all artifacts named by a supportive attestation must qualify for that scope. `GovernedScientificEventLog::claim_projection` verifies committed receipts against the configured trusted service-key set and exact event/action before marking their event IDs authority-qualified. A receipt is eligible for maturity only if its signed authority snapshot records the reviewer role and the current authorization-policy ID/version; valid receipts issued under a retired authorization policy remain auditable but yield `evaluation_authority_policy_not_current`. Configure retained trusted service keys across signing-key rotation in both the authority audit store and `GovernedScientificEventLog::with_trusted_receipt_service_keys`; the active receipt signer must remain in the wrapper's trusted set.
+
+### Evidence provenance declaration (schema v4)
+
+`evidence_provenance_declared` records an actor-attributed, versioned assertion about an already-attached artifact. The event binds its artifact ID and content digest, optional study and collection activity identifiers, an explicit origin relation, exact parent artifact ID/hash pairs, an optional protocol reference, an optional collection-manifest commitment, and supporting provenance artifact IDs. A `new_collection` declaration must provide both study and collection-activity IDs, must not carry prior-data parent edges, and must include a collection-manifest commitment or at least one attached supporting provenance artifact. Derived, copied/repackaged, same-data-reanalysis, and partial-overlap declarations require exact parent artifact ID/hash pairs.
+
+Projection replay fails closed when the target artifact is absent, the target digest differs, a parent/supporting artifact is missing, a parent digest does not match, or a declaration introduces a lineage cycle. The projection preserves both artifact-uploader identity/context and the provenance declarer's actor/organization. Conflicting declarations and identical-content digests remain indeterminate; the declaration does not independently qualify itself. Plain `ClaimProjection::rebuild` does not treat evaluation signatures as authority: those decisions remain `evaluation_awaiting_authority_receipt` until a committed authority receipt is verified by the governed projection path.
+
+The evidence-assessment policy is versioned to 1.2.0. Supportive attestation counts remain observable source-attribution counts, but do not promote computational-reproduction or independent-replication maturity without separately qualified counts. Draft PR #4953 adds an `evidence_provenance_evaluated` event bound to the exact declaration event, artifact digest, evaluation scope, and pinned evaluation policy/version. The event envelope identifies the evaluator, replay rejects declaration self-evaluation and artifact-attester self-review, and the governance policy requires the reviewer role. Evaluations with conflicting outcomes stay indeterminate rather than using last-writer-wins. The evaluator mechanism is still draft and not runtime-qualified; the pinned policy is not a substitute for independent domain review.
 
 ## File-backend trust boundary
 

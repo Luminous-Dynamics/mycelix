@@ -260,6 +260,8 @@ pub enum ScientificAction {
     ProposeClaim,
     ImportLegacyClaim,
     AttachEvidence,
+    DeclareEvidenceProvenance,
+    EvaluateEvidenceProvenance,
     RecordAttestation,
     CorrectAttestation,
     WithdrawAttestation,
@@ -278,6 +280,8 @@ impl ScientificAction {
             Self::WithdrawAttestation => 6,
             Self::SupersedeClaim => 7,
             Self::RetractClaim => 8,
+            Self::DeclareEvidenceProvenance => 9,
+            Self::EvaluateEvidenceProvenance => 10,
         }
     }
 
@@ -286,6 +290,8 @@ impl ScientificAction {
             ScientificEventPayload::ClaimProposed { .. } => Self::ProposeClaim,
             ScientificEventPayload::LegacyClaimImported { .. } => Self::ImportLegacyClaim,
             ScientificEventPayload::EvidenceAttached { .. } => Self::AttachEvidence,
+            ScientificEventPayload::EvidenceProvenanceDeclared { .. } => Self::DeclareEvidenceProvenance,
+            ScientificEventPayload::EvidenceProvenanceEvaluated { .. } => Self::EvaluateEvidenceProvenance,
             ScientificEventPayload::AttestationRecorded { .. } => Self::RecordAttestation,
             ScientificEventPayload::AttestationCorrected { .. } => Self::CorrectAttestation,
             ScientificEventPayload::AttestationWithdrawn { .. } => Self::WithdrawAttestation,
@@ -347,7 +353,7 @@ impl ScientificAuthorizationPolicy for DefaultScientificAuthorizationPolicy {
     }
 
     fn policy_version(&self) -> &'static str {
-        "1.0.0"
+        "1.2.0"
     }
 
     fn authorize(
@@ -397,6 +403,92 @@ impl ScientificAuthorizationPolicy for DefaultScientificAuthorizationPolicy {
                         "only the claim owner or governed editor may attach evidence",
                     )
                 }
+            }
+            (
+                ScientificEventPayload::EvidenceProvenanceDeclared { declaration, .. },
+                Some(projection),
+            ) => {
+                if !actor.has_any_role(&[
+                    ScientificRole::Contributor,
+                    ScientificRole::Reviewer,
+                    ScientificRole::Editor,
+                    ScientificRole::Institution,
+                ]) {
+                    return AuthorizationDecision::deny(
+                        "actor lacks a scientific role for provenance declaration",
+                    );
+                }
+                if !projection.evidence.iter().any(|artifact| {
+                    artifact.id == declaration.artifact_id
+                        && artifact.content_hash == declaration.content_hash
+                }) {
+                    return AuthorizationDecision::deny(
+                        "provenance declaration does not match an attached evidence artifact",
+                    );
+                }
+                AuthorizationDecision::allow(
+                    "authorized actor may declare provenance; declaration is not independent qualification",
+                )
+            }
+            (
+                ScientificEventPayload::EvidenceProvenanceEvaluated { evaluation, .. },
+                Some(projection),
+            ) => {
+                if evaluation.policy_id
+                    != crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID
+                    || evaluation.policy_version
+                        != crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION
+                {
+                    return AuthorizationDecision::deny(
+                        "new provenance evaluations must use the current pinned policy ID/version",
+                    );
+                }
+                if !actor.has_role(ScientificRole::Reviewer) {
+                    return AuthorizationDecision::deny(
+                        "provenance evaluation requires the reviewer role",
+                    );
+                }
+                let declaration = match projection
+                    .provenance_declarations
+                    .iter()
+                    .find(|record| record.provenance_event_id == evaluation.provenance_event_id)
+                {
+                    Some(record) => record,
+                    None => {
+                        return AuthorizationDecision::deny(
+                            "provenance evaluation references an unknown declaration",
+                        );
+                    }
+                };
+                if declaration.actor == actor.actor {
+                    return AuthorizationDecision::deny(
+                        "provenance declaration author cannot evaluate their own declaration",
+                    );
+                }
+                if declaration.declaration.artifact_id != evaluation.artifact_id
+                    || declaration.declaration.content_hash != evaluation.content_hash
+                {
+                    return AuthorizationDecision::deny(
+                        "provenance evaluation must bind the exact declaration artifact and digest",
+                    );
+                }
+                if projection.provenance_evaluations.iter().any(|record| {
+                    projection
+                        .authority_qualified_evaluation_event_ids
+                        .contains(&record.evaluation_event_id)
+                        && record.evaluator == actor.actor
+                        && record.evaluation.provenance_event_id == evaluation.provenance_event_id
+                        && record.evaluation.scope == evaluation.scope
+                        && record.evaluation.policy_id == evaluation.policy_id
+                        && record.evaluation.policy_version == evaluation.policy_version
+                }) {
+                    return AuthorizationDecision::deny(
+                        "reviewer may submit only one evaluation per declaration, scope, and policy version",
+                    );
+                }
+                AuthorizationDecision::allow(
+                    "independent reviewer may evaluate provenance under the declared policy version",
+                )
             }
             (ScientificEventPayload::AttestationRecorded { attestation }, Some(projection)) => {
                 if !actor.has_any_role(&[
@@ -506,7 +598,85 @@ pub struct GovernedScientificEventLog<L, R, P> {
     policy: P,
     authority_audit: Arc<dyn ScientificAuthorityAuditStore>,
     receipt_signing_key: Option<Arc<SigningKey>>,
+    /// Historical service keys remain trusted for receipt verification across
+    /// rotation; the active receipt signer is included at construction time.
+    trusted_receipt_service_keys: BTreeSet<[u8; 32]>,
     atomic_committer: Option<Arc<dyn AtomicScientificCommitStore>>,
+}
+
+impl<L, R, P> GovernedScientificEventLog<L, R, P>
+where
+    L: ScientificEventLog,
+    P: ScientificAuthorizationPolicy,
+{
+    async fn build_authority_aware_projection(
+        &self,
+        events: &[SignedScientificEvent],
+    ) -> Result<ClaimProjection> {
+        let mut authority_qualified_evaluation_event_ids = BTreeSet::new();
+        let mut authority_policy_rejected_evaluation_event_ids = BTreeSet::new();
+
+        if !self.trusted_receipt_service_keys.is_empty() {
+            let trusted_service_keys = &self.trusted_receipt_service_keys;
+            for event in events {
+                if !matches!(
+                    &event.envelope.payload,
+                    ScientificEventPayload::EvidenceProvenanceEvaluated { .. }
+                ) {
+                    continue;
+                }
+                if self.authority_audit.status(event.envelope.event_id).await?
+                    != AuthorityAttestationStatus::ReceiptAttested
+                {
+                    continue;
+                }
+                let receipt = self
+                    .authority_audit
+                    .receipt(event.envelope.event_id)
+                    .await?
+                    .ok_or_else(|| Error::Storage(
+                        "committed provenance evaluation has no retrievable authority receipt"
+                            .to_string(),
+                    ))?;
+                receipt.verify_for_event(event, trusted_service_keys)?;
+                if receipt.receipt.action != ScientificAction::EvaluateEvidenceProvenance {
+                    return Err(Error::VerificationFailed(
+                        "authority receipt does not authorize provenance evaluation".to_string(),
+                    ));
+                }
+                // Qualification requires a receipt issued under the active
+                // authorization policy and a reviewer role captured in that
+                // exact receipt. A formerly trusted but weaker policy is kept
+                // as history, not silently promoted under the current policy.
+                if !receipt.receipt.authorized_roles.contains(&ScientificRole::Reviewer)
+                    || receipt.receipt.policy_id != self.policy.policy_id()
+                    || receipt.receipt.policy_version != self.policy.policy_version()
+                {
+                    authority_policy_rejected_evaluation_event_ids
+                        .insert(event.envelope.event_id);
+                    continue;
+                }
+                authority_qualified_evaluation_event_ids.insert(event.envelope.event_id);
+            }
+        }
+
+        ClaimProjection::rebuild_with_evaluation_authority(
+            events,
+            &authority_qualified_evaluation_event_ids,
+            &authority_policy_rejected_evaluation_event_ids,
+        )
+    }
+
+    /// Build an authoritative claim projection. Provenance evaluation events
+    /// count toward qualified maturity only when a committed, trusted authority
+    /// receipt binds the exact event. The plain inner event log is not enough.
+    pub async fn claim_projection(
+        &self,
+        claim_id: crate::scientific_events::ClaimId,
+    ) -> Result<ClaimProjection> {
+        let events = self.inner.stream(claim_id).await?;
+        self.build_authority_aware_projection(&events).await
+    }
 }
 
 impl<L, R, P> GovernedScientificEventLog<L, R, P> {
@@ -517,14 +687,43 @@ impl<L, R, P> GovernedScientificEventLog<L, R, P> {
         authority_audit: Arc<dyn ScientificAuthorityAuditStore>,
         receipt_signing_key: Option<Arc<SigningKey>>,
     ) -> Self {
+        let mut trusted_receipt_service_keys = BTreeSet::new();
+        if let Some(signing_key) = &receipt_signing_key {
+            trusted_receipt_service_keys.insert(signing_key.verifying_key().to_bytes());
+        }
         Self {
             inner,
             resolver,
             policy,
             authority_audit,
             receipt_signing_key,
+            trusted_receipt_service_keys,
             atomic_committer: None,
         }
+    }
+
+    /// Configure retained trusted authority-receipt service keys across key
+    /// rotation. The active receipt signer must remain in the trusted set.
+    pub fn with_trusted_receipt_service_keys(
+        mut self,
+        trusted_keys: BTreeSet<[u8; 32]>,
+    ) -> Result<Self> {
+        if trusted_keys.is_empty() && self.receipt_signing_key.is_some() {
+            return Err(Error::Validation(
+                "trusted receipt service key set cannot be empty while signing is enabled"
+                    .to_string(),
+            ));
+        }
+        if let Some(signing_key) = &self.receipt_signing_key {
+            if !trusted_keys.contains(&signing_key.verifying_key().to_bytes()) {
+                return Err(Error::Validation(
+                    "trusted receipt service keys must include the active receipt signer"
+                        .to_string(),
+                ));
+            }
+        }
+        self.trusted_receipt_service_keys = trusted_keys;
+        Ok(self)
     }
 
     pub fn with_atomic_committer(
@@ -629,7 +828,7 @@ where
         let current = if stream.is_empty() {
             None
         } else {
-            Some(ClaimProjection::rebuild(&stream)?)
+            Some(self.build_authority_aware_projection(&stream).await?)
         };
         let decision = self.policy.authorize(&resolved, &event, current.as_ref());
         if !decision.allowed {
@@ -786,6 +985,335 @@ mod tests {
             audit,
             Some(receipt_key),
         )
+    }
+
+    #[test]
+    fn provenance_action_uses_additive_stable_code_without_renumbering_existing_actions() {
+        let payload = ScientificEventPayload::EvidenceProvenanceDeclared {
+            claim_id: ClaimId::new(),
+            declaration: crate::scientific_events::EvidenceProvenanceDeclaration {
+                provenance_schema_version:
+                    crate::scientific_events::EVIDENCE_PROVENANCE_SCHEMA_VERSION,
+                artifact_id: crate::scientific_events::ArtifactId::new(),
+                content_hash: crate::scientific_events::ContentHash::digest(b"fixture"),
+                study_id: Some("study:fixture".to_string()),
+                collection_activity_id: Some("collection:fixture".to_string()),
+                origin_relation: crate::scientific_events::EvidenceOriginRelation::NewCollection,
+                parent_artifacts: Vec::new(),
+                protocol_reference: None,
+                collection_manifest_commitment: Some(ContentHash::digest(b"manifest fixture")),
+                supporting_provenance_artifact_ids: Vec::new(),
+            },
+        };
+        assert_eq!(
+            ScientificAction::from_payload(&payload),
+            ScientificAction::DeclareEvidenceProvenance
+        );
+        assert_eq!(ScientificAction::DeclareEvidenceProvenance.code(), 9);
+        let evaluation_payload = ScientificEventPayload::EvidenceProvenanceEvaluated {
+            claim_id: ClaimId::new(),
+            evaluation: crate::scientific_events::EvidenceProvenanceEvaluation {
+                evaluation_schema_version: 1,
+                provenance_event_id: crate::scientific_events::ScientificEventId::new(),
+                artifact_id: crate::scientific_events::ArtifactId::new(),
+                content_hash: crate::scientific_events::ContentHash::digest(b"fixture"),
+                scope: crate::scientific_events::EvidenceProvenanceEvaluationScope::IndependentReplication,
+                outcome: crate::scientific_events::EvidenceProvenanceEvaluationOutcome::Indeterminate,
+                policy_id: crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID.to_string(),
+                policy_version: crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION.to_string(),
+                reason: "synthetic fixture evaluation".to_string(),
+            },
+        };
+        assert_eq!(ScientificAction::from_payload(&evaluation_payload), ScientificAction::EvaluateEvidenceProvenance);
+        assert_eq!(ScientificAction::EvaluateEvidenceProvenance.code(), 10);
+        assert_eq!(ScientificAction::AttachEvidence.code(), 3);
+        assert_eq!(ScientificAction::RecordAttestation.code(), 4);
+        assert_eq!(ScientificAction::RetractClaim.code(), 8);
+    }
+
+    #[test]
+    fn only_a_distinct_reviewer_may_submit_a_provenance_evaluation() {
+        let now = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let claim_id = ClaimId::new();
+        let creator = actor("did:key:creator");
+        let creator_key = key(1);
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                creator.clone(), now.clone(), proposed(claim_id),
+            ).unwrap(),
+            &creator_key,
+        ).unwrap();
+        let data = crate::scientific_events::EvidenceArtifact {
+            id: crate::scientific_events::ArtifactId::new(),
+            content_hash: ContentHash::digest(b"synthetic collection"),
+            media_type: "application/octet-stream".to_string(),
+            locator: "ipfs://synthetic-collection".to_string(),
+            license: None,
+            availability: crate::scientific_events::ArtifactAvailability::Public,
+        };
+        let attached = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis, creator, now.clone() + Duration::seconds(1),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: data.clone() },
+            ).unwrap(),
+            &creator_key,
+        ).unwrap();
+        let collector = actor("did:key:collector");
+        let collector_key = key(2);
+        let declaration = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attached, collector.clone(), now.clone() + Duration::seconds(2),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: crate::scientific_events::EvidenceProvenanceDeclaration {
+                        provenance_schema_version: crate::scientific_events::EVIDENCE_PROVENANCE_SCHEMA_VERSION,
+                        artifact_id: data.id,
+                        content_hash: data.content_hash,
+                        study_id: Some("study:auth-test".to_string()),
+                        collection_activity_id: Some("collection:auth-test".to_string()),
+                        origin_relation: crate::scientific_events::EvidenceOriginRelation::NewCollection,
+                        parent_artifacts: Vec::new(),
+                        protocol_reference: Some("protocol:auth-test".to_string()),
+                        collection_manifest_commitment: Some(ContentHash::digest(b"manifest fixture")),
+                        supporting_provenance_artifact_ids: Vec::new(),
+                    },
+                },
+            ).unwrap(),
+            &collector_key,
+        ).unwrap();
+        let projection = ClaimProjection::rebuild(&[genesis, attached, declaration.clone()]).unwrap();
+        let reviewer = actor("did:key:reviewer");
+        let reviewer_key = key(3);
+        let evaluation_event = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &declaration, reviewer.clone(), now.clone() + Duration::seconds(3),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: crate::scientific_events::EvidenceProvenanceEvaluation {
+                        evaluation_schema_version: 1,
+                        provenance_event_id: declaration.envelope.event_id,
+                        artifact_id: data.id,
+                        content_hash: data.content_hash,
+                        scope: crate::scientific_events::EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        outcome: crate::scientific_events::EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        policy_id: crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID.to_string(),
+                        policy_version: crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION.to_string(),
+                        reason: "synthetic auth test".to_string(),
+                    },
+                },
+            ).unwrap(),
+            &reviewer_key,
+        ).unwrap();
+
+        let policy = DefaultScientificAuthorizationPolicy;
+        let reviewer_context = profile(reviewer, &reviewer_key, ScientificRole::Reviewer, &now);
+        assert!(policy.authorize(&reviewer_context, &evaluation_event, Some(&projection)).allowed);
+
+        let contributor_context = profile(
+            actor("did:key:reviewer"), &reviewer_key, ScientificRole::Contributor, &now,
+        );
+        assert!(!policy.authorize(&contributor_context, &evaluation_event, Some(&projection)).allowed);
+
+        let self_review_event = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &declaration,
+                collector.clone(),
+                now.clone() + Duration::seconds(4),
+                evaluation_event.envelope.payload.clone(),
+            ).unwrap(),
+            &collector_key,
+        ).unwrap();
+        let self_review_context = profile(
+            collector, &collector_key, ScientificRole::Reviewer, &now,
+        );
+        assert!(!policy.authorize(&self_review_context, &self_review_event, Some(&projection)).allowed);
+    }
+
+    #[tokio::test]
+    async fn qualified_maturity_requires_two_committed_authority_receipts() {
+        let now = Utc::now() - Duration::seconds(10);
+        let creator = actor("did:key:authority-test-creator");
+        let collector = actor("did:key:authority-test-collector");
+        let replicator = actor("did:key:authority-test-replicator");
+        let reviewer_a = actor("did:key:authority-test-reviewer-a");
+        let reviewer_b = actor("did:key:authority-test-reviewer-b");
+        let creator_key = key(11);
+        let collector_key = key(12);
+        let replicator_key = key(13);
+        let reviewer_a_key = key(14);
+        let reviewer_b_key = key(15);
+
+        let resolver = MemoryScientificIdentityResolver::new();
+        resolver.register(profile(creator.clone(), &creator_key, ScientificRole::Contributor, &now)).await.unwrap();
+        resolver.register(profile(collector.clone(), &collector_key, ScientificRole::Contributor, &now)).await.unwrap();
+        resolver.register(profile(replicator.clone(), &replicator_key, ScientificRole::Contributor, &now)).await.unwrap();
+        resolver.register(profile(reviewer_a.clone(), &reviewer_a_key, ScientificRole::Reviewer, &now)).await.unwrap();
+        resolver.register(profile(reviewer_b.clone(), &reviewer_b_key, ScientificRole::Reviewer, &now)).await.unwrap();
+        let log = governed(resolver);
+        let claim_id = ClaimId::new();
+
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                creator.clone(), now.clone(), proposed(claim_id),
+            ).unwrap(),
+            &creator_key,
+        ).unwrap();
+        log.append_at(0, genesis.clone(), now.clone()).await.unwrap();
+
+        let data = crate::scientific_events::EvidenceArtifact {
+            id: crate::scientific_events::ArtifactId::new(),
+            content_hash: ContentHash::digest(b"authority-backed independent collection"),
+            media_type: "application/octet-stream".to_string(),
+            locator: "ipfs://authority-backed-collection".to_string(),
+            license: None,
+            availability: crate::scientific_events::ArtifactAvailability::Public,
+        };
+        let attached = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis, creator.clone(), now.clone(),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: data.clone() },
+            ).unwrap(),
+            &creator_key,
+        ).unwrap();
+        log.append_at(1, attached.clone(), now.clone()).await.unwrap();
+
+        let declaration = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attached, collector.clone(), now.clone(),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: crate::scientific_events::EvidenceProvenanceDeclaration {
+                        provenance_schema_version: crate::scientific_events::EVIDENCE_PROVENANCE_SCHEMA_VERSION,
+                        artifact_id: data.id,
+                        content_hash: data.content_hash,
+                        study_id: Some("study:authority-test".to_string()),
+                        collection_activity_id: Some("collection:authority-test".to_string()),
+                        origin_relation: crate::scientific_events::EvidenceOriginRelation::NewCollection,
+                        parent_artifacts: Vec::new(),
+                        protocol_reference: Some("protocol:authority-test".to_string()),
+                        collection_manifest_commitment: Some(ContentHash::digest(b"manifest")),
+                        supporting_provenance_artifact_ids: Vec::new(),
+                    },
+                },
+            ).unwrap(),
+            &collector_key,
+        ).unwrap();
+        log.append_at(2, declaration.clone(), now.clone()).await.unwrap();
+
+        let attestation = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &declaration, replicator.clone(), now.clone(),
+                ScientificEventPayload::AttestationRecorded {
+                    attestation: crate::scientific_events::Attestation {
+                        id: crate::scientific_events::AttestationId::new(),
+                        claim_id,
+                        kind: crate::scientific_events::AttestationKind::IndependentReplication {
+                            outcome: crate::scientific_events::EvidenceOutcome::Supports,
+                        },
+                        evidence_ids: vec![data.id],
+                        statement: Some("synthetic authority-path replication".to_string()),
+                        protocol_reference: Some("protocol:replication-authority-test".to_string()),
+                    },
+                },
+            ).unwrap(),
+            &replicator_key,
+        ).unwrap();
+        log.append_at(3, attestation.clone(), now.clone()).await.unwrap();
+
+        let evaluation_a = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attestation, reviewer_a.clone(), now.clone(),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: crate::scientific_events::EvidenceProvenanceEvaluation {
+                        evaluation_schema_version: 1,
+                        provenance_event_id: declaration.envelope.event_id,
+                        artifact_id: data.id,
+                        content_hash: data.content_hash,
+                        scope: crate::scientific_events::EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        outcome: crate::scientific_events::EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        policy_id: crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID.to_string(),
+                        policy_version: crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION.to_string(),
+                        reason: "reviewer A verified synthetic lineage fixture".to_string(),
+                    },
+                },
+            ).unwrap(),
+            &reviewer_a_key,
+        ).unwrap();
+        log.append_at(4, evaluation_a.clone(), now.clone()).await.unwrap();
+
+        let duplicate_review = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &evaluation_a,
+                reviewer_a.clone(),
+                now.clone(),
+                evaluation_a.envelope.payload.clone(),
+            ).unwrap(),
+            &reviewer_a_key,
+        ).unwrap();
+        assert!(log.append_at(5, duplicate_review, now.clone()).await.is_err());
+
+        let evaluation_b = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &evaluation_a, reviewer_b.clone(), now.clone(),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: crate::scientific_events::EvidenceProvenanceEvaluation {
+                        evaluation_schema_version: 1,
+                        provenance_event_id: declaration.envelope.event_id,
+                        artifact_id: data.id,
+                        content_hash: data.content_hash,
+                        scope: crate::scientific_events::EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        outcome: crate::scientific_events::EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        policy_id: crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID.to_string(),
+                        policy_version: crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION.to_string(),
+                        reason: "reviewer B independently verified synthetic lineage fixture".to_string(),
+                    },
+                },
+            ).unwrap(),
+            &reviewer_b_key,
+        ).unwrap();
+        log.append_at(5, evaluation_b.clone(), now.clone()).await.unwrap();
+
+        let raw_events = log.inner().stream(claim_id).await.unwrap();
+        let raw_projection = crate::scientific_events::ClaimProjection::rebuild(&raw_events).unwrap();
+        assert_eq!(
+            raw_projection.provenance_disposition(data.id),
+            crate::scientific_events::EvidenceProvenanceDisposition::EvaluationAwaitingAuthorityReceipt,
+        );
+        assert_eq!(raw_projection.evidence_profile.qualified_independent_replication_count, 0);
+
+        let authoritative_projection = log.claim_projection(claim_id).await.unwrap();
+        assert_eq!(authoritative_projection.authority_qualified_evaluation_event_ids.len(), 2);
+        assert_eq!(
+            authoritative_projection.provenance_disposition(data.id),
+            crate::scientific_events::EvidenceProvenanceDisposition::QualifiedIndependentReplication,
+        );
+        assert_eq!(authoritative_projection.evidence_profile.qualified_independent_replication_count, 1);
+        assert_eq!(authoritative_projection.maturity(), crate::scientific_events::EvidenceMaturity::IndependentlyReplicated);
+    }
+
+    #[test]
+    fn trusted_receipt_service_keys_preserve_rotation_history_without_distrusting_active_key() {
+        let resolver = MemoryScientificIdentityResolver::new();
+        let log = governed(resolver);
+        let active_key = key(250).verifying_key().to_bytes();
+        let previous_key = key(249).verifying_key().to_bytes();
+
+        let rotated = log
+            .clone()
+            .with_trusted_receipt_service_keys(BTreeSet::from([active_key, previous_key]))
+            .unwrap();
+        assert!(rotated.trusted_receipt_service_keys.contains(&active_key));
+        assert!(rotated.trusted_receipt_service_keys.contains(&previous_key));
+
+        assert!(log
+            .clone()
+            .with_trusted_receipt_service_keys(BTreeSet::from([previous_key]))
+            .is_err(), "active signer cannot be excluded from the trusted receipt set");
+        assert!(log
+            .with_trusted_receipt_service_keys(BTreeSet::new())
+            .is_err(), "trusted receipt keys cannot be empty while signing is enabled");
     }
 
     fn proposed(claim_id: ClaimId) -> ScientificEventPayload {
