@@ -19,7 +19,7 @@ pub const MAX_SUPPORTING_CONTENT_IDS: usize = 8;
 pub const MAX_ADVISORY_IDENTIFIER_CHARS: usize = 160;
 /// Hard cap on the complete untrusted JSON response, checked before parsing.
 /// The finite schema fits comfortably within this bound even at identifier maxima.
-pub const MAX_ADVISORY_RESPONSE_BYTES: usize = 16 * 1024;
+pub const MAX_ADVISORY_RESPONSE_BYTES: usize = 16384;
 
 /// A deliberately small action set. These are invitations, never commands.
 ///
