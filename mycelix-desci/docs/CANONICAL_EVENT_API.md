@@ -119,10 +119,19 @@ Authority-receipt protocol v2 binds the exact credential-registry head used to r
 
 ## Schema compatibility
 
-- Schema v2 native events remain verifiable and replayable.
-- New events are emitted as schema v3.
-- `legacy_claim_imported` requires schema v3.
-- Adding an event payload does not change the canonical bytes of existing payload types because every event type has an explicit numeric codec tag.
+- Schema v2 and v3 events remain verifiable and replayable.
+- New events are emitted as schema v4.
+- `legacy_claim_imported` requires schema v3 or newer.
+- `evidence_provenance_declared` requires schema v4 and uses additive canonical payload tag 9. Existing payload tags 1–8 remain unchanged.
+- Adding a payload does not renumber the explicit numeric codec tags of existing payload types.
+
+### Evidence provenance declaration (schema v4)
+
+`evidence_provenance_declared` records an actor-attributed, versioned assertion about an already-attached artifact. The event binds its artifact ID and content digest, optional study and collection activity identifiers, an explicit origin relation, exact parent artifact ID/hash pairs, an optional protocol reference, an optional collection-manifest commitment, and supporting provenance artifact IDs.
+
+Projection replay fails closed when the target artifact is absent, the target digest differs, a parent/supporting artifact is missing, a parent digest does not match, or a declaration introduces a lineage cycle. The projection preserves the declaring actor and acting organization. Conflicting declarations and identical-content digests remain indeterminate; the declaration does not independently qualify itself.
+
+The evidence-assessment policy is versioned to 1.2.0. Supportive attestation counts remain observable source-attribution counts, but do not promote computational-reproduction or independent-replication maturity without separately qualified counts. The provenance evaluator event/policy that can set those qualified counts is not implemented yet; until it exists, the system conservatively leaves those counts at zero.
 
 ## File-backend trust boundary
 
