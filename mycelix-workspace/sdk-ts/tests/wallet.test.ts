@@ -1058,7 +1058,30 @@ describe('OfflineQueue', () => {
       });
 
       expect(item1.id).toBe(item2.id);
+      expect((item1.payload as SendPayload).idempotencyKey).toBe('unique-key');
+      expect(item1.idempotencyKey).toBe((item1.payload as SendPayload).idempotencyKey);
       expect(queue.pendingCount).toBe(1);
+    });
+
+    it('should assign one key to an unkeyed generic send', async () => {
+      const item = await queue.enqueue('send', { to: '@alice', amount: 100 });
+
+      expect(item.idempotencyKey).toBeDefined();
+      expect((item.payload as SendPayload).idempotencyKey).toBe(item.idempotencyKey);
+    });
+
+    it('should reject conflicting payload and metadata keys before persistence', async () => {
+      await expect(
+        queue.enqueue('send', {
+          to: '@alice',
+          amount: 100,
+          idempotencyKey: 'payload-key',
+        }, {
+          idempotencyKey: 'metadata-key',
+        })
+      ).rejects.toThrow('Send payload idempotency key does not match queue idempotency key');
+      expect(queue.pendingCount).toBe(0);
+      expect(await queue.state.items).toHaveLength(0);
     });
 
     it('should serialize concurrent enqueues with the same key', async () => {
