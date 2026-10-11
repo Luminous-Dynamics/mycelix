@@ -3796,7 +3796,27 @@ mod tests {
                 assert_eq!(evaluation["policy_id"].as_str(), Some(EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID));
                 assert_eq!(evaluation["policy_version"].as_str(), Some(EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION));
                 assert_eq!(evaluation["evaluator_role"].as_str(), Some("reviewer"));
+                assert_eq!(
+                    evaluation["authorization_policy_id"].as_str(),
+                    Some("mycelix-default-scientific-authorization")
+                );
+                assert_eq!(evaluation["authorization_policy_version"].as_str(), Some("1.2.0"));
                 assert_eq!(evaluation["authority_receipt_status"].as_str(), Some("committed"));
+                if evaluation["outcome"].as_str() == Some("qualified_for_profile") {
+                    match evaluation["scope"].as_str() {
+                        Some("independent_replication") => assert_eq!(
+                            declaration["origin_relation"].as_str(),
+                            Some("new_collection"),
+                            "qualified replication evaluation has the wrong provenance relation in {case_id}"
+                        ),
+                        Some("computational_reproduction") => assert_eq!(
+                            declaration["origin_relation"].as_str(),
+                            Some("same_data_reanalysis"),
+                            "qualified reproduction evaluation has the wrong provenance relation in {case_id}"
+                        ),
+                        other => panic!("unsupported evaluation scope in {case_id}: {other:?}"),
+                    }
+                }
                 evaluator_ids.insert(evaluator_id.to_string());
                 evaluator_outcomes.insert(evaluation["outcome"].as_str().unwrap().to_string());
                 evaluator_scopes.insert(evaluation["scope"].as_str().unwrap().to_string());
