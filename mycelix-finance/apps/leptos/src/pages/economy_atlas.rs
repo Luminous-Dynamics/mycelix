@@ -499,9 +499,18 @@ mod tests {
     fn every_validation_finding_binds_to_an_exact_registered_source() {
         let registry = registry();
         let mut count = 0usize;
+        let mut finding_ids = HashSet::new();
         for model in &registry.models {
             for finding in &model.validation_findings {
                 count += 1;
+                assert!(
+                    finding_ids.insert(finding.finding_id.as_str()),
+                    "duplicate finding ID: {}",
+                    finding.finding_id
+                );
+                assert!(!finding.severity.trim().is_empty());
+                assert!(!finding.observation.trim().is_empty());
+                assert!(!finding.required_follow_up.trim().is_empty());
                 assert!(
                     model.source_refs.iter().any(|source| {
                         source.repository == finding.source_repository
@@ -515,6 +524,6 @@ mod tests {
                 assert!(!finding.required_follow_up.trim().is_empty());
             }
         }
-        assert_eq!(count, 4);
+        assert_eq!(count, 7);
     }
 }
