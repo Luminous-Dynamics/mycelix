@@ -197,9 +197,33 @@
         "provenance": "Rust Default implementation"
       },
       "validation_findings": [
-        "Current methods do not reject all non-finite or negative inputs.",
-        "Negative surprise can produce a negative tax and increase total supply.",
-        "Source does not define a maximum collective_phi; do not invent one."
+        {
+          "finding_id": "SYM-ECO-TEND-INPUT-DOMAIN-001",
+          "severity": "input-domain validation gap in the source method; runtime caller contract not qualified",
+          "observation": "mint_production_credit gates only low efficiency and low collective_phi. It does not locally reject negative/non-finite production values or non-finite efficiency/Phi values, and it does not enforce efficiency's expected [0,1] domain. Invalid values can therefore reach arithmetic unless callers reject them first.",
+          "required_follow_up": "Define and test the intended input contract at the narrowest shared boundary. Reject non-finite production, efficiency, and Phi; reject negative production and efficiency outside [0,1]. Do not invent a maximum collective_phi without an authoritative model definition.",
+          "source_repository": "Luminous-Dynamics/symthaea",
+          "source_file": "crates/core/symthaea-infrastructure/src/economy.rs",
+          "source_commit": "b9af191f380d635f0459b24284c1d1fd6a5516aa"
+        },
+        {
+          "finding_id": "SYM-ECO-TEND-NEGATIVE-SURPRISE-002",
+          "severity": "negative-input supply inflation path in source arithmetic; caller reachability not qualified",
+          "observation": "apply_entropy_tax computes tax = min(surprise × 0.5, total_tend_supply × 0.1) without rejecting negative or non-finite surprise. For negative surprise, tax can be negative; subtracting that tax then increases total_tend_supply instead of burning supply.",
+          "required_follow_up": "Reject negative and non-finite surprise values before tax arithmetic, and add direct Rust tests for negative, NaN, positive infinity, and valid boundary values. Verify upstream callers cannot bypass the same contract.",
+          "source_repository": "Luminous-Dynamics/symthaea",
+          "source_file": "crates/core/symthaea-infrastructure/src/economy.rs",
+          "source_commit": "b9af191f380d635f0459b24284c1d1fd6a5516aa"
+        },
+        {
+          "finding_id": "SYM-ECO-TEND-PHI-DOMAIN-003",
+          "severity": "model-domain ambiguity requiring explicit specification",
+          "observation": "The source rejects collective_phi below 0.2 but does not define a maximum or canonical scale for the value. A UI must not impose an undocumented upper bound or imply that the source alone establishes what values above 1.0 mean.",
+          "required_follow_up": "Document the authoritative range, units/meaning and calibration for collective_phi before selecting UI bounds or comparing runs; until then display the upper domain as unspecified and keep execution disabled.",
+          "source_repository": "Luminous-Dynamics/symthaea",
+          "source_file": "crates/core/symthaea-infrastructure/src/economy.rs",
+          "source_commit": "b9af191f380d635f0459b24284c1d1fd6a5516aa"
+        }
       ],
       "limitations": [
         "Not zero-sum bilateral mutual credit; treat as a distinct model variant.",
