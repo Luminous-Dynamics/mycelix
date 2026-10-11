@@ -228,6 +228,16 @@ pub fn validate_symthaea_advice(
     })
 }
 
+/// Bind advice to the exact request bytes sent to the advisor.
+///
+/// The caller must finish serialization and policy filtering *before* calling
+/// this helper, then send those same bytes to the configured adapter. This
+/// function hashes bytes; it does not make a non-canonical serialization
+/// canonical, authenticate the model, or prove that a response is truthful.
+pub fn digest_advisory_request_bytes(canonical_request_bytes: &[u8]) -> String {
+    format!("blake3:{}", blake3::hash(canonical_request_bytes).to_hex())
+}
+
 fn valid_blake3_digest(value: &str) -> bool {
     let Some(hex) = value.strip_prefix("blake3:") else {
         return false;
@@ -379,6 +389,14 @@ mod tests {
         assert_eq!(
             validate_symthaea_advice(advice, &context(true, false, &ids)),
             Err(AdviceRejection::StaleInput)
+        );
+    }
+
+    #[test]
+    fn request_digest_matches_blake3_empty_input_golden_vector() {
+        assert_eq!(
+            digest_advisory_request_bytes(b""),
+            "blake3:af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
         );
     }
 
