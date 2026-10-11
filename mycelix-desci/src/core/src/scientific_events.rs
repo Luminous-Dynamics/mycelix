@@ -1748,6 +1748,20 @@ pub struct RecordedEvidenceProvenanceEvaluation {
     pub acting_organization: Option<OrganizationId>,
 }
 
+/// Immutable evidence-use history for each attestation revision. Withdrawal or
+/// correction changes the current view but must not erase an author's prior
+/// relationship to an artifact for later reviewer-independence checks.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordedAttestationEvidenceUse {
+    pub attestation_id: AttestationId,
+    pub event_id: ScientificEventId,
+    pub sequence: u64,
+    pub attestation_author: ActorId,
+    pub recorded_by: ActorId,
+    pub kind: AttestationKind,
+    pub evidence_ids: Vec<ArtifactId>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimProjection {
     pub origin: ClaimOrigin,
@@ -1764,6 +1778,11 @@ pub struct ClaimProjection {
     #[serde(default)]
     pub evidence_attachments: Vec<RecordedEvidenceAttachment>,
     pub attestations: Vec<RecordedAttestation>,
+    /// Append-only record of every artifact used in an attestation or correction,
+    /// including withdrawn/superseded revisions. Legacy serialized projections
+    /// did not retain this history, so they default empty; event replay rebuilds it.
+    #[serde(default)]
+    pub attestation_evidence_history: Vec<RecordedAttestationEvidenceUse>,
     /// Actor-attributed provenance assertions. Missing means unknown, not independent.
     #[serde(default)]
     pub provenance_declarations: Vec<RecordedEvidenceProvenance>,
@@ -1881,6 +1900,7 @@ impl ClaimProjection {
             evidence: Vec::new(),
             evidence_attachments: Vec::new(),
             attestations: Vec::new(),
+            attestation_evidence_history: Vec::new(),
             provenance_declarations: Vec::new(),
             provenance_evaluations: Vec::new(),
             authority_qualified_evaluation_event_ids: authority_qualified_evaluation_event_ids.clone(),
@@ -1984,6 +2004,15 @@ impl ClaimProjection {
                         revision_count: 0,
                         last_reason: None,
                     });
+                    projection.attestation_evidence_history.push(RecordedAttestationEvidenceUse {
+                        attestation_id: attestation.id,
+                        event_id: event.envelope.event_id,
+                        sequence: event.envelope.sequence,
+                        attestation_author: event.envelope.actor.clone(),
+                        recorded_by: event.envelope.actor.clone(),
+                        kind: attestation.kind.clone(),
+                        evidence_ids: attestation.evidence_ids.clone(),
+                    });
                 }
                 ScientificEventPayload::AttestationCorrected {
                     attestation_id,
@@ -2007,15 +2036,26 @@ impl ClaimProjection {
                         replacement,
                         Some(*attestation_id),
                     )?;
-                    let record = &mut projection.attestations[index];
-                    if !record.is_active() {
-                        return Err(Error::Validation(
-                            "cannot correct a withdrawn attestation".to_string(),
-                        ));
+                    {
+                        let record = &mut projection.attestations[index];
+                        if !record.is_active() {
+                            return Err(Error::Validation(
+                                "cannot correct a withdrawn attestation".to_string(),
+                            ));
+                        }
+                        record.attestation = replacement.clone();
+                        record.revision_count += 1;
+                        record.last_reason = Some(reason.clone());
                     }
-                    record.attestation = replacement.clone();
-                    record.revision_count += 1;
-                    record.last_reason = Some(reason.clone());
+                    projection.attestation_evidence_history.push(RecordedAttestationEvidenceUse {
+                        attestation_id: replacement.id,
+                        event_id: event.envelope.event_id,
+                        sequence: event.envelope.sequence,
+                        attestation_author: actor,
+                        recorded_by: event.envelope.actor.clone(),
+                        kind: replacement.kind.clone(),
+                        evidence_ids: replacement.evidence_ids.clone(),
+                    });
                 }
                 ScientificEventPayload::AttestationWithdrawn {
                     attestation_id,
@@ -2559,16 +2599,15 @@ fn validate_provenance_evaluation(
                 .to_string(),
         ));
     }
-    let evaluator_is_attester = projection.attestations.iter().any(|record| {
-        record.is_active()
-            && record.actor == *evaluator
-            && record.attestation.evidence_ids.contains(&evaluation.artifact_id)
+    let evaluator_is_attester = projection.attestation_evidence_history.iter().any(|record| {
+        (record.attestation_author == *evaluator || record.recorded_by == *evaluator)
+            && record.evidence_ids.contains(&evaluation.artifact_id)
             && match evaluation.scope {
                 EvidenceProvenanceEvaluationScope::IndependentReplication => {
-                    matches!(&record.attestation.kind, AttestationKind::IndependentReplication { .. })
+                    matches!(&record.kind, AttestationKind::IndependentReplication { .. })
                 }
                 EvidenceProvenanceEvaluationScope::ComputationalReproduction => {
-                    matches!(&record.attestation.kind, AttestationKind::ComputationalReproduction { .. })
+                    matches!(&record.kind, AttestationKind::ComputationalReproduction { .. })
                 }
             }
     });
@@ -4676,6 +4715,108 @@ mod tests {
         assert!(validate_provenance_evaluation(
             &self_review, &actor("did:key:creator"), &projection
         ).unwrap_err().to_string().contains("uploader cannot independently evaluate"));
+    }
+
+    #[test]
+    fn withdrawn_or_corrected_attestation_does_not_erase_reviewer_conflict() {
+        let claim_id = ClaimId::new();
+        let t0 = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let creator = actor("did:key:creator");
+        let reviewer = actor("did:key:reviewer-a");
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                creator.clone(), t0.clone(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let data = artifact_with(ArtifactId::new(), b"attested-then-withdrawn", "ipfs://attested-data");
+        let other_data = artifact_with(ArtifactId::new(), b"replacement-evidence", "ipfs://replacement-data");
+        let attached = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis, creator.clone(), t0.clone() + Duration::seconds(10),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: data.clone() },
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let attached_other = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attached, creator, t0.clone() + Duration::seconds(15),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: other_data.clone() },
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let declaration = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attached_other, actor("did:key:collector"), t0.clone() + Duration::seconds(20),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: provenance_assertion(&data, EvidenceOriginRelation::NewCollection, Vec::new()),
+                },
+            ).unwrap(), &key(2),
+        ).unwrap();
+        let attestation_id = AttestationId::new();
+        let recorded = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &declaration, reviewer.clone(), t0.clone() + Duration::seconds(30),
+                ScientificEventPayload::AttestationRecorded {
+                    attestation: Attestation {
+                        id: attestation_id,
+                        claim_id,
+                        kind: AttestationKind::IndependentReplication { outcome: EvidenceOutcome::Supports },
+                        evidence_ids: vec![data.id],
+                        statement: Some("I used this artifact in my replication assessment".to_string()),
+                        protocol_reference: Some("protocol:v1".to_string()),
+                    },
+                },
+            ).unwrap(), &key(3),
+        ).unwrap();
+        let corrected = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &recorded, reviewer.clone(), t0.clone() + Duration::seconds(40),
+                ScientificEventPayload::AttestationCorrected {
+                    claim_id,
+                    attestation_id,
+                    replacement: Attestation {
+                        id: attestation_id,
+                        claim_id,
+                        kind: AttestationKind::IndependentReplication { outcome: EvidenceOutcome::Inconclusive },
+                        evidence_ids: vec![other_data.id],
+                        statement: Some("Corrected to reference different evidence".to_string()),
+                        protocol_reference: Some("protocol:v1".to_string()),
+                    },
+                    reason: "Corrected evidence reference".to_string(),
+                },
+            ).unwrap(), &key(3),
+        ).unwrap();
+        let withdrawn = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &corrected, reviewer.clone(), t0.clone() + Duration::seconds(50),
+                ScientificEventPayload::AttestationWithdrawn {
+                    claim_id,
+                    attestation_id,
+                    reason: "Withdrawn after correction".to_string(),
+                },
+            ).unwrap(), &key(3),
+        ).unwrap();
+        let evaluation = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &withdrawn, reviewer, t0.clone() + Duration::seconds(60),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &data,
+                        EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        "A prior attester cannot become an independent evaluator by withdrawing",
+                    ),
+                },
+            ).unwrap(), &key(3),
+        ).unwrap();
+
+        let error = ClaimProjection::rebuild(&[
+            genesis, attached, attached_other, declaration, recorded, corrected, withdrawn, evaluation,
+        ]).unwrap_err();
+        assert!(error.to_string().contains(
+            "an attestation author cannot independently evaluate evidence in their own attestation"
+        ));
     }
 
     #[test]
