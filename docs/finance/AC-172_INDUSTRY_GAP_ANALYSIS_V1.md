@@ -65,7 +65,7 @@ A fee-bearing Payment must remain Pending while delivery is unresolved. Provide 
 
 ### G3 — retry_count must be meaningful
 
-The current queue type includes retry_count, but the enqueue path initializes it to the maximum-retry constant and the inspected drain path does not persist the number of attempts. That makes the field unsuitable for measuring retry history or deriving backoff. Set a correct initial value and persist per-delivery attempt metadata atomically with queue-tag replacement; add tests for retry monotonicity, overflow handling, and no data loss if a receipt committed before the queue update.
+This pass corrected the queue counter: new items start at zero, and a failed bounded delivery cycle advances it by the number of provider attempts before atomically replacing the queue tag. Counter saturation does not create another duplicate queue link. A regression test covers monotonicity and saturation. The counter still does not provide a last-attempt timestamp, error class, exponential backoff, or a persistent success history; those remain follow-up work.
 
 ### G4 — Provider idempotency needs a capability model
 
