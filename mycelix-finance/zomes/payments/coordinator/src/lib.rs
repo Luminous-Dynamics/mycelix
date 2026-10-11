@@ -270,6 +270,8 @@ struct ReceiveCompostPayload {
     pub commons_pool_id: String,
     pub amount: u64,
     pub source_member_did: String,
+    #[serde(default)]
+    pub effect_id: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -281,7 +283,7 @@ const PENDING_COMPOST_ANCHOR: &str = "pending_compost_queue";
 
 /// Attempt to deliver compost to treasury with retries.
 /// Returns `true` if delivery succeeded, `false` if all retries exhausted.
-fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str) -> bool {
+fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str, effect_id: &str) -> bool {
     if amount == 0 {
         return true;
     }
@@ -295,6 +297,7 @@ fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str) -> bool {
                 commons_pool_id: pool_id.to_string(),
                 amount,
                 source_member_did: source_did.to_string(),
+                effect_id: Some(effect_id.to_string()),
             },
         ) {
             Ok(ZomeCallResponse::Ok(_)) => return true,
@@ -328,9 +331,28 @@ fn queue_pending_compost(
     amount: u64,
     source_did: &str,
     tier: CompostPoolTier,
+    requested_effect_id: Option<String>,
 ) -> ExternResult<()> {
     let now = sys_time()?;
+    let effect_id = match requested_effect_id {
+        Some(effect_id) if !effect_id.is_empty() => effect_id,
+        Some(_) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Pending compost effect ID cannot be empty".into()
+            )));
+        }
+        None => {
+            // Stable for retries of this queued event. The queue entry is written
+            // in the same transaction as the source balance change that created it.
+            let identity = format!(
+                "pending-compost-effect-v1|{}|{}|{}|{}|{:?}",
+                pool_id, source_did, amount, now.as_micros(), tier
+            );
+            format!("compost-effect:v1:{}", anchor_hash(&identity)?)
+        }
+    };
     let pending = PendingCompost {
+        effect_id,
         commons_pool_id: pool_id.to_string(),
         amount,
         source_member_did: source_did.to_string(),
@@ -393,10 +415,23 @@ fn drain_pending_compost_inner() -> ExternResult<u32> {
             }
         };
 
+        if pending.effect_id.is_empty() {
+            // Legacy queue items were created without a stable receipt identity.
+            // A prior attempt may have committed in Treasury despite a lost error
+            // response. Do not risk double-crediting them automatically.
+            debug!(
+                "Legacy pending compost lacks effect_id; leaving queued for reconciliation (pool {}, queued at {})",
+                pending.commons_pool_id,
+                pending.created_at_micros
+            );
+            continue;
+        }
+
         if try_deliver_compost(
             &pending.commons_pool_id,
             pending.amount,
             &pending.source_member_did,
+            &pending.effect_id,
         ) {
             // Success — remove from queue
             delete_link(link.create_link_hash.clone(), GetOptions::default())?;
