@@ -202,7 +202,7 @@ fn render_model_card(model: AtlasModel) -> impl IntoView {
                 {if source_refs.is_empty() {
                     view! {
                         <p>
-                            "No canonical source resolved yet; this absence is not a claim the model does not exist."
+                            "No in-repository implementation source is registered; external research references may still be available below."
                         </p>
                     }.into_any()
                 } else {
@@ -216,6 +216,35 @@ fn render_model_card(model: AtlasModel) -> impl IntoView {
                             </p>
                         }
                     }).collect_view().into_any()
+                }}
+                {if research_refs.is_empty() {
+                    view! { <></> }.into_any()
+                } else {
+                    view! {
+                        <section class="atlas-research-references">
+                            <h3>"External research and frameworks"</h3>
+                            <p class="atlas-disclaimer">
+                                "These references describe external research or methodologies; they do not establish that Mycelix implements or has validated them."
+                            </p>
+                            {research_refs.into_iter().map(|reference| {
+                                let title = reference.title;
+                                let publisher = reference.publisher;
+                                let reference_type = reference.reference_type.replace('_', " ");
+                                let year = reference.published_year
+                                    .map(|value| format!(" · {value}"))
+                                    .unwrap_or_default();
+                                let url = reference.url;
+                                view! {
+                                    <p class="atlas-source-link">
+                                        <a href=url target="_blank" rel="noopener noreferrer">{title}</a>
+                                        <small class="atlas-research-meta">
+                                            {format!("{publisher} · {reference_type}{year}")}
+                                        </small>
+                                    </p>
+                                }
+                            }).collect_view()}
+                        </section>
+                    }.into_any()
                 }}
                 <p class="atlas-disclaimer">
                     "A source link establishes traceability, not model correctness, runtime execution or empirical validity."
@@ -357,6 +386,7 @@ pub fn EconomyAtlasPage() -> impl IntoView {
                         <option value="design_only">"Design-only"</option>
                         <option value="conceptual">"Conceptual"</option>
                         <option value="discovery_required">"Discovery required"</option>
+                        <option value="external_framework">"External framework"</option>
                     </select>
                 </div>
             </div>
@@ -408,6 +438,32 @@ mod tests {
         assert_eq!(registry.registry_status, "initial_discovery_inventory");
         assert!(!registry.qualified_for_execution);
         assert_eq!(registry.models.len(), 12);
+    }
+
+    #[test]
+    fn regenerative_frameworks_are_external_linked_and_not_execution_qualified() {
+        let registry = registry();
+        let ids = registry.models.iter().map(|model| model.model_id.as_str()).collect::<HashSet<_>>();
+        for id in [
+            "regenerative.economics.energy-network-science.v1",
+            "regenerative.doughnut.place-portrait.v1",
+            "regenerative.circular-economy.v1",
+        ] {
+            assert!(ids.contains(id), "missing regenerative framework: {id}");
+        }
+        let external = registry.models.iter()
+            .filter(|model| model.epistemic_status == "external_framework")
+            .collect::<Vec<_>>();
+        assert_eq!(external.len(), 3);
+        for model in external {
+            assert!(model.source_refs.is_empty(), "external refs must not masquerade as implementation source refs");
+            assert!(!model.research_refs.is_empty(), "external framework needs source links");
+            for source in &model.research_refs {
+                assert!(source.url.starts_with("https://"));
+                assert!(!source.title.trim().is_empty());
+                assert!(!source.publisher.trim().is_empty());
+            }
+        }
     }
 
     #[test]
