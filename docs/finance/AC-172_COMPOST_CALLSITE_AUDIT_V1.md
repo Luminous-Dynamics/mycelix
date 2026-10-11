@@ -16,7 +16,7 @@ The audit:
 - requires every discovered call to provide a non-None effect_id in its payload;
 - fails if it cannot find any call sites (coverage must be demonstrated);
 - checks byte identity for the canonical/workspace Payments coordinator, Payments integrity, Treasury coordinator, Finance types, and finance-wire-types files;
-- includes fixture tests for keyed/unkeyed calls, commented-out examples, nested delimiters in strings, and mirror drift.
+- includes fixture tests for keyed/unkeyed calls, commented-out examples, call-like text inside raw strings, Rust lifetime syntax, nested delimiters in strings, and mirror drift.
 
 This is a static compatibility guard. It does not prove that a call's effect ID is authorized, that every dynamically constructed function name is discovered, that the outbox effect committed, or that Holochain concurrency semantics are correct. Those require source integrity checks and Holochain integration tests.
 
