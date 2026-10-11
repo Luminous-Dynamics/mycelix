@@ -11,13 +11,27 @@ pub const SCHEMA: &str = "org.luminousdynamics.mycelix.space-engineering-evidenc
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceClass {
-    SourceFact, Measurement, Derived, ModelResult, EngineeringAssumption, IndependentCheck, TestFixture,
+    SourceFact,
+    Measurement,
+    Derived,
+    ModelResult,
+    EngineeringAssumption,
+    IndependentCheck,
+    TestFixture,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceState {
-    Blocked, NotRun, Running, PassedAtSpecifiedFidelity, Inconclusive, Failed, Stale, Unavailable, Disputed,
+    Blocked,
+    NotRun,
+    Running,
+    PassedAtSpecifiedFidelity,
+    Inconclusive,
+    Failed,
+    Stale,
+    Unavailable,
+    Disputed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -98,13 +112,19 @@ impl SpaceEngineeringEvidence {
             if placeholder(value) { errors.push(format!("{name}: required specified value")); }
         }
         if !git_id_ok(&self.source_revision) {
-            errors.push("source_revision: expected a full 40- or 64-character hexadecimal object ID".into());
+            errors.push(
+                "source_revision: expected a full 40- or 64-character hexadecimal object ID".into(),
+            );
         }
         if !git_id_ok(&self.source_git_blob_sha) {
-            errors.push("source_git_blob_sha: expected a full 40- or 64-character hexadecimal object ID".into());
+            errors.push(
+                "source_git_blob_sha: expected a full 40- or 64-character hexadecimal object ID".into(),
+            );
         }
         if !sha256_ok(&self.source_sha256) { errors.push("source_sha256: invalid SHA-256".into()); }
-        if !sha256_ok(&self.input_manifest_sha256) { errors.push("input_manifest_sha256: invalid SHA-256".into()); }
+        if !sha256_ok(&self.input_manifest_sha256) {
+            errors.push("input_manifest_sha256: invalid SHA-256".into());
+        }
         if self.run_manifest_sha256.as_deref().is_some_and(|v| !sha256_ok(v)) {
             errors.push("run_manifest_sha256: invalid SHA-256".into());
         }
@@ -118,7 +138,9 @@ impl SpaceEngineeringEvidence {
             errors.push("units: omit unknown units rather than using placeholders".into());
         }
         if self.exclusions.iter().any(|v| placeholder(v)) {
-            errors.push("exclusions: omit inapplicable entries rather than using placeholders".into());
+            errors.push(
+                "exclusions: omit inapplicable entries rather than using placeholders".into(),
+            );
         }
         for (i, artifact) in self.result_artifacts.iter().enumerate() {
             artifact.validate(&format!("result_artifacts[{i}]"), &mut errors);
@@ -131,14 +153,24 @@ impl SpaceEngineeringEvidence {
                 errors.push("independent_check.tool_sha256: invalid SHA-256".into());
             }
             check.result.validate("independent_check.result", &mut errors);
-            if self.analysis_tool_sha256.as_ref().is_some_and(|primary| primary.eq_ignore_ascii_case(&check.tool_sha256)) {
+            if self
+                .analysis_tool_sha256
+                .as_ref()
+                .is_some_and(|primary| primary.eq_ignore_ascii_case(&check.tool_sha256))
+            {
                 errors.push("independent_check.tool_sha256: must differ from primary tool".into());
             }
         }
         if self.state == EvidenceState::PassedAtSpecifiedFidelity {
-            if self.run_manifest_sha256.is_none() { errors.push("state: requires run_manifest_sha256".into()); }
-            if self.analysis_tool_sha256.is_none() { errors.push("state: requires analysis_tool_sha256".into()); }
-            if self.result_artifacts.is_empty() { errors.push("state: requires at least one result artifact".into()); }
+            if self.run_manifest_sha256.is_none() {
+                errors.push("state: requires run_manifest_sha256".into());
+            }
+            if self.analysis_tool_sha256.is_none() {
+                errors.push("state: requires analysis_tool_sha256".into());
+            }
+            if self.result_artifacts.is_empty() {
+                errors.push("state: requires at least one result artifact".into());
+            }
             if self.class == EvidenceClass::TestFixture {
                 errors.push("state: TestFixture cannot be promoted as engineering evidence".into());
             }
@@ -160,22 +192,32 @@ fn git_id_ok(value: &str) -> bool { hex_id(value, &[40, 64]) }
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn d(c: char) -> String { std::iter::repeat(c).take(64).collect() }
+    fn d(c: char) -> String { std::iter::repeat_n(c, 64).collect() }
     fn blocked() -> SpaceEngineeringEvidence {
         SpaceEngineeringEvidence {
-            schema: SCHEMA.into(), claim_id: "claim:orbit:test".into(), case_id: "F-SKYHOOK-LOAD-STEP".into(),
+            schema: SCHEMA.into(),
+            claim_id: "claim:orbit:test".into(),
+            case_id: "F-SKYHOOK-LOAD-STEP".into(),
             class: EvidenceClass::ModelResult, state: EvidenceState::Blocked,
             source_repository: "https://github.com/Luminous-Dynamics/symthaea".into(),
-            source_revision: "a".repeat(40), source_path: "src/lib.rs".into(), source_git_blob_sha: "b".repeat(40),
+            source_revision: "a".repeat(40),
+            source_path: "src/lib.rs".into(),
+            source_git_blob_sha: "b".repeat(40),
             source_sha256: d('c'), input_manifest_sha256: d('d'), run_manifest_sha256: None,
             analysis_tool_sha256: None, result_artifacts: vec![], frame_id: Some("GCRF".into()),
-            units: vec!["m".into(), "m/s".into()], uncertainty_statement: "Not evaluated: Blocked/NotRun.".into(),
+            units: vec!["m".into(), "m/s".into()],
+            uncertainty_statement: "Not evaluated: Blocked/NotRun.".into(),
             exclusions: vec!["No equilibrium solver executed.".into()],
-            claim_ceiling: "Record validity only; no physical claim is established.".into(), independent_check: None,
+            claim_ceiling: "Record validity only; no physical claim is established.".into(),
+            independent_check: None,
         }
     }
     fn artifact() -> ArtifactReference {
-        ArtifactReference { artifact_id: "artifact://result".into(), sha256: d('e'), media_type: Some("application/json".into()) }
+        ArtifactReference {
+            artifact_id: "artifact://result".into(),
+            sha256: d('e'),
+            media_type: Some("application/json".into()),
+        }
     }
 
     #[test]
@@ -195,9 +237,17 @@ mod tests {
 
     #[test]
     fn test_fixture_cannot_be_promoted() {
-        let mut r = blocked(); r.class = EvidenceClass::TestFixture; r.state = EvidenceState::PassedAtSpecifiedFidelity;
-        r.run_manifest_sha256 = Some(d('f')); r.analysis_tool_sha256 = Some(d('a')); r.result_artifacts.push(artifact());
-        assert!(r.validate().unwrap_err().iter().any(|e| e.contains("TestFixture cannot be promoted")));
+        let mut r = blocked();
+        r.class = EvidenceClass::TestFixture;
+        r.state = EvidenceState::PassedAtSpecifiedFidelity;
+        r.run_manifest_sha256 = Some(d('f'));
+        r.analysis_tool_sha256 = Some(d('a'));
+        r.result_artifacts.push(artifact());
+        assert!(r
+            .validate()
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("TestFixture cannot be promoted")));
     }
 
     #[test]
@@ -212,20 +262,37 @@ mod tests {
     #[test]
     fn independent_check_requires_distinct_tool_fingerprint() {
         let mut r = blocked(); r.analysis_tool_sha256 = Some(d('a'));
-        r.independent_check = Some(IndependentCheck { method_id: "independent-method".into(), tool_sha256: d('a'), result: artifact() });
-        assert!(r.validate().unwrap_err().iter().any(|x| x.contains("must differ from primary tool")));
+        r.independent_check = Some(IndependentCheck {
+            method_id: "independent-method".into(),
+            tool_sha256: d('a'),
+            result: artifact(),
+        });
+        assert!(r
+            .validate()
+            .unwrap_err()
+            .iter()
+            .any(|x| x.contains("must differ from primary tool")));
     }
 
     #[test]
     fn unknown_and_duplicate_json_fields_are_rejected() {
-        assert!(serde_json::from_str::<SpaceEngineeringEvidence>(r#"{"schema":"x","unexpected":true}"#).is_err());
-        assert!(serde_json::from_str::<SpaceEngineeringEvidence>(r#"{"schema":"first","schema":"second"}"#).is_err());
+        assert!(serde_json::from_str::<SpaceEngineeringEvidence>(
+            r#"{"schema":"x","unexpected":true}"#
+        )
+        .is_err());
+        assert!(serde_json::from_str::<SpaceEngineeringEvidence>(
+            r#"{"schema":"first","schema":"second"}"#
+        )
+        .is_err());
     }
 
     #[test]
     fn state_serialization_is_explicit() {
         let s = serde_json::to_string(&EvidenceState::PassedAtSpecifiedFidelity).unwrap();
         assert_eq!(s, r#""passed_at_specified_fidelity""#);
-        assert_eq!(serde_json::from_str::<EvidenceState>(&s).unwrap(), EvidenceState::PassedAtSpecifiedFidelity);
+        assert_eq!(
+            serde_json::from_str::<EvidenceState>(&s).unwrap(),
+            EvidenceState::PassedAtSpecifiedFidelity
+        );
     }
 }
