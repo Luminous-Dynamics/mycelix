@@ -3913,6 +3913,19 @@ mod tests {
                 },
             ).unwrap(), &key(3),
         ).unwrap();
+        let pre_eval_projection = ClaimProjection::rebuild(&[
+            genesis.clone(), attached.clone(), declaration.clone(), attestation.clone(),
+        ]).unwrap();
+        let self_attestation_review = provenance_evaluation(
+            declaration.envelope.event_id, &data,
+            EvidenceProvenanceEvaluationScope::IndependentReplication,
+            EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+            "Replicator cannot evaluate their own attestation",
+        );
+        assert!(validate_provenance_evaluation(
+            &self_attestation_review, &actor("did:key:replicator"), &pre_eval_projection,
+        ).unwrap_err().to_string().contains("attestation author cannot independently evaluate"));
+
         let evaluation = SignedScientificEvent::sign(
             ScientificEventEnvelope::next(
                 &attestation, actor("did:key:independent-reviewer"), t0.clone() + Duration::seconds(40),
@@ -3928,6 +3941,14 @@ mod tests {
             ).unwrap(), &key(4),
         ).unwrap();
 
+        let one_reviewer_projection = ClaimProjection::rebuild(&[
+            genesis.clone(), attached.clone(), declaration.clone(), attestation.clone(), evaluation.clone(),
+        ]).unwrap();
+        assert_eq!(
+            one_reviewer_projection.provenance_disposition(data.id),
+            EvidenceProvenanceDisposition::InsufficientIndependentEvaluations,
+        );
+        assert_eq!(one_reviewer_projection.evidence_profile.qualified_independent_replication_count, 0);
         let evaluation_two = SignedScientificEvent::sign(
             ScientificEventEnvelope::next(
                 &evaluation, actor("did:key:independent-reviewer-two"), t0.clone() + Duration::seconds(50),
@@ -4049,6 +4070,9 @@ mod tests {
         assert!(validate_provenance_evaluation(
             &self_review, &actor("did:key:collector"), &projection
         ).unwrap_err().to_string().contains("cannot evaluate their own declaration"));
+        assert!(validate_provenance_evaluation(
+            &self_review, &actor("did:key:creator"), &projection
+        ).unwrap_err().to_string().contains("uploader cannot independently evaluate"));
     }
 
     #[test]
