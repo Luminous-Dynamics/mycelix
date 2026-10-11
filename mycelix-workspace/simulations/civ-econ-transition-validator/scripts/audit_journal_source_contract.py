@@ -90,10 +90,10 @@ check(
 )
 check(
     "legacy J3 and J4 transition fixtures use real newline delimiters",
-    r'format!("J3\\tB\\t{}\\t{}\\t{}\\n", encoded_id, REQUEST_A, PROVIDER_A)' in journal
-    and r'"J4\\tB\\t{}\\t{}\\t{}\\t{}\\nJ4\\tA\\t{}\\t{}\\t{}\\t{}\\t{}\\t{}\\n",' in journal
-    and r'format!("J3\\tB\\t{}\\t{}\\t{}\\\\n", encoded_id, REQUEST_A, PROVIDER_A)' not in journal
-    and r'"J4\\tB\\t{}\\t{}\\t{}\\t{}\\\\nJ4\\tA' not in journal,
+    r'format!("J3\tB\t{}\t{}\t{}\n", encoded_id, REQUEST_A, PROVIDER_A)' in journal
+    and r'"J4\tB\t{}\t{}\t{}\t{}\nJ4\tA\t{}\t{}\t{}\t{}\t{}\t{}\n",' in journal
+    and r'format!("J3\tB\t{}\t{}\t{}\\n", encoded_id, REQUEST_A, PROVIDER_A)' not in journal
+    and r'"J4\tB\t{}\t{}\t{}\t{}\\nJ4\tA' not in journal,
 )
 check(
     "J4 maximum ID/key acknowledgement stays within the record ceiling",
