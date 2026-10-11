@@ -3915,7 +3915,7 @@ mod tests {
         ).unwrap();
         let evaluation = SignedScientificEvent::sign(
             ScientificEventEnvelope::next(
-                &attestation, actor("did:key:independent-reviewer"), t0 + Duration::seconds(40),
+                &attestation, actor("did:key:independent-reviewer"), t0.clone() + Duration::seconds(40),
                 ScientificEventPayload::EvidenceProvenanceEvaluated {
                     claim_id,
                     evaluation: provenance_evaluation(
@@ -3930,7 +3930,7 @@ mod tests {
 
         let evaluation_two = SignedScientificEvent::sign(
             ScientificEventEnvelope::next(
-                &evaluation, actor("did:key:independent-reviewer-two"), t0 + Duration::seconds(50),
+                &evaluation, actor("did:key:independent-reviewer-two"), t0.clone() + Duration::seconds(50),
                 ScientificEventPayload::EvidenceProvenanceEvaluated {
                     claim_id,
                     evaluation: provenance_evaluation(
@@ -3995,7 +3995,7 @@ mod tests {
         ).unwrap();
         let second = SignedScientificEvent::sign(
             ScientificEventEnvelope::next(
-                &first, actor("did:key:reviewer-b"), t0 + Duration::seconds(40),
+                &first, actor("did:key:reviewer-b"), t0.clone() + Duration::seconds(40),
                 ScientificEventPayload::EvidenceProvenanceEvaluated {
                     claim_id,
                     evaluation: provenance_evaluation(
