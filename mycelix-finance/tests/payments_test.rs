@@ -116,6 +116,7 @@ mod payment_creation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Test payment from Alice to Bob".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         // Send payment
@@ -197,6 +198,7 @@ mod payment_creation {
                 currency: TEST_CURRENCY.to_string(),
                 payment_type: payment_type.clone(),
                 memo: Some(format!("Test {} payment", type_name)),
+                idempotency_key: unique_test_idempotency_key(),
             };
 
             let result: Record = conductor
@@ -257,6 +259,7 @@ mod payment_creation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Recurring(recurring_config.clone()),
             memo: Some("Monthly subscription".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Record = conductor
@@ -321,6 +324,7 @@ mod payment_validation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Result<Record, _> = conductor
@@ -353,6 +357,7 @@ mod payment_validation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Result<Record, _> = conductor
@@ -410,6 +415,7 @@ mod payment_validation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Result<Record, _> = conductor
@@ -468,6 +474,7 @@ mod payment_validation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Self payment attempt".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Result<Record, _> = conductor
@@ -527,6 +534,7 @@ mod payment_validation {
                 currency: currency.to_string(),
                 payment_type: PaymentType::Direct,
                 memo: None,
+                idempotency_key: unique_test_idempotency_key(),
             };
 
             let result: Result<Record, _> = conductor
@@ -596,6 +604,7 @@ mod double_spend_prevention {
                 currency: TEST_CURRENCY.to_string(),
                 payment_type: PaymentType::Direct,
                 memo: Some(format!("Payment {}", i)),
+                idempotency_key: unique_test_idempotency_key(),
             };
 
             let result: Record = conductor
@@ -660,6 +669,7 @@ mod double_spend_prevention {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Payment with receipt".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let payment_record: Record = conductor
@@ -917,6 +927,7 @@ mod transaction_confirmation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Record = conductor
@@ -987,6 +998,7 @@ mod transaction_confirmation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Alice to Bob".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let _: Record = conductor
@@ -1002,6 +1014,7 @@ mod transaction_confirmation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Charlie to Alice".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let _: Record = conductor
@@ -1017,6 +1030,7 @@ mod transaction_confirmation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Alice to Charlie".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let _: Record = conductor
@@ -1104,6 +1118,7 @@ mod currency_tests {
             currency: "SAP".to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("SAP payment".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Record = conductor
@@ -1155,6 +1170,7 @@ mod currency_tests {
             currency: "TEND".to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("TEND payment".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Record = conductor
@@ -1203,6 +1219,7 @@ mod currency_tests {
             currency: "SAP".to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let _: Record = conductor
@@ -1218,6 +1235,7 @@ mod currency_tests {
             currency: "TEND".to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let _: Record = conductor
@@ -1233,6 +1251,7 @@ mod currency_tests {
             currency: "MYC".to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Result<Record, _> = conductor
@@ -1845,6 +1864,7 @@ mod performance_benchmarks {
                 currency: TEST_CURRENCY.to_string(),
                 payment_type: PaymentType::Direct,
                 memo: Some(format!("Benchmark payment {}", i)),
+                idempotency_key: unique_test_idempotency_key(),
             };
 
             let start = std::time::Instant::now();
@@ -2441,6 +2461,7 @@ mod escrow_tests {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Payment to refund".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let payment_record: Record = conductor
@@ -2508,6 +2529,7 @@ mod escrow_tests {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let payment_record: Record = conductor
@@ -2921,6 +2943,7 @@ mod fee_tier_tests {
             currency: "SAP".to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Fee tier test payment".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let payment_record: Record = conductor
@@ -3019,6 +3042,7 @@ mod fee_tier_tests {
             currency: "TEND".to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("TEND fee test".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let payment_record: Record = conductor
