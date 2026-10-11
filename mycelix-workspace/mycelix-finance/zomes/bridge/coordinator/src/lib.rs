@@ -2177,6 +2177,18 @@ pub fn create_multi_collateral_position(
     verify_caller_is_did(&input.holder_did)?;
     let now = sys_time()?;
 
+    // Bound parsing work before deserializing the caller-controlled JSON.
+    if input.components_json.is_empty() || input.components_json.len() > 16_384 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Components JSON must be non-empty and at most 16,384 bytes".into()
+        )));
+    }
+    if input.aggregate_value == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Aggregate collateral value must be positive; cannot classify an unpriced position".into()
+        )));
+    }
+
     // Parse a typed basket and derive its economics from the components. Do not
     // trust caller-supplied aggregate values or a caller-selected diversification
     // discount: those are validated against the exact stored component manifest.
@@ -2241,11 +2253,6 @@ pub fn create_multi_collateral_position(
     }
     let diversification_bonus = compute_diversification_bonus(&components);
 
-    if input.aggregate_value == 0 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Aggregate collateral value must be positive; cannot classify an unpriced position".into()
-        )));
-    }
     let base_ltv = input.aggregate_obligation as f64 / input.aggregate_value as f64;
     let effective_ltv = (base_ltv - diversification_bonus).max(0.0);
     let health_status = CollateralHealthStatus::from_ltv(effective_ltv);
