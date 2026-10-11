@@ -351,6 +351,12 @@ fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str, effect_id: 
     false
 }
 
+/// Count the bounded attempts made during a failed compost-delivery cycle.
+/// Saturation prevents metadata overflow from making the queue unwriteable.
+fn retry_count_after_failed_delivery(current: u32, attempts: u32) -> u32 {
+    current.saturating_add(attempts)
+}
+
 /// Enqueue a durable compost outbox effect in the current source-chain transaction.
 /// Treasury delivery is performed after commit and retries use the same effect ID.
 fn queue_pending_compost(
@@ -398,7 +404,7 @@ fn queue_pending_compost(
         source_member_did: source_did.to_string(),
         pool_tier: tier,
         created_at_micros: now.as_micros(),
-        retry_count: COMPOST_MAX_RETRIES,
+        retry_count: 0,
     };
     let tag_bytes = serde_json::to_vec(&pending).map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -648,11 +654,37 @@ fn drain_pending_compost_inner() -> ExternResult<u32> {
                 pending.amount, pending.commons_pool_id, pending.source_member_did
             );
         } else {
+            // Persist attempts from this failed delivery cycle. The link tag is the
+            // durable queue record, so replace it atomically rather than mutating
+            // only an in-memory copy that will be lost on return.
+            let updated_pending = PendingCompost {
+                retry_count: retry_count_after_failed_delivery(
+                    pending.retry_count,
+                    COMPOST_MAX_RETRIES,
+                ),
+                ..pending.clone()
+            };
+            let retry_tag = serde_json::to_vec(&updated_pending).map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to serialize retried PendingCompost: {:?}",
+                    e
+                )))
+            })?;
+            let queue_anchor = anchor_hash(PENDING_COMPOST_ANCHOR)?;
+            create_link(
+                queue_anchor.clone(),
+                queue_anchor,
+                LinkTypes::PendingCompostQueue,
+                retry_tag,
+            )?;
+            delete_link(link.create_link_hash.clone(), GetOptions::default())?;
             debug!(
-                "Pending compost still undeliverable: {} micro-SAP to pool {} from {} (queued at {})",
+                "Pending compost still undeliverable after {} delivery attempts: {} micro-SAP to pool {} from {} (total attempts {}, queued at {})",
+                COMPOST_MAX_RETRIES,
                 pending.amount,
                 pending.commons_pool_id,
                 pending.source_member_did,
+                updated_pending.retry_count,
                 pending.created_at_micros
             );
         }
@@ -3161,6 +3193,16 @@ mod payment_idempotency_tests {
         assert_eq!(checked_total_debit(100, 5).unwrap(), 105);
         assert!(checked_total_debit(u64::MAX, 1).is_err());
         assert!(checked_total_debit(u64::MAX - 5, 5).is_ok());
+    }
+
+    #[test]
+    fn pending_compost_retry_count_is_monotonic_and_saturating() {
+        assert_eq!(retry_count_after_failed_delivery(0, COMPOST_MAX_RETRIES), 3);
+        assert_eq!(retry_count_after_failed_delivery(3, COMPOST_MAX_RETRIES), 6);
+        assert_eq!(
+            retry_count_after_failed_delivery(u32::MAX - 1, COMPOST_MAX_RETRIES),
+            u32::MAX
+        );
     }
 
     #[test]
