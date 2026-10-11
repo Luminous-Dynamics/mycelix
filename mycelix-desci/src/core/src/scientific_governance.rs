@@ -1196,6 +1196,17 @@ mod tests {
         ).unwrap();
         log.append_at(4, evaluation_a.clone(), now.clone()).await.unwrap();
 
+        let duplicate_review = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &evaluation_a,
+                reviewer_a.clone(),
+                now.clone(),
+                evaluation_a.envelope.payload.clone(),
+            ).unwrap(),
+            &reviewer_a_key,
+        ).unwrap();
+        assert!(log.append_at(5, duplicate_review, now.clone()).await.is_err());
+
         let evaluation_b = SignedScientificEvent::sign(
             ScientificEventEnvelope::next(
                 &evaluation_a, reviewer_b.clone(), now.clone(),
