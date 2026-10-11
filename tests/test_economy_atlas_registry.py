@@ -153,6 +153,51 @@ class EconomyAtlasRegistryTests(unittest.TestCase):
                 )
         self.assertEqual(len(seen_ids), 7)
 
+    def test_regenerative_frameworks_are_first_class_external_models(self) -> None:
+        expected = {
+            "regenerative.economics.energy-network-science.v1",
+            "regenerative.doughnut.place-portrait.v1",
+            "regenerative.circular-economy.v1",
+        }
+        models = {model["model_id"]: model for model in self.registry["models"]}
+        self.assertTrue(expected.issubset(models))
+        for model_id in expected:
+            model = models[model_id]
+            self.assertEqual(model["epistemic_status"], "external_framework")
+            self.assertEqual(model["execution_status"].split(";")[0] in {
+                "research_framework",
+                "external_methodology",
+                "principles_documented",
+            }, True)
+            self.assertEqual(model["source_refs"], [])
+            self.assertGreaterEqual(len(model["research_refs"]), 1)
+
+    def test_external_research_references_are_https_and_typed(self) -> None:
+        for model in self.registry["models"]:
+            for ref in model.get("research_refs", []):
+                self.assertTrue(ref["url"].startswith("https://"), ref)
+                for field in ("title", "publisher", "reference_type"):
+                    self.assertTrue(ref[field].strip(), (model["model_id"], field))
+        self.assertEqual(validate_registry(self.registry), [])
+
+    def test_external_framework_without_research_reference_fails(self) -> None:
+        model = next(
+            item for item in self.registry["models"]
+            if item["model_id"] == "regenerative.doughnut.place-portrait.v1"
+        )
+        model["research_refs"] = []
+        errors = validate_registry(self.registry)
+        self.assertTrue(any("requires at least one research_ref" in error for error in errors), errors)
+
+    def test_external_research_reference_rejects_non_https_url(self) -> None:
+        model = next(
+            item for item in self.registry["models"]
+            if item["model_id"] == "regenerative.circular-economy.v1"
+        )
+        model["research_refs"][0]["url"] = "javascript:alert(1)"
+        errors = validate_registry(self.registry)
+        self.assertTrue(any("absolute HTTPS URL" in error for error in errors), errors)
+
     def test_currency_semantics_remain_separate_variants(self) -> None:
         self.registry["models"] = [
             m for m in self.registry["models"]
