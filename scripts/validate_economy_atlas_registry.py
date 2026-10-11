@@ -36,7 +36,7 @@ def validate_registry(data: object) -> list[str]:
     if not isinstance(data, dict):
         return ["registry root must be a JSON object"]
 
-    for key in ("schema_version", "registry_id", "registry_status", "generated_from", "models"):
+    for key in ("schema_version", "registry_id", "registry_status", "generated_from", "status_vocabulary", "models"):
         if key not in data:
             errors.append(f"missing required root field: {key}")
 
@@ -44,6 +44,11 @@ def validate_registry(data: object) -> list[str]:
         errors.append("schema_version must be exactly '1.0.0' for this validator")
     if data.get("registry_id") != "mycelix.economy-atlas":
         errors.append("registry_id must be 'mycelix.economy-atlas'")
+    vocabulary = data.get("status_vocabulary")
+    if not isinstance(vocabulary, dict):
+        errors.append("status_vocabulary must be a JSON object")
+    elif any(status not in vocabulary for status in EPISTEMIC_STATUSES):
+        errors.append("status_vocabulary must describe all allowed epistemic statuses")
     if data.get("qualified_for_execution") is not False:
         errors.append("v1 discovery registry must keep qualified_for_execution=false")
 
@@ -92,7 +97,7 @@ def validate_registry(data: object) -> list[str]:
             errors.append(f"{prefix}.domain must be a non-empty array of non-empty strings")
 
         status = model.get("epistemic_status")
-        if status not in EPISTEMIC_STATUSES:
+        if not isinstance(status, str) or status not in EPISTEMIC_STATUSES:
             errors.append(f"{prefix}.epistemic_status has unsupported value {status!r}")
 
         limitations = model.get("limitations")
@@ -134,7 +139,7 @@ def validate_registry(data: object) -> list[str]:
             else:
                 parsed = urlparse(url)
                 url_parts = parsed.path.strip("/").split("/")
-                if parsed.scheme != "https" or parsed.netloc != "github.com":
+                if parsed.scheme != "https" or parsed.netloc != "github.com" or parsed.query or parsed.fragment:
                     errors.append(f"{sp}.url must be an HTTPS github.com source permalink")
                 elif len(url_parts) < 5 or url_parts[2] != "blob":
                     errors.append(f"{sp}.url must be a GitHub /blob/<commit>/<path> permalink")
