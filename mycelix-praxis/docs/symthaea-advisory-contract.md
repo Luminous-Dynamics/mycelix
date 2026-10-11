@@ -70,6 +70,34 @@ The response contract uses a finite action and reason vocabulary instead of allo
 6. Praxis separately records the actual attempt and updates authorized evidence projections.
 7. If Symthaea is unavailable or its output fails validation, Praxis continues with its ordinary deterministic learning pathway.
 
+## Existing legacy adaptive path: pre-integration blocker
+
+The current Leptos source still contains a separate legacy path that this
+contract-only PR does not change:
+
+- `apps/leptos/src/learning_engine.rs` derives a field named `cortisol` from
+  Spore neuromodulator proxies, classifies values above a threshold as
+  `NeedsBreak`, maps that state to `TakeBreak`, and can override the proposed
+  action when a session interval has elapsed.
+- `apps/leptos/src/cognitive_adaptivity.rs` also derives a stress estimate and
+  has a configurable teacher/parent threshold that creates a break suggestion.
+
+These are heuristics in the application, not validated measurements of
+cortisol, distress, attention, cognition, or a learner's need for rest. Their
+current source comments acknowledge the signal mapping is approximate, but the
+student-facing wording and action semantics still risk overstating what the
+system knows.
+
+**Do not route Symthaea output into this legacy path yet.** Before live
+integration, make rest behavior an explicit learner-visible option except for
+clearly documented, human-configured safeguarding policies; use plain language
+that does not diagnose mental states; distinguish elapsed-session reminders
+from cognitive inference; and add tests that show declining a suggestion does
+not block learning or reduce autonomy. Any child safeguarding exception must
+be configured by an authorized human, explained to the learner, narrowly scoped,
+and reviewed independently. This follow-up is separate from the advisory
+contract prototype and is not claimed as fixed here.
+
 ## Evaluation before enabling by default
 
 Do not promote the integration based on engagement, chat volume, subjective fluency, Phi, or task-completion speed alone. First run deterministic offline scenarios and compare the advisor with the existing baseline. Then use a consent-based, appropriately reviewed evaluation to measure:
