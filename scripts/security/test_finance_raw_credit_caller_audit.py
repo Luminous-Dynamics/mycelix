@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import io
+import re
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -132,7 +133,7 @@ class RawCreditCallerAuditTests(unittest.TestCase):
 fn disabled(_input: String) -> Result<(), String> {
     let ordinary = "brace } and opener {";
     let raw = r###"raw } { // not a comment"###;
-    let escaped = "quoted \\" } text";
+    let escaped = "quoted \\\\ } text";
     /* outer close } /* nested opener { */ outer tail { */
     // line comment contains } and {
     if ordinary.len() + raw.len() + escaped.len() > 0 {
