@@ -7,6 +7,7 @@ uses no credentials, and does not exercise a production adapter or move money.
 from __future__ import annotations
 
 import hashlib
+import json
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from typing import Any
@@ -126,7 +127,12 @@ class PaymentClaimLedger:
 
     @staticmethod
     def operation_id(sender: str, key: str) -> str:
-        material = b"mycelix.payment-operation/v1\\x00" + sender.encode() + b"\\x00" + key.encode()
+        # Match the production design's domain-separated serialized tuple shape.
+        material = json.dumps(
+            ["mycelix-payment-operation-v1", sender, key],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
         return hashlib.sha256(material).hexdigest()
 
     def submit(self, sender: str, key: str, fingerprint: str) -> tuple[str, str]:
@@ -278,9 +284,12 @@ def treasury_rejects_unanchored_effect() -> str:
     return "PAY-TREASURY-002: effect ID alone cannot authorize a Treasury credit"
 
 
-def concurrent_treasury_credits_respect_pool_ceiling() -> str:
-    """PAY-TREASURY-003: concurrent receipt dedupe and checked balance ceiling."""
-    ledger = TreasuryLedger("treasury-pool-C", max_balance=100)
+def concurrent_treasury_credits_respect_u64_bound() -> str:
+    """PAY-TREASURY-003: concurrent receipt dedupe and checked u64 balance addition."""
+    u64_max = (1 << 64) - 1
+    ledger = TreasuryLedger("treasury-pool-C", max_balance=u64_max)
+    ledger.balance = u64_max - 10
+    opening_balance = ledger.balance
     requests: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
     for index in range(20):
         effect_id = f"fee-effect-{index:02d}"
@@ -300,14 +309,35 @@ def concurrent_treasury_credits_respect_pool_ceiling() -> str:
             requests,
         ))
     statuses = [status for status, _ in results]
-    check(statuses.count("credited") == 10, "exactly ten unique credits should fit the shared pool ceiling")
-    check(statuses.count("duplicate") == 10, "concurrent duplicate effects were not deduplicated")
-    check(statuses.count("limit") == 20, "credits beyond the ceiling were not cleanly rejected")
-    check(ledger.balance == 100, "concurrent credits exceeded or failed to reach the configured ceiling")
-    check(len(ledger.receipts) == 10, "receipt count differs from unique committed credits")
-    check(sum(receipt["amount"] for receipt in ledger.receipts.values()) == ledger.balance,
-          "receipts do not reconcile to the shared Treasury balance")
-    return "PAY-TREASURY-003: 40 concurrent attempts deduplicate to 10 credits without exceeding the pool ceiling"
+    check(statuses.count("credited") == 1, "exactly one unique credit should fit the remaining u64 range")
+    check(statuses.count("duplicate") == 1, "the winning effect's concurrent duplicate was not deduplicated")
+    check(statuses.count("limit") == 38, "credits beyond u64::MAX were not cleanly rejected")
+    check(ledger.balance == u64_max, "concurrent credit overflowed or failed to reach u64::MAX")
+    check(len(ledger.receipts) == 1, "receipt count differs from unique committed credits")
+    receipt_delta = sum(receipt["amount"] for receipt in ledger.receipts.values())
+    check(opening_balance + receipt_delta == ledger.balance,
+          "opening balance plus receipts does not reconcile to the current pool balance")
+    return "PAY-TREASURY-003: 40 concurrent attempts preserve u64::MAX, deduplicate the winning credit, and reject 38 unsafe attempts"
+
+def same_key_isolated_by_sender_identity() -> str:
+    """PAY-MYC-003: client keys are sender-scoped rather than globally unique."""
+    ledger = PaymentClaimLedger()
+    sender_a = "did:mycelix:sender-A"
+    sender_b = "did:mycelix:sender-B"
+    key = "shared-client-key"
+    first_a = ledger.submit(sender_a, key, "same-request-digest")
+    first_b = ledger.submit(sender_b, key, "same-request-digest")
+    retry_a = ledger.submit(sender_a, key, "same-request-digest")
+    retry_b = ledger.submit(sender_b, key, "same-request-digest")
+    check(first_a[0] == "created" and first_b[0] == "created",
+          "different senders should each create their own logical operation")
+    check(first_a[1] != first_b[1], "the same client key collided across authenticated senders")
+    check(retry_a == ("replay", first_a[1]), "sender A retry did not resolve sender A's operation")
+    check(retry_b == ("replay", first_b[1]), "sender B retry did not resolve sender B's operation")
+    check(ledger.payment_effects == 2 and ledger.outbox_effects == 2,
+          "sender isolation produced missing or duplicate local effects")
+    return "PAY-MYC-003: same client key from two senders yields two isolated operations and sender-local retries"
+
 
 def main() -> int:
     scenarios = [
@@ -320,7 +350,8 @@ def main() -> int:
         concurrent_conflicting_claim_payload_is_rejected,
         treasury_receipt_replay_after_payment_status_failure,
         treasury_rejects_unanchored_effect,
-        concurrent_treasury_credits_respect_pool_ceiling,
+        concurrent_treasury_credits_respect_u64_bound,
+        same_key_isolated_by_sender_identity,
     ]
     passed: list[str] = []
     for scenario in scenarios:
