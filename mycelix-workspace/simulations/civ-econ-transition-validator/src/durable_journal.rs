@@ -586,7 +586,7 @@ fn replay<R: BufRead>(reader: &mut R) -> Result<HashMap<String, JournalEntry>, J
         })?;
         // Split into a fixed number of borrowed fields. Collecting into a Vec
         // here would heap-allocate once per line even though the grammar allows
-        // no more than seven fields.
+        // no more than eight fields.
         let mut fields = line.split('\t');
         let version = fields.next().ok_or(JournalError::CorruptJournal {
             line: line_no, reason: "invalid record shape or version"
@@ -1003,12 +1003,13 @@ mod tests {
             journal.begin_effect("invalid-key", REQUEST_A, PROVIDER_A, Some("bad\\nkey")),
             Err(JournalError::InvalidIdempotencyKey),
         );
+        let oversized_key = "k".repeat(MAX_IDEMPOTENCY_KEY_BYTES + 1);
         assert_eq!(
             journal.begin_effect(
                 "oversized-key",
                 REQUEST_A,
                 PROVIDER_A,
-                Some(&"k".repeat(MAX_IDEMPOTENCY_KEY_BYTES + 1)),
+                Some(oversized_key.as_str()),
             ),
             Err(JournalError::InvalidIdempotencyKey),
         );
