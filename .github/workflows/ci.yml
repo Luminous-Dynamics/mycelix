@@ -202,6 +202,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-finance
+      - name: Verify finance outbox callback ABI and repository call sites
+        run: |
+          python3 -m unittest discover -s scripts/security -p 'test_finance_compost_callsite_audit.py' -v
+          python3 scripts/security/finance_compost_callsite_audit.py
       - name: Test finance
         run: cd mycelix-finance && cargo test --workspace
 
