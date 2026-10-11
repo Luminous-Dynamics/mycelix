@@ -68,7 +68,7 @@ class EconomyAtlasRegistryTests(unittest.TestCase):
             model for model in self.registry["models"]
             if model["model_id"] == "mycelix.finance.tricurrency.v1"
         )
-        self.assertEqual(len(finance["validation_findings"]), 3)
+        self.assertEqual(len(finance["validation_findings"]), 4)
         for finding in finance["validation_findings"]:
             self.assertTrue(any(
                 source["repository"] == finding["source_repository"]
