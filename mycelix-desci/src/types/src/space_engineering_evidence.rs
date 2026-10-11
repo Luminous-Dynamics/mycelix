@@ -162,17 +162,33 @@ impl SpaceEngineeringEvidence {
             }
         }
         if self.state == EvidenceState::PassedAtSpecifiedFidelity {
-            if self.run_manifest_sha256.is_none() {
-                errors.push("state: requires run_manifest_sha256".into());
-            }
-            if self.analysis_tool_sha256.is_none() {
-                errors.push("state: requires analysis_tool_sha256".into());
-            }
-            if self.result_artifacts.is_empty() {
-                errors.push("state: requires at least one result artifact".into());
-            }
-            if self.class == EvidenceClass::TestFixture {
-                errors.push("state: TestFixture cannot be promoted as engineering evidence".into());
+            match self.class {
+                EvidenceClass::Derived | EvidenceClass::ModelResult => {
+                    if self.run_manifest_sha256.is_none() {
+                        errors.push("state: Derived/ModelResult requires run_manifest_sha256".into());
+                    }
+                    if self.analysis_tool_sha256.is_none() {
+                        errors.push("state: Derived/ModelResult requires analysis_tool_sha256".into());
+                    }
+                    if self.result_artifacts.is_empty() {
+                        errors.push("state: Derived/ModelResult requires at least one result artifact".into());
+                    }
+                }
+                EvidenceClass::IndependentCheck => {
+                    if self.independent_check.is_none() {
+                        errors.push("state: IndependentCheck requires an independent_check record".into());
+                    }
+                }
+                EvidenceClass::SourceFact
+                | EvidenceClass::Measurement
+                | EvidenceClass::EngineeringAssumption => {
+                    if self.result_artifacts.is_empty() {
+                        errors.push("state: evidence record requires at least one content-addressed artifact".into());
+                    }
+                }
+                EvidenceClass::TestFixture => {
+                    errors.push("state: TestFixture cannot be promoted as engineering evidence".into());
+                }
             }
         }
         if errors.is_empty() { Ok(()) } else { Err(errors) }
@@ -248,6 +264,33 @@ mod tests {
             .unwrap_err()
             .iter()
             .any(|e| e.contains("TestFixture cannot be promoted")));
+    }
+
+    #[test]
+    fn source_fact_can_pass_without_a_solver_run() {
+        let mut r = blocked();
+        r.class = EvidenceClass::SourceFact;
+        r.state = EvidenceState::PassedAtSpecifiedFidelity;
+        r.result_artifacts.push(artifact());
+        assert!(r.run_manifest_sha256.is_none());
+        assert!(r.analysis_tool_sha256.is_none());
+        assert!(r.validate().is_ok());
+    }
+
+    #[test]
+    fn independent_check_class_requires_a_separate_check_record() {
+        let mut r = blocked();
+        r.class = EvidenceClass::IndependentCheck;
+        r.state = EvidenceState::PassedAtSpecifiedFidelity;
+        assert!(r.validate().unwrap_err().iter().any(|e| {
+            e.contains("IndependentCheck requires an independent_check record")
+        }));
+        r.independent_check = Some(IndependentCheck {
+            method_id: "independent-method".into(),
+            tool_sha256: d('a'),
+            result: artifact(),
+        });
+        assert!(r.validate().is_ok());
     }
 
     #[test]
