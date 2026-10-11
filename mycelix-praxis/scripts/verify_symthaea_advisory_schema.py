@@ -54,6 +54,9 @@ REQUIRED_TESTS = {
     "request_digest_matches_blake3_empty_input_golden_vector",
     "request_digest_matches_blake3_nonempty_golden_vector",
     "duplicate_references_are_rejected_deterministically",
+    "bounded_wire_parser_accepts_a_valid_contract_response",
+    "bounded_wire_parser_rejects_oversized_response_before_json_parsing",
+    "bounded_wire_parser_rejects_malformed_json",
 }
 
 
@@ -110,6 +113,7 @@ def main() -> int:
         )
         max_refs = integer_constant(source, "MAX_SUPPORTING_CONTENT_IDS")
         max_identifier_chars = integer_constant(source, "MAX_ADVISORY_IDENTIFIER_CHARS")
+        max_response_bytes = integer_constant(source, "MAX_ADVISORY_RESPONSE_BYTES")
     except (AttributeError, TypeError, ValueError) as error:
         print(f"Symthaea advisory static conformance FAILED: {error}", file=sys.stderr)
         return 1
@@ -168,6 +172,15 @@ def main() -> int:
             "Rust must retain the BLAKE3 nonempty-input golden vector", errors)
     require("if !valid_blake3_digest(&candidate.input_digest)" in source,
             "Rust must reject malformed input digests", errors)
+
+    require(max_response_bytes == 16384,
+            "raw advisory response limit must remain the reviewed 16 KiB bound", errors)
+    require("pub fn parse_symthaea_advice_response(" in source,
+            "Rust must expose the bounded pre-deserialization response parser", errors)
+    require("if response_bytes.len() > MAX_ADVISORY_RESPONSE_BYTES" in source,
+            "raw response size must be checked before JSON parsing", errors)
+    require("serde_json::from_slice(response_bytes).map_err(|_| AdviceWireRejection::MalformedJson)" in source,
+            "bounded parser must map decode failures to a closed wire rejection", errors)
 
     require("#[serde(deny_unknown_fields)]" in source,
             "Rust wire type must reject unknown fields", errors)
