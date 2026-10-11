@@ -177,7 +177,7 @@ for scenario in scenarios:
 check("scale binary is registered in Cargo manifest", 'name = "journal-replay-scale"' in manifest and 'path = "src/journal_replay_scale.rs"' in manifest)
 check("crate remains dependency-free", "[dependencies]" not in manifest)
 check("Cargo.lock resolves the local validator package", 'name = "civ-econ-transition-validator"' in lockfile)
-hash_list_start = audit_script.find("files = (")
+hash_list_start = audit_script.find("\\nfiles = (\\n    JOURNAL_PATH,")
 hash_list_end = audit_script.find("\n)\n", hash_list_start)
 hash_list_source = audit_script[hash_list_start:hash_list_end + 3] if hash_list_start >= 0 and hash_list_end > hash_list_start else ""
 check(
