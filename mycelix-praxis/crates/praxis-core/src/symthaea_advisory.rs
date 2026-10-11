@@ -405,6 +405,41 @@ mod tests {
     }
 
     #[test]
+    fn a_different_model_cannot_submit_advice() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.model_id = "unconfigured-model".into();
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::UnexpectedModel)
+        );
+    }
+
+    #[test]
+    fn an_old_curriculum_revision_is_rejected() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.curriculum_revision = "caps-2025.1".into();
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::CurriculumRevisionMismatch)
+        );
+    }
+
+    #[test]
+    fn oversized_reference_lists_are_rejected_before_reference_lookup() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.supporting_content_ids = (0..=MAX_SUPPORTING_CONTENT_IDS)
+            .map(|index| format!("lesson-{index}"))
+            .collect();
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::TooManyContentReferences)
+        );
+    }
+
+    #[test]
     fn duplicate_references_are_rejected_deterministically() {
         let ids = allowed_content();
         let mut advice = candidate();
