@@ -102,12 +102,54 @@ def _rust_lexeme_end(source: str, index: int) -> int:
 
 
 def rust_function_body(source: str, name: str) -> str:
-    """Extract a Rust function body while ignoring braces in comments/literals."""
-    marker = f"fn {name}("
-    start = source.find(marker)
-    if start < 0:
+    """Extract a Rust function body without matching function-shaped lexemes."""
+    marker = re.compile(r"\\bfn\\s+" + re.escape(name) + r"\\s*\\(")
+    start_match = None
+    index = 0
+    while index < len(source):
+        lexeme_end = _rust_lexeme_end(source, index)
+        if lexeme_end != index:
+            index = lexeme_end
+            continue
+        start_match = marker.match(source, index)
+        if start_match is not None:
+            break
+        index += 1
+
+    if start_match is None:
         raise AssertionError(f"missing Rust function {name}")
-    opening = source.find("{", start)
+
+    # Find the body opener after the parameter list and return/where clauses.
+    # Track nested type delimiters so braces in array/const-generic types are not
+    # mistaken for the function body.
+    paren_depth = 1  # The marker consumes the opening parameter-list parenthesis.
+    bracket_depth = 0
+    angle_depth = 0
+    index = start_match.end()
+    opening = -1
+    while index < len(source):
+        lexeme_end = _rust_lexeme_end(source, index)
+        if lexeme_end != index:
+            index = lexeme_end
+            continue
+        char = source[index]
+        if char == "(":
+            paren_depth += 1
+        elif char == ")":
+            paren_depth -= 1
+        elif char == "[":
+            bracket_depth += 1
+        elif char == "]":
+            bracket_depth -= 1
+        elif char == "<":
+            angle_depth += 1
+        elif char == ">" and angle_depth:
+            angle_depth -= 1
+        elif char == "{" and paren_depth == bracket_depth == angle_depth == 0:
+            opening = index
+            break
+        index += 1
+
     if opening < 0:
         raise AssertionError(f"missing body for Rust function {name}")
 
@@ -146,6 +188,26 @@ fn later() { panic!("must not be part of disabled body"); }
         self.assertIn("outer tail", body)
         self.assertIn('return Err("disabled".into())', body)
         self.assertNotIn("fn later()", body)
+
+
+    def test_rust_function_body_skips_function_shaped_comments_and_strings(self) -> None:
+        source = r'''
+// fn disabled(_input: String) -> Result<(), String> { line decoy }
+ /*
+fn disabled(_input: String) -> Result<(), String> { block decoy }
+*/
+const DOC: &str = r#"fn disabled() { raw-string decoy }"#;
+fn disabled(_input: String) -> Result<(), String> {
+    let raw = r###"literal with braces { } and fn disabled() {"###;
+    let _ = raw;
+    Err("actual function body".into())
+}
+'''
+        body = rust_function_body(source, "disabled")
+        self.assertIn('Err("actual function body".into())', body)
+        self.assertNotIn("line decoy", body)
+        self.assertNotIn("block decoy", body)
+        self.assertNotIn("raw-string decoy", body)
 
 
     def test_public_hdk_extern_raw_credit_is_detected(self) -> None:
