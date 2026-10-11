@@ -109,7 +109,7 @@ Do not place API secrets, bearer tokens, private keys, seed phrases, full paymen
 6. **Qualify sandbox behavior.** Separately obtain partner/provider sandbox access and verify signatures, actual payloads, status queries, returns, timeouts, idempotency and reconciliation against the exact contract.
 7. **Gate production per product.** Require security review, credential scope, operational monitoring, incident/recovery runbook, legal/compliance review and provider approval. A mock or sandbox pass is not production qualification.
 
-The JSON corpus is a reference artifact in this change; it is **not yet wired to an existing Rust test target or CI gate**. The scenario IDs are designed to be consumed by a deterministic harness in a follow-up implementation. The corpus should fail closed if a required profile or evidence field is absent.
+The JSON corpus is a reference artifact. This branch also includes the standard-library-only verifier at `tools/finance/verify_payment_adapter_corpus.py`. From the repository root, run `python tools/finance/verify_payment_adapter_corpus.py --self-test` to validate the corpus and exercise eight negative mutation tests. The verifier checks schema, unique case IDs, required fields, HTTPS source references, and the critical timeout/finality/return/partial-effect contracts. It is not yet wired to a Rust test target or CI gate, and it does not simulate real provider behavior or financial effects. Those remain distinct follow-on qualification stages.
 
 ## 8. Exit criteria
 
