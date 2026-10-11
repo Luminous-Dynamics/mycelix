@@ -134,7 +134,7 @@ Run the checks from the repository root:
 
 ```bash
 python3 scripts/validate_economy_atlas_registry.py
-python3 -m unittest tests.test_economy_atlas_registry
+python3 -m unittest discover -s tests -p 'test_economy_atlas_registry.py'
 ```
 
 These checks validate registry contract and provenance metadata only. They do not execute Rust models, prove that the pinned source implements the documented equations, reproduce a paper, or qualify an economic claim.
