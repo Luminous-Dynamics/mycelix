@@ -389,14 +389,16 @@
           "publisher": "Global Transitions / ScienceDirect",
           "reference_type": "peer_reviewed_research_paper",
           "published_year": 2019,
-          "url": "https://doi.org/10.1016/j.glt.2019.02.002"
+          "url": "https://doi.org/10.1016/j.glt.2019.02.002",
+          "retrieved_on": "2026-10-11"
         },
         {
           "title": "Measuring regenerative economics: 10 principles and measures undergirding systemic economic health",
           "publisher": "Directory of Open Access Journals (DOAJ)",
           "reference_type": "bibliographic_record",
           "published_year": 2019,
-          "url": "https://doaj.org/article/176752b20697478f8e7236819256d030"
+          "url": "https://doaj.org/article/176752b20697478f8e7236819256d030",
+          "retrieved_on": "2026-10-11"
         }
       ],
       "framework_summary": "An energy-flow and network-science approach to socio-economic health. It emphasizes where money, resources, energy, and information circulate; reinvestment in human, social, natural, and physical capacities; reliable inputs and healthy outputs; balancing efficiency with resilience; diversity of roles and organizations; mutually beneficial relations; reducing excessive extraction/speculation; and adaptive collective learning.",
@@ -441,20 +443,23 @@
           "title": "What is the Doughnut?",
           "publisher": "Doughnut Economics Action Lab (DEAL)",
           "reference_type": "framework_overview",
-          "url": "https://doughnuteconomics.org/doughnut/"
+          "url": "https://doughnuteconomics.org/doughnut/",
+          "retrieved_on": "2026-10-11"
         },
         {
           "title": "Doughnut Data Portraits: Visualiser & Data Hub (v1.1)",
           "publisher": "Doughnut Economics Action Lab (DEAL)",
           "reference_type": "interactive_methodology_tool",
           "published_year": 2026,
-          "url": "https://doughnuteconomics.org/tools/doughnut-data-portraits-visualiser-data-hub"
+          "url": "https://doughnuteconomics.org/tools/doughnut-data-portraits-visualiser-data-hub",
+          "retrieved_on": "2026-10-11"
         },
         {
           "title": "Doughnut Data Portraits: A Methodological Guide",
           "publisher": "Doughnut Economics Action Lab (DEAL)",
           "reference_type": "methodology_guide",
-          "url": "https://doughnuteconomics.org/tools/doughnut-data-portraits-a-methodological-guide"
+          "url": "https://doughnuteconomics.org/tools/doughnut-data-portraits-a-methodological-guide",
+          "retrieved_on": "2026-10-11"
         }
       ],
       "framework_summary": "A social foundation and an ecological ceiling: assess whether a place meets human needs while remaining within planetary limits. DEAL's current Data Portrait workflow organizes indicators through four lenses formed by two domains (social/ecological) and two scales (local/global), with 44 dimensions in the published tool description.",
@@ -495,14 +500,16 @@
           "title": "The Circular Economy — Definition and Model",
           "publisher": "Ellen MacArthur Foundation",
           "reference_type": "framework_overview",
-          "url": "https://www.ellenmacarthurfoundation.org/topics/circular-economy-introduction/overview"
+          "url": "https://www.ellenmacarthurfoundation.org/topics/circular-economy-introduction/overview",
+          "retrieved_on": "2026-10-11"
         },
         {
           "title": "Circular Economy Principles",
           "publisher": "Ellen MacArthur Foundation",
           "reference_type": "principles",
           "published_year": 2024,
-          "url": "https://www.ellenmacarthurfoundation.org/circular-economy-principles"
+          "url": "https://www.ellenmacarthurfoundation.org/circular-economy-principles",
+          "retrieved_on": "2026-10-11"
         }
       ],
       "framework_summary": "A design approach built around three principles: eliminate waste and pollution, circulate products and materials at their highest value, and regenerate nature. Recycling is one loop among maintenance, reuse, refurbishment, remanufacture, and biological return; circularity is not synonymous with regeneration unless ecological outcomes are measured.",
@@ -545,13 +552,15 @@
           "publisher": "Frontiers in Sustainable Food Systems / FAO AGRIS",
           "reference_type": "peer_reviewed_review",
           "published_year": 2020,
-          "url": "https://doi.org/10.3389/fsufs.2020.577723"
+          "url": "https://doi.org/10.3389/fsufs.2020.577723",
+          "retrieved_on": "2026-10-11"
         },
         {
           "title": "Regenerative Agriculture — Practices and Innovation for Sustainable Agriculture",
           "publisher": "Food and Agriculture Organization of the United Nations (FAO)",
           "reference_type": "sector_framework_overview",
-          "url": "https://www.fao.org/americas/priorities/agricultura-sostenible/practicas-innovacion/3.-regenerative-agriculture/en"
+          "url": "https://www.fao.org/americas/priorities/agricultura-sostenible/practicas-innovacion/3.-regenerative-agriculture/en",
+          "retrieved_on": "2026-10-11"
         }
       ],
       "framework_summary": "A land- and food-system lens for checking whether production practices contribute to restorative outcomes such as soil health, hydrological function, biodiversity and ecosystem services, while also considering productivity, resilience, input use, and local livelihoods. Definitions vary; a list of practices alone is not proof of regeneration.",
