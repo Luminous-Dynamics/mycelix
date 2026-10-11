@@ -178,6 +178,7 @@ fn crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispa
             receipt_digest: RECEIPT_DIGEST.to_owned(),
             source_evidence_digest: Some(SOURCE_EVIDENCE_DIGEST.to_owned()),
             provider_profile_digest: Some(PROVIDER_PROFILE_DIGEST.to_owned()),
+            idempotency_key_binding: IdempotencyKeyBinding::Bound(IDEMPOTENCY_KEY.to_owned()),
         }),
     );
     let provider_effects_after_recovery: Vec<String> = fs::read_to_string(&provider_path)
@@ -276,6 +277,7 @@ fn acknowledged_receipt_survives_process_exit_before_caller_observes_success() {
             receipt_digest: RECEIPT_DIGEST.to_owned(),
             source_evidence_digest: Some(SOURCE_EVIDENCE_DIGEST.to_owned()),
             provider_profile_digest: Some(PROVIDER_PROFILE_DIGEST.to_owned()),
+            idempotency_key_binding: IdempotencyKeyBinding::Bound(IDEMPOTENCY_KEY.to_owned()),
         }),
         "recovery must return the exact receipt that was synchronized before exit",
     );
