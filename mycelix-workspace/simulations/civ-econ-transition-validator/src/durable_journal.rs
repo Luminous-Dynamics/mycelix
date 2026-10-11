@@ -957,7 +957,7 @@ mod tests {
         let encoded_id = encode_hex(b"legacy-j3-pending");
         write_journal_fixture(
             &path,
-            format!("J3\tB\t{}\t{}\t{}\\n", encoded_id, REQUEST_A, PROVIDER_A).as_bytes(),
+            format!("J3\tB\t{}\t{}\t{}\n", encoded_id, REQUEST_A, PROVIDER_A).as_bytes(),
         );
 
         let mut journal = DurableEffectJournal::open(&path).unwrap();
@@ -980,7 +980,7 @@ mod tests {
         write_journal_fixture(
             &temp.journal_path(),
             format!(
-                "J4\tB\t{}\t{}\t{}\t{}\\nJ4\tA\t{}\t{}\t{}\t{}\t{}\t{}\\n",
+                "J4\tB\t{}\t{}\t{}\t{}\nJ4\tA\t{}\t{}\t{}\t{}\t{}\t{}\n",
                 encoded_id, REQUEST_A, PROVIDER_A, key_a,
                 encoded_id, REQUEST_A, PROVIDER_A, key_b, RECEIPT_A, SOURCE_EVIDENCE_A
             ).as_bytes(),
