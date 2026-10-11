@@ -95,6 +95,12 @@ check(
     and "MAX_IDEMPOTENCY_KEY_BYTES: usize = 768;" in journal,
 )
 check(
+    "explicit no-key marker cannot be silently changed to a key",
+    "explicit_no_key_binding_survives_restart_and_rejects_later_key" in journal
+    and "Some(IdempotencyKeyBinding::NotUsed)" in journal
+    and "Err(JournalError::IdempotencyKeyConflict)" in journal,
+)
+check(
     "encoded effect ID limit is checked before decoding",
     ordered_tokens(
         journal,
@@ -197,9 +203,11 @@ check(
 )
 check("README states measurements are not established yet", "has not itself established performance numbers" in " ".join(readme.split()))
 check(
-    "README documents J4 writes and legacy key-binding uncertainty",
+    "README documents J4 writes, key security, and legacy binding uncertainty",
     "writes J4 records" in " ".join(readme.split())
     and "legacy J1/J2/J3 entries replay with no original-key binding" in " ".join(readme.split())
+    and "768 idempotency-key bytes" in " ".join(readme.split())
+    and "not encrypted" in " ".join(readme.split())
 )
 check("README documents how to run source preflight", "python3 scripts/audit_journal_source_contract.py" in readme)
 check(
