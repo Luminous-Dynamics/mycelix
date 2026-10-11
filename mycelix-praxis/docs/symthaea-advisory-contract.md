@@ -119,18 +119,18 @@ Implemented in this branch:
 - exact model/version, skill, curriculum revision, and input-digest checks;
 - opt-in and sandbox rejection;
 - trusted per-turn action and reason allowlists, preventing model output from self-authorizing a break or fabricating a learner-request reason;
-- canonical BLAKE3 input-digest format and exact request binding;
+- canonical BLAKE3 input-digest format, `digest_advisory_request_bytes` over the exact bytes sent, and exact request binding;
 - bounds on confidence fields and content references;
 - allowlist/duplicate/grounding validation;
 - action/reason pairing rules (including learner-requested breaks only);
 - a strict JSON Schema that rejects unknown fields and has exact enum parity with the Rust contract;
 - an independent standard-library Python checker for schema/Rust enum parity, response bounds, trust gates, and the required adversarial test inventory;
 - a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, `praxis-core` formatting/tests, and clippy, including while the PR is a draft;
-- twenty-one authored Rust contract regression tests.
+- twenty-two authored Rust contract regression tests, including the BLAKE3 empty-input golden vector.
 
 Not yet implemented or qualified:
 - live Symthaea service/process adapter;
-- trusted request assembly and canonical digest computation;
+- trusted request assembly/serialization, and a live call path that hashes exactly the transmitted bytes;
 - adapter/process authentication and pre-deserialization size limits;
 - linkage to the evidence-bound PRAX projection pipeline;
 - UI accept/dismiss wiring and accessibility checks;
