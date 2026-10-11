@@ -4020,9 +4020,21 @@ mod tests {
             ).unwrap(), &key(4),
         ).unwrap();
 
-        let one_reviewer_projection = ClaimProjection::rebuild(&[
+        let one_reviewer_events = [
             genesis.clone(), attached.clone(), declaration.clone(), attestation.clone(), evaluation.clone(),
-        ]).unwrap();
+        ];
+        let raw_projection = ClaimProjection::rebuild(&one_reviewer_events).unwrap();
+        assert_eq!(
+            raw_projection.provenance_disposition(data.id),
+            EvidenceProvenanceDisposition::EvaluationAwaitingAuthorityReceipt,
+        );
+        assert_eq!(raw_projection.evidence_profile.qualified_independent_replication_count, 0);
+
+        let one_reviewer_authority = BTreeSet::from([evaluation.envelope.event_id]);
+        let one_reviewer_projection = ClaimProjection::rebuild_with_authorized_evaluations(
+            &one_reviewer_events,
+            &one_reviewer_authority,
+        ).unwrap();
         assert_eq!(
             one_reviewer_projection.provenance_disposition(data.id),
             EvidenceProvenanceDisposition::InsufficientIndependentEvaluations,
@@ -4043,9 +4055,12 @@ mod tests {
             ).unwrap(),
             &key(5),
         ).unwrap();
-        let projection = ClaimProjection::rebuild(&[
-            genesis, attached, declaration, attestation, evaluation, evaluation_two,
-        ]).unwrap();
+        let authorized_evaluations =
+            BTreeSet::from([evaluation.envelope.event_id, evaluation_two.envelope.event_id]);
+        let projection = ClaimProjection::rebuild_with_authorized_evaluations(
+            &[genesis, attached, declaration, attestation, evaluation, evaluation_two],
+            &authorized_evaluations,
+        ).unwrap();
         assert_eq!(projection.provenance_evaluations.len(), 2);
         assert_eq!(projection.provenance_disposition(data.id), EvidenceProvenanceDisposition::QualifiedIndependentReplication);
         assert_eq!(projection.evidence_profile.supportive_independent_replication_count, 1);
@@ -4136,9 +4151,12 @@ mod tests {
             ).unwrap(), &key(5),
         ).unwrap();
 
-        let projection = ClaimProjection::rebuild(&[
-            genesis, original_event, output_event, declaration, attestation, first_eval, second_eval,
-        ]).unwrap();
+        let authorized_evaluations =
+            BTreeSet::from([first_eval.envelope.event_id, second_eval.envelope.event_id]);
+        let projection = ClaimProjection::rebuild_with_authorized_evaluations(
+            &[genesis, original_event, output_event, declaration, attestation, first_eval, second_eval],
+            &authorized_evaluations,
+        ).unwrap();
         assert_eq!(
             projection.provenance_disposition(output.id),
             EvidenceProvenanceDisposition::QualifiedComputationalReproduction,
@@ -4202,7 +4220,12 @@ mod tests {
                 },
             ).unwrap(), &key(4),
         ).unwrap();
-        let projection = ClaimProjection::rebuild(&[genesis, attached, declaration, first, second]).unwrap();
+        let authorized_evaluations =
+            BTreeSet::from([first.envelope.event_id, second.envelope.event_id]);
+        let projection = ClaimProjection::rebuild_with_authorized_evaluations(
+            &[genesis, attached, declaration, first, second],
+            &authorized_evaluations,
+        ).unwrap();
         assert_eq!(projection.provenance_disposition(data.id), EvidenceProvenanceDisposition::ConflictingEvaluationsIndeterminate);
         assert_eq!(projection.evidence_profile.qualified_independent_replication_count, 0);
         assert_ne!(projection.maturity(), EvidenceMaturity::IndependentlyReplicated);
