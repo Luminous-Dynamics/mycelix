@@ -3111,10 +3111,10 @@ mod payment_idempotency_tests {
             fee: 75,
             currency: "SAP".into(),
             payment_type: PaymentType::Direct,
-            status: TransferStatus::Completed,
+            status: TransferStatus::Pending,
             memo: None,
             created: Timestamp::from_micros(1_000),
-            completed: Some(Timestamp::from_micros(2_000)),
+            completed: None,
         };
         assert!(payment_fee_outbox_matches(&payment, "payment-op:v1:abc", &input));
 
@@ -3133,6 +3133,15 @@ mod payment_idempotency_tests {
         let mut zero_fee = payment.clone();
         zero_fee.fee = 0;
         assert!(!payment_fee_outbox_matches(&zero_fee, "payment-op:v1:abc", &input));
+
+        let mut prematurely_completed = payment.clone();
+        prematurely_completed.status = TransferStatus::Completed;
+        prematurely_completed.completed = Some(Timestamp::from_micros(2_000));
+        assert!(!payment_fee_outbox_matches(
+            &prematurely_completed,
+            "payment-op:v1:abc",
+            &input
+        ));
     }
 
 
