@@ -76,6 +76,7 @@ export {
 export {
   // Holochain Finance Provider (The Muscle)
   HolochainFinanceProvider,
+  PaymentSubmissionError,
   createHolochainFinanceProvider,
   createMockFinanceProvider,
   type FinanceState,
