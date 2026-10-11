@@ -27,7 +27,8 @@
         "lineage": "unknown_or_original_study_data",
         "qualification": "not_qualified",
         "reason_code": "REPLICATION_REQUIRES_NEW_COLLECTION"
-      }
+      },
+      "evaluations": []
     },
     {
       "id": "EPC-002",
@@ -49,8 +50,13 @@
           "artifact_id": "artifact-copy",
           "origin_relation": "copied_or_repackaged_from",
           "parent_artifacts": [
-            "artifact-original"
-          ]
+            {
+              "artifact_id": "artifact-original",
+              "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ],
+          "provenance_record_id": "prov-epc-002-1",
+          "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         }
       ],
       "attestation": {
@@ -65,7 +71,8 @@
         "lineage": "copy",
         "qualification": "not_qualified",
         "reason_code": "COPY_IS_NOT_NEW_COLLECTION"
-      }
+      },
+      "evaluations": []
     },
     {
       "id": "EPC-003",
@@ -87,8 +94,13 @@
           "artifact_id": "artifact-repacked",
           "origin_relation": "copied_or_repackaged_from",
           "parent_artifacts": [
-            "artifact-original"
-          ]
+            {
+              "artifact_id": "artifact-original",
+              "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ],
+          "provenance_record_id": "prov-epc-003-1",
+          "content_hash": "blake3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         }
       ],
       "attestation": {
@@ -103,7 +115,8 @@
         "lineage": "copy_or_repackaging",
         "qualification": "not_qualified",
         "reason_code": "DIGEST_CHANGE_DOES_NOT_PROVE_NEW_COLLECTION"
-      }
+      },
+      "evaluations": []
     },
     {
       "id": "EPC-004",
@@ -125,9 +138,14 @@
           "artifact_id": "artifact-analysis-output",
           "origin_relation": "same_data_reanalysis",
           "parent_artifacts": [
-            "artifact-original"
+            {
+              "artifact_id": "artifact-original",
+              "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
           ],
-          "protocol_reference": "analysis:v2"
+          "protocol_reference": "analysis:v2",
+          "provenance_record_id": "prov-epc-004-1",
+          "content_hash": "blake3:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
         }
       ],
       "attestation": {
@@ -143,7 +161,8 @@
         "qualification": "not_qualified_as_replication",
         "possible_classification": "computational_reproduction_candidate",
         "reason_code": "SAME_DATA_IS_NOT_REPLICATION"
-      }
+      },
+      "evaluations": []
     },
     {
       "id": "EPC-005",
@@ -165,8 +184,13 @@
           "artifact_id": "artifact-derived",
           "origin_relation": "derived_from",
           "parent_artifacts": [
-            "artifact-original"
-          ]
+            {
+              "artifact_id": "artifact-original",
+              "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ],
+          "provenance_record_id": "prov-epc-005-1",
+          "content_hash": "blake3:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         }
       ],
       "attestation": {
@@ -181,7 +205,8 @@
         "lineage": "derived_from_original",
         "qualification": "not_qualified_as_new_collection",
         "reason_code": "TRANSFORMATION_INHERITS_LINEAGE"
-      }
+      },
+      "evaluations": []
     },
     {
       "id": "EPC-006",
@@ -196,6 +221,11 @@
           "artifact_id": "artifact-new-study-data",
           "content_hash": "blake3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
           "role": "primary_observation"
+        },
+        {
+          "artifact_id": "artifact-collection-log",
+          "content_hash": "blake3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "role": "reference_material"
         }
       ],
       "provenance_assertions": [
@@ -209,7 +239,9 @@
           "supporting_provenance_artifacts": [
             "artifact-collection-log"
           ],
-          "declared_by": "actor-data-collector-2"
+          "declared_by": "actor-data-collector-2",
+          "provenance_record_id": "prov-epc-006-1",
+          "content_hash": "blake3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
         }
       ],
       "attestation": {
@@ -224,7 +256,8 @@
         "lineage": "declared_new_collection",
         "qualification": "candidate_for_independent_evaluation",
         "reason_code": "ASSERTION_REQUIRES_INDEPENDENT_QUALIFICATION"
-      }
+      },
+      "evaluations": []
     },
     {
       "id": "EPC-007",
@@ -248,14 +281,19 @@
           "collection_activity_id": "collection-2",
           "origin_relation": "partially_overlapping",
           "parent_artifacts": [
-            "artifact-original"
+            {
+              "artifact_id": "artifact-original",
+              "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
           ],
           "overlap_summary": {
             "unit": "records",
             "shared": 20,
             "total": 100
           },
-          "declared_by": "actor-data-collector-2"
+          "declared_by": "actor-data-collector-2",
+          "provenance_record_id": "prov-epc-007-1",
+          "content_hash": "blake3:abababababababababababababababababababababababababababababababab"
         }
       ],
       "attestation": {
@@ -270,7 +308,8 @@
         "lineage": "partial_overlap",
         "qualification": "indeterminate_until_domain_profile_assessment",
         "reason_code": "PARTIAL_OVERLAP_REQUIRES_DOMAIN_RULE"
-      }
+      },
+      "evaluations": []
     },
     {
       "id": "EPC-008",
@@ -280,6 +319,11 @@
           "artifact_id": "artifact-x",
           "content_hash": "blake3:abababababababababababababababababababababababababababababababab",
           "role": "primary_observation"
+        },
+        {
+          "artifact_id": "artifact-original",
+          "content_hash": "blake3:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "role": "reused_input"
         }
       ],
       "provenance_assertions": [
@@ -288,7 +332,12 @@
           "artifact_id": "artifact-x",
           "origin_relation": "new_collection",
           "collection_activity_id": "collection-a",
-          "status": "active"
+          "status": "active",
+          "content_hash": "blake3:abababababababababababababababababababababababababababababababab",
+          "study_id": "study-conflicted-x",
+          "parent_artifacts": [],
+          "collection_manifest_commitment": "blake3:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "supporting_provenance_artifacts": []
         },
         {
           "provenance_record_id": "prov-b",
@@ -296,9 +345,14 @@
           "origin_relation": "copied_or_repackaged_from",
           "collection_activity_id": "collection-b",
           "parent_artifacts": [
-            "artifact-original"
+            {
+              "artifact_id": "artifact-original",
+              "content_hash": "blake3:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            }
           ],
-          "status": "active"
+          "status": "active",
+          "content_hash": "blake3:abababababababababababababababababababababababababababababababab",
+          "study_id": "study-copy-x"
         }
       ],
       "attestation": {
@@ -313,7 +367,8 @@
         "lineage": "conflict",
         "qualification": "indeterminate",
         "reason_code": "CONFLICTING_PROVENANCE_MUST_NOT_USE_LAST_WRITER_WINS"
-      }
+      },
+      "evaluations": []
     },
     {
       "id": "EPC-009",
@@ -339,7 +394,8 @@
         "lineage": "unknown",
         "qualification": "not_provenance_qualified_under_new_policy",
         "reason_code": "LEGACY_HISTORY_IS_NOT_NEW_PROVENANCE"
-      }
+      },
+      "evaluations": []
     },
     {
       "id": "EPC-010",
@@ -348,7 +404,8 @@
         {
           "artifact_id": "artifact-new-study-data",
           "content_hash": "blake3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-          "role": "primary_observation"
+          "role": "primary_observation",
+          "uploaded_by": "actor-same-as-attester"
         }
       ],
       "provenance_assertions": [
@@ -357,7 +414,12 @@
           "origin_relation": "new_collection",
           "collection_activity_id": "collection-2",
           "declared_by": "actor-same-as-attester",
-          "supporting_provenance_artifacts": []
+          "supporting_provenance_artifacts": [],
+          "provenance_record_id": "prov-epc-010-1",
+          "content_hash": "blake3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "study_id": "study-self-asserted",
+          "parent_artifacts": [],
+          "collection_manifest_commitment": "blake3:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         }
       ],
       "attestation": {
@@ -372,7 +434,8 @@
         "lineage": "asserted_not_independently_checked",
         "qualification": "not_qualified_yet",
         "reason_code": "NO_SELF_CERTIFICATION"
-      }
+      },
+      "evaluations": []
     },
     {
       "id": "EPC-011",
@@ -389,8 +452,13 @@
           "artifact_id": "artifact-child",
           "origin_relation": "derived_from",
           "parent_artifacts": [
-            "artifact-parent-missing"
-          ]
+            {
+              "artifact_id": "artifact-parent-missing",
+              "content_hash": "blake3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "provenance_record_id": "prov-epc-011-1",
+          "content_hash": "blake3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         }
       ],
       "attestation": {
@@ -405,7 +473,8 @@
         "lineage": "unresolved",
         "qualification": "rejected_or_replay_fails",
         "reason_code": "PARENT_MUST_RESOLVE"
-      }
+      },
+      "evaluations": []
     },
     {
       "id": "EPC-012",
@@ -415,6 +484,11 @@
           "artifact_id": "artifact-child",
           "content_hash": "blake3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "role": "derived_dataset"
+        },
+        {
+          "artifact_id": "artifact-parent",
+          "content_hash": "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "role": "reused_input"
         }
       ],
       "provenance_assertions": [
@@ -426,7 +500,9 @@
               "artifact_id": "artifact-parent",
               "content_hash": "blake3:0000000000000000000000000000000000000000000000000000000000000000"
             }
-          ]
+          ],
+          "provenance_record_id": "prov-epc-012-1",
+          "content_hash": "blake3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         }
       ],
       "attestation": {
@@ -441,7 +517,8 @@
         "lineage": "untrusted",
         "qualification": "rejected_or_replay_fails",
         "reason_code": "PARENT_HASH_MUST_MATCH"
-      }
+      },
+      "evaluations": []
     },
     {
       "id": "EPC-013",
@@ -450,7 +527,8 @@
         {
           "artifact_id": "artifact-new-study-data",
           "content_hash": "blake3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-          "role": "primary_observation"
+          "role": "primary_observation",
+          "uploaded_by": "actor-data-collector-2"
         }
       ],
       "provenance_assertions": [
@@ -458,8 +536,12 @@
           "artifact_id": "artifact-new-study-data",
           "origin_relation": "new_collection",
           "collection_activity_id": "collection-2",
-          "qualification": "qualified_for_profile",
-          "evaluator_id": "actor-independent-evaluator"
+          "provenance_record_id": "prov-epc-013",
+          "content_hash": "blake3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "study_id": "study-2",
+          "parent_artifacts": [],
+          "collection_manifest_commitment": "blake3:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "supporting_provenance_artifacts": []
         }
       ],
       "attestation": {
@@ -475,7 +557,39 @@
         "lineage": "new_collection",
         "qualification": "qualified_counterevidence",
         "reason_code": "OUTCOME_DOES_NOT_ERASE_EVIDENCE"
-      }
+      },
+      "evaluations": [
+        {
+          "provenance_record_id": "prov-epc-013",
+          "artifact_id": "artifact-new-study-data",
+          "content_hash": "blake3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "scope": "independent_replication",
+          "outcome": "qualified_for_profile",
+          "policy_id": "mycelix-evidence-provenance-evaluation",
+          "policy_version": "1.0.0",
+          "evaluator_id": "actor-independent-evaluator-a",
+          "evaluator_role": "reviewer",
+          "authorization_policy_id": "mycelix-default-scientific-authorization",
+          "authorization_policy_version": "1.2.0",
+          "authority_receipt_status": "committed",
+          "reason": "Synthetic reviewer A verified the collection manifest and lineage"
+        },
+        {
+          "provenance_record_id": "prov-epc-013",
+          "artifact_id": "artifact-new-study-data",
+          "content_hash": "blake3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "scope": "independent_replication",
+          "outcome": "qualified_for_profile",
+          "policy_id": "mycelix-evidence-provenance-evaluation",
+          "policy_version": "1.0.0",
+          "evaluator_id": "actor-independent-evaluator-b",
+          "evaluator_role": "reviewer",
+          "authorization_policy_id": "mycelix-default-scientific-authorization",
+          "authorization_policy_version": "1.2.0",
+          "authority_receipt_status": "committed",
+          "reason": "Synthetic reviewer B independently verified the collection manifest and lineage"
+        }
+      ]
     }
   ]
 }
