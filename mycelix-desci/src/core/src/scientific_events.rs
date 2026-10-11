@@ -3726,6 +3726,14 @@ mod tests {
                 .any(|value| value.as_str() == Some("evaluations")),
             "evaluation decisions must be separate from provenance assertions"
         );
+        assert!(
+            schema["$defs"]["evaluation"]["required"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value.as_str() == Some("evaluator_signer_key_id")),
+            "reviewer quorum fixtures must model signing-key independence, not only distinct actor labels"
+        );
 
         let cases = fixture["cases"].as_array().unwrap();
         assert_eq!(cases.len(), 13);
@@ -3835,6 +3843,7 @@ mod tests {
 
             let evaluations = case["evaluations"].as_array().unwrap();
             let mut evaluator_ids = BTreeSet::new();
+            let mut evaluator_signing_key_ids = BTreeSet::new();
             let mut evaluator_outcomes = BTreeSet::new();
             let mut evaluator_scopes = BTreeSet::new();
             for evaluation in evaluations {
@@ -3844,6 +3853,12 @@ mod tests {
                     .unwrap_or_else(|| panic!("evaluation references unknown declaration {declaration_id} in {case_id}"));
                 let artifact_id = evaluation["artifact_id"].as_str().unwrap();
                 let evaluator_id = evaluation["evaluator_id"].as_str().unwrap();
+                let evaluator_signing_key_id =
+                    evaluation["evaluator_signer_key_id"].as_str().unwrap();
+                assert!(
+                    !evaluator_signing_key_id.trim().is_empty(),
+                    "evaluation signer-key identity must be explicit in {case_id}"
+                );
                 assert_eq!(declaration["artifact_id"].as_str(), Some(artifact_id));
                 assert_eq!(declaration["content_hash"].as_str(), evaluation["content_hash"].as_str());
                 assert_eq!(
@@ -3889,10 +3904,16 @@ mod tests {
                     }
                 }
                 evaluator_ids.insert(evaluator_id.to_string());
+                evaluator_signing_key_ids.insert(evaluator_signing_key_id.to_string());
                 evaluator_outcomes.insert(evaluation["outcome"].as_str().unwrap().to_string());
                 evaluator_scopes.insert(evaluation["scope"].as_str().unwrap().to_string());
             }
             if !evaluations.is_empty() {
+                assert_eq!(
+                    evaluator_signing_key_ids.len(),
+                    evaluations.len(),
+                    "a quorum fixture must not alias different reviewer actor IDs to the same signing key in {case_id}"
+                );
                 assert!(evaluator_ids.len() >= EVIDENCE_PROVENANCE_EVALUATION_MIN_REVIEWERS, "reviewer quorum missing in {case_id}");
                 assert_eq!(evaluator_outcomes.len(), 1, "fixture reviewers disagree in {case_id}");
                 assert_eq!(evaluator_scopes.len(), 1, "fixture reviewers assess different scopes in {case_id}");
