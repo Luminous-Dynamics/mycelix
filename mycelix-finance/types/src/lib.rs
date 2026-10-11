@@ -294,6 +294,10 @@ pub const COMPOST_MAX_RETRIES: u32 = 3;
 /// Processed by `drain_pending_compost()` on next balance mutation.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PendingCompost {
+    /// Stable idempotency identity for this one delivery effect.
+    /// Old queue records deserialize empty and must be reconciled before retry.
+    #[serde(default)]
+    pub effect_id: String,
     /// Target commons pool ID
     pub commons_pool_id: String,
     /// Amount of compost to deliver (micro-SAP)
