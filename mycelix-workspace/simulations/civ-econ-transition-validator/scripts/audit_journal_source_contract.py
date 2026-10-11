@@ -89,6 +89,13 @@ check(
     and "new begin record cannot leave idempotency-key binding unknown" in journal,
 )
 check(
+    "legacy J3 and J4 transition fixtures use real newline delimiters",
+    r'format!("J3\\tB\\t{}\\t{}\\t{}\\n", encoded_id, REQUEST_A, PROVIDER_A)' in journal
+    and r'"J4\\tB\\t{}\\t{}\\t{}\\t{}\\nJ4\\tA\\t{}\\t{}\\t{}\\t{}\\t{}\\t{}\\n",' in journal
+    and r'format!("J3\\tB\\t{}\\t{}\\t{}\\\\n", encoded_id, REQUEST_A, PROVIDER_A)' not in journal
+    and r'"J4\\tB\\t{}\\t{}\\t{}\\t{}\\\\nJ4\\tA' not in journal,
+)
+check(
     "J4 maximum ID/key acknowledgement stays within the record ceiling",
     "maximum_effect_id_and_idempotency_key_fit_bounded_ack_record" in journal
     and "record.len() <= MAX_JOURNAL_RECORD_BYTES" in journal
