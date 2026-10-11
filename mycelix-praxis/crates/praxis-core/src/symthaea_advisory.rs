@@ -104,6 +104,7 @@ pub enum AdviceRejection {
     SkillMismatch,
     CurriculumRevisionMismatch,
     StaleInput,
+    InvalidInputDigest,
     ActionNotAllowed,
     ReasonNotAllowed,
     InvalidConfidence,
@@ -155,13 +156,15 @@ pub fn validate_symthaea_advice(
         || !valid_identifier(&candidate.model_version)
         || !valid_identifier(&candidate.skill_id)
         || !valid_identifier(&candidate.curriculum_revision)
-        || !valid_identifier(&candidate.input_digest)
         || candidate
             .supporting_content_ids
             .iter()
             .any(|value| !valid_identifier(value))
     {
         return Err(AdviceRejection::InvalidIdentifier);
+    }
+    if !valid_blake3_digest(&candidate.input_digest) {
+        return Err(AdviceRejection::InvalidInputDigest);
     }
     if candidate.model_id != context.expected_model_id {
         return Err(AdviceRejection::UnexpectedModel);
@@ -223,6 +226,16 @@ pub fn validate_symthaea_advice(
         reason: candidate.reason,
         supporting_content_ids: candidate.supporting_content_ids,
     })
+}
+
+fn valid_blake3_digest(value: &str) -> bool {
+    let Some(hex) = value.strip_prefix("blake3:") else {
+        return false;
+    };
+    hex.len() == 64
+        && hex
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn valid_identifier(value: &str) -> bool {
@@ -291,7 +304,7 @@ mod tests {
             expected_model_version: "0.1.0",
             skill_id: "math.fractions",
             curriculum_revision: "caps-2026.1",
-            input_digest: "blake3:request-abc",
+            input_digest: "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             allowed_content_ids,
             allowed_actions: DEFAULT_ALLOWED_ACTIONS,
             allowed_reasons: DEFAULT_ALLOWED_REASONS,
@@ -322,7 +335,7 @@ mod tests {
             model_version: "0.1.0".into(),
             skill_id: "math.fractions".into(),
             curriculum_revision: "caps-2026.1".into(),
-            input_digest: "blake3:request-abc".into(),
+            input_digest: "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
             action: LearningSuggestion::OfferHint,
             reported_confidence_permille: 720,
             reason: AdviceReason::RepeatedIncorrectAttempts,
@@ -362,11 +375,28 @@ mod tests {
     fn stale_request_digest_is_rejected() {
         let ids = allowed_content();
         let mut advice = candidate();
-        advice.input_digest = "blake3:previous-request".into();
+        advice.input_digest = "blake3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into();
         assert_eq!(
             validate_symthaea_advice(advice, &context(true, false, &ids)),
             Err(AdviceRejection::StaleInput)
         );
+    }
+
+    #[test]
+    fn malformed_input_digests_are_rejected() {
+        let ids = allowed_content();
+        for digest in [
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "blake3:short",
+            "blake3:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        ] {
+            let mut advice = candidate();
+            advice.input_digest = digest.into();
+            assert_eq!(
+                validate_symthaea_advice(advice, &context(true, false, &ids)),
+                Err(AdviceRejection::InvalidInputDigest)
+            );
+        }
     }
 
     #[test]
