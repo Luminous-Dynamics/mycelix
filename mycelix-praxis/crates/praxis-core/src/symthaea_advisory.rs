@@ -451,6 +451,20 @@ mod tests {
     }
 
     #[test]
+    fn action_and_reason_must_be_semantically_compatible() {
+        const REVIEW_DUE_ONLY: &[AdviceReason] = &[AdviceReason::ReviewDue];
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.reason = AdviceReason::ReviewDue;
+        let mut validation = context(true, false, &ids);
+        validation.allowed_reasons = REVIEW_DUE_ONLY;
+        assert_eq!(
+            validate_symthaea_advice(advice, &validation),
+            Err(AdviceRejection::InvalidActionReasonPair)
+        );
+    }
+
+    #[test]
     fn no_suggestion_is_allowed_when_evidence_is_insufficient() {
         let ids = allowed_content();
         let mut advice = candidate();
