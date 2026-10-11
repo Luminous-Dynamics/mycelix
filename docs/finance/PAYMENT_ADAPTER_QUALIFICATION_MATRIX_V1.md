@@ -10,7 +10,7 @@ Use one provider-neutral qualification corpus for the external-payment boundary,
 
 This artifact complements the existing ISO 20022 airlock, settlement-finality model, and Finance conformance profile. It is deliberately narrower than those architecture documents: it freezes failure sequences and expected dispositions that a deterministic simulator or adapter test harness can execute later.
 
-The companion machine-readable corpus is [payment-adapter-qualification-v1.json](./payment-adapter-qualification-v1.json). It contains 19 scenarios and requires no live credentials or real-money effects.
+The companion machine-readable corpus is [payment-adapter-qualification-v1.json](./payment-adapter-qualification-v1.json). It contains 20 scenarios and requires no live credentials or real-money effects.
 
 ## 2. Canonical boundary
 
@@ -69,6 +69,8 @@ Visa Direct Connect documents product-specific APIs for supported payout flows a
 
 Visa's published [error-code reference](https://developer.visa.com/capabilities/visa-direct-connect/error-codes) distinguishes a Client Reference ID that conflicts with a previously processed payout and a request whose amount/currency differs from that earlier transaction. Scenario `PAY-VISA-005` binds this to the idempotency boundary: preserve the original operation identity, reject the conflicting payload, and query/reconcile the original provider state rather than silently treating the changed request as another payment.
 
+**Provider idempotency keys are not universally permanent.** Stripe documents that keys may be pruned after at least 24 hours and that reusing a pruned key can initiate a new request. Adyen documents company-account scope, a 7–14 day retention window, and no duplicate-key check across simultaneous regional endpoints. These contracts differ, so an adapter must pin key namespace, retention, concurrent-request behavior, and query/recovery support for the exact provider/product. The new scenario `PAY-IDEM-001` forbids dispatching under a fresh key while the old operation remains unresolved after the provider's key-retention window expires or is unknown. A persistent Mycelix operation record does not extend the provider's deduplication guarantee.
+
 The corpus explicitly tests:
 
 - a transport timeout after a provider may have accepted a payout;
@@ -84,6 +86,8 @@ For unknown outcomes, first query or reconcile the original logical operation us
 References:
 - [Visa Direct Connect](https://developer.visa.com/capabilities/visa-direct-connect)
 - [Visa Direct Connect API reference](https://developer.visa.com/capabilities/visa-direct-connect/reference)
+- [Stripe idempotent requests](https://docs.stripe.com/api/idempotent_requests)
+- [Adyen API idempotency](https://docs.adyen.com/development-resources/api-idempotency)
 
 ## 6. Required durable evidence
 
