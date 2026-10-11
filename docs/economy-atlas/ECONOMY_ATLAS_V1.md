@@ -119,3 +119,23 @@ A slice is not complete just because the page renders. At minimum:
 ## Explicit non-claims
 
 This proposal does not claim the full model inventory is complete, that all listed simulators have been executed in this pass, that any paper result was independently reproduced, that model outputs are empirically validated, that the currency conflict has been resolved, or that a working production UI already exists.
+
+## Machine-checkable registry guardrails
+
+The registry now pins its source references to the Mycelix snapshot `445a84abdaa64f3d05e2d5c51115e4d060b78ec7` and the Symthaea snapshot `b9af191f380d635f0459b24284c1d1fd6a5516aa`. Registry permalinks must match both the declared repository/path and the source snapshot map. A source update should create a reviewed registry revision, not silently move a branch pointer.
+
+Artifacts added for this contract:
+
+- `docs/economy-atlas/model-registry.schema.json` — JSON Schema shape for the v1 discovery registry.
+- `scripts/validate_economy_atlas_registry.py` — dependency-free validation of unique model IDs, pinned commit references, source permalink consistency, status fields, and explicit currency-variant separation.
+- `tests/test_economy_atlas_registry.py` — regression tests for duplicate IDs, mutable refs, source/url mismatch, missing source links, and attempts to mark the discovery registry as execution-qualified.
+
+Run the checks from the repository root:
+
+```bash
+python3 scripts/validate_economy_atlas_registry.py
+python3 -m unittest tests.test_economy_atlas_registry
+```
+
+These checks validate registry contract and provenance metadata only. They do not execute Rust models, prove that the pinned source implements the documented equations, reproduce a paper, or qualify an economic claim.
+
