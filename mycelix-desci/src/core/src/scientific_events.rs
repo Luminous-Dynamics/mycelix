@@ -2483,7 +2483,10 @@ fn validate_provenance_evaluation(
         ));
     }
     if projection.provenance_evaluations.iter().any(|record| {
-        record.evaluator == *evaluator
+        projection
+            .authority_qualified_evaluation_event_ids
+            .contains(&record.evaluation_event_id)
+            && record.evaluator == *evaluator
             && record.evaluation.provenance_event_id == evaluation.provenance_event_id
             && record.evaluation.scope == evaluation.scope
             && record.evaluation.policy_id == evaluation.policy_id
