@@ -1001,7 +1001,7 @@ mod tests {
                 origin_relation: crate::scientific_events::EvidenceOriginRelation::NewCollection,
                 parent_artifacts: Vec::new(),
                 protocol_reference: None,
-                collection_manifest_commitment: None,
+                collection_manifest_commitment: Some(ContentHash::digest(b"manifest fixture")),
                 supporting_provenance_artifact_ids: Vec::new(),
             },
         };
@@ -1074,7 +1074,7 @@ mod tests {
                         origin_relation: crate::scientific_events::EvidenceOriginRelation::NewCollection,
                         parent_artifacts: Vec::new(),
                         protocol_reference: Some("protocol:auth-test".to_string()),
-                        collection_manifest_commitment: None,
+                        collection_manifest_commitment: Some(ContentHash::digest(b"manifest fixture")),
                         supporting_provenance_artifact_ids: Vec::new(),
                     },
                 },
