@@ -177,7 +177,7 @@ for scenario in scenarios:
 check("scale binary is registered in Cargo manifest", 'name = "journal-replay-scale"' in manifest and 'path = "src/journal_replay_scale.rs"' in manifest)
 check("crate remains dependency-free", "[dependencies]" not in manifest)
 check("Cargo.lock resolves the local validator package", 'name = "civ-econ-transition-validator"' in lockfile)
-hash_list_start = audit_script.find("\\nfiles = (\\n    JOURNAL_PATH,")
+hash_list_start = audit_script.find("\nfiles = (\n    JOURNAL_PATH,")
 hash_list_end = audit_script.find("\n)\n", hash_list_start)
 hash_list_source = audit_script[hash_list_start:hash_list_end + 3] if hash_list_start >= 0 and hash_list_end > hash_list_start else ""
 check(
@@ -204,9 +204,26 @@ check(
     and "The current J3 journal does not yet persist the original dispatch idempotency key" in " ".join(readme.split())
     and "not yet sufficient to authorize automated same-key retries" in " ".join(readme.split()),
 )
-check("audit fails closed when Git subject is absent", 'check("Git commit identity is available"' in audit_script)
-check("audit compares checked-out subject to QUALIFIED_SHA", 'if expected_subject:' in audit_script and "commit == expected_subject" in audit_script)
-check("audit report records expected subject comparison", '"expected_subject": expected_subject' in audit_script and '"subject_matches_expected"' in audit_script)
+audit_exec_start = audit_script.find("\\ntry:\\n    commit = subprocess.run", hash_list_start)
+audit_identity_start = audit_script.find('expected_subject = os.environ.get("QUALIFIED_SHA")', audit_exec_start)
+audit_report_start = audit_script.find("\\nreport = {", audit_identity_start)
+audit_report_json_start = audit_script.find("report_json = json.dumps(report", audit_report_start)
+audit_identity_source = audit_script[audit_exec_start:audit_report_start]
+audit_report_source = audit_script[audit_report_start:audit_report_json_start]
+check(
+    "audit fails closed when Git subject is absent",
+    'check("Git commit identity is available"' in audit_identity_source,
+)
+check(
+    "audit compares checked-out subject to QUALIFIED_SHA",
+    "if expected_subject:" in audit_identity_source
+    and "commit == expected_subject" in audit_identity_source,
+)
+check(
+    "audit report records expected subject comparison",
+    '"expected_subject": expected_subject' in audit_report_source
+    and '"subject_matches_expected": commit == expected_subject if expected_subject else None' in audit_report_source,
+)
 check("compaction remains design-only", "design only; not implemented or qualified" in design)
 check("compaction preserves acknowledged identity tombstones", "Acknowledged identities must survive" in " ".join(design.split()) and "No unresolved effect disappears" in design)
 
@@ -222,7 +239,12 @@ check("workflow writes the JSON source report to runner temp", "JOURNAL_AUDIT_RE
 check("workflow uploads the report even when prior steps fail", "Upload journal qualification evidence" in workflow and "if: always()" in workflow)
 check("artifact upload action is pinned to reviewed v7.0.2", "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in workflow and "# v7.0.2" in workflow)
 check("artifact name includes run ID and exact subject", "github.run_id" in workflow and "env.QUALIFIED_SHA" in workflow)
-check("audit writes a newline-terminated JSON report", "JOURNAL_AUDIT_REPORT_PATH" in audit_script and "destination.write_text(report_json" in audit_script and "encoding=\"utf-8\"" in audit_script)
+audit_output_source = audit_script[audit_report_json_start:]
+check(
+    "audit writes a newline-terminated JSON report",
+    'report_destination = os.environ.get("JOURNAL_AUDIT_REPORT_PATH")' in audit_output_source
+    and 'destination.write_text(report_json + "\\n", encoding="utf-8")' in audit_output_source,
+)
 check(
     "workflow validates persisted JSON before any Cargo build",
     ordered_tokens(
