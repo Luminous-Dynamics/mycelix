@@ -578,6 +578,60 @@ pub struct GovernedScientificEventLog<L, R, P> {
     atomic_committer: Option<Arc<dyn AtomicScientificCommitStore>>,
 }
 
+impl<L, R, P> GovernedScientificEventLog<L, R, P>
+where
+    L: ScientificEventLog,
+{
+    /// Build an authoritative claim projection. Provenance evaluation events
+    /// count toward qualified maturity only when a committed, trusted authority
+    /// receipt binds the exact event. The plain inner event log is not enough.
+    pub async fn claim_projection(
+        &self,
+        claim_id: crate::scientific_events::ClaimId,
+    ) -> Result<ClaimProjection> {
+        let events = self.inner.stream(claim_id).await?;
+        let mut authority_qualified_evaluation_event_ids = BTreeSet::new();
+
+        if let Some(signing_key) = &self.receipt_signing_key {
+            let trusted_service_keys =
+                BTreeSet::from([signing_key.verifying_key().to_bytes()]);
+            for event in &events {
+                if !matches!(
+                    &event.envelope.payload,
+                    ScientificEventPayload::EvidenceProvenanceEvaluated { .. }
+                ) {
+                    continue;
+                }
+                if self.authority_audit.status(event.envelope.event_id).await?
+                    != AuthorityAttestationStatus::ReceiptAttested
+                {
+                    continue;
+                }
+                let receipt = self
+                    .authority_audit
+                    .receipt(event.envelope.event_id)
+                    .await?
+                    .ok_or_else(|| Error::Storage(
+                        "committed provenance evaluation has no retrievable authority receipt"
+                            .to_string(),
+                    ))?;
+                receipt.verify_for_event(event, &trusted_service_keys)?;
+                if receipt.receipt.action != ScientificAction::EvaluateEvidenceProvenance {
+                    return Err(Error::VerificationFailed(
+                        "authority receipt does not authorize provenance evaluation".to_string(),
+                    ));
+                }
+                authority_qualified_evaluation_event_ids.insert(event.envelope.event_id);
+            }
+        }
+
+        ClaimProjection::rebuild_with_authorized_evaluations(
+            &events,
+            &authority_qualified_evaluation_event_ids,
+        )
+    }
+}
+
 impl<L, R, P> GovernedScientificEventLog<L, R, P> {
     pub fn new(
         inner: L,
