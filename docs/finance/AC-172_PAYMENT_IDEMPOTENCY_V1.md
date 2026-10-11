@@ -57,6 +57,7 @@ The claim index is a discovery mechanism. A count of mutable links is **not** tr
 - Request retries resolve before rate-limit bookkeeping so they do not count as a new logical payment.
 - SAP amount-plus-fee uses `checked_add` rather than unchecked `u64` arithmetic.
 - Payment fees and demurrage compost are written to a durable pending-compost outbox in the same local source-chain transaction as the source balance update. The payments zome's `post_commit` hook drains the outbox only after that source-chain transaction commits.
+- A fee-bearing Payment starts in `Pending` with no completion timestamp. Only after the matching Treasury receipt is confirmed does the drainer mark it `Completed` and remove the fee outbox item. Payments without a fee can complete immediately; exact retries return the latest lifecycle state.
 - Treasury compost delivery carries a stable effect ID. `receive_compost` checks the immutable receipt for that pool/effect before crediting the balance; a retry after a committed delivery returns current pool state rather than applying the amount again.
 - Treasury receipt IDs bind the destination pool and effect ID. Reusing the key with changed amount/source is rejected. Treasury requires a matching committed payments outbox record before creating a new receipt; the effect ID alone is not authority. For `payment-fee:v1:<payment-id>`, the Payments verifier additionally resolves exactly one committed Payment record and checks its ID, SAP currency, fee amount, and sender before authorizing Treasury. Direct unkeyed compost credits are rejected.
 - This separation follows Holochain's transaction model: source-chain writes from one zome function call commit atomically, but work performed through a nested zome call is its own call/transaction. The durable queue is committed with the payment first; `post_commit` then dispatches Treasury work. See [Holochain zome function transactions](https://developer.holochain.org/build/zome-functions/) and [post_commit lifecycle contract](https://developer.holochain.org/build/callbacks-and-lifecycle-hooks/).
@@ -74,6 +75,7 @@ Coordinator unit tests cover:
 - same key/same sender with changed payload retaining the same operation ID but changing the fingerprint;
 - checked debit-total overflow.
 - committed Payment record binding for fee outbox destination, amount, SAP currency, and sender.
+- fee-bearing payment remains `Pending` until receipt confirmation; no-fee payment can complete immediately.
 
 Integrity unit tests cover:
 - valid sender-authored creation claims;
@@ -84,6 +86,7 @@ Integrity unit tests cover:
 ## Failure policy and limitations
 
 - An exact retry returns the original/latest Payment record and does not run debit/credit/fee operations again.
+- A durable fee outbox is not equivalent to Treasury settlement: a fee-bearing Payment remains `Pending` until a matching Treasury receipt is observed. If delivery remains unavailable, the outbox persists and the Payment stays pending for retry/reconciliation.
 - Same key with changed request payload fails as an idempotency conflict.
 - Claim present but Payment missing/unreadable, or any ambiguous discovery state, returns an error and does not try to execute again. This is intentionally fail-closed but currently requires operator/reconciliation work to resolve; this patch does not implement an orphan-claim recovery worker.
 - New fee and demurrage compost items have stable effect IDs, and delivery is initiated from `post_commit` after the payment/balance transaction commits. If Treasury commits but the queue-removal transaction fails, the next drain resolves the same effect ID and must not credit twice.
