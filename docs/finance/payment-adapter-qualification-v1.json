@@ -52,7 +52,8 @@
     "Concurrent submissions with the same sender-scoped key and fingerprint resolve to one operation; a conflicting fingerprint creates no second payment or outbox effect.",
     "A Treasury effect ID is deduplication metadata, not authority: an exact committed Payments outbox record and matching Payment intent are required before a credit.",
     "If a Treasury receipt commits before the Payment status update, recovery queries the exact destination-scoped receipt before applying any balance change.",
-    "Concurrent effects targeting one Treasury destination require serialized receipt identity and checked balance constraints; every effect is applied at most once."
+    "Concurrent effects targeting one Treasury destination require serialized receipt identity and checked balance constraints; every effect is applied at most once.",
+    "Idempotency keys are sender-scoped: the same client key from different authenticated senders must not collide or resolve another sender's Payment."
   ],
   "source_refs": [
     {
@@ -712,7 +713,7 @@
     {
       "id": "PAY-TREASURY-003",
       "adapter_class": "mycelix_internal_or_mutual_credit",
-      "condition": "Many valid fee effects and duplicate retries concurrently target one Treasury destination whose balance is near its configured ceiling.",
+      "condition": "Many distinct valid fee effects and duplicate retries concurrently target one CommonsPool whose available balance is near the maximum representable u64.",
       "event_sequence": [
         "concurrent_credit_attempts",
         "destination_scoped_receipt_deduplication",
@@ -721,12 +722,12 @@
       ],
       "expected_disposition": "ConcurrentCreditsSerialized",
       "external_dispatch_allowed": null,
-      "expected_financial_effect": "Each stable effect ID contributes at most once; destination balance never exceeds its configured ceiling; credits that cannot satisfy the checked balance constraint are rejected without a receipt or partial balance change.",
+      "expected_financial_effect": "Each stable effect ID contributes at most once; available_balance never exceeds u64::MAX; credits that would overflow checked u64 addition are rejected without a receipt or partial balance change.",
       "required_evidence": [
         "destination_scope",
         "balance_before",
         "balance_after",
-        "configured_balance_ceiling",
+        "maximum_representable_balance",
         "effect_id_set",
         "destination_scoped_receipts",
         "rejected_effect_ids"
@@ -734,6 +735,35 @@
       "forbidden_claims": [
         "competing_credits_may_overflow_shared_pool",
         "every_competing_credit_must_succeed"
+      ]
+    },
+    {
+      "id": "PAY-MYC-003",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "Two different authenticated sender DIDs use the same client idempotency key and the same request fingerprint.",
+      "event_sequence": [
+        "sender_A_payment_submission",
+        "sender_B_payment_submission",
+        "sender_scoped_operation_identity_resolution",
+        "exact_retry_per_sender"
+      ],
+      "expected_disposition": "SenderScopedOperationsIsolated",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "Each sender receives a distinct deterministic operation identity and its own at-most-once Payment/outbox effect; retries resolve only within that sender's namespace.",
+      "required_evidence": [
+        "sender_A_identity",
+        "sender_B_identity",
+        "shared_idempotency_key_digest",
+        "operation_id_A",
+        "operation_id_B",
+        "payment_id_A",
+        "payment_id_B",
+        "outbox_effect_id_A",
+        "outbox_effect_id_B"
+      ],
+      "forbidden_claims": [
+        "same_key_is_globally_unique_across_senders",
+        "one_senders_retry_may_resolve_another_senders_payment"
       ]
     }
   ]
