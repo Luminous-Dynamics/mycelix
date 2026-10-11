@@ -799,11 +799,11 @@ mod tests {
         let temp = TempDir::new();
         {
             let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
-            assert_eq!(journal.begin_effect("payment-1", REQUEST_A, PROVIDER_A), Ok(BeginResult::Started));
+            assert_eq!(journal.begin_effect("payment-1", REQUEST_A, PROVIDER_A, None), Ok(BeginResult::Started));
             assert_eq!(journal.status("payment-1"), Some(EffectStatus::Pending));
         }
         let mut recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
-        assert_eq!(recovered.begin_effect("payment-1", REQUEST_A, PROVIDER_A), Ok(BeginResult::PendingNeedsReconciliation));
+        assert_eq!(recovered.begin_effect("payment-1", REQUEST_A, PROVIDER_A, None), Ok(BeginResult::PendingNeedsReconciliation));
         assert_eq!(recovered.unresolved_effect_ids(), vec!["payment-1".to_owned()]);
     }
 
@@ -812,11 +812,11 @@ mod tests {
         let temp = TempDir::new();
         {
             let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
-            journal.begin_effect("payment-2", REQUEST_A, PROVIDER_A).unwrap();
+            journal.begin_effect("payment-2", REQUEST_A, PROVIDER_A, None).unwrap();
             assert_eq!(journal.acknowledge_effect("payment-2", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A), Ok(AcknowledgeResult::Acknowledged));
         }
         let mut recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
-        assert_eq!(recovered.begin_effect("payment-2", REQUEST_A, PROVIDER_A),
+        assert_eq!(recovered.begin_effect("payment-2", REQUEST_A, PROVIDER_A, None),
             Ok(BeginResult::AlreadyAcknowledged {
                 receipt_digest: RECEIPT_A.to_owned(),
                 source_evidence_digest: Some(SOURCE_EVIDENCE_A.to_owned()),
@@ -830,7 +830,7 @@ mod tests {
         let temp = TempDir::new();
         {
             let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
-            journal.begin_effect("payment-3", REQUEST_A, PROVIDER_A).unwrap();
+            journal.begin_effect("payment-3", REQUEST_A, PROVIDER_A, None).unwrap();
             assert_eq!(journal.mark_indeterminate("payment-3", REQUEST_A, PROVIDER_A), Ok(IndeterminateResult::Marked));
         }
         let mut recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
@@ -843,8 +843,8 @@ mod tests {
     fn same_effect_id_with_different_request_is_rejected() {
         let temp = TempDir::new();
         let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
-        journal.begin_effect("payment-4", REQUEST_A, PROVIDER_A).unwrap();
-        assert_eq!(journal.begin_effect("payment-4", REQUEST_B, PROVIDER_A), Err(JournalError::RequestConflict));
+        journal.begin_effect("payment-4", REQUEST_A, PROVIDER_A, None).unwrap();
+        assert_eq!(journal.begin_effect("payment-4", REQUEST_B, PROVIDER_A, None), Err(JournalError::RequestConflict));
     }
 
     #[test]
@@ -852,7 +852,7 @@ mod tests {
         let temp = TempDir::new();
         let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
         assert_eq!(journal.acknowledge_effect("missing", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A), Err(JournalError::UnknownEffect));
-        journal.begin_effect("payment-5", REQUEST_A, PROVIDER_A).unwrap();
+        journal.begin_effect("payment-5", REQUEST_A, PROVIDER_A, None).unwrap();
         assert_eq!(journal.acknowledge_effect("payment-5", REQUEST_B, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A), Err(JournalError::RequestConflict));
         journal.acknowledge_effect("payment-5", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A).unwrap();
         assert_eq!(journal.acknowledge_effect("payment-5", REQUEST_A, PROVIDER_A, RECEIPT_B, SOURCE_EVIDENCE_A), Err(JournalError::ReceiptConflict));
@@ -885,10 +885,10 @@ mod tests {
     fn unresolved_effect_ids_are_sorted_and_acknowledged_ids_are_excluded() {
         let temp = TempDir::new();
         let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
-        journal.begin_effect("z-last", REQUEST_A, PROVIDER_A).unwrap();
-        journal.begin_effect("a-first", REQUEST_B, PROVIDER_A).unwrap();
+        journal.begin_effect("z-last", REQUEST_A, PROVIDER_A, None).unwrap();
+        journal.begin_effect("a-first", REQUEST_B, PROVIDER_A, None).unwrap();
         journal.mark_indeterminate("a-first", REQUEST_B, PROVIDER_A).unwrap();
-        journal.begin_effect("done", REQUEST_A, PROVIDER_A).unwrap();
+        journal.begin_effect("done", REQUEST_A, PROVIDER_A, None).unwrap();
         journal.acknowledge_effect("done", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A).unwrap();
         assert_eq!(journal.unresolved_effect_ids(), vec!["a-first".to_owned(), "z-last".to_owned()]);
     }
@@ -916,10 +916,10 @@ mod tests {
     fn effect_identity_cannot_be_rebound_to_another_provider_profile() {
         let temp = TempDir::new();
         let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
-        journal.begin_effect("payment-profile", REQUEST_A, PROVIDER_A).unwrap();
+        journal.begin_effect("payment-profile", REQUEST_A, PROVIDER_A, None).unwrap();
 
         assert_eq!(
-            journal.begin_effect("payment-profile", REQUEST_A, PROVIDER_B),
+            journal.begin_effect("payment-profile", REQUEST_A, PROVIDER_B, None),
             Err(JournalError::ProviderProfileConflict),
         );
         assert_eq!(
@@ -943,7 +943,7 @@ mod tests {
 
         let mut journal = DurableEffectJournal::open(&path).unwrap();
         assert_eq!(
-            journal.begin_effect("legacy-pending", REQUEST_A, PROVIDER_A),
+            journal.begin_effect("legacy-pending", REQUEST_A, PROVIDER_A, None),
             Ok(BeginResult::ProviderProfileUnboundNeedsReconciliation),
         );
         assert_eq!(
@@ -963,7 +963,7 @@ mod tests {
 
         let mut journal = DurableEffectJournal::open(&path).unwrap();
         assert_eq!(
-            journal.begin_effect("legacy-j2-pending", REQUEST_A, PROVIDER_A),
+            journal.begin_effect("legacy-j2-pending", REQUEST_A, PROVIDER_A, None),
             Ok(BeginResult::ProviderProfileUnboundNeedsReconciliation),
         );
     }
@@ -996,7 +996,7 @@ mod tests {
     fn acknowledgement_cannot_be_rebound_to_different_source_evidence() {
         let temp = TempDir::new();
         let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
-        journal.begin_effect("payment-evidence", REQUEST_A, PROVIDER_A).unwrap();
+        journal.begin_effect("payment-evidence", REQUEST_A, PROVIDER_A, None).unwrap();
         journal.acknowledge_effect(
             "payment-evidence", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A
         ).unwrap();
@@ -1028,7 +1028,7 @@ mod tests {
 
         let mut journal = DurableEffectJournal::open(&path).unwrap();
         assert_eq!(
-            journal.begin_effect("legacy-payment", REQUEST_A, PROVIDER_A),
+            journal.begin_effect("legacy-payment", REQUEST_A, PROVIDER_A, None),
             Ok(BeginResult::AlreadyAcknowledged {
                 receipt_digest: RECEIPT_A.to_owned(),
                 source_evidence_digest: None,
@@ -1102,7 +1102,7 @@ mod tests {
         let oversized_id = "e".repeat(MAX_EFFECT_ID_BYTES + 1);
 
         assert_eq!(
-            journal.begin_effect(&oversized_id, REQUEST_A, PROVIDER_A),
+            journal.begin_effect(&oversized_id, REQUEST_A, PROVIDER_A, None),
             Err(JournalError::InvalidEffectId),
         );
         assert!(journal.unresolved_effect_ids().is_empty());
@@ -1207,10 +1207,10 @@ mod tests {
         let temp = TempDir::new();
         {
             let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
-            journal.begin_effect("count-pending", REQUEST_A, PROVIDER_A).unwrap();
-            journal.begin_effect("count-indeterminate", REQUEST_B, PROVIDER_A).unwrap();
+            journal.begin_effect("count-pending", REQUEST_A, PROVIDER_A, None).unwrap();
+            journal.begin_effect("count-indeterminate", REQUEST_B, PROVIDER_A, None).unwrap();
             journal.mark_indeterminate("count-indeterminate", REQUEST_B, PROVIDER_A).unwrap();
-            journal.begin_effect("count-acknowledged", REQUEST_A, PROVIDER_B).unwrap();
+            journal.begin_effect("count-acknowledged", REQUEST_A, PROVIDER_B, None).unwrap();
             journal.acknowledge_effect(
                 "count-acknowledged", REQUEST_A, PROVIDER_B, RECEIPT_A, SOURCE_EVIDENCE_A
             ).unwrap();
@@ -1228,7 +1228,7 @@ mod tests {
     fn noncanonical_effect_ids_and_digests_are_rejected() {
         let temp = TempDir::new();
         let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
-        assert_eq!(journal.begin_effect(" payment ", REQUEST_A, PROVIDER_A), Err(JournalError::InvalidEffectId));
-        assert_eq!(journal.begin_effect("payment", "SHA256:bad", PROVIDER_A), Err(JournalError::InvalidDigest));
+        assert_eq!(journal.begin_effect(" payment ", REQUEST_A, PROVIDER_A, None), Err(JournalError::InvalidEffectId));
+        assert_eq!(journal.begin_effect("payment", "SHA256:bad", PROVIDER_A, None), Err(JournalError::InvalidDigest));
     }
 }
