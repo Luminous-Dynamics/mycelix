@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA = "mycelix.payment-adapter-qualification/v1"
-MIN_CASES = 26
+MIN_CASES = 27
 CASE_ID_RE = re.compile(r"^PAY-[A-Z0-9]+-\d{3}$")
 CASE_FIELDS = {
     "id", "adapter_class", "condition", "event_sequence",
@@ -147,6 +147,16 @@ CRITICAL_CASES: dict[str, dict[str, Any]] = {
         "external_dispatch_allowed": False,
         "required_evidence_contains": ["source_outbox_lookup_result", "payment_record_lookup_result", "balance_before", "balance_after"],
         "forbidden_claims_contains": ["effect_id_alone_authorizes_credit"],
+    },
+    "PAY-MYC-004": {
+        "expected_disposition": "ChainHeadMovedRetryResolvesOriginal",
+        "event_sequence_contains": ["two_zome_calls_read_same_snapshot", "second_transaction_returns_chain_head_moved", "losing_transaction_scratch_is_discarded"],
+        "required_evidence_contains": ["chain_head_moved_error", "losing_transaction_rollback_evidence", "winning_claim_hash", "outbox_effect_id"],
+        "forbidden_claims_contains": [
+            "chain_head_moved_means_the_original_payment_did_not_commit",
+            "losing_transaction_may_partially_commit",
+            "retry_may_use_a_fresh_idempotency_key",
+        ],
     },
     "PAY-MYC-003": {
         "expected_disposition": "SenderScopedOperationsIsolated",
@@ -289,6 +299,7 @@ def run_self_tests(document: dict[str, Any]) -> list[str]:
     changed("Treasury effect-ID-as-authority regression", lambda d: _mutate_case(d, "PAY-TREASURY-002", "forbidden_claims", ["effect_id_is_authority"]))
     changed("receipt replay duplicate-credit regression", lambda d: _mutate_case(d, "PAY-TREASURY-001", "forbidden_claims", ["some-other-claim"]))
     changed("cross-sender idempotency scope regression", lambda d: _mutate_case(d, "PAY-MYC-003", "forbidden_claims", ["same_key_is_globally_unique_across_senders"]))
+    changed("chain-head retry fresh-key regression", lambda d: _mutate_case(d, "PAY-MYC-004", "forbidden_claims", ["retry_may_use_a_fresh_idempotency_key"]))
 
     failures = [
         f"mutation was not rejected: {label}"
@@ -333,7 +344,7 @@ def main(argv: list[str] | None = None) -> int:
             for error in test_errors:
                 print(f" - {error}")
             return 1
-        print("PASS: 12 negative mutation tests rejected unsafe corpus changes")
+        print("PASS: 13 negative mutation tests rejected unsafe corpus changes")
     return 0
 
 
