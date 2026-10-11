@@ -3145,15 +3145,23 @@ mod payment_idempotency_holochain_tests {
         let sender_did = format!("did:mycelix:{}", agents[0]);
         let recipient_did = format!("did:mycelix:{}", agents[1]);
         let zome = apps[0].cells()[0].zome("payments");
-        let request = input(
-            sender_did.clone(),
-            recipient_did,
-            100,
-            &unique_test_idempotency_key(),
-        );
+        let recipient_did_for_retry = recipient_did.clone();
+        let key = unique_test_idempotency_key();
 
-        let first: Record = conductor.call(&zome, "send_payment", request.clone()).await;
-        let retry: Record = conductor.call(&zome, "send_payment", request).await;
+        let first: Record = conductor
+            .call(
+                &zome,
+                "send_payment",
+                input(sender_did.clone(), recipient_did, 100, &key),
+            )
+            .await;
+        let retry: Record = conductor
+            .call(
+                &zome,
+                "send_payment",
+                input(sender_did.clone(), recipient_did_for_retry, 100, &key),
+            )
+            .await;
         let first_payment = decode_payment(&first);
         let retry_payment = decode_payment(&retry);
 
@@ -3211,24 +3219,25 @@ mod payment_idempotency_holochain_tests {
         let sender_did = format!("did:mycelix:{}", agents[0]);
         let recipient_did = format!("did:mycelix:{}", agents[1]);
         let zome = apps[0].cells()[0].zome("payments");
-        let request = input(
-            sender_did.clone(),
-            recipient_did,
-            100,
-            &unique_test_idempotency_key(),
-        );
+        let key = unique_test_idempotency_key();
 
         let first_call = async {
-            let result: Result<Record, _> = conductor
-                .call_fallible(&zome, "send_payment", request.clone())
-                .await;
-            result
+            conductor
+                .call_fallible(
+                    &zome,
+                    "send_payment",
+                    input(sender_did.clone(), recipient_did.clone(), 100, &key),
+                )
+                .await as Result<Record, _>
         };
         let second_call = async {
-            let result: Result<Record, _> = conductor
-                .call_fallible(&zome, "send_payment", request.clone())
-                .await;
-            result
+            conductor
+                .call_fallible(
+                    &zome,
+                    "send_payment",
+                    input(sender_did.clone(), recipient_did.clone(), 100, &key),
+                )
+                .await as Result<Record, _>
         };
         let (first_result, second_result) = tokio::join!(first_call, second_call);
 
@@ -3249,13 +3258,23 @@ mod payment_idempotency_holochain_tests {
                 // to this caller. The next same-key call must either resolve the winner or
                 // create the one operation if neither transaction committed.
                 conductor
-                    .call(&zome, "send_payment", request.clone())
+                    .call(
+                        &zome,
+                        "send_payment",
+                        input(sender_did.clone(), recipient_did.clone(), 100, &key),
+                    )
                     .await
             }
         };
 
         let winning_payment = decode_payment(&winner_record);
-        let retry: Record = conductor.call(&zome, "send_payment", request).await;
+        let retry: Record = conductor
+            .call(
+                &zome,
+                "send_payment",
+                input(sender_did.clone(), recipient_did, 100, &key),
+            )
+            .await;
         let retry_payment = decode_payment(&retry);
         assert_eq!(winning_payment.id, retry_payment.id);
         assert_eq!(
