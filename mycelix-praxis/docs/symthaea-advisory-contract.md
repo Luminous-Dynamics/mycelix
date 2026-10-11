@@ -122,7 +122,10 @@ Implemented in this branch:
 - bounds on confidence fields and content references;
 - allowlist/duplicate/grounding validation;
 - action/reason pairing rules (including learner-requested breaks only);
-- contract regression tests.
+- a strict JSON Schema that rejects unknown fields and has exact enum parity with the Rust contract;
+- an independent standard-library Python checker for schema/Rust enum parity, response bounds, trust gates, and the required adversarial test inventory;
+- a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, `praxis-core` formatting/tests, and clippy, including while the PR is a draft;
+- twenty authored Rust contract regression tests.
 
 Not yet implemented or qualified:
 - live Symthaea service/process adapter;
@@ -131,6 +134,6 @@ Not yet implemented or qualified:
 - linkage to the evidence-bound PRAX projection pipeline;
 - UI accept/dismiss wiring and accessibility checks;
 - local inference/remote-provider privacy enforcement;
-- build, test, CI, runtime, or learning-outcome qualification.
+- Rust build/tests, formatter, clippy, workflow execution, runtime, or learning-outcome qualification.
 
 The claim ceiling for this branch is **contract prototype only**. No live integration, educational-effectiveness result, validated cognitive-state inference, credential authority, or production readiness is claimed.
