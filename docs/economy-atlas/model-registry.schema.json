@@ -144,6 +144,53 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          "validation_findings": {
+            "type": "array",
+            "description": "Optional source-level review findings. These report source-level conditions, not necessarily reachable production paths.",
+            "items": {
+              "type": "object",
+              "required": [
+                "finding_id",
+                "severity",
+                "source_repository",
+                "source_file",
+                "source_commit",
+                "observation",
+                "required_follow_up"
+              ],
+              "properties": {
+                "finding_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "severity": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_repository": {
+                  "type": "string",
+                  "pattern": "^[^/]+/[^/]+$"
+                },
+                "source_file": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_commit": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{40}$"
+                },
+                "observation": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "required_follow_up": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": true
+            }
           }
         },
         "additionalProperties": true
