@@ -74,6 +74,7 @@ fn AppInner() -> impl IntoView {
                     <Route path=path!("/staking") view=StakingPage />
                     <Route path=path!("/oracle") view=OraclePage />
                     <Route path=path!("/profile") view=ProfilePage />
+                    <Route path=path!("/economy-atlas") view=EconomyAtlasPage />
                 </Routes>
             </main>
             <ToastContainer />
