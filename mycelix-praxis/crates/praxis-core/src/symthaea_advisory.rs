@@ -17,6 +17,9 @@ pub const SYMTHAEA_ADVISORY_SCHEMA_VERSION: u16 = 1;
 pub const MAX_SUPPORTING_CONTENT_IDS: usize = 8;
 /// Bound on identifiers accepted from an advisory response.
 pub const MAX_ADVISORY_IDENTIFIER_CHARS: usize = 160;
+/// Hard cap on the complete untrusted JSON response, checked before parsing.
+/// The finite schema fits comfortably within this bound even at identifier maxima.
+pub const MAX_ADVISORY_RESPONSE_BYTES: usize = 16 * 1024;
 
 /// A deliberately small action set. These are invitations, never commands.
 ///
@@ -113,6 +116,30 @@ pub enum AdviceRejection {
     UnknownContentReference,
     MissingGrounding,
     InvalidActionReasonPair,
+}
+
+/// Rejections that happen while decoding the untrusted wire response.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AdviceWireRejection {
+    /// Response exceeded the hard byte limit and was not deserialized.
+    ResponseTooLarge,
+    /// Response was not a valid instance of the strict JSON response type.
+    MalformedJson,
+}
+
+/// Parse the untrusted JSON response only after enforcing its raw byte bound.
+///
+/// This guard must run before JSON deserialization to limit parser work and
+/// allocations attributable to an oversized response. It is not a transport
+/// timeout, process authentication mechanism, or total-memory limit.
+pub fn parse_symthaea_advice_response(
+    response_bytes: &[u8],
+) -> Result<SymthaeaAdvice, AdviceWireRejection> {
+    if response_bytes.len() > MAX_ADVISORY_RESPONSE_BYTES {
+        return Err(AdviceWireRejection::ResponseTooLarge);
+    }
+
+    serde_json::from_slice(response_bytes).map_err(|_| AdviceWireRejection::MalformedJson)
 }
 
 /// Contract-validated suggestion. This is not an authorization token and does
@@ -599,14 +626,42 @@ mod tests {
     }
 
     #[test]
+    fn bounded_wire_parser_accepts_a_valid_contract_response() {
+        let advice = candidate();
+        let encoded = serde_json::to_vec(&advice).expect("candidate serializes");
+        let parsed = parse_symthaea_advice_response(&encoded).expect("valid response parses");
+        assert_eq!(parsed, advice);
+    }
+
+    #[test]
+    fn bounded_wire_parser_rejects_oversized_response_before_json_parsing() {
+        let encoded = vec![b' '; MAX_ADVISORY_RESPONSE_BYTES + 1];
+        assert_eq!(
+            parse_symthaea_advice_response(&encoded),
+            Err(AdviceWireRejection::ResponseTooLarge)
+        );
+    }
+
+    #[test]
+    fn bounded_wire_parser_rejects_malformed_json() {
+        assert_eq!(
+            parse_symthaea_advice_response(b"{"),
+            Err(AdviceWireRejection::MalformedJson)
+        );
+    }
+
+    #[test]
     fn wire_contract_rejects_unknown_fields() {
         let mut value = serde_json::to_value(candidate()).expect("candidate serializes");
         value
             .as_object_mut()
             .expect("serialized struct is object")
             .insert("can_issue_credential".into(), serde_json::Value::Bool(true));
-        let encoded = serde_json::to_string(&value).expect("value serializes");
-        assert!(serde_json::from_str::<SymthaeaAdvice>(&encoded).is_err());
+        let encoded = serde_json::to_vec(&value).expect("value serializes");
+        assert_eq!(
+            parse_symthaea_advice_response(&encoded),
+            Err(AdviceWireRejection::MalformedJson)
+        );
     }
 
     #[test]
