@@ -94,7 +94,13 @@ pub fn record_tend_exchange(receiver_did: String, hours: f32, description: Strin
 }
 
 /// Send a SAP payment to another member.
-pub fn send_sap_payment(to_did: String, amount: u64, memo: String) {
+/// `idempotency_key` must be created once per logical payment and reused for exact retries.
+pub fn send_sap_payment(
+    to_did: String,
+    amount: u64,
+    memo: String,
+    idempotency_key: String,
+) {
     let hc = use_holochain();
     let ctx = use_finance_context();
     let local_identity = use_local_identity();
@@ -148,6 +154,7 @@ pub fn send_sap_payment(to_did: String, amount: u64, memo: String) {
             currency: "SAP".to_string(),
             payment_type: wire::PaymentType::Direct,
             memo: if memo.is_empty() { None } else { Some(memo) },
+            idempotency_key,
         };
 
         match hc
