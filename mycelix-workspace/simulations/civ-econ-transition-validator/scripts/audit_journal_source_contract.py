@@ -195,7 +195,7 @@ check(
         "if ev.cutover_effects_started",
         "self.effects_may_have_started = true;",
         "let effect_recovery_transition = matches!",
-        "if self.effects_may_have_started && !self.effect_frontier_resolved",
+        "if self.effects_may_have_started && !self.effect_frontier_resolved\\n            && !effect_recovery_transition",
     ),
 )
 check(
