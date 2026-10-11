@@ -65,6 +65,12 @@ check("record limit is 4096 bytes", "MAX_JOURNAL_RECORD_BYTES: usize = 4096;" in
 check("effect ID limit is 1024 bytes", "MAX_EFFECT_ID_BYTES: usize = 1024;" in journal)
 check("idempotency key limit is 768 bytes", "MAX_IDEMPOTENCY_KEY_BYTES: usize = 768;" in journal)
 check(
+    "journal parent directory rejects group/other write access on Unix",
+    "ensure_secure_parent_directory(&parent)?;" in journal
+    and "metadata.permissions().mode() & 0o022 != 0" in journal
+    and "InsecureDirectory" in journal,
+)
+check(
     "journal writes explicit J4 original-key bindings",
     '"J4\\tB' in journal
     and '"J4\\tI' in journal
@@ -127,6 +133,7 @@ for test_name in (
     "explicit_no_key_binding_survives_restart_and_rejects_later_key",
     "j4_replay_rejects_key_change_between_begin_and_indeterminate",
     "invalid_original_idempotency_key_is_rejected_before_append",
+    "group_or_other_writable_parent_directory_is_rejected_before_lock_creation",
 ):
     annotated_test = re.search(r"#\[test\]\s*fn\s+" + re.escape(test_name) + r"\(", journal)
     check(f"regression test is annotated: {test_name}", annotated_test is not None)
@@ -215,6 +222,7 @@ check(
     and "legacy J1/J2/J3 entries replay with no original-key binding" in " ".join(readme.split())
     and "768 idempotency-key bytes" in " ".join(readme.split())
     and "not encrypted" in " ".join(readme.split())
+    and "parent directory must not be group/other-writable" in " ".join(readme.split())
 )
 check("README documents how to run source preflight", "python3 scripts/audit_journal_source_contract.py" in readme)
 check(
