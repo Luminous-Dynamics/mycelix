@@ -10,7 +10,7 @@ Use one provider-neutral qualification corpus for the external-payment boundary,
 
 This artifact complements the existing ISO 20022 airlock, settlement-finality model, and Finance conformance profile. It is deliberately narrower than those architecture documents: it freezes failure sequences and expected dispositions that a deterministic simulator or adapter test harness can execute later.
 
-The companion machine-readable corpus is [payment-adapter-qualification-v1.json](./payment-adapter-qualification-v1.json). It contains 18 scenarios and requires no live credentials or real-money effects.
+The companion machine-readable corpus is [payment-adapter-qualification-v1.json](./payment-adapter-qualification-v1.json). It contains 19 scenarios and requires no live credentials or real-money effects.
 
 ## 2. Canonical boundary
 
@@ -66,6 +66,8 @@ References:
 ## 5. Visa Direct and card lifecycle guard
 
 Visa Direct Connect documents product-specific APIs for supported payout flows and includes payout status and return notifications for certain products. Qualification must pin the actual product, endpoint, request and callback versions, authentication method, identifier constraints, and recovery/query behavior used by the integration. Re-read the relevant provider reference at implementation time; do not freeze an undocumented assumption from a display label.
+
+Visa's published [error-code reference](https://developer.visa.com/capabilities/visa-direct-connect/error-codes) distinguishes a Client Reference ID that conflicts with a previously processed payout and a request whose amount/currency differs from that earlier transaction. Scenario `PAY-VISA-005` binds this to the idempotency boundary: preserve the original operation identity, reject the conflicting payload, and query/reconcile the original provider state rather than silently treating the changed request as another payment.
 
 The corpus explicitly tests:
 
