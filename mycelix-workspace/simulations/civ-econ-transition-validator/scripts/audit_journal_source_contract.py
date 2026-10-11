@@ -252,7 +252,14 @@ check(
     and '"subject_matches_expected": commit == expected_subject if expected_subject else None' in audit_report_source,
 )
 check("compaction remains design-only", "design only; not implemented or qualified" in design)
-check("compaction preserves acknowledged identity tombstones", "Acknowledged identities must survive" in " ".join(design.split()) and "No unresolved effect disappears" in design)
+check(
+    "compaction preserves identity tombstones and original-key states",
+    "Acknowledged identities must survive" in " ".join(design.split())
+    and "No unresolved effect disappears" in design
+    and "Bound(key), explicit NotUsed, or LegacyUnbound" in " ".join(design.split())
+    and "original idempotency-key binding" in " ".join(design.split())
+    and "hex encoding is not encryption" in " ".join(design.split()),
+)
 
 # Qualification process: exact subject, pinned toolchain, locked build and measured smoke.
 check("workflow asserts checkout matches exact PR head", 'test "$(git rev-parse HEAD)" = "${QUALIFIED_SHA}"' in workflow)
