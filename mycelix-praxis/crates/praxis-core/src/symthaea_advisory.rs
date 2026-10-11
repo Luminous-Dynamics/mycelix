@@ -1,0 +1,420 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
+
+//! Fail-closed contract for optional Symthaea learning advice.
+//!
+//! This module deliberately validates *suggestions*, not truth, mastery, or
+//! educational effectiveness. An accepted value is still advisory: the caller
+//! must render it as an optional choice and must not execute it automatically.
+
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
+
+/// Version of the JSON-compatible advisory response contract.
+pub const SYMTHAEA_ADVISORY_SCHEMA_VERSION: u16 = 1;
+/// Bound on model-supplied evidence references in one response.
+pub const MAX_SUPPORTING_CONTENT_IDS: usize = 8;
+/// Bound on identifiers accepted from an advisory response.
+pub const MAX_ADVISORY_IDENTIFIER_CHARS: usize = 160;
+
+/// A deliberately small action set. These are invitations, never commands.
+///
+/// No variant can change a grade, mastery estimate, credential, privacy choice,
+/// or learner's curriculum enrollment.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LearningSuggestion {
+    OfferHint,
+    OfferWorkedExample,
+    OfferAlternateExplanation,
+    InviteRetrievalPractice,
+    InviteSpacedReview,
+    AskForSelfExplanation,
+    OfferTransferProblem,
+    SuggestCraftProject,
+    OfferBreak,
+    NoSuggestion,
+}
+
+/// Finite reason codes let the UI localize explanations without trusting
+/// arbitrary model-generated rationale text.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdviceReason {
+    LearnerRequestedHelp,
+    RepeatedIncorrectAttempts,
+    ReviewDue,
+    TransferNotDemonstrated,
+    ReadyForApplication,
+    LearnerRequestedBreak,
+    InsufficientEvidence,
+    NoChange,
+}
+
+/// Untrusted response received from a configured Symthaea adapter.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SymthaeaAdvice {
+    pub schema_version: u16,
+    pub model_id: String,
+    pub model_version: String,
+    pub skill_id: String,
+    pub curriculum_revision: String,
+    /// Digest of the exact, minimized request assembled by the trusted caller.
+    /// A digest is freshness binding, not proof of model identity or truth.
+    pub input_digest: String,
+    pub action: LearningSuggestion,
+    /// Self-reported model confidence (0..=1000); not a calibrated probability.
+    pub confidence_permille: u16,
+    pub reason: AdviceReason,
+    /// Must refer only to curriculum/content identifiers supplied as allowable
+    /// context by Praxis. These identifiers are not automatically citations to
+    /// evidence for a factual claim.
+    pub supporting_content_ids: Vec<String>,
+}
+
+/// Trusted, request-local values against which an untrusted response is checked.
+pub struct AdviceValidationContext<'a> {
+    pub advisor_enabled: bool,
+    pub sandbox_active: bool,
+    pub expected_model_id: &'a str,
+    pub expected_model_version: &'a str,
+    pub skill_id: &'a str,
+    pub curriculum_revision: &'a str,
+    pub input_digest: &'a str,
+    pub allowed_content_ids: &'a BTreeSet<String>,
+}
+
+/// Why a candidate was rejected. Rejections are safe to surface as diagnostics.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AdviceRejection {
+    AdvisorDisabled,
+    SandboxActive,
+    UnsupportedSchema,
+    InvalidIdentifier,
+    UnexpectedModel,
+    UnexpectedModelVersion,
+    SkillMismatch,
+    CurriculumRevisionMismatch,
+    StaleInput,
+    InvalidConfidence,
+    TooManyContentReferences,
+    DuplicateContentReference,
+    UnknownContentReference,
+    MissingGrounding,
+    InvalidActionReasonPair,
+}
+
+/// Contract-validated suggestion. This is not an authorization token and does
+/// not prove the recommendation is correct or useful.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ValidatedAdvisorySuggestion {
+    pub model_id: String,
+    pub model_version: String,
+    pub skill_id: String,
+    pub curriculum_revision: String,
+    pub input_digest: String,
+    pub action: LearningSuggestion,
+    pub confidence_permille: u16,
+    pub reason: AdviceReason,
+    pub supporting_content_ids: Vec<String>,
+}
+
+/// Validate a candidate against trusted, request-local context.
+///
+/// The caller remains responsible for:
+/// - bounding the raw response size *before deserialization*;
+/// - authenticating the adapter/process that supplied the response;
+/// - checking the request is still current immediately before display;
+/// - keeping learner consent, mastery, credentials, and execution authority
+///   outside the model;
+/// - allowing the learner to accept or dismiss the suggestion.
+pub fn validate_symthaea_advice(
+    candidate: SymthaeaAdvice,
+    context: &AdviceValidationContext<'_>,
+) -> Result<ValidatedAdvisorySuggestion, AdviceRejection> {
+    if !context.advisor_enabled {
+        return Err(AdviceRejection::AdvisorDisabled);
+    }
+    if context.sandbox_active {
+        return Err(AdviceRejection::SandboxActive);
+    }
+    if candidate.schema_version != SYMTHAEA_ADVISORY_SCHEMA_VERSION {
+        return Err(AdviceRejection::UnsupportedSchema);
+    }
+    if !valid_identifier(&candidate.model_id)
+        || !valid_identifier(&candidate.model_version)
+        || !valid_identifier(&candidate.skill_id)
+        || !valid_identifier(&candidate.curriculum_revision)
+        || !valid_identifier(&candidate.input_digest)
+        || candidate
+            .supporting_content_ids
+            .iter()
+            .any(|value| !valid_identifier(value))
+    {
+        return Err(AdviceRejection::InvalidIdentifier);
+    }
+    if candidate.model_id != context.expected_model_id {
+        return Err(AdviceRejection::UnexpectedModel);
+    }
+    if candidate.model_version != context.expected_model_version {
+        return Err(AdviceRejection::UnexpectedModelVersion);
+    }
+    if candidate.skill_id != context.skill_id {
+        return Err(AdviceRejection::SkillMismatch);
+    }
+    if candidate.curriculum_revision != context.curriculum_revision {
+        return Err(AdviceRejection::CurriculumRevisionMismatch);
+    }
+    if candidate.input_digest != context.input_digest {
+        return Err(AdviceRejection::StaleInput);
+    }
+    if candidate.confidence_permille > 1000 {
+        return Err(AdviceRejection::InvalidConfidence);
+    }
+    if candidate.supporting_content_ids.len() > MAX_SUPPORTING_CONTENT_IDS {
+        return Err(AdviceRejection::TooManyContentReferences);
+    }
+
+    let mut seen = BTreeSet::new();
+    for content_id in &candidate.supporting_content_ids {
+        if !seen.insert(content_id) {
+            return Err(AdviceRejection::DuplicateContentReference);
+        }
+        if !context.allowed_content_ids.contains(content_id) {
+            return Err(AdviceRejection::UnknownContentReference);
+        }
+    }
+
+    let grounding_exempt = matches!(
+        candidate.action,
+        LearningSuggestion::OfferBreak | LearningSuggestion::NoSuggestion
+    );
+    if !grounding_exempt && candidate.supporting_content_ids.is_empty() {
+        return Err(AdviceRejection::MissingGrounding);
+    }
+    if !action_reason_pair_is_valid(candidate.action, candidate.reason) {
+        return Err(AdviceRejection::InvalidActionReasonPair);
+    }
+
+    Ok(ValidatedAdvisorySuggestion {
+        model_id: candidate.model_id,
+        model_version: candidate.model_version,
+        skill_id: candidate.skill_id,
+        curriculum_revision: candidate.curriculum_revision,
+        input_digest: candidate.input_digest,
+        action: candidate.action,
+        confidence_permille: candidate.confidence_permille,
+        reason: candidate.reason,
+        supporting_content_ids: candidate.supporting_content_ids,
+    })
+}
+
+fn valid_identifier(value: &str) -> bool {
+    !value.is_empty()
+        && value.trim() == value
+        && value.chars().count() <= MAX_ADVISORY_IDENTIFIER_CHARS
+}
+
+fn action_reason_pair_is_valid(action: LearningSuggestion, reason: AdviceReason) -> bool {
+    use AdviceReason as R;
+    use LearningSuggestion as A;
+
+    match action {
+        A::OfferHint | A::OfferWorkedExample | A::OfferAlternateExplanation => {
+            matches!(reason, R::LearnerRequestedHelp | R::RepeatedIncorrectAttempts)
+        }
+        A::InviteRetrievalPractice | A::InviteSpacedReview => {
+            matches!(reason, R::ReviewDue | R::RepeatedIncorrectAttempts)
+        }
+        A::AskForSelfExplanation | A::OfferTransferProblem => {
+            matches!(reason, R::TransferNotDemonstrated | R::ReadyForApplication)
+        }
+        A::SuggestCraftProject => reason == R::ReadyForApplication,
+        // A break is only surfaced when the learner asked for one. Inferred
+        // affect or a model score must never force a break.
+        A::OfferBreak => reason == R::LearnerRequestedBreak,
+        A::NoSuggestion => matches!(reason, R::NoChange | R::InsufficientEvidence),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn allowed_content() -> BTreeSet<String> {
+        ["lesson.fractions.01".to_string()].into_iter().collect()
+    }
+
+    fn context<'a>(
+        advisor_enabled: bool,
+        sandbox_active: bool,
+        allowed_content_ids: &'a BTreeSet<String>,
+    ) -> AdviceValidationContext<'a> {
+        AdviceValidationContext {
+            advisor_enabled,
+            sandbox_active,
+            expected_model_id: "symthaea-advisor",
+            expected_model_version: "0.1.0",
+            skill_id: "math.fractions",
+            curriculum_revision: "caps-2026.1",
+            input_digest: "blake3:request-abc",
+            allowed_content_ids,
+        }
+    }
+
+    fn candidate() -> SymthaeaAdvice {
+        SymthaeaAdvice {
+            schema_version: SYMTHAEA_ADVISORY_SCHEMA_VERSION,
+            model_id: "symthaea-advisor".into(),
+            model_version: "0.1.0".into(),
+            skill_id: "math.fractions".into(),
+            curriculum_revision: "caps-2026.1".into(),
+            input_digest: "blake3:request-abc".into(),
+            action: LearningSuggestion::OfferHint,
+            confidence_permille: 720,
+            reason: AdviceReason::RepeatedIncorrectAttempts,
+            supporting_content_ids: vec!["lesson.fractions.01".into()],
+        }
+    }
+
+    #[test]
+    fn accepts_scoped_advisory_suggestion() {
+        let ids = allowed_content();
+        let result = validate_symthaea_advice(candidate(), &context(true, false, &ids));
+        let accepted = result.expect("valid advisory response should be accepted");
+        assert_eq!(accepted.action, LearningSuggestion::OfferHint);
+        assert_eq!(accepted.skill_id, "math.fractions");
+        assert_eq!(accepted.supporting_content_ids, vec!["lesson.fractions.01"]);
+    }
+
+    #[test]
+    fn disabled_advisor_is_rejected() {
+        let ids = allowed_content();
+        assert_eq!(
+            validate_symthaea_advice(candidate(), &context(false, false, &ids)),
+            Err(AdviceRejection::AdvisorDisabled)
+        );
+    }
+
+    #[test]
+    fn sandbox_suppresses_model_adaptivity() {
+        let ids = allowed_content();
+        assert_eq!(
+            validate_symthaea_advice(candidate(), &context(true, true, &ids)),
+            Err(AdviceRejection::SandboxActive)
+        );
+    }
+
+    #[test]
+    fn stale_request_digest_is_rejected() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.input_digest = "blake3:previous-request".into();
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::StaleInput)
+        );
+    }
+
+    #[test]
+    fn a_different_skill_cannot_receive_the_advice() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.skill_id = "math.algebra".into();
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::SkillMismatch)
+        );
+    }
+
+    #[test]
+    fn untrusted_content_reference_is_rejected() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.supporting_content_ids = vec!["invented.lesson".into()];
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::UnknownContentReference)
+        );
+    }
+
+    #[test]
+    fn unsupported_confidence_range_is_rejected() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.confidence_permille = 1001;
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::InvalidConfidence)
+        );
+    }
+
+    #[test]
+    fn suggestions_need_trusted_content_grounding() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.supporting_content_ids.clear();
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::MissingGrounding)
+        );
+    }
+
+    #[test]
+    fn a_model_cannot_order_a_break_from_inferred_state() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.action = LearningSuggestion::OfferBreak;
+        advice.reason = AdviceReason::RepeatedIncorrectAttempts;
+        advice.supporting_content_ids.clear();
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::InvalidActionReasonPair)
+        );
+    }
+
+    #[test]
+    fn no_suggestion_is_allowed_when_evidence_is_insufficient() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.action = LearningSuggestion::NoSuggestion;
+        advice.reason = AdviceReason::InsufficientEvidence;
+        advice.supporting_content_ids.clear();
+        let accepted = validate_symthaea_advice(advice, &context(true, false, &ids))
+            .expect("no-op advice should be accepted");
+        assert_eq!(accepted.action, LearningSuggestion::NoSuggestion);
+    }
+
+    #[test]
+    fn rejects_unknown_schema_and_model_version() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.schema_version = 2;
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::UnsupportedSchema)
+        );
+
+        let mut advice = candidate();
+        advice.model_version = "0.2.0".into();
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::UnexpectedModelVersion)
+        );
+    }
+
+    #[test]
+    fn duplicate_references_are_rejected_deterministically() {
+        let ids = allowed_content();
+        let mut advice = candidate();
+        advice.supporting_content_ids = vec![
+            "lesson.fractions.01".into(),
+            "lesson.fractions.01".into(),
+        ];
+        assert_eq!(
+            validate_symthaea_advice(advice, &context(true, false, &ids)),
+            Err(AdviceRejection::DuplicateContentReference)
+        );
+    }
+}
