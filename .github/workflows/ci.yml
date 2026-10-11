@@ -385,9 +385,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Test TypeScript SDK
+      - name: Install TypeScript SDK dependencies
+        run: cd mycelix-workspace/sdk-ts && npm ci
+      - name: Typecheck TypeScript SDK (gating)
+        run: cd mycelix-workspace/sdk-ts && npm run typecheck
+      - name: Run payment idempotency SDK regression tests (gating)
+        run: |
+          cd mycelix-workspace/sdk-ts
+          npx vitest run src/clients/finance/__tests__/finance.test.ts tests/wallet.test.ts -t "sendPayment extracts entry from record|HolochainFinanceProvider payment idempotency|should dedupe exact payloads by idempotency key|should reject changed payload under an existing idempotency key|should preserve an explicit payment key in the persisted payload|should forward the persisted payment key to the executor"
+      - name: Test TypeScript SDK (informational)
         continue-on-error: true
-        run: cd mycelix-workspace/sdk-ts && npm ci && npm test
+        run: cd mycelix-workspace/sdk-ts && npm test
 
   test-prism:
     needs: changes
