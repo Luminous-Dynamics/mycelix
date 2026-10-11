@@ -18,8 +18,9 @@ compile_error!("praxis-symthaea-adapter is host-only and must not be compiled in
 use std::io::{self, Read};
 
 use praxis_core::{
-    AdviceWireRejection, MAX_ADVISORY_RESPONSE_BYTES, SymthaeaAdvice,
-    parse_symthaea_advice_response,
+    AdviceRejection, AdviceValidationContext, AdviceWireRejection, MAX_ADVISORY_RESPONSE_BYTES,
+    SymthaeaAdvice, ValidatedAdvisorySuggestion, parse_symthaea_advice_response,
+    validate_symthaea_advice,
 };
 
 /// Failure while reading and decoding a host-provided advisor response.
@@ -31,6 +32,8 @@ pub enum BoundedAdviceReadError {
     ResponseTooLarge,
     /// The bounded bytes were not a valid strict `SymthaeaAdvice` JSON object.
     MalformedJson,
+    /// Strict decoding succeeded, but trusted request-local policy rejected advice.
+    Rejected(AdviceRejection),
 }
 
 /// Read and parse one advisory response with a hard pre-buffering byte ceiling.
@@ -44,9 +47,9 @@ pub enum BoundedAdviceReadError {
 /// read timeouts, learner consent, and request freshness. The returned object
 /// remains untrusted: call `praxis_core::validate_symthaea_advice` with trusted
 /// per-turn context before displaying any suggestion.
-pub fn read_bounded_symthaea_advice<R: Read>(
+fn read_bounded_response_bytes<R: Read>(
     reader: R,
-) -> Result<SymthaeaAdvice, BoundedAdviceReadError> {
+) -> Result<Vec<u8>, BoundedAdviceReadError> {
     let mut bounded = reader.take((MAX_ADVISORY_RESPONSE_BYTES + 1) as u64);
     let mut bytes = Vec::with_capacity(MAX_ADVISORY_RESPONSE_BYTES + 1);
     bounded
@@ -57,10 +60,38 @@ pub fn read_bounded_symthaea_advice<R: Read>(
         return Err(BoundedAdviceReadError::ResponseTooLarge);
     }
 
-    parse_symthaea_advice_response(&bytes).map_err(|error| match error {
+    Ok(bytes)
+}
+
+fn parse_bounded_response(bytes: &[u8]) -> Result<SymthaeaAdvice, BoundedAdviceReadError> {
+    parse_symthaea_advice_response(bytes).map_err(|error| match error {
         AdviceWireRejection::ResponseTooLarge => BoundedAdviceReadError::ResponseTooLarge,
         AdviceWireRejection::MalformedJson => BoundedAdviceReadError::MalformedJson,
     })
+}
+
+/// Read and strictly decode an advisor response, enforcing the streaming byte
+/// limit before buffering the entire body. The returned response is still
+/// untrusted until semantic validation is applied.
+pub fn read_bounded_symthaea_advice<R: Read>(
+    reader: R,
+) -> Result<SymthaeaAdvice, BoundedAdviceReadError> {
+    let bytes = read_bounded_response_bytes(reader)?;
+    parse_bounded_response(&bytes)
+}
+
+/// Preferred integration path: read at most the response ceiling plus one
+/// byte, decode the strict wire contract, then apply trusted request-local
+/// validation before returning a value fit to be considered for display.
+///
+/// This does not authenticate the source or configure the reader's timeout.
+pub fn read_bounded_and_validate_symthaea_advice<R: Read>(
+    reader: R,
+    context: &AdviceValidationContext<'_>,
+) -> Result<ValidatedAdvisorySuggestion, BoundedAdviceReadError> {
+    let bytes = read_bounded_response_bytes(reader)?;
+    let candidate = parse_bounded_response(&bytes)?;
+    validate_symthaea_advice(candidate, context).map_err(BoundedAdviceReadError::Rejected)
 }
 
 #[cfg(test)]
@@ -99,6 +130,29 @@ mod tests {
     impl Read for FailingReader {
         fn read(&mut self, _buffer: &mut [u8]) -> io::Result<usize> {
             Err(io::Error::new(io::ErrorKind::BrokenPipe, "test reader failure"))
+        }
+    }
+
+    const ALLOWED_ACTIONS: &[praxis_core::LearningSuggestion] =
+        &[praxis_core::LearningSuggestion::OfferHint];
+    const ALLOWED_REASONS: &[praxis_core::AdviceReason] =
+        &[praxis_core::AdviceReason::RepeatedIncorrectAttempts];
+
+    fn trusted_context<'a>(
+        allowed_content_ids: &'a std::collections::BTreeSet<String>,
+        digest: &'a str,
+    ) -> AdviceValidationContext<'a> {
+        AdviceValidationContext {
+            advisor_enabled: true,
+            sandbox_active: false,
+            expected_model_id: "symthaea",
+            expected_model_version: "0.5.0",
+            skill_id: "math.fractions",
+            curriculum_revision: "2026.1",
+            input_digest: digest,
+            allowed_content_ids,
+            allowed_actions: ALLOWED_ACTIONS,
+            allowed_reasons: ALLOWED_REASONS,
         }
     }
 
@@ -144,6 +198,40 @@ mod tests {
         assert_eq!(
             read_bounded_symthaea_advice(Cursor::new(&b"{"[..])),
             Err(BoundedAdviceReadError::MalformedJson)
+        );
+    }
+
+    #[test]
+    fn trusted_validation_path_returns_only_a_validated_suggestion() {
+        let digest = format!("blake3:{}", "0".repeat(64));
+        let allowed_content_ids = ["lesson.fractions.01".to_string()].into_iter().collect();
+        let context = trusted_context(&allowed_content_ids, &digest);
+        let encoded = valid_advice_json();
+
+        let suggestion =
+            read_bounded_and_validate_symthaea_advice(Cursor::new(encoded.as_bytes()), &context)
+                .expect("in-scope advice passes both wire and semantic validation");
+        assert_eq!(
+            suggestion.action,
+            praxis_core::LearningSuggestion::OfferHint
+        );
+    }
+
+    #[test]
+    fn trusted_validation_path_rejects_an_unallowed_action() {
+        let digest = format!("blake3:{}", "0".repeat(64));
+        let allowed_content_ids = ["lesson.fractions.01".to_string()].into_iter().collect();
+        let context = trusted_context(&allowed_content_ids, &digest);
+        let encoded = valid_advice_json().replace("\\"offer_hint\\"", "\\"offer_break\\"");
+
+        assert_eq!(
+            read_bounded_and_validate_symthaea_advice(
+                Cursor::new(encoded.as_bytes()),
+                &context
+            ),
+            Err(BoundedAdviceReadError::Rejected(
+                AdviceRejection::ActionNotAllowed
+            ))
         );
     }
 
