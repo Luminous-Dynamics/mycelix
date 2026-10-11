@@ -365,6 +365,10 @@ fn lock_stake_sap(staker_did: &str, amount: u64, reason: &str) -> ExternResult<(
 /// Return locked SAP only when a typed, exact-source release receipt is available.
 /// Zero-value return is a no-op; non-zero legacy returns fail closed.
 fn return_stake_sap(_staker_did: &str, amount: u64, _reason: &str) -> ExternResult<()> {
+    if amount == 0 {
+        return Ok(());
+    }
+
     Err(wasm_error!(WasmErrorInner::Guest(
         "Non-zero staking returns are disabled until an exact stake-lock and slash/release receipt can authorize an idempotent SAP return".into()
     )))
