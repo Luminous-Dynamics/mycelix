@@ -50,9 +50,11 @@ run. The JSON binds the report to the observed commit and expected
 `QUALIFIED_SHA`, includes the run ID when available, and fingerprints the
 reviewed files including `Cargo.lock`. The replay log records the subject, run
 ID, runner image, kernel, filesystem, Rust version, generation/replay output, and
-`/usr/bin/time -v` observations for each 10,000-effect scenario. Artifact
-retention is a convenience for review, not immutable long-term archival or a
-cryptographic attestation; smoke figures are not capacity benchmarks.
+`/usr/bin/time -v` observations for each 10,000-effect scenario. The smoke step
+uses `set -euo pipefail`, so a failed build or probe cannot be hidden by a
+successful `tee` process. Artifact retention is a convenience for review, not
+immutable long-term archival or a cryptographic attestation; smoke figures are
+not capacity benchmarks.
 
 ### Journal replay scale probe
 
