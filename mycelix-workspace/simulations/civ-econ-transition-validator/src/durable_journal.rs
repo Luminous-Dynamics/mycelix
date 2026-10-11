@@ -262,7 +262,7 @@ impl DurableEffectJournal {
     /// automatic duplicate dispatch and requires reconciliation or reuse of
     /// the already acknowledged receipt.
     ///
-    /// \x60idempotency_key\x60 is the exact original key the first dispatcher will use;
+    /// The idempotency_key parameter is the exact original key the first dispatcher will use;
     /// None explicitly records that no key is used. J4 stores this value in
     /// recoverable (hex-encoded, not encrypted) form, so callers must not treat
     /// it as confidential once it leaves this file/permission boundary.
