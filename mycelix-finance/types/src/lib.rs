@@ -424,6 +424,8 @@ pub struct CollateralHealth {
 /// Collateral health tiers based on LTV ratio.
 ///
 /// Thresholds: Warning (80%), Margin Call (90%), Liquidation (95%).
+/// Invalid means the input was not a finite, non-negative ratio; it is not a
+/// persisted economic state and must never be interpreted as Healthy.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CollateralHealthStatus {
     /// LTV < 80% — healthy position
@@ -434,12 +436,20 @@ pub enum CollateralHealthStatus {
     MarginCall,
     /// LTV > 95% — eligible for governance-approved liquidation
     Liquidation,
+    /// LTV is NaN, infinite, or negative. This status must not be persisted.
+    Invalid,
 }
 
 impl CollateralHealthStatus {
     /// Compute health status from LTV ratio.
+    ///
+    /// Malformed numbers fail closed as Invalid rather than falling through to
+    /// Healthy. Callers must handle Invalid explicitly and must not persist it as
+    /// a liquidation decision: invalid valuation is not proof of insolvency.
     pub fn from_ltv(ltv: f64) -> Self {
-        if ltv > 0.95 {
+        if !ltv.is_finite() || ltv < 0.0 {
+            CollateralHealthStatus::Invalid
+        } else if ltv > 0.95 {
             CollateralHealthStatus::Liquidation
         } else if ltv > 0.90 {
             CollateralHealthStatus::MarginCall
@@ -447,6 +457,17 @@ impl CollateralHealthStatus {
             CollateralHealthStatus::Warning
         } else {
             CollateralHealthStatus::Healthy
+        }
+    }
+
+    /// Stable wire label for status fields.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            CollateralHealthStatus::Healthy => "Healthy",
+            CollateralHealthStatus::Warning => "Warning",
+            CollateralHealthStatus::MarginCall => "MarginCall",
+            CollateralHealthStatus::Liquidation => "Liquidation",
+            CollateralHealthStatus::Invalid => "Invalid",
         }
     }
 }
