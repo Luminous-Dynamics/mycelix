@@ -310,6 +310,12 @@ pub struct PendingCompost {
     pub created_at_micros: i64,
     /// Number of delivery attempts recorded across failed drain cycles.
     pub retry_count: u32,
+    /// Last bounded delivery-cycle time. None means not attempted yet.
+    #[serde(default)]
+    pub last_attempt_at_micros: Option<i64>,
+    /// Earliest time at which a later drain may retry. None means immediately eligible.
+    #[serde(default)]
+    pub next_attempt_at_micros: Option<i64>,
 }
 
 /// Which commons pool tier a compost delivery targets.
@@ -2730,6 +2736,8 @@ mod tests {
             pool_tier: CompostPoolTier::Local,
             created_at_micros: 1_700_000_000_000_000,
             retry_count: 0,
+            last_attempt_at_micros: None,
+            next_attempt_at_micros: None,
         };
         assert_eq!(pc.commons_pool_id, "pool-local-001");
         assert_eq!(pc.amount, 5000);
@@ -2746,6 +2754,8 @@ mod tests {
         let legacy = r#"{"commons_pool_id":"pool-local-001","amount":5000,"source_member_did":"did:mycelix:alice","pool_tier":"Local","created_at_micros":1700000000000000,"retry_count":3}"#;
         let parsed_legacy: PendingCompost = serde_json::from_str(legacy).unwrap();
         assert!(parsed_legacy.effect_id.is_empty());
+        assert!(parsed_legacy.last_attempt_at_micros.is_none());
+        assert!(parsed_legacy.next_attempt_at_micros.is_none());
     }
 
     // =========================================================================
