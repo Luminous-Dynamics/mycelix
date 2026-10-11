@@ -966,6 +966,18 @@ fn validate_mint_cap_counter_link(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn payment_immutable_fields_match(original: &Payment, updated: &Payment) -> bool {
+    original.id == updated.id
+        && original.from_did == updated.from_did
+        && original.to_did == updated.to_did
+        && original.amount == updated.amount
+        && original.fee == updated.fee
+        && original.currency == updated.currency
+        && original.payment_type == updated.payment_type
+        && original.memo == updated.memo
+        && original.created == updated.created
+}
+
 fn validate_update_payment(
     action: Update,
     payment: Payment,
@@ -988,14 +1000,11 @@ fn validate_update_payment(
                     original.status, payment.status
                 )));
             }
-            // Core fields are immutable
-            if original.from_did != payment.from_did
-                || original.to_did != payment.to_did
-                || original.amount != payment.amount
-                || original.currency != payment.currency
-            {
+            // The deterministic operation identity and request payload must
+            // survive every status update; only lifecycle state may advance.
+            if !payment_immutable_fields_match(&original, &payment) {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Cannot change sender, receiver, amount, or currency on an existing payment"
+                    "Cannot change payment ID, parties, amount, fee, currency, type, memo, or creation time"
                         .into(),
                 ));
             }
@@ -1841,6 +1850,33 @@ mod tests {
             }
             other => panic!("forged member_did must be rejected, got {other:?}"),
         }
+    }
+
+
+    #[test]
+    fn test_payment_update_preserves_idempotent_identity_and_request() {
+        let original = valid_payment();
+        assert!(payment_immutable_fields_match(&original, &original));
+
+        let mut changed_id = original.clone();
+        changed_id.id = "payment-op:v1:other".into();
+        assert!(!payment_immutable_fields_match(&original, &changed_id));
+
+        let mut changed_fee = original.clone();
+        changed_fee.fee += 1;
+        assert!(!payment_immutable_fields_match(&original, &changed_fee));
+
+        let mut changed_type = original.clone();
+        changed_type.payment_type = PaymentType::CommonsContribution("other-pool".into());
+        assert!(!payment_immutable_fields_match(&original, &changed_type));
+
+        let mut changed_memo = original.clone();
+        changed_memo.memo = Some("rewritten".into());
+        assert!(!payment_immutable_fields_match(&original, &changed_memo));
+
+        let mut changed_created = original.clone();
+        changed_created.created = Timestamp::from_micros(99);
+        assert!(!payment_immutable_fields_match(&original, &changed_created));
     }
 
     #[test]
