@@ -2855,6 +2855,26 @@ mod tests {
         }
     }
 
+    fn provenance_evaluation(
+        declaration_event_id: ScientificEventId,
+        artifact: &EvidenceArtifact,
+        scope: EvidenceProvenanceEvaluationScope,
+        outcome: EvidenceProvenanceEvaluationOutcome,
+        reason: &str,
+    ) -> EvidenceProvenanceEvaluation {
+        EvidenceProvenanceEvaluation {
+            evaluation_schema_version: 1,
+            provenance_event_id: declaration_event_id,
+            artifact_id: artifact.id,
+            content_hash: artifact.content_hash,
+            scope,
+            outcome,
+            policy_id: EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID.to_string(),
+            policy_version: EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION.to_string(),
+            reason: reason.to_string(),
+        }
+    }
+
     #[test]
     fn canonical_bytes_bind_actor_payload_and_protocol() {
         let envelope = ScientificEventEnvelope::genesis(
