@@ -39,9 +39,14 @@ pub struct AuthorizedActorKey {
 
 impl AuthorizedActorKey {
     pub fn validate(&self) -> Result<()> {
-        VerifyingKey::from_bytes(&self.public_key).map_err(|error| {
+        let verifying_key = VerifyingKey::from_bytes(&self.public_key).map_err(|error| {
             Error::Crypto(format!("invalid scientific actor public key: {error}"))
         })?;
+        if verifying_key.is_weak() {
+            return Err(Error::Crypto(
+                "invalid scientific actor public key: weak Ed25519 public key".to_string(),
+            ));
+        }
         if self
             .valid_until
             .as_ref()
@@ -1423,6 +1428,22 @@ mod tests {
         assert!(error
             .to_string()
             .contains("invalid scientific actor public key"));
+    }
+
+    #[test]
+    fn authorized_actor_key_rejects_weak_ed25519_public_key() {
+        let valid_from = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let error = AuthorizedActorKey {
+            // The all-zero compressed Edwards point is a parseable low-order point.
+            public_key: [0; 32],
+            valid_from,
+            valid_until: None,
+            revoked_at: None,
+        }
+        .validate()
+        .unwrap_err();
+
+        assert!(error.to_string().contains("weak Ed25519 public key"));
     }
 
     #[tokio::test]
