@@ -99,8 +99,9 @@ acknowledgement records to an append-only local file. It reads legacy J1/J2/J3
 records and writes J4 records, syncing each before returning success. J4
 begin/indeterminate/acknowledgement records preserve the original idempotency-key
 binding alongside the provider-profile digest; acknowledgements also bind the
-receipt and source-evidence digests. Keys are hex-encoded for unambiguous record
-framing, **not encrypted**; the journal contains the recoverable key and must be
+receipt and source-evidence digests. Both AlreadyAcknowledged results expose the
+original-key binding (Bound, NotUsed, or LegacyUnbound) beside receipt and
+evidence fields. Keys are hex-encoded for unambiguous record framing, **not encrypted**; the journal contains the recoverable key and must be
 treated as sensitive local state even though the Unix journal/lock files are
 created owner-only. On Unix, the parent directory must not be group/other-writable;
 put the journal in a private state directory rather than a shared temporary
