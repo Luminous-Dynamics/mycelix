@@ -313,6 +313,8 @@ export class OfflineQueue {
   private executor: QueueExecutor;
   private config: Required<QueueConfig>;
   private _state$: BehaviorSubject<QueueState>;
+  /** Serializes enqueue lookup + persistence so concurrent identical keys cannot both win locally. */
+  private enqueueTail: Promise<void> = Promise.resolve();
   private syncInterval?: ReturnType<typeof setInterval>;
   private cleanupInterval?: ReturnType<typeof setInterval>;
   private onlineListener?: () => void;
@@ -489,7 +491,7 @@ export class OfflineQueue {
   /**
    * Enqueue an operation
    */
-  async enqueue<T>(
+  enqueue<T>(
     type: QueuedOperationType,
     payload: T,
     options?: {
@@ -499,7 +501,28 @@ export class OfflineQueue {
       idempotencyKey?: string;
     }
   ): Promise<QueuedOperation<T>> {
-    // Check for duplicate by idempotency key
+    // Deduplication must cover the whole lookup -> durable write -> state update.
+    // Without this local mutex, simultaneous calls can both observe a missing key
+    // and persist two queue entries before either updates reactive state.
+    const scheduled = this.enqueueTail.then(() => this.enqueueUnlocked(type, payload, options));
+    this.enqueueTail = scheduled.then(
+      () => undefined,
+      () => undefined
+    );
+    return scheduled;
+  }
+
+  private async enqueueUnlocked<T>(
+    type: QueuedOperationType,
+    payload: T,
+    options?: {
+      priority?: number;
+      maxAttempts?: number;
+      dependsOn?: QueueItemId[];
+      idempotencyKey?: string;
+    }
+  ): Promise<QueuedOperation<T>> {
+    // Check for duplicate by idempotency key inside the serialized critical section.
     if (options?.idempotencyKey) {
       const existing = this._state$.value.items.find(
         (i) => i.idempotencyKey === options.idempotencyKey && i.status !== 'failed' && i.status !== 'cancelled'
