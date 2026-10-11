@@ -63,7 +63,7 @@ audit_script = read(SCRIPT_PATH)
 # Replay resource bounds and parser structure.
 check("record limit is 4096 bytes", "MAX_JOURNAL_RECORD_BYTES: usize = 4096;" in journal)
 check("effect ID limit is 1024 bytes", "MAX_EFFECT_ID_BYTES: usize = 1024;" in journal)
-check("idempotency key limit is 1024 bytes", "MAX_IDEMPOTENCY_KEY_BYTES: usize = 1024;" in journal)
+check("idempotency key limit is 768 bytes", "MAX_IDEMPOTENCY_KEY_BYTES: usize = 768;" in journal)
 check(
     "journal writes explicit J4 original-key bindings",
     '"J4\\tB' in journal
@@ -88,6 +88,12 @@ check(
     and "new begin record cannot leave idempotency-key binding unknown" in journal,
 )
 check(
+    "J4 maximum ID/key acknowledgement stays within the record ceiling",
+    "maximum_effect_id_and_idempotency_key_fit_bounded_ack_record" in journal
+    and "record.len() <= MAX_JOURNAL_RECORD_BYTES" in journal
+    and "MAX_IDEMPOTENCY_KEY_BYTES: usize = 768;" in journal,
+)
+check(
     "encoded effect ID limit is checked before decoding",
     ordered_tokens(
         journal,
@@ -101,6 +107,7 @@ for test_name in (
     "replay_rejects_extra_record_fields_without_ignoring_them",
     "effect_count_includes_all_states_and_survives_replay",
     "original_idempotency_key_binding_survives_restart_and_is_immutable",
+    "maximum_effect_id_and_idempotency_key_fit_bounded_ack_record",
     "legacy_j3_pending_effect_keeps_original_key_unbound",
     "j4_replay_rejects_key_change_between_begin_and_ack",
     "invalid_original_idempotency_key_is_rejected_before_append",
