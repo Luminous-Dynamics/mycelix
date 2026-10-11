@@ -366,10 +366,17 @@ fn queue_pending_compost(
         None => {
             // Stable for retries of this queued event. The queue entry is written
             // in the same transaction as the source balance change that created it.
-            let identity = format!(
-                "pending-compost-effect-v1|{}|{}|{}|{}|{:?}",
-                pool_id, source_did, amount, now.as_micros(), tier
-            );
+            let identity = serde_json::to_string(&(
+                "pending-compost-effect-v1",
+                pool_id,
+                source_did,
+                amount,
+                now.as_micros(),
+                &tier,
+            ))
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                "Pending compost identity serialization failed: {e}"
+            ))))?;
             format!("compost-effect:v1:{}", anchor_hash(&identity)?)
         }
     };
@@ -1244,7 +1251,16 @@ fn payment_operation_id(from_did: &str, idempotency_key: &str) -> ExternResult<S
             "Idempotency key must be 1-128 non-control characters with no surrounding whitespace".into()
         )));
     }
-    let scoped_key = format!("mycelix-payment-operation-v1|{from_did}|{idempotency_key}");
+    // Hash a serialized tuple rather than delimiter-concatenated fields so
+    // arbitrary client-key contents cannot create an ambiguous preimage.
+    let scoped_key = serde_json::to_string(&(
+        "mycelix-payment-operation-v1",
+        from_did,
+        idempotency_key,
+    ))
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+        "Payment operation key serialization failed: {e}"
+    ))))?;
     let digest = anchor_hash(&scoped_key)?;
     Ok(format!("payment-op:v1:{digest}"))
 }
