@@ -165,11 +165,15 @@ def validate_registry(data: object) -> list[str]:
         if not isinstance(findings, list):
             errors.append(f"{prefix}.validation_findings must be an array")
             findings = []
-        source_triplets = {
-            (source.get("repository"), source.get("path"), source.get("ref"))
-            for source in sources
-            if isinstance(source, dict)
-        }
+        source_triplets: set[tuple[str, str, str]] = set()
+        for source in sources:
+            if not isinstance(source, dict):
+                continue
+            repo_value = source.get("repository")
+            path_value = source.get("path")
+            ref_value = source.get("ref")
+            if all(isinstance(value, str) for value in (repo_value, path_value, ref_value)):
+                source_triplets.add((repo_value, path_value, ref_value))
         for finding_index, finding in enumerate(findings):
             fp = f"{prefix}.validation_findings[{finding_index}]"
             if not isinstance(finding, dict):
