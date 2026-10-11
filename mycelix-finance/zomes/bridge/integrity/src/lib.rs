@@ -2502,6 +2502,28 @@ mod tests {
     }
 
     #[test]
+    fn test_multi_position_rejects_weights_that_disagree_with_component_values() {
+        let mut p = valid_multi_position();
+        p.components_json = r#"[{"type":"Cryptocurrency","asset_id":"eth-1","weight":0.9,"current_value":90000},{"type":"RealEstate","asset_id":"home-1","weight":0.1,"current_value":10000}]"#.into();
+        p.diversification_bonus = 0.05;
+        p.effective_ltv = 0.45;
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_update_rejects_oversized_components_json() {
+        let mut p = valid_multi_position();
+        p.components_json = " ".repeat(MAX_COMPONENTS_JSON_LEN + 1);
+        let result = validate_update_multi_collateral_position(make_update(), p).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
     fn test_multi_position_rejects_non_normalized_component_weights() {
         let mut p = valid_multi_position();
         p.components_json = r#"[{"type":"Cryptocurrency","asset_id":"eth-1","weight":0.5,"current_value":100000}]"#.into();
