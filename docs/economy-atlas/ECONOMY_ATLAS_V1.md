@@ -24,6 +24,9 @@ This is an initial, evidence-linked inventory—not a claim that every economy-r
 | `symthaea.governance.tricurrency.paper-results.v1` | Reported sensitivity experiments for demurrage and Jubilee compression under a triple-currency governance simulation | [Embodied governance paper](https://github.com/Luminous-Dynamics/symthaea/blob/main/papers/governance/embodied-governance/embodied_governance.tex) | Paper-reported results only in this inventory. The paper reports no significant velocity effect across 1–5% demurrage under its exempt-floor constraint and MYCEL Gini around 0.016 across tested Jubilee frequencies. Re-run and inspect the experiment before treating the numbers as qualified evidence. |
 | `mycelix.finance.macro-evidence-profile.v1` | Provenance and semantic contract for external macro-financial observations (IMF, BIS, World Bank) | [FIN-SYS source profile](https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/finance/FIN_SYS_SOURCE_PROFILE_V1.md) | Design contract only; explicitly grants no ingestion authority. It is an evidence/source profile, not an executable macroeconomic simulator. |
 | `symthaea.concepts.tricurrency.essay16.v1` | A conceptual three-currency commons proposal with a different role assignment | [Essay 16](https://github.com/Luminous-Dynamics/symthaea/blob/main/book/src/sovereignty/essay-16.md) | Conceptual prose, not interchangeable with the implemented Finance README. Keep as a separately named variant until an owner-approved canonical relationship is documented. |
+| `regenerative.economics.energy-network-science.v1` | Regenerative economics through circulation, internal reinvestment, flow-network resilience, diversity, mutualism and collective learning | [Fath et al., *Measuring regenerative economics* (2019)](https://doi.org/10.1016/j.glt.2019.02.002) | External framework; research-linked but not implemented or executed by this repository. The authors call for further testing and refinement of socio-economic applications. |
+| `regenerative.doughnut.place-portrait.v1` | Place-based social foundation and ecological ceiling, analyzed across local/global and social/ecological lenses | [Doughnut Economics Action Lab](https://doughnuteconomics.org/doughnut/), [Data Portraits tool v1.1](https://doughnuteconomics.org/tools/doughnut-data-portraits-visualiser-data-hub) | External framework and tool. The published guide describes 44 dimensions across four lenses; Atlas indicators still need explicit targets, units, sources, transformations and missingness. |
+| `regenerative.circular-economy.v1` | Product/material circulation, waste and pollution prevention, and nature regeneration | [Ellen MacArthur Foundation](https://www.ellenmacarthurfoundation.org/topics/circular-economy-introduction/overview) | External framework. The Atlas's candidate indicators are proposed integration fields, not a claim that the Foundation prescribes one universal metric set. |
 | `creditism.fineco.discovery.v1` | Creditism / FIN-ECO-006 model family | Canonical source not resolved in this pass | Discovery required. Do not invent parameters or present a UI sketch as a verified implementation. |
 
 ## Semantic conflicts the Atlas must show, not hide
@@ -55,7 +58,7 @@ Until the model contract and implementation are reconciled, any Atlas adapter sh
 
 The Atlas has five tightly connected views, sharing one selected model/variant:
 
-1. **Model map** — groups models by monetary systems, markets/welfare, finance/debt, commons/governance, resource/energy, and civilization-scale dynamics. Each card carries an evidence state: `Implemented`, `Paper-reported`, `Design-only`, `Conceptual`, or `Discovery required`.
+1. **Model map** — groups models by monetary systems, markets/welfare, finance/debt, commons/governance, resource/energy, and civilization-scale dynamics. Each card carries an evidence state: `Implemented`, `Paper-reported`, `Design-only`, `Conceptual`, `External framework`, or `Discovery required`.
 2. **Explore** — a model-specific form with units, documented ranges, definitions, constraints, source location, and live results. Results must be calculated by the registered runner, not by presentation-only formulas.
 3. **Compare** — run two or more versions against the same valid scenario. Only compare metrics with matching semantic meaning, units, temporal horizon, population/sector scope, and denominators. Do not create an aggregate “best economy” score by default.
 4. **Scenario lab** — freeze inputs, model versions, seed (only for stochastic models), and scenario assumptions. Support paired baseline/intervention runs and sensitivity curves. Missing inputs remain `Unknown`, never silently imputed.
@@ -71,6 +74,7 @@ Suggested interaction pattern: select a model family → select a named variant 
   - `model_id`, `variant_id`, `model_version`, `title`, `domain`;
   - `epistemic_status` and `execution_status` as separate fields;
   - `source_refs[]` with repository, path, ref/commit, and exact symbol/section;
+  - `research_refs[]` for external papers, framework documentation, and tools, kept distinct from in-repository implementation evidence;
   - typed inputs with units, domains, default provenance and validation;
   - typed outputs with units, dimensions, aggregation/horizon and comparison keys;
   - runner/adapter ID, stochastic flag, required seed policy;
@@ -167,4 +171,39 @@ All seven findings are structured records with globally unique IDs and an exact 
 The PR now also adds a registry-driven page at `/atlas` in the existing Finance Leptos app. It loads the checked-in JSON at compile time, exposes source snapshots, searches model titles/domains/statuses/limitations, and renders limitations and the structured findings above. A malformed registry produces an explicit error state; it does not substitute mock entries.
 
 This page is a **registry explorer**, not yet a simulation runner. It deliberately does not import the entire SDK into the browser WASM bundle or call live finance mutations. The standalone HTML workbench remains a separate illustrative prototype. The next runtime milestone is a narrow, versioned adapter that invokes a source-backed economic primitive and returns a replayable run receipt.
+
+## Regenerative economics as a first-class Atlas lens
+
+The registry now includes three externally documented framework families, each marked `external_framework` with `execution_status` explicitly stating that a local runner has not been implemented. Their links live in `research_refs[]`, not `source_refs[]`: an external paper or website is research provenance, not evidence that Mycelix contains executable code.
+
+### 1. Energy Network Science / regenerative economics
+
+Fath, Fiscus, Goerner, Berea, and Ulanowicz (2019) propose ten principles and associated measures for systemic socio-economic health. Their approach covers cross-scale circulation; reinvestment in human, social, natural, and physical capacity; reliable inputs and healthy outputs; a balance between efficiency and resilience; diversity; mutualistic relationships; constructive versus extractive/speculative activity; and adaptive collective learning. Some candidate measures include network aggradation, the Finn Cycling Index, and the efficiency/resilience “window of vitality”.
+
+**Integration rule:** flow-network metrics need a declared boundary, typed flow units, time window, input/output flows, and enough network data to calculate them. Money alone cannot stand in for energy, materials, biodiversity, or care. The research itself says socio-economic application, interpretation, and refinement remain important. The Atlas should store metric definitions and coverage rather than emit an unqualified regenerative score.
+
+### 2. Doughnut Economics / place portraits
+
+DEAL's Data Portraits tool describes 44 dimensions grouped into four lenses: local-social, local-ecological, global-social, and global-ecological. Its display normalization differs by lens: social values are represented from deprivation (0) to target (1), while ecological values use 1 for the target boundary and values above 1 for overshoot. These are visualization conventions, not common native units.
+
+**Integration rule:** every indicator needs a name, value, unit, geography, time period, target, directionality, transformation, data source, provenance, and missingness state. An unfilled field must not silently become zero or an apparent safe value. The Atlas should expose deprivation and ecological overshoot separately, with missing/unknown dimensions clearly marked. We have not imported local Johannesburg/South African indicator data or reproduced DEAL's visualiser in this change.
+
+### 3. Circular economy / material circulation
+
+The Ellen MacArthur Foundation frames circular economy around three principles: eliminate waste and pollution, circulate products and materials at their highest value, and regenerate nature. The Atlas will treat repair, reuse, refurbishment, remanufacturing, recycling, and biological return as different pathways rather than collapse them into one recycling percentage.
+
+**Candidate Atlas indicators** (proposed integration fields, not a claimed official universal metric set) include virgin-material input, material throughput by type, product life extension, repair/reuse/remanufacturing flows, waste and pollution, material leakage, and measured ecosystem restoration. Circularity rates must be read alongside absolute throughput and absolute harm; a higher proportion recycled does not by itself show that extraction fell or ecosystems recovered.
+
+### Shared regenerative comparison contract
+
+Regenerative economics should cross-link the finance, energy, commons, governance, and macro-evidence models, but it must not replace their distinct model contracts. For now:
+- Keep social well-being, ecological pressure, monetary circulation, energy flows, and material flows as separate typed metrics.
+- Compare only matching indicator definitions, units, geographic and population scope, time horizon, and provenance quality.
+- Make trade-offs visible; do not invent default weights for a single “regeneration score”.
+- Distinguish targets (normative choices), observations (empirical evidence), model outputs (computed values), and interpretation (inference).
+- Keep missing data unknown; expose coverage and sensitivity to alternative targets.
+- Preserve each source's own limitations and do not represent these external frameworks as Mycelix-validated methods.
+
+The new external frameworks are mandatory registry records and are covered by validation checks for HTTPS source metadata. The overall registry remains `qualified_for_execution=false`.
+
 
