@@ -27,6 +27,7 @@ This is an initial, evidence-linked inventory—not a claim that every economy-r
 | `regenerative.economics.energy-network-science.v1` | Regenerative economics through circulation, internal reinvestment, flow-network resilience, diversity, mutualism and collective learning | [Fath et al., *Measuring regenerative economics* (2019)](https://doi.org/10.1016/j.glt.2019.02.002) | External framework; research-linked but not implemented or executed by this repository. The authors call for further testing and refinement of socio-economic applications. |
 | `regenerative.doughnut.place-portrait.v1` | Place-based social foundation and ecological ceiling, analyzed across local/global and social/ecological lenses | [Doughnut Economics Action Lab](https://doughnuteconomics.org/doughnut/), [Data Portraits tool v1.1](https://doughnuteconomics.org/tools/doughnut-data-portraits-visualiser-data-hub) | External framework and tool. The published guide describes 44 dimensions across four lenses; Atlas indicators still need explicit targets, units, sources, transformations and missingness. |
 | `regenerative.circular-economy.v1` | Product/material circulation, waste and pollution prevention, and nature regeneration | [Ellen MacArthur Foundation](https://www.ellenmacarthurfoundation.org/topics/circular-economy-introduction/overview) | External framework. The Atlas's candidate indicators are proposed integration fields, not a claim that the Foundation prescribes one universal metric set. |
+| `regenerative.land.agroecology-outcomes.v1` | Outcome-oriented regenerative land and agriculture lens for soil, water, biodiversity, ecosystem services and rural livelihoods | [Newton et al. review (2020)](https://doi.org/10.3389/fsufs.2020.577723), [FAO overview](https://www.fao.org/americas/priorities/agricultura-sostenible/practicas-innovacion/3.-regenerative-agriculture/en) | External framework only. Definitions vary; practices are not proof of regenerative outcomes. Require a local baseline and measured outcomes. |
 | `creditism.fineco.discovery.v1` | Creditism / FIN-ECO-006 model family | Canonical source not resolved in this pass | Discovery required. Do not invent parameters or present a UI sketch as a verified implementation. |
 
 ## Semantic conflicts the Atlas must show, not hide
@@ -188,6 +189,12 @@ DEAL's Data Portraits tool describes 44 dimensions grouped into four lenses: loc
 
 **Integration rule:** every indicator needs a name, value, unit, geography, time period, target, directionality, transformation, data source, provenance, and missingness state. An unfilled field must not silently become zero or an apparent safe value. The Atlas should expose deprivation and ecological overshoot separately, with missing/unknown dimensions clearly marked. We have not imported local Johannesburg/South African indicator data or reproduced DEAL's visualiser in this change.
 
+### 4. Regenerative land and agriculture — outcomes, not practice badges
+
+The FAO-hosted literature review by Newton et al. (2020) reports that scholarly and practitioner definitions vary and have not converged on one universally accepted definition. The Atlas therefore treats regenerative agriculture as an outcome-oriented framework, not a binary certification label.
+
+**Candidate outcomes** include soil organic matter/carbon and soil structure, water infiltration/retention/runoff and water quality, biodiversity measured through a declared method, nutrient/input loss, yield stability, and farm livelihoods. Each needs a site, baseline, sampling method, season/time horizon, uncertainty, and provenance record. Cover crops, no-till, livestock integration or other practices may be inputs/interventions; none by itself proves that outcomes improved. Avoid claims of verified sequestration or biodiversity gain without suitable observations.
+
 ### 3. Circular economy / material circulation
 
 The Ellen MacArthur Foundation frames circular economy around three principles: eliminate waste and pollution, circulate products and materials at their highest value, and regenerate nature. The Atlas will treat repair, reuse, refurbishment, remanufacturing, recycling, and biological return as different pathways rather than collapse them into one recycling percentage.
@@ -204,6 +211,6 @@ Regenerative economics should cross-link the finance, energy, commons, governanc
 - Keep missing data unknown; expose coverage and sensitivity to alternative targets.
 - Preserve each source's own limitations and do not represent these external frameworks as Mycelix-validated methods.
 
-The new external frameworks are mandatory registry records and are covered by validation checks for HTTPS source metadata. The overall registry remains `qualified_for_execution=false`.
+The four regenerative framework records are mandatory registry entries and are covered by validation checks for HTTPS research metadata. The overall registry remains `qualified_for_execution=false`.
 
 
