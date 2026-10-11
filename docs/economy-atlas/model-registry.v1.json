@@ -75,7 +75,34 @@
       "limitations": [
         "README parameters are not proof of current code behavior; trace validators/coordinators before presenting these as enforced runtime facts.",
         "Root maturity matrix states Finance has partial multi-agent testing and no dedicated UI.",
-        "Currency semantics conflict with the Essay 16 conceptual variant and the Symthaea thermodynamic ledger."
+        "Currency semantics conflict with the Essay 16 conceptual variant and the Symthaea thermodynamic ledger.",
+        "The shared SDK has unqualified source-level concerns in its compost arithmetic: ratio validity checks only the sum and distribution truncates each share independently. The registry records these as follow-up findings; runtime reachability has not yet been traced."
+      ],
+      "validation_findings": [
+        {
+          "finding_id": "FIN-ATLAS-SDK-COMPOST-RATIO-DOMAIN-001",
+          "severity": "potential accounting invariant violation; call-site reachability not yet traced",
+          "source_file": "mycelix-workspace/sdk/src/economics/decay_garden.rs",
+          "source_commit": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "observation": "CompostDistribution::is_valid checks only that the three ratios sum approximately to 1.0. It does not independently require every ratio to be finite and within [0, 1]. A ratio tuple such as (1.1, -0.1, 0.0) can therefore satisfy the sum check; distribute(100) casts the negative share to u64 (saturating to 0) and allocates 110 to the first pool.",
+          "required_follow_up": "Trace every construction/validation call site before judging reachability; validate each ratio in [0,1], require the sum invariant, and add a regression test that invalid ratios cannot inflate allocation."
+        },
+        {
+          "finding_id": "FIN-ATLAS-SDK-COMPOST-ROUNDING-RESIDUAL-001",
+          "severity": "deterministic accounting residual; policy not documented",
+          "source_file": "mycelix-workspace/sdk/src/economics/decay_garden.rs",
+          "source_commit": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "observation": "CompostDistribution::distribute truncates local, regional and global shares independently to u64. For some totals, the allocation sum is below the source total (for example 11 produces 7 + 2 + 1 = 10 at 70/20/10 ratios).",
+          "required_follow_up": "Expose the residual explicitly or define a deterministic remainder-allocation rule; do not hide it in visualizations."
+        },
+        {
+          "finding_id": "FIN-ATLAS-SDK-DEMURRAGE-RATE-CONTRACT-001",
+          "severity": "adapter contract gap to verify at call sites",
+          "source_file": "mycelix-workspace/sdk/src/economics/decay_garden.rs",
+          "source_commit": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
+          "observation": "The low-level calculate_demurrage function returns zero for annual_rate <= 0 and does not itself enforce the DemurrageConfig comment's constitutional 1–5% bound.",
+          "required_follow_up": "Trace config construction and mutation validators; the Atlas adapter must enforce the documented domain before it calls the arithmetic primitive."
+        }
       ]
     },
     {
