@@ -134,6 +134,22 @@ check(
         "name: Run dependency-free validator tests",
     ),
 )
+check(
+    "workflow independently requires a passing report bound to the exact subject",
+    all(
+        marker in workflow
+        for marker in (
+            'assert report.get("passed") is True',
+            'assert report.get("checks_failed") == 0',
+            'assert report.get("commit") == expected_sha',
+            'assert report.get("expected_subject") == expected_sha',
+            'assert report.get("subject_matches_expected") is True',
+            'assert report.get("checks_passed") == len(report.get("checks", []))',
+            'assert report.get("checks_failed") == len(report.get("failures", []))',
+            'assert isinstance(report.get("sha256"), dict) and report["sha256"]',
+        )
+    ),
+)
 check("workflow captures replay smoke output in a durable log", 'report="$RUNNER_TEMP/journal-replay-smoke.log"' in workflow and '2>&1 | tee -a "$report"' in workflow)
 check("smoke records the qualification subject and run ID", 'echo "qualified_sha=$QUALIFIED_SHA" | tee -a "$report"' in workflow and 'echo "github_run_id=${GITHUB_RUN_ID:-unknown}" | tee -a "$report"' in workflow)
 check(
