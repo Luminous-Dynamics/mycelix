@@ -46,6 +46,28 @@ def write_callers(zomes_root: Path) -> None:
         path.write_text(source, encoding="utf-8")
 
 
+
+
+def rust_function_body(source: str, name: str) -> str:
+    """Extract a simple Rust function body for source-level fail-closed guards."""
+    marker = f"fn {name}("
+    start = source.find(marker)
+    if start < 0:
+        raise AssertionError(f"missing Rust function {name}")
+    opening = source.find("{", start)
+    if opening < 0:
+        raise AssertionError(f"missing body for Rust function {name}")
+    depth = 0
+    for index in range(opening, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[opening + 1:index]
+    raise AssertionError(f"unterminated Rust function {name}")
+
+
 class RawCreditCallerAuditTests(unittest.TestCase):
     def test_public_hdk_extern_raw_credit_is_detected(self) -> None:
         source = (
@@ -417,6 +439,56 @@ class RawCreditCallerAuditTests(unittest.TestCase):
                 "no direct, escaped/Unicode-escaped, or statically concatenated raw-credit function-name reference remains",
                 output.getvalue(),
             )
+
+
+    def test_legacy_external_sap_effects_are_source_level_fail_closed(self) -> None:
+        repository_root = Path(__file__).resolve().parents[2]
+        cases = (
+            (
+                "mycelix-finance/zomes/currency-mint/coordinator/src/lib.rs",
+                "mint_genesis_sap",
+                "Thermodynamic genesis issuance is disabled",
+            ),
+            (
+                "mycelix-finance/zomes/bridge/coordinator/src/lib.rs",
+                "deposit_collateral",
+                "Legacy collateral SAP issuance is disabled",
+            ),
+            (
+                "mycelix-finance/zomes/bridge/coordinator/src/lib.rs",
+                "verify_fiat_deposit",
+                "Fiat-deposit verification and SAP issuance are disabled",
+            ),
+            (
+                "mycelix-finance/zomes/staking/coordinator/src/lib.rs",
+                "slash_stake",
+                "Staking slashing is disabled",
+            ),
+        )
+        forbidden_effects = (
+            "create_entry(",
+            "create_link(",
+            "update_entry(",
+            "delete_entry(",
+            "call(",
+        )
+        for relative, function_name, message in cases:
+            with self.subTest(function=function_name):
+                source = (repository_root / relative).read_text(encoding="utf-8")
+                body = rust_function_body(source, function_name)
+                self.assertTrue(body.strip().startswith("Err(wasm_error!("))
+                self.assertIn(message, body)
+                for effect in forbidden_effects:
+                    self.assertNotIn(effect, body)
+
+        staking = (
+            repository_root / "mycelix-finance/zomes/staking/coordinator/src/lib.rs"
+        ).read_text(encoding="utf-8")
+        return_body = rust_function_body(staking, "return_stake_sap")
+        self.assertIn("if amount == 0", return_body)
+        self.assertIn("return Ok(())", return_body)
+        self.assertIn("Non-zero staking returns are disabled", return_body)
+        self.assertNotIn("call(", return_body)
 
 
 if __name__ == "__main__":
