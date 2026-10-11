@@ -409,6 +409,20 @@ mod tests {
     }
 
     #[test]
+    fn domain_contracts_and_paper_results_are_exposed_to_the_explorer() {
+        let registry = registry();
+        let find_model = |id: &str| {
+            registry.models.iter().find(|model| model.model_id == id)
+                .unwrap_or_else(|| panic!("missing registry model: {id}"))
+        };
+
+        assert!(find_model("mycelix.finance.tricurrency.v1").details.contains_key("currency_contract"));
+        assert!(find_model("symthaea.economy.thermodynamic-ledger.v1").details.contains_key("documented_equations"));
+        assert!(find_model("symthaea.energy.lcoe.v1").details.contains_key("documented_equation"));
+        assert!(find_model("symthaea.governance.tricurrency.paper-results.v1").details.contains_key("paper_reported_results"));
+    }
+
+    #[test]
     fn every_registered_source_permalink_is_pinned_and_self_consistent() {
         let registry = registry();
         let mut sources = 0usize;
