@@ -47,9 +47,10 @@
     },
     "input_digest": {
       "type": "string",
-      "minLength": 1,
-      "maxLength": 160,
-      "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]{1,160}$"
+      "minLength": 71,
+      "maxLength": 71,
+      "pattern": "^blake3:[0-9a-f]{64}$",
+      "description": "Canonical BLAKE3 digest of the minimized request encoding. This binds freshness only and is not authentication."
     },
     "action": {
       "type": "string",
