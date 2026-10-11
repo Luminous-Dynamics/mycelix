@@ -47,7 +47,7 @@ pub const MIN_SUPPORTED_SCIENTIFIC_EVENT_SCHEMA_VERSION: u16 = 2;
 pub const EVIDENCE_PROVENANCE_SCHEMA_VERSION: u16 = 1;
 /// Default explanatory assessment policy.
 pub const DEFAULT_EVIDENCE_POLICY_ID: &str = "mycelix-evidence-policy";
-pub const DEFAULT_EVIDENCE_POLICY_VERSION: &str = "1.1.0";
+pub const DEFAULT_EVIDENCE_POLICY_VERSION: &str = "1.2.0";
 /// Client clocks may be slightly ahead, but cannot place authoritative events
 /// arbitrarily into the future.
 pub const MAX_EVENT_FUTURE_SKEW_SECONDS: i64 = 300;
@@ -1444,8 +1444,20 @@ pub struct EvidenceProfile {
     pub public_artifact_count: usize,
     pub controlled_artifact_count: usize,
     pub review_count: usize,
+    /// Distinct source attributions on supportive reproduction attestations.
+    /// This is an observed count, not independent qualification.
     pub supportive_reproduction_count: usize,
+    /// Distinct source attributions on supportive replication attestations.
+    /// This is an observed count, not independent qualification.
     pub supportive_independent_replication_count: usize,
+    /// Independently evaluated computational-reproduction sources. Remains zero
+    /// until a separate qualification event/policy is implemented.
+    #[serde(default)]
+    pub qualified_reproduction_count: usize,
+    /// Independently evaluated new-data replication sources. A declaration or
+    /// attestation alone never increments this field.
+    #[serde(default)]
+    pub qualified_independent_replication_count: usize,
     /// Positive computational-reproduction attributions excluded because one actor mapped to multiple source identities.
     #[serde(default)]
     pub ambiguous_reproduction_actor_count: usize,
@@ -1474,6 +1486,32 @@ pub struct EvidenceAssessment {
 impl EvidenceAssessment {
     pub fn derive(profile: &EvidenceProfile, lifecycle: &ClaimLifecycle) -> Self {
         let mut reasons = Vec::new();
+
+        // Raw supportive attribution counts are not qualification. Until an
+        // independent evaluator event exists, these qualified counters remain
+        // zero and an attestation cannot promote maturity on its own.
+        let qualified_reproduction_count =
+            if profile.qualified_reproduction_count <= profile.supportive_reproduction_count {
+                profile.qualified_reproduction_count
+            } else {
+                reasons.push(
+                    "qualified reproduction count exceeds observed supportive source count; qualification ignored"
+                        .to_string(),
+                );
+                0
+            };
+        let qualified_replication_count = if profile.qualified_independent_replication_count
+            <= profile.supportive_independent_replication_count
+        {
+            profile.qualified_independent_replication_count
+        } else {
+            reasons.push(
+                "qualified replication count exceeds observed supportive source count; qualification ignored"
+                    .to_string(),
+            );
+            0
+        };
+
         let maturity = match lifecycle {
             ClaimLifecycle::Retracted { .. } => {
                 reasons.push("claim has an active retraction".to_string());
@@ -1483,17 +1521,17 @@ impl EvidenceAssessment {
                 reasons.push("claim has been superseded".to_string());
                 EvidenceMaturity::Superseded
             }
-            ClaimLifecycle::Active if profile.supportive_independent_replication_count > 0 => {
+            ClaimLifecycle::Active if qualified_replication_count > 0 => {
                 reasons.push(format!(
-                    "{} qualified independent replication source(s)",
-                    profile.supportive_independent_replication_count
+                    "{} independently evaluated new-data replication source(s)",
+                    qualified_replication_count
                 ));
                 EvidenceMaturity::IndependentlyReplicated
             }
-            ClaimLifecycle::Active if profile.supportive_reproduction_count > 0 => {
+            ClaimLifecycle::Active if qualified_reproduction_count > 0 => {
                 reasons.push(format!(
-                    "{} qualified computational reproduction source(s)",
-                    profile.supportive_reproduction_count
+                    "{} independently evaluated computational reproduction source(s)",
+                    qualified_reproduction_count
                 ));
                 EvidenceMaturity::ComputationallyReproduced
             }
@@ -1519,6 +1557,19 @@ impl EvidenceAssessment {
                 EvidenceMaturity::Proposed
             }
         };
+
+        if profile.supportive_independent_replication_count > qualified_replication_count {
+            reasons.push(format!(
+                "{} supportive replication source attribution(s) remain unqualified by an independent provenance assessment",
+                profile.supportive_independent_replication_count - qualified_replication_count
+            ));
+        }
+        if profile.supportive_reproduction_count > qualified_reproduction_count {
+            reasons.push(format!(
+                "{} supportive computational-reproduction source attribution(s) remain unqualified",
+                profile.supportive_reproduction_count - qualified_reproduction_count
+            ));
+        }
         let contested = profile.non_supporting_result_count > 0 || profile.critique_count > 0;
         if profile.ambiguous_reproduction_actor_count > 0 {
             reasons.push(format!(
@@ -2743,9 +2794,17 @@ mod tests {
             1
         );
         assert_eq!(
-            projection.maturity(),
-            EvidenceMaturity::IndependentlyReplicated
+            projection.evidence_profile.qualified_independent_replication_count,
+            0
         );
+        assert_eq!(
+            projection.maturity(),
+            EvidenceMaturity::ArtifactBacked,
+            "a supportive replication attestation alone is not independent qualification"
+        );
+        assert!(projection.assessment().reasons.iter().any(|reason| {
+            reason.contains("remain unqualified by an independent provenance assessment")
+        }));
     }
 
     #[test]
@@ -2953,7 +3012,7 @@ mod tests {
             1
         );
         let assessment = projection.assessment();
-        assert_eq!(assessment.policy_version, "1.1.0");
+        assert_eq!(assessment.policy_version, "1.2.0");
         assert!(assessment.reasons.iter().any(|reason| reason.contains("multiple source identities")));
         assert_ne!(projection.maturity(), EvidenceMaturity::IndependentlyReplicated);
         assert_ne!(projection.maturity(), EvidenceMaturity::ComputationallyReproduced);
@@ -2981,6 +3040,8 @@ mod tests {
         let profile: EvidenceProfile = serde_json::from_str(legacy_profile).unwrap();
         assert_eq!(profile.ambiguous_reproduction_actor_count, 0);
         assert_eq!(profile.ambiguous_replication_actor_count, 0);
+        assert_eq!(profile.qualified_reproduction_count, 0);
+        assert_eq!(profile.qualified_independent_replication_count, 0);
         assert_eq!(profile.artifact_count, 3);
         assert_eq!(profile.review_count, 4);
         assert_eq!(profile.supportive_independent_replication_count, 2);
