@@ -6,6 +6,7 @@ This directory contains schema definitions for Mycelix Praxis.
 
 ```
 schemas/
+├── symthaea-advisory-v1.schema.json # Strict Symthaea response structure
 ├── vc/                           # Verifiable Credentials schemas
 │   ├── EduAchievementCredential.schema.json
 │   └── contexts/
