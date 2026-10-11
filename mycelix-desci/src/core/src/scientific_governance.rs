@@ -591,20 +591,16 @@ impl<L, R, P> GovernedScientificEventLog<L, R, P>
 where
     L: ScientificEventLog,
 {
-    /// Build an authoritative claim projection. Provenance evaluation events
-    /// count toward qualified maturity only when a committed, trusted authority
-    /// receipt binds the exact event. The plain inner event log is not enough.
-    pub async fn claim_projection(
+    async fn build_authority_aware_projection(
         &self,
-        claim_id: crate::scientific_events::ClaimId,
+        events: &[SignedScientificEvent],
     ) -> Result<ClaimProjection> {
-        let events = self.inner.stream(claim_id).await?;
         let mut authority_qualified_evaluation_event_ids = BTreeSet::new();
 
         if let Some(signing_key) = &self.receipt_signing_key {
             let trusted_service_keys =
                 BTreeSet::from([signing_key.verifying_key().to_bytes()]);
-            for event in &events {
+            for event in events {
                 if !matches!(
                     &event.envelope.payload,
                     ScientificEventPayload::EvidenceProvenanceEvaluated { .. }
@@ -635,9 +631,20 @@ where
         }
 
         ClaimProjection::rebuild_with_authorized_evaluations(
-            &events,
+            events,
             &authority_qualified_evaluation_event_ids,
         )
+    }
+
+    /// Build an authoritative claim projection. Provenance evaluation events
+    /// count toward qualified maturity only when a committed, trusted authority
+    /// receipt binds the exact event. The plain inner event log is not enough.
+    pub async fn claim_projection(
+        &self,
+        claim_id: crate::scientific_events::ClaimId,
+    ) -> Result<ClaimProjection> {
+        let events = self.inner.stream(claim_id).await?;
+        self.build_authority_aware_projection(&events).await
     }
 }
 
@@ -761,7 +768,7 @@ where
         let current = if stream.is_empty() {
             None
         } else {
-            Some(ClaimProjection::rebuild(&stream)?)
+            Some(self.build_authority_aware_projection(&stream).await?)
         };
         let decision = self.policy.authorize(&resolved, &event, current.as_ref());
         if !decision.allowed {
