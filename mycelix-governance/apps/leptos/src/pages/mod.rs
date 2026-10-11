@@ -15,7 +15,6 @@ mod execution;
 mod staking;
 mod oracle;
 mod profile;
-mod economy_atlas;
 
 pub use home::HomePage;
 pub use proposals::{ProposalListPage, ProposalDetailPage, CreateProposalPage};
@@ -31,4 +30,3 @@ pub use execution::ExecutionPage;
 pub use staking::StakingPage;
 pub use oracle::OraclePage;
 pub use profile::ProfilePage;
-pub use economy_atlas::EconomyAtlasPage;
