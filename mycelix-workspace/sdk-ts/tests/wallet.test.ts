@@ -952,6 +952,8 @@ describe('OfflineQueue', () => {
       expect(item.status).toBe('pending');
       expect((item.payload as SendPayload).to).toBe('@alice');
       expect((item.payload as SendPayload).amount).toBe(100);
+      expect((item.payload as SendPayload).idempotencyKey).toBe(item.idempotencyKey);
+      expect(item.idempotencyKey).toBeDefined();
     });
 
     it('should track pending count', async () => {
@@ -964,7 +966,7 @@ describe('OfflineQueue', () => {
       expect(queue.pendingCount).toBe(2);
     });
 
-    it('should dedupe by idempotency key', async () => {
+    it('should dedupe exact payloads by idempotency key', async () => {
       const item1 = await queue.enqueue('send', { to: '@alice', amount: 100 }, {
         idempotencyKey: 'unique-key',
       });
@@ -974,6 +976,27 @@ describe('OfflineQueue', () => {
 
       expect(item1.id).toBe(item2.id);
       expect(queue.pendingCount).toBe(1);
+    });
+
+    it('should reject changed payload under an existing idempotency key', async () => {
+      await queue.enqueue('send', { to: '@alice', amount: 100 }, {
+        idempotencyKey: 'conflicting-key',
+      });
+
+      await expect(
+        queue.enqueue('send', { to: '@bob', amount: 100 }, {
+          idempotencyKey: 'conflicting-key',
+        })
+      ).rejects.toThrow('Idempotency key reused with a different queued operation payload');
+      expect(queue.pendingCount).toBe(1);
+    });
+
+    it('should preserve an explicit payment key in the persisted payload', async () => {
+      const item = await queue.enqueueSend('@alice', 100, 'TEND', 'invoice', {
+        idempotencyKey: 'logical-payment-123',
+      });
+      expect(item.idempotencyKey).toBe('logical-payment-123');
+      expect((item.payload as SendPayload).idempotencyKey).toBe('logical-payment-123');
     });
   });
 
