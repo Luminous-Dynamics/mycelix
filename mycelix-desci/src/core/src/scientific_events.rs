@@ -3704,8 +3704,8 @@ mod tests {
                     "duplicate provenance record ID in {case_id}: {record_id}"
                 );
                 assert_eq!(
-                    artifact_hashes.get(artifact_id),
-                    Some(&content_hash.to_string()),
+                    artifact_hashes.get(artifact_id).map(String::as_str),
+                    Some(content_hash),
                     "provenance declaration must bind the exact attached artifact hash in {case_id}"
                 );
 
@@ -3776,8 +3776,8 @@ mod tests {
                 assert_eq!(declaration["artifact_id"].as_str(), Some(artifact_id));
                 assert_eq!(declaration["content_hash"].as_str(), evaluation["content_hash"].as_str());
                 assert_eq!(
-                    artifact_hashes.get(artifact_id),
-                    evaluation["content_hash"].as_str().map(str::to_string).as_ref(),
+                    artifact_hashes.get(artifact_id).map(String::as_str),
+                    evaluation["content_hash"].as_str(),
                     "evaluation must bind the exact attached artifact in {case_id}"
                 );
                 assert_ne!(
