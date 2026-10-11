@@ -64,7 +64,10 @@ ceiling before deserializing and rejects malformed/unknown-field responses.
 The host-only `crates/praxis-symthaea-adapter` crate provides
 `read_bounded_symthaea_advice(reader)`, which uses `Read::take(limit + 1)` to
 avoid buffering an oversized stream in full, then delegates to that strict
-parser. If a persistent connection returns an oversized body, its owner should
+parser. Prefer `read_bounded_and_validate_symthaea_advice(reader, context)`,
+which also invokes the trusted semantic validator and returns a
+`ValidatedAdvisorySuggestion`; the lower-level decoder alone is not trusted
+advice. If a persistent connection returns an oversized body, its owner should
 discard/close the connection rather than reuse a stream with unread body bytes.
 Transport timeouts, process authentication, learner consent, and production
 call-site wiring remain responsibilities of the host adapter/integration.
