@@ -429,6 +429,38 @@ mod tests {
     }
 
     #[test]
+    fn hearth_compost_delivery_finding_is_source_bound() {
+        let registry = registry();
+        let finance = registry
+            .models
+            .iter()
+            .find(|model| model.model_id == "mycelix.finance.tricurrency.v1")
+            .expect("Finance model should exist");
+        let finding = finance
+            .validation_findings
+            .iter()
+            .find(|finding| {
+                finding.finding_id == "FIN-ATLAS-COMPOST-DELIVERY-STATUS-001"
+            })
+            .expect("hearth compost delivery finding should remain visible");
+        assert_eq!(
+            finding.source_file,
+            "mycelix-finance/zomes/payments/coordinator/src/lib.rs"
+        );
+        assert!(finance.source_refs.iter().any(|source| {
+            source.path == finding.source_file
+                && source.ref_ == finding.source_commit
+                && source.url.ends_with(&format!(
+                    "/{}/{}",
+                    finding.source_commit,
+                    finding.source_file
+                ))
+        }));
+        assert!(finding.observation.contains("redistributed: true"));
+        assert!(!finding.required_follow_up.trim().is_empty());
+    }
+
+    #[test]
     fn every_registered_source_permalink_is_pinned_and_self_consistent() {
         let registry = registry();
         let mut sources = 0usize;
