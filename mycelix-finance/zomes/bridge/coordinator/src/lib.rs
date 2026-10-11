@@ -575,133 +575,11 @@ pub fn get_payment_history(input: GetPaymentHistoryInput) -> ExternResult<Vec<Re
 /// Deposit collateral to mint SAP.
 /// Creates a CollateralBridgeDeposit entry recording the collateral-to-SAP conversion.
 ///
-/// Rate-limited: max 5% of total vault value per day per member.
+/// DISABLED: legacy collateral SAP issuance has no authenticated custody/valuation receipt.
 #[hdk_extern]
-pub fn deposit_collateral(input: DepositCollateralInput) -> ExternResult<Record> {
-    verify_participant_tier()?;
-    verify_caller_is_did(&input.depositor_did)?;
-    let now = sys_time()?;
-
-    if input.oracle_rate.is_nan() || input.oracle_rate.is_infinite() || input.oracle_rate <= 0.0 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Oracle rate must be a finite positive number".into()
-        )));
-    }
-    if input.collateral_amount == 0 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Collateral amount must be greater than zero".into()
-        )));
-    }
-    if input.collateral_type != "ETH" && input.collateral_type != "USDC" {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Collateral type must be \"ETH\" or \"USDC\"".into()
-        )));
-    }
-
-    // Phase 1b: Verify oracle rate against consensus (oracle rate attestation)
-    verify_oracle_rate_against_consensus(&input.collateral_type, input.oracle_rate)?;
-
-    let sap_minted = (input.collateral_amount as f64 * input.oracle_rate) as u64;
-
-    // Tier-scaled daily rate limit: higher consciousness tiers get larger limits
-    let mycel_score = fetch_mycel_score(&input.depositor_did);
-    let tier = FeeTier::from_mycel(mycel_score);
-    let daily_limit_pct = match tier {
-        FeeTier::Newcomer => 1, // 1% for newcomers (shouldn't reach here due to tier gate, but defense in depth)
-        FeeTier::Member => 5,   // 5% for members
-        FeeTier::Steward => 10, // 10% for stewards
-    };
-
-    // Enforce rate limit: max daily_limit_pct% of vault per day per member
-    enforce_rate_limit(&input.depositor_did, sap_minted, now, daily_limit_pct)?;
-
-    let deposit_id = format!(
-        "deposit:{}:{}:{}",
-        input.depositor_did,
-        input.collateral_type,
-        now.as_micros()
-    );
-    let deposit = CollateralBridgeDeposit {
-        id: deposit_id.clone(),
-        depositor_did: input.depositor_did.clone(),
-        collateral_type: input.collateral_type.clone(),
-        collateral_amount: input.collateral_amount,
-        sap_minted,
-        oracle_rate: input.oracle_rate,
-        status: BridgeDepositStatus::Pending,
-        created_at: now,
-        completed_at: None,
-    };
-
-    let hash = create_entry(&EntryTypes::CollateralBridgeDeposit(deposit))?;
-
-    create_link(
-        anchor_hash(&input.depositor_did)?,
-        hash.clone(),
-        LinkTypes::DidToDeposits,
-        (),
-    )?;
-
-    // Index by deposit ID for O(1) lookup
-    create_link(
-        anchor_hash(&deposit_id)?,
-        hash.clone(),
-        LinkTypes::DepositIdToDeposit,
-        (),
-    )?;
-
-    // Credit minted SAP to depositor's balance via payments zome
-    #[derive(Serialize, Debug)]
-    struct CreditSapPayload {
-        member_did: String,
-        amount: u64,
-        reason: String,
-    }
-    match call(
-        CallTargetCell::Local,
-        ZomeName::from("payments"),
-        FunctionName::from("credit_sap"),
-        None,
-        CreditSapPayload {
-            member_did: input.depositor_did.clone(),
-            amount: sap_minted,
-            reason: format!(
-                "Collateral bridge deposit: {} {}",
-                input.collateral_amount, input.collateral_type
-            ),
-        },
-    ) {
-        Ok(ZomeCallResponse::Ok(_)) => {}
-        Ok(other) => {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Failed to credit SAP: unexpected response {:?}",
-                other
-            ))));
-        }
-        Err(e) => {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Failed to credit SAP for deposit: {:?}",
-                e
-            ))));
-        }
-    }
-
-    // Broadcast the deposit event
-    broadcast_finance_event(BroadcastFinanceEventInput {
-        event_type: FinanceEventType::CollateralDeposited,
-        subject_did: input.depositor_did,
-        amount: Some(sap_minted),
-        payload: serde_json::json!({
-            "collateral_type": input.collateral_type,
-            "collateral_amount": input.collateral_amount,
-            "oracle_rate": input.oracle_rate,
-            "sap_minted": sap_minted,
-        })
-        .to_string(),
-    })?;
-
-    get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Deposit not found".into()
+pub fn deposit_collateral(_input: DepositCollateralInput) -> ExternResult<Record> {
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Legacy collateral SAP issuance is disabled until authenticated custody and valuation evidence is bound to an idempotent source-specific issuance receipt".into()
     )))
 }
 
@@ -2356,100 +2234,12 @@ pub struct VerifyFiatDepositInput {
     pub audit: ExternalResourceAudit, // Vector 3: Membrane Audit
 }
 
-/// Verify a pending fiat deposit and mint SAP. Requires Citizen+ tier.
+/// DISABLED: fiat verification cannot issue SAP without authenticated external-resource authority and a source-specific receipt.
 #[hdk_extern]
-pub fn verify_fiat_deposit(input: VerifyFiatDepositInput) -> ExternResult<Record> {
-    verify_citizen_tier()?;
-
-    // --- CELLULAR MEMBRANE AUDIT (Vector 3) ---
-    // Strictly prevent speculative contagion from the old world.
-    if input.audit.is_speculative {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Airbridge Rejected: Speculative characteristics detected. Resources must be non-rent-seeking.".into()
-        )));
-    }
-
-    verify_caller_is_did(&input.verifier_did)?;
-
-    let links = get_links(
-        LinkQuery::try_new(
-            anchor_hash("fiat_deposits")?,
-            LinkTypes::FiatDepositRegistry,
-        )?,
-        GetStrategy::default(),
-    )?;
-
-    for link in links {
-        let hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link".into())))?;
-        let record = follow_update_chain(hash)?;
-        if let Ok(Some(deposit)) = record.entry().to_app_option::<FiatBridgeDeposit>() {
-            if deposit.id == input.deposit_id {
-                if deposit.status != "Pending" {
-                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                        "Deposit is {}, only Pending deposits can be verified",
-                        deposit.status
-                    ))));
-                }
-
-                let now = sys_time()?;
-                let verified = FiatBridgeDeposit {
-                    status: "Verified".into(),
-                    verified_at: Some(now),
-                    ..deposit.clone()
-                };
-
-                let action_hash = update_entry(
-                    record.action_address().clone(),
-                    &EntryTypes::FiatBridgeDeposit(verified),
-                )?;
-
-                // Credit SAP to depositor
-                #[derive(Serialize, Debug)]
-                struct CreditSapPayload {
-                    member_did: String,
-                    amount: u64,
-                    reason: String,
-                }
-                match call(
-                    CallTargetCell::Local,
-                    ZomeName::from("payments"),
-                    FunctionName::from("credit_sap"),
-                    None,
-                    CreditSapPayload {
-                        member_did: deposit.depositor_did.clone(),
-                        amount: deposit.sap_minted,
-                        reason: format!(
-                            "Fiat bridge deposit: {} {}",
-                            deposit.fiat_amount, deposit.fiat_currency
-                        ),
-                    },
-                ) {
-                    Ok(ZomeCallResponse::Ok(_)) => {}
-                    Ok(other) => {
-                        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                            "Failed to credit SAP: unexpected response {:?}",
-                            other
-                        ))));
-                    }
-                    Err(e) => {
-                        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                            "Failed to credit SAP for fiat deposit: {:?}",
-                            e
-                        ))));
-                    }
-                }
-
-                return get(action_hash, GetOptions::default())?
-                    .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())));
-            }
-        }
-    }
-
-    Err(wasm_error!(WasmErrorInner::Guest(format!(
-        "Fiat deposit {} not found",
-        input.deposit_id
-    ))))
+pub fn verify_fiat_deposit(_input: VerifyFiatDepositInput) -> ExternResult<Record> {
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Fiat-deposit verification and SAP issuance are disabled until the verifier authority, exact deposit, amount, and non-replayable issuance receipt are authenticated".into()
+    )))
 }
 
 // ---------------------------------------------------------------------------
