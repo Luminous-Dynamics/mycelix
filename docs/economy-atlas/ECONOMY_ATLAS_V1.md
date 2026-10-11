@@ -152,6 +152,16 @@ These are source-level arithmetic/control-flow findings, not proof of an observe
 
 Before any runtime change, tests should establish the intended settlement contract: missing destinations cannot be reported as fully redistributed; failed treasury delivery is represented in durable pending state or an explicit failure; recovery does not double-credit; and `deducted = delivered + pending/unresolved` holds exactly under the chosen integer remainder rule. Only then should the shared utility's ratio-domain and residual policy be fixed at the narrowest trust boundary.
 
+## Thermodynamic ledger input findings
+
+The structured registry also records three findings for Symthaea's pinned [thermodynamic ledger](https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/crates/core/symthaea-infrastructure/src/economy.rs):
+
+1. `mint_production_credit` does not itself reject all negative or non-finite production/efficiency/Phi inputs. The Atlas must validate these domains before calling the method; the caller path remains to be traced.
+2. `apply_entropy_tax` does not reject negative surprise. A negative input produces a negative tax, and subtracting that tax increases `total_tend_supply`. Add direct boundary/regression tests and confirm all upstream call sites share the same validation contract.
+3. The method gates low `collective_phi` values but does not define a maximum or canonical calibration scale. The UI must preserve the unspecified upper bound rather than inventing one.
+
+All seven findings are structured records with globally unique IDs and an exact source repository/path/commit binding. The Leptos page expects this typed representation; unstructured strings under `validation_findings` are rejected by the registry validator and covered by regression tests. These are static source findings, not proof that an invalid value is reachable from a deployed caller. The registry still claims no execution or runtime qualification.
+
 ## Leptos integration status
 
 The PR now also adds a registry-driven page at `/atlas` in the existing Finance Leptos app. It loads the checked-in JSON at compile time, exposes source snapshots, searches model titles/domains/statuses/limitations, and renders limitations and the structured findings above. A malformed registry produces an explicit error state; it does not substitute mock entries.
