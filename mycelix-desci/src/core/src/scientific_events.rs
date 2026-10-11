@@ -3975,6 +3975,101 @@ mod tests {
     }
 
     #[test]
+    fn independent_evaluation_qualifies_same_data_reanalysis_for_reproduction_count() {
+        let claim_id = ClaimId::new();
+        let t0 = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:creator"), t0.clone(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let original = artifact_with(ArtifactId::new(), b"original fixed input data", "ipfs://original-input");
+        let original_event = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis, actor("did:key:creator"), t0.clone() + Duration::seconds(10),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: original.clone() },
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let output = artifact_with(ArtifactId::new(), b"reproduced analysis output", "ipfs://analysis-output");
+        let output_event = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &original_event, actor("did:key:creator"), t0.clone() + Duration::seconds(20),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: output.clone() },
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let declaration = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &output_event, actor("did:key:workflow-author"), t0.clone() + Duration::seconds(30),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: provenance_assertion(
+                        &output,
+                        EvidenceOriginRelation::SameDataReanalysis,
+                        vec![EvidenceProvenanceParent {
+                            artifact_id: original.id,
+                            content_hash: original.content_hash,
+                        }],
+                    ),
+                },
+            ).unwrap(), &key(2),
+        ).unwrap();
+        let attestation = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &declaration, actor("did:key:reproducer"), t0.clone() + Duration::seconds(40),
+                ScientificEventPayload::AttestationRecorded {
+                    attestation: Attestation {
+                        id: AttestationId::new(), claim_id,
+                        kind: AttestationKind::ComputationalReproduction { outcome: EvidenceOutcome::Supports },
+                        evidence_ids: vec![output.id],
+                        statement: Some("Synthetic deterministic reanalysis".to_string()),
+                        protocol_reference: Some("analysis:workflow-v1".to_string()),
+                    },
+                },
+            ).unwrap(), &key(3),
+        ).unwrap();
+        let first_eval = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attestation, actor("did:key:reviewer-a"), t0.clone() + Duration::seconds(50),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &output,
+                        EvidenceProvenanceEvaluationScope::ComputationalReproduction,
+                        EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        "Reviewer A confirmed input lineage for the reproduction",
+                    ),
+                },
+            ).unwrap(), &key(4),
+        ).unwrap();
+        let second_eval = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &first_eval, actor("did:key:reviewer-b"), t0.clone() + Duration::seconds(60),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &output,
+                        EvidenceProvenanceEvaluationScope::ComputationalReproduction,
+                        EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        "Reviewer B independently confirmed input lineage for the reproduction",
+                    ),
+                },
+            ).unwrap(), &key(5),
+        ).unwrap();
+
+        let projection = ClaimProjection::rebuild(&[
+            genesis, original_event, output_event, declaration, attestation, first_eval, second_eval,
+        ]).unwrap();
+        assert_eq!(
+            projection.provenance_disposition(output.id),
+            EvidenceProvenanceDisposition::QualifiedComputationalReproduction,
+        );
+        assert_eq!(projection.evidence_profile.supportive_reproduction_count, 1);
+        assert_eq!(projection.evidence_profile.qualified_reproduction_count, 1);
+        assert_eq!(projection.maturity(), EvidenceMaturity::ComputationallyReproduced);
+    }
+
+    #[test]
     fn conflicting_provenance_evaluations_are_indeterminate_not_last_writer_wins() {
         let claim_id = ClaimId::new();
         let t0 = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
