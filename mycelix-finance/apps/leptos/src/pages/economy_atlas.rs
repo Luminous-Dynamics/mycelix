@@ -8,6 +8,7 @@
 
 use leptos::prelude::*;
 use serde::Deserialize;
+use serde_json::Value;
 use std::collections::BTreeMap;
 
 const REGISTRY_JSON: &str =
@@ -39,6 +40,8 @@ struct AtlasModel {
     limitations: Vec<String>,
     #[serde(default)]
     validation_findings: Vec<AtlasValidationFinding>,
+    #[serde(flatten)]
+    details: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -83,6 +86,13 @@ fn evidence_class(status: &str) -> &'static str {
     }
 }
 
+fn display_registry_value(value: &Value) -> String {
+    value
+        .as_str()
+        .map(str::to_owned)
+        .unwrap_or_else(|| serde_json::to_string_pretty(value).unwrap_or_else(|_| value.to_string()))
+}
+
 fn render_model_card(model: AtlasModel) -> impl IntoView {
     let model_id = model.model_id.clone();
     let title = model.title.clone();
@@ -93,6 +103,7 @@ fn render_model_card(model: AtlasModel) -> impl IntoView {
     let limitations = model.limitations;
     let source_refs = model.source_refs;
     let validation_findings = model.validation_findings;
+    let details = model.details;
 
     view! {
         <article class="dash-card atlas-model-card">
@@ -109,6 +120,28 @@ fn render_model_card(model: AtlasModel) -> impl IntoView {
             <details>
                 <summary>"Assumptions, limitations and source files"</summary>
                 <p class="atlas-model-id">{model_id}</p>
+                {if details.is_empty() {
+                    view! { <></> }.into_any()
+                } else {
+                    view! {
+                        <section class="atlas-model-metadata">
+                            <h3>"Model contract, parameters and reported outputs"</h3>
+                            <p class="atlas-disclaimer">
+                                "These are fields recorded in the pinned discovery registry. They are not a substitute for executing the source model."
+                            </p>
+                            {details.into_iter().map(|(key, value)| {
+                                let label = key.replace('_', " ");
+                                let value_text = display_registry_value(&value);
+                                view! {
+                                    <div class="atlas-metadata-row">
+                                        <strong>{label}</strong>
+                                        <pre>{value_text}</pre>
+                                    </div>
+                                }
+                            }).collect_view()}
+                        </section>
+                    }.into_any()
+                }}
                 <h3>"Known limitations / open questions"</h3>
                 <ul>
                     {limitations.into_iter().map(|limitation| view! {
@@ -206,6 +239,42 @@ pub fn EconomyAtlasPage() -> impl IntoView {
     let execution_qualified = registry.qualified_for_execution;
     let models_for_view = registry.models;
     let (query, set_query) = signal(String::new());
+    let (status_filter, set_status_filter) = signal("all".to_string());
+    let filtered_models = Memo::new(move |_| {
+        let term = query.get().trim().to_lowercase();
+        let selected_status = status_filter.get();
+        models_for_view
+            .iter()
+            .filter(|model| {
+                let metadata = serde_json::to_string(&model.details).unwrap_or_default();
+                let source_text = model.source_refs.iter()
+                    .map(|source| format!("{} {} {}", source.repository, source.path, source.url))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let finding_text = model.validation_findings.iter()
+                    .map(|finding| format!("{} {} {}", finding.finding_id, finding.observation, finding.required_follow_up))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let haystack = format!(
+                    "{} {} {} {} {} {} {} {}",
+                    model.model_id,
+                    model.title,
+                    model.domain.join(" "),
+                    model.epistemic_status,
+                    model.execution_status,
+                    model.limitations.join(" "),
+                    metadata,
+                    format!("{} {}", source_text, finding_text)
+                )
+                .to_lowercase();
+                (term.is_empty() || haystack.contains(&term))
+                    && (selected_status == "all" || model.epistemic_status == selected_status)
+            })
+            .cloned()
+            .collect::<Vec<_>>()
+    });
+    let filtered_for_count = filtered_models.clone();
+    let filtered_for_view = filtered_models.clone();
 
     view! {
         <section class="page-economy-atlas">
@@ -245,44 +314,45 @@ pub fn EconomyAtlasPage() -> impl IntoView {
                 <p class="atlas-snapshots">{source_snapshots}</p>
             </div>
 
-            <div class="form-field" style="margin: 1rem 0;">
-                <label for="economy-atlas-search">"Search model name, domain, evidence status or limitation"</label>
-                <input
-                    id="economy-atlas-search"
-                    class="form-input"
-                    type="search"
-                    placeholder="e.g. demurrage, market, credit, energy…"
-                    prop:value=move || query.get()
-                    on:input=move |event| set_query.set(event_target_value(&event))
-                />
+            <div class="atlas-filter-row">
+                <div class="form-field" style="margin: 1rem 0;">
+                    <label for="economy-atlas-search">"Search model names, equations, source paths, results and limitations"</label>
+                    <input
+                        id="economy-atlas-search"
+                        class="form-input"
+                        type="search"
+                        placeholder="e.g. demurrage, market, credit, energy…"
+                        prop:value=move || query.get()
+                        on:input=move |event| set_query.set(event_target_value(&event))
+                    />
+                </div>
+                <div class="form-field" style="margin: 1rem 0;">
+                    <label for="economy-atlas-evidence-filter">"Evidence class"</label>
+                    <select
+                        id="economy-atlas-evidence-filter"
+                        class="form-input"
+                        prop:value=move || status_filter.get()
+                        on:change=move |event| set_status_filter.set(event_target_value(&event))
+                    >
+                        <option value="all">"All evidence classes"</option>
+                        <option value="implemented_source">"Implementation source"</option>
+                        <option value="paper_reported">"Paper-reported"</option>
+                        <option value="design_only">"Design-only"</option>
+                        <option value="conceptual">"Conceptual"</option>
+                        <option value="discovery_required">"Discovery required"</option>
+                    </select>
+                </div>
             </div>
+            <p class="subtitle" aria-live="polite">
+                {move || format!("Showing {} of {} model families", filtered_for_count.get().len(), model_count)}
+            </p>
 
             <div class="dashboard-grid atlas-model-grid">
                 {move || {
-                    let term = query.get().trim().to_lowercase();
-                    let filtered: Vec<AtlasModel> = models_for_view
-                        .iter()
-                        .filter(|model| {
-                            if term.is_empty() {
-                                return true;
-                            }
-                            let haystack = format!(
-                                "{} {} {} {} {} {}",
-                                model.model_id,
-                                model.title,
-                                model.domain.join(" "),
-                                model.epistemic_status,
-                                model.execution_status,
-                                model.limitations.join(" ")
-                            )
-                            .to_lowercase();
-                            haystack.contains(&term)
-                        })
-                        .cloned()
-                        .collect();
+                    let filtered = filtered_for_view.get();
                     if filtered.is_empty() {
                         view! {
-                            <p class="subtitle">"No models match this search."</p>
+                            <p class="subtitle">"No models match these filters."</p>
                         }
                         .into_any()
                     } else {
