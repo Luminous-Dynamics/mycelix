@@ -2723,6 +2723,7 @@ mod tests {
     #[test]
     fn test_pending_compost_construction() {
         let pc = PendingCompost {
+            effect_id: "demurrage-compost:v1:test-effect".into(),
             commons_pool_id: "pool-local-001".into(),
             amount: 5000,
             source_member_did: "did:mycelix:alice".into(),
@@ -2739,6 +2740,12 @@ mod tests {
         let json = serde_json::to_string(&pc).unwrap();
         let parsed: PendingCompost = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, pc);
+
+        // Legacy outbox records predate effect_id. Deserialization must keep them
+        // readable, while the drain path separately refuses unsafe automatic retry.
+        let legacy = r#"{"commons_pool_id":"pool-local-001","amount":5000,"source_member_did":"did:mycelix:alice","pool_tier":"Local","created_at_micros":1700000000000000,"retry_count":3}"#;
+        let parsed_legacy: PendingCompost = serde_json::from_str(legacy).unwrap();
+        assert!(parsed_legacy.effect_id.is_empty());
     }
 
     // =========================================================================
