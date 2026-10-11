@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn malformed_json_is_rejected() {
         assert_eq!(
-            read_bounded_symthaea_advice(Cursor::new(b"{".as_slice())),
+            read_bounded_symthaea_advice(Cursor::new(&b"{"[..])),
             Err(BoundedAdviceReadError::MalformedJson)
         );
     }
