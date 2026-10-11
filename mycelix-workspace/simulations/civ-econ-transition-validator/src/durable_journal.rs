@@ -1,0 +1,1550 @@
+//! Append-only local effect journal for CIV-ECON-001A recovery.
+//!
+//! This persists an intent before external dispatch. After restart, a surviving
+//! Pending record requires reconciliation; it is never permission to replay.
+//! It is not an exactly-once distributed transaction protocol.
+
+use std::collections::HashMap;
+use std::error::Error;
+use std::fmt;
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
+use std::path::{Path, PathBuf};
+
+/// Prevent malformed local history from causing unbounded per-record decoding.
+const MAX_EFFECT_ID_BYTES: usize = 1024;
+const MAX_IDEMPOTENCY_KEY_BYTES: usize = 768;
+const MAX_JOURNAL_RECORD_BYTES: usize = 4096;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum JournalError {
+    InvalidPath,
+    InsecureDirectory,
+    InsecurePermissions,
+    InvalidEffectId,
+    InvalidIdempotencyKey,
+    IdempotencyKeyConflict,
+    InvalidDigest,
+    LockHeld,
+    Poisoned,
+    UnknownEffect,
+    RequestConflict,
+    ProviderProfileConflict,
+    ProviderProfileUnbound,
+    ReceiptConflict,
+    EvidenceConflict,
+    CorruptJournal { line: usize, reason: &'static str },
+    Io { operation: &'static str, kind: io::ErrorKind },
+}
+
+impl fmt::Display for JournalError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidPath => write!(f, "journal path must name a regular file in an existing directory"),
+            Self::InsecureDirectory => write!(f, "journal parent directory is writable by group or other users"),
+            Self::InsecurePermissions => write!(f, "journal file permissions grant group or other users access"),
+            Self::InvalidEffectId => write!(f, "effect identity is empty or non-canonical"),
+            Self::InvalidIdempotencyKey => write!(f, "idempotency key is empty, non-canonical, or too large"),
+            Self::IdempotencyKeyConflict => write!(f, "effect identity was reused with a different idempotency-key binding"),
+            Self::InvalidDigest => write!(f, "digest must be canonical sha256 lowercase hex"),
+            Self::LockHeld => write!(f, "journal is already open or has a stale lock; inspect before recovery"),
+            Self::Poisoned => write!(f, "journal had a write/sync failure; reopen and reconcile before further use"),
+            Self::UnknownEffect => write!(f, "effect identity has no durable begin record"),
+            Self::RequestConflict => write!(f, "effect identity was reused with a different request digest"),
+            Self::ProviderProfileConflict => write!(f, "effect identity was reused with a different provider-profile digest"),
+            Self::ProviderProfileUnbound => write!(f, "legacy effect has no durable provider-profile binding; explicit reconciliation is required"),
+            Self::ReceiptConflict => write!(f, "effect identity was acknowledged with a different receipt digest"),
+            Self::EvidenceConflict => write!(f, "effect identity was acknowledged with different or missing source evidence"),
+            Self::CorruptJournal { line, reason } => write!(f, "corrupt effect journal at line {line}: {reason}"),
+            Self::Io { operation, kind } => write!(f, "journal I/O failed during {operation}: {kind}"),
+        }
+    }
+}
+impl Error for JournalError {}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EffectStatus {
+    Pending,
+    Indeterminate,
+    Acknowledged { receipt_digest: String },
+}
+
+/// Binding for the original dispatch idempotency key.
+/// LegacyUnbound is distinct from an explicit NotUsed declaration.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IdempotencyKeyBinding {
+    LegacyUnbound,
+    NotUsed,
+    Bound(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BeginResult {
+    /// Newly appended and synced; only this result permits dispatch attempt.
+    Started,
+    /// A begin record survived. Do not automatically dispatch again.
+    PendingNeedsReconciliation,
+    IndeterminateNeedsReconciliation,
+    /// A legacy J1/J2 pending effect has no recorded rail identity and cannot
+    /// be resumed under a caller-selected provider automatically.
+    ProviderProfileUnboundNeedsReconciliation,
+    /// Legacy J3 state lacks the original key; do not invent one during recovery.
+    IdempotencyKeyUnboundNeedsReconciliation,
+    AlreadyAcknowledged {
+        receipt_digest: String,
+        source_evidence_digest: Option<String>,
+        provider_profile_digest: Option<String>,
+        idempotency_key_binding: IdempotencyKeyBinding,
+    },
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AcknowledgeResult { Acknowledged, AlreadyAcknowledged }
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IndeterminateResult {
+    Marked,
+    AlreadyIndeterminate,
+    AlreadyAcknowledged {
+        receipt_digest: String,
+        source_evidence_digest: Option<String>,
+        provider_profile_digest: Option<String>,
+        idempotency_key_binding: IdempotencyKeyBinding,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct JournalEntry {
+    request_digest: String,
+    /// None for legacy J1/J2 records, which did not bind the provider rail.
+    provider_profile_digest: Option<String>,
+    /// The J4 binding for the original dispatch, or LegacyUnbound for J1/J2/J3.
+    idempotency_key_binding: IdempotencyKeyBinding,
+    status: EffectStatus,
+    /// None for legacy J1 acknowledgements; J2/J3 can persist this digest.
+    source_evidence_digest: Option<String>,
+}
+
+struct LockGuard { path: PathBuf }
+impl Drop for LockGuard {
+    fn drop(&mut self) {
+        // A failed removal intentionally leaves a fail-closed stale lock.
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
+pub struct DurableEffectJournal {
+    path: PathBuf,
+    file: File,
+    _lock: LockGuard,
+    entries: HashMap<String, JournalEntry>,
+    poisoned: bool,
+}
+
+impl DurableEffectJournal {
+    /// Open a single-writer journal. Parent directory must exist.
+    /// On Unix, group/other write access on that directory is rejected.
+    /// Non-Unix native ACLs are not inspected by this crate.
+    /// J4 stores original idempotency keys in recoverable form; the journal
+    /// and its parent must be treated as sensitive local state.
+    /// A lock left by a crash is not broken automatically.
+    pub fn open<P: AsRef<Path>>(requested: P) -> Result<Self, JournalError> {
+        let requested = requested.as_ref();
+        let name = requested.file_name().ok_or(JournalError::InvalidPath)?.to_os_string();
+        if name.to_string_lossy().trim().is_empty() {
+            return Err(JournalError::InvalidPath);
+        }
+        let requested_parent = requested.parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        let parent = fs::canonicalize(requested_parent)
+            .map_err(|err| io_error("canonicalize journal directory", err))?;
+        ensure_secure_parent_directory(&parent)?;
+        let path = parent.join(&name);
+
+        match fs::symlink_metadata(&path) {
+            Ok(meta) if meta.file_type().is_symlink() || !meta.is_file() => return Err(JournalError::InvalidPath),
+            Ok(_) => {}
+            Err(err) if err.kind() == io::ErrorKind::NotFound => {}
+            Err(err) => return Err(io_error("inspect journal path", err)),
+        }
+
+        let lock_path = parent.join(format!("{}.lock", name.to_string_lossy()));
+        let mut lock_options = OpenOptions::new();
+        lock_options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            lock_options.mode(0o600);
+        }
+        let mut lock_file = lock_options.open(&lock_path)
+            .map_err(|err| if err.kind() == io::ErrorKind::AlreadyExists {
+                JournalError::LockHeld
+            } else {
+                io_error("create exclusive lock", err)
+            })?;
+        let lock = LockGuard { path: lock_path };
+        lock_file.write_all(format!("civ-effect-journal-lock-v1\npid={}\n", std::process::id()).as_bytes())
+            .map_err(|err| io_error("write lock marker", err))?;
+        lock_file.sync_all().map_err(|err| io_error("sync lock marker", err))?;
+        sync_directory(&parent)?;
+
+        let mut journal_options = OpenOptions::new();
+        journal_options.read(true).append(true).create(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            journal_options.mode(0o600);
+        }
+        let mut file = journal_options.open(&path)
+            .map_err(|err| io_error("open journal", err))?;
+        ensure_private_file(&file)?;
+        file.sync_all().map_err(|err| io_error("sync journal on open", err))?;
+        sync_directory(&parent)?;
+        file.seek(SeekFrom::Start(0)).map_err(|err| io_error("rewind journal", err))?;
+        // Parse through a fixed-size buffer. Only one bounded record is held by
+        // the parser at a time; the in-memory effect index remains proportional
+        // to the number of distinct effects, not the byte length of the log.
+        let mut reader = BufReader::new(file);
+        let entries = replay(&mut reader)?;
+        let mut file = reader.into_inner();
+        file.seek(SeekFrom::End(0)).map_err(|err| io_error("seek journal end", err))?;
+
+        Ok(Self { path, file, _lock: lock, entries, poisoned: false })
+    }
+
+    pub fn path(&self) -> &Path { &self.path }
+
+    /// Number of distinct effect identities retained by the journal.
+    ///
+    /// This includes Pending, Indeterminate, and Acknowledged entries. The
+    /// count is O(1) and does not allocate, so diagnostics can verify replayed
+    /// cardinality without perturbing memory measurements with a copied ID list.
+    pub fn effect_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Return the original dispatch key binding; LegacyUnbound is not proof that no key was used.
+    pub fn idempotency_key_binding(&self, id: &str) -> Option<IdempotencyKeyBinding> {
+        self.entries.get(id).map(|entry| entry.idempotency_key_binding.clone())
+    }
+
+    /// Number of identities whose external outcome is not yet acknowledged.
+    ///
+    /// This walks the in-memory index without allocating a copied or sorted ID
+    /// list. Use it for diagnostics and scale probes that should not perturb RSS.
+    pub fn unresolved_effect_count(&self) -> usize {
+        self.entries.values().filter(|entry| {
+            matches!(&entry.status, EffectStatus::Pending | EffectStatus::Indeterminate)
+        }).count()
+    }
+
+    pub fn status(&self, id: &str) -> Option<EffectStatus> {
+        self.entries.get(id).map(|entry| entry.status.clone())
+    }
+
+    /// Source-evidence digest for an acknowledged effect, or None for unresolved
+    /// effects and legacy J1 acknowledgements that did not persist this binding.
+    pub fn source_evidence_digest(&self, id: &str) -> Option<&str> {
+        self.entries.get(id).and_then(|entry| entry.source_evidence_digest.as_deref())
+    }
+
+    /// Sorted IDs whose outcomes remain unresolved.
+    pub fn unresolved_effect_ids(&self) -> Vec<String> {
+        let mut ids: Vec<String> = self.entries.iter().filter_map(|(id, entry)| {
+            match &entry.status {
+                EffectStatus::Pending | EffectStatus::Indeterminate => Some(id.clone()),
+                EffectStatus::Acknowledged { .. } => None,
+            }
+        }).collect();
+        ids.sort();
+        ids
+    }
+
+    /// Persist and sync a request before dispatch.
+    /// Only Started permits a first dispatch. Every other result forbids an
+    /// automatic duplicate dispatch and requires reconciliation or reuse of
+    /// the already acknowledged receipt.
+    ///
+    /// The idempotency_key parameter is the exact original key the first dispatcher will use;
+    /// None explicitly records that no key is used. J4 stores this value in
+    /// recoverable (hex-encoded, not encrypted) form, so callers must not treat
+    /// it as confidential once it leaves this file/permission boundary.
+    pub fn begin_effect(
+        &mut self,
+        id: &str,
+        request_digest: &str,
+        provider_profile_digest: &str,
+        idempotency_key: Option<&str>,
+    ) -> Result<BeginResult, JournalError> {
+        self.ensure_healthy()?;
+        validate_effect_id(id)?;
+        validate_digest(request_digest)?;
+        validate_digest(provider_profile_digest)?;
+        if let Some(key) = idempotency_key {
+            validate_idempotency_key(key)?;
+        }
+        if let Some(existing) = self.entries.get(id) {
+            if existing.request_digest != request_digest {
+                return Err(JournalError::RequestConflict);
+            }
+            if let Some(recorded_profile) = existing.provider_profile_digest.as_deref() {
+                if recorded_profile != provider_profile_digest {
+                    return Err(JournalError::ProviderProfileConflict);
+                }
+            } else if !matches!(&existing.status, EffectStatus::Acknowledged { .. }) {
+                return Ok(BeginResult::ProviderProfileUnboundNeedsReconciliation);
+            }
+            match &existing.idempotency_key_binding {
+                IdempotencyKeyBinding::LegacyUnbound
+                    if !matches!(&existing.status, EffectStatus::Acknowledged { .. }) =>
+                {
+                    return Ok(BeginResult::IdempotencyKeyUnboundNeedsReconciliation);
+                }
+                IdempotencyKeyBinding::LegacyUnbound => {}
+                IdempotencyKeyBinding::NotUsed if idempotency_key.is_none() => {}
+                IdempotencyKeyBinding::Bound(recorded) if Some(recorded.as_str()) == idempotency_key => {}
+                IdempotencyKeyBinding::NotUsed | IdempotencyKeyBinding::Bound(_) => {
+                    return Err(JournalError::IdempotencyKeyConflict);
+                }
+            }
+            return Ok(match &existing.status {
+                EffectStatus::Pending => BeginResult::PendingNeedsReconciliation,
+                EffectStatus::Indeterminate => BeginResult::IndeterminateNeedsReconciliation,
+                EffectStatus::Acknowledged { receipt_digest } => BeginResult::AlreadyAcknowledged {
+                    receipt_digest: receipt_digest.clone(),
+                    source_evidence_digest: existing.source_evidence_digest.clone(),
+                    provider_profile_digest: existing.provider_profile_digest.clone(),
+                    idempotency_key_binding: existing.idempotency_key_binding.clone(),
+                },
+            });
+        }
+        let key_binding = idempotency_key
+            .map(|key| IdempotencyKeyBinding::Bound(key.to_owned()))
+            .unwrap_or(IdempotencyKeyBinding::NotUsed);
+        let encoded_key_binding = encode_idempotency_key_binding(&key_binding);
+        let record = format!(
+            "J4\tB\t{}\t{}\t{}\t{}\n",
+            encode_hex(id.as_bytes()),
+            request_digest,
+            provider_profile_digest,
+            encoded_key_binding,
+        );
+        self.append_and_sync(&record)?;
+        self.entries.insert(id.to_owned(), JournalEntry {
+            request_digest: request_digest.to_owned(),
+            provider_profile_digest: Some(provider_profile_digest.to_owned()),
+            idempotency_key_binding: key_binding,
+            status: EffectStatus::Pending,
+            source_evidence_digest: None,
+        });
+        Ok(BeginResult::Started)
+    }
+
+    /// Persist a source-bound receipt after the outcome has been established
+    /// under the exact external rail / authority profile.
+    pub fn acknowledge_effect(
+        &mut self,
+        id: &str,
+        request_digest: &str,
+        provider_profile_digest: &str,
+        receipt_digest: &str,
+        source_evidence_digest: &str,
+    ) -> Result<AcknowledgeResult, JournalError> {
+        self.ensure_healthy()?;
+        validate_effect_id(id)?;
+        validate_digest(request_digest)?;
+        validate_digest(provider_profile_digest)?;
+        validate_digest(receipt_digest)?;
+        validate_digest(source_evidence_digest)?;
+        let existing = self.entries.get(id).ok_or(JournalError::UnknownEffect)?;
+        if existing.request_digest != request_digest {
+            return Err(JournalError::RequestConflict);
+        }
+        match existing.provider_profile_digest.as_deref() {
+            Some(recorded) if recorded == provider_profile_digest => {}
+            Some(_) => return Err(JournalError::ProviderProfileConflict),
+            None => return Err(JournalError::ProviderProfileUnbound),
+        }
+        if let EffectStatus::Acknowledged { receipt_digest: old } = &existing.status {
+            if old != receipt_digest {
+                return Err(JournalError::ReceiptConflict);
+            }
+            if existing.source_evidence_digest.as_deref() != Some(source_evidence_digest) {
+                return Err(JournalError::EvidenceConflict);
+            }
+            return Ok(AcknowledgeResult::AlreadyAcknowledged);
+        }
+        let encoded_key_binding = encode_idempotency_key_binding(&existing.idempotency_key_binding);
+        let record = format!(
+            "J4\tA\t{}\t{}\t{}\t{}\t{}\t{}\n",
+            encode_hex(id.as_bytes()),
+            request_digest,
+            provider_profile_digest,
+            encoded_key_binding,
+            receipt_digest,
+            source_evidence_digest,
+        );
+        self.append_and_sync(&record)?;
+        if let Some(entry) = self.entries.get_mut(id) {
+            entry.status = EffectStatus::Acknowledged { receipt_digest: receipt_digest.to_owned() };
+            entry.source_evidence_digest = Some(source_evidence_digest.to_owned());
+        }
+        Ok(AcknowledgeResult::Acknowledged)
+    }
+
+    /// Record uncertainty; explicit reconciliation may later acknowledge it.
+    pub fn mark_indeterminate(
+        &mut self,
+        id: &str,
+        request_digest: &str,
+        provider_profile_digest: &str,
+    ) -> Result<IndeterminateResult, JournalError> {
+        self.ensure_healthy()?;
+        validate_effect_id(id)?;
+        validate_digest(request_digest)?;
+        validate_digest(provider_profile_digest)?;
+        let existing = self.entries.get(id).ok_or(JournalError::UnknownEffect)?;
+        if existing.request_digest != request_digest {
+            return Err(JournalError::RequestConflict);
+        }
+        match existing.provider_profile_digest.as_deref() {
+            Some(recorded) if recorded == provider_profile_digest => {}
+            Some(_) => return Err(JournalError::ProviderProfileConflict),
+            None => return Err(JournalError::ProviderProfileUnbound),
+        }
+        match &existing.status {
+            EffectStatus::Acknowledged { receipt_digest } =>
+                return Ok(IndeterminateResult::AlreadyAcknowledged {
+                    receipt_digest: receipt_digest.clone(),
+                    source_evidence_digest: existing.source_evidence_digest.clone(),
+                    provider_profile_digest: existing.provider_profile_digest.clone(),
+                    idempotency_key_binding: existing.idempotency_key_binding.clone(),
+                }),
+            EffectStatus::Indeterminate => return Ok(IndeterminateResult::AlreadyIndeterminate),
+            EffectStatus::Pending => {}
+        }
+        let encoded_key_binding = encode_idempotency_key_binding(&existing.idempotency_key_binding);
+        let record = format!(
+            "J4\tI\t{}\t{}\t{}\t{}\n",
+            encode_hex(id.as_bytes()),
+            request_digest,
+            provider_profile_digest,
+            encoded_key_binding,
+        );
+        self.append_and_sync(&record)?;
+        if let Some(entry) = self.entries.get_mut(id) {
+            entry.status = EffectStatus::Indeterminate;
+            entry.source_evidence_digest = None;
+        }
+        Ok(IndeterminateResult::Marked)
+    }
+
+    fn ensure_healthy(&self) -> Result<(), JournalError> {
+        if self.poisoned { Err(JournalError::Poisoned) } else { Ok(()) }
+    }
+
+    fn append_and_sync(&mut self, record: &str) -> Result<(), JournalError> {
+        if let Err(err) = self.file.write_all(record.as_bytes()).and_then(|()| self.file.sync_all()) {
+            // The write may have reached disk despite an error. Do not append
+            // again until a full reopen/replay resolves what persisted.
+            self.poisoned = true;
+            return Err(io_error("append and sync event", err));
+        }
+        Ok(())
+    }
+}
+
+fn io_error(operation: &'static str, err: io::Error) -> JournalError {
+    JournalError::Io { operation, kind: err.kind() }
+}
+fn sync_directory(path: &Path) -> Result<(), JournalError> {
+    File::open(path).and_then(|dir| dir.sync_all())
+        .map_err(|err| io_error("sync parent directory", err))
+}
+
+#[cfg(unix)]
+fn ensure_secure_parent_directory(path: &Path) -> Result<(), JournalError> {
+    use std::os::unix::fs::PermissionsExt;
+    let metadata = fs::metadata(path)
+        .map_err(|err| io_error("inspect journal directory permissions", err))?;
+    if !metadata.is_dir() || metadata.permissions().mode() & 0o022 != 0 {
+        return Err(JournalError::InsecureDirectory);
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn ensure_secure_parent_directory(path: &Path) -> Result<(), JournalError> {
+    let metadata = fs::metadata(path)
+        .map_err(|err| io_error("inspect journal directory", err))?;
+    if metadata.is_dir() { Ok(()) } else { Err(JournalError::InvalidPath) }
+}
+
+#[cfg(unix)]
+fn ensure_private_file(file: &File) -> Result<(), JournalError> {
+    use std::os::unix::fs::PermissionsExt;
+    let metadata = file.metadata().map_err(|err| io_error("inspect journal permissions", err))?;
+    if metadata.permissions().mode() & 0o077 != 0 {
+        return Err(JournalError::InsecurePermissions);
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn ensure_private_file(_file: &File) -> Result<(), JournalError> {
+    // The owner-only mode and permission-bit check are Unix-specific. Other
+    // platforms require their native ACL/permission policy to be verified.
+    Ok(())
+}
+fn validate_effect_id(id: &str) -> Result<(), JournalError> {
+    if id.is_empty() || id.len() > MAX_EFFECT_ID_BYTES || id.trim() != id || id.bytes().any(|b| b == b'\n' || b == b'\r' || b == b'\0') {
+        return Err(JournalError::InvalidEffectId);
+    }
+    Ok(())
+}
+fn validate_idempotency_key(key: &str) -> Result<(), JournalError> {
+    if key.is_empty()
+        || key.len() > MAX_IDEMPOTENCY_KEY_BYTES
+        || key.trim() != key
+        || key.bytes().any(|byte| byte.is_ascii_control())
+    {
+        return Err(JournalError::InvalidIdempotencyKey);
+    }
+    Ok(())
+}
+
+fn encode_idempotency_key_binding(binding: &IdempotencyKeyBinding) -> String {
+    match binding {
+        IdempotencyKeyBinding::LegacyUnbound => "?".to_owned(),
+        IdempotencyKeyBinding::NotUsed => "-".to_owned(),
+        IdempotencyKeyBinding::Bound(key) => encode_hex(key.as_bytes()),
+    }
+}
+
+fn validate_digest(digest: &str) -> Result<(), JournalError> {
+    let Some(hex) = digest.strip_prefix("sha256:") else { return Err(JournalError::InvalidDigest); };
+    if hex.len() != 64 || !hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) {
+        return Err(JournalError::InvalidDigest);
+    }
+    Ok(())
+}
+fn encode_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        out.push(HEX[(byte >> 4) as usize] as char);
+        out.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    out
+}
+fn hex_nibble(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        _ => None,
+    }
+}
+fn decode_hex(value: &str, line: usize) -> Result<Vec<u8>, JournalError> {
+    if value.is_empty() || !value.len().is_multiple_of(2)
+        || !value.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(JournalError::CorruptJournal { line, reason: "effect id is not canonical lowercase hex" });
+    }
+    let mut out = Vec::with_capacity(value.len() / 2);
+    for pair in value.as_bytes().chunks_exact(2) {
+        let high = hex_nibble(pair[0]).ok_or(JournalError::CorruptJournal { line, reason: "invalid hex" })?;
+        let low = hex_nibble(pair[1]).ok_or(JournalError::CorruptJournal { line, reason: "invalid hex" })?;
+        out.push((high << 4) | low);
+    }
+    Ok(out)
+}
+
+/// Read exactly one newline-terminated journal record without ever retaining
+/// more than MAX_JOURNAL_RECORD_BYTES plus its delimiter. An unterminated final
+/// record is corruption, even when all prior records were valid.
+fn read_bounded_record<R: BufRead>(
+    reader: &mut R,
+    record: &mut Vec<u8>,
+    line_no: usize,
+) -> Result<bool, JournalError> {
+    // Retain the buffer capacity between records to avoid one heap allocation
+    // per journal entry. It never grows beyond the configured record bound plus
+    // its delimiter.
+    record.clear();
+    loop {
+        let (consumed, complete) = {
+            let available = reader
+                .fill_buf()
+                .map_err(|err| io_error("read journal record", err))?;
+            if available.is_empty() {
+                if record.is_empty() {
+                    return Ok(false);
+                }
+                return Err(JournalError::CorruptJournal {
+                    line: line_no,
+                    reason: "truncated record; never repair by silently discarding bytes",
+                });
+            }
+
+            let newline_at = available.iter().position(|byte| *byte == b'\n');
+            let content_bytes = newline_at.unwrap_or(available.len());
+            if record.len() + content_bytes > MAX_JOURNAL_RECORD_BYTES {
+                return Err(JournalError::CorruptJournal {
+                    line: line_no,
+                    reason: "record exceeds maximum size",
+                });
+            }
+
+            let consumed = newline_at.map_or(available.len(), |index| index + 1);
+            record.extend_from_slice(&available[..consumed]);
+            (consumed, newline_at.is_some())
+        };
+        reader.consume(consumed);
+
+        if complete {
+            // Remove the delimiter; the parser receives just the record bytes.
+            record.pop();
+            return Ok(true);
+        }
+    }
+}
+
+fn replay<R: BufRead>(reader: &mut R) -> Result<HashMap<String, JournalEntry>, JournalError> {
+    let mut entries: HashMap<String, JournalEntry> = HashMap::new();
+    let mut line_no = 0usize;
+    let mut record = Vec::with_capacity(256);
+
+    while read_bounded_record(reader, &mut record, line_no + 1)? {
+        line_no += 1;
+        let line = std::str::from_utf8(&record).map_err(|_| JournalError::CorruptJournal {
+            line: line_no,
+            reason: "journal record is not valid UTF-8",
+        })?;
+        // Split into a fixed number of borrowed fields. Collecting into a Vec
+        // here would heap-allocate once per line even though the grammar allows
+        // no more than eight fields.
+        let mut fields = line.split('\t');
+        let version = fields.next().ok_or(JournalError::CorruptJournal {
+            line: line_no, reason: "invalid record shape or version"
+        })?;
+        let event = fields.next().ok_or(JournalError::CorruptJournal {
+            line: line_no, reason: "invalid record shape or version"
+        })?;
+        let encoded_id = fields.next().ok_or(JournalError::CorruptJournal {
+            line: line_no, reason: "invalid record shape or version"
+        })?;
+        let request_digest = fields.next().ok_or(JournalError::CorruptJournal {
+            line: line_no, reason: "invalid record shape or version"
+        })?;
+        let fifth = fields.next();
+        let sixth = fields.next();
+        let seventh = fields.next();
+        let eighth = fields.next();
+        if fields.next().is_some() {
+            return Err(JournalError::CorruptJournal {
+                line: line_no, reason: "invalid record shape or version"
+            });
+        }
+
+        if version != "J1" && version != "J2" && version != "J3" && version != "J4" {
+            return Err(JournalError::CorruptJournal {
+                line: line_no, reason: "unsupported journal record version"
+            });
+        }
+
+        let (provider_profile_digest, key_binding_field, receipt_digest, source_evidence_digest) =
+            match (version, event, fifth, sixth, seventh, eighth) {
+                ("J1" | "J2", "B" | "I", None, None, None, None) =>
+                    (None, None, None, None),
+                ("J3", "B" | "I", Some(profile), None, None, None) =>
+                    (Some(profile), None, None, None),
+                ("J4", "B" | "I", Some(profile), Some(key_binding), None, None) =>
+                    (Some(profile), Some(key_binding), None, None),
+                ("J1", "A", Some(receipt), None, None, None) =>
+                    (None, None, Some(receipt), None),
+                ("J2", "A", Some(receipt), Some(evidence), None, None) =>
+                    (None, None, Some(receipt), Some(evidence)),
+                ("J3", "A", Some(profile), Some(receipt), Some(evidence), None) =>
+                    (Some(profile), None, Some(receipt), Some(evidence)),
+                ("J4", "A", Some(profile), Some(key_binding), Some(receipt), Some(evidence)) =>
+                    (Some(profile), Some(key_binding), Some(receipt), Some(evidence)),
+                _ => return Err(JournalError::CorruptJournal {
+                    line: line_no, reason: "invalid record shape or version"
+                }),
+            };
+        let idempotency_key_binding = match key_binding_field {
+            None => IdempotencyKeyBinding::LegacyUnbound,
+            Some("-") => IdempotencyKeyBinding::NotUsed,
+            Some("?") => IdempotencyKeyBinding::LegacyUnbound,
+            Some(encoded_key) => {
+                if encoded_key.len() > MAX_IDEMPOTENCY_KEY_BYTES * 2 {
+                    return Err(JournalError::CorruptJournal {
+                        line: line_no, reason: "idempotency key exceeds maximum size"
+                    });
+                }
+                let key_bytes = decode_hex(encoded_key, line_no).map_err(|_| {
+                    JournalError::CorruptJournal {
+                        line: line_no, reason: "idempotency key is not canonical lowercase hex"
+                    }
+                })?;
+                let key = String::from_utf8(key_bytes).map_err(|_| JournalError::CorruptJournal {
+                    line: line_no, reason: "idempotency key is not UTF-8"
+                })?;
+                validate_idempotency_key(&key).map_err(|_| JournalError::CorruptJournal {
+                    line: line_no, reason: "idempotency key is non-canonical"
+                })?;
+                IdempotencyKeyBinding::Bound(key)
+            }
+        };
+        if version == "J4" && event == "B"
+            && matches!(&idempotency_key_binding, IdempotencyKeyBinding::LegacyUnbound)
+        {
+            return Err(JournalError::CorruptJournal {
+                line: line_no, reason: "new begin record cannot leave idempotency-key binding unknown"
+            });
+        }
+        if encoded_id.len() > MAX_EFFECT_ID_BYTES * 2 {
+            return Err(JournalError::CorruptJournal {
+                line: line_no, reason: "effect id exceeds maximum size"
+            });
+        }
+        let id_bytes = decode_hex(encoded_id, line_no)?;
+        let id = String::from_utf8(id_bytes).map_err(|_| JournalError::CorruptJournal {
+            line: line_no, reason: "effect id is not UTF-8"
+        })?;
+        validate_effect_id(&id).map_err(|_| JournalError::CorruptJournal {
+            line: line_no, reason: "effect id is empty or non-canonical"
+        })?;
+        validate_digest(request_digest).map_err(|_| JournalError::CorruptJournal {
+            line: line_no, reason: "request digest is invalid"
+        })?;
+        if let Some(profile) = provider_profile_digest {
+            validate_digest(profile).map_err(|_| JournalError::CorruptJournal {
+                line: line_no, reason: "provider-profile digest is invalid"
+            })?;
+        }
+        match event {
+            "B" => {
+                if entries.contains_key(&id) {
+                    return Err(JournalError::CorruptJournal {
+                        line: line_no, reason: "duplicate begin event"
+                    });
+                }
+                entries.insert(id, JournalEntry {
+                    request_digest: request_digest.to_owned(),
+                    provider_profile_digest: provider_profile_digest.map(str::to_owned),
+                    idempotency_key_binding,
+                    status: EffectStatus::Pending,
+                    source_evidence_digest: None,
+                });
+            }
+            "I" => {
+                let entry = entries.get_mut(&id).ok_or(JournalError::CorruptJournal {
+                    line: line_no, reason: "indeterminate event precedes begin"
+                })?;
+                if entry.request_digest != request_digest
+                    || entry.provider_profile_digest.as_deref() != provider_profile_digest
+                    || entry.idempotency_key_binding != idempotency_key_binding
+                    || entry.status != EffectStatus::Pending
+                {
+                    return Err(JournalError::CorruptJournal {
+                        line: line_no, reason: "invalid indeterminate transition or provider/key binding"
+                    });
+                }
+                entry.status = EffectStatus::Indeterminate;
+            }
+            "A" => {
+                let receipt = receipt_digest.ok_or(JournalError::CorruptJournal {
+                    line: line_no, reason: "acknowledgement receipt is missing"
+                })?;
+                validate_digest(receipt).map_err(|_| JournalError::CorruptJournal {
+                    line: line_no, reason: "receipt digest is invalid"
+                })?;
+                if let Some(evidence) = source_evidence_digest {
+                    validate_digest(evidence).map_err(|_| JournalError::CorruptJournal {
+                        line: line_no, reason: "source evidence digest is invalid"
+                    })?;
+                }
+                let entry = entries.get_mut(&id).ok_or(JournalError::CorruptJournal {
+                    line: line_no, reason: "acknowledgement precedes begin"
+                })?;
+                if entry.request_digest != request_digest
+                    || entry.provider_profile_digest.as_deref() != provider_profile_digest
+                    || entry.idempotency_key_binding != idempotency_key_binding
+                    || !matches!(&entry.status, EffectStatus::Pending | EffectStatus::Indeterminate)
+                {
+                    return Err(JournalError::CorruptJournal {
+                        line: line_no, reason: "invalid acknowledgement transition or provider/key binding"
+                    });
+                }
+                entry.status = EffectStatus::Acknowledged { receipt_digest: receipt.to_owned() };
+                entry.source_evidence_digest = source_evidence_digest.map(str::to_owned);
+            }
+            _ => unreachable!("record shape validates event discriminator"),
+        }
+    }
+    Ok(entries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
+    struct TempDir(PathBuf);
+    impl TempDir {
+        fn new() -> Self {
+            let nonce = SystemTime::now().duration_since(UNIX_EPOCH)
+                .expect("clock should be after epoch").as_nanos();
+            let path = std::env::temp_dir().join(format!(
+                "mycelix-civ-econ-journal-{}-{}-{}",
+                std::process::id(), nonce, NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+            ));
+            fs::create_dir(&path).expect("create isolated test dir");
+            Self(path)
+        }
+        fn journal_path(&self) -> PathBuf { self.0.join("effects.journal") }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) { let _ = fs::remove_dir_all(&self.0); }
+    }
+
+    fn write_journal_fixture(path: &Path, contents: &[u8]) {
+        fs::write(path, contents).expect("write journal fixture");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+                .expect("restrict journal fixture permissions");
+        }
+    }
+
+    const PROVIDER_A: &str = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+    const PROVIDER_B: &str = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
+    const REQUEST_A: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const REQUEST_B: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const RECEIPT_A: &str = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+    const RECEIPT_B: &str = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+    const SOURCE_EVIDENCE_A: &str = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    const SOURCE_EVIDENCE_B: &str = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+
+    #[test]
+    fn pending_intent_survives_restart_and_is_not_replayed_automatically() {
+        let temp = TempDir::new();
+        {
+            let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+            assert_eq!(journal.begin_effect("payment-1", REQUEST_A, PROVIDER_A, None), Ok(BeginResult::Started));
+            assert_eq!(journal.status("payment-1"), Some(EffectStatus::Pending));
+        }
+        let mut recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(recovered.begin_effect("payment-1", REQUEST_A, PROVIDER_A, None), Ok(BeginResult::PendingNeedsReconciliation));
+        assert_eq!(recovered.unresolved_effect_ids(), vec!["payment-1".to_owned()]);
+    }
+
+    #[test]
+    fn acknowledgement_survives_restart_and_begin_is_idempotent() {
+        let temp = TempDir::new();
+        {
+            let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+            journal.begin_effect("payment-2", REQUEST_A, PROVIDER_A, None).unwrap();
+            assert_eq!(journal.acknowledge_effect("payment-2", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A), Ok(AcknowledgeResult::Acknowledged));
+        }
+        let mut recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(recovered.begin_effect("payment-2", REQUEST_A, PROVIDER_A, None),
+            Ok(BeginResult::AlreadyAcknowledged {
+                receipt_digest: RECEIPT_A.to_owned(),
+                source_evidence_digest: Some(SOURCE_EVIDENCE_A.to_owned()),
+                provider_profile_digest: Some(PROVIDER_A.to_owned()),
+                idempotency_key_binding: IdempotencyKeyBinding::NotUsed,
+            }));
+        assert!(recovered.unresolved_effect_ids().is_empty());
+    }
+
+    #[test]
+    fn uncertain_effect_can_be_reconciled_to_acknowledged() {
+        let temp = TempDir::new();
+        {
+            let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+            journal.begin_effect("payment-3", REQUEST_A, PROVIDER_A, None).unwrap();
+            assert_eq!(journal.mark_indeterminate("payment-3", REQUEST_A, PROVIDER_A), Ok(IndeterminateResult::Marked));
+        }
+        let mut recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(recovered.status("payment-3"), Some(EffectStatus::Indeterminate));
+        recovered.acknowledge_effect("payment-3", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A).unwrap();
+        assert_eq!(recovered.status("payment-3"), Some(EffectStatus::Acknowledged { receipt_digest: RECEIPT_A.to_owned() }));
+    }
+
+    #[test]
+    fn same_effect_id_with_different_request_is_rejected() {
+        let temp = TempDir::new();
+        let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        journal.begin_effect("payment-4", REQUEST_A, PROVIDER_A, None).unwrap();
+        assert_eq!(journal.begin_effect("payment-4", REQUEST_B, PROVIDER_A, None), Err(JournalError::RequestConflict));
+    }
+
+    #[test]
+    fn acknowledgement_must_match_request_and_receipt() {
+        let temp = TempDir::new();
+        let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(journal.acknowledge_effect("missing", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A), Err(JournalError::UnknownEffect));
+        journal.begin_effect("payment-5", REQUEST_A, PROVIDER_A, None).unwrap();
+        assert_eq!(journal.acknowledge_effect("payment-5", REQUEST_B, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A), Err(JournalError::RequestConflict));
+        journal.acknowledge_effect("payment-5", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A).unwrap();
+        assert_eq!(journal.acknowledge_effect("payment-5", REQUEST_A, PROVIDER_A, RECEIPT_B, SOURCE_EVIDENCE_A), Err(JournalError::ReceiptConflict));
+        assert_eq!(journal.acknowledge_effect("payment-5", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A), Ok(AcknowledgeResult::AlreadyAcknowledged));
+    }
+
+    #[test]
+    fn concurrent_open_is_fail_closed() {
+        let temp = TempDir::new();
+        let _first = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert!(matches!(DurableEffectJournal::open(temp.journal_path()), Err(JournalError::LockHeld)));
+    }
+
+    #[test]
+    fn truncated_journal_is_not_silently_repaired() {
+        let temp = TempDir::new();
+        write_journal_fixture(&temp.journal_path(), b"B\t7061796d656e742d36\tsha256:aaaaaaaa");
+        assert!(matches!(DurableEffectJournal::open(temp.journal_path()), Err(JournalError::CorruptJournal { .. })));
+        assert!(!temp.journal_path().with_file_name("effects.journal.lock").exists());
+    }
+
+    #[test]
+    fn out_of_order_acknowledgement_is_corruption() {
+        let temp = TempDir::new();
+        write_journal_fixture(&temp.journal_path(), format!("J1\tA\t{}\t{}\t{}\n", encode_hex(b"never-begun"), REQUEST_A, RECEIPT_A).as_bytes());
+        assert!(matches!(DurableEffectJournal::open(temp.journal_path()), Err(JournalError::CorruptJournal { .. })));
+    }
+
+    #[test]
+    fn unresolved_effect_ids_are_sorted_and_acknowledged_ids_are_excluded() {
+        let temp = TempDir::new();
+        let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        journal.begin_effect("z-last", REQUEST_A, PROVIDER_A, None).unwrap();
+        journal.begin_effect("a-first", REQUEST_B, PROVIDER_A, None).unwrap();
+        journal.mark_indeterminate("a-first", REQUEST_B, PROVIDER_A).unwrap();
+        journal.begin_effect("done", REQUEST_A, PROVIDER_A, None).unwrap();
+        journal.acknowledge_effect("done", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A).unwrap();
+        assert_eq!(journal.unresolved_effect_ids(), vec!["a-first".to_owned(), "z-last".to_owned()]);
+    }
+
+    #[test]
+    fn stale_corruption_lock_is_released_when_open_fails() {
+        let temp = TempDir::new();
+        write_journal_fixture(&temp.journal_path(), b"not-a-journal\n");
+        for _ in 0..2 {
+            assert!(matches!(DurableEffectJournal::open(temp.journal_path()), Err(JournalError::CorruptJournal { .. })));
+        }
+    }
+
+    #[test]
+    fn unsupported_journal_record_version_fails_closed() {
+        let temp = TempDir::new();
+        write_journal_fixture(&temp.journal_path(), format!("J5\tB\t{}\t{}\n", encode_hex(b"effect"), REQUEST_A).as_bytes());
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal { reason: "unsupported journal record version", .. })
+        ));
+    }
+
+    #[test]
+    fn original_idempotency_key_binding_survives_restart_and_is_immutable() {
+        let temp = TempDir::new();
+        {
+            let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+            assert_eq!(
+                journal.begin_effect("key-bound", REQUEST_A, PROVIDER_A, Some("provider-key-1")),
+                Ok(BeginResult::Started),
+            );
+            assert_eq!(
+                journal.idempotency_key_binding("key-bound"),
+                Some(IdempotencyKeyBinding::Bound("provider-key-1".to_owned())),
+            );
+            assert_eq!(
+                journal.begin_effect("key-bound", REQUEST_A, PROVIDER_A, Some("replacement-key")),
+                Err(JournalError::IdempotencyKeyConflict),
+            );
+            journal.mark_indeterminate("key-bound", REQUEST_A, PROVIDER_A).unwrap();
+            journal.acknowledge_effect(
+                "key-bound", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A
+            ).unwrap();
+        }
+
+        let mut recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(
+            recovered.idempotency_key_binding("key-bound"),
+            Some(IdempotencyKeyBinding::Bound("provider-key-1".to_owned())),
+        );
+        assert_eq!(
+            recovered.begin_effect("key-bound", REQUEST_A, PROVIDER_A, Some("provider-key-1")),
+            Ok(BeginResult::AlreadyAcknowledged {
+                receipt_digest: RECEIPT_A.to_owned(),
+                source_evidence_digest: Some(SOURCE_EVIDENCE_A.to_owned()),
+                provider_profile_digest: Some(PROVIDER_A.to_owned()),
+                idempotency_key_binding: IdempotencyKeyBinding::Bound("provider-key-1".to_owned()),
+            }),
+        );
+    }
+
+    #[test]
+    fn already_acknowledged_indeterminate_result_returns_original_key_binding() {
+        let temp = TempDir::new();
+        let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        journal.begin_effect("ack-before-mark", REQUEST_A, PROVIDER_A, Some("provider-key-ack")).unwrap();
+        journal.acknowledge_effect(
+            "ack-before-mark", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A
+        ).unwrap();
+
+        assert_eq!(
+            journal.mark_indeterminate("ack-before-mark", REQUEST_A, PROVIDER_A),
+            Ok(IndeterminateResult::AlreadyAcknowledged {
+                receipt_digest: RECEIPT_A.to_owned(),
+                source_evidence_digest: Some(SOURCE_EVIDENCE_A.to_owned()),
+                provider_profile_digest: Some(PROVIDER_A.to_owned()),
+                idempotency_key_binding: IdempotencyKeyBinding::Bound("provider-key-ack".to_owned()),
+            }),
+        );
+    }
+
+    #[test]
+    fn legacy_j3_pending_effect_keeps_original_key_unbound() {
+        let temp = TempDir::new();
+        let path = temp.journal_path();
+        let encoded_id = encode_hex(b"legacy-j3-pending");
+        write_journal_fixture(
+            &path,
+            format!("J3\tB\t{}\t{}\t{}\n", encoded_id, REQUEST_A, PROVIDER_A).as_bytes(),
+        );
+
+        let mut journal = DurableEffectJournal::open(&path).unwrap();
+        assert_eq!(
+            journal.idempotency_key_binding("legacy-j3-pending"),
+            Some(IdempotencyKeyBinding::LegacyUnbound),
+        );
+        assert_eq!(
+            journal.begin_effect("legacy-j3-pending", REQUEST_A, PROVIDER_A, Some("guessed-key")),
+            Ok(BeginResult::IdempotencyKeyUnboundNeedsReconciliation),
+        );
+    }
+
+    #[test]
+    fn j4_replay_rejects_key_change_between_begin_and_ack() {
+        let temp = TempDir::new();
+        let encoded_id = encode_hex(b"cross-key");
+        let key_a = encode_hex(b"original-key");
+        let key_b = encode_hex(b"replacement-key");
+        write_journal_fixture(
+            &temp.journal_path(),
+            format!(
+                "J4\tB\t{}\t{}\t{}\t{}\nJ4\tA\t{}\t{}\t{}\t{}\t{}\t{}\n",
+                encoded_id, REQUEST_A, PROVIDER_A, key_a,
+                encoded_id, REQUEST_A, PROVIDER_A, key_b, RECEIPT_A, SOURCE_EVIDENCE_A
+            ).as_bytes(),
+        );
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "invalid acknowledgement transition or provider/key binding",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn j4_begin_rejects_legacy_unbound_key_marker() {
+        let temp = TempDir::new();
+        let encoded_id = encode_hex(b"new-j4-unbound");
+        write_journal_fixture(
+            &temp.journal_path(),
+            format!("J4\tB\t{}\t{}\t{}\t?\n", encoded_id, REQUEST_A, PROVIDER_A).as_bytes(),
+        );
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "new begin record cannot leave idempotency-key binding unknown",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn j4_replay_rejects_malformed_idempotency_key_encoding() {
+        let temp = TempDir::new();
+        let encoded_id = encode_hex(b"bad-j4-key");
+        write_journal_fixture(
+            &temp.journal_path(),
+            format!("J4\tB\t{}\t{}\t{}\tzz\n", encoded_id, REQUEST_A, PROVIDER_A).as_bytes(),
+        );
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "idempotency key is not canonical lowercase hex",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn j4_replay_rejects_oversized_encoded_key_before_decoding() {
+        let temp = TempDir::new();
+        let encoded_id = encode_hex(b"large-j4-key");
+        let oversized_encoded_key = "a".repeat(MAX_IDEMPOTENCY_KEY_BYTES * 2 + 2);
+        write_journal_fixture(
+            &temp.journal_path(),
+            format!(
+                "J4\tB\t{}\t{}\t{}\t{}\n",
+                encoded_id, REQUEST_A, PROVIDER_A, oversized_encoded_key
+            ).as_bytes(),
+        );
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "idempotency key exceeds maximum size",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn maximum_effect_id_and_idempotency_key_fit_bounded_ack_record() {
+        let temp = TempDir::new();
+        let id = "i".repeat(MAX_EFFECT_ID_BYTES);
+        let key = "k".repeat(MAX_IDEMPOTENCY_KEY_BYTES);
+        {
+            let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+            journal.begin_effect(&id, REQUEST_A, PROVIDER_A, Some(key.as_str())).unwrap();
+            journal.acknowledge_effect(
+                &id, REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A
+            ).unwrap();
+        }
+
+        let bytes = fs::read(temp.journal_path()).unwrap();
+        assert!(
+            bytes.split(|byte| *byte == b'\n')
+                .filter(|record| !record.is_empty())
+                .all(|record| record.len() <= MAX_JOURNAL_RECORD_BYTES),
+            "every persisted record must fit the bounded replay limit",
+        );
+        let recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(
+            recovered.idempotency_key_binding(&id),
+            Some(IdempotencyKeyBinding::Bound(key)),
+        );
+    }
+
+    #[test]
+    fn explicit_no_key_binding_survives_restart_and_rejects_later_key() {
+        let temp = TempDir::new();
+        {
+            let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+            assert_eq!(
+                journal.begin_effect("no-key", REQUEST_A, PROVIDER_A, None),
+                Ok(BeginResult::Started),
+            );
+            assert_eq!(
+                journal.idempotency_key_binding("no-key"),
+                Some(IdempotencyKeyBinding::NotUsed),
+            );
+        }
+
+        let mut recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(
+            recovered.idempotency_key_binding("no-key"),
+            Some(IdempotencyKeyBinding::NotUsed),
+        );
+        assert_eq!(
+            recovered.begin_effect("no-key", REQUEST_A, PROVIDER_A, Some("late-key")),
+            Err(JournalError::IdempotencyKeyConflict),
+        );
+    }
+
+    #[test]
+    fn j4_replay_rejects_key_change_between_begin_and_indeterminate() {
+        let temp = TempDir::new();
+        let encoded_id = encode_hex(b"cross-key-indeterminate");
+        let key_a = encode_hex(b"original-key");
+        let key_b = encode_hex(b"replacement-key");
+        write_journal_fixture(
+            &temp.journal_path(),
+            format!(
+                "J4\tB\t{}\t{}\t{}\t{}\nJ4\tI\t{}\t{}\t{}\t{}\n",
+                encoded_id, REQUEST_A, PROVIDER_A, key_a,
+                encoded_id, REQUEST_A, PROVIDER_A, key_b
+            ).as_bytes(),
+        );
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "invalid indeterminate transition or provider/key binding",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn invalid_original_idempotency_key_is_rejected_before_append() {
+        let temp = TempDir::new();
+        let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(
+            journal.begin_effect("invalid-key", REQUEST_A, PROVIDER_A, Some("bad\nkey")),
+            Err(JournalError::InvalidIdempotencyKey),
+        );
+        let oversized_key = "k".repeat(MAX_IDEMPOTENCY_KEY_BYTES + 1);
+        assert_eq!(
+            journal.begin_effect(
+                "oversized-key",
+                REQUEST_A,
+                PROVIDER_A,
+                Some(oversized_key.as_str()),
+            ),
+            Err(JournalError::InvalidIdempotencyKey),
+        );
+        assert_eq!(journal.effect_count(), 0);
+    }
+
+    #[test]
+    fn effect_identity_cannot_be_rebound_to_another_provider_profile() {
+        let temp = TempDir::new();
+        let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        journal.begin_effect("payment-profile", REQUEST_A, PROVIDER_A, None).unwrap();
+
+        assert_eq!(
+            journal.begin_effect("payment-profile", REQUEST_A, PROVIDER_B, None),
+            Err(JournalError::ProviderProfileConflict),
+        );
+        assert_eq!(
+            journal.acknowledge_effect(
+                "payment-profile", REQUEST_A, PROVIDER_B, RECEIPT_A, SOURCE_EVIDENCE_A
+            ),
+            Err(JournalError::ProviderProfileConflict),
+        );
+        assert_eq!(
+            journal.mark_indeterminate("payment-profile", REQUEST_A, PROVIDER_B),
+            Err(JournalError::ProviderProfileConflict),
+        );
+    }
+
+    #[test]
+    fn legacy_pending_effect_requires_provider_binding_reconciliation() {
+        let temp = TempDir::new();
+        let path = temp.journal_path();
+        let encoded_id = encode_hex(b"legacy-pending");
+        write_journal_fixture(&path, format!("J1\tB\t{}\t{}\n", encoded_id, REQUEST_A).as_bytes());
+
+        let mut journal = DurableEffectJournal::open(&path).unwrap();
+        assert_eq!(
+            journal.begin_effect("legacy-pending", REQUEST_A, PROVIDER_A, None),
+            Ok(BeginResult::ProviderProfileUnboundNeedsReconciliation),
+        );
+        assert_eq!(
+            journal.acknowledge_effect(
+                "legacy-pending", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A
+            ),
+            Err(JournalError::ProviderProfileUnbound),
+        );
+    }
+
+    #[test]
+    fn legacy_j2_pending_effect_requires_provider_binding_reconciliation() {
+        let temp = TempDir::new();
+        let path = temp.journal_path();
+        let encoded_id = encode_hex(b"legacy-j2-pending");
+        write_journal_fixture(&path, format!("J2\tB\t{}\t{}\n", encoded_id, REQUEST_A).as_bytes());
+
+        let mut journal = DurableEffectJournal::open(&path).unwrap();
+        assert_eq!(
+            journal.begin_effect("legacy-j2-pending", REQUEST_A, PROVIDER_A, None),
+            Ok(BeginResult::ProviderProfileUnboundNeedsReconciliation),
+        );
+    }
+
+    #[test]
+    fn j3_replay_rejects_provider_profile_change_between_begin_and_ack() {
+        let temp = TempDir::new();
+        let path = temp.journal_path();
+        let encoded_id = encode_hex(b"cross-profile");
+        write_journal_fixture(
+            &path,
+            format!(
+                "J3\tB\t{}\t{}\t{}\nJ3\tA\t{}\t{}\t{}\t{}\t{}\n",
+                encoded_id, REQUEST_A, PROVIDER_A,
+                encoded_id, REQUEST_A, PROVIDER_B, RECEIPT_A, SOURCE_EVIDENCE_A
+            ).as_bytes(),
+        );
+
+        assert!(matches!(
+            DurableEffectJournal::open(&path),
+            Err(JournalError::CorruptJournal {
+                reason: "invalid acknowledgement transition or provider/key binding",
+                ..
+            })
+        ));
+        assert!(!path.with_file_name("effects.journal.lock").exists());
+    }
+
+    #[test]
+    fn acknowledgement_cannot_be_rebound_to_different_source_evidence() {
+        let temp = TempDir::new();
+        let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        journal.begin_effect("payment-evidence", REQUEST_A, PROVIDER_A, None).unwrap();
+        journal.acknowledge_effect(
+            "payment-evidence", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_A
+        ).unwrap();
+
+        assert_eq!(
+            journal.acknowledge_effect(
+                "payment-evidence", REQUEST_A, PROVIDER_A, RECEIPT_A, SOURCE_EVIDENCE_B
+            ),
+            Err(JournalError::EvidenceConflict),
+        );
+        assert_eq!(
+            journal.source_evidence_digest("payment-evidence"),
+            Some(SOURCE_EVIDENCE_A),
+        );
+    }
+
+    #[test]
+    fn legacy_j1_acknowledgement_replays_without_claiming_source_binding() {
+        let temp = TempDir::new();
+        let path = temp.journal_path();
+        let encoded_id = encode_hex(b"legacy-payment");
+        write_journal_fixture(
+            &path,
+            format!(
+                "J1\tB\t{}\t{}\nJ1\tA\t{}\t{}\t{}\n",
+                encoded_id, REQUEST_A, encoded_id, REQUEST_A, RECEIPT_A
+            ).as_bytes(),
+        );
+
+        let mut journal = DurableEffectJournal::open(&path).unwrap();
+        assert_eq!(
+            journal.begin_effect("legacy-payment", REQUEST_A, PROVIDER_A, None),
+            Ok(BeginResult::AlreadyAcknowledged {
+                receipt_digest: RECEIPT_A.to_owned(),
+                source_evidence_digest: None,
+                provider_profile_digest: None,
+                idempotency_key_binding: IdempotencyKeyBinding::LegacyUnbound,
+            }),
+        );
+        assert_eq!(journal.source_evidence_digest("legacy-payment"), None);
+    }
+
+    #[test]
+    fn j2_acknowledgement_with_invalid_source_evidence_fails_closed() {
+        let temp = TempDir::new();
+        let path = temp.journal_path();
+        let encoded_id = encode_hex(b"bad-evidence");
+        write_journal_fixture(
+            &path,
+            format!(
+                "J2\tB\t{}\t{}\nJ2\tA\t{}\t{}\t{}\tsha256:BAD\n",
+                encoded_id, REQUEST_A, encoded_id, REQUEST_A, RECEIPT_A
+            ).as_bytes(),
+        );
+
+        assert!(matches!(
+            DurableEffectJournal::open(&path),
+            Err(JournalError::CorruptJournal {
+                reason: "source evidence digest is invalid",
+                ..
+            })
+        ));
+        assert!(!path.with_file_name("effects.journal.lock").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn group_or_other_writable_parent_directory_is_rejected_before_lock_creation() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = TempDir::new();
+        let parent = temp.0.join("shared");
+        fs::create_dir(&parent).unwrap();
+        fs::set_permissions(&parent, fs::Permissions::from_mode(0o0777)).unwrap();
+        let path = parent.join("effects.journal");
+
+        assert!(matches!(
+            DurableEffectJournal::open(&path),
+            Err(JournalError::InsecureDirectory),
+        ));
+        assert!(!path.exists());
+        assert!(!parent.join("effects.journal.lock").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn created_journal_and_lock_are_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = TempDir::new();
+        let journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        let journal_mode = fs::metadata(journal.path()).unwrap().permissions().mode();
+        let lock_path = journal.path().with_file_name("effects.journal.lock");
+        let lock_mode = fs::metadata(lock_path).unwrap().permissions().mode();
+
+        assert_eq!(journal_mode & 0o077, 0);
+        assert_eq!(lock_mode & 0o077, 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn existing_journal_with_group_or_other_permissions_is_rejected() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = TempDir::new();
+        let path = temp.journal_path();
+        fs::write(&path, b"").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).unwrap();
+
+        assert!(matches!(
+            DurableEffectJournal::open(&path),
+            Err(JournalError::InsecurePermissions)
+        ));
+        assert!(!path.with_file_name("effects.journal.lock").exists());
+        assert_eq!(fs::read(&path).unwrap(), b"");
+    }
+
+
+    #[test]
+    fn oversized_effect_id_is_rejected_before_append() {
+        let temp = TempDir::new();
+        let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        let oversized_id = "e".repeat(MAX_EFFECT_ID_BYTES + 1);
+
+        assert_eq!(
+            journal.begin_effect(&oversized_id, REQUEST_A, PROVIDER_A, None),
+            Err(JournalError::InvalidEffectId),
+        );
+        assert!(journal.unresolved_effect_ids().is_empty());
+    }
+
+    #[test]
+    fn oversized_encoded_effect_id_fails_closed_before_decoding() {
+        let temp = TempDir::new();
+        let encoded_id = "a".repeat(MAX_EFFECT_ID_BYTES * 2 + 2);
+        let record = format!("J3\tB\t{}\t{}\t{}\n", encoded_id, REQUEST_A, PROVIDER_A);
+        write_journal_fixture(&temp.journal_path(), record.as_bytes());
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "effect id exceeds maximum size",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn oversized_journal_record_fails_closed_before_field_parsing() {
+        let temp = TempDir::new();
+        let mut record = "malformed\t".to_owned();
+        record.push_str(&"x".repeat(MAX_JOURNAL_RECORD_BYTES));
+        record.push('\n');
+        write_journal_fixture(&temp.journal_path(), record.as_bytes());
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "record exceeds maximum size",
+                ..
+            })
+        ));
+    }
+
+
+    #[test]
+    fn streaming_replay_handles_history_larger_than_reader_buffer() {
+        let temp = TempDir::new();
+        let mut history = String::new();
+        const EFFECTS: usize = 4096;
+        for index in 0..EFFECTS {
+            let id = format!("streamed-effect-{index}");
+            history.push_str(&format!(
+                "J3\tB\t{}\t{}\t{}\n",
+                encode_hex(id.as_bytes()), REQUEST_A, PROVIDER_A
+            ));
+        }
+        write_journal_fixture(&temp.journal_path(), history.as_bytes());
+
+        let journal = DurableEffectJournal::open(temp.journal_path())
+            .expect("replay multi-buffer history");
+        assert_eq!(journal.unresolved_effect_ids().len(), EFFECTS);
+        assert!(journal.status("streamed-effect-4095").is_some());
+    }
+
+    #[test]
+    fn streaming_replay_rejects_truncated_final_record_after_valid_history() {
+        let temp = TempDir::new();
+        let mut history = format!(
+            "J3\tB\t{}\t{}\t{}\n",
+            encode_hex(b"first-complete-effect"), REQUEST_A, PROVIDER_A
+        );
+        history.push_str(&format!(
+            "J3\tB\t{}\t{}\t{}",
+            encode_hex(b"truncated-second-effect"), REQUEST_A, PROVIDER_A
+        ));
+        write_journal_fixture(&temp.journal_path(), history.as_bytes());
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                line: 2,
+                reason: "truncated record; never repair by silently discarding bytes",
+            })
+        ));
+    }
+
+    #[test]
+    fn replay_rejects_extra_record_fields_without_ignoring_them() {
+        let temp = TempDir::new();
+        let line = format!(
+            "J3\tB\t{}\t{}\t{}\textra\n",
+            encode_hex(b"extra-field"), REQUEST_A, PROVIDER_A
+        );
+        write_journal_fixture(&temp.journal_path(), line.as_bytes());
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "invalid record shape or version",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn effect_count_includes_all_states_and_survives_replay() {
+        let temp = TempDir::new();
+        {
+            let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+            journal.begin_effect("count-pending", REQUEST_A, PROVIDER_A, None).unwrap();
+            journal.begin_effect("count-indeterminate", REQUEST_B, PROVIDER_A, None).unwrap();
+            journal.mark_indeterminate("count-indeterminate", REQUEST_B, PROVIDER_A).unwrap();
+            journal.begin_effect("count-acknowledged", REQUEST_A, PROVIDER_B, None).unwrap();
+            journal.acknowledge_effect(
+                "count-acknowledged", REQUEST_A, PROVIDER_B, RECEIPT_A, SOURCE_EVIDENCE_A
+            ).unwrap();
+
+            assert_eq!(journal.effect_count(), 3);
+            assert_eq!(journal.unresolved_effect_count(), 2);
+        }
+
+        let recovered = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(recovered.effect_count(), 3);
+        assert_eq!(recovered.unresolved_effect_count(), 2);
+    }
+
+    #[test]
+    fn noncanonical_effect_ids_and_digests_are_rejected() {
+        let temp = TempDir::new();
+        let mut journal = DurableEffectJournal::open(temp.journal_path()).unwrap();
+        assert_eq!(journal.begin_effect(" payment ", REQUEST_A, PROVIDER_A, None), Err(JournalError::InvalidEffectId));
+        assert_eq!(journal.begin_effect("payment", "SHA256:bad", PROVIDER_A, None), Err(JournalError::InvalidDigest));
+    }
+}

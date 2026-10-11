@@ -75,6 +75,55 @@ jobs:
           assert "output_digest" not in evaluation["properties"], "simulation output and evaluator report must remain distinct"
           PY
 
+      - name: Run dependency-free journal source contract preflight
+        env:
+          JOURNAL_AUDIT_REPORT_PATH: ${{ runner.temp }}/journal-source-contract-report.json
+        run: python3 mycelix-workspace/simulations/civ-econ-transition-validator/scripts/audit_journal_source_contract.py
+
+      - name: Validate persisted journal source-contract report JSON
+        if: always()
+        run: |
+          report="${{ runner.temp }}/journal-source-contract-report.json"
+          test -s "$report"
+          python3 -m json.tool "$report" > /dev/null
+          python3 - "$report" "$QUALIFIED_SHA" "$GITHUB_RUN_ID" <<'PY'
+          import json
+          import re
+          import sys
+          from pathlib import Path
+
+          report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          expected_sha, expected_run_id = sys.argv[2], sys.argv[3]
+          assert report.get("audit") == "journal-source-contract-v1", "unexpected audit report type"
+          assert report.get("passed") is True, "source-contract preflight reported failure"
+          assert report.get("checks_failed") == 0, "source-contract report has failed checks"
+          assert report.get("checks_passed") == len(report.get("checks", [])), "passed-check count is inconsistent"
+          assert report.get("checks_failed") == len(report.get("failures", [])), "failed-check count is inconsistent"
+          assert report.get("checks_passed", 0) > 0, "source-contract report contains no checks"
+          assert report.get("commit") == expected_sha, "report commit differs from exact qualified subject"
+          assert report.get("expected_subject") == expected_sha, "report expected subject differs from qualified subject"
+          assert report.get("subject_matches_expected") is True, "report did not prove exact subject match"
+          assert report.get("github_run_id") == expected_run_id, "report run ID differs from current workflow run"
+          fingerprints = report.get("sha256")
+          assert isinstance(fingerprints, dict) and fingerprints, "report has no source fingerprints"
+          required_paths = {
+              "mycelix-workspace/simulations/civ-econ-transition-validator/src/durable_journal.rs",
+              "mycelix-workspace/simulations/civ-econ-transition-validator/src/journal_replay_scale.rs",
+              "mycelix-workspace/simulations/civ-econ-transition-validator/src/lib.rs",
+              "mycelix-workspace/simulations/civ-econ-transition-validator/src/external_effect_policy.rs",
+              "mycelix-workspace/simulations/civ-econ-transition-validator/tests/crash_recovery.rs",
+              "mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml",
+              "mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.lock",
+              "mycelix-workspace/simulations/civ-econ-transition-validator/scripts/audit_journal_source_contract.py",
+              ".github/workflows/civ-econ-transition-validator.yml",
+          }
+          assert required_paths <= fingerprints.keys(), "report omits a required implementation/workflow fingerprint"
+          assert all(
+              isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest)
+              for digest in fingerprints.values()
+          ), "report contains a malformed SHA-256 fingerprint"
+          PY
+
       - name: Run dependency-free validator tests
         run: cargo +1.96.0 test --manifest-path mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml --locked --all-targets
 
@@ -83,3 +132,34 @@ jobs:
 
       - name: Check Rust formatting
         run: cargo +1.96.0 fmt --manifest-path mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml --all -- --check
+
+      - name: Run journal replay smoke matrix
+        run: |
+          set -euo pipefail
+          manifest=mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml
+          report="$RUNNER_TEMP/journal-replay-smoke.log"
+          : > "$report"
+          echo "qualified_sha=$QUALIFIED_SHA" | tee -a "$report"
+          echo "github_run_id=${GITHUB_RUN_ID:-unknown}" | tee -a "$report"
+          echo "runner_image=${ImageOS:-unknown} ${ImageVersion:-unknown}" | tee -a "$report"
+          echo "kernel=$(uname -a)" | tee -a "$report"
+          echo "rustc=$(rustc +1.96.0 --version)" | tee -a "$report"
+          df -T "$RUNNER_TEMP" 2>&1 | tee -a "$report"
+          cargo +1.96.0 build --release --manifest-path "$manifest" --locked --bin journal-replay-scale 2>&1 | tee -a "$report"
+          bin=mycelix-workspace/simulations/civ-econ-transition-validator/target/release/journal-replay-scale
+          for scenario in pending indeterminate acknowledged reconciled; do
+            echo "::group::journal replay scale / 10000 effects / $scenario" | tee -a "$report"
+            /usr/bin/time -v "$bin" 10000 "$scenario" 2>&1 | tee -a "$report"
+            echo "::endgroup::" | tee -a "$report"
+          done
+
+      - name: Upload journal qualification evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: journal-qualification-evidence-${{ github.run_id }}-${{ env.QUALIFIED_SHA }}
+          path: |
+            ${{ runner.temp }}/journal-source-contract-report.json
+            ${{ runner.temp }}/journal-replay-smoke.log
+          if-no-files-found: warn
+          retention-days: 14
