@@ -158,6 +158,7 @@ class EconomyAtlasRegistryTests(unittest.TestCase):
             "regenerative.economics.energy-network-science.v1",
             "regenerative.doughnut.place-portrait.v1",
             "regenerative.circular-economy.v1",
+            "regenerative.land.agroecology-outcomes.v1",
         }
         models = {model["model_id"]: model for model in self.registry["models"]}
         self.assertTrue(expected.issubset(models))
@@ -166,7 +167,7 @@ class EconomyAtlasRegistryTests(unittest.TestCase):
             self.assertEqual(model["epistemic_status"], "external_framework")
             self.assertIn(
                 model["execution_status"].split(";")[0],
-                {"research_framework", "external_methodology", "principles_documented"},
+                {"research_framework", "external_methodology", "principles_documented", "outcomes_framework"},
             )
             self.assertEqual(model["source_refs"], [])
             self.assertGreaterEqual(len(model["research_refs"]), 1)
