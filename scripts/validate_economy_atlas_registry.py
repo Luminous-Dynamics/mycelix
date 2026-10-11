@@ -176,7 +176,7 @@ def validate_registry(data: object) -> list[str]:
                 errors.append(f"{fp} must be a JSON object")
                 continue
             for field in (
-                "finding_id", "severity", "source_file", "source_commit",
+                "finding_id", "severity", "source_repository", "source_file", "source_commit",
                 "observation", "required_follow_up"
             ):
                 value = finding.get(field)
@@ -187,14 +187,15 @@ def validate_registry(data: object) -> list[str]:
                 if finding_id in seen_finding_ids:
                     errors.append(f"duplicate validation finding ID: {finding_id}")
                 seen_finding_ids.add(finding_id)
+            source_repository = finding.get("source_repository")
             source_file = finding.get("source_file")
             source_commit = finding.get("source_commit")
             if not isinstance(source_commit, str) or not SHA40.fullmatch(source_commit):
                 errors.append(f"{fp}.source_commit must be a lowercase 40-hex Git commit SHA")
-            if (not isinstance(source_file, str) or not isinstance(source_commit, str)
-                    or not any(path == source_file and ref == source_commit
-                               for _repo, path, ref in source_triplets)):
-                errors.append(f"{fp} must bind to an exact source_refs path and commit in the same model record")
+            if (not isinstance(source_repository, str) or not isinstance(source_file, str)
+                    or not isinstance(source_commit, str)
+                    or (source_repository, source_file, source_commit) not in source_triplets):
+                errors.append(f"{fp} must bind to an exact source_refs repository/path/commit in the same model record")
 
     missing_variants = REQUIRED_VARIANTS - present_ids
     if missing_variants:
