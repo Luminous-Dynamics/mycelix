@@ -17,8 +17,8 @@ reference model does not parse the schema file. It checks:
 - evaluator binding to the exact simulation output and scenario corpus, with a separate evaluation report digest and receipt;
 - rights-floor, resource-reservation, external-obligation, cutover, and reconciliation gates;
 - idempotent effect identity, duplicate replay, and payload-conflict rejection;
-- append-only local effect intent/receipt journal with fsync before dispatch, strict replay, and unresolved-effect recovery.
-- a conservative external-effect recovery policy that binds retries to the exact request, explicit idempotency-guarantee deadlines, and fresh no-effect evidence.
+- append-only local effect intent/receipt journal with fsync before dispatch, strict replay, and unresolved-effect recovery;
+- a conservative external-effect recovery policy that binds retries to the exact request, explicit idempotency-guarantee deadlines, and fresh no-effect evidence. Unknown-outcome retries with a live idempotency contract also require an explicit match to the original dispatch key.
 
 ## Run
 
@@ -90,6 +90,8 @@ measurement. This checks that the harness executes in the pinned CI environment;
 it is not a substitute for repeated 100k/1m runs on a documented benchmark host.
 
 Before implementing compaction, use the explicit [checkpoint/compaction design gate](JOURNAL_CHECKPOINT_COMPACTION_DESIGN.md). It records why acknowledged effect IDs must remain as no-redispatch tombstones, which crash boundaries require tests, and why compaction alone cannot reduce the memory needed for the full identity index. The current replay parser also uses borrowed fixed-field splitting rather than allocating a Vec of fields per record.
+
+The recovery-policy API now requires the original idempotency key explicitly and quarantines both a replacement key and a missing original-key binding on unknown outcomes. That key must come from an authoritative durable dispatch record, not be guessed from the recovery contract. **The current J3 journal does not yet persist the original dispatch idempotency key**, and the pure policy is not integrated with a production dispatcher. Therefore the current journal + policy are not yet sufficient to authorize automated same-key retries; an adapter and durable attempt-key binding are required first.
 
 The `EffectLedger` in `lib.rs` remains an in-memory reference model. The new
 `durable_journal::DurableEffectJournal` persists begin, indeterminate, and
