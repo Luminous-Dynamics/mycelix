@@ -113,6 +113,8 @@ check("workflow captures replay smoke output in a durable log", 'report="$RUNNER
 check("smoke records the qualification subject and run ID", 'echo "qualified_sha=$QUALIFIED_SHA" | tee -a "$report"' in workflow and 'echo "github_run_id=${GITHUB_RUN_ID:-unknown}" | tee -a "$report"' in workflow)
 check("smoke records host metadata before attempting the build", workflow.index('echo "runner_image=') < workflow.index("cargo +1.96.0 build --release"))
 check("smoke pipeline fails on command failures", "set -euo pipefail" in workflow)
+check("smoke log captures non-zero probe status through tee", "/usr/bin/time -v \"$bin\" 10000 \"$scenario\" 2>&1 | tee -a \"$report\"" in workflow and "set -euo pipefail" in workflow)
+check("README documents why smoke uses pipefail", "`set -euo pipefail`" in readme and "cannot be hidden by a successful `tee` process" in " ".join(readme.split()))
 check("one artifact includes source report and runtime smoke log", "journal-source-contract-report.json" in workflow and "journal-replay-smoke.log" in workflow and "Upload journal qualification evidence" in workflow)
 check("combined evidence upload remains failure-tolerant and 14-day", "Upload journal qualification evidence\n        if: always()" in workflow and "retention-days: 14" in workflow)
 
