@@ -59,7 +59,7 @@ fn dispatch_only_if_started(
     provider_path: &Path,
 ) -> BeginResult {
     let result = journal
-        .begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST)
+        .begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST, None)
         .expect("begin or recover synthetic effect");
 
     if result == BeginResult::Started {
@@ -162,7 +162,7 @@ fn crash_between_dispatch_and_acknowledgement_reconciles_without_duplicate_dispa
     let mut verified =
         DurableEffectJournal::open(&journal_path).expect("reopen reconciled journal");
     assert_eq!(
-        verified.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST),
+        verified.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST, None),
         Ok(BeginResult::AlreadyAcknowledged {
             receipt_digest: RECEIPT_DIGEST.to_owned(),
             source_evidence_digest: Some(SOURCE_EVIDENCE_DIGEST.to_owned()),
@@ -197,7 +197,7 @@ fn acknowledged_receipt_survives_process_exit_before_caller_observes_success() {
         let mut journal =
             DurableEffectJournal::open(&journal_path).expect("open child journal");
         assert_eq!(
-            journal.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST),
+            journal.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST, None),
             Ok(BeginResult::Started),
         );
 
@@ -255,7 +255,7 @@ fn acknowledged_receipt_survives_process_exit_before_caller_observes_success() {
     let mut recovered =
         DurableEffectJournal::open(&journal_path).expect("reopen acknowledged journal");
     assert_eq!(
-        recovered.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST),
+        recovered.begin_effect(EFFECT_ID, REQUEST_DIGEST, PROVIDER_PROFILE_DIGEST, None),
         Ok(BeginResult::AlreadyAcknowledged {
             receipt_digest: RECEIPT_DIGEST.to_owned(),
             source_evidence_digest: Some(SOURCE_EVIDENCE_DIGEST.to_owned()),
