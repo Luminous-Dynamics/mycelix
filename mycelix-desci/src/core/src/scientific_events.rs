@@ -4082,6 +4082,17 @@ mod tests {
             EvidenceProvenanceDisposition::InsufficientIndependentEvaluations,
         );
         assert_eq!(one_reviewer_projection.evidence_profile.qualified_independent_replication_count, 0);
+
+        let retired_authority_policy = BTreeSet::from([evaluation.envelope.event_id]);
+        let retired_policy_projection = ClaimProjection::rebuild_with_evaluation_authority(
+            &one_reviewer_events,
+            &BTreeSet::new(),
+            &retired_authority_policy,
+        ).unwrap();
+        assert_eq!(
+            retired_policy_projection.provenance_disposition(data.id),
+            EvidenceProvenanceDisposition::EvaluationAuthorityPolicyNotCurrent,
+        );
         let evaluation_two = SignedScientificEvent::sign(
             ScientificEventEnvelope::next(
                 &evaluation, actor("did:key:independent-reviewer-two"), t0.clone() + Duration::seconds(50),
