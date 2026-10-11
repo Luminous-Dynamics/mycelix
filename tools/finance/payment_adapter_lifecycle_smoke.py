@@ -6,6 +6,9 @@ uses no credentials, and does not exercise a production adapter or move money.
 """
 from __future__ import annotations
 
+import hashlib
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 from typing import Any
 
 
@@ -111,6 +114,201 @@ def conflicting_idempotency_payload() -> str:
     return "AC-172 invariant: conflicting payload under one idempotency key is rejected"
 
 
+
+class PaymentClaimLedger:
+    """Thread-safe reference model for sender-scoped claim uniqueness."""
+
+    def __init__(self) -> None:
+        self.lock = Lock()
+        self.claims: dict[tuple[str, str], dict[str, str]] = {}
+        self.payment_effects = 0
+        self.outbox_effects = 0
+
+    @staticmethod
+    def operation_id(sender: str, key: str) -> str:
+        material = f"mycelix.payment-operation/v1\\0{sender}\\0{key}".encode()
+        return hashlib.sha256(material).hexdigest()
+
+    def submit(self, sender: str, key: str, fingerprint: str) -> tuple[str, str]:
+        identity = (sender, key)
+        operation_id = self.operation_id(sender, key)
+        with self.lock:
+            current = self.claims.get(identity)
+            if current is not None:
+                if current["fingerprint"] != fingerprint:
+                    return ("conflict", operation_id)
+                return ("replay", operation_id)
+            self.claims[identity] = {
+                "fingerprint": fingerprint,
+                "operation_id": operation_id,
+            }
+            self.payment_effects += 1
+            self.outbox_effects += 1
+            return ("created", operation_id)
+
+
+class TreasuryLedger:
+    """Destination-scoped receipt dedupe plus a serialized balance ceiling."""
+
+    def __init__(self, destination: str, max_balance: int) -> None:
+        self.destination = destination
+        self.max_balance = max_balance
+        self.balance = 0
+        self.lock = Lock()
+        self.receipts: dict[tuple[str, str], dict[str, Any]] = {}
+
+    def credit(
+        self,
+        effect_id: str,
+        source_outbox: dict[str, Any] | None,
+        payment: dict[str, Any] | None,
+        amount: int,
+        currency: str,
+    ) -> tuple[str, str | None]:
+        if source_outbox is None or payment is None:
+            return ("unanchored", None)
+        if (
+            source_outbox.get("committed") is not True
+            or source_outbox.get("effect_id") != effect_id
+            or source_outbox.get("payment_id") != payment.get("payment_id")
+            or source_outbox.get("amount") != amount
+            or source_outbox.get("currency") != currency
+            or payment.get("amount") != amount
+            or payment.get("currency") != currency
+        ):
+            return ("unanchored", None)
+
+        receipt_key = (self.destination, effect_id)
+        payload = (payment["payment_id"], amount, currency)
+        with self.lock:
+            prior = self.receipts.get(receipt_key)
+            if prior is not None:
+                if prior["payload"] != payload:
+                    return ("conflict", None)
+                return ("duplicate", prior["receipt_id"])
+            if payment.get("status") != "Pending":
+                return ("not_pending", None)
+            # Subtraction form avoids overflow in fixed-width implementations.
+            if amount <= 0 or amount > self.max_balance or self.balance > self.max_balance - amount:
+                return ("limit", None)
+            receipt_id = f"receipt:{self.destination}:{effect_id}"
+            self.balance += amount
+            self.receipts[receipt_key] = {
+                "payload": payload,
+                "receipt_id": receipt_id,
+                "amount": amount,
+            }
+            return ("credited", receipt_id)
+
+
+def concurrent_exact_claim_reuses_one_operation() -> str:
+    """PAY-MYC-001: identical concurrent retries resolve to one operation."""
+    ledger = PaymentClaimLedger()
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        results = list(pool.map(
+            lambda _: ledger.submit("did:mycelix:sender-A", "opaque-key-A", "request-digest-A"),
+            range(64),
+        ))
+    statuses = [status for status, _ in results]
+    operation_ids = {operation_id for _, operation_id in results}
+    check(statuses.count("created") == 1, "concurrent exact retries created more than one claim")
+    check(statuses.count("replay") == 63, "exact retries did not resolve to the existing claim")
+    check(len(operation_ids) == 1, "concurrent exact retries diverged in operation identity")
+    check(ledger.payment_effects == 1 and ledger.outbox_effects == 1,
+          "concurrent exact retries duplicated a Payment or outbox effect")
+    return "PAY-MYC-001: 64 identical concurrent submissions resolve to one claim and outbox effect"
+
+
+def concurrent_conflicting_claim_payload_is_rejected() -> str:
+    """PAY-MYC-002: only one fingerprint may win for a sender-scoped key."""
+    ledger = PaymentClaimLedger()
+    requests = ["digest-A"] * 32 + ["digest-B"] * 32
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        results = list(pool.map(
+            lambda fingerprint: ledger.submit("did:mycelix:sender-B", "opaque-key-B", fingerprint),
+            requests,
+        ))
+    statuses = [status for status, _ in results]
+    operation_ids = {operation_id for _, operation_id in results}
+    check(statuses.count("created") == 1, "conflicting race did not create exactly one original claim")
+    check(statuses.count("replay") == 31, "requests matching the winning fingerprint were not exact replays")
+    check(statuses.count("conflict") == 32, "conflicting fingerprints did not all fail closed")
+    check(len(operation_ids) == 1, "operation identity changed across conflicting attempts")
+    check(ledger.payment_effects == 1 and ledger.outbox_effects == 1,
+          "conflicting submissions produced extra economic effects")
+    return "PAY-MYC-002: conflicting concurrent fingerprints cannot create a second payment"
+
+
+def treasury_receipt_replay_after_payment_status_failure() -> str:
+    """PAY-TREASURY-001: a receipt committed before status failure is resolved, not re-applied."""
+    ledger = TreasuryLedger("treasury-pool-A", max_balance=100)
+    payment = {"payment_id": "payment-001", "amount": 40, "currency": "USD", "status": "Pending"}
+    source = {
+        "committed": True, "effect_id": "fee-effect-001",
+        "payment_id": "payment-001", "amount": 40, "currency": "USD",
+    }
+    first = ledger.credit("fee-effect-001", source, payment, 40, "USD")
+    check(first[0] == "credited", "initial Treasury receipt was not committed")
+    # Simulate a crash here: the receipt exists, but the Payments status write did not happen.
+    check(payment["status"] == "Pending", "fixture failed to preserve the interrupted local status")
+    balance_at_crash = ledger.balance
+    replay = ledger.credit("fee-effect-001", source, payment, 40, "USD")
+    check(replay[0] == "duplicate", "recovery did not resolve the original destination-scoped receipt")
+    check(ledger.balance == balance_at_crash == 40, "receipt replay applied a second balance credit")
+    check(len(ledger.receipts) == 1, "receipt replay created a second receipt")
+    receipt = ledger.receipts.get(("treasury-pool-A", "fee-effect-001"))
+    check(receipt is not None and receipt["payload"] == ("payment-001", 40, "USD"),
+          "recovery receipt was not bound to the exact original payment and amount")
+    payment["status"] = "Completed"
+    check(payment["status"] == "Completed", "verified receipt could not reconcile the local status")
+    return "PAY-TREASURY-001: crash after receipt commit recovers without a second Treasury credit"
+
+
+def treasury_rejects_unanchored_effect() -> str:
+    """PAY-TREASURY-002: an effect ID is not a substitute for committed source authority."""
+    ledger = TreasuryLedger("treasury-pool-B", max_balance=100)
+    outcome = ledger.credit(
+        "invented-effect", None,
+        {"payment_id": "payment-ghost", "amount": 25, "currency": "USD", "status": "Pending"},
+        25, "USD",
+    )
+    check(outcome[0] == "unanchored", "Treasury accepted an effect without a committed source outbox")
+    check(ledger.balance == 0 and len(ledger.receipts) == 0,
+          "unanchored effect changed balance or produced a receipt")
+    return "PAY-TREASURY-002: effect ID alone cannot authorize a Treasury credit"
+
+
+def concurrent_treasury_credits_respect_pool_ceiling() -> str:
+    """PAY-TREASURY-003: concurrent receipt dedupe and checked balance ceiling."""
+    ledger = TreasuryLedger("treasury-pool-C", max_balance=100)
+    requests: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
+    for index in range(20):
+        effect_id = f"fee-effect-{index:02d}"
+        payment = {
+            "payment_id": f"payment-{index:02d}",
+            "amount": 10, "currency": "USD", "status": "Pending",
+        }
+        source = {
+            "committed": True, "effect_id": effect_id,
+            "payment_id": payment["payment_id"], "amount": 10, "currency": "USD",
+        }
+        requests.append((effect_id, source, payment))
+        requests.append((effect_id, source, payment))
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        results = list(pool.map(
+            lambda item: ledger.credit(item[0], item[1], item[2], 10, "USD"),
+            requests,
+        ))
+    statuses = [status for status, _ in results]
+    check(statuses.count("credited") == 10, "exactly ten unique credits should fit the shared pool ceiling")
+    check(statuses.count("duplicate") == 10, "concurrent duplicate effects were not deduplicated")
+    check(statuses.count("limit") == 20, "credits beyond the ceiling were not cleanly rejected")
+    check(ledger.balance == 100, "concurrent credits exceeded or failed to reach the configured ceiling")
+    check(len(ledger.receipts) == 10, "receipt count differs from unique committed credits")
+    check(sum(receipt["amount"] for receipt in ledger.receipts.values()) == ledger.balance,
+          "receipts do not reconcile to the shared Treasury balance")
+    return "PAY-TREASURY-003: 40 concurrent attempts deduplicate to 10 credits without exceeding the pool ceiling"
+
 def main() -> int:
     scenarios = [
         timeout_after_acceptance,
@@ -118,6 +316,11 @@ def main() -> int:
         partial_multirail_effect,
         append_return_lineage,
         conflicting_idempotency_payload,
+        concurrent_exact_claim_reuses_one_operation,
+        concurrent_conflicting_claim_payload_is_rejected,
+        treasury_receipt_replay_after_payment_status_failure,
+        treasury_rejects_unanchored_effect,
+        concurrent_treasury_credits_respect_pool_ceiling,
     ]
     passed: list[str] = []
     for scenario in scenarios:
