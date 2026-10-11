@@ -21,7 +21,7 @@ use crate::scientific_events::{
 use crate::{Error, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use ed25519_dalek::SigningKey;
+use ed25519_dalek::{SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
@@ -39,6 +39,9 @@ pub struct AuthorizedActorKey {
 
 impl AuthorizedActorKey {
     pub fn validate(&self) -> Result<()> {
+        VerifyingKey::from_bytes(&self.public_key).map_err(|error| {
+            Error::Crypto(format!("invalid scientific actor public key: {error}"))
+        })?;
         if self
             .valid_until
             .as_ref()
@@ -1403,6 +1406,23 @@ mod tests {
             .contains("authorized signing key is already bound to another scientific actor"));
         assert!(resolver.resolve(&reviewer_a, &now).await.unwrap().is_some());
         assert!(resolver.resolve(&reviewer_b, &now).await.unwrap().is_none());
+    }
+
+    #[test]
+    fn authorized_actor_key_rejects_malformed_ed25519_public_key() {
+        let valid_from = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let error = AuthorizedActorKey {
+            public_key: [0xff; 32],
+            valid_from,
+            valid_until: None,
+            revoked_at: None,
+        }
+        .validate()
+        .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("invalid scientific actor public key"));
     }
 
     #[tokio::test]
