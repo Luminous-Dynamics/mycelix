@@ -1352,7 +1352,7 @@ pub fn receive_compost(input: ReceiveCompostInput) -> ExternResult<Record> {
     unreachable!()
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ReceiveCompostInput {
     pub commons_pool_id: String,
     pub amount: u64,
