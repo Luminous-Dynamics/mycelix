@@ -2521,6 +2521,26 @@ mod tests {
         }
     }
 
+    fn provenance_assertion(
+        artifact: &EvidenceArtifact,
+        origin_relation: EvidenceOriginRelation,
+        parent_artifacts: Vec<EvidenceProvenanceParent>,
+    ) -> EvidenceProvenanceDeclaration {
+        let is_new_collection = origin_relation == EvidenceOriginRelation::NewCollection;
+        EvidenceProvenanceDeclaration {
+            provenance_schema_version: EVIDENCE_PROVENANCE_SCHEMA_VERSION,
+            artifact_id: artifact.id,
+            content_hash: artifact.content_hash,
+            study_id: is_new_collection.then(|| "study:replication-2".to_string()),
+            collection_activity_id: is_new_collection.then(|| "collection:replication-2".to_string()),
+            origin_relation,
+            parent_artifacts,
+            protocol_reference: Some("protocol:v1".to_string()),
+            collection_manifest_commitment: Some(ContentHash::digest(b"synthetic manifest")),
+            supporting_provenance_artifact_ids: Vec::new(),
+        }
+    }
+
     #[test]
     fn canonical_bytes_bind_actor_payload_and_protocol() {
         let envelope = ScientificEventEnvelope::genesis(
@@ -2988,6 +3008,415 @@ mod tests {
 
         assert_eq!(sources, BTreeSet::from(["org:lab-a".to_string()]));
         assert_eq!(ambiguous_actors, 1);
+    }
+
+    #[test]
+    fn schema_v4_provenance_declaration_replays_with_actor_context_without_qualifying_it() {
+        let claim_id = ClaimId::new();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_000, 0).unwrap(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+        let data = artifact_with(
+            ArtifactId::new(),
+            b"freshly-collected-synthetic-data",
+            "ipfs://fresh-data",
+        );
+        let attached = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis,
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_010, 0).unwrap(),
+                ScientificEventPayload::EvidenceAttached {
+                    claim_id,
+                    artifact: data.clone(),
+                },
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+        let declaration = provenance_assertion(
+            &data,
+            EvidenceOriginRelation::NewCollection,
+            Vec::new(),
+        );
+        let mut envelope = ScientificEventEnvelope::next(
+            &attached,
+            actor("did:key:collector"),
+            Utc.timestamp_opt(1_700_000_020, 0).unwrap(),
+            ScientificEventPayload::EvidenceProvenanceDeclared {
+                claim_id,
+                declaration,
+            },
+        )
+        .unwrap()
+        .with_acting_organization(organization("ror:collection-lab"));
+        assert_eq!(envelope.schema_version, 4);
+        let signed_declaration = SignedScientificEvent::sign(envelope.clone(), &key(2)).unwrap();
+        signed_declaration.verify().unwrap();
+
+        let projection =
+            ClaimProjection::rebuild(&[genesis, attached, signed_declaration]).unwrap();
+        assert_eq!(projection.provenance_declarations.len(), 1);
+        let recorded = &projection.provenance_declarations[0];
+        assert_eq!(recorded.actor, actor("did:key:collector"));
+        assert_eq!(
+            recorded.acting_organization,
+            Some(organization("ror:collection-lab"))
+        );
+        assert_eq!(recorded.sequence, 2);
+        assert_eq!(
+            projection.provenance_disposition(data.id),
+            EvidenceProvenanceDisposition::AssertedNewCollectionUnqualified
+        );
+        assert_ne!(
+            projection.maturity(),
+            EvidenceMaturity::IndependentlyReplicated,
+            "a provenance declaration alone must never qualify a claim"
+        );
+
+        envelope.payload = ScientificEventPayload::EvidenceProvenanceDeclared {
+            claim_id,
+            declaration: provenance_assertion(
+                &data,
+                EvidenceOriginRelation::Unknown,
+                Vec::new(),
+            ),
+        };
+        assert!(signed_declaration.verify().is_ok());
+        let altered = SignedScientificEvent::sign(envelope, &key(2)).unwrap();
+        assert_ne!(signed_declaration.event_hash().unwrap(), altered.event_hash().unwrap());
+    }
+
+    #[test]
+    fn provenance_rejects_artifact_and_parent_digest_mismatches() {
+        let claim_id = ClaimId::new();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_000, 0).unwrap(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+        let original = artifact_with(
+            ArtifactId::new(),
+            b"source-data",
+            "ipfs://source-data",
+        );
+        let child = artifact_with(
+            ArtifactId::new(),
+            b"derived-data",
+            "ipfs://derived-data",
+        );
+        let event1 = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis,
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_010, 0).unwrap(),
+                ScientificEventPayload::EvidenceAttached {
+                    claim_id,
+                    artifact: original.clone(),
+                },
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+        let event2 = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &event1,
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_020, 0).unwrap(),
+                ScientificEventPayload::EvidenceAttached {
+                    claim_id,
+                    artifact: child.clone(),
+                },
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+
+        let mut bad_child = provenance_assertion(
+            &child,
+            EvidenceOriginRelation::DerivedFrom,
+            vec![EvidenceProvenanceParent {
+                artifact_id: original.id,
+                content_hash: ContentHash::digest(b"incorrect-parent-bytes"),
+            }],
+        );
+        bad_child.content_hash = ContentHash::digest(b"incorrect-child-bytes");
+        let bad_event = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &event2,
+                actor("did:key:collector"),
+                Utc.timestamp_opt(1_700_000_030, 0).unwrap(),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: bad_child.clone(),
+                },
+            )
+            .unwrap(),
+            &key(2),
+        )
+        .unwrap();
+        let error = ClaimProjection::rebuild(&[genesis.clone(), event1.clone(), event2.clone(), bad_event])
+            .unwrap_err();
+        assert!(error.to_string().contains("does not match the attached artifact"));
+
+        bad_child.content_hash = child.content_hash;
+        let bad_parent_event = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &event2,
+                actor("did:key:collector"),
+                Utc.timestamp_opt(1_700_000_030, 0).unwrap(),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: bad_child,
+                },
+            )
+            .unwrap(),
+            &key(2),
+        )
+        .unwrap();
+        let error =
+            ClaimProjection::rebuild(&[genesis, event1, event2, bad_parent_event]).unwrap_err();
+        assert!(error.to_string().contains("parent content hash does not match"));
+    }
+
+    #[test]
+    fn provenance_rejects_missing_parents_and_lineage_cycles() {
+        let claim_id = ClaimId::new();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_000, 0).unwrap(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+        let a = artifact_with(ArtifactId::new(), b"data-a", "ipfs://data-a");
+        let b = artifact_with(ArtifactId::new(), b"data-b", "ipfs://data-b");
+        let event_a = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis,
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_010, 0).unwrap(),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: a.clone() },
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+        let event_b = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &event_a,
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_020, 0).unwrap(),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: b.clone() },
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+
+        let missing_parent = provenance_assertion(
+            &a,
+            EvidenceOriginRelation::DerivedFrom,
+            vec![EvidenceProvenanceParent {
+                artifact_id: ArtifactId::new(),
+                content_hash: ContentHash::digest(b"missing-parent"),
+            }],
+        );
+        let missing_event = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &event_b,
+                actor("did:key:collector"),
+                Utc.timestamp_opt(1_700_000_030, 0).unwrap(),
+                ScientificEventPayload::EvidenceProvenanceDeclared { claim_id, declaration: missing_parent },
+            )
+            .unwrap(),
+            &key(2),
+        )
+        .unwrap();
+        assert!(ClaimProjection::rebuild(&[genesis.clone(), event_a.clone(), event_b.clone(), missing_event])
+            .unwrap_err().to_string().contains("parent artifact is not attached"));
+
+        let declaration_a = provenance_assertion(
+            &a,
+            EvidenceOriginRelation::DerivedFrom,
+            vec![EvidenceProvenanceParent { artifact_id: b.id, content_hash: b.content_hash }],
+        );
+        let event_decl_a = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &event_b,
+                actor("did:key:collector"),
+                Utc.timestamp_opt(1_700_000_030, 0).unwrap(),
+                ScientificEventPayload::EvidenceProvenanceDeclared { claim_id, declaration: declaration_a },
+            )
+            .unwrap(),
+            &key(2),
+        )
+        .unwrap();
+        let declaration_b = provenance_assertion(
+            &b,
+            EvidenceOriginRelation::DerivedFrom,
+            vec![EvidenceProvenanceParent { artifact_id: a.id, content_hash: a.content_hash }],
+        );
+        let event_decl_b = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &event_decl_a,
+                actor("did:key:collector"),
+                Utc.timestamp_opt(1_700_000_040, 0).unwrap(),
+                ScientificEventPayload::EvidenceProvenanceDeclared { claim_id, declaration: declaration_b },
+            )
+            .unwrap(),
+            &key(2),
+        )
+        .unwrap();
+        assert!(ClaimProjection::rebuild(&[
+            genesis,
+            event_a,
+            event_b,
+            event_decl_a,
+            event_decl_b,
+        ])
+        .unwrap_err()
+        .to_string()
+        .contains("lineage cycle"));
+    }
+
+    #[test]
+    fn identical_content_digest_and_conflicting_declarations_stay_indeterminate() {
+        let claim_id = ClaimId::new();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_000, 0).unwrap(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+        let original = artifact_with(ArtifactId::new(), b"same-bytes", "ipfs://original");
+        let copy = artifact_with(ArtifactId::new(), b"same-bytes", "ipfs://copy");
+        let event1 = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis,
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_010, 0).unwrap(),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: original.clone() },
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+        let event2 = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &event1,
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_020, 0).unwrap(),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: copy.clone() },
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+        let first_decl = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &event2,
+                actor("did:key:collector"),
+                Utc.timestamp_opt(1_700_000_030, 0).unwrap(),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: provenance_assertion(&copy, EvidenceOriginRelation::NewCollection, Vec::new()),
+                },
+            )
+            .unwrap(),
+            &key(2),
+        )
+        .unwrap();
+        let projection = ClaimProjection::rebuild(&[genesis.clone(), event1.clone(), event2.clone(), first_decl.clone()])
+            .unwrap();
+        assert_eq!(
+            projection.provenance_disposition(copy.id),
+            EvidenceProvenanceDisposition::IdenticalContentDigestIndeterminate
+        );
+
+        let second_decl = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &first_decl,
+                actor("did:key:editor"),
+                Utc.timestamp_opt(1_700_000_040, 0).unwrap(),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: provenance_assertion(&copy, EvidenceOriginRelation::Unknown, Vec::new()),
+                },
+            )
+            .unwrap(),
+            &key(3),
+        )
+        .unwrap();
+        let projection = ClaimProjection::rebuild(&[genesis, event1, event2, first_decl, second_decl]).unwrap();
+        assert_eq!(
+            projection.provenance_disposition(copy.id),
+            EvidenceProvenanceDisposition::ConflictingDeclarationsIndeterminate
+        );
+    }
+
+    #[test]
+    fn provenance_declaration_requires_schema_v4() {
+        let claim_id = ClaimId::new();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_000, 0).unwrap(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+        let data = artifact(ArtifactId::new());
+        let attached = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis,
+                actor("did:key:alice"),
+                Utc.timestamp_opt(1_700_000_010, 0).unwrap(),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: data.clone() },
+            )
+            .unwrap(),
+            &key(1),
+        )
+        .unwrap();
+        let mut envelope = ScientificEventEnvelope::next(
+            &attached,
+            actor("did:key:collector"),
+            Utc.timestamp_opt(1_700_000_020, 0).unwrap(),
+            ScientificEventPayload::EvidenceProvenanceDeclared {
+                claim_id,
+                declaration: provenance_assertion(&data, EvidenceOriginRelation::NewCollection, Vec::new()),
+            },
+        )
+        .unwrap();
+        envelope.schema_version = 3;
+        assert!(SignedScientificEvent::sign(envelope, &key(2))
+            .unwrap_err()
+            .to_string()
+            .contains("requires scientific event schema v4"));
     }
 
     #[test]
