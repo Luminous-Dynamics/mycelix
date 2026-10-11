@@ -202,7 +202,8 @@
                 "title",
                 "publisher",
                 "reference_type",
-                "url"
+                "url",
+                "retrieved_on"
               ],
               "properties": {
                 "title": {
@@ -226,6 +227,11 @@
                   "type": "string",
                   "format": "uri",
                   "pattern": "^https://"
+                },
+                "retrieved_on": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                 }
               },
               "additionalProperties": true
