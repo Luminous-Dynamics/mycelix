@@ -1,6 +1,6 @@
 # Evidence Provenance and Collection Contract
 
-**Status:** specification with a schema-v4 declaration/projection and canonical golden-vector test drafted in [PR #4953](https://github.com/Luminous-Dynamics/mycelix/pull/4953); not merged or runtime-qualified. Independent evaluator events remain unimplemented.  
+**Status:** specification plus schema-v4 declaration/evaluation events, authority-receipt-aware projections, and canonical golden vectors drafted in [PR #4953](https://github.com/Luminous-Dynamics/mycelix/pull/4953); not merged or runtime-qualified. Rust tests have not been run in this environment.  
 **Draft contract version:** `evidence-provenance-contract/0.1.0`  
 **Scope:** evidence identity, data lineage, collection provenance, and qualification boundaries for reproduction/replication claims
 
@@ -16,10 +16,10 @@ Static source inspection of the canonical event path found:
 
 - `EvidenceAttached` signs and records an `EvidenceArtifact` with an ID, content hash, media type, locator, license, and availability.
 - An attestation must reference evidence IDs that already exist in the stream.
-- On the default branch, `ClaimProjection` retains a bare list of artifacts; attachment actor/organization and study/collection identity are not retained next to each artifact. Draft PR #4953 adds a separate `EvidenceProvenanceDeclared` schema-v4 event and stores its event/actor/organization context in a deterministic projection.
+- On the default branch, `ClaimProjection` retains a bare list of artifacts; attachment actor/organization and study/collection identity are not retained next to each artifact. Draft PR #4953 adds `EvidenceProvenanceDeclared` (schema-v4 tag 9), `EvidenceProvenanceEvaluated` (tag 10), and actor-attributed attachment/declaration/evaluation projection records.
 - `IndependentReplication` requires a protocol reference and evidence IDs, but those fields alone do not establish newly collected data. The new declaration makes lineage mechanically inspectable, not independently qualified.
-- Raw supportive reproduction/replication counts no longer promote maturity in draft policy 1.2.0 without separately qualified counters. Those counters remain zero until an independent evaluator event/policy is implemented.
-- The signed event envelope and authority receipt bind who made/accepted an assertion. Neither proves that the asserted real-world data collection occurred.
+- Raw supportive reproduction/replication counts no longer promote maturity during plain replay. Draft policy 1.2.0 increments qualified counters only after a current-policy evaluation receives two distinct reviewer decisions with matching outcomes and both exact evaluation events have committed, trusted authority receipts verified by `GovernedScientificEventLog::claim_projection`. A single decision is insufficient; disagreements remain indeterminate.
+- The signed event envelope binds who made an assertion; the separate authority receipt binds which governed service accepted that exact event. Neither proves that the asserted real-world data collection occurred. Plain `ClaimProjection::rebuild` keeps evaluation events unqualified until committed trusted receipts are verified by the governed projection path.
 
 These are source observations, not runtime/test results. See [Canonical Scientific Event API](CANONICAL_EVENT_API.md), [Scientific Authority Receipts](AUTHORITY_RECEIPTS.md), and the [due-diligence RFC](SCIENTIFIC_DUE_DILIGENCE_AND_ALLOCATION_RFC.md).
 
