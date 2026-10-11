@@ -86,6 +86,23 @@ jobs:
           report="${{ runner.temp }}/journal-source-contract-report.json"
           test -s "$report"
           python3 -m json.tool "$report" > /dev/null
+          python3 - "$report" "$QUALIFIED_SHA" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          expected_sha = sys.argv[2]
+          assert report.get("passed") is True, "source-contract preflight reported failure"
+          assert report.get("checks_failed") == 0, "source-contract report has failed checks"
+          assert report.get("checks_passed") == len(report.get("checks", [])), "passed-check count is inconsistent"
+          assert report.get("checks_failed") == len(report.get("failures", [])), "failed-check count is inconsistent"
+          assert report.get("checks_passed", 0) > 0, "source-contract report contains no checks"
+          assert report.get("commit") == expected_sha, "report commit differs from exact qualified subject"
+          assert report.get("expected_subject") == expected_sha, "report expected subject differs from qualified subject"
+          assert report.get("subject_matches_expected") is True, "report did not prove exact subject match"
+          assert isinstance(report.get("sha256"), dict) and report["sha256"], "report has no source fingerprints"
+          PY
 
       - name: Run dependency-free validator tests
         run: cargo +1.96.0 test --manifest-path mycelix-workspace/simulations/civ-econ-transition-validator/Cargo.toml --locked --all-targets
