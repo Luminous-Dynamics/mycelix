@@ -722,7 +722,7 @@ fn drain_pending_compost_inner() -> ExternResult<u32> {
                     e
                 )))
             })?;
-            if updated_pending.retry_count > pending.retry_count {
+            if updated_pending != pending {
                 let queue_anchor = anchor_hash(PENDING_COMPOST_ANCHOR)?;
                 create_link(
                     queue_anchor.clone(),
