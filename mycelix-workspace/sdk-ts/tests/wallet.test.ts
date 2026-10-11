@@ -1021,6 +1021,21 @@ describe('OfflineQueue', () => {
       expect(queue.pendingCount).toBe(1);
     });
 
+    it('should serialize concurrent enqueues with the same key', async () => {
+      const [first, second] = await Promise.all([
+        queue.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'concurrent-queue-key',
+        }),
+        queue.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'concurrent-queue-key',
+        }),
+      ]);
+
+      expect(first.id).toBe(second.id);
+      expect(queue.state.items.filter((item) => item.idempotencyKey === 'concurrent-queue-key')).toHaveLength(1);
+      expect(queue.pendingCount).toBe(1);
+    });
+
     it('should reject changed payload under an existing idempotency key', async () => {
       await queue.enqueue('send', { to: '@alice', amount: 100 }, {
         idempotencyKey: 'conflicting-key',
