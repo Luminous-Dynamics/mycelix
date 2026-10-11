@@ -422,7 +422,8 @@
         "authorization_policy_id",
         "authorization_policy_version",
         "authority_receipt_status",
-        "reason"
+        "reason",
+        "evaluator_signer_key_id"
       ],
       "properties": {
         "provenance_record_id": {
@@ -477,6 +478,10 @@
           ]
         },
         "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evaluator_signer_key_id": {
           "type": "string",
           "minLength": 1
         }
