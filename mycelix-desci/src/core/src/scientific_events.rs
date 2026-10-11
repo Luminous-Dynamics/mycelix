@@ -36,12 +36,15 @@ pub const SCIENTIFIC_EVENT_PROTOCOL_VERSION: u16 = 1;
 /// Canonical codec identifier. The implementation is defined below, not by a
 /// Rust serializer's enum layout.
 pub const SCIENTIFIC_EVENT_CODEC: &str = "mycelix-canonical-binary-v1";
-/// Schema version for the authoritative event envelope.
-pub const SCIENTIFIC_EVENT_SCHEMA_VERSION: u16 = 3;
+/// Schema version for the authoritative event envelope. Schema v4 adds a new
+/// provenance-declaration payload; older signed payload tags and bytes remain
+/// unchanged and versions 2 and 3 stay replayable.
+pub const SCIENTIFIC_EVENT_SCHEMA_VERSION: u16 = 4;
 /// Oldest schema version still accepted for replay. Schema v2 is the first
-/// explicit canonical-codec envelope and remains verifiable after the v3
-/// migration additions.
+/// explicit canonical-codec envelope and remains verifiable after later
+/// additive schema migrations.
 pub const MIN_SUPPORTED_SCIENTIFIC_EVENT_SCHEMA_VERSION: u16 = 2;
+pub const EVIDENCE_PROVENANCE_SCHEMA_VERSION: u16 = 1;
 /// Default explanatory assessment policy.
 pub const DEFAULT_EVIDENCE_POLICY_ID: &str = "mycelix-evidence-policy";
 pub const DEFAULT_EVIDENCE_POLICY_VERSION: &str = "1.1.0";
@@ -268,6 +271,142 @@ impl EvidenceArtifact {
     }
 }
 
+/// Relationship asserted between an artifact and the study/data it refers to.
+/// These labels are provenance claims, not proof of independent collection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceOriginRelation {
+    NewCollection,
+    DerivedFrom,
+    CopiedOrRepackagedFrom,
+    SameDataReanalysis,
+    PartiallyOverlapping,
+    ExternalReference,
+    Unknown,
+}
+
+impl EvidenceOriginRelation {
+    /// Stable canonical-codec tags. Never renumber an existing tag.
+    pub const fn code(self) -> u8 {
+        match self {
+            Self::NewCollection => 1,
+            Self::DerivedFrom => 2,
+            Self::CopiedOrRepackagedFrom => 3,
+            Self::SameDataReanalysis => 4,
+            Self::PartiallyOverlapping => 5,
+            Self::ExternalReference => 6,
+            Self::Unknown => 7,
+        }
+    }
+}
+
+/// Exact parent artifact identity for a declared lineage edge.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceProvenanceParent {
+    pub artifact_id: ArtifactId,
+    pub content_hash: ContentHash,
+}
+
+/// Immutable, actor-authored provenance assertion, versioned independently of
+/// the event envelope. Declaring new collection never qualifies it by itself;
+/// qualification requires a separate evaluator/policy path.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceProvenanceDeclaration {
+    pub provenance_schema_version: u16,
+    pub artifact_id: ArtifactId,
+    pub content_hash: ContentHash,
+    pub study_id: Option<String>,
+    pub collection_activity_id: Option<String>,
+    pub origin_relation: EvidenceOriginRelation,
+    pub parent_artifacts: Vec<EvidenceProvenanceParent>,
+    pub protocol_reference: Option<String>,
+    pub collection_manifest_commitment: Option<ContentHash>,
+    pub supporting_provenance_artifact_ids: Vec<ArtifactId>,
+}
+
+impl EvidenceProvenanceDeclaration {
+    pub fn validate(&self) -> Result<()> {
+        if self.provenance_schema_version != EVIDENCE_PROVENANCE_SCHEMA_VERSION {
+            return Err(Error::Validation(format!(
+                "unsupported evidence provenance schema version: {}",
+                self.provenance_schema_version
+            )));
+        }
+        if let Some(study_id) = &self.study_id {
+            validate_canonical_identifier(study_id, "provenance study identifier")?;
+        }
+        if let Some(activity_id) = &self.collection_activity_id {
+            validate_canonical_identifier(activity_id, "collection activity identifier")?;
+        }
+        if let Some(protocol) = &self.protocol_reference {
+            validate_canonical_identifier(protocol, "provenance protocol reference")?;
+        }
+        if self.study_id.is_some() != self.collection_activity_id.is_some() {
+            return Err(Error::Validation(
+                "study_id and collection_activity_id must either both be present or both be absent"
+                    .to_string(),
+            ));
+        }
+        let mut parent_ids = BTreeSet::new();
+        for parent in &self.parent_artifacts {
+            if parent.artifact_id == self.artifact_id {
+                return Err(Error::Validation(
+                    "evidence provenance cannot name its own artifact as a parent".to_string(),
+                ));
+            }
+            if !parent_ids.insert(parent.artifact_id) {
+                return Err(Error::Validation(
+                    "evidence provenance contains duplicate parent artifacts".to_string(),
+                ));
+            }
+        }
+        let mut supporting_ids = BTreeSet::new();
+        for id in &self.supporting_provenance_artifact_ids {
+            if *id == self.artifact_id || !supporting_ids.insert(*id) {
+                return Err(Error::Validation(
+                    "evidence provenance contains self-referential or duplicate supporting artifacts"
+                        .to_string(),
+                ));
+            }
+        }
+        match self.origin_relation {
+            EvidenceOriginRelation::NewCollection => {
+                if self.study_id.is_none() || self.collection_activity_id.is_none() {
+                    return Err(Error::Validation(
+                        "new-collection provenance requires study and collection activity identifiers"
+                            .to_string(),
+                    ));
+                }
+            }
+            EvidenceOriginRelation::DerivedFrom
+            | EvidenceOriginRelation::CopiedOrRepackagedFrom
+            | EvidenceOriginRelation::SameDataReanalysis
+            | EvidenceOriginRelation::PartiallyOverlapping => {
+                if self.parent_artifacts.is_empty() {
+                    return Err(Error::Validation(
+                        "derived, copied, reanalysis, and partial-overlap provenance require at least one parent artifact"
+                            .to_string(),
+                    ));
+                }
+            }
+            EvidenceOriginRelation::ExternalReference | EvidenceOriginRelation::Unknown => {}
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceProvenanceDisposition {
+    NoProvenance,
+    AssertedNewCollectionUnqualified,
+    NotNewCollection,
+    PartialOverlapIndeterminate,
+    IdenticalContentDigestIndeterminate,
+    ConflictingDeclarationsIndeterminate,
+    UnknownIndeterminate,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactAvailability {
@@ -443,6 +582,12 @@ pub enum ScientificEventPayload {
         claim_id: ClaimId,
         reason: String,
     },
+    /// Schema-v4 additive event. The assertion is retained with its actor
+    /// context but is not, by itself, independent qualification.
+    EvidenceProvenanceDeclared {
+        claim_id: ClaimId,
+        declaration: EvidenceProvenanceDeclaration,
+    },
 }
 
 impl ScientificEventPayload {
@@ -453,7 +598,8 @@ impl ScientificEventPayload {
             | Self::AttestationCorrected { claim_id, .. }
             | Self::AttestationWithdrawn { claim_id, .. }
             | Self::ClaimSuperseded { claim_id, .. }
-            | Self::ClaimRetracted { claim_id, .. } => *claim_id,
+            | Self::ClaimRetracted { claim_id, .. }
+            | Self::EvidenceProvenanceDeclared { claim_id, .. } => *claim_id,
             Self::AttestationRecorded { attestation } => attestation.claim_id,
         }
     }
@@ -482,6 +628,7 @@ impl ScientificEventPayload {
                 }
             }
             Self::EvidenceAttached { artifact, .. } => artifact.validate()?,
+            Self::EvidenceProvenanceDeclared { declaration, .. } => declaration.validate()?,
             Self::AttestationRecorded { attestation } => attestation.validate()?,
             Self::AttestationCorrected {
                 claim_id,
@@ -687,6 +834,16 @@ impl ScientificEventEnvelope {
         {
             return Err(Error::Validation(
                 "legacy_claim_imported requires scientific event schema v3".to_string(),
+            ));
+        }
+        if self.schema_version < 4
+            && matches!(
+                &self.payload,
+                ScientificEventPayload::EvidenceProvenanceDeclared { .. }
+            )
+        {
+            return Err(Error::Validation(
+                "evidence_provenance_declared requires scientific event schema v4".to_string(),
             ));
         }
         self.actor.validate()?;
@@ -1427,6 +1584,15 @@ impl ClaimOrigin {
 
 /// Rebuildable query view derived only from a verified event stream.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordedEvidenceProvenance {
+    pub provenance_event_id: ScientificEventId,
+    pub sequence: u64,
+    pub declaration: EvidenceProvenanceDeclaration,
+    pub actor: ActorId,
+    pub acting_organization: Option<OrganizationId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimProjection {
     pub origin: ClaimOrigin,
     pub research_object: ResearchObject,
@@ -1439,6 +1605,9 @@ pub struct ClaimProjection {
     pub evidence_profile: EvidenceProfile,
     pub evidence: Vec<EvidenceArtifact>,
     pub attestations: Vec<RecordedAttestation>,
+    /// Actor-attributed provenance assertions. Missing means unknown, not independent.
+    #[serde(default)]
+    pub provenance_declarations: Vec<RecordedEvidenceProvenance>,
     pub event_count: u64,
     pub last_event_hash: ContentHash,
 }
@@ -1488,6 +1657,7 @@ impl ClaimProjection {
             evidence_profile: EvidenceProfile::default(),
             evidence: Vec::new(),
             attestations: Vec::new(),
+            provenance_declarations: Vec::new(),
             event_count: 1,
             last_event_hash: first.event_hash()?,
         };
@@ -1529,6 +1699,20 @@ impl ClaimProjection {
                         ));
                     }
                     projection.evidence.push(artifact.clone());
+                }
+                ScientificEventPayload::EvidenceProvenanceDeclared { declaration, .. } => {
+                    validate_provenance_references(
+                        declaration,
+                        &projection.evidence,
+                        &projection.provenance_declarations,
+                    )?;
+                    projection.provenance_declarations.push(RecordedEvidenceProvenance {
+                        provenance_event_id: event.envelope.event_id,
+                        sequence: event.envelope.sequence,
+                        declaration: declaration.clone(),
+                        actor: event.envelope.actor.clone(),
+                        acting_organization: event.envelope.acting_organization.clone(),
+                    });
                 }
                 ScientificEventPayload::AttestationRecorded { attestation } => {
                     if !attestation_ids.insert(attestation.id) {
@@ -1655,6 +1839,46 @@ impl ClaimProjection {
         self.attestations
             .iter()
             .find(|record| record.attestation.id == id)
+    }
+
+    /// Reports only what the recorded declaration supports. Even a new-
+    /// collection assertion is unqualified until a separate independent check.
+    pub fn provenance_disposition(
+        &self,
+        artifact_id: ArtifactId,
+    ) -> EvidenceProvenanceDisposition {
+        let declarations = self
+            .provenance_declarations
+            .iter()
+            .filter(|record| record.declaration.artifact_id == artifact_id)
+            .collect::<Vec<_>>();
+        let record = match declarations.as_slice() {
+            [] => return EvidenceProvenanceDisposition::NoProvenance,
+            [record] => *record,
+            _ => return EvidenceProvenanceDisposition::ConflictingDeclarationsIndeterminate,
+        };
+        match record.declaration.origin_relation {
+            EvidenceOriginRelation::NewCollection => {
+                if self.evidence.iter().any(|artifact| {
+                    artifact.id != artifact_id
+                        && artifact.content_hash == record.declaration.content_hash
+                }) {
+                    EvidenceProvenanceDisposition::IdenticalContentDigestIndeterminate
+                } else {
+                    EvidenceProvenanceDisposition::AssertedNewCollectionUnqualified
+                }
+            }
+            EvidenceOriginRelation::DerivedFrom
+            | EvidenceOriginRelation::CopiedOrRepackagedFrom
+            | EvidenceOriginRelation::SameDataReanalysis
+            | EvidenceOriginRelation::ExternalReference => {
+                EvidenceProvenanceDisposition::NotNewCollection
+            }
+            EvidenceOriginRelation::PartiallyOverlapping => {
+                EvidenceProvenanceDisposition::PartialOverlapIndeterminate
+            }
+            EvidenceOriginRelation::Unknown => EvidenceProvenanceDisposition::UnknownIndeterminate,
+        }
     }
 
     fn ensure_unique_active_attestation(
@@ -1813,6 +2037,84 @@ fn source_key(actor: &ActorId, organization: Option<&OrganizationId>) -> String 
         Some(organization) => format!("org:{}", organization.as_str()),
         None => format!("actor:{}", actor.as_str()),
     }
+}
+
+fn provenance_would_create_cycle(
+    existing: &[RecordedEvidenceProvenance],
+    candidate: &EvidenceProvenanceDeclaration,
+) -> bool {
+    let mut pending = candidate
+        .parent_artifacts
+        .iter()
+        .map(|parent| parent.artifact_id)
+        .collect::<Vec<_>>();
+    let mut visited = BTreeSet::new();
+    while let Some(current) = pending.pop() {
+        if current == candidate.artifact_id {
+            return true;
+        }
+        if !visited.insert(current) {
+            continue;
+        }
+        for record in existing
+            .iter()
+            .filter(|record| record.declaration.artifact_id == current)
+        {
+            pending.extend(
+                record
+                    .declaration
+                    .parent_artifacts
+                    .iter()
+                    .map(|parent| parent.artifact_id),
+            );
+        }
+    }
+    false
+}
+
+fn validate_provenance_references(
+    declaration: &EvidenceProvenanceDeclaration,
+    evidence: &[EvidenceArtifact],
+    existing: &[RecordedEvidenceProvenance],
+) -> Result<()> {
+    declaration.validate()?;
+    let artifact = evidence
+        .iter()
+        .find(|artifact| artifact.id == declaration.artifact_id)
+        .ok_or_else(|| Error::Validation(
+            "provenance declaration references an artifact not yet attached to the claim".to_string(),
+        ))?;
+    if artifact.content_hash != declaration.content_hash {
+        return Err(Error::Validation(
+            "provenance declaration content hash does not match the attached artifact".to_string(),
+        ));
+    }
+    for parent in &declaration.parent_artifacts {
+        let attached = evidence
+            .iter()
+            .find(|artifact| artifact.id == parent.artifact_id)
+            .ok_or_else(|| Error::Validation(
+                "provenance parent artifact is not attached to the claim".to_string(),
+            ))?;
+        if attached.content_hash != parent.content_hash {
+            return Err(Error::Validation(
+                "provenance parent content hash does not match the attached artifact".to_string(),
+            ));
+        }
+    }
+    for supporting_id in &declaration.supporting_provenance_artifact_ids {
+        if !evidence.iter().any(|artifact| artifact.id == *supporting_id) {
+            return Err(Error::Validation(
+                "supporting provenance artifact is not attached to the claim".to_string(),
+            ));
+        }
+    }
+    if provenance_would_create_cycle(existing, declaration) {
+        return Err(Error::Validation(
+            "evidence provenance declaration would create a lineage cycle".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_attestation_evidence(
@@ -2030,6 +2332,33 @@ impl CanonicalEncoder {
         });
     }
 
+    fn provenance_declaration(
+        &mut self,
+        declaration: &EvidenceProvenanceDeclaration,
+    ) -> Result<()> {
+        self.u16(declaration.provenance_schema_version);
+        self.uuid(declaration.artifact_id.0);
+        self.hash(declaration.content_hash);
+        self.option_string(declaration.study_id.as_deref())?;
+        self.option_string(declaration.collection_activity_id.as_deref())?;
+        self.u8(declaration.origin_relation.code());
+        push_len(&mut self.bytes, declaration.parent_artifacts.len())?;
+        for parent in &declaration.parent_artifacts {
+            self.uuid(parent.artifact_id.0);
+            self.hash(parent.content_hash);
+        }
+        self.option_string(declaration.protocol_reference.as_deref())?;
+        self.option_hash(declaration.collection_manifest_commitment);
+        push_len(
+            &mut self.bytes,
+            declaration.supporting_provenance_artifact_ids.len(),
+        )?;
+        for artifact_id in &declaration.supporting_provenance_artifact_ids {
+            self.uuid(artifact_id.0);
+        }
+        Ok(())
+    }
+
     fn attestation(&mut self, attestation: &Attestation) -> Result<()> {
         self.uuid(attestation.id.0);
         self.uuid(attestation.claim_id.0);
@@ -2130,6 +2459,12 @@ impl CanonicalEncoder {
                 self.u16(7);
                 self.uuid(claim_id.0);
                 self.string(reason)?;
+            }
+            ScientificEventPayload::EvidenceProvenanceDeclared { claim_id, declaration } => {
+                // Numeric tag 9 is additive. Tags 1-8 are unchanged.
+                self.u16(9);
+                self.uuid(claim_id.0);
+                self.provenance_declaration(declaration)?;
             }
         }
         Ok(())
