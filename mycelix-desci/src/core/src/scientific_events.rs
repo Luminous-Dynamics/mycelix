@@ -3622,6 +3622,202 @@ mod tests {
     }
 
     #[test]
+    fn evidence_provenance_fixture_corpus_has_closed_references_and_explicit_failure_cases() {
+        const FIXTURES: &str =
+            include_str!("../../../docs/fixtures/evidence-provenance-v0.1.0.json");
+        const SCHEMA: &str =
+            include_str!("../../../docs/fixtures/evidence-provenance-fixtures.schema.json");
+
+        let fixture: serde_json::Value = serde_json::from_str(FIXTURES).unwrap();
+        let schema: serde_json::Value = serde_json::from_str(SCHEMA).unwrap();
+        assert_eq!(
+            fixture["fixture_schema_version"].as_str(),
+            Some("evidence-provenance-fixtures/0.1.0")
+        );
+        assert_eq!(
+            fixture["contract"].as_str(),
+            Some("evidence-provenance-contract/0.1.0")
+        );
+        assert_eq!(
+            schema["$schema"].as_str(),
+            Some("https://json-schema.org/draft/2020-12/schema")
+        );
+        assert_eq!(
+            schema["$defs"]["provenanceAssertion"]["properties"]["parent_artifacts"]["items"]["$ref"].as_str(),
+            Some("#/$defs/parentArtifact"),
+            "lineage parents must bind an artifact ID and content digest, not only an ID"
+        );
+        assert!(
+            schema["$defs"]["case"]["required"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value.as_str() == Some("evaluations")),
+            "evaluation decisions must be separate from provenance assertions"
+        );
+
+        let cases = fixture["cases"].as_array().unwrap();
+        assert_eq!(cases.len(), 13);
+        let mut case_ids = BTreeSet::new();
+        let mut missing_parent_cases = 0;
+        let mut mismatched_parent_hash_cases = 0;
+
+        for case in cases {
+            let case_id = case["id"].as_str().unwrap();
+            assert!(case_ids.insert(case_id.to_string()), "duplicate fixture case {case_id}");
+            let reason_code = case["expected"]["reason_code"].as_str().unwrap();
+            assert!(
+                reason_code.chars().all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit() || ch == '_'),
+                "invalid reason code in {case_id}: {reason_code}"
+            );
+
+            let artifacts = case["artifacts"].as_array().unwrap();
+            let mut artifact_hashes = BTreeMap::<String, String>::new();
+            let mut artifact_uploaders = BTreeMap::<String, Option<String>>::new();
+            for artifact in artifacts {
+                let artifact_id = artifact["artifact_id"].as_str().unwrap();
+                let content_hash = artifact["content_hash"].as_str().unwrap();
+                assert!(
+                    content_hash.strip_prefix("blake3:").is_some_and(|hex| {
+                        hex.len() == 64 && hex.chars().all(|ch| ch.is_ascii_hexdigit() && !ch.is_ascii_uppercase())
+                    }),
+                    "invalid BLAKE3 content hash for {case_id}/{artifact_id}"
+                );
+                assert!(
+                    artifact_hashes.insert(artifact_id.to_string(), content_hash.to_string()).is_none(),
+                    "duplicate artifact ID in {case_id}: {artifact_id}"
+                );
+                artifact_uploaders.insert(
+                    artifact_id.to_string(),
+                    artifact["uploaded_by"].as_str().map(str::to_string),
+                );
+            }
+
+            let declarations = case["provenance_assertions"].as_array().unwrap();
+            let mut declaration_ids = BTreeMap::<String, &serde_json::Value>::new();
+            for declaration in declarations {
+                let record_id = declaration["provenance_record_id"].as_str().unwrap();
+                let artifact_id = declaration["artifact_id"].as_str().unwrap();
+                let content_hash = declaration["content_hash"].as_str().unwrap();
+                assert!(
+                    declaration_ids.insert(record_id.to_string(), declaration).is_none(),
+                    "duplicate provenance record ID in {case_id}: {record_id}"
+                );
+                assert_eq!(
+                    artifact_hashes.get(artifact_id),
+                    Some(&content_hash.to_string()),
+                    "provenance declaration must bind the exact attached artifact hash in {case_id}"
+                );
+
+                let has_study = declaration["study_id"].as_str().is_some();
+                let has_collection = declaration["collection_activity_id"].as_str().is_some();
+                assert_eq!(has_study, has_collection, "study and collection IDs must appear together in {case_id}");
+
+                let origin = declaration["origin_relation"].as_str().unwrap();
+                let parents = declaration["parent_artifacts"].as_array().unwrap();
+                let requires_parent = matches!(
+                    origin,
+                    "derived_from" | "copied_or_repackaged_from" | "same_data_reanalysis" | "partially_overlapping"
+                );
+                if requires_parent {
+                    assert!(!parents.is_empty(), "lineage relation {origin} in {case_id} requires a parent");
+                }
+                if origin == "new_collection" {
+                    assert!(has_study && has_collection, "new collection in {case_id} requires study/collection IDs");
+                    assert!(parents.is_empty(), "new collection in {case_id} cannot inherit a prior data parent");
+                    let has_manifest = declaration["collection_manifest_commitment"].as_str().is_some();
+                    let has_support = declaration["supporting_provenance_artifacts"]
+                        .as_array()
+                        .is_some_and(|items| !items.is_empty());
+                    assert!(has_manifest || has_support, "new collection in {case_id} requires a manifest or supporting artifact");
+                }
+
+                let mut parent_ids = BTreeSet::new();
+                for parent in parents {
+                    let parent_id = parent["artifact_id"].as_str().unwrap();
+                    let parent_hash = parent["content_hash"].as_str().unwrap();
+                    assert_ne!(parent_id, artifact_id, "self-parent edge in {case_id}");
+                    assert!(parent_ids.insert(parent_id.to_string()), "duplicate parent {parent_id} in {case_id}");
+                    match artifact_hashes.get(parent_id) {
+                        None => {
+                            assert_eq!(reason_code, "PARENT_MUST_RESOLVE", "unexpected missing parent in {case_id}");
+                            missing_parent_cases += 1;
+                        }
+                        Some(actual_hash) if actual_hash != parent_hash => {
+                            assert_eq!(reason_code, "PARENT_HASH_MUST_MATCH", "unexpected parent hash mismatch in {case_id}");
+                            mismatched_parent_hash_cases += 1;
+                        }
+                        Some(_) => {}
+                    }
+                }
+
+                if let Some(supporting) = declaration["supporting_provenance_artifacts"].as_array() {
+                    for supporting_id in supporting {
+                        let supporting_id = supporting_id.as_str().unwrap();
+                        assert!(
+                            artifact_hashes.contains_key(supporting_id),
+                            "supporting provenance artifact {supporting_id} is not attached in {case_id}"
+                        );
+                    }
+                }
+            }
+
+            let evaluations = case["evaluations"].as_array().unwrap();
+            let mut evaluator_ids = BTreeSet::new();
+            let mut evaluator_outcomes = BTreeSet::new();
+            let mut evaluator_scopes = BTreeSet::new();
+            for evaluation in evaluations {
+                let declaration_id = evaluation["provenance_record_id"].as_str().unwrap();
+                let declaration = declaration_ids
+                    .get(declaration_id)
+                    .unwrap_or_else(|| panic!("evaluation references unknown declaration {declaration_id} in {case_id}"));
+                let artifact_id = evaluation["artifact_id"].as_str().unwrap();
+                let evaluator_id = evaluation["evaluator_id"].as_str().unwrap();
+                assert_eq!(declaration["artifact_id"].as_str(), Some(artifact_id));
+                assert_eq!(declaration["content_hash"].as_str(), evaluation["content_hash"].as_str());
+                assert_eq!(
+                    artifact_hashes.get(artifact_id),
+                    evaluation["content_hash"].as_str().map(str::to_string).as_ref(),
+                    "evaluation must bind the exact attached artifact in {case_id}"
+                );
+                assert_ne!(
+                    declaration["declared_by"].as_str(),
+                    Some(evaluator_id),
+                    "declaration author cannot evaluate their own record in {case_id}"
+                );
+                if let Some(uploader) = artifact_uploaders.get(artifact_id).and_then(Option::as_deref) {
+                    assert_ne!(Some(uploader), Some(evaluator_id), "uploader cannot evaluate their own artifact in {case_id}");
+                }
+                assert_ne!(
+                    case["attestation"]["declared_by"].as_str(),
+                    Some(evaluator_id),
+                    "attestation author cannot evaluate their own evidence in {case_id}"
+                );
+                assert_eq!(evaluation["policy_id"].as_str(), Some(EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID));
+                assert_eq!(evaluation["policy_version"].as_str(), Some(EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION));
+                assert_eq!(evaluation["evaluator_role"].as_str(), Some("reviewer"));
+                assert_eq!(evaluation["authority_receipt_status"].as_str(), Some("committed"));
+                evaluator_ids.insert(evaluator_id.to_string());
+                evaluator_outcomes.insert(evaluation["outcome"].as_str().unwrap().to_string());
+                evaluator_scopes.insert(evaluation["scope"].as_str().unwrap().to_string());
+            }
+            if !evaluations.is_empty() {
+                assert!(evaluator_ids.len() >= EVIDENCE_PROVENANCE_EVALUATION_MIN_REVIEWERS, "reviewer quorum missing in {case_id}");
+                assert_eq!(evaluator_outcomes.len(), 1, "fixture reviewers disagree in {case_id}");
+                assert_eq!(evaluator_scopes.len(), 1, "fixture reviewers assess different scopes in {case_id}");
+            }
+        }
+
+        assert_eq!(missing_parent_cases, 1, "exactly one fixture should exercise a missing parent");
+        assert_eq!(mismatched_parent_hash_cases, 1, "exactly one fixture should exercise a parent hash mismatch");
+        assert_eq!(
+            cases.iter().filter(|case| case["evaluations"].as_array().is_some_and(|items| !items.is_empty())).count(),
+            1,
+            "the corpus should separately model the qualified counterevidence evaluation path"
+        );
+    }
+
+    #[test]
     fn new_collection_requires_a_provenance_anchor_and_no_inherited_data_parent() {
         let data = artifact_with(ArtifactId::new(), b"new collection", "ipfs://new-collection");
         let mut declaration = provenance_assertion(
