@@ -127,6 +127,19 @@ check(
     and "new begin record cannot leave idempotency-key binding unknown" in journal,
 )
 check(
+    "J4 parser rejects unknown, malformed, and oversized new-key records",
+    all(
+        name in journal
+        for name in (
+            "j4_begin_rejects_legacy_unbound_key_marker",
+            "j4_replay_rejects_malformed_idempotency_key_encoding",
+            "j4_replay_rejects_oversized_encoded_key_before_decoding",
+            "idempotency key is not canonical lowercase hex",
+            "idempotency key exceeds maximum size",
+        )
+    ),
+)
+check(
     "legacy J3 and J4 transition fixtures use real newline delimiters",
     r'format!("J3\tB\t{}\t{}\t{}\n", encoded_id, REQUEST_A, PROVIDER_A)' in journal
     and r'"J4\tB\t{}\t{}\t{}\t{}\nJ4\tA\t{}\t{}\t{}\t{}\t{}\t{}\n",' in journal
@@ -167,6 +180,9 @@ for test_name in (
     "invalid_original_idempotency_key_is_rejected_before_append",
     "group_or_other_writable_parent_directory_is_rejected_before_lock_creation",
     "already_acknowledged_indeterminate_result_returns_original_key_binding",
+    "j4_begin_rejects_legacy_unbound_key_marker",
+    "j4_replay_rejects_malformed_idempotency_key_encoding",
+    "j4_replay_rejects_oversized_encoded_key_before_decoding",
 ):
     annotated_test = re.search(r"#\[test\]\s*fn\s+" + re.escape(test_name) + r"\(", journal)
     check(f"regression test is annotated: {test_name}", annotated_test is not None)
