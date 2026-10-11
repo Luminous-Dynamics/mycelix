@@ -36,7 +36,7 @@ Until that migration is available on the current base:
 
 1. **Opt-in:** reject advice unless the learner or appropriately authorized configuration enables it. No consent means no advisor call.
 2. **Sandbox wins:** sandbox mode rejects all model-driven adaptation.
-3. **Exact scope:** require exact configured model ID/version, skill ID, curriculum revision, and request digest.
+3. **Exact scope:** require exact configured model ID/version, skill ID, curriculum revision, and request digest. The request digest must be canonical `blake3:` plus 64 lowercase hexadecimal characters.
 4. **Finite actions:** the response uses a bounded enum of suggestions. It cannot mutate authoritative state.
 5. **Trusted action allowlist:** every response action must appear in an allowlist assembled by Praxis for this exact turn. The model cannot enable an action by choosing it in its own output. A break option is omitted from the allowlist unless a trusted learner interaction explicitly requests it.
 6. **Trusted reason allowlist:** every reason code must be independently supported by the trusted request/evidence context. The model cannot claim that the learner requested help or a break simply by returning that enum. Action/reason compatibility is checked as an additional rule, not as a replacement for the trusted allowlists.
@@ -56,7 +56,7 @@ The trusted Praxis adapter should assemble a canonical request containing:
 - current curriculum revision and capability/skill identifier;
 - minimum necessary, scope-specific evidence from the authorized learning-evidence pathway;
 - allowlisted content references and the finite actions available for this turn;
-- an input digest computed over the exact canonical request.
+- a BLAKE3 digest computed over the exact canonical request and encoded as `blake3:` followed by 64 lowercase hexadecimal characters.
 
 The digest binds a response to its request and helps reject stale output. It is not model authentication or proof of correctness. Authenticate the adapter/transport independently and recheck context immediately before displaying the suggestion.
 
@@ -119,13 +119,14 @@ Implemented in this branch:
 - exact model/version, skill, curriculum revision, and input-digest checks;
 - opt-in and sandbox rejection;
 - trusted per-turn action and reason allowlists, preventing model output from self-authorizing a break or fabricating a learner-request reason;
+- canonical BLAKE3 input-digest format and exact request binding;
 - bounds on confidence fields and content references;
 - allowlist/duplicate/grounding validation;
 - action/reason pairing rules (including learner-requested breaks only);
 - a strict JSON Schema that rejects unknown fields and has exact enum parity with the Rust contract;
 - an independent standard-library Python checker for schema/Rust enum parity, response bounds, trust gates, and the required adversarial test inventory;
 - a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, `praxis-core` formatting/tests, and clippy, including while the PR is a draft;
-- twenty authored Rust contract regression tests.
+- twenty-one authored Rust contract regression tests.
 
 Not yet implemented or qualified:
 - live Symthaea service/process adapter;
