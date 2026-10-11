@@ -1,0 +1,11 @@
+[package]
+name = "praxis-symthaea-adapter"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Host-only bounded wire adapter primitives for optional Symthaea learning advice"
+
+[dependencies]
+praxis-core = { path = "../praxis-core" }
