@@ -60,6 +60,7 @@ check("effect ID limit is 1024 bytes", "MAX_EFFECT_ID_BYTES: usize = 1024;" in j
 check("replay uses the bounded record reader", "read_bounded_record(reader, &mut record, line_no + 1)?" in journal)
 check("bounded reader uses fill_buf/consume", re.search(r"reader\s*\.fill_buf\(\)", journal) is not None and "reader.consume(consumed)" in journal)
 check("no full-file read_to_end replay path", "read_to_end(" not in journal)
+check("hex parser uses pinned-toolchain is_multiple_of idiom", "!value.len().is_multiple_of(2)" in journal)
 check("record fields are borrowed rather than collected per line", "let mut fields = line.split('\\t');" in journal and "let fields: Vec<&str> = line.split" not in journal)
 match_start = journal.find("let (provider_profile_digest, receipt_digest, source_evidence_digest) =")
 match_end = journal.find("if encoded_id.len() > MAX_EFFECT_ID_BYTES * 2", match_start)
