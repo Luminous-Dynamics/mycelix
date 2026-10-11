@@ -1183,6 +1183,14 @@ pub struct ContributeToCommonsInput {
     pub amount: u64,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct VerifyCompostEffectPayload {
+    commons_pool_id: String,
+    amount: u64,
+    source_member_did: String,
+    effect_id: String,
+}
+
 /// Stable receipt identity for one compost effect scoped to its destination pool.
 fn compost_receival_id(pool_id: &str, effect_id: &str) -> ExternResult<String> {
     // Encode the tuple rather than concatenating fields with a delimiter; pool
@@ -1284,27 +1292,56 @@ pub fn receive_compost(input: ReceiveCompostInput) -> ExternResult<Record> {
         )));
     }
 
-    let receipt_id = if let Some(effect_id) = input.effect_id.as_deref() {
-        if effect_id.is_empty()
-            || effect_id.len() > MAX_COMPOST_EFFECT_ID_LEN
-            || effect_id.chars().any(char::is_control)
-        {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Compost effect ID must be 1-256 non-control characters".into()
-            )));
+    let effect_id = input.effect_id.as_deref().ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "A stable compost effect ID is required; legacy unkeyed credits are rejected".into()
+        )
+    ))?;
+    if effect_id.is_empty()
+        || effect_id.len() > MAX_COMPOST_EFFECT_ID_LEN
+        || effect_id.chars().any(char::is_control)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Compost effect ID must be 1-256 non-control characters".into()
+        )));
+    }
+    let receipt_id = compost_receival_id(&input.commons_pool_id, effect_id)?;
+    if let Some(existing) = existing_compost_effect(&input, &receipt_id)? {
+        return Ok(existing);
+    }
+
+    // A key is idempotency metadata, not authority. Before a new balance effect,
+    // prove that the payments zome has exactly one durable matching outbox record.
+    let verification = call(
+        CallTargetCell::Local,
+        ZomeName::from("payments"),
+        FunctionName::from("verify_pending_compost_effect"),
+        None,
+        VerifyCompostEffectPayload {
+            commons_pool_id: input.commons_pool_id.clone(),
+            amount: input.amount,
+            source_member_did: input.source_member_did.clone(),
+            effect_id: effect_id.to_string(),
+        },
+    )?;
+    let authorized_outbox = match verification {
+        ZomeCallResponse::Ok(result) => result.decode::<bool>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Compost outbox verification response could not be decoded: {e}"
+            )))
+        })?,
+        other => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Compost outbox verification returned an unsupported response: {:?}",
+                other
+            ))));
         }
-        if let Some(existing) = existing_compost_effect(&input, &compost_receival_id(
-            &input.commons_pool_id,
-            effect_id,
-        )?)? {
-            return Ok(existing);
-        }
-        compost_receival_id(&input.commons_pool_id, effect_id)?
-    } else {
-        // Legacy callers remain accepted for wire compatibility but do not gain
-        // retry safety until migrated to a stable effect_id.
-        format!("compost:{}:{}", input.commons_pool_id, sys_time()?.as_micros())
     };
+    if !authorized_outbox {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "No unique committed payments outbox matches this compost effect".into()
+        )));
+    }
 
     let now_receipt = sys_time()?;
     let receival = CompostReceival {
