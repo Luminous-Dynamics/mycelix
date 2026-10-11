@@ -32,15 +32,19 @@ that is a larger query/index design, not log compaction.
 
 1. **No unresolved effect disappears.** Pending and Indeterminate entries must
    survive compaction with the exact request digest and provider-profile binding,
-   including None for legacy J1/J2 records.
+   including None for legacy J1/J2 records. Preserve the original idempotency-key
+   binding independently as Bound(key), explicit NotUsed, or LegacyUnbound; do
+   not turn a missing historical key into an assertion that no key was used.
 2. **Acknowledgement is a permanent identity tombstone.** Acknowledged identities
    must survive in the checkpoint so begin_effect cannot return Started for a
    previously acknowledged ID and accidentally dispatch it again.
-3. **No evidence upgrades.** Legacy records must not acquire provider-profile or
-   source-evidence bindings they did not record. An absent digest remains absent.
-4. **No cross-profile transitions.** Checkpoint serialization/replay must retain
-   and validate request, provider, receipt, and source-evidence bindings exactly
-   as the J4 journal does today.
+3. **No evidence upgrades.** Legacy records must not acquire provider-profile,
+   original-key, or source-evidence bindings they did not record. Preserve the
+   difference between an explicitly unused key and a legacy-unbound key. An
+   absent digest remains absent.
+4. **No cross-binding transitions.** Checkpoint serialization/replay must
+   retain and validate request, provider, original idempotency-key, receipt, and
+   source-evidence bindings exactly as the J4 journal does today.
 5. **No silent repair.** Truncated, corrupt, unknown-version, duplicate-ID, or
    inconsistent checkpoint content must fail closed. Do not skip a bad suffix and
    do not fall back to an older checkpoint if a newer committed checkpoint is
@@ -66,13 +70,16 @@ canonical row per identity in deterministic identity order. Each row preserves:
 - canonical effect ID;
 - exact request digest;
 - provider-profile digest or explicit None;
+- original idempotency-key binding: encoded key, explicit NotUsed, or LegacyUnbound;
 - Pending, Indeterminate, or Acknowledged status;
 - receipt digest only for acknowledged rows;
 - source-evidence digest when historically recorded, otherwise explicit None.
 
 The reader must reject duplicate IDs, impossible status/receipt combinations,
 non-canonical fields, unexpected trailing fields, entry-count mismatch, and
-trailing/truncated records. A count catches simple truncation but is **not** a
+trailing/truncated records. Because J4 keys are stored in recoverable form, the
+checkpoint and every temporary/generation artifact must use the same sensitive
+data-access policy as the live journal; hex encoding is not encryption. A count catches simple truncation but is **not** a
 cryptographic integrity or authenticity mechanism. Current digest fields are
 caller-supplied and the journal is not tamper-evident; keep that claim ceiling.
 
@@ -108,7 +115,8 @@ proof that no live selector references them; premature deletion is forbidden.
 
 - Golden replay tests for J1, J2, J3, J4, and the checkpoint format.
 - Round-trip test asserting every JournalEntry field is identical before and
-  after snapshot/replay, including legacy missing bindings.
+  after snapshot/replay, including legacy missing provider, key, and evidence
+  bindings and the explicit NotUsed key state.
 - Duplicate identity and conflicting receipt/evidence rejection.
 - Pending and Indeterminate survive checkpoint and remain non-dispatching.
 - Acknowledged IDs remain idempotent and cannot be reused to dispatch.
