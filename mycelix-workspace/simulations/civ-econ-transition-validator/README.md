@@ -99,12 +99,14 @@ acknowledgement records to an append-only local file. It reads legacy J1/J2/J3
 records and writes J4 records, syncing each before returning success. J4
 begin/indeterminate/acknowledgement records preserve the original idempotency-key
 binding alongside the provider-profile digest; acknowledgements also bind the
-receipt and source-evidence digests. Legacy J1/J2 entries replay with no provider-
+receipt and source-evidence digests. Keys are hex-encoded for unambiguous record
+framing, **not encrypted**; the journal contains the recoverable key and must be
+treated as sensitive local state even though the Unix journal/lock files are
+created owner-only. Legacy J1/J2 entries replay with no provider-
 profile binding, and legacy J1/J2/J3 entries replay with no original-key binding.
 These missing facts remain explicit and require reconciliation rather than being
 upgraded. Startup replay is streaming: a bounded reader
-processes one newline-terminated record at a time (maximum 4,096 record bytes and
-1,024 decoded effect-ID bytes), rejects an unterminated final record, and does not
+processes one newline-terminated record at a time (maximum 4,096 record bytes, 1,024 decoded effect-ID bytes, and 768 idempotency-key bytes), rejects an unterminated final record, and does not
 create a second in-memory copy of the complete journal. The effect index itself
 still grows with the number of distinct effect IDs. The journal refuses concurrent
 cooperating writers with a PID-marked sidecar lock and fails closed on truncated/corrupt history.
