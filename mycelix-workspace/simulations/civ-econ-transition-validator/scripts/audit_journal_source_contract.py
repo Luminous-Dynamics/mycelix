@@ -238,7 +238,7 @@ files = (
 check(
     "report hashes include transition, recovery policy, and crash integration source",
     all(
-        name in content
+        name in audit_script
         for name in (
             "TRANSITION_PATH,",
             "RECOVERY_POLICY_PATH,",
