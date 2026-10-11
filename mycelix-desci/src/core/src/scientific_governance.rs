@@ -901,6 +901,95 @@ mod tests {
         assert_eq!(ScientificAction::RetractClaim.code(), 8);
     }
 
+    #[test]
+    fn only_a_distinct_reviewer_may_submit_a_provenance_evaluation() {
+        let now = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let claim_id = ClaimId::new();
+        let creator = actor("did:key:creator");
+        let creator_key = key(1);
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                creator.clone(), now.clone(), proposed(claim_id),
+            ).unwrap(),
+            &creator_key,
+        ).unwrap();
+        let data = crate::scientific_events::EvidenceArtifact {
+            id: crate::scientific_events::ArtifactId::new(),
+            content_hash: ContentHash::digest(b"synthetic collection"),
+            media_type: "application/octet-stream".to_string(),
+            locator: "ipfs://synthetic-collection".to_string(),
+            license: None,
+            availability: crate::scientific_events::ArtifactAvailability::Public,
+        };
+        let attached = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis, creator, now.clone() + Duration::seconds(1),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: data.clone() },
+            ).unwrap(),
+            &creator_key,
+        ).unwrap();
+        let collector = actor("did:key:collector");
+        let collector_key = key(2);
+        let declaration = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attached, collector.clone(), now.clone() + Duration::seconds(2),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: crate::scientific_events::EvidenceProvenanceDeclaration {
+                        provenance_schema_version: crate::scientific_events::EVIDENCE_PROVENANCE_SCHEMA_VERSION,
+                        artifact_id: data.id,
+                        content_hash: data.content_hash,
+                        study_id: Some("study:auth-test".to_string()),
+                        collection_activity_id: Some("collection:auth-test".to_string()),
+                        origin_relation: crate::scientific_events::EvidenceOriginRelation::NewCollection,
+                        parent_artifacts: Vec::new(),
+                        protocol_reference: Some("protocol:auth-test".to_string()),
+                        collection_manifest_commitment: None,
+                        supporting_provenance_artifact_ids: Vec::new(),
+                    },
+                },
+            ).unwrap(),
+            &collector_key,
+        ).unwrap();
+        let projection = ClaimProjection::rebuild(&[genesis, attached, declaration.clone()]).unwrap();
+        let reviewer = actor("did:key:reviewer");
+        let reviewer_key = key(3);
+        let evaluation_event = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &declaration, reviewer.clone(), now.clone() + Duration::seconds(3),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: crate::scientific_events::EvidenceProvenanceEvaluation {
+                        evaluation_schema_version: 1,
+                        provenance_event_id: declaration.envelope.event_id,
+                        artifact_id: data.id,
+                        content_hash: data.content_hash,
+                        scope: crate::scientific_events::EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        outcome: crate::scientific_events::EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        policy_id: crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID.to_string(),
+                        policy_version: crate::scientific_events::EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION.to_string(),
+                        reason: "synthetic auth test".to_string(),
+                    },
+                },
+            ).unwrap(),
+            &reviewer_key,
+        ).unwrap();
+
+        let policy = DefaultScientificAuthorizationPolicy;
+        let reviewer_context = profile(reviewer, &reviewer_key, ScientificRole::Reviewer, &now);
+        assert!(policy.authorize(&reviewer_context, &evaluation_event, Some(&projection)).allowed);
+
+        let contributor_context = profile(
+            actor("did:key:reviewer"), &reviewer_key, ScientificRole::Contributor, &now,
+        );
+        assert!(!policy.authorize(&contributor_context, &evaluation_event, Some(&projection)).allowed);
+
+        let self_review_context = profile(
+            collector, &collector_key, ScientificRole::Reviewer, &now,
+        );
+        assert!(!policy.authorize(&self_review_context, &evaluation_event, Some(&projection)).allowed);
+    }
+
     fn proposed(claim_id: ClaimId) -> ScientificEventPayload {
         let object_id = ResearchObjectId::new();
         ScientificEventPayload::ClaimProposed {
