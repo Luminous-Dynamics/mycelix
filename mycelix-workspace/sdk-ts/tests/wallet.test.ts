@@ -1081,7 +1081,7 @@ describe('OfflineQueue', () => {
         })
       ).rejects.toThrow('Send payload idempotency key does not match queue idempotency key');
       expect(queue.pendingCount).toBe(0);
-      expect(await queue.state.items).toHaveLength(0);
+      expect(queue.state.items).toHaveLength(0);
     });
 
     it('should serialize concurrent enqueues with the same key', async () => {
