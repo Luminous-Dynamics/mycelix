@@ -8,6 +8,7 @@ on:
       - 'mycelix-workspace/sdk-ts/tests/wallet.test.ts'
       - 'mycelix-workspace/sdk-ts/package.json'
       - 'mycelix-workspace/sdk-ts/package-lock.json'
+      - 'docs/finance/AC-172_PAYMENT_IDEMPOTENCY_V1.md'
       - 'mycelix-finance/crates/finance-wire-types/**'
       - 'mycelix-workspace/mycelix-finance/crates/finance-wire-types/**'
       - 'mycelix-finance/zomes/payments/**'
