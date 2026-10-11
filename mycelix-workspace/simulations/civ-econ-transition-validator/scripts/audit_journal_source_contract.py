@@ -256,6 +256,7 @@ check(
     and "768 idempotency-key bytes" in " ".join(readme.split())
     and "not encrypted" in " ".join(readme.split())
     and "parent directory must not be group/other-writable" in " ".join(readme.split())
+    and "Both AlreadyAcknowledged results expose the original-key binding" in " ".join(readme.split())
 )
 check("README documents how to run source preflight", "python3 scripts/audit_journal_source_contract.py" in readme)
 check(
