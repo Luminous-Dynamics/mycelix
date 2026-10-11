@@ -3222,22 +3222,24 @@ mod payment_idempotency_holochain_tests {
         let key = unique_test_idempotency_key();
 
         let first_call = async {
-            conductor
+            let result: Result<Record, _> = conductor
                 .call_fallible(
                     &zome,
                     "send_payment",
                     input(sender_did.clone(), recipient_did.clone(), 100, &key),
                 )
-                .await as Result<Record, _>
+                .await;
+            result
         };
         let second_call = async {
-            conductor
+            let result: Result<Record, _> = conductor
                 .call_fallible(
                     &zome,
                     "send_payment",
                     input(sender_did.clone(), recipient_did.clone(), 100, &key),
                 )
-                .await as Result<Record, _>
+                .await;
+            result
         };
         let (first_result, second_result) = tokio::join!(first_call, second_call);
 
