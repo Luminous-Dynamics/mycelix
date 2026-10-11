@@ -139,15 +139,18 @@ python3 -m unittest discover -s tests -p 'test_economy_atlas_registry.py'
 
 These checks validate registry contract and provenance metadata only. They do not execute Rust models, prove that the pinned source implements the documented equations, reproduce a paper, or qualify an economic claim.
 
-## SDK arithmetic findings surfaced by the Atlas
+## Compost accounting and delivery findings surfaced by the Atlas
 
-A source review of the shared SDK's [decay_garden.rs](https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/mycelix-workspace/sdk/src/economics/decay_garden.rs) added three findings to the registry and the Leptos page:
+The registry now separates three SDK-utility findings in [decay_garden.rs](https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/mycelix-workspace/sdk/src/economics/decay_garden.rs) from a fourth finding in the active Finance coordinator, [payments/coordinator/src/lib.rs](https://github.com/Luminous-Dynamics/mycelix/blob/445a84abdaa64f3d05e2d5c51115e4d060b78ec7/mycelix-finance/zomes/payments/coordinator/src/lib.rs):
 
 1. `CompostDistribution::is_valid` checks only whether the sum of the ratios is approximately one. It does not separately enforce that each ratio is finite and within `[0, 1]`. A ratio set such as `(1.1, -0.1, 0.0)` satisfies the sum check but can allocate more compost to one pool than was received after float-to-integer conversion.
 2. `CompostDistribution::distribute` truncates each ratio allocation independently. For total 11 at 70/20/10, the allocations are 7, 2 and 1, leaving one unit undistributed. The intended remainder policy is not documented in that primitive.
 3. The low-level `calculate_demurrage` primitive returns zero when the rate is non-positive, but does not itself enforce the `DemurrageConfig` comment's constitutional 1–5% interval.
+4. In `apply_hearth_demurrage`, pool balance deductions are persisted before treasury calls. Failed calls are logged but not queued for retry, and the function returns `redistributed: true` unconditionally. Missing optional destination IDs also skip that tier. The personal `apply_demurrage` path does have a pending queue for failed calls, but similarly skips absent optional destination IDs without setting `fully_redistributed = false`. Importantly, both active-zome paths assign the rounding residual to the global pool; that particular total-loss behavior belongs to the separate SDK utility and should not be generalized to the coordinator path.
 
-These are source-level arithmetic/contract findings, not proof of a reachable production exploit or ledger corruption. We have not yet traced every constructor, coordinator, and caller to establish reachability or existing upstream validation. The Atlas therefore reports them as review findings with required follow-up, not as a qualified incident. The next code change should add or confirm domain validation at the narrowest shared trust boundary, define deterministic residual allocation, and add regression tests only after call-site analysis establishes the intended contract.
+These are source-level arithmetic/control-flow findings, not proof of an observed production loss or a reachable exploit. The active-zome finding is stronger than a README discrepancy because the control flow is present in the pinned coordinator source, but its runtime impact and callers still require integration evidence. The Atlas exposes the source and required follow-up without changing finance behavior.
+
+Before any runtime change, tests should establish the intended settlement contract: missing destinations cannot be reported as fully redistributed; failed treasury delivery is represented in durable pending state or an explicit failure; recovery does not double-credit; and `deducted = delivered + pending/unresolved` holds exactly under the chosen integer remainder rule. Only then should the shared utility's ratio-domain and residual policy be fixed at the narrowest trust boundary.
 
 ## Leptos integration status
 
