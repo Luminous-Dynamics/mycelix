@@ -625,17 +625,57 @@ export class OfflineQueue {
       idempotencyKey?: string;
     }
   ): Promise<QueuedOperation<T>> {
+    if (options?.idempotencyKey === '') {
+      throw new Error('Idempotency key must not be empty');
+    }
+
+    let operationPayload = payload;
+    let operationIdempotencyKey = options?.idempotencyKey;
+    if (type === 'send') {
+      const isObjectPayload =
+        operationPayload !== null &&
+        typeof operationPayload === 'object' &&
+        !Array.isArray(operationPayload);
+
+      if (isObjectPayload) {
+        const payloadKey = (operationPayload as { idempotencyKey?: unknown }).idempotencyKey;
+        if (payloadKey !== undefined && (typeof payloadKey !== 'string' || payloadKey.length === 0)) {
+          throw new Error('Send payload idempotency key must be a non-empty string');
+        }
+        if (
+          operationIdempotencyKey !== undefined &&
+          payloadKey !== undefined &&
+          payloadKey !== operationIdempotencyKey
+        ) {
+          throw new Error('Send payload idempotency key does not match queue idempotency key');
+        }
+        if (operationIdempotencyKey === undefined && typeof payloadKey === 'string') {
+          operationIdempotencyKey = payloadKey;
+        }
+      }
+
+      // Every new send has a queue identity, and the persisted payload and
+      // metadata carry exactly the same value for every retry path.
+      operationIdempotencyKey ??= `send:${generateQueueItemId()}`;
+      if (isObjectPayload) {
+        operationPayload = {
+          ...(operationPayload as Record<string, unknown>),
+          idempotencyKey: operationIdempotencyKey,
+        } as T;
+      }
+    }
+
     const item: QueuedOperation<T> = {
       id: generateQueueItemId(),
       type,
-      payload,
+      payload: operationPayload,
       createdAt: Date.now(),
       attempts: 0,
       maxAttempts: options?.maxAttempts ?? this.config.maxAttempts,
       status: 'pending',
       priority: options?.priority ?? 0,
       dependsOn: options?.dependsOn,
-      idempotencyKey: options?.idempotencyKey,
+      idempotencyKey: operationIdempotencyKey,
     };
 
     let persistedItem = item as QueuedOperation;
@@ -648,7 +688,7 @@ export class OfflineQueue {
       if (claim.kind === 'existing') {
         const samePayload =
           persistedItem.type === type &&
-          JSON.stringify(persistedItem.payload) === JSON.stringify(payload);
+          JSON.stringify(persistedItem.payload) === JSON.stringify(item.payload);
         if (!samePayload) {
           throw new Error('Idempotency key reused with a different queued operation payload');
         }
