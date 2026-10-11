@@ -324,6 +324,12 @@ export interface SendPaymentInput {
   currency: string;
   payment_type: PaymentType;
   memo?: string;
+  /**
+   * Stable identifier for this logical payment. Reuse unchanged after timeouts or retries;
+   * never reuse it for a different amount, currency, recipient, payment type, or memo.
+   * This identifier is not authorization and must not contain secrets.
+   */
+  idempotency_key: string;
 }
 
 /** A payment channel */
