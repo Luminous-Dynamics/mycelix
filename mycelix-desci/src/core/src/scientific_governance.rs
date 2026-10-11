@@ -350,7 +350,7 @@ impl ScientificAuthorizationPolicy for DefaultScientificAuthorizationPolicy {
     }
 
     fn policy_version(&self) -> &'static str {
-        "1.0.0"
+        "1.1.0"
     }
 
     fn authorize(
@@ -815,6 +815,34 @@ mod tests {
             audit,
             Some(receipt_key),
         )
+    }
+
+    #[test]
+    fn provenance_action_uses_additive_stable_code_without_renumbering_existing_actions() {
+        let payload = ScientificEventPayload::EvidenceProvenanceDeclared {
+            claim_id: ClaimId::new(),
+            declaration: crate::scientific_events::EvidenceProvenanceDeclaration {
+                provenance_schema_version:
+                    crate::scientific_events::EVIDENCE_PROVENANCE_SCHEMA_VERSION,
+                artifact_id: crate::scientific_events::ArtifactId::new(),
+                content_hash: crate::scientific_events::ContentHash::digest(b"fixture"),
+                study_id: Some("study:fixture".to_string()),
+                collection_activity_id: Some("collection:fixture".to_string()),
+                origin_relation: crate::scientific_events::EvidenceOriginRelation::NewCollection,
+                parent_artifacts: Vec::new(),
+                protocol_reference: None,
+                collection_manifest_commitment: None,
+                supporting_provenance_artifact_ids: Vec::new(),
+            },
+        };
+        assert_eq!(
+            ScientificAction::from_payload(&payload),
+            ScientificAction::DeclareEvidenceProvenance
+        );
+        assert_eq!(ScientificAction::DeclareEvidenceProvenance.code(), 9);
+        assert_eq!(ScientificAction::AttachEvidence.code(), 3);
+        assert_eq!(ScientificAction::RecordAttestation.code(), 4);
+        assert_eq!(ScientificAction::RetractClaim.code(), 8);
     }
 
     fn proposed(claim_id: ClaimId) -> ScientificEventPayload {
