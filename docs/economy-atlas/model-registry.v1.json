@@ -91,7 +91,8 @@
           "source_file": "mycelix-workspace/sdk/src/economics/decay_garden.rs",
           "source_commit": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
           "observation": "CompostDistribution::is_valid checks only that the three ratios sum approximately to 1.0. It does not independently require every ratio to be finite and within [0, 1]. A ratio tuple such as (1.1, -0.1, 0.0) can therefore satisfy the sum check; distribute(100) casts the negative share to u64 (saturating to 0) and allocates 110 to the first pool.",
-          "required_follow_up": "Trace every construction/validation call site before judging reachability; validate each ratio in [0,1], require the sum invariant, and add a regression test that invalid ratios cannot inflate allocation."
+          "required_follow_up": "Trace every construction/validation call site before judging reachability; validate each ratio in [0,1], require the sum invariant, and add a regression test that invalid ratios cannot inflate allocation.",
+          "source_repository": "Luminous-Dynamics/mycelix"
         },
         {
           "finding_id": "FIN-ATLAS-SDK-COMPOST-ROUNDING-RESIDUAL-001",
@@ -99,7 +100,8 @@
           "source_file": "mycelix-workspace/sdk/src/economics/decay_garden.rs",
           "source_commit": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
           "observation": "CompostDistribution::distribute truncates local, regional and global shares independently to u64. For some totals, the allocation sum is below the source total (for example 11 produces 7 + 2 + 1 = 10 at 70/20/10 ratios).",
-          "required_follow_up": "Expose the residual explicitly or define a deterministic remainder-allocation rule; do not hide it in visualizations."
+          "required_follow_up": "Expose the residual explicitly or define a deterministic remainder-allocation rule; do not hide it in visualizations.",
+          "source_repository": "Luminous-Dynamics/mycelix"
         },
         {
           "finding_id": "FIN-ATLAS-SDK-DEMURRAGE-RATE-CONTRACT-001",
@@ -107,7 +109,8 @@
           "source_file": "mycelix-workspace/sdk/src/economics/decay_garden.rs",
           "source_commit": "445a84abdaa64f3d05e2d5c51115e4d060b78ec7",
           "observation": "The low-level calculate_demurrage function returns zero for annual_rate <= 0 and does not itself enforce the DemurrageConfig comment's constitutional 1–5% bound.",
-          "required_follow_up": "Trace config construction and mutation validators; the Atlas adapter must enforce the documented domain before it calls the arithmetic primitive."
+          "required_follow_up": "Trace config construction and mutation validators; the Atlas adapter must enforce the documented domain before it calls the arithmetic primitive.",
+          "source_repository": "Luminous-Dynamics/mycelix"
         }
       ]
     },
