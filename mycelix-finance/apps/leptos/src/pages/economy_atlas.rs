@@ -37,6 +37,18 @@ struct AtlasModel {
     source_refs: Vec<AtlasSource>,
     #[serde(default)]
     limitations: Vec<String>,
+    #[serde(default)]
+    validation_findings: Vec<AtlasValidationFinding>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasValidationFinding {
+    finding_id: String,
+    severity: String,
+    source_file: String,
+    source_commit: String,
+    observation: String,
+    required_follow_up: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -79,6 +91,7 @@ fn render_model_card(model: AtlasModel) -> impl IntoView {
     let execution_status = model.execution_status.replace('_', " ");
     let limitations = model.limitations;
     let source_refs = model.source_refs;
+    let validation_findings = model.validation_findings;
 
     view! {
         <article class="dash-card atlas-model-card">
@@ -101,6 +114,38 @@ fn render_model_card(model: AtlasModel) -> impl IntoView {
                         <li>{limitation}</li>
                     }).collect_view()}
                 </ul>
+                {if validation_findings.is_empty() {
+                    view! { <></> }.into_any()
+                } else {
+                    view! {
+                        <section class="atlas-validation-findings">
+                            <h3>"Source-level validation findings"</h3>
+                            <p class="atlas-disclaimer">
+                                "These findings identify code-level conditions to verify at call sites; presence in the registry does not prove an invalid path is reachable in production."
+                            </p>
+                            {validation_findings.into_iter().map(|finding| {
+                                let finding_id = finding.finding_id;
+                                let severity = finding.severity;
+                                let source_file = finding.source_file;
+                                let source_commit = finding.source_commit;
+                                let observation = finding.observation;
+                                let follow_up = finding.required_follow_up;
+                                view! {
+                                    <div class="dash-card atlas-finding-card">
+                                        <strong>{finding_id}</strong>
+                                        <p>{severity}</p>
+                                        <p>{observation}</p>
+                                        <p>
+                                            <strong>"Required follow-up: "</strong>
+                                            {follow_up}
+                                        </p>
+                                        <p class="atlas-model-id">{format!("{source_file} @ {source_commit}")}</p>
+                                    </div>
+                                }
+                            }).collect_view()}
+                        </section>
+                    }.into_any()
+                }}
                 <h3>"Source references"</h3>
                 {if source_refs.is_empty() {
                     view! {
@@ -317,6 +362,6 @@ mod tests {
                 );
             }
         }
-        assert_eq!(sources, 10);
+        assert_eq!(sources, 11);
     }
 }
