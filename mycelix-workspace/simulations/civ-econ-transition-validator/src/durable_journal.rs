@@ -1053,6 +1053,64 @@ mod tests {
     }
 
     #[test]
+    fn j4_begin_rejects_legacy_unbound_key_marker() {
+        let temp = TempDir::new();
+        let encoded_id = encode_hex(b"new-j4-unbound");
+        write_journal_fixture(
+            &temp.journal_path(),
+            format!("J4\tB\t{}\t{}\t{}\t?\n", encoded_id, REQUEST_A, PROVIDER_A).as_bytes(),
+        );
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "new begin record cannot leave idempotency-key binding unknown",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn j4_replay_rejects_malformed_idempotency_key_encoding() {
+        let temp = TempDir::new();
+        let encoded_id = encode_hex(b"bad-j4-key");
+        write_journal_fixture(
+            &temp.journal_path(),
+            format!("J4\tB\t{}\t{}\t{}\tzz\n", encoded_id, REQUEST_A, PROVIDER_A).as_bytes(),
+        );
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "idempotency key is not canonical lowercase hex",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn j4_replay_rejects_oversized_encoded_key_before_decoding() {
+        let temp = TempDir::new();
+        let encoded_id = encode_hex(b"large-j4-key");
+        let oversized_encoded_key = "a".repeat(MAX_IDEMPOTENCY_KEY_BYTES * 2 + 2);
+        write_journal_fixture(
+            &temp.journal_path(),
+            format!(
+                "J4\tB\t{}\t{}\t{}\t{}\n",
+                encoded_id, REQUEST_A, PROVIDER_A, oversized_encoded_key
+            ).as_bytes(),
+        );
+
+        assert!(matches!(
+            DurableEffectJournal::open(temp.journal_path()),
+            Err(JournalError::CorruptJournal {
+                reason: "idempotency key exceeds maximum size",
+                ..
+            })
+        ));
+    }
+
+    #[test]
     fn maximum_effect_id_and_idempotency_key_fit_bounded_ack_record() {
         let temp = TempDir::new();
         let id = "i".repeat(MAX_EFFECT_ID_BYTES);
