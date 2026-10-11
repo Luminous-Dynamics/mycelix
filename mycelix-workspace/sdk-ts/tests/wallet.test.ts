@@ -1049,6 +1049,26 @@ describe('OfflineQueue', () => {
       expect(queue.pendingCount).toBe(1);
     });
 
+    it('should preserve key binding after a queue item is cancelled', async () => {
+      const item = await queue.enqueue('send', { to: '@alice', amount: 100 }, {
+        idempotencyKey: 'cancelled-binding-key',
+      });
+      expect(await queue.cancel(item.id)).toBe(true);
+
+      await expect(
+        queue.enqueue('send', { to: '@bob', amount: 100 }, {
+          idempotencyKey: 'cancelled-binding-key',
+        })
+      ).rejects.toThrow('Idempotency key reused with a different queued operation payload');
+
+      await expect(
+        queue.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'cancelled-binding-key',
+        })
+      ).rejects.toThrow('failed or cancelled queue item');
+      expect(queue.pendingCount).toBe(0);
+    });
+
     it('should preserve an explicit payment key in the persisted payload', async () => {
       const item = await queue.enqueueSend('@alice', 100, 'TEND', 'invoice', {
         idempotencyKey: 'logical-payment-123',
