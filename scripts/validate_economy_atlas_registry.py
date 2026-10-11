@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from datetime import date
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
@@ -133,7 +134,7 @@ def validate_registry(data: object) -> list[str]:
             if not isinstance(research_ref, dict):
                 errors.append(f"{rp} must be a JSON object")
                 continue
-            for field in ("title", "publisher", "reference_type", "url"):
+            for field in ("title", "publisher", "reference_type", "url", "retrieved_on"):
                 value = research_ref.get(field)
                 if not isinstance(value, str) or not value.strip():
                     errors.append(f"{rp}.{field} must be a non-empty string")
@@ -152,6 +153,12 @@ def validate_registry(data: object) -> list[str]:
                 or not 1800 <= published_year <= 2200
             ):
                 errors.append(f"{rp}.published_year must be a plausible integer year")
+            retrieved_on = research_ref.get("retrieved_on")
+            if isinstance(retrieved_on, str):
+                try:
+                    date.fromisoformat(retrieved_on)
+                except ValueError:
+                    errors.append(f"{rp}.retrieved_on must be a real ISO-8601 calendar date")
 
         seen_source_keys: set[tuple[str, str, str]] = set()
         for source_index, source in enumerate(sources):
