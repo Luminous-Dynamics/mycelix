@@ -3487,6 +3487,41 @@ mod tests {
     }
 
     #[test]
+    fn schema_v4_provenance_evaluation_matches_canonical_golden_vector() {
+        let claim_id = ClaimId(uuid::Uuid::from_u128(2));
+        let evaluation = EvidenceProvenanceEvaluation {
+            evaluation_schema_version: 1,
+            provenance_event_id: ScientificEventId(uuid::Uuid::from_u128(4)),
+            artifact_id: ArtifactId(uuid::Uuid::from_u128(3)),
+            content_hash: ContentHash([0x22; 32]),
+            scope: EvidenceProvenanceEvaluationScope::IndependentReplication,
+            outcome: EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+            policy_id: EVIDENCE_PROVENANCE_EVALUATION_POLICY_ID.to_string(),
+            policy_version: EVIDENCE_PROVENANCE_EVALUATION_POLICY_VERSION.to_string(),
+            reason: "synthetic evaluation".to_string(),
+        };
+        let envelope = ScientificEventEnvelope {
+            protocol: SCIENTIFIC_EVENT_PROTOCOL.to_string(),
+            protocol_version: SCIENTIFIC_EVENT_PROTOCOL_VERSION,
+            codec: SCIENTIFIC_EVENT_CODEC.to_string(),
+            schema_version: SCIENTIFIC_EVENT_SCHEMA_VERSION,
+            event_id: ScientificEventId(uuid::Uuid::from_u128(1)),
+            stream_id: claim_id,
+            sequence: 1,
+            previous_hash: Some(ContentHash([0x11; 32])),
+            actor: actor("did:key:fixture-evaluator"),
+            acting_organization: Some(organization("ror:fixture-lab")),
+            occurred_at: Utc.timestamp_opt(1_700_000_000, 123).unwrap(),
+            idempotency_key: Some("eval-fixture".to_string()),
+            payload: ScientificEventPayload::EvidenceProvenanceEvaluated {
+                claim_id,
+                evaluation,
+            },
+        };
+        assert_eq!(hex::encode(envelope.signing_bytes().unwrap()), "4d5943454c49582d44455343492d4556454e54000000000d6d7963656c69782d646573636900010000001b6d7963656c69782d63616e6f6e6963616c2d62696e6172792d7631000400000000000000000000000000000001000000000000000000000000000000020000000000000001011111111111111111111111111111111111111111111111111111111111111111000000196469643a6b65793a666978747572652d6576616c7561746f72010000000f726f723a666978747572652d6c6162000000006553f1000000007b010000000c6576616c2d66697874757265000a000000000000000000000000000000020001000000000000000000000000000000040000000000000000000000000000000322222222222222222222222222222222222222222222222222222222222222220101000000266d7963656c69782d65766964656e63652d70726f76656e616e63652d6576616c756174696f6e00000005312e302e300000001473796e746865746963206576616c756174696f6e");
+    }
+
+    #[test]
     fn schema_v4_provenance_declaration_replays_with_actor_context_without_qualifying_it() {
         let claim_id = ClaimId::new();
         let genesis = SignedScientificEvent::sign(
