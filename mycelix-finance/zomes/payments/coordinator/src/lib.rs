@@ -1463,33 +1463,17 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
             reason: format!("Payment from {}", input.from_did),
         })?;
 
-        // Route fee to commons via treasury (if fee > 0)
+        // Persist the fee obligation in this same transaction as the debit and
+        // Payment record. Post-commit delivery is retriable and Treasury is
+        // idempotent by effect ID, so a lost response cannot duplicate the fee.
         if fee > 0 {
-            match call(
-                CallTargetCell::Local,
-                ZomeName::from("treasury"),
-                FunctionName::from("receive_compost"),
-                None,
-                ReceiveCompostPayload {
-                    commons_pool_id: "global-fee-pool".to_string(),
-                    amount: fee,
-                    source_member_did: input.from_did.clone(),
-                },
-            ) {
-                Ok(ZomeCallResponse::Ok(_)) => {}
-                Ok(other) => {
-                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                        "SAP fee routing returned an unexpected response: {:?}",
-                        other
-                    ))));
-                }
-                Err(e) => {
-                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                        "SAP fee routing failed; payment rolled back: {:?}",
-                        e
-                    ))));
-                }
-            }
+            queue_pending_compost(
+                "global-fee-pool",
+                fee,
+                &input.from_did,
+                CompostPoolTier::Global,
+                Some(format!("payment-fee:v1:{}", operation_id)),
+            )?;
         }
 
         (input.memo.clone(), fee)
@@ -2448,66 +2432,42 @@ pub fn apply_hearth_demurrage(input: ApplyHearthDemurrageInput) -> ExternResult<
     let regional_amount = deduction * COMPOST_REGIONAL_PCT / 100;
     let global_amount = deduction - local_amount - regional_amount;
 
-    let source_did = format!("hearth:{}", input.hearth_did);
+    if !input.hearth_did.starts_with("did:") {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Hearth source must be a valid DID".into()
+        )));
+    }
+    let source_did = input.hearth_did.clone();
+    let mut fully_redistributed = true;
 
-    if let Some(ref pool_id) = input.local_commons_pool_id {
-        if let Err(e) = call(
-            CallTargetCell::Local,
-            ZomeName::from("treasury"),
-            FunctionName::from("receive_compost"),
-            None,
-            ReceiveCompostPayload {
-                commons_pool_id: pool_id.clone(),
-                amount: local_amount,
-                source_member_did: source_did.clone(),
-            },
-        ) {
-            debug!(
-                "Hearth compost redistribution to local pool {} failed: {:?}",
-                pool_id, e
-            );
+    if local_amount > 0 {
+        if let Some(ref pool_id) = input.local_commons_pool_id {
+            queue_pending_compost(
+                pool_id, local_amount, &source_did, CompostPoolTier::Local, None
+            )?;
         }
+        fully_redistributed = false;
     }
-    if let Some(ref pool_id) = input.regional_commons_pool_id {
-        if let Err(e) = call(
-            CallTargetCell::Local,
-            ZomeName::from("treasury"),
-            FunctionName::from("receive_compost"),
-            None,
-            ReceiveCompostPayload {
-                commons_pool_id: pool_id.clone(),
-                amount: regional_amount,
-                source_member_did: source_did.clone(),
-            },
-        ) {
-            debug!(
-                "Hearth compost redistribution to regional pool {} failed: {:?}",
-                pool_id, e
-            );
+    if regional_amount > 0 {
+        if let Some(ref pool_id) = input.regional_commons_pool_id {
+            queue_pending_compost(
+                pool_id, regional_amount, &source_did, CompostPoolTier::Regional, None
+            )?;
         }
+        fully_redistributed = false;
     }
-    if let Some(ref pool_id) = input.global_commons_pool_id {
-        if let Err(e) = call(
-            CallTargetCell::Local,
-            ZomeName::from("treasury"),
-            FunctionName::from("receive_compost"),
-            None,
-            ReceiveCompostPayload {
-                commons_pool_id: pool_id.clone(),
-                amount: global_amount,
-                source_member_did: source_did,
-            },
-        ) {
-            debug!(
-                "Hearth compost redistribution to global pool {} failed: {:?}",
-                pool_id, e
-            );
+    if global_amount > 0 {
+        if let Some(ref pool_id) = input.global_commons_pool_id {
+            queue_pending_compost(
+                pool_id, global_amount, &source_did, CompostPoolTier::Global, None
+            )?;
         }
+        fully_redistributed = false;
     }
 
     Ok(DemurrageResult {
         deducted: deduction,
-        redistributed: true,
+        redistributed: fully_redistributed,
     })
 }
 
