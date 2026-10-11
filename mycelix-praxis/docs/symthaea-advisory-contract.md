@@ -37,7 +37,10 @@ endpoint as a shortcut. The adapter must use `parse_symthaea_advice_response` (w
 pre-deserialization limit), authenticate its process/transport independently,
 hash the exact request bytes it sends using `digest_advisory_request_bytes`, and
 preserve the standard deterministic fallback when no advisor is available. The
-parser guard does not provide transport timeouts or process authentication.
+parser guard does not provide transport timeouts or process authentication,
+and it receives an already-buffered byte slice: the host transport must enforce
+the same body ceiling while streaming so a huge response is not fully allocated
+before this parser rejects it.
 
 This is a deployment recommendation derived from source inspection, not an
 implemented transport or proof that the current Symthaea facade can yet satisfy
