@@ -33,6 +33,7 @@ REQUIRED_REGENERATIVE_MODELS = {
     "regenerative.economics.energy-network-science.v1",
     "regenerative.doughnut.place-portrait.v1",
     "regenerative.circular-economy.v1",
+    "regenerative.land.agroecology-outcomes.v1",
 }
 
 
