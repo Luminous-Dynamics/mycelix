@@ -65,11 +65,16 @@ and OWASP's [API4:2023 unrestricted resource consumption guidance](https://api-s
 
 The host adapter remains a **bounded decoder**, not a live transport. The
 supplied reader must still have appropriate authentication and read-timeout
-behavior. After decoding, callers must validate the candidate using the
-trusted per-turn `AdviceValidationContext`; parsing alone does not authorize
-a suggestion. Regression tests assert that an oversized stream is read only
-through the maximum-plus-one byte, that an exact-limit body proceeds to the
-JSON parser, and that I/O and malformed-body failures fail closed.
+behavior. Prefer `read_bounded_and_validate_symthaea_advice(reader, context)`:
+it reads within the limit, parses the strict wire response, and invokes
+`validate_symthaea_advice` with trusted per-turn `AdviceValidationContext`
+before returning a `ValidatedAdvisorySuggestion`. Rejections fail closed.
+The lower-level `read_bounded_symthaea_advice` function returns an untrusted
+wire object and must not be used as though it had passed semantic validation.
+Regression tests assert that an oversized stream is read only through the
+maximum-plus-one byte, exact-limit input reaches the JSON parser, malformed
+bodies and I/O failures fail closed, and trusted validation accepts only
+allowlisted suggestions.
 
 ## Why this boundary
 
@@ -187,7 +192,8 @@ Implemented in this branch:
 - an independent standard-library Python checker for schema/Rust enum parity, response bounds, trust gates, and the required adversarial test inventory;
 - a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, formatting/tests for both advisory crates, and clippy, including while the PR is a draft;
 - a 16 KiB bounded JSON parser in `praxis-core` plus a native-only host reader that caps streaming reads at 16,385 bytes before rejecting oversize bodies;
-- twenty-seven `praxis-core` regression tests and five host-adapter tests covering valid decoding, oversized and exact-limit streams, malformed JSON, read failures, contract trust gates, and BLAKE3 golden vectors.
+- a preferred host integration function that combines bounded read, strict decoding, and trusted semantic validation before returning a `ValidatedAdvisorySuggestion`;
+- twenty-seven `praxis-core` regression tests and seven host-adapter tests covering valid decoding, oversized and exact-limit streams, malformed JSON, read failures, trust-gate acceptance/rejection, and BLAKE3 golden vectors.
 
 Not yet implemented or qualified:
 - live Symthaea service/process transport or production call site (the new host crate provides only bounded reader/decoder primitives);
