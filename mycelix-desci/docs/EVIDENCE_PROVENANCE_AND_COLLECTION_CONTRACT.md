@@ -90,16 +90,18 @@ For any evidence that may increase a claim's replication maturity:
 
 Do not add fields to existing schema-v2/v3 signed payloads in place. Their canonical bytes and historical signatures must remain verifiable.
 
-Draft PR #4953 now contains the first step of this plan: a schema-v4 provenance declaration event using additive canonical payload tag 9, deterministic parent/hash checks, cycle rejection, actor-attributed projection records, and a fixed-ID/fixed-hash canonical signing-byte golden-vector test. That draft has not been merged or runtime-qualified. The remaining implementation/review work includes:
+Draft PR #4953 now contains schema-v4 provenance declaration (canonical tag 9) and evaluation (tag 10) events, deterministic target/parent hash checks, cycle rejection, actor-attributed evidence uploads/declarations/evaluations, and fixed-ID/fixed-hash canonical signing-byte golden vectors for both new payloads. The evidence-assessment policy v1.2.0 derives qualified counts only from provenance dispositions. The pinned evaluation policy `mycelix-evidence-provenance-evaluation` v1.0.0 requires two distinct reviewer identities to agree. A single review is insufficient; disagreement remains indeterminate; declaration authors, artifact uploaders, and attestation authors cannot evaluate the same evidence. This is a draft, not merged or runtime-qualified.
 
-1. Run the new schema-v4 golden-vector test and prove old payload tags and schema-v2/v3 signatures remain verifiable; expand vectors for optional fields/parents where needed.
-2. Validate that the artifact ID and content hash exactly match the artifact in the same stream; validate every parent artifact reference and reject self/cyclic lineage.
-3. Preserve event actor/organization and authority receipt when projecting the declaration. Conflicting active declarations must not use last-writer-wins semantics.
-4. Add a correction/supersession mechanism that appends history and preserves prior declarations and earlier assessment decisions.
-5. Introduce a new evidence-assessment policy version. Preserve raw historical attestation counts for audit, but do not treat old v2/v3 replication attestations as provenance-qualified under the new policy unless their evidence has been re-evaluated under the explicit migration rule.
-6. Keep evidence attribution, study-level provenance qualification, outcome interpretation, and funding authority as separate state/decision boundaries.
+Remaining implementation and qualification work:
 
-Before implementation, inspect the codec implementation and golden-vector suite to assign event tags and schema-version behavior without changing any existing signed bytes. Update schema constants, validation, projections, API serialization, documentation, and migrations together. A new event variant must be understood by every supported replay and verification implementation before it can be accepted for new writes.
+1. Run both schema-v4 golden vectors and prove old payload tags and schema-v2/v3 signatures remain verifiable; extend optional-field/parent vectors as needed.
+2. Run Rust tests for exact target/parent hashes, cycle rejection, self-evaluation, uploader/attester self-review, one-review insufficiency, two-review qualification, conflicting assessments, and schema compatibility.
+3. Add correction/supersession for immutable evaluation decisions. Until then, conflicting evaluation histories remain indeterminate, never last-writer-wins.
+4. Confirm authority-receipt binding and all supported replay/verifier implementations understand tags 9 and 10 before new writes are enabled.
+5. Define explicit migration semantics for v2/v3 attestations. Historic raw counts remain auditable; they must not silently become provenance-qualified counts.
+6. Keep evidence attribution, provenance qualification, outcome interpretation, and funding authority as separate decision boundaries.
+
+Do not change existing canonical signed bytes. Any new event variant must be understood by every supported replay and verification implementation before it is accepted for new writes.
 
 ## 6. Adversarial fixture matrix
 
