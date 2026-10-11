@@ -54,6 +54,15 @@ class EconomyAtlasRegistryTests(unittest.TestCase):
         errors = validate_registry(self.registry)
         self.assertTrue(any("no sources but is not marked discovery_required" in error for error in errors), errors)
 
+    def test_malformed_unhashable_source_fields_fail_cleanly(self) -> None:
+        model = next(
+            item for item in self.registry["models"]
+            if item["model_id"] == "mycelix.finance.tricurrency.v1"
+        )
+        model["source_refs"][0]["repository"] = ["not", "a", "repository"]
+        errors = validate_registry(self.registry)
+        self.assertTrue(any("repository must use owner/repo format" in error for error in errors), errors)
+
     def test_validation_findings_bind_to_pinned_source_refs(self) -> None:
         finance = next(
             model for model in self.registry["models"]
