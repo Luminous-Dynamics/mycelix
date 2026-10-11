@@ -52,6 +52,7 @@ REQUIRED_TESTS = {
     "wire_contract_rejects_unknown_fields",
     "malformed_input_digests_are_rejected",
     "request_digest_matches_blake3_empty_input_golden_vector",
+    "request_digest_matches_blake3_nonempty_golden_vector",
     "duplicate_references_are_rejected_deterministically",
 }
 
@@ -163,6 +164,8 @@ def main() -> int:
             "Rust must expose a helper to hash the exact request bytes sent to the advisor", errors)
     require("blake3:af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262" in source,
             "Rust must retain the BLAKE3 empty-input golden vector", errors)
+    require("blake3:6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85" in source,
+            "Rust must retain the BLAKE3 nonempty-input golden vector", errors)
     require("if !valid_blake3_digest(&candidate.input_digest)" in source,
             "Rust must reject malformed input digests", errors)
 
