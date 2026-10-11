@@ -77,7 +77,7 @@ class CompostCallsiteAuditTests(unittest.TestCase):
         self.assertEqual(issues, [])
 
     def test_marker_inside_raw_string_is_ignored(self) -> None:
-        source = 'const EXAMPLE: &str = r#"FunctionName::from("receive_compost")"#;\\n'
+        source = 'const EXAMPLE: &str = r#"FunctionName::from("receive_compost")"#;\n'
         issues, count = compost_callsite_issues("literal.rs", source)
         self.assertEqual(count, 0)
         self.assertEqual(issues, [])
