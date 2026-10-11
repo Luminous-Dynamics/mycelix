@@ -39,6 +39,19 @@ Use a fresh unpredictable identifier for each new logical payment. Reuse that ex
 
 For decoding compatibility, a missing field deserializes as an empty string and is rejected during preflight before financial writes. Old clients must be upgraded before calling this endpoint successfully.
 
+## Client SDK and offline retry contract
+
+The same logical-operation key must survive every client-layer retry, not only retries that reach the zome:
+
+- The TypeScript Finance client exposes `SendPaymentInput.idempotency_key` as required. SDK examples use a supported `SAP` or `TEND` currency and include the key.
+- The wallet's `SendOptions.idempotencyKey` lets an application choose and retain the key across an ambiguous result. For direct sends without an explicit key, the Holochain provider creates a cryptographically random UUID once for that call.
+- If a direct zome call fails without a definitive Payment record, the provider throws `PaymentSubmissionError` containing the exact `idempotencyKey` and original error. The transport failure is not treated as proof that no Payment committed. An application can retry the same input with `error.idempotencyKey`; it must not mint a replacement key for that logical operation.
+- Offline queue sends persist the same key in both the queue's operation metadata and the serialized send payload. Every executor retry forwards that exact key to `send_payment`; legacy persisted items may fall back to their existing metadata key, but a queue item with no recoverable key is refused for automatic dispatch.
+- Re-enqueueing the same key and byte-equivalent payload resolves the same queue item. Reusing the key for a changed type or payload fails closed rather than silently returning the earlier item.
+- Queue-level deduplication is only a local convenience. The durable Holochain creation claim remains authoritative; it is not replaced by a browser queue, an in-memory cache, or the wallet's generated identifier.
+
+These client guarantees reduce accidental fresh-operation retries, but do not make a provider timeout or external rail final. For a future external adapter, the adapter must additionally pin provider key scope/retention and use the provider's supported query/reconciliation contract.
+
 ## Coordinator path
 
 1. Verify participant tier, sender/caller binding, and currency.
