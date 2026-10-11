@@ -76,6 +76,18 @@ class CompostCallsiteAuditTests(unittest.TestCase):
         self.assertEqual(count, 1)
         self.assertEqual(issues, [])
 
+    def test_marker_inside_raw_string_is_ignored(self) -> None:
+        source = 'const EXAMPLE: &str = r#"FunctionName::from("receive_compost")"#;\\n'
+        issues, count = compost_callsite_issues("literal.rs", source)
+        self.assertEqual(count, 0)
+        self.assertEqual(issues, [])
+
+    def test_rust_lifetime_does_not_break_call_scanning(self) -> None:
+        source = "fn lifetime_example<'a>() { let _: Option<&'a str> = None; }\\n" + SAFE
+        issues, count = compost_callsite_issues("lifetime.rs", source)
+        self.assertEqual(count, 1)
+        self.assertEqual(issues, [])
+
     def test_repository_audit_detects_mirror_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
