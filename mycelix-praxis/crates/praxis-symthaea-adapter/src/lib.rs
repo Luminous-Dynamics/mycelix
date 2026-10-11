@@ -222,7 +222,7 @@ mod tests {
         let digest = format!("blake3:{}", "0".repeat(64));
         let allowed_content_ids = ["lesson.fractions.01".to_string()].into_iter().collect();
         let context = trusted_context(&allowed_content_ids, &digest);
-        let encoded = valid_advice_json().replace("\\"offer_hint\\"", "\\"offer_break\\"");
+        let encoded = valid_advice_json().replace("\"offer_hint\"", "\"offer_break\"");
 
         assert_eq!(
             read_bounded_and_validate_symthaea_advice(
