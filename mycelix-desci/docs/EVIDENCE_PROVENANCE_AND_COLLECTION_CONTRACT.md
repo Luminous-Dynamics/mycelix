@@ -65,6 +65,8 @@ A replication candidate must point to a distinct collection activity intended to
 
 New collection can be performed by the same investigators or in the same laboratory; institutional novelty is not a universal requirement for replication. Conversely, a new lab or a different organization label is not sufficient.
 
+A `new_collection` declaration must identify both the study and collection activity, must not claim a prior data artifact as a lineage parent, and must bind at least a collection-manifest commitment or one attached supporting provenance artifact. Reused, transformed, rerun, or partially shared data must use an explicit lineage relation with exact parent artifact IDs and content digests; a copied artifact cannot be reclassified as a new collection merely by supplying a new study ID.
+
 The system can mechanically check identifiers, hashes, signed event linkage, declared lineage, manifest coverage, and policy-required fields. It generally cannot infer from those facts alone that a data-collection assertion is true. Qualification therefore needs an independent evidence check suited to the domain.
 
 ### 4.3 Partial overlap and derived datasets
@@ -120,7 +122,7 @@ Do not change existing canonical signed bytes. Any new event variant must be und
 | Provenance assertion written by the same actor who wants the replication counted | Asserted pending separate evaluation | Self-certification |
 | Valid non-supporting replication result | Preserve as qualified counterevidence if provenance/method pass | Outcome-biased qualification |
 
-The initial machine-readable synthetic cases are in [fixtures/evidence-provenance-v0.1.0.json](fixtures/evidence-provenance-v0.1.0.json), governed by the [fixture-corpus JSON Schema](fixtures/evidence-provenance-fixtures.schema.json). That JSON Schema defines only the fixture format, not the production provenance event schema. The fixtures are contract inputs with expected dispositions, not signed canonical events and not tests consumed by production code yet. For each fixture, freeze exact events, signatures, content digests, collection manifests, expected projection fields, assessment policy version, and a canonical projection commitment. Run both the authoritative replay and a separate checker that does not share the projection's qualification helper.
+The initial machine-readable synthetic cases are in [fixtures/evidence-provenance-v0.1.0.json](fixtures/evidence-provenance-v0.1.0.json), governed by the [fixture-corpus JSON Schema](fixtures/evidence-provenance-fixtures.schema.json). The schema requires exact parent ID/hash pairs, separates provenance declarations from evaluator decisions, and validates the new-collection manifest/supporting-evidence rule. EPC-013 has two synthetic current-policy reviewer decisions with distinct identities and committed authority-receipt status; EPC-011/012 intentionally preserve missing-parent and parent-digest-mismatch failures. The JSON Schema defines only the fixture format, not the production provenance event schema. The fixtures are contract inputs with expected dispositions, not signed canonical events and not tests consumed by production code yet. For each fixture, freeze exact events, signatures, content digests, collection manifests, expected projection fields, assessment policy version, and a canonical projection commitment. Run both the authoritative replay and a separate checker that does not share the projection's qualification helper.
 
 ## 7. Qualification gates
 
