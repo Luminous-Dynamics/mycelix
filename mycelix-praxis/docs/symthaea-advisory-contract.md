@@ -38,14 +38,16 @@ Until that migration is available on the current base:
 2. **Sandbox wins:** sandbox mode rejects all model-driven adaptation.
 3. **Exact scope:** require exact configured model ID/version, skill ID, curriculum revision, and request digest.
 4. **Finite actions:** the response uses a bounded enum of suggestions. It cannot mutate authoritative state.
-5. **Grounded references:** content IDs must be from the trusted allowlist for this request. Recommendations requiring content grounding are rejected if they provide no references. An allowed ID proves only that an existing item was named; it does not prove a generated explanation is true.
-6. **Learner-authorized rest:** a break may be suggested only when the learner explicitly requested one. Inferred affect, Phi-like indicators, or proxy neuromodulators cannot compel breaks or label the learner's mental state.
-7. **Stale means discard:** mismatch of skill, curriculum revision, model version, or request digest makes the response unusable.
-8. **Confidence is not authority:** model-reported confidence is uncalibrated metadata; it does not establish correctness, mastery, or eligibility.
-9. **Local-first and data-minimized:** send only the minimum observation needed. Do not transmit raw answer histories, child identity, inferred affect, demographics, or an entire learner profile by default. Prefer local inference; a remote provider requires explicit disclosure and consent.
-10. **Graceful absence:** service absence, invalid output, timeout, or unsupported version falls back to the normal Praxis learning path without blocking a lesson. Bound raw response bytes before deserialization.
-11. **Learner choice:** show an accepted suggestion as an invitation with accept/dismiss controls. Never execute an action automatically merely because the model proposed it.
-12. **Independent learning evidence:** separately record the learner's response and update evidence-derived projections using the authorized Praxis pathway. The model does not record an attempt or update mastery on behalf of the learner.
+5. **Trusted action allowlist:** every response action must appear in an allowlist assembled by Praxis for this exact turn. The model cannot enable an action by choosing it in its own output. A break option is omitted from the allowlist unless a trusted learner interaction explicitly requests it.
+6. **Trusted reason allowlist:** every reason code must be independently supported by the trusted request/evidence context. The model cannot claim that the learner requested help or a break simply by returning that enum. Action/reason compatibility is checked as an additional rule, not as a replacement for the trusted allowlists.
+7. **Grounded references:** content IDs must be from the trusted allowlist for this request. Recommendations requiring content grounding are rejected if they provide no references. An allowed ID proves only that an existing item was named; it does not prove a generated explanation is true.
+8. **Learner-authorized rest:** a break may be suggested only when the trusted context explicitly permits that action following the learner's request. Inferred affect, Phi-like indicators, or proxy neuromodulators cannot compel breaks or label the learner's mental state.
+9. **Stale means discard:** mismatch of skill, curriculum revision, model version, or request digest makes the response unusable.
+10. **Confidence is not authority:** model-reported confidence is uncalibrated metadata; it does not establish correctness, mastery, or eligibility.
+11. **Local-first and data-minimized:** send only the minimum observation needed. Do not transmit raw answer histories, child identity, inferred affect, demographics, or an entire learner profile by default. Prefer local inference; a remote provider requires explicit disclosure and consent.
+12. **Graceful absence:** service absence, invalid output, timeout, or unsupported version falls back to the normal Praxis learning path without blocking a lesson. Bound raw response bytes before deserialization.
+13. **Learner choice:** show an accepted suggestion as an invitation with accept/dismiss controls. Never execute an action automatically merely because the model proposed it.
+14. **Independent learning evidence:** separately record the learner's response and update evidence-derived projections using the authorized Praxis pathway. The model does not record an attempt or update mastery on behalf of the learner.
 
 ## Request and response binding
 
@@ -116,6 +118,7 @@ Implemented in this branch:
 - versioned typed suggestion and reason enums;
 - exact model/version, skill, curriculum revision, and input-digest checks;
 - opt-in and sandbox rejection;
+- trusted per-turn action and reason allowlists, preventing model output from self-authorizing a break or fabricating a learner-request reason;
 - bounds on confidence fields and content references;
 - allowlist/duplicate/grounding validation;
 - action/reason pairing rules (including learner-requested breaks only);
