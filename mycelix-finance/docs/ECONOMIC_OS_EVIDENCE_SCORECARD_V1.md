@@ -59,6 +59,7 @@ This is a source-oriented self-assessment, not an independent code audit.
 
 References:
 - [Mycelix Finance README](../README.md)
+- [Economic Coordination Contract v1 — proposed, not implemented](ECONOMIC_COORDINATION_CONTRACT_V1.md)
 - [Mycelix Commons](../../mycelix-commons/README.md)
 - [Mycelix Governance](../../mycelix-governance/README.md)
 - [FIN-SYS source profile](../../docs/finance/FIN_SYS_SOURCE_PROFILE_V1.md)
@@ -188,7 +189,7 @@ CI proves specific automation; it does not by itself pass these system and socia
 
 ## Next engineering priority
 
-The highest-leverage next step is a **versioned Economic Coordination Contract** shared by Finance, Commons, Governance, and the transition/reconciliation layer—not another currency feature. At minimum it needs:
+The highest-leverage next step is a **versioned Economic Coordination Contract** shared by Finance, Commons, Governance, and the transition/reconciliation layer—not another currency feature. A proposal is now drafted in [ECONOMIC_COORDINATION_CONTRACT_V1.md](ECONOMIC_COORDINATION_CONTRACT_V1.md); it is a design contract, not implemented behavior. At minimum it needs:
 
 - typed need/offer/resource identities and capacity units;
 - authority and policy digests for allocation;
