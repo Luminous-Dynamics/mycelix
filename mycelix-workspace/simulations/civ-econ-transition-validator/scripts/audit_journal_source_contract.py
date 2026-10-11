@@ -63,16 +63,30 @@ audit_script = read(SCRIPT_PATH)
 # Replay resource bounds and parser structure.
 check("record limit is 4096 bytes", "MAX_JOURNAL_RECORD_BYTES: usize = 4096;" in journal)
 check("effect ID limit is 1024 bytes", "MAX_EFFECT_ID_BYTES: usize = 1024;" in journal)
+check("idempotency key limit is 1024 bytes", "MAX_IDEMPOTENCY_KEY_BYTES: usize = 1024;" in journal)
+check(
+    "journal writes explicit J4 original-key bindings",
+    '"J4\\\\tB' in journal
+    and '"J4\\\\tI' in journal
+    and '"J4\\\\tA' in journal
+    and "pub fn idempotency_key_binding" in journal
+    and "IdempotencyKeyBinding::NotUsed" in journal,
+)
 check("replay uses the bounded record reader", "read_bounded_record(reader, &mut record, line_no + 1)?" in journal)
 check("bounded reader uses fill_buf/consume", re.search(r"reader\s*\.fill_buf\(\)", journal) is not None and "reader.consume(consumed)" in journal)
 check("no full-file read_to_end replay path", "read_to_end(" not in journal)
 check("hex parser uses pinned-toolchain is_multiple_of idiom", "!value.len().is_multiple_of(2)" in journal)
 check("record fields are borrowed rather than collected per line", "let mut fields = line.split('\\t');" in journal and "let fields: Vec<&str> = line.split" not in journal)
-match_start = journal.find("let (provider_profile_digest, receipt_digest, source_evidence_digest) =")
-match_end = journal.find("if encoded_id.len() > MAX_EFFECT_ID_BYTES * 2", match_start)
+match_start = journal.find("let (provider_profile_digest, key_binding_field, receipt_digest, source_evidence_digest) =")
+match_end = journal.find("let idempotency_key_binding = match key_binding_field", match_start)
 check(
     "record-shape match closes exactly once",
     match_start >= 0 and match_end > match_start and journal[match_start:match_end].count("};") == 1,
+)
+check(
+    "J4 replay rejects key-binding changes in both non-begin transitions",
+    journal.count("entry.idempotency_key_binding != idempotency_key_binding") == 2
+    and "new begin record cannot leave idempotency-key binding unknown" in journal,
 )
 check(
     "encoded effect ID limit is checked before decoding",
@@ -87,6 +101,10 @@ for test_name in (
     "streaming_replay_rejects_truncated_final_record_after_valid_history",
     "replay_rejects_extra_record_fields_without_ignoring_them",
     "effect_count_includes_all_states_and_survives_replay",
+    "original_idempotency_key_binding_survives_restart_and_is_immutable",
+    "legacy_j3_pending_effect_keeps_original_key_unbound",
+    "j4_replay_rejects_key_change_between_begin_and_ack",
+    "invalid_original_idempotency_key_is_rejected_before_append",
 ):
     annotated_test = re.search(r"#\[test\]\s*fn\s+" + re.escape(test_name) + r"\(", journal)
     check(f"regression test is annotated: {test_name}", annotated_test is not None)
@@ -147,6 +165,10 @@ check(
 # Scale probe and build registration must describe the same four lifecycle paths.
 scenarios = ("pending", "indeterminate", "acknowledged", "reconciled")
 check("scale probe has the one-million-effect ceiling", "const MAX_EFFECTS: usize = 1_000_000;" in scale)
+check(
+    "scale probe generates current J4 records with explicit no-key binding",
+    '"J4\\\\tB' in scale and '"J4\\\\tI' in scale and '"J4\\\\tA' in scale and "synthetic J4 journal" in scale,
+)
 check("scale probe verifies total count and unresolved count", "journal.effect_count()" in scale and "journal.unresolved_effect_count()" in scale)
 check("scale probe verifies first and last states", "first_status_matches" in scale and "last_status_matches" in scale)
 check("scale probe writes and syncs its generated journal before replay", "writer.flush()?;" in scale and "writer.get_ref().sync_all()?;" in scale)
@@ -156,8 +178,19 @@ for scenario in scenarios:
 check("scale binary is registered in Cargo manifest", 'name = "journal-replay-scale"' in manifest and 'path = "src/journal_replay_scale.rs"' in manifest)
 check("crate remains dependency-free", "[dependencies]" not in manifest)
 check("Cargo.lock resolves the local validator package", 'name = "civ-econ-transition-validator"' in lockfile)
-check("locked Cargo input is included in report hash set", "MANIFEST_PATH, LOCKFILE_PATH, README_PATH" in audit_script)
+hash_list_start = audit_script.find("files = (")
+hash_list_end = audit_script.find("\\n)\\n", hash_list_start)
+hash_list_source = audit_script[hash_list_start:hash_list_end + 3] if hash_list_start >= 0 and hash_list_end > hash_list_start else ""
+check(
+    "report hash set includes manifest, lockfile, and documentation",
+    all(name in hash_list_source for name in ("MANIFEST_PATH", "LOCKFILE_PATH", "README_PATH", "DESIGN_PATH")),
+)
 check("README states measurements are not established yet", "has not itself established performance numbers" in " ".join(readme.split()))
+check(
+    "README documents J4 writes and legacy key-binding uncertainty",
+    "writes J4 records" in " ".join(readme.split())
+    and "legacy J1/J2/J3 entries replay with no original-key binding" in " ".join(readme.split())
+)
 check("README documents how to run source preflight", "python3 scripts/audit_journal_source_contract.py" in readme)
 check(
     "audit ordering helper rejects missing or reversed markers",
