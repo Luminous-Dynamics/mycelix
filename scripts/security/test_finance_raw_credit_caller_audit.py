@@ -209,6 +209,16 @@ fn disabled(_input: String) -> Result<(), String> {
         self.assertNotIn("block decoy", body)
         self.assertNotIn("raw-string decoy", body)
 
+        # Braces in an array-length expression are part of the signature, not
+        # the function body opener.
+        signature = (
+            "fn sized(_input: [u8; { 2 }]) -> Result<(), String> {\n"
+            '    Err("body after signature expression".into())\n'
+            "}\n"
+        )
+        signature_body = rust_function_body(signature, "sized")
+        self.assertIn('Err("body after signature expression".into())', signature_body)
+
 
     def test_public_hdk_extern_raw_credit_is_detected(self) -> None:
         source = (
