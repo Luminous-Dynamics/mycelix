@@ -19,7 +19,10 @@ use mycelix_finance_shared::{
     anchor_hash, follow_update_chain, verify_caller_is_did, verify_citizen_tier,
     verify_participant_tier,
 };
-use mycelix_finance_types::{CollateralHealthStatus, FeeTier, TendLimitTier};
+use mycelix_finance_types::{
+    compute_diversification_bonus, CollateralAssetClass, CollateralComponent,
+    CollateralHealthStatus, FeeTier, TendLimitTier,
+};
 use mycelix_zome_helpers as _;
 
 const FINANCE_HAPP_ID: &str = "mycelix-finance";
@@ -2174,32 +2177,69 @@ pub fn create_multi_collateral_position(
     verify_caller_is_did(&input.holder_did)?;
     let now = sys_time()?;
 
-    // Parse components to count distinct types for diversification bonus
+    // Parse a typed basket and derive its economics from the components. Do not
+    // trust caller-supplied aggregate values or a caller-selected diversification
+    // discount: those are validated against the exact stored component manifest.
     #[derive(Deserialize)]
-    struct Component {
+    struct ComponentInput {
         #[serde(rename = "type")]
-        _type: String,
+        asset_class: CollateralAssetClass,
+        asset_id: String,
+        weight: f64,
+        current_value: u64,
     }
-    let components: Vec<Component> = serde_json::from_str(&input.components_json).map_err(|e| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "Invalid components JSON: {:?}",
-            e
-        )))
-    })?;
-
-    if components.is_empty() {
+    let raw_components: Vec<ComponentInput> = serde_json::from_str(&input.components_json)
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(format!(
+            "Invalid components JSON: {:?}", error
+        ))))?;
+    if raw_components.is_empty() {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Multi-collateral position must have at least one component".into()
         )));
     }
 
-    // Diversification bonus: 1% per distinct asset type, capped at 5%
-    let distinct_types: std::collections::HashSet<&str> =
-        components.iter().map(|c| c._type.as_str()).collect();
-    // Bonus starts from 2nd distinct class: 5% per class, capped at 20%
-    // Matches canonical compute_diversification_bonus() in mycelix_finance_types
-    let bonus_classes = distinct_types.len().saturating_sub(1);
-    let diversification_bonus = (bonus_classes as f64 * 0.05).min(0.20);
+    let mut seen_ids = std::collections::HashSet::new();
+    let mut aggregate_value = 0u64;
+    let mut weight_total = 0.0f64;
+    let mut components = Vec::with_capacity(raw_components.len());
+    for component in raw_components {
+        if component.asset_id.trim().is_empty() || !seen_ids.insert(component.asset_id.clone()) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Component asset IDs must be non-empty and unique".into()
+            )));
+        }
+        if !component.weight.is_finite() || component.weight <= 0.0 || component.weight > 1.0 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Component weights must be finite and in (0, 1]".into()
+            )));
+        }
+        if component.current_value == 0 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Every collateral component must have a positive valuation".into()
+            )));
+        }
+        aggregate_value = aggregate_value.checked_add(component.current_value).ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest("Aggregate collateral value overflow".into()))
+        })?;
+        weight_total += component.weight;
+        components.push(CollateralComponent {
+            asset_id: component.asset_id,
+            asset_class: component.asset_class,
+            weight: component.weight,
+            current_value: component.current_value,
+        });
+    }
+    if (weight_total - 1.0).abs() > 1e-6 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Component weights must sum to 1.0".into()
+        )));
+    }
+    if aggregate_value != input.aggregate_value {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Aggregate value does not match the component valuations".into()
+        )));
+    }
+    let diversification_bonus = compute_diversification_bonus(&components);
 
     if input.aggregate_value == 0 {
         return Err(wasm_error!(WasmErrorInner::Guest(
