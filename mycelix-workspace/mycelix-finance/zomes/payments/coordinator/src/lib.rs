@@ -1542,6 +1542,8 @@ pub struct SendPaymentInput {
     pub memo: Option<String>,
     /// Stable per-logical-operation client key. This must be reused for retries,
     /// must not contain secrets, and may not be reused for a different payload.
+    /// Missing legacy input deserializes empty and is rejected before any effects.
+    #[serde(default)]
     pub idempotency_key: String,
 }
 
