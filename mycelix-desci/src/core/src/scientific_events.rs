@@ -2530,11 +2530,12 @@ fn validate_provenance_evaluation(
                 .to_string(),
         ));
     }
+    // A ballot consumes the reviewer's one-vote slot even when its authority
+    // receipt is absent, pending, or rejected. Receipt qualification controls
+    // whether a ballot can count toward maturity; it must not let the same
+    // reviewer emit additional competing ballots for the same decision key.
     if projection.provenance_evaluations.iter().any(|record| {
-        projection
-            .authority_qualified_evaluation_event_ids
-            .contains(&record.evaluation_event_id)
-            && record.evaluator == *evaluator
+        record.evaluator == *evaluator
             && record.evaluation.provenance_event_id == evaluation.provenance_event_id
             && record.evaluation.scope == evaluation.scope
             && record.evaluation.policy_id == evaluation.policy_id
@@ -4577,6 +4578,69 @@ mod tests {
         assert!(validate_provenance_evaluation(
             &self_review, &actor("did:key:creator"), &projection
         ).unwrap_err().to_string().contains("uploader cannot independently evaluate"));
+    }
+
+    #[test]
+    fn unqualified_prior_evaluation_still_consumes_reviewer_vote_slot() {
+        let claim_id = ClaimId::new();
+        let t0 = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:creator"), t0.clone(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let data = artifact_with(ArtifactId::new(), b"pending receipt ballot", "ipfs://pending-ballot");
+        let attached = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &genesis, actor("did:key:creator"), t0.clone() + Duration::seconds(10),
+                ScientificEventPayload::EvidenceAttached { claim_id, artifact: data.clone() },
+            ).unwrap(), &key(1),
+        ).unwrap();
+        let declaration = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &attached, actor("did:key:collector"), t0.clone() + Duration::seconds(20),
+                ScientificEventPayload::EvidenceProvenanceDeclared {
+                    claim_id,
+                    declaration: provenance_assertion(&data, EvidenceOriginRelation::NewCollection, Vec::new()),
+                },
+            ).unwrap(), &key(2),
+        ).unwrap();
+        let first_vote = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &declaration, actor("did:key:reviewer-a"), t0.clone() + Duration::seconds(30),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &data,
+                        EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        EvidenceProvenanceEvaluationOutcome::QualifiedForProfile,
+                        "First vote has no authority receipt in raw replay",
+                    ),
+                },
+            ).unwrap(), &key(3),
+        ).unwrap();
+        let second_vote = SignedScientificEvent::sign(
+            ScientificEventEnvelope::next(
+                &first_vote, actor("did:key:reviewer-a"), t0.clone() + Duration::seconds(40),
+                ScientificEventPayload::EvidenceProvenanceEvaluated {
+                    claim_id,
+                    evaluation: provenance_evaluation(
+                        declaration.envelope.event_id, &data,
+                        EvidenceProvenanceEvaluationScope::IndependentReplication,
+                        EvidenceProvenanceEvaluationOutcome::NotQualified,
+                        "A second ballot from the same reviewer must be rejected",
+                    ),
+                },
+            ).unwrap(), &key(3),
+        ).unwrap();
+
+        let error = ClaimProjection::rebuild(&[
+            genesis, attached, declaration, first_vote, second_vote,
+        ]).unwrap_err();
+        assert!(error.to_string().contains(
+            "reviewer may submit only one evaluation per declaration, scope, and policy version"
+        ));
     }
 
     #[test]
