@@ -426,7 +426,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 )
             }
             LinkTypes::PaymentCreationClaimIdToClaim => {
-                validate_payment_creation_claim_index_link(&base_address, &target_address)
+                validate_payment_creation_claim_index_link(
+                    &action.author,
+                    &base_address,
+                    &target_address,
+                )
             }
         },
         FlatOp::RegisterDeleteLink { link_type, .. } => {
@@ -532,6 +536,7 @@ fn validate_create_payment_creation_claim(
 }
 
 fn validate_payment_creation_claim_index_link(
+    link_author: &AgentPubKey,
     base_address: &AnyLinkableHash,
     target_address: &AnyLinkableHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -554,6 +559,11 @@ fn validate_payment_creation_claim_index_link(
             "PaymentCreationClaimIdToClaim target must resolve to PaymentCreationClaim",
         ));
     };
+    if record.action().author() != link_author {
+        return Ok(invalid_link(
+            "Payment creation-claim index link author must match the claim author",
+        ));
+    }
     require_anchor(
         base_address,
         &claim.operation_id,
