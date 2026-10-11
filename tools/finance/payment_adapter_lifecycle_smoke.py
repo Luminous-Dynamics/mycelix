@@ -319,6 +319,68 @@ def concurrent_treasury_credits_respect_u64_bound() -> str:
           "opening balance plus receipts does not reconcile to the current pool balance")
     return "PAY-TREASURY-003: 40 concurrent attempts preserve u64::MAX, deduplicate the winning credit, and reject 38 unsafe attempts"
 
+class SnapshotChainPaymentLedger(PaymentClaimLedger):
+    """Reference model for Holochain-style snapshot and chain-head conflict behavior."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.revision = 0
+
+    def begin(self, sender: str, key: str, fingerprint: str) -> dict[str, Any]:
+        with self.lock:
+            revision = self.revision
+        return {
+            "snapshot_revision": revision,
+            "sender": sender,
+            "key": key,
+            "fingerprint": fingerprint,
+            "operation_id": self.operation_id(sender, key),
+        }
+
+    def commit(self, transaction: dict[str, Any]) -> tuple[str, str]:
+        identity = (transaction["sender"], transaction["key"])
+        with self.lock:
+            if transaction["snapshot_revision"] != self.revision:
+                return ("chain_head_moved", transaction["operation_id"])
+            current = self.claims.get(identity)
+            if current is not None:
+                if current["fingerprint"] != transaction["fingerprint"]:
+                    return ("conflict", transaction["operation_id"])
+                return ("replay", transaction["operation_id"])
+            self.claims[identity] = {
+                "fingerprint": transaction["fingerprint"],
+                "operation_id": transaction["operation_id"],
+            }
+            self.payment_effects += 1
+            self.outbox_effects += 1
+            self.revision += 1
+            return ("created", transaction["operation_id"])
+
+
+def chain_head_moved_retries_the_original_operation() -> str:
+    """PAY-MYC-004: losing snapshot transaction rolls back, retry resolves the winner."""
+    ledger = SnapshotChainPaymentLedger()
+    sender = "did:mycelix:sender-C"
+    key = "logical-payment-C"
+    fingerprint = "request-fingerprint-C"
+    first_tx = ledger.begin(sender, key, fingerprint)
+    second_tx = ledger.begin(sender, key, fingerprint)
+    check(first_tx["snapshot_revision"] == second_tx["snapshot_revision"],
+          "transactions did not start from the same source-chain snapshot")
+    winner = ledger.commit(first_tx)
+    loser = ledger.commit(second_tx)
+    check(winner[0] == "created", "first transaction did not commit")
+    check(loser[0] == "chain_head_moved", "stale transaction did not roll back on moved chain head")
+    check(len(ledger.claims) == 1 and ledger.payment_effects == 1 and ledger.outbox_effects == 1,
+          "losing transaction partially committed economic state")
+    retry = ledger.commit(ledger.begin(sender, key, fingerprint))
+    check(retry == ("replay", winner[1]), "retry failed to resolve the winning logical operation")
+    check(ledger.revision == 1, "an exact retry incorrectly created a new source-chain revision")
+    check(ledger.payment_effects == 1 and ledger.outbox_effects == 1,
+          "same-key retry duplicated a Payment or outbox effect")
+    return "PAY-MYC-004: chain-head-moved transaction rolls back atomically; same-key retry resolves one winner"
+
+
 def same_key_isolated_by_sender_identity() -> str:
     """PAY-MYC-003: client keys are sender-scoped rather than globally unique."""
     ledger = PaymentClaimLedger()
@@ -352,6 +414,7 @@ def main() -> int:
         treasury_rejects_unanchored_effect,
         concurrent_treasury_credits_respect_u64_bound,
         same_key_isolated_by_sender_identity,
+        chain_head_moved_retries_the_original_operation,
     ]
     passed: list[str] = []
     for scenario in scenarios:
