@@ -4820,6 +4820,28 @@ mod tests {
     }
 
     #[test]
+    fn legacy_claim_projection_defaults_attestation_evidence_history() {
+        let claim_id = ClaimId::new();
+        let genesis = SignedScientificEvent::sign(
+            ScientificEventEnvelope::genesis(
+                actor("did:key:creator"),
+                Utc.timestamp_opt(1_700_000_000, 0).unwrap(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            ).unwrap(),
+            &key(1),
+        ).unwrap();
+        let projection = ClaimProjection::rebuild(&[genesis]).unwrap();
+        let mut legacy_json = serde_json::to_value(&projection).unwrap();
+        legacy_json
+            .as_object_mut()
+            .unwrap()
+            .remove("attestation_evidence_history");
+
+        let restored: ClaimProjection = serde_json::from_value(legacy_json).unwrap();
+        assert!(restored.attestation_evidence_history.is_empty());
+    }
+
+    #[test]
     fn unqualified_prior_evaluation_still_consumes_reviewer_vote_slot() {
         let claim_id = ClaimId::new();
         let t0 = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
