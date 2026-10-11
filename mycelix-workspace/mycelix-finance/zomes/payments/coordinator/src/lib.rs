@@ -222,6 +222,17 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
     let regional_amount = deduction * COMPOST_REGIONAL_PCT / 100;
     let global_amount = deduction - local_amount - regional_amount; // remainder to global
 
+    // Never deduct demurrage unless every non-zero share has an explicit sink.
+    // An absent pool is not silently interpreted as waived/discarded compost.
+    if local_amount > 0 && input.local_commons_pool_id.is_none()
+        || regional_amount > 0 && input.regional_commons_pool_id.is_none()
+        || global_amount > 0 && input.global_commons_pool_id.is_none()
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Demurrage compost destination missing for a non-zero allocation".into()
+        )));
+    }
+
     // Write durable outbox records into this transaction. Treasury effects are
     // delivered only after these balance writes commit, from post_commit/drain.
     let mut fully_redistributed = true;
@@ -2438,6 +2449,14 @@ pub fn apply_hearth_demurrage(input: ApplyHearthDemurrageInput) -> ExternResult<
     let regional_amount = deduction * COMPOST_REGIONAL_PCT / 100;
     let global_amount = deduction - local_amount - regional_amount;
 
+    if local_amount > 0 && input.local_commons_pool_id.is_none()
+        || regional_amount > 0 && input.regional_commons_pool_id.is_none()
+        || global_amount > 0 && input.global_commons_pool_id.is_none()
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Hearth demurrage compost destination missing for a non-zero allocation".into()
+        )));
+    }
     if !input.hearth_did.starts_with("did:") {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Hearth source must be a valid DID".into()
