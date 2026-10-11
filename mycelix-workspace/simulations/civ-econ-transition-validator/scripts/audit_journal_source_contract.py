@@ -97,6 +97,12 @@ check(
     ),
 )
 check(
+    "acknowledged recovery results carry the original-key binding",
+    journal.count("idempotency_key_binding: IdempotencyKeyBinding,") == 2
+    and journal.count("idempotency_key_binding: existing.idempotency_key_binding.clone()") == 2
+    and "already_acknowledged_indeterminate_result_returns_original_key_binding" in journal,
+)
+check(
     "journal writes explicit J4 original-key bindings",
     '"J4\\tB' in journal
     and '"J4\\tI' in journal
@@ -160,6 +166,7 @@ for test_name in (
     "j4_replay_rejects_key_change_between_begin_and_indeterminate",
     "invalid_original_idempotency_key_is_rejected_before_append",
     "group_or_other_writable_parent_directory_is_rejected_before_lock_creation",
+    "already_acknowledged_indeterminate_result_returns_original_key_binding",
 ):
     annotated_test = re.search(r"#\[test\]\s*fn\s+" + re.escape(test_name) + r"\(", journal)
     check(f"regression test is annotated: {test_name}", annotated_test is not None)
