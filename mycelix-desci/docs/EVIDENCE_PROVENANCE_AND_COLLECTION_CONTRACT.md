@@ -1,6 +1,6 @@
 # Evidence Provenance and Collection Contract
 
-**Status:** specification with a first schema-v4 declaration/projection slice drafted in [PR #4953](https://github.com/Luminous-Dynamics/mycelix/pull/4953); not merged or runtime-qualified. Independent evaluator events remain unimplemented.  
+**Status:** specification with a schema-v4 declaration/projection and canonical golden-vector test drafted in [PR #4953](https://github.com/Luminous-Dynamics/mycelix/pull/4953); not merged or runtime-qualified. Independent evaluator events remain unimplemented.  
 **Draft contract version:** `evidence-provenance-contract/0.1.0`  
 **Scope:** evidence identity, data lineage, collection provenance, and qualification boundaries for reproduction/replication claims
 
@@ -90,9 +90,9 @@ For any evidence that may increase a claim's replication maturity:
 
 Do not add fields to existing schema-v2/v3 signed payloads in place. Their canonical bytes and historical signatures must remain verifiable.
 
-Draft PR #4953 now contains the first step of this plan: a schema-v4 provenance declaration event using additive canonical payload tag 9, deterministic parent/hash checks, cycle rejection, and actor-attributed projection records. That draft has not been merged or runtime-qualified. The remaining implementation/review work includes:
+Draft PR #4953 now contains the first step of this plan: a schema-v4 provenance declaration event using additive canonical payload tag 9, deterministic parent/hash checks, cycle rejection, actor-attributed projection records, and a fixed-ID/fixed-hash canonical signing-byte golden-vector test. That draft has not been merged or runtime-qualified. The remaining implementation/review work includes:
 
-1. Add/verify golden byte vectors for the new schema-v4 payload and prove old payload tags and schema-v2/v3 signatures remain verifiable.
+1. Run the new schema-v4 golden-vector test and prove old payload tags and schema-v2/v3 signatures remain verifiable; expand vectors for optional fields/parents where needed.
 2. Validate that the artifact ID and content hash exactly match the artifact in the same stream; validate every parent artifact reference and reject self/cyclic lineage.
 3. Preserve event actor/organization and authority receipt when projecting the declaration. Conflicting active declarations must not use last-writer-wins semantics.
 4. Add a correction/supersession mechanism that appends history and preserves prior declarations and earlier assessment decisions.
@@ -124,7 +124,7 @@ The initial machine-readable synthetic cases are in [fixtures/evidence-provenanc
 
 **Gate A — contract fixtures.** Define canonical JSON/examples plus expected projection commitments for each fixture above. Keep private test records synthetic and non-sensitive.
 
-**Gate B — codec compatibility.** Keep old schema golden vectors byte-identical; add schema-v4 golden vectors and prove old events still replay. An unknown required event type must not be silently dropped by any verifier.
+**Gate B — codec compatibility.** Run the new schema-v4 golden vector; keep old schema-v2/v3 golden vectors byte-identical and prove old events still replay. Add coverage for optional fields and parent-list encoding. An unknown required event type must not be silently dropped by any verifier.
 
 **Gate C — lineage validation.** Verify exact content-hash binding, parent resolution, no self-reference/cycles, deterministic conflict handling, event ordering, correction history, and replay equivalence.
 
