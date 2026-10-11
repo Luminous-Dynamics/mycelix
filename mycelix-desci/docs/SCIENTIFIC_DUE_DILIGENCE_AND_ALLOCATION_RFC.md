@@ -211,6 +211,7 @@ For frozen inputs, independently replay the same events and require byte-identic
 At minimum prove:
 1. invalid signatures, stale policy, missing authority receipt, or invalid actor-role binding cannot yield an authorized decision;
 2. duplicate reports from one provenance family do not increase independent-confirmation counts;
+2a. two distinct reviewer actor IDs backed by the same event-signing public key do not satisfy provenance-evaluation quorum;
 3. missing/contradictory sources yield indeterminate or explicit dispute, not silent PASS;
 4. a correction/retraction creates a new projection and preserves old decision history;
 5. changed project versions invalidate assessments bound to the prior version where required;
