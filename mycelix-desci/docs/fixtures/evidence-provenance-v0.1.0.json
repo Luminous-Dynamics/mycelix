@@ -572,7 +572,8 @@
           "authorization_policy_id": "mycelix-default-scientific-authorization",
           "authorization_policy_version": "1.2.0",
           "authority_receipt_status": "committed",
-          "reason": "Synthetic reviewer A verified the collection manifest and lineage"
+          "reason": "Synthetic reviewer A verified the collection manifest and lineage",
+          "evaluator_signer_key_id": "synthetic-ed25519-key-actor-independent-evaluator-a"
         },
         {
           "provenance_record_id": "prov-epc-013",
@@ -587,7 +588,8 @@
           "authorization_policy_id": "mycelix-default-scientific-authorization",
           "authorization_policy_version": "1.2.0",
           "authority_receipt_status": "committed",
-          "reason": "Synthetic reviewer B independently verified the collection manifest and lineage"
+          "reason": "Synthetic reviewer B independently verified the collection manifest and lineage",
+          "evaluator_signer_key_id": "synthetic-ed25519-key-actor-independent-evaluator-b"
         }
       ]
     }
