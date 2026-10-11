@@ -103,7 +103,7 @@ def _rust_lexeme_end(source: str, index: int) -> int:
 
 def rust_function_body(source: str, name: str) -> str:
     """Extract a Rust function body without matching function-shaped lexemes."""
-    marker = re.compile(r"\\bfn\\s+" + re.escape(name) + r"\\s*\\(")
+    marker = re.compile(r"\bfn\s+" + re.escape(name) + r"\s*\(")
     start_match = None
     index = 0
     while index < len(source):
