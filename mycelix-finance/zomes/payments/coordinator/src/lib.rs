@@ -3006,8 +3006,8 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
 /// `send_payment` or `apply_demurrage` could credit Treasury before the local
 /// debit/outbox has committed. The durable queue is the recovery source of truth;
 /// failures are logged and left queued for a later drain attempt.
-#[hdk_extern]
-pub fn post_commit(_actions: Vec<SignedActionHashed>) -> ExternResult<()> {
+#[hdk_extern(infallible)]
+pub fn post_commit(_actions: Vec<SignedActionHashed>) {
     match call(
         CallTargetCell::Local,
         ZomeName::from("payments"),
@@ -3019,7 +3019,6 @@ pub fn post_commit(_actions: Vec<SignedActionHashed>) -> ExternResult<()> {
         Ok(other) => debug!("post_commit compost drain returned unexpected response: {:?}", other),
         Err(e) => debug!("post_commit compost drain failed; durable outbox retained: {:?}", e),
     }
-    Ok(())
 }
 
 #[cfg(test)]
