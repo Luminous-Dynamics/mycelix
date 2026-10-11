@@ -192,6 +192,24 @@ check(
         )
     ),
 )
+check(
+    "workflow binds report type and run ID to the current invocation",
+    'assert report.get("audit") == "journal-source-contract-v1"' in workflow
+    and 'assert report.get("github_run_id") == expected_run_id' in workflow,
+)
+check(
+    "workflow requires valid SHA-256 fingerprints for every core implementation file",
+    all(
+        marker in workflow
+        for marker in (
+            're.fullmatch(r"[0-9a-f]{64}", digest)',
+            'assert required_paths <= fingerprints.keys()',
+            '"mycelix-workspace/simulations/civ-econ-transition-validator/src/lib.rs"',
+            '"mycelix-workspace/simulations/civ-econ-transition-validator/src/external_effect_policy.rs"',
+            '"mycelix-workspace/simulations/civ-econ-transition-validator/tests/crash_recovery.rs"',
+        )
+    ),
+)
 check("workflow captures replay smoke output in a durable log", 'report="$RUNNER_TEMP/journal-replay-smoke.log"' in workflow and '2>&1 | tee -a "$report"' in workflow)
 check("smoke records the qualification subject and run ID", 'echo "qualified_sha=$QUALIFIED_SHA" | tee -a "$report"' in workflow and 'echo "github_run_id=${GITHUB_RUN_ID:-unknown}" | tee -a "$report"' in workflow)
 check(
@@ -216,6 +234,17 @@ files = (
     DESIGN_PATH,
     WORKFLOW_PATH,
     SCRIPT_PATH,
+)
+check(
+    "report hashes include transition, recovery policy, and crash integration source",
+    all(
+        name in content
+        for name in (
+            "TRANSITION_PATH,",
+            "RECOVERY_POLICY_PATH,",
+            "CRASH_TEST_PATH,",
+        )
+    ),
 )
 try:
     commit = subprocess.run(
