@@ -176,7 +176,7 @@ class EconomyAtlasRegistryTests(unittest.TestCase):
         for model in self.registry["models"]:
             for ref in model.get("research_refs", []):
                 self.assertTrue(ref["url"].startswith("https://"), ref)
-                for field in ("title", "publisher", "reference_type"):
+                for field in ("title", "publisher", "reference_type", "retrieved_on"):
                     self.assertTrue(ref[field].strip(), (model["model_id"], field))
         self.assertEqual(validate_registry(self.registry), [])
 
@@ -199,6 +199,15 @@ class EconomyAtlasRegistryTests(unittest.TestCase):
         self.assertTrue(regenerative_ids.difference(
             model["model_id"] for model in self.registry["models"]
         ))
+
+    def test_external_research_reference_requires_real_retrieval_date(self) -> None:
+        model = next(
+            item for item in self.registry["models"]
+            if item["model_id"] == "regenerative.economics.energy-network-science.v1"
+        )
+        model["research_refs"][0]["retrieved_on"] = "2026-02-31"
+        errors = validate_registry(self.registry)
+        self.assertTrue(any("real ISO-8601 calendar date" in error for error in errors), errors)
 
     def test_external_framework_without_research_reference_fails(self) -> None:
         model = next(
