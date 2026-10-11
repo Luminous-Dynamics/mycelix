@@ -53,7 +53,8 @@
     "A Treasury effect ID is deduplication metadata, not authority: an exact committed Payments outbox record and matching Payment intent are required before a credit.",
     "If a Treasury receipt commits before the Payment status update, recovery queries the exact destination-scoped receipt before applying any balance change.",
     "Concurrent effects targeting one Treasury destination require serialized receipt identity and checked balance constraints; every effect is applied at most once.",
-    "Idempotency keys are sender-scoped: the same client key from different authenticated senders must not collide or resolve another sender's Payment."
+    "Idempotency keys are sender-scoped: the same client key from different authenticated senders must not collide or resolve another sender's Payment.",
+    "When concurrent Holochain source-chain calls race, a chain-head-moved loser must roll back atomically and resolve the winner on retry with the same idempotency key."
   ],
   "source_refs": [
     {
@@ -117,6 +118,12 @@
       "url": "https://docs.adyen.com/development-resources/api-idempotency",
       "observed_on": "2026-10-11",
       "relevance": "Adyen documents company-account scope, a 7–14 day key-retention window, and regional endpoint isolation for duplicate detection; exact behavior must be bound to the selected product contract."
+    },
+    {
+      "id": "HOLOCHAIN_ATOMIC_CALLS",
+      "url": "https://developer.holochain.org/build/zome-functions/",
+      "observed_on": "2026-10-11",
+      "relevance": "Official Holochain documentation states that zome-call writes are atomic, and a concurrent source-chain commit can roll back a stale call with a chain-head-moved error; callers must retry or resolve the same logical operation."
     }
   ],
   "cases": [
@@ -764,6 +771,39 @@
       "forbidden_claims": [
         "same_key_is_globally_unique_across_senders",
         "one_senders_retry_may_resolve_another_senders_payment"
+      ]
+    },
+    {
+      "id": "PAY-MYC-004",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "Two same-agent zome calls begin from one source-chain snapshot; one commits the payment claim, while the other loses the source-chain-head race and is rolled back with a chain-head-moved error.",
+      "event_sequence": [
+        "two_zome_calls_read_same_snapshot",
+        "first_payment_transaction_commits_atomically",
+        "second_transaction_returns_chain_head_moved",
+        "losing_transaction_scratch_is_discarded",
+        "losing_caller_retries_same_sender_key_and_fingerprint",
+        "winning_claim_and_payment_are_resolved"
+      ],
+      "expected_disposition": "ChainHeadMovedRetryResolvesOriginal",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "The losing transaction contributes no claim, Payment, rate-limit mutation, or outbox record; retrying with the original sender-scoped key returns the winning operation and preserves exactly one value-moving effect.",
+      "required_evidence": [
+        "initial_source_chain_revision",
+        "winning_commit_action_hash",
+        "chain_head_moved_error",
+        "losing_transaction_rollback_evidence",
+        "original_operation_id",
+        "winning_claim_hash",
+        "payment_id",
+        "outbox_effect_id",
+        "retry_request_fingerprint",
+        "value_effect_count"
+      ],
+      "forbidden_claims": [
+        "chain_head_moved_means_the_original_payment_did_not_commit",
+        "losing_transaction_may_partially_commit",
+        "retry_may_use_a_fresh_idempotency_key"
       ]
     }
   ]
