@@ -125,7 +125,7 @@ def mask_rust_source(source: str, *, keep_string_literals: bool) -> str:
                 char_end = i + 3
             elif i + 1 < length and source[i + 1] == "\\":
                 closing = source.find("'", i + 2, min(length, i + 20))
-                if closing >= 0 and "\\n" not in source[i:closing] and "\\r" not in source[i:closing]:
+                if closing >= 0 and "\n" not in source[i:closing] and "\r" not in source[i:closing]:
                     char_end = closing + 1
             if char_end > i:
                 if not keep_string_literals:
