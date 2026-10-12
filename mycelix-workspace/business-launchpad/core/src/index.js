@@ -620,7 +620,7 @@ function normalizeCashTimingSchedule(value) {
       ) };
     }
     const label = typeof category.label === 'string' ? category.label.trim() : '';
-    if (!label || label.length > 80 || /[\u0000-\u001f\u007f]/.test(label) || labels.has(label.toLocaleLowerCase())) {
+    if (!label || label.length > 80 || /[\u0000-\u001f\u007f]/.test(label) || labels.has(label.toLowerCase())) {
       return { error: fail(
         'invalid_cash_timing_schedule',
         'Each variable-cost category needs a unique, non-empty label of at most 80 characters.',
@@ -736,18 +736,26 @@ export function projectCashRunwayWithTimingSchedule(input) {
   let deferredSalesReceipts = 0n;
   let deferredSupplierPayments = 0n;
   const deferredByCategory = categories.map(() => 0n);
-  let unitCostByCategory;
+  const totalCostByCategory = categories.map(() => 0n);
 
   try {
-    unitCostByCategory = distributeMinorUnits(
-      input.model.variableCostPerUnitMinor,
-      categories.map(category => category.costSharePercent)
-    );
     for (let cohort = 0; cohort < horizon; cohort += 1) {
       const activity = base.report.periods[cohort].salesUnitsScenario;
       const grossSales = BigInt(input.model.sellingPricePerUnitMinor) * BigInt(activity);
-      if (grossSales > MAX_SAFE) {
-        return fail('calculation_overflow', 'Sales exceed the supported exact integer range.', 'monthlyPlan[' + cohort + ']');
+      const totalVariableCost = BigInt(input.model.variableCostPerUnitMinor) * BigInt(activity);
+      if (grossSales > MAX_SAFE || totalVariableCost > MAX_SAFE) {
+        return fail('calculation_overflow', 'Sales or variable supplier costs exceed the supported exact integer range.', 'monthlyPlan[' + cohort + ']');
+      }
+      const categoryCohortCosts = distributeMinorUnits(
+        Number(totalVariableCost),
+        categories.map(category => category.costSharePercent)
+      );
+      for (let categoryIndex = 0; categoryIndex < categoryCohortCosts.length; categoryIndex += 1) {
+        const categoryTotal = totalCostByCategory[categoryIndex] + BigInt(categoryCohortCosts[categoryIndex]);
+        if (categoryTotal > MAX_SAFE) {
+          return fail('calculation_overflow', 'A variable-cost category total exceeds the supported exact integer range.', 'timingSchedule.variableCostCategories[' + categoryIndex + ']');
+        }
+        totalCostByCategory[categoryIndex] = categoryTotal;
       }
       const receipts = distributeMinorUnits(Number(grossSales), schedule.salesReceiptsPercent);
       for (let offset = 0; offset < 3; offset += 1) {
@@ -766,10 +774,6 @@ export function projectCashRunwayWithTimingSchedule(input) {
       if (aggregatePaymentTiming) {
         // Legacy/equal curves are allocated once at aggregate level so rounding
         // is byte-for-byte equivalent to the former single-cohort schedule.
-        const totalVariableCost = BigInt(input.model.variableCostPerUnitMinor) * BigInt(activity);
-        if (totalVariableCost > MAX_SAFE) {
-          return fail('calculation_overflow', 'Variable supplier costs exceed the supported exact integer range.', 'monthlyPlan[' + cohort + ']');
-        }
         const supplierPayments = distributeMinorUnits(Number(totalVariableCost), categories[0].paymentPercentages);
         for (let offset = 0; offset < 3; offset += 1) {
           const paymentMonth = cohort + offset;
@@ -791,11 +795,8 @@ export function projectCashRunwayWithTimingSchedule(input) {
       } else {
         for (let categoryIndex = 0; categoryIndex < categories.length; categoryIndex += 1) {
           const category = categories[categoryIndex];
-          const categoryCohortCost = BigInt(unitCostByCategory[categoryIndex]) * BigInt(activity);
-          if (categoryCohortCost > MAX_SAFE) {
-            return fail('calculation_overflow', 'A variable-cost category exceeds the supported exact integer range.', 'monthlyPlan[' + cohort + '].salesUnits');
-          }
-          const supplierPayments = distributeMinorUnits(Number(categoryCohortCost), category.paymentPercentages);
+          const categoryCohortCost = categoryCohortCosts[categoryIndex];
+          const supplierPayments = distributeMinorUnits(categoryCohortCost, category.paymentPercentages);
           for (let offset = 0; offset < 3; offset += 1) {
             const paymentMonth = cohort + offset;
             if (paymentMonth >= horizon) {
@@ -836,13 +837,13 @@ export function projectCashRunwayWithTimingSchedule(input) {
       timingSchedule: schedule,
       variableCostCategoryBreakdown: categories.map((category, index) => ({
         ...category,
-        variableCostPerUnitMinor: unitCostByCategory[index],
+        variableCostTotalMinor: Number(totalCostByCategory[index]),
         deferredPaymentsAfterHorizonMinor: Number(deferredByCategory[index])
       })),
       basis: 'Alternative terms-based scenario derived from sales-unit activity; it does not replace the owner-entered base plan. Variable cost per sale is allocated among three explicitly named categories; each category has its own payment timing. Fixed monthly costs remain due in their originating month.',
       assumptions: [
         'Sales cash receipts are derived from units multiplied by the entered selling price, then allocated to the sale month, next month and following month.',
-        'Variable cost per sale is split into three cost categories by owner-entered whole-percent shares; shares must total exactly 100%. Category cash payments are then allocated independently to the originating month, next month and following month.',
+        'Each sales cohort variable-cost total is split across three categories using owner-entered whole-percent shares; shares must total exactly 100%, and category costs reconcile to the entered per-sale variable cost multiplied by units. Category cash payments are then allocated independently to the originating month, next month and following month.',
         'Fixed monthly costs remain paid in their originating month; setup costs remain paid before Month 1.',
         'Other/unclassified, investing and financing movements are copied from the supplied plan without reclassification.',
         'This schedule does not model opening accounts receivable/payable, taxes, inventory purchases that precede sales, deposit/refund behavior, bad debt, invoice-level terms or day-level due dates. Category labels and distributions are user assumptions, not itemized supplier balances or a ledger.',

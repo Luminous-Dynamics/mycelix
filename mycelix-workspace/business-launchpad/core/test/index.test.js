@@ -539,10 +539,52 @@ test('terms-based schedule allocates customer receipts and supplier payments by 
   assert.deepEqual(result.report.monthlyPlan.map(period => period.operatingCashOutflowsMinor), [36_700, 93_100, 153_100]);
   assert.equal(result.report.deferredSalesCashReceiptsAfterHorizonMinor, 190_000);
   assert.equal(result.report.deferredVariableSupplierPaymentsAfterHorizonMinor, 77_400);
-  assert.deepEqual(result.report.variableCostCategoryBreakdown.map(category => category.variableCostPerUnitMinor), [3_600, 1_500, 900]);
+  assert.deepEqual(result.report.variableCostCategoryBreakdown.map(category => category.variableCostTotalMinor), [216_000, 90_000, 54_000]);
   assert.deepEqual(result.report.variableCostCategoryBreakdown.map(category => category.deferredPaymentsAfterHorizonMinor), [50_400, 0, 27_000]);
   assert.deepEqual(result.report.projection.periods.map(period => period.closingCashMinor), [513_300, 550_200, 627_100]);
   assert.deepEqual(monthlyPlan.map(period => period.salesCashReceiptsMinor), [0, 0, 0], 'terms case must not overwrite the entered plan');
+});
+
+
+test('small minor-unit costs are apportioned by sales cohort without losing or inventing category cost', () => {
+  const model = completeModel({
+    sellingPricePerUnitMinor: 1,
+    variableCostPerUnitMinor: 1,
+    fixedMonthlyCostsMinor: 0,
+    setupCostsMinor: 0,
+    availableCashForStartupMinor: 100,
+    initialWorkingCapitalBufferMinor: 0
+  });
+  const monthlyPlan = [{
+    salesUnits: 3,
+    salesCashReceiptsMinor: 0,
+    operatingCashOutflowsMinor: 0,
+    otherCashInflowsMinor: 0,
+    otherCashOutflowsMinor: 0,
+    investingCashInflowsMinor: 0,
+    investingCashOutflowsMinor: 0,
+    financingCashInflowsMinor: 0,
+    financingCashOutflowsMinor: 0
+  }];
+  const timingSchedule = {
+    salesReceiptsPercent: [100, 0, 0],
+    variableCostCategories: [
+      { id: 'category-1', label: 'Materials', costSharePercent: 60, paymentPercentages: [0, 100, 0] },
+      { id: 'category-2', label: 'Labor', costSharePercent: 25, paymentPercentages: [100, 0, 0] },
+      { id: 'category-3', label: 'Fulfillment', costSharePercent: 15, paymentPercentages: [100, 0, 0] }
+    ]
+  };
+  const result = projectCashRunwayWithTimingSchedule({ model, monthlyPlan, timingSchedule });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.report.variableCostCategoryBreakdown.map(category => category.variableCostTotalMinor), [2, 1, 0]);
+  assert.deepEqual(result.report.monthlyPlan.map(period => period.operatingCashOutflowsMinor), [1]);
+  assert.equal(result.report.deferredVariableSupplierPaymentsAfterHorizonMinor, 2);
+  assert.deepEqual(result.report.variableCostCategoryBreakdown.map(category => category.deferredPaymentsAfterHorizonMinor), [2, 0, 0]);
+  assert.equal(
+    result.report.variableCostCategoryBreakdown.reduce((sum, category) => sum + category.variableCostTotalMinor, 0),
+    3,
+    'category totals must conserve the full one-minor-unit-per-sale cost'
+  );
 });
 
 test('timing schedules require exact 100 percent allocations and terms-based comparison is explicit', () => {
