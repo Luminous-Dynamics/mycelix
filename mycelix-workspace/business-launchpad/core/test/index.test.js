@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import assert from 'node:assert/strict';
 import { analyzeBusinessModel, formatMinorUnits } from '../src/index.js';
 
@@ -141,4 +144,34 @@ test('declares limitations so the worksheet cannot be mistaken for net profit or
   assert.equal(result.ok, true);
   assert.ok(result.report.scopeLimitations.some(item => item.includes('not a full accounting ledger')));
   assert.ok(result.report.scopeLimitations.some(item => item.includes('jurisdictional rules')));
+});
+
+test('service, food, and retail fixture scenarios produce their frozen arithmetic results', async (t) => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const fixturePath = resolve(here, 'fixtures/business-scenarios.v1.json');
+  const fixtures = JSON.parse(await readFile(fixturePath, 'utf8'));
+  assert.equal(fixtures.schemaVersion, 1);
+  assert.equal(fixtures.currency.code, 'ZAR');
+  assert.equal(fixtures.scenarios.length, 3);
+
+  for (const scenario of fixtures.scenarios) {
+    await t.test(scenario.id, () => {
+      const result = analyzeBusinessModel({
+        currency: fixtures.currency,
+        ...scenario.input
+      });
+      assert.equal(result.ok, true, scenario.id);
+      assert.equal(result.report.costCoverage.level, 'partial');
+      assert.deepEqual(result.report.costCoverage.omittedCategories, scenario.input.costCoverage.omittedCategories);
+      assert.equal(result.report.unitEconomics.contributionPerUnitMinor, scenario.expected.contributionPerUnitMinor);
+      assert.equal(result.report.monthlyScenario.revenueMinor, scenario.expected.revenueMinor);
+      assert.equal(result.report.monthlyScenario.variableCostsMinor, scenario.expected.variableCostsMinor);
+      assert.equal(result.report.monthlyScenario.contributionMinor, scenario.expected.contributionMinor);
+      assert.equal(result.report.monthlyScenario.fixedCostsMinor, scenario.expected.fixedCostsMinor);
+      assert.equal(result.report.monthlyScenario.operatingResultBeforeExcludedItemsMinor, scenario.expected.operatingResultBeforeExcludedItemsMinor);
+      assert.equal(result.report.breakEven.unitsPerMonth, scenario.expected.breakEvenUnitsPerMonth);
+      assert.equal(result.report.startup.requiredCashMinor, scenario.expected.requiredCashMinor);
+      assert.equal(result.report.startup.fundingGapMinor, scenario.expected.fundingGapMinor);
+    });
+  }
 });
