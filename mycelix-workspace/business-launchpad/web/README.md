@@ -4,11 +4,12 @@ This is a small static front end for the deterministic viability worksheet. It i
 
 ## Run locally
 
-From this directory, start a loopback-only static server:
+From the Mycelix repository root:
 
+    cd mycelix-workspace/business-launchpad
     python3 -m http.server 8080 --bind 127.0.0.1
 
-Then open http://127.0.0.1:8080/web/ in your browser.
+Then open http://127.0.0.1:8080/web/ in your browser. Bind to loopback so the development server is not exposed to the local network.
 
 No package install is required. The page imports the dependency-free calculator in `../core/src/index.js`. Calculations run in browser memory; the application does not upload inputs or use browser storage. Use **Download assumptions JSON** to save a portable versioned input file, **Load assumptions JSON** to restore one, and **Download calculated report JSON** after calculating to save the report alongside its inputs. These are explicit local file operations, not cloud backup. If you change any input, the prior report is invalidated until you calculate again. The static assets are still fetched from the local web server.
 
