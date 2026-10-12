@@ -426,6 +426,229 @@ export function projectCashRunway(input) {
 }
 
 /**
+ * Illustrative, owner-editable stress assumptions. These are not industry
+ * benchmarks, probabilities, or a forecast.
+ */
+export const DEFAULT_CASH_SCENARIO_ASSUMPTIONS = Object.freeze({
+  downside: Object.freeze({
+    salesReceiptReductionPercent: 20,
+    salesReceiptDelayMonths: 1,
+    operatingCashOutflowIncreasePercent: 15
+  }),
+  upside: Object.freeze({
+    salesReceiptIncreasePercent: 10,
+    salesReceiptAdvanceMonths: 1,
+    operatingCashOutflowReductionPercent: 5
+  })
+});
+
+function isIntegerInRange(value, min, max) {
+  return Number.isSafeInteger(value) && value >= min && value <= max;
+}
+
+function normalizeCashScenarioAssumptions(value) {
+  const source = value === undefined ? DEFAULT_CASH_SCENARIO_ASSUMPTIONS : value;
+  if (!isRecord(source) || !isRecord(source.downside) || !isRecord(source.upside)) {
+    return { error: fail('invalid_cash_scenario_assumptions', 'Downside and upside cash-stress assumptions are required.', 'cashScenarioAssumptions') };
+  }
+  const fields = [
+    ['downside', 'salesReceiptReductionPercent', 0, 100],
+    ['downside', 'salesReceiptDelayMonths', 0, 24],
+    ['downside', 'operatingCashOutflowIncreasePercent', 0, 500],
+    ['upside', 'salesReceiptIncreasePercent', 0, 500],
+    ['upside', 'salesReceiptAdvanceMonths', 0, 24],
+    ['upside', 'operatingCashOutflowReductionPercent', 0, 100]
+  ];
+  const normalized = { downside: {}, upside: {} };
+  for (const [group, field, min, max] of fields) {
+    const amount = source[group][field];
+    if (!isIntegerInRange(amount, min, max)) {
+      return { error: fail(
+        'invalid_cash_scenario_assumptions',
+        group + '.' + field + ' must be an integer from ' + min + ' through ' + max + '.',
+        'cashScenarioAssumptions.' + group + '.' + field
+      ) };
+    }
+    normalized[group][field] = amount;
+  }
+  return { assumptions: normalized };
+}
+
+function scaleCashAmount(amount, factorPercent, roundUp, field) {
+  const numerator = BigInt(amount) * BigInt(factorPercent);
+  const scaled = roundUp ? (numerator + 99n) / 100n : numerator / 100n;
+  if (scaled > MAX_SAFE) {
+    const error = new RangeError('Calculated ' + field + ' exceeds the supported exact integer range.');
+    error.code = 'calculation_overflow';
+    error.field = field;
+    throw error;
+  }
+  return Number(scaled);
+}
+
+function transformCashPlanForStress(basePeriods, config, mode) {
+  const plans = basePeriods.map(period => ({
+    salesUnits: period.salesUnitsScenario,
+    salesCashReceiptsMinor: 0,
+    operatingCashOutflowsMinor: period.operatingCashOutflowsMinor,
+    otherCashInflowsMinor: period.otherCashInflowsMinor,
+    otherCashOutflowsMinor: period.otherCashOutflowsMinor,
+    investingCashInflowsMinor: period.investingCashInflowsMinor,
+    investingCashOutflowsMinor: period.investingCashOutflowsMinor,
+    financingCashInflowsMinor: period.financingCashInflowsMinor,
+    financingCashOutflowsMinor: period.financingCashOutflowsMinor
+  }));
+  let deferredSalesCashReceipts = 0n;
+
+  for (let index = 0; index < basePeriods.length; index += 1) {
+    const period = basePeriods[index];
+    const isDownside = mode === 'downside';
+    const receiptFactor = isDownside
+      ? 100 - config.salesReceiptReductionPercent
+      : 100 + config.salesReceiptIncreasePercent;
+    const receipts = scaleCashAmount(
+      period.salesCashReceiptsMinor,
+      receiptFactor,
+      !isDownside,
+      mode + '.month' + (index + 1) + '.salesCashReceiptsMinor'
+    );
+    const targetIndex = isDownside
+      ? index + config.salesReceiptDelayMonths
+      : Math.max(0, index - config.salesReceiptAdvanceMonths);
+    if (targetIndex >= plans.length) {
+      deferredSalesCashReceipts += BigInt(receipts);
+    } else {
+      const combined = BigInt(plans[targetIndex].salesCashReceiptsMinor) + BigInt(receipts);
+      if (combined > MAX_SAFE) {
+        const error = new RangeError('Combined stressed receipts exceed the supported exact integer range.');
+        error.code = 'calculation_overflow';
+        error.field = mode + '.month' + (targetIndex + 1) + '.salesCashReceiptsMinor';
+        throw error;
+      }
+      plans[targetIndex].salesCashReceiptsMinor = Number(combined);
+    }
+
+    const outflowFactor = isDownside
+      ? 100 + config.operatingCashOutflowIncreasePercent
+      : 100 - config.operatingCashOutflowReductionPercent;
+    plans[index].operatingCashOutflowsMinor = scaleCashAmount(
+      period.operatingCashOutflowsMinor,
+      outflowFactor,
+      isDownside,
+      mode + '.month' + (index + 1) + '.operatingCashOutflowsMinor'
+    );
+  }
+
+  if (deferredSalesCashReceipts > MAX_SAFE) {
+    const error = new RangeError('Deferred stressed receipts exceed the supported exact integer range.');
+    error.code = 'calculation_overflow';
+    error.field = mode + '.deferredSalesCashReceiptsAfterHorizonMinor';
+    throw error;
+  }
+  return {
+    monthlyPlan: plans,
+    deferredSalesCashReceiptsAfterHorizonMinor: Number(deferredSalesCashReceipts)
+  };
+}
+
+/**
+ * Compare the owner-entered cash plan with explicit downside and upside stress
+ * cases. This changes only sales receipts and operating cash payments according
+ * to the accompanying visible assumptions. It does not alter sales activity,
+ * other cash, investing flows, or financing flows.
+ *
+ * The downside case reduces expected sales receipts then delays them; receipts
+ * shifted outside the selected horizon are reported instead of silently erased.
+ * The upside case increases expected receipts and advances later-period receipts
+ * toward earlier periods, leaving Month 1 in Month 1 because there is no
+ * pre-horizon cash period in this contract.
+ *
+ * @param {{model:object,monthlyPlan:Array,assumptions?:object}} input
+ * @returns {{ok:true,report:object}|{ok:false,error:object}}
+ */
+export function compareCashRunwayScenarios(input) {
+  if (!isRecord(input)) {
+    return fail('invalid_cash_scenario_input', 'A cash scenario comparison input object is required.');
+  }
+  const base = projectCashRunway({ model: input.model, monthlyPlan: input.monthlyPlan });
+  if (!base.ok) return base;
+  const normalized = normalizeCashScenarioAssumptions(input.assumptions);
+  if (normalized.error) return normalized.error;
+
+  try {
+    const down = transformCashPlanForStress(base.report.periods, normalized.assumptions.downside, 'downside');
+    const up = transformCashPlanForStress(base.report.periods, normalized.assumptions.upside, 'upside');
+    const downsideReport = projectCashRunway({ model: input.model, monthlyPlan: down.monthlyPlan });
+    if (!downsideReport.ok) return downsideReport;
+    const upsideReport = projectCashRunway({ model: input.model, monthlyPlan: up.monthlyPlan });
+    if (!upsideReport.ok) return upsideReport;
+
+    const scenarios = [
+      {
+        id: 'downside',
+        label: 'Downside stress',
+        assumptions: { ...normalized.assumptions.downside },
+        deferredSalesCashReceiptsAfterHorizonMinor: down.deferredSalesCashReceiptsAfterHorizonMinor,
+        report: downsideReport.report
+      },
+      {
+        id: 'base',
+        label: 'Base — entered plan',
+        assumptions: null,
+        deferredSalesCashReceiptsAfterHorizonMinor: 0,
+        report: base.report
+      },
+      {
+        id: 'upside',
+        label: 'Upside stress',
+        assumptions: { ...normalized.assumptions.upside },
+        deferredSalesCashReceiptsAfterHorizonMinor: 0,
+        report: upsideReport.report
+      }
+    ];
+    return {
+      ok: true,
+      report: {
+        schemaVersion: 1,
+        kind: 'business-launchpad-cash-scenario-comparison',
+        currency: { ...base.report.currency },
+        horizonMonths: base.report.horizonMonths,
+        basis: 'Owner-authored base plan plus deterministic downside/upside stress transformations; no scenario is a prediction, probability or industry benchmark.',
+        assumptions: normalized.assumptions,
+        scenarios: scenarios.map(scenario => ({
+          id: scenario.id,
+          label: scenario.label,
+          assumptions: scenario.assumptions,
+          deferredSalesCashReceiptsAfterHorizonMinor: scenario.deferredSalesCashReceiptsAfterHorizonMinor,
+          summary: {
+            endingCashMinor: scenario.report.summary.endingCashMinor,
+            minimumProjectedCashMinor: scenario.report.summary.minimumProjectedCashMinor,
+            minimumCashPeriod: scenario.report.summary.minimumCashPeriod,
+            firstNegativeCashPeriod: scenario.report.summary.firstNegativeCashPeriod,
+            firstBelowReservePeriod: scenario.report.summary.firstBelowReservePeriod,
+            additionalCashNeededToMaintainReserveMinor: scenario.report.summary.additionalCashNeededToMaintainReserveMinor
+          },
+          report: scenario.report
+        })),
+        limitations: [
+          'The base case is the owner-entered monthly cash plan; the stress cases apply only the displayed receipt and operating-outflow assumptions.',
+          'Scenario parameters are illustrative until an owner replaces them with documented business-specific assumptions. They are not measured likelihoods, benchmarks or forecasts.',
+          'The downside reduces sales receipts before delaying them. Receipts delayed beyond the horizon are reported separately and do not appear as cash collected within the horizon.',
+          'The upside case advances receipts from later months toward earlier months, but leaves Month 1 receipts in Month 1 because this comparison has no pre-horizon period.',
+          'Stress transformations change sales cash receipts and operating cash outflows only; sales activity, unclassified amounts, investing movements, financing movements and setup cash remain as entered.',
+          'No scenario establishes solvency, profitability, financing eligibility, demand, tax treatment or accounting compliance.'
+        ]
+      }
+    };
+  } catch (error) {
+    if (error instanceof RangeError && error.code === 'calculation_overflow') {
+      return fail(error.code, error.message, error.field ?? null);
+    }
+    return fail('calculation_error', 'The cash scenarios could not be compared safely. No comparison report has been produced.');
+  }
+}
+
+/**
  * Format a signed minor-unit amount deterministically (not locale-specific).
  * The UI may localize display separately.
  *
