@@ -101,7 +101,8 @@ try {
 
   await page.goto(origin + '/web/index.html', { waitUntil: 'networkidle' });
   assert.equal(await page.title(), 'Business Launchpad — Viability Worksheet');
-  completedChecks.push('served static application and loaded shared calculator module');
+  await page.getByText(/Count one priced sale consistently/).waitFor();
+  completedChecks.push('served the worksheet and made the sale-unit definition explicit');
 
   // Keyboard-only validation and calculation: no mouse or locator click is
   // used in this part of the journey.
