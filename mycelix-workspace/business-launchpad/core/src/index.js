@@ -234,11 +234,19 @@ export function projectCashRunway(input) {
     const calculatedReceipts = BigInt(model.sellingPricePerUnitMinor) * periodSales;
     const calculatedOperatingOutflows =
       BigInt(model.variableCostPerUnitMinor) * periodSales + BigInt(model.fixedMonthlyCostsMinor);
+    // Compatibility defaults are calculated as BigInt, range-checked, then
+    // converted to Number before safe-integer validation and report serialization.
+    if (
+      (period.salesCashReceiptsMinor === undefined && calculatedReceipts > MAX_SAFE) ||
+      (period.operatingCashOutflowsMinor === undefined && calculatedOperatingOutflows > MAX_SAFE)
+    ) {
+      return fail('calculation_overflow', 'A default monthly cash amount exceeds the supported exact integer range.', 'monthlyPlan[' + index + ']');
+    }
     const salesCashReceiptsMinor = period.salesCashReceiptsMinor === undefined
-      ? calculatedReceipts
+      ? Number(calculatedReceipts)
       : period.salesCashReceiptsMinor;
     const operatingCashOutflowsMinor = period.operatingCashOutflowsMinor === undefined
-      ? calculatedOperatingOutflows
+      ? Number(calculatedOperatingOutflows)
       : period.operatingCashOutflowsMinor;
 
     if (!isNonNegativeSafeInteger(salesCashReceiptsMinor)) {
@@ -254,15 +262,6 @@ export function projectCashRunway(input) {
         'operatingCashOutflowsMinor must be a non-negative safe integer representing operating cash payments expected this month.',
         'monthlyPlan[' + index + '].operatingCashOutflowsMinor'
       );
-    }
-
-    // A missing legacy cash field is derived from the same-month unit model. Fail
-    // closed if this compatibility path would exceed the exact output range.
-    if (
-      (period.salesCashReceiptsMinor === undefined && calculatedReceipts > MAX_SAFE) ||
-      (period.operatingCashOutflowsMinor === undefined && calculatedOperatingOutflows > MAX_SAFE)
-    ) {
-      return fail('calculation_overflow', 'A default monthly cash amount exceeds the supported exact integer range.', 'monthlyPlan[' + index + ']');
     }
 
     const additionalCashFields = [
