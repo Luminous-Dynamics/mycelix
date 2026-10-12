@@ -316,8 +316,14 @@ export function projectCashRunway(input) {
           minimumCash < reserveTarget ? reserveTarget - minimumCash : 0n,
           'additionalCashNeededToMaintainReserveMinor'
         ),
-        periodsBelowReserve: periods.filter(period => period.belowReserve).map(period => period.period),
-        periodsWithNegativeCash: periods.filter(period => period.negativeCash).map(period => period.period)
+        periodsBelowReserve: [
+          ...(openingCash - setupOutflow < reserveTarget ? [0] : []),
+          ...periods.filter(period => period.belowReserve).map(period => period.period)
+        ],
+        periodsWithNegativeCash: [
+          ...(openingCash - setupOutflow < 0n ? [0] : []),
+          ...periods.filter(period => period.negativeCash).map(period => period.period)
+        ]
       },
       costCoverage: {
         level: model.costCoverage.level,
