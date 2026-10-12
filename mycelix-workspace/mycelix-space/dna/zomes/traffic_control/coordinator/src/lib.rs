@@ -553,6 +553,20 @@ pub fn submit_position(input: SubmitPositionInput) -> ExternResult<ActionHash> {
 
     // --- Authorization: each operator may speak only for their assigned object ---
     let session = verify_session_participant(&input.session_id, &agent)?;
+    let now = SpaceTimestamp::now();
+    validate_session_deadline(
+        session.deadline.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidInput, message)
+            .with_context(format!(
+                "session deadline: {}, TCA: {}, now: {}",
+                session.deadline.micros, session.tca.micros, now.micros
+            ))
+            .into_wasm_error()
+    })?;
     if !operator_represents_session_object(&session, &agent, input.norad_id) {
         return Err(SpaceError::new(
             SpaceErrorCode::Unauthorized,
@@ -2782,7 +2796,7 @@ mod conjunction_reference_tests {
     }
 
     #[test]
-    fn negotiation_deadline_must_be_future_and_no_later_than_tca() {
+    fn negotiation_deadline_must_be_future_and_strictly_before_tca() {
         assert!(
             validate_session_deadline(NOW_MICROS + 1, FUTURE_TCA_MICROS, NOW_MICROS).is_ok()
         );
