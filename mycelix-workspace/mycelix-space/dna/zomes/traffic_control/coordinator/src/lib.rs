@@ -168,12 +168,63 @@ fn verify_session_participant(
 // Write operations
 // =============================================================================
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct ConjunctionReference {
+    event_id: String,
+    primary_norad_id: u32,
+    secondary_norad_id: u32,
+}
+
+/// Validate the exact event ID and unordered object pair returned by the
+/// conjunction zome. Event IDs are not assumed globally unique unless the
+/// matching event resolves unambiguously here.
+fn validate_conjunction_reference(
+    records: &[ConjunctionReference],
+    conjunction_id: &str,
+    primary_norad_id: u32,
+    secondary_norad_id: u32,
+) -> Result<(), String> {
+    let candidates = records
+        .iter()
+        .filter(|event| event.event_id.as_str() == conjunction_id)
+        .collect::<Vec<_>>();
+
+    match candidates.as_slice() {
+        [] => Err(format!(
+            "Conjunction {:?} was not found for object pair {} / {}",
+            conjunction_id, primary_norad_id, secondary_norad_id
+        )),
+        [event] => {
+            let direct_pair = event.primary_norad_id == primary_norad_id
+                && event.secondary_norad_id == secondary_norad_id;
+            let reversed_pair = event.primary_norad_id == secondary_norad_id
+                && event.secondary_norad_id == primary_norad_id;
+            if direct_pair || reversed_pair {
+                Ok(())
+            } else {
+                Err(format!(
+                    "Conjunction {:?} references object pair {} / {}, not requested pair {} / {}",
+                    conjunction_id,
+                    event.primary_norad_id,
+                    event.secondary_norad_id,
+                    primary_norad_id,
+                    secondary_norad_id
+                ))
+            }
+        }
+        _ => Err(format!(
+            "Conjunction ID {:?} resolved to {} records; refusing ambiguous match",
+            conjunction_id,
+            candidates.len()
+        )),
+    }
+}
+
 /// Initiate a negotiation session.
 ///
-/// Cross-zome verifies the conjunction ID references an active conjunction
-/// in the conjunctions zome. If the conjunction cannot be verified (e.g.,
-/// not found or cross-zome call fails), a warning is included in the signal
-/// but the session is still created.
+/// Cross-zome verifies that the requested conjunction exists and references
+/// the requested pair of objects. Any lookup failure, missing event, ambiguous
+/// event ID, or object-pair mismatch rejects the session creation.
 #[hdk_extern]
 pub fn initiate_negotiation(input: InitiateNegotiationInput) -> ExternResult<ActionHash> {
     gate_space_operation(&requirement_for_negotiation(), "initiate_negotiation")?;
@@ -198,17 +249,49 @@ pub fn initiate_negotiation(input: InitiateNegotiationInput) -> ExternResult<Act
         .into_wasm_error());
     }
 
-    // Cross-zome check: verify the referenced conjunction exists
-    let _conjunction_verified = match call(
+    // Fail closed: a successful lookup is not enough unless the exact event ID
+    // resolves to the requested pair of objects.
+    let conjunction_response = call(
         CallTargetCell::Local,
         ZomeName::new("conjunctions_coordinator"),
         FunctionName::new("get_conjunctions_for_object"),
         None,
         input.primary_norad_id,
-    ) {
-        Ok(ZomeCallResponse::Ok(bytes)) => bytes.into_vec().len() > 4,
-        _ => false,
+    );
+
+    let conjunctions: Vec<ConjunctionReference> = match conjunction_response {
+        Ok(ZomeCallResponse::Ok(bytes)) => bytes.decode().map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Could not decode the conjunction lookup response",
+            )
+            .with_context(format!("decode error: {:?}", error))
+            .into_wasm_error()
+        })?,
+        Ok(_) => {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Conjunction lookup did not return success; no negotiation session was created",
+            )
+            .into_wasm_error());
+        }
+        Err(error) => {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Conjunction lookup failed; no negotiation session was created",
+            )
+            .with_context(format!("lookup error: {:?}", error))
+            .into_wasm_error());
+        }
     };
+
+    validate_conjunction_reference(
+        &conjunctions,
+        &input.conjunction_id,
+        input.primary_norad_id,
+        input.secondary_norad_id,
+    )
+    .map_err(|message| SpaceError::new(SpaceErrorCode::NotFound, message).into_wasm_error())?;
 
     let session = NegotiationSession {
         session_id: input.session_id.clone(),
@@ -2204,4 +2287,44 @@ pub fn get_proposal_agreement(proposal_id: String) -> ExternResult<Option<MultiP
     }
 
     Ok(None)
+}
+
+
+#[cfg(test)]
+mod conjunction_reference_tests {
+    use super::*;
+
+    fn event(event_id: &str, primary_norad_id: u32, secondary_norad_id: u32) -> ConjunctionReference {
+        ConjunctionReference {
+            event_id: event_id.to_string(),
+            primary_norad_id,
+            secondary_norad_id,
+        }
+    }
+
+    #[test]
+    fn exact_event_and_object_pair_are_accepted() {
+        assert!(validate_conjunction_reference(&[event("cdm:42", 42, 77)], "cdm:42", 42, 77).is_ok());
+    }
+
+    #[test]
+    fn reversed_object_pair_is_accepted() {
+        assert!(validate_conjunction_reference(&[event("cdm:42", 77, 42)], "cdm:42", 42, 77).is_ok());
+    }
+
+    #[test]
+    fn missing_event_id_is_rejected() {
+        assert!(validate_conjunction_reference(&[event("cdm:other", 42, 77)], "cdm:42", 42, 77).is_err());
+    }
+
+    #[test]
+    fn mismatched_object_pair_is_rejected() {
+        assert!(validate_conjunction_reference(&[event("cdm:42", 42, 99)], "cdm:42", 42, 77).is_err());
+    }
+
+    #[test]
+    fn duplicate_event_id_is_rejected_as_ambiguous() {
+        let records = [event("cdm:42", 42, 77), event("cdm:42", 42, 88)];
+        assert!(validate_conjunction_reference(&records, "cdm:42", 42, 77).is_err());
+    }
 }
