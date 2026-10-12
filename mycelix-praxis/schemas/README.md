@@ -89,13 +89,14 @@ actions/reasons in protocol order and content IDs lexically, rejects
 duplicate/invalid policy inputs and overlong allowlists before copying them,
 caps the body at 16 KiB, and derives `input_digest()` from the exact immutable
 bytes exposed by `body_bytes()`. The static conformance checker requires both
-request and response schemas to match the Rust field sets and enums. Keep this prepared request alive
-for the response's entire lifecycle and create validation context from
-`validation_context(advisor_enabled, sandbox_active)`; this ties expected model,
-version, skill, curriculum revision, allowed action/reason lists, content IDs,
-and digest to the same prepared turn. Send the body unchanged and carry the
-digest separately in authenticated transport metadata rather than a
-self-referential body field. The sanitized
+request and response schemas to match the Rust field sets and enums. Keep this prepared request alive throughout its exchange and use
+`read_and_validate_response_once(reader, advisor_enabled, sandbox_active)`.
+It binds validation to the same model, version, skill, curriculum revision,
+action/reason lists, content IDs, and digest, and rejects a second response
+once a bounded body has been received. A reader failure remains retryable with
+the same prepared body/digest. Send the body unchanged and carry the digest
+separately in authenticated transport metadata rather than a self-referential
+body field. The sanitized
 `examples/symthaea-advisory-request-v1.json` shows the exact request-body
 shape, with illustrative identifiers and no digest or learner history. The
 static checker validates its field set/order, action/reason enum membership,
