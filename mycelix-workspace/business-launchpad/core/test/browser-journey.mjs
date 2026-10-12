@@ -101,6 +101,8 @@ try {
 
   await page.goto(origin + '/web/index.html', { waitUntil: 'networkidle' });
   assert.equal(await page.title(), 'Business Launchpad — Viability Worksheet');
+  assert.equal(await page.locator('#result-status').getAttribute('role'), 'status');
+  assert.equal(await page.locator('#result').getAttribute('aria-live'), null);
   await page.getByText(/Count one priced sale consistently/).waitFor();
   completedChecks.push('served the worksheet and made the sale-unit definition explicit');
 
