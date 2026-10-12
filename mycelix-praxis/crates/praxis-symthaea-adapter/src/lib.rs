@@ -18,10 +18,224 @@ compile_error!("praxis-symthaea-adapter is host-only and must not be compiled in
 use std::io::{self, Read};
 
 use praxis_core::{
-    AdviceRejection, AdviceValidationContext, AdviceWireRejection, MAX_ADVISORY_RESPONSE_BYTES,
-    SymthaeaAdvice, ValidatedAdvisorySuggestion, parse_symthaea_advice_response,
-    validate_symthaea_advice,
+    AdviceReason, AdviceRejection, AdviceValidationContext, AdviceWireRejection,
+    LearningSuggestion, MAX_ADVISORY_IDENTIFIER_CHARS, MAX_ADVISORY_RESPONSE_BYTES,
+    MAX_SUPPORTING_CONTENT_IDS, SYMTHAEA_ADVISORY_SCHEMA_VERSION, SymthaeaAdvice,
+    ValidatedAdvisorySuggestion, digest_advisory_request_bytes,
+    parse_symthaea_advice_response, validate_symthaea_advice,
 };
+use serde::Serialize;
+use std::collections::BTreeSet;
+
+/// Hard cap for the exact serialized request body sent to the host adapter.
+pub const MAX_ADVISORY_REQUEST_BYTES: usize = 16 * 1024;
+
+/// Trusted inputs from which a minimized, deterministic advisor request is built.
+///
+/// Do not place raw answer histories, learner identity, demographics, or inferred
+/// affect in this structure. The allowed reason codes are the trusted signals
+/// permitted for this turn, not model-generated observations.
+pub struct AdvisoryRequestPolicy<'a> {
+    pub model_id: &'a str,
+    pub model_version: &'a str,
+    pub skill_id: &'a str,
+    pub curriculum_revision: &'a str,
+    pub allowed_actions: &'a [LearningSuggestion],
+    pub allowed_reasons: &'a [AdviceReason],
+    pub allowed_content_ids: &'a [String],
+}
+
+/// Why a trusted request could not be prepared.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RequestPreparationError {
+    InvalidIdentifier,
+    TooManyContentReferences,
+    DuplicateContentReference,
+    EmptyActionAllowlist,
+    DuplicateAllowedAction,
+    EmptyReasonAllowlist,
+    DuplicateAllowedReason,
+    SerializationFailed,
+    RequestTooLarge,
+}
+
+#[derive(Serialize)]
+struct AdvisoryRequestWireV1<'a> {
+    schema_version: u16,
+    model_id: &'a str,
+    model_version: &'a str,
+    skill_id: &'a str,
+    curriculum_revision: &'a str,
+    allowed_actions: &'a [LearningSuggestion],
+    allowed_reasons: &'a [AdviceReason],
+    allowed_content_ids: &'a [String],
+}
+
+/// Immutable prepared body and its trusted validation scope.
+///
+/// The digest is computed over `body_bytes()` exactly. Send those bytes
+/// unchanged as the request body, and convey `input_digest()` through
+/// authenticated transport metadata (for example, a request header) rather
+/// than adding a self-referential digest field to the body.
+pub struct PreparedAdvisoryRequest {
+    body: Vec<u8>,
+    input_digest: String,
+    model_id: String,
+    model_version: String,
+    skill_id: String,
+    curriculum_revision: String,
+    allowed_actions: Vec<LearningSuggestion>,
+    allowed_reasons: Vec<AdviceReason>,
+    allowed_content_ids: BTreeSet<String>,
+}
+
+impl PreparedAdvisoryRequest {
+    /// Exact bytes that must be sent unchanged as the request body.
+    pub fn body_bytes(&self) -> &[u8] {
+        &self.body
+    }
+
+    /// BLAKE3 digest of the exact request body bytes, suitable for transport
+    /// metadata. It is freshness binding only, not authentication.
+    pub fn input_digest(&self) -> &str {
+        &self.input_digest
+    }
+
+    /// Build response-validation context from the very same frozen request
+    /// scope so callers do not accidentally validate against a different turn.
+    pub fn validation_context(
+        &self,
+        advisor_enabled: bool,
+        sandbox_active: bool,
+    ) -> AdviceValidationContext<'_> {
+        AdviceValidationContext {
+            advisor_enabled,
+            sandbox_active,
+            expected_model_id: &self.model_id,
+            expected_model_version: &self.model_version,
+            skill_id: &self.skill_id,
+            curriculum_revision: &self.curriculum_revision,
+            input_digest: &self.input_digest,
+            allowed_content_ids: &self.allowed_content_ids,
+            allowed_actions: &self.allowed_actions,
+            allowed_reasons: &self.allowed_reasons,
+        }
+    }
+}
+
+/// Prepare a deterministic, minimized request body and freeze the exact policy
+/// scope used to validate its response.
+///
+/// Enum lists are emitted in declared protocol order and content IDs are sorted
+/// lexically. Duplicate trusted inputs are rejected rather than silently
+/// normalized. The request digest is computed only after final serialization.
+pub fn prepare_advisory_request(
+    policy: AdvisoryRequestPolicy<'_>,
+) -> Result<PreparedAdvisoryRequest, RequestPreparationError> {
+    for identifier in [
+        policy.model_id,
+        policy.model_version,
+        policy.skill_id,
+        policy.curriculum_revision,
+    ] {
+        if !valid_request_identifier(identifier) {
+            return Err(RequestPreparationError::InvalidIdentifier);
+        }
+    }
+
+    if policy.allowed_content_ids.len() > MAX_SUPPORTING_CONTENT_IDS {
+        return Err(RequestPreparationError::TooManyContentReferences);
+    }
+    let mut content_ids = policy.allowed_content_ids.to_vec();
+    content_ids.sort();
+    if content_ids.windows(2).any(|pair| pair[0] == pair[1]) {
+        return Err(RequestPreparationError::DuplicateContentReference);
+    }
+    if content_ids.iter().any(|value| !valid_request_identifier(value)) {
+        return Err(RequestPreparationError::InvalidIdentifier);
+    }
+
+    if policy.allowed_actions.is_empty() {
+        return Err(RequestPreparationError::EmptyActionAllowlist);
+    }
+    let mut allowed_actions = policy.allowed_actions.to_vec();
+    allowed_actions.sort_by_key(action_rank);
+    if allowed_actions.windows(2).any(|pair| pair[0] == pair[1]) {
+        return Err(RequestPreparationError::DuplicateAllowedAction);
+    }
+
+    if policy.allowed_reasons.is_empty() {
+        return Err(RequestPreparationError::EmptyReasonAllowlist);
+    }
+    let mut allowed_reasons = policy.allowed_reasons.to_vec();
+    allowed_reasons.sort_by_key(reason_rank);
+    if allowed_reasons.windows(2).any(|pair| pair[0] == pair[1]) {
+        return Err(RequestPreparationError::DuplicateAllowedReason);
+    }
+
+    let wire = AdvisoryRequestWireV1 {
+        schema_version: SYMTHAEA_ADVISORY_SCHEMA_VERSION,
+        model_id: policy.model_id,
+        model_version: policy.model_version,
+        skill_id: policy.skill_id,
+        curriculum_revision: policy.curriculum_revision,
+        allowed_actions: &allowed_actions,
+        allowed_reasons: &allowed_reasons,
+        allowed_content_ids: &content_ids,
+    };
+    let body = serde_json::to_vec(&wire).map_err(|_| RequestPreparationError::SerializationFailed)?;
+    if body.len() > MAX_ADVISORY_REQUEST_BYTES {
+        return Err(RequestPreparationError::RequestTooLarge);
+    }
+    let input_digest = digest_advisory_request_bytes(&body);
+
+    Ok(PreparedAdvisoryRequest {
+        body,
+        input_digest,
+        model_id: policy.model_id.to_string(),
+        model_version: policy.model_version.to_string(),
+        skill_id: policy.skill_id.to_string(),
+        curriculum_revision: policy.curriculum_revision.to_string(),
+        allowed_actions,
+        allowed_reasons,
+        allowed_content_ids: content_ids.into_iter().collect(),
+    })
+}
+
+fn valid_request_identifier(value: &str) -> bool {
+    !value.is_empty()
+        && value.trim() == value
+        && value.chars().count() <= MAX_ADVISORY_IDENTIFIER_CHARS
+        && !value.chars().any(char::is_control)
+}
+
+fn action_rank(action: &LearningSuggestion) -> u8 {
+    match action {
+        LearningSuggestion::OfferHint => 0,
+        LearningSuggestion::OfferWorkedExample => 1,
+        LearningSuggestion::OfferAlternateExplanation => 2,
+        LearningSuggestion::InviteRetrievalPractice => 3,
+        LearningSuggestion::InviteSpacedReview => 4,
+        LearningSuggestion::AskForSelfExplanation => 5,
+        LearningSuggestion::OfferTransferProblem => 6,
+        LearningSuggestion::SuggestCraftProject => 7,
+        LearningSuggestion::OfferBreak => 8,
+        LearningSuggestion::NoSuggestion => 9,
+    }
+}
+
+fn reason_rank(reason: &AdviceReason) -> u8 {
+    match reason {
+        AdviceReason::LearnerRequestedHelp => 0,
+        AdviceReason::RepeatedIncorrectAttempts => 1,
+        AdviceReason::ReviewDue => 2,
+        AdviceReason::TransferNotDemonstrated => 3,
+        AdviceReason::ReadyForApplication => 4,
+        AdviceReason::LearnerRequestedBreak => 5,
+        AdviceReason::InsufficientEvidence => 6,
+        AdviceReason::NoChange => 7,
+    }
+}
 
 /// Failure while reading and decoding a host-provided advisor response.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -133,27 +347,21 @@ mod tests {
         }
     }
 
-    const ALLOWED_ACTIONS: &[praxis_core::LearningSuggestion] =
-        &[praxis_core::LearningSuggestion::OfferHint];
-    const ALLOWED_REASONS: &[praxis_core::AdviceReason] =
-        &[praxis_core::AdviceReason::RepeatedIncorrectAttempts];
-
-    fn trusted_context<'a>(
-        allowed_content_ids: &'a std::collections::BTreeSet<String>,
-        digest: &'a str,
-    ) -> AdviceValidationContext<'a> {
-        AdviceValidationContext {
-            advisor_enabled: true,
-            sandbox_active: false,
-            expected_model_id: "symthaea",
-            expected_model_version: "0.5.0",
+    fn prepare_test_request<'a>(
+        allowed_content_ids: &'a [String],
+        allowed_actions: &'a [LearningSuggestion],
+        allowed_reasons: &'a [AdviceReason],
+    ) -> PreparedAdvisoryRequest {
+        prepare_advisory_request(AdvisoryRequestPolicy {
+            model_id: "symthaea",
+            model_version: "0.5.0",
             skill_id: "math.fractions",
             curriculum_revision: "2026.1",
-            input_digest: digest,
+            allowed_actions,
+            allowed_reasons,
             allowed_content_ids,
-            allowed_actions: ALLOWED_ACTIONS,
-            allowed_reasons: ALLOWED_REASONS,
-        }
+        })
+        .expect("test policy produces a valid request")
     }
 
     #[test]
@@ -203,35 +411,130 @@ mod tests {
 
     #[test]
     fn trusted_validation_path_returns_only_a_validated_suggestion() {
-        let digest = format!("blake3:{}", "0".repeat(64));
-        let allowed_content_ids = ["lesson.fractions.01".to_string()].into_iter().collect();
-        let context = trusted_context(&allowed_content_ids, &digest);
-        let encoded = valid_advice_json();
+        let ids = ["lesson.fractions.01".to_string()];
+        let request = prepare_test_request(
+            &ids,
+            &[LearningSuggestion::OfferHint],
+            &[AdviceReason::RepeatedIncorrectAttempts],
+        );
+        let context = request.validation_context(true, false);
+        let encoded = valid_advice_json().replace(
+            &format!("blake3:{}", "0".repeat(64)),
+            request.input_digest(),
+        );
 
         let suggestion =
             read_bounded_and_validate_symthaea_advice(Cursor::new(encoded.as_bytes()), &context)
                 .expect("in-scope advice passes both wire and semantic validation");
-        assert_eq!(
-            suggestion.action,
-            praxis_core::LearningSuggestion::OfferHint
-        );
+        assert_eq!(suggestion.input_digest, request.input_digest());
+        assert_eq!(suggestion.action, LearningSuggestion::OfferHint);
     }
 
     #[test]
     fn trusted_validation_path_rejects_an_unallowed_action() {
-        let digest = format!("blake3:{}", "0".repeat(64));
-        let allowed_content_ids = ["lesson.fractions.01".to_string()].into_iter().collect();
-        let context = trusted_context(&allowed_content_ids, &digest);
-        let encoded = valid_advice_json().replace("\"offer_hint\"", "\"offer_break\"");
+        let ids = ["lesson.fractions.01".to_string()];
+        let request = prepare_test_request(
+            &ids,
+            &[LearningSuggestion::OfferHint],
+            &[AdviceReason::RepeatedIncorrectAttempts],
+        );
+        let context = request.validation_context(true, false);
+        let encoded = valid_advice_json()
+            .replace("\"offer_hint\"", "\"offer_break\"")
+            .replace(
+                &format!("blake3:{}", "0".repeat(64)),
+                request.input_digest(),
+            );
 
         assert_eq!(
             read_bounded_and_validate_symthaea_advice(
                 Cursor::new(encoded.as_bytes()),
                 &context
             ),
-            Err(BoundedAdviceReadError::Rejected(
-                AdviceRejection::ActionNotAllowed
-            ))
+            Err(BoundedAdviceReadError::Rejected(AdviceRejection::ActionNotAllowed))
+        );
+    }
+
+    #[test]
+    fn request_body_and_digest_are_deterministic_and_bound_to_exact_bytes() {
+        let ids_a = ["z.content".to_string(), "a.content".to_string()];
+        let ids_b = ["a.content".to_string(), "z.content".to_string()];
+        let actions_a = [
+            LearningSuggestion::NoSuggestion,
+            LearningSuggestion::OfferHint,
+        ];
+        let actions_b = [
+            LearningSuggestion::OfferHint,
+            LearningSuggestion::NoSuggestion,
+        ];
+        let reasons = [
+            AdviceReason::RepeatedIncorrectAttempts,
+            AdviceReason::InsufficientEvidence,
+        ];
+        let first = prepare_test_request(&ids_a, &actions_a, &reasons);
+        let second = prepare_test_request(&ids_b, &actions_b, &reasons);
+
+        assert_eq!(first.body_bytes(), second.body_bytes());
+        assert_eq!(first.input_digest(), second.input_digest());
+        assert_eq!(
+            first.input_digest(),
+            digest_advisory_request_bytes(first.body_bytes())
+        );
+        let body = std::str::from_utf8(first.body_bytes()).expect("JSON is UTF-8");
+        assert!(body.find("a.content").unwrap() < body.find("z.content").unwrap());
+    }
+
+    #[test]
+    fn request_preparation_rejects_duplicate_content_ids() {
+        let ids = ["lesson.fractions.01".to_string(), "lesson.fractions.01".to_string()];
+        assert_eq!(
+            prepare_advisory_request(AdvisoryRequestPolicy {
+                model_id: "symthaea",
+                model_version: "0.5.0",
+                skill_id: "math.fractions",
+                curriculum_revision: "2026.1",
+                allowed_actions: &[LearningSuggestion::OfferHint],
+                allowed_reasons: &[AdviceReason::RepeatedIncorrectAttempts],
+                allowed_content_ids: &ids,
+            })
+            .err(),
+            Some(RequestPreparationError::DuplicateContentReference)
+        );
+    }
+
+    #[test]
+    fn request_preparation_rejects_empty_action_allowlist() {
+        let ids = ["lesson.fractions.01".to_string()];
+        assert_eq!(
+            prepare_advisory_request(AdvisoryRequestPolicy {
+                model_id: "symthaea",
+                model_version: "0.5.0",
+                skill_id: "math.fractions",
+                curriculum_revision: "2026.1",
+                allowed_actions: &[],
+                allowed_reasons: &[AdviceReason::RepeatedIncorrectAttempts],
+                allowed_content_ids: &ids,
+            })
+            .err(),
+            Some(RequestPreparationError::EmptyActionAllowlist)
+        );
+    }
+
+    #[test]
+    fn request_preparation_rejects_invalid_identifiers() {
+        let ids = ["lesson.fractions.01".to_string()];
+        assert_eq!(
+            prepare_advisory_request(AdvisoryRequestPolicy {
+                model_id: "symthaea\nforged",
+                model_version: "0.5.0",
+                skill_id: "math.fractions",
+                curriculum_revision: "2026.1",
+                allowed_actions: &[LearningSuggestion::OfferHint],
+                allowed_reasons: &[AdviceReason::RepeatedIncorrectAttempts],
+                allowed_content_ids: &ids,
+            })
+            .err(),
+            Some(RequestPreparationError::InvalidIdentifier)
         );
     }
 
