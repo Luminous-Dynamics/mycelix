@@ -516,3 +516,63 @@
 .atlas-indicator-card details ul {
     padding-left: 1.3rem;
 }
+
+
+/* ================================================================
+   ECONOMY ATLAS — DATASET CANDIDATES
+   Display evidence and blockers; never imply that a source is approved.
+   ================================================================ */
+.atlas-dataset-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 390px), 1fr));
+    align-items: start;
+    gap: var(--space-md);
+}
+.atlas-dataset-card {
+    min-width: 0;
+    height: fit-content;
+    gap: var(--space-sm);
+}
+.atlas-dataset-card h3 {
+    margin: var(--space-xs) 0 0;
+    color: var(--text-primary);
+    font-size: var(--text-md, 1rem);
+    line-height: 1.45;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+}
+.atlas-dataset-card > p,
+.atlas-dataset-card details p,
+.atlas-dataset-card details li {
+    color: var(--text-secondary, var(--text-muted));
+    font-size: var(--text-sm);
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+}
+.atlas-dataset-card details {
+    border-top: 1px solid var(--border);
+    padding-top: var(--space-sm);
+    min-width: 0;
+}
+.atlas-dataset-card details > summary {
+    cursor: pointer;
+    color: var(--primary);
+    font-size: var(--text-sm);
+    font-weight: 600;
+}
+.atlas-dataset-card details h4 {
+    margin: var(--space-md) 0 var(--space-xs);
+    color: var(--text-secondary, var(--text-muted));
+    font-size: var(--text-sm);
+}
+.atlas-dataset-card details ul {
+    padding-left: 1.3rem;
+}
+.atlas-dataset-card details pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: var(--md-mono, ui-monospace, monospace);
+    font-size: 0.72rem;
+    line-height: 1.55;
+    max-height: 16rem;
+    overflow: auto;
+}
