@@ -116,14 +116,11 @@ Until that migration is available on the current base:
 
 ## Request and response binding
 
-The trusted Praxis adapter should assemble a canonical request containing:
-- schema version;
-- current curriculum revision and capability/skill identifier;
-- minimum necessary, scope-specific evidence from the authorized learning-evidence pathway;
-- allowlisted content references and the finite actions available for this turn;
-- a BLAKE3 digest computed over the exact canonical request and encoded as `blake3:` followed by 64 lowercase hexadecimal characters.
+The host-only adapter now builds a deterministic, minimized v1 request body from trusted model/version, skill and curriculum scope, finite action/reason allowlists, and at most eight allowlisted content IDs. It sorts content IDs and finite enum lists into protocol order, rejects duplicate or invalid policy values, caps the serialized body at 16 KiB, and computes the BLAKE3 digest over the **final exact body bytes**. `PreparedAdvisoryRequest` keeps that byte sequence, digest, and matching semantic-validation scope together; callers obtain the immutable bytes through `body_bytes()`, the digest through `input_digest()`, and a matching validation context through `validation_context()`.
 
-The digest binds a response to its request and helps reject stale output. It is not model authentication or proof of correctness. Authenticate the adapter/transport independently and recheck context immediately before displaying the suggestion.
+Send the body bytes unchanged. Convey the digest as authenticated transport metadata (for example, a request header); do not append it to the body being hashed, which would create a self-referential digest. On response, the preferred host API combines streaming-size enforcement, strict JSON decoding, and validation against the same frozen request scope. The digest is freshness binding only, not model authentication or proof of correctness. Authenticate the adapter/transport independently and recheck context immediately before displaying the suggestion.
+
+The request intentionally does not include learner identity, raw answer history, demographics, or inferred affect. The eligible reason codes are the trusted evidence projection available for the current turn; the builder is a serialization and scoping boundary, not itself the authority that determines which evidence is true.
 
 The response contract uses a finite action and reason vocabulary instead of allowing model-generated free text to control system behavior. When an explanation is needed, retrieve from reviewed curriculum sources, show provenance, and continue to treat generated prose as unverified until independently checked.
 
@@ -193,11 +190,11 @@ Implemented in this branch:
 - a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, formatting/tests for both advisory crates, and clippy, including while the PR is a draft;
 - a 16 KiB bounded JSON parser in `praxis-core` plus a native-only host reader that caps streaming reads at 16,385 bytes before rejecting oversize bodies;
 - a preferred host integration function that combines bounded read, strict decoding, and trusted semantic validation before returning a `ValidatedAdvisorySuggestion`;
-- twenty-seven `praxis-core` regression tests and seven host-adapter tests covering valid decoding, oversized and exact-limit streams, malformed JSON, read failures, trust-gate acceptance/rejection, and BLAKE3 golden vectors.
+- deterministic minimized request preparation with exact-body BLAKE3 digest, canonical allowlist ordering, duplicate rejection, and response-validation context frozen to the same prepared scope;
+- twenty-seven `praxis-core` regression tests and eleven host-adapter tests covering valid decoding, oversized and exact-limit streams, malformed JSON, read failures, trusted-policy acceptance/rejection, deterministic request bytes/digest, duplicate inputs, and invalid identifiers.
 
 Not yet implemented or qualified:
-- live Symthaea service/process transport or production call site (the new host crate provides only bounded reader/decoder primitives);
-- trusted request assembly/serialization, and a live call path that hashes exactly the transmitted bytes;
+- live Symthaea service/process transport or production call site (the host crate currently provides request preparation and bounded read/validate primitives, not a network or local-process client);
 - transport/process authentication, configured timeouts, and production call-site wiring to the bounded reader;
 - linkage to the evidence-bound PRAX projection pipeline;
 - UI accept/dismiss wiring and accessibility checks;
