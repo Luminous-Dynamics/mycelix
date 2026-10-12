@@ -737,7 +737,7 @@ def main() -> int:
         "fn malformed_response_consumes_prepared_request()"
     )
     malformed_consumption_end = adapter_source.find(
-        "\\n    #[test]", malformed_consumption_start + 1
+        "\n    #[test]", malformed_consumption_start + 1
     )
     malformed_consumption_test = (
         adapter_source[malformed_consumption_start:malformed_consumption_end]
