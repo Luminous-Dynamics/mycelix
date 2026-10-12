@@ -201,6 +201,78 @@ test('sales activity does not automatically become cash receipts, and cash payme
   assert.equal(result.report.summary.firstBelowReservePeriod, 1);
 });
 
+test('separates operating, investing and financing cash flows and reconciles to closing cash', () => {
+  const result = projectCashRunway({
+    model: completeModel({
+      setupCostsMinor: 0,
+      availableCashForStartupMinor: 1_000,
+      initialWorkingCapitalBufferMinor: 0
+    }),
+    monthlyPlan: [
+      {
+        salesUnits: 0,
+        salesCashReceiptsMinor: 100,
+        operatingCashOutflowsMinor: 40,
+        otherCashInflowsMinor: 5,
+        otherCashOutflowsMinor: 10,
+        investingCashInflowsMinor: 20,
+        investingCashOutflowsMinor: 50,
+        financingCashInflowsMinor: 300,
+        financingCashOutflowsMinor: 25
+      },
+      {
+        salesUnits: 0,
+        salesCashReceiptsMinor: 0,
+        operatingCashOutflowsMinor: 0,
+        otherCashInflowsMinor: 0,
+        otherCashOutflowsMinor: 0,
+        investingCashInflowsMinor: 80,
+        investingCashOutflowsMinor: 0,
+        financingCashInflowsMinor: 0,
+        financingCashOutflowsMinor: 100
+      }
+    ]
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.report.schemaVersion, 2);
+  assert.equal(result.report.periods[0].totalOperatingCashReceiptsMinor, 105);
+  assert.equal(result.report.periods[0].totalOperatingCashOutflowsMinor, 50);
+  assert.equal(result.report.periods[0].netOperatingCashFlowMinor, 55);
+  assert.equal(result.report.periods[0].netInvestingCashFlowMinor, -30);
+  assert.equal(result.report.periods[0].netFinancingCashFlowMinor, 275);
+  assert.equal(result.report.periods[0].totalCashReceiptsMinor, 425);
+  assert.equal(result.report.periods[0].totalCashOutflowsMinor, 125);
+  assert.equal(result.report.periods[0].netCashChangeMinor, 300);
+  assert.equal(result.report.periods[0].closingCashMinor, 1_300);
+  assert.equal(result.report.periods[1].netInvestingCashFlowMinor, 80);
+  assert.equal(result.report.periods[1].netFinancingCashFlowMinor, -100);
+  assert.equal(result.report.periods[1].netCashChangeMinor, -20);
+  assert.equal(result.report.periods[1].closingCashMinor, 1_280);
+});
+
+test('rejects invalid investing or financing cash amounts rather than silently coercing them', () => {
+  const model = completeModel();
+  for (const field of [
+    'investingCashInflowsMinor',
+    'investingCashOutflowsMinor',
+    'financingCashInflowsMinor',
+    'financingCashOutflowsMinor'
+  ]) {
+    const result = projectCashRunway({
+      model,
+      monthlyPlan: [{
+        salesUnits: 0,
+        otherCashInflowsMinor: 0,
+        otherCashOutflowsMinor: 0,
+        [field]: -1
+      }]
+    });
+    assert.equal(result.ok, false, field);
+    assert.equal(result.error.code, 'invalid_cash_runway_amount', field);
+    assert.match(result.error.field, new RegExp(field), field);
+  }
+});
+
 test('legacy cash plans derive only missing receipt and payment fields', () => {
   const model = completeModel();
   const legacy = projectCashRunway({
