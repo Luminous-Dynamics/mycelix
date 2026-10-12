@@ -59,6 +59,11 @@ class RegenerativeDatasetCandidateTests(unittest.TestCase):
         errors = validate_manifest(self.manifest, self.indicator_catalog)
         self.assertTrue(any("discovery_status conflicts with license_assessment" in error for error in errors), errors)
 
+    def test_malformed_discovery_status_fails_closed_without_crashing(self) -> None:
+        self.manifest["candidates"][0]["discovery_status"] = ["license_not_verified"]
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any(".discovery_status is invalid or missing" in error for error in errors), errors)
+
     def test_unknown_indicator_fails(self) -> None:
         self.manifest["candidates"][0]["related_indicator_ids"] = ["not.registered"]
         errors = validate_manifest(self.manifest, self.indicator_catalog)
