@@ -744,8 +744,16 @@ mod tests {
                 sigma_y.powi(2) / 1_000_000.0,
             );
             let miss = nalgebra::Vector2::new(xm / 1000.0, ym / 1000.0);
-            let approximation =
-                analyzer.gaussian_small_disk_pc(miss, covariance, radius / 1000.0);
+            let radius_km = radius / 1000.0;
+            assert!(
+                ConjunctionAnalyzer::within_small_disk_reference_envelope(
+                    miss,
+                    covariance,
+                    radius_km
+                ),
+                "{name}: selected reference case should be within the empirical small-disk eligibility envelope"
+            );
+            let approximation = analyzer.gaussian_small_disk_pc(miss, covariance, radius_km);
             let relative_error = (approximation - reference_pc).abs() / reference_pc;
             assert!(
                 relative_error <= 0.01,
