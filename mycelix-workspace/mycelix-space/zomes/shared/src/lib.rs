@@ -509,6 +509,9 @@ pub enum PcMethod {
     /// Gaussian local-density/small-disk approximation on a 2D encounter plane.
     /// This descriptor does not claim a validated Alfano/Foster integration method.
     GaussianSmallDiskApprox2D,
+    /// The stored event does not carry method provenance, so the algorithm cannot
+    /// be inferred from its numeric Pc field alone.
+    Unspecified,
 }
 
 /// Conjunction assessment entry
