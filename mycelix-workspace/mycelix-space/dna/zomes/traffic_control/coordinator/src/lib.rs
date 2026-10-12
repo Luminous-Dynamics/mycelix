@@ -2621,7 +2621,7 @@ mod conjunction_reference_tests {
             NOW_MICROS,
         ).is_err());
         assert!(validate_agreement_deadline(
-            NOW_MICROS + 10,
+            FUTURE_TCA_MICROS + 1,
             FUTURE_TCA_MICROS + 100,
             FUTURE_TCA_MICROS,
             NOW_MICROS,
