@@ -42,3 +42,28 @@ jobs:
 
       - name: Run orbital-mechanics unit tests
         run: cargo test --manifest-path mycelix-workspace/crates/orbital-mechanics/Cargo.toml
+
+  space-holochain-contracts:
+    name: Test Space shared types and compile coordinator WASM
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-space
+
+      - name: Check Space workspace formatting
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-space/Cargo.toml --all -- --check
+
+      - name: Test shared Space contract
+        run: cargo test --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p mycelix-space-shared
+
+      - name: Compile conjunction coordinator for Holochain WASM
+        run: cargo check --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p conjunctions_coordinator --target wasm32-unknown-unknown
