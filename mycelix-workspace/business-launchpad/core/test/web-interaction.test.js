@@ -126,15 +126,13 @@ globalThis.document = documentMock;
 let capturedBlob = null;
 const revokedUrls = [];
 const createdUrls = [];
-globalThis.URL = {
-  createObjectURL(blob) {
-    capturedBlob = blob;
-    createdUrls.push('blob:business-launchpad-test');
-    return 'blob:business-launchpad-test';
-  },
-  revokeObjectURL(url) {
-    revokedUrls.push(url);
-  }
+globalThis.URL.createObjectURL = blob => {
+  capturedBlob = blob;
+  createdUrls.push('blob:business-launchpad-test');
+  return 'blob:business-launchpad-test';
+};
+globalThis.URL.revokeObjectURL = url => {
+  revokedUrls.push(url);
 };
 await import('../../web/app.mjs');
 
