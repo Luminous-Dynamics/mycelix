@@ -97,7 +97,7 @@
 
         <details id="cash-runway-details" class="cash-runway-details">
           <summary>Optional 12-month cash runway scenario</summary>
-          <p class="form-footnote">A separate, editable month-by-month scenario. Sales units describe activity, not collections. Sales cash receipts and operating cash payments are entered separately for each month, so you can move receipts later or payments earlier. Defaults initially mirror same-month sales/costs for convenience only. Setup costs are deducted before Month 1; the working-capital buffer is a minimum cash reserve, not another payment. Other cash inflows/outflows are added on top of the separately entered sales receipts and operating payments. The worksheet does not reconcile actual invoices, aged receivables or supplier balances. Generated operating outflows combine the base variable costs and fixed monthly costs; when you edit that amount, treat it as the total operating payment expected that month. Put only additional costs in other cash outflows, and do not enter the same cost twice. If you change the steady-state target above, Reset regenerates all 12 months from the current unit economics and overwrites every cash-plan edit. Otherwise, the values you enter here are kept.</p>
+          <p class="form-footnote">A separate, editable month-by-month scenario. Sales units describe activity, not collections. Sales receipts and operating payments can be shifted to different months. Investing cash covers cash from asset disposals and payments for long-term assets; financing cash covers loan/capital receipts and cash repayments or owner distributions. “Other operating” fields cover additional operating movements. Inputs are cash-only: non-cash transactions are not modeled, and the categories are planning aids—not accounting advice. The worksheet does not reconcile invoices, aged receivables, supplier balances or loan statements. Generated operating outflows combine the base variable costs and fixed monthly costs; when edited, enter the total operating payment expected that month. Do not enter the same transaction in multiple buckets. If you change the steady-state target above, Reset regenerates all 12 months and overwrites every cash-plan edit. Otherwise, the values you enter here are kept.</p>
           <div class="cash-plan-scroll" role="region" aria-label="Twelve-month cash plan inputs" tabindex="0">
             <table class="cash-plan-table">
               <thead>
@@ -106,8 +106,12 @@
                   <th scope="col">Sales units (activity)</th>
                   <th scope="col">Sales cash receipts</th>
                   <th scope="col">Operating cash outflows</th>
-                  <th scope="col">Other cash inflows</th>
-                  <th scope="col">Other cash outflows</th>
+                  <th scope="col">Other operating inflows</th>
+                  <th scope="col">Other operating outflows</th>
+                  <th scope="col">Investing inflows</th>
+                  <th scope="col">Investing outflows</th>
+                  <th scope="col">Financing inflows</th>
+                  <th scope="col">Financing outflows</th>
                 </tr>
               </thead>
               <tbody id="cash-runway-periods"></tbody>
