@@ -122,6 +122,17 @@ fn is_secondary_operator(session: &NegotiationSession, agent: &AgentPubKey) -> b
     session.secondary_operator == *agent
 }
 
+/// A session participant may only submit a position for the NORAD object
+/// assigned to their recorded operator role.
+fn operator_represents_session_object(
+    session: &NegotiationSession,
+    agent: &AgentPubKey,
+    norad_id: u32,
+) -> bool {
+    (is_primary_operator(session, agent) && session.primary_norad_id == norad_id)
+        || (is_secondary_operator(session, agent) && session.secondary_norad_id == norad_id)
+}
+
 fn get_maneuver_proposal(proposal_hash: &ActionHash) -> ExternResult<ManeuverProposal> {
     let proposal_record = get(proposal_hash.clone(), GetOptions::default())?.ok_or(
         SpaceError::new(SpaceErrorCode::NotFound, "Maneuver proposal not found")
@@ -540,8 +551,19 @@ pub fn submit_position(input: SubmitPositionInput) -> ExternResult<ActionHash> {
 
     let agent = agent_info()?.agent_initial_pubkey;
 
-    // --- Authorization: only session participants can submit positions ---
-    verify_session_participant(&input.session_id, &agent)?;
+    // --- Authorization: each operator may speak only for their assigned object ---
+    let session = verify_session_participant(&input.session_id, &agent)?;
+    if !operator_represents_session_object(&session, &agent, input.norad_id) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::Unauthorized,
+            "Operator may submit a position only for the NORAD object assigned to their session role",
+        )
+        .with_context(format!(
+            "session: {}, requested object: {}, primary object: {}, secondary object: {}",
+            input.session_id, input.norad_id, session.primary_norad_id, session.secondary_norad_id
+        ))
+        .into_wasm_error());
+    }
 
     let position = NegotiationPosition {
         session_id: input.session_id.clone(),
@@ -2839,6 +2861,19 @@ mod session_participant_tests {
         assert!(maneuvering_object_belongs_to_session(42, &session));
         assert!(maneuvering_object_belongs_to_session(77, &session));
         assert!(!maneuvering_object_belongs_to_session(99, &session));
+    }
+
+    #[test]
+    fn operators_can_submit_positions_only_for_their_assigned_object() {
+        let primary = key(1);
+        let secondary = key(2);
+        let session = session(primary.clone(), secondary.clone());
+
+        assert!(operator_represents_session_object(&session, &primary, 42));
+        assert!(!operator_represents_session_object(&session, &primary, 77));
+        assert!(operator_represents_session_object(&session, &secondary, 77));
+        assert!(!operator_represents_session_object(&session, &secondary, 42));
+        assert!(!operator_represents_session_object(&session, &key(3), 42));
     }
 
     #[test]
