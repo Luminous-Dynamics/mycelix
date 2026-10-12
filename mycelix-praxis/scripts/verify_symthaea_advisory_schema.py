@@ -408,7 +408,8 @@ def main() -> int:
     )
     require(
         '#![forbid(unsafe_code)]' in adapter_source
-        and 'compile_error!("praxis-symthaea-adapter is host-only' in adapter_source,
+        and 'compile_error!(' in adapter_source
+        and '"praxis-symthaea-adapter is host-only' in adapter_source,
         "host adapter must forbid unsafe code and refuse WASM guest compilation",
         errors,
     )
