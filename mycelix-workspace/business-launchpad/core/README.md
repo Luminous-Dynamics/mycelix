@@ -2,7 +2,7 @@
 
 **Status:** Experimental local calculation module; not a full business application.
 
-This dependency-free Node.js module computes a transparent single-offer scenario. It is UI-, database-, payment-, and Holochain-agnostic so a future business-facing interface can consume the domain contract without putting merchant business logic in the NixOS runtime or Mycelix Finance tokenomics.
+This dependency-free Node.js module computes a transparent single-offer scenario and a separate bounded month-by-month cash-liquidity scenario. It is UI-, database-, payment-, and Holochain-agnostic so a business-facing interface can consume the domain contract without putting merchant business logic in the NixOS runtime or Mycelix Finance tokenomics.
 
 ## What it computes today
 
@@ -12,6 +12,7 @@ This dependency-free Node.js module computes a transparent single-offer scenario
 - Startup cash requirement = one-time setup costs + an explicit working-capital buffer.
 - Startup funding gap after available starting cash; this compares setup costs plus the owner-entered buffer with available startup cash, not the full cash runway needed through a slow sales ramp.
 - Explicit cost-coverage state and named omitted categories.
+- A separate 1–24 month cash-runway scenario with month-specific sales units, other cash inflows/outflows, post-setup cash, lowest projected cash, first reserve breach, first negative balance, and the additional buffer needed to maintain the reserve.
 
 All amounts use integer minor units for the chosen currency. The implementation uses BigInt intermediates and fails closed when any returned result would not fit exactly in JavaScript's safe-integer range. Stable amount formatting is provided for tests and evidence; localized formatting belongs in the UI.
 
@@ -50,7 +51,7 @@ The bundled service example is invented arithmetic test data, not a researched l
 
 ## Hard boundaries
 
-Currency-code shape validation is not authoritative currency validation. The core does not determine tax treatment, legal structure, licenses, or demand. The monthly operating result is not net profit: it excludes tax, financing/debt service, depreciation, owner draw, and any cost not included in the supplied cost model. Each unit means one average-priced offer/sale defined by the owner; this version does not model a product/service mix, inventory-specific costing, capacity constraints, or multiple periods. Sales volume is an owner-supplied scenario, not a Symthaea prediction. The startup funding gap does not estimate runway for slow sales or operating losses and is not a loan offer or underwriting decision.
+Currency-code shape validation is not authoritative currency validation. The core does not determine tax treatment, legal structure, licenses, or demand. The monthly operating result from `analyzeBusinessModel` is not net profit: it excludes tax, financing/debt service, depreciation, owner draw, and any cost not included in the supplied cost model. Each unit means one average-priced offer/sale defined by the owner; neither function models a product/service mix, inventory-specific costing, capacity constraints, or multiple offers. `projectCashRunway` is a deterministic scenario rather than a demand forecast: it assumes each listed sale is collected in full in the same month and its variable cost is paid in that month; receivables, delayed settlements, inventory paid in advance and supplier-credit timing are not modeled. Taxes, debt service, owner draw and other unmodeled outflows must be entered in the month-specific other-cash-outflow field where known. Its reserve gap is not a loan offer or underwriting decision.
 
 No customer data, payment processing, credit issuance, or legal filing is part of this core.
 
@@ -62,4 +63,4 @@ No customer data, payment processing, credit issuance, or legal filing is part o
 - AI-generated numbers or forecasts.
 - Trust/reputation-based credit eligibility.
 
-A static browser worksheet in `../web/` imports this same core and supports explicit versioned scenario JSON download/load and report download. It keeps input in memory, clears the prior result when inputs change, and does not upload or use browser storage. These local-file workflows are not a cloud backup or durable business record system. The mock-DOM tests cover file round-trips, stale-report invalidation, and malformed/oversized imports. A separate exact-head Chromium journey is defined under `test/browser-journey.mjs`; review its completed run and captured evidence before treating browser behavior as qualified. Its test-only Playwright dependency is isolated under `test/` and does not add a runtime dependency to the calculator. Only after the journey is qualified should a separate persistence/integration layer be built, once the source of truth for orders and financial records is selected. Jurisdiction-specific guidance must be held in separately reviewed, versioned source packs.
+A static browser worksheet in `../web/` imports this core and provides the one-month economics report plus a separate editable 12-month cash scenario. Versioned scenario JSON includes the month-by-month cash plan; the calculated report exports both arithmetic and cash projection. Inputs remain in memory, prior results are invalidated when inputs change, and data is not uploaded or stored in browser storage. These local-file workflows are not cloud backup or durable business records. The mock-DOM test contract covers file round-trips, invalidation, malformed/oversized imports, and cash-runway rendering; all new changes still require exact-head CI execution. The Chromium journey in `test/browser-journey.mjs` is the real-engine test, but its run must finish and its artifact be reviewed before browser behavior is qualified. Its pinned Playwright dependency is isolated under `test/` and does not add a runtime dependency to the calculator. A persistence/integration layer should follow only after the current exact-head gates are reviewed and the source of truth for orders and financial records is selected. Jurisdiction-specific guidance must live in separately reviewed, versioned source packs.
