@@ -137,6 +137,8 @@ try {
   assert.match(await page.locator('#result').innerText(), /8 units\/month/);
   assert.match(await page.locator('#result').innerText(), /PARTIAL COST COVERAGE/);
   assert.match(await page.locator('#result').innerText(), /12-month cash runway scenario/);
+  assert.match(await page.locator('#result').innerText(), /Downside stress: sales receipts reduced 20%/);
+  assert.match(await page.locator('#result').innerText(), /Upside stress: sales receipts increased 10%/);
   assert.match(await page.locator('#result').innerText(), /does not estimate extra runway for slow sales or operating losses/);
   assert.match(await page.locator('#result').innerText(), /single-offer model/);
   await page.screenshot({ path: resolve(evidenceDir, '02-keyboard-calculation-result.png'), fullPage: true });
