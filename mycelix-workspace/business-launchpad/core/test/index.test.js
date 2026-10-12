@@ -175,3 +175,21 @@ test('service, food, and retail fixture scenarios produce their frozen arithmeti
     });
   }
 });
+
+
+test('parses decimal text to minor units without binary floating-point rounding', async () => {
+  const { parseMajorToMinorUnits } = await import('../src/index.js');
+  assert.deepEqual(parseMajorToMinorUnits('180.00', 2), { ok: true, amountMinor: 18_000 });
+  assert.deepEqual(parseMajorToMinorUnits('0.05', 2), { ok: true, amountMinor: 5 });
+  assert.deepEqual(parseMajorToMinorUnits('12', 2), { ok: true, amountMinor: 1_200 });
+  assert.deepEqual(parseMajorToMinorUnits('123', 0), { ok: true, amountMinor: 123 });
+});
+
+test('rejects invalid, negative, over-precise, and unsafe decimal text', async () => {
+  const { parseMajorToMinorUnits } = await import('../src/index.js');
+  assert.equal(parseMajorToMinorUnits('-1.00', 2).error.code, 'invalid_money_text');
+  assert.equal(parseMajorToMinorUnits('1,000.00', 2).error.code, 'invalid_money_text');
+  assert.equal(parseMajorToMinorUnits('1.001', 2).error.code, 'excess_fractional_digits');
+  assert.equal(parseMajorToMinorUnits('90071992547409.92', 2).error.code, 'calculation_overflow');
+  assert.equal(parseMajorToMinorUnits('1.00', 8).error.code, 'invalid_currency_precision');
+});
