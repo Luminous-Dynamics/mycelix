@@ -100,6 +100,7 @@ pub struct PreparedAdvisoryRequest {
     allowed_actions: Vec<LearningSuggestion>,
     allowed_reasons: Vec<AdviceReason>,
     allowed_content_ids: BTreeSet<String>,
+    response_consumed: bool,
 }
 
 impl PreparedAdvisoryRequest {
@@ -116,7 +117,7 @@ impl PreparedAdvisoryRequest {
 
     /// Build response-validation context from the very same frozen request
     /// scope so callers do not accidentally validate against a different turn.
-    pub fn validation_context(
+    fn validation_context(
         &self,
         advisor_enabled: bool,
         sandbox_active: bool,
@@ -133,6 +134,39 @@ impl PreparedAdvisoryRequest {
             allowed_actions: &self.allowed_actions,
             allowed_reasons: &self.allowed_reasons,
         }
+    }
+
+    /// Validate at most one response received for this prepared request.
+    ///
+    /// A reader failure does not consume the request, so callers may retry by
+    /// resending the exact `body_bytes()` and `input_digest()`. Once a
+    /// bounded response arrives (including an oversized body), subsequent
+    /// responses are rejected. Prepare a new request for a new exchange.
+    pub fn read_and_validate_response_once<R: Read>(
+        &mut self,
+        reader: R,
+        advisor_enabled: bool,
+        sandbox_active: bool,
+    ) -> Result<ValidatedAdvisorySuggestion, BoundedAdviceReadError> {
+        if self.response_consumed {
+            return Err(BoundedAdviceReadError::ResponseAlreadyConsumed);
+        }
+
+        let bytes = match read_bounded_response_bytes(reader) {
+            Ok(bytes) => {
+                self.response_consumed = true;
+                bytes
+            }
+            Err(error @ BoundedAdviceReadError::ResponseTooLarge) => {
+                self.response_consumed = true;
+                return Err(error);
+            }
+            Err(error) => return Err(error),
+        };
+
+        let candidate = parse_bounded_response(&bytes)?;
+        let context = self.validation_context(advisor_enabled, sandbox_active);
+        validate_symthaea_advice(candidate, &context).map_err(BoundedAdviceReadError::Rejected)
     }
 }
 
@@ -235,6 +269,7 @@ fn prepare_advisory_request_with_nonce(
         allowed_actions,
         allowed_reasons,
         allowed_content_ids: content_ids.into_iter().collect(),
+        response_consumed: false,
     })
 }
 
@@ -317,6 +352,8 @@ pub enum BoundedAdviceReadError {
     ReaderFailed(io::ErrorKind),
     /// More than the configured maximum arrived; only max + 1 bytes were read.
     ResponseTooLarge,
+    /// A response was already received for this prepared request.
+    ResponseAlreadyConsumed,
     /// The bounded bytes were not a valid strict `SymthaeaAdvice` JSON object.
     MalformedJson,
     /// Strict decoding succeeded, but trusted request-local policy rejected advice.
