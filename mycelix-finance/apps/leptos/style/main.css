@@ -441,3 +441,78 @@
         padding: var(--space-md);
     }
 }
+
+
+/* ================================================================
+   ECONOMY ATLAS — REGENERATIVE INDICATOR CATALOG
+   Candidate definitions are not measured outcomes.
+   ================================================================ */
+.atlas-indicators-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+.atlas-indicator-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 390px), 1fr));
+    align-items: start;
+    gap: var(--space-md);
+}
+.atlas-indicator-card {
+    min-width: 0;
+    height: fit-content;
+    gap: var(--space-sm);
+}
+.atlas-indicator-card h3 {
+    margin: var(--space-xs) 0 0;
+    color: var(--text-primary);
+    font-size: var(--text-md, 1rem);
+    line-height: 1.45;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+}
+.atlas-indicator-card > p {
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+.atlas-indicator-unit {
+    padding: var(--space-sm);
+    border-left: 3px solid var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.atlas-indicator-qualification {
+    font-family: var(--md-mono, ui-monospace, monospace);
+    font-size: var(--text-xs);
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+.atlas-indicators-section .dash-card > h2 {
+    color: var(--text-primary);
+    font-size: var(--text-lg);
+    margin: 0;
+}
+.atlas-indicators-section .dash-card > h3 {
+    margin: var(--space-md) 0 var(--space-xs);
+    color: var(--text-secondary, var(--text-muted));
+    font-size: var(--text-sm);
+}
+.atlas-indicator-card details {
+    min-width: 0;
+    border-top: 1px solid var(--border);
+    padding-top: var(--space-sm);
+}
+.atlas-indicator-card details > summary {
+    cursor: pointer;
+    color: var(--primary);
+    font-size: var(--text-sm);
+    font-weight: 600;
+}
+.atlas-indicator-card details p,
+.atlas-indicator-card details li {
+    color: var(--text-secondary, var(--text-muted));
+    font-size: var(--text-sm);
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+}
+.atlas-indicator-card details ul {
+    padding-left: 1.3rem;
+}
