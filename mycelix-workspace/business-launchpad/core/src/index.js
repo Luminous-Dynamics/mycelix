@@ -188,16 +188,16 @@ export function analyzeBusinessModel(input) {
 /**
  * Project a bounded month-by-month cash scenario from the single-offer model.
  *
- * Sales activity, sales cash receipts, and operating cash payments are separate
- * inputs. The browser generates same-month defaults for convenience, but callers
- * can independently model delayed customer collection or advance supplier payments.
- * Setup cost is deducted before month one; the working-capital buffer is a reserve
- * threshold rather than a second cash payment.
+ * Sales activity, sales cash receipts, operating payments, investing cash flows,
+ * and financing cash flows are separate inputs. Same-month sales/cost defaults are
+ * only conveniences; callers can move collections/payments and model capital or
+ * financing events in their expected cash months. Setup is deducted before month 1;
+ * the working-capital buffer is a reserve threshold, not a second payment.
  *
- * Backward compatibility: legacy plan periods with only salesUnits and "other"
- * cash fields receive generated same-month sales receipts and operating payments.
+ * Backward compatibility: legacy plans missing receipt/payment fields receive the
+ * prior same-month defaults; missing investing/financing fields default to zero.
  *
- * @param {{model:object, monthlyPlan:Array<{salesUnits:number,salesCashReceiptsMinor?:number,operatingCashOutflowsMinor?:number,otherCashInflowsMinor:number,otherCashOutflowsMinor:number}>}} input
+ * @param {{model:object, monthlyPlan:Array<{salesUnits:number,salesCashReceiptsMinor?:number,operatingCashOutflowsMinor?:number,otherCashInflowsMinor:number,otherCashOutflowsMinor:number,investingCashInflowsMinor?:number,investingCashOutflowsMinor?:number,financingCashInflowsMinor?:number,financingCashOutflowsMinor?:number}>}} input
  * @returns {{ok:true, report:object} | {ok:false, error:object}}
  */
 export function projectCashRunway(input) {
@@ -265,12 +265,32 @@ export function projectCashRunway(input) {
       return fail('calculation_overflow', 'A default monthly cash amount exceeds the supported exact integer range.', 'monthlyPlan[' + index + ']');
     }
 
+    const additionalCashFields = [
+      'investingCashInflowsMinor',
+      'investingCashOutflowsMinor',
+      'financingCashInflowsMinor',
+      'financingCashOutflowsMinor'
+    ];
+    const additionalCash = {};
+    for (const field of additionalCashFields) {
+      const value = period[field] === undefined ? 0 : period[field];
+      if (!isNonNegativeSafeInteger(value)) {
+        return fail(
+          'invalid_cash_runway_amount',
+          field + ' must be a non-negative safe integer representing cash expected to move in this month.',
+          'monthlyPlan[' + index + '].' + field
+        );
+      }
+      additionalCash[field] = value;
+    }
+
     normalizedPlan.push({
       salesUnits: period.salesUnits,
       salesCashReceiptsMinor,
       operatingCashOutflowsMinor,
       otherCashInflowsMinor: period.otherCashInflowsMinor,
-      otherCashOutflowsMinor: period.otherCashOutflowsMinor
+      otherCashOutflowsMinor: period.otherCashOutflowsMinor,
+      ...additionalCash
     });
   }
 
@@ -294,9 +314,18 @@ export function projectCashRunway(input) {
       const operatingCashOutflows = BigInt(period.operatingCashOutflowsMinor);
       const otherInflows = BigInt(period.otherCashInflowsMinor);
       const otherOutflows = BigInt(period.otherCashOutflowsMinor);
-      const totalCashReceipts = salesCashReceipts + otherInflows;
-      const totalCashOutflows = operatingCashOutflows + otherOutflows;
-      const netCashChange = totalCashReceipts - totalCashOutflows;
+      const investingInflows = BigInt(period.investingCashInflowsMinor);
+      const investingOutflows = BigInt(period.investingCashOutflowsMinor);
+      const financingInflows = BigInt(period.financingCashInflowsMinor);
+      const financingOutflows = BigInt(period.financingCashOutflowsMinor);
+      const totalOperatingCashReceipts = salesCashReceipts + otherInflows;
+      const totalOperatingCashOutflows = operatingCashOutflows + otherOutflows;
+      const netOperatingCashFlow = totalOperatingCashReceipts - totalOperatingCashOutflows;
+      const netInvestingCashFlow = investingInflows - investingOutflows;
+      const netFinancingCashFlow = financingInflows - financingOutflows;
+      const totalCashReceipts = totalOperatingCashReceipts + investingInflows + financingInflows;
+      const totalCashOutflows = totalOperatingCashOutflows + investingOutflows + financingOutflows;
+      const netCashChange = netOperatingCashFlow + netInvestingCashFlow + netFinancingCashFlow;
       cash += netCashChange;
       const periodNumber = index + 1;
 
@@ -316,9 +345,18 @@ export function projectCashRunway(input) {
         salesUnitsScenario: period.salesUnits,
         salesCashReceiptsMinor: period.salesCashReceiptsMinor,
         otherCashInflowsMinor: period.otherCashInflowsMinor,
+        totalOperatingCashReceiptsMinor: outputInteger(totalOperatingCashReceipts, 'period' + periodNumber + '.totalOperatingCashReceiptsMinor'),
         totalCashReceiptsMinor: outputInteger(totalCashReceipts, 'period' + periodNumber + '.totalCashReceiptsMinor'),
         operatingCashOutflowsMinor: period.operatingCashOutflowsMinor,
         otherCashOutflowsMinor: period.otherCashOutflowsMinor,
+        totalOperatingCashOutflowsMinor: outputInteger(totalOperatingCashOutflows, 'period' + periodNumber + '.totalOperatingCashOutflowsMinor'),
+        netOperatingCashFlowMinor: outputInteger(netOperatingCashFlow, 'period' + periodNumber + '.netOperatingCashFlowMinor'),
+        investingCashInflowsMinor: period.investingCashInflowsMinor,
+        investingCashOutflowsMinor: period.investingCashOutflowsMinor,
+        netInvestingCashFlowMinor: outputInteger(netInvestingCashFlow, 'period' + periodNumber + '.netInvestingCashFlowMinor'),
+        financingCashInflowsMinor: period.financingCashInflowsMinor,
+        financingCashOutflowsMinor: period.financingCashOutflowsMinor,
+        netFinancingCashFlowMinor: outputInteger(netFinancingCashFlow, 'period' + periodNumber + '.netFinancingCashFlowMinor'),
         totalCashOutflowsMinor: outputInteger(totalCashOutflows, 'period' + periodNumber + '.totalCashOutflowsMinor'),
         netCashChangeMinor: outputInteger(netCashChange, 'period' + periodNumber + '.netCashChangeMinor'),
         closingCashMinor: outputInteger(cash, 'period' + periodNumber + '.closingCashMinor'),
@@ -329,10 +367,10 @@ export function projectCashRunway(input) {
 
     const minimumCashNumber = outputInteger(minimumCash, 'minimumCashMinor');
     const report = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       kind: 'business-launchpad-cash-runway-report',
       currency: { ...model.currency },
-      basis: 'Owner-supplied monthly cash receipts and payments; not a demand forecast.',
+      basis: 'Owner-supplied monthly cash receipts and payments classified into planning buckets for operating, investing and financing movements; not a demand forecast or accounting statement.',
       horizonMonths: normalizedPlan.length,
       startup: {
         openingCashBeforeSetupMinor: model.availableCashForStartupMinor,
@@ -370,8 +408,10 @@ export function projectCashRunway(input) {
         'Enter operatingCashOutflowsMinor for the month operating payments are expected to leave cash. By default only, legacy plans derive variable and fixed operating cash costs from same-month sales activity.',
         'The model does not maintain an accounts-receivable/accounts-payable ledger, age invoices, reconcile actual settlement, or model supplier-credit balances. User-supplied monthly cash timing is a scenario assumption.',
         'Setup costs are deducted once before month one. The working-capital amount is a reserve threshold, not an additional cash outflow.',
-        'Taxes, owner draw, financing, debt service and other costs must be entered as monthly other cash outflows if they are to be included; omitted/unknown costs remain a limitation.',
-        'Other monthly inflows/outflows are additive to sales cash receipts and operating cash payments; they do not replace or re-time those fields. Do not count an expense in both operatingCashOutflowsMinor and otherCashOutflowsMinor.',
+        'Other operating inflows/outflows are additive to sales receipts and operating payments. Do not count one transaction in more than one bucket.',
+        'Investing fields capture cash from asset/investment disposals and cash paid for long-term assets; financing fields capture cash from capital/borrowing and cash paid for owner distributions or principal repayments. Enter only cash movements, not non-cash transactions.',
+        'These categories are planning labels, not accounting classification advice. Actual classification can depend on the transaction, applicable reporting framework and jurisdiction; this prototype is not an IAS 7 statement.',
+        'Missing investing/financing fields in legacy plans are treated as zero for compatibility, which may leave their runway understated if a real capital or financing event was omitted.',
         'Each period uses one average offer for its activity assumption; product mix, seasonality, capacity and operational disruptions are not modeled.'
       ]
     };
