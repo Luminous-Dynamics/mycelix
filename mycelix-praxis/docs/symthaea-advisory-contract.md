@@ -223,6 +223,7 @@ Implemented in this branch:
 - strict request and response JSON Schemas that reject unknown fields and are checked against the actual Rust wire fields, enums, and request-list bounds;
 - an independent standard-library Python checker for actual Rust request/response field parity, schema/Rust enum parity, request example shape/order, response/request bounds, trust gates, and the required adversarial test inventory;
 - a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, formatting/tests for both advisory crates, and clippy, including while the PR is a draft;
+- exact-head CI dependency qualification that resolves a Cargo lockfile once per run, switches metadata/tests/Clippy to `--locked`, and uploads the generated lockfile, full resolved Cargo metadata, and source/toolchain/lock fingerprint for independent inspection (per-run consistency only; not cross-run pinning);
 - a 16 KiB bounded JSON parser in `praxis-core` plus a native-only host reader that caps streaming reads at 16,385 bytes before rejecting oversize bodies;
 - a preferred prepared-request method that bounds the response, validates against the frozen request scope, and rejects a second response for the same prepared request; reader failures remain retryable with the exact same request bytes/digest;
 - deterministic minimized request preparation with exact-body BLAKE3 digest, canonical allowlist ordering, duplicate rejection, pre-copy action/reason list bounds tied to the finite enum counts, and response-validation context frozen to the same prepared scope;
@@ -234,6 +235,6 @@ Not yet implemented or qualified:
 - linkage to the evidence-bound PRAX projection pipeline;
 - UI accept/dismiss wiring and accessibility checks;
 - local inference/remote-provider privacy enforcement;
-- Rust build/tests, formatter, clippy, workflow execution, runtime, or learning-outcome qualification.
+- a committed `mycelix-praxis/Cargo.lock` that freezes dependency resolution across distinct CI runs (the generated per-run lock artifact is evidence, not a repository-level pin);\n- Rust build/tests, formatter, clippy, workflow execution, runtime, or learning-outcome qualification.
 
 The claim ceiling for this branch is **contract plus host-side request/response boundary prototype only**. No live integration, educational-effectiveness result, validated cognitive-state inference, credential authority, or production readiness is claimed.
