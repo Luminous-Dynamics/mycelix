@@ -479,11 +479,29 @@ def main() -> int:
         "host adapter must read only from the bounded reader",
         errors,
     )
-    size_check = adapter_source.find("if bytes.len() > MAX_ADVISORY_RESPONSE_BYTES")
-    parse_call = adapter_source.find("parse_bounded_response(&bytes)")
+    reader_start = adapter_source.find("fn read_bounded_response_bytes<R: Read>(")
+    parser_start = adapter_source.find("fn parse_bounded_response(", reader_start)
+    bounded_reader = (
+        adapter_source[reader_start:parser_start]
+        if reader_start >= 0 and parser_start > reader_start
+        else ""
+    )
+    size_check = bounded_reader.find("if bytes.len() > MAX_ADVISORY_RESPONSE_BYTES")
+    returned_bytes = bounded_reader.find("Ok(bytes)")
     require(
-        size_check >= 0 and parse_call > size_check,
-        "host adapter must reject oversized streams before JSON decoding",
+        "reader.take((MAX_ADVISORY_RESPONSE_BYTES + 1) as u64)" in bounded_reader
+        and "bounded.read_to_end(&mut bytes)" in bounded_reader
+        and size_check >= 0 and returned_bytes > size_check,
+        "host adapter must enforce the max-plus-one bound before returning response bytes",
+        errors,
+    )
+    one_shot_start = adapter_source.find("pub fn read_and_validate_response_once<R: Read>(")
+    one_shot_parse = adapter_source.find("parse_bounded_response(&bytes)", one_shot_start)
+    one_shot_read = adapter_source.find("read_bounded_response_bytes(reader)?", one_shot_start)
+    require(
+        one_shot_start >= 0 and one_shot_read > one_shot_start
+        and one_shot_parse > one_shot_read,
+        "one-shot validation must read bounded response bytes before parsing",
         errors,
     )
     require(
