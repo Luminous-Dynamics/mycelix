@@ -156,6 +156,8 @@ def main() -> int:
         max_refs = integer_constant(source, "MAX_SUPPORTING_CONTENT_IDS")
         max_identifier_chars = integer_constant(source, "MAX_ADVISORY_IDENTIFIER_CHARS")
         max_response_bytes = integer_constant(source, "MAX_ADVISORY_RESPONSE_BYTES")
+        max_allowed_actions = integer_constant(adapter_source, "MAX_ALLOWED_ACTIONS")
+        max_allowed_reasons = integer_constant(adapter_source, "MAX_ALLOWED_REASONS")
     except (AttributeError, TypeError, ValueError) as error:
         print(f"Symthaea advisory static conformance FAILED: {error}", file=sys.stderr)
         return 1
@@ -380,8 +382,6 @@ def main() -> int:
         "request body must retain a reviewed 16 KiB maximum",
         errors,
     )
-    max_allowed_actions = integer_constant(adapter_source, "MAX_ALLOWED_ACTIONS")
-    max_allowed_reasons = integer_constant(adapter_source, "MAX_ALLOWED_REASONS")
     require(
         max_allowed_actions == len(action_variants),
         "request action-list cap must track the finite Rust action enum",
