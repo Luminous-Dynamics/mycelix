@@ -280,6 +280,7 @@ Run the receipt validator with a source-bound JSON record:
 
 ```bash
 python3 scripts/validate_regenerative_observation.py path/to/observation-record.json
+# For a historical, retained catalog snapshot, pass --catalog /path/to/that-exact-catalog.json
 python3 -m unittest discover -s tests -p 'test_regenerative_observation.py'
 ```
 
