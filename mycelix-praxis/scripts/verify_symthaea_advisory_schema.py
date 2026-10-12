@@ -68,6 +68,7 @@ ADAPTER_REQUIRED_TESTS = {
     "request_body_digest_changes_for_fresh_nonce",
     "request_preparation_rejects_invalid_request_nonce",
     "public_request_builder_generates_fresh_nonces",
+    "nonce_entropy_failure_fails_closed",
 }
 
 REQUIRED_TESTS = {
@@ -238,10 +239,12 @@ def main() -> int:
     )
     require(
         "fn generate_request_nonce() -> Result<String, RequestPreparationError>" in adapter_source
-        and "getrandom::getrandom(&mut bytes)" in adapter_source
+        and "getrandom::getrandom(bytes).map_err(|_| ())" in adapter_source
+        and "fn generate_request_nonce_with(" in adapter_source
         and "let request_nonce = generate_request_nonce()?;" in adapter_source
-        and "RequestPreparationError::NonceGenerationFailed" in adapter_source,
-        "public request builder must fail closed when OS cryptographic randomness is unavailable",
+        and "RequestPreparationError::NonceGenerationFailed" in adapter_source
+        and "fn nonce_entropy_failure_fails_closed()" in adapter_source,
+        "public request builder must use OS randomness and fail closed when entropy is unavailable",
         errors,
     )
     require(
