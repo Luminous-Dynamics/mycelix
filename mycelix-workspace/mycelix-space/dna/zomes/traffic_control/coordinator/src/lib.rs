@@ -386,36 +386,47 @@ pub fn submit_proposal(input: SubmitProposalInput) -> ExternResult<ActionHash> {
     // --- Authorization: only session participants can submit proposals ---
     let session = verify_session_participant(&input.session_id, &agent)?;
 
-    // --- Server-side Pc verification via SGP4 + Alfano ---
-    // Fetch TLEs for both objects and independently compute collision probability.
-    // If the caller-provided resulting_pc differs by more than 10× from our
-    // computation, reject the proposal as implausible.
-    if let Some(server_pc) = verify_pc_from_tles(
+    // Require a valid checked baseline assessment. Missing TLEs, covariance,
+    // compatible state frames, or an in-envelope Pc estimate must not silently
+    // skip this data-quality gate.
+    let server_pc = verify_pc_from_tles(
         session.primary_norad_id,
         session.secondary_norad_id,
         &input.burn_time,
-    ) {
-        // Allow a 10× tolerance band to account for different propagation epochs
-        // and covariance assumptions
-        let ratio = if server_pc > 1e-15 && input.resulting_pc > 1e-15 {
-            (input.resulting_pc / server_pc).max(server_pc / input.resulting_pc)
-        } else {
-            1.0 // If either is effectively zero, skip ratio check
-        };
+    )
+    .ok_or_else(|| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Checked conjunction baseline is unavailable; proposal not accepted",
+        )
+        .into_wasm_error()
+    })?;
 
-        if ratio > 10.0 {
-            return Err(SpaceError::new(
-                SpaceErrorCode::InvalidProbability,
-                "Claimed resulting_pc differs from server-computed Pc by more than 10×",
-            )
-            .with_context(format!(
-                "claimed: {:.2e}, server: {:.2e}, ratio: {:.1}×",
-                input.resulting_pc, server_pc, ratio
-            ))
-            .into_wasm_error());
-        }
+    // This is only a coarse baseline consistency gate, not independent
+    // post-maneuver verification and not authority to execute a burn.
+    // Do not let a near-zero value on only one side bypass the check.
+    const PC_ZERO_EPSILON: f64 = 1e-15;
+    let claimed_near_zero = input.resulting_pc <= PC_ZERO_EPSILON;
+    let baseline_near_zero = server_pc <= PC_ZERO_EPSILON;
+    let ratio = if claimed_near_zero && baseline_near_zero {
+        1.0
+    } else if claimed_near_zero || baseline_near_zero {
+        f64::INFINITY
+    } else {
+        (input.resulting_pc / server_pc).max(server_pc / input.resulting_pc)
+    };
+
+    if ratio > 10.0 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProbability,
+            "Claimed Pc is inconsistent with checked baseline by more than 10x; review required",
+        )
+        .with_context(format!(
+            "claimed: {:.2e}, baseline: {:.2e}, ratio: {:.1}x",
+            input.resulting_pc, server_pc, ratio
+        ))
+        .into_wasm_error());
     }
-    // If TLEs are unavailable the verification is best-effort — allow the proposal.
 
     let proposal = ManeuverProposal {
         session_id: input.session_id.clone(),
@@ -832,8 +843,13 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
             s_tca.state.clone(),
             orbital_mechanics::state::DataSource::OperatorEphemeris,
         );
-        let assessment = analyzer.assess(&post_p, &post_s);
-        let resulting_pc = assessment.collision_probability.pc;
+        // The post-maneuver synthetic states currently lack propagated
+        // covariance. Keep geometric candidates, but do not synthesize Pc=0
+        // or call an unchecked probability fallback.
+        let resulting_pc = analyzer
+            .try_assess(&post_p, &post_s)
+            .ok()
+            .map(|assessment| assessment.collision_probability.pc);
 
         let option = AvoidanceOption {
             session_id: input.session_id.clone(),
@@ -1091,7 +1107,8 @@ pub fn generate_avoidance_from_fusion(
                 delta_v: vec![dv.x, dv.y, dv.z],
                 delta_v_magnitude_ms: dv_mag * 1000.0,
                 resulting_miss_distance_km: miss_km,
-                resulting_pc: 0.0, // Conservative: fusion path skips Alfano (no TLE)
+                // Fusion has no checked post-maneuver covariance or Pc.
+                resulting_pc: None,
                 transfer_type: format!("{} (fused)", label),
             };
 
@@ -1430,9 +1447,10 @@ fn verify_pc_from_tles(
     let p_state = primary_prop.propagate_to(target_time).ok()?;
     let s_state = secondary_prop.propagate_to(target_time).ok()?;
 
-    // Run Alfano 2D collision probability assessment
+    // The checked path rejects missing/incompatible covariance and unsupported
+    // approximation cases. Failure stays unavailable rather than becoming Pc=0.
     let analyzer = ConjunctionAnalyzer::new();
-    let assessment = analyzer.assess(&p_state, &s_state);
+    let assessment = analyzer.try_assess(&p_state, &s_state).ok()?;
 
     Some(assessment.collision_probability.pc)
 }
