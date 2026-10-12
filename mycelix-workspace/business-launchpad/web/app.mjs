@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { analyzeBusinessModel, formatMinorUnits, parseMajorToMinorUnits } from '../core/src/index.js';
+import { analyzeBusinessModel, formatMinorUnits, parseMajorToMinorUnits, projectCashRunway } from '../core/src/index.js';
 
 const form = document.querySelector('#model-form');
 const errorBox = document.querySelector('#input-error');
@@ -12,9 +12,14 @@ const omittedField = document.querySelector('#omitted-costs');
 const downloadScenarioButton = document.querySelector('#download-scenario');
 const loadScenarioInput = document.querySelector('#load-scenario-file');
 const downloadReportButton = document.querySelector('#download-report');
+const cashRunwayPeriodsRoot = document.querySelector('#cash-runway-periods');
+const resetCashRunwayButton = document.querySelector('#reset-cash-runway');
+const CASH_RUNWAY_MONTHS = 12;
 
 let latestModel = null;
 let latestReport = null;
+let latestCashRunwayPlan = null;
+let latestCashRunway = null;
 
 const moneyFields = [
   ['selling-price', 'sellingPricePerUnitMinor', 'Price per sale'],
@@ -38,6 +43,8 @@ function clearResult() {
   resultStatus.className = 'status-pill status-muted';
   latestModel = null;
   latestReport = null;
+  latestCashRunwayPlan = null;
+  latestCashRunway = null;
   downloadReportButton.disabled = true;
 }
 
@@ -121,6 +128,123 @@ function minorToMajorInput(amountMinor, minorUnitExponent) {
     : whole.toString() + '.' + remainder.toString().padStart(minorUnitExponent, '0');
 }
 
+function ceilRatioUnits(value, numerator, denominator) {
+  const n = BigInt(value) * BigInt(numerator);
+  const d = BigInt(denominator);
+  return Number((n + d - 1n) / d);
+}
+
+function defaultCashRunwayPlan(targetUnits) {
+  return Array.from({ length: CASH_RUNWAY_MONTHS }, (_, index) => ({
+    salesUnits: index === 0
+      ? ceilRatioUnits(targetUnits, 1, 2)
+      : index === 1
+        ? ceilRatioUnits(targetUnits, 3, 4)
+        : targetUnits,
+    otherCashInflowsMinor: 0,
+    otherCashOutflowsMinor: 0
+  }));
+}
+
+function renderCashRunwayInputs(plan, currency) {
+  cashRunwayPeriodsRoot.replaceChildren();
+  plan.forEach((period, index) => {
+    const month = index + 1;
+    const row = element('tr');
+    const heading = element('th', '', 'Month ' + month);
+    heading.setAttribute('scope', 'row');
+    row.append(heading);
+
+    const salesInput = document.createElement('input');
+    salesInput.id = 'cash-month-' + month + '-sales';
+    salesInput.name = salesInput.id;
+    salesInput.type = 'text';
+    salesInput.inputMode = 'numeric';
+    salesInput.autocomplete = 'off';
+    salesInput.value = String(period.salesUnits);
+    salesInput.setAttribute('aria-label', 'Month ' + month + ' expected sales units');
+    const salesCell = element('td');
+    salesCell.append(salesInput);
+    row.append(salesCell);
+
+    for (const [suffix, value, label] of [
+      ['inflows', period.otherCashInflowsMinor, 'other cash inflows'],
+      ['outflows', period.otherCashOutflowsMinor, 'other cash outflows']
+    ]) {
+      const moneyInput = document.createElement('input');
+      moneyInput.id = 'cash-month-' + month + '-' + suffix;
+      moneyInput.name = moneyInput.id;
+      moneyInput.type = 'text';
+      moneyInput.inputMode = 'decimal';
+      moneyInput.autocomplete = 'off';
+      moneyInput.value = minorToMajorInput(value, currency.minorUnitExponent);
+      moneyInput.setAttribute('aria-label', 'Month ' + month + ' ' + label);
+      const cell = element('td');
+      cell.append(moneyInput);
+      row.append(cell);
+    }
+    cashRunwayPeriodsRoot.append(row);
+  });
+}
+
+function readCashRunwayPlan(currency) {
+  return Array.from({ length: CASH_RUNWAY_MONTHS }, (_, index) => {
+    const month = index + 1;
+    const parsedUnits = parseWholeUnits(getFieldValue('cash-month-' + month + '-sales'));
+    if (!parsedUnits.ok) {
+      throw new Error('Month ' + month + ' sales units: ' + parsedUnits.error.message);
+    }
+    const otherCashInflows = parseMajorToMinorUnits(
+      getFieldValue('cash-month-' + month + '-inflows'),
+      currency.minorUnitExponent
+    );
+    if (!otherCashInflows.ok) {
+      throw new Error('Month ' + month + ' other cash inflows: ' + otherCashInflows.error.message);
+    }
+    const otherCashOutflows = parseMajorToMinorUnits(
+      getFieldValue('cash-month-' + month + '-outflows'),
+      currency.minorUnitExponent
+    );
+    if (!otherCashOutflows.ok) {
+      throw new Error('Month ' + month + ' other cash outflows: ' + otherCashOutflows.error.message);
+    }
+    return {
+      salesUnits: parsedUnits.value,
+      otherCashInflowsMinor: otherCashInflows.amountMinor,
+      otherCashOutflowsMinor: otherCashOutflows.amountMinor
+    };
+  });
+}
+
+function validateImportedCashRunwayPlan(plan, model) {
+  if (!Array.isArray(plan) || plan.length !== CASH_RUNWAY_MONTHS) {
+    throw new Error('Cash runway data must contain exactly 12 monthly entries.');
+  }
+  const normalized = plan.map((period, index) => {
+    if (
+      period === null ||
+      typeof period !== 'object' ||
+      Array.isArray(period) ||
+      !Number.isSafeInteger(period.salesUnits) ||
+      period.salesUnits < 0 ||
+      !Number.isSafeInteger(period.otherCashInflowsMinor) ||
+      period.otherCashInflowsMinor < 0 ||
+      !Number.isSafeInteger(period.otherCashOutflowsMinor) ||
+      period.otherCashOutflowsMinor < 0
+    ) {
+      throw new Error('Cash runway Month ' + (index + 1) + ' contains an invalid amount or sales quantity.');
+    }
+    return {
+      salesUnits: period.salesUnits,
+      otherCashInflowsMinor: period.otherCashInflowsMinor,
+      otherCashOutflowsMinor: period.otherCashOutflowsMinor
+    };
+  });
+  const result = projectCashRunway({ model, monthlyPlan: normalized });
+  if (!result.ok) throw new Error('Cash runway validation failed: ' + result.error.message);
+  return normalized;
+}
+
 function applyModelToForm(model) {
   document.getElementById('currency-code').value = model.currency.code;
   document.getElementById('minor-unit-exponent').value = String(model.currency.minorUnitExponent);
@@ -163,7 +287,10 @@ function validatedScenarioPayload(payload) {
   if (!result.ok) {
     throw new Error('Scenario validation failed: ' + result.error.message);
   }
-  return payload.input;
+  const plan = payload.cashRunwayPlan === undefined
+    ? defaultCashRunwayPlan(payload.input.plannedUnitsPerMonth)
+    : validateImportedCashRunwayPlan(payload.cashRunwayPlan, payload.input);
+  return { input: payload.input, cashRunwayPlan: plan };
 }
 
 function addMetric(list, label, value, extraClass = '') {
