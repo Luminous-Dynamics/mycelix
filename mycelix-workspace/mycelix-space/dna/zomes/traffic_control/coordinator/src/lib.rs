@@ -373,12 +373,14 @@ pub fn submit_proposal(input: SubmitProposalInput) -> ExternResult<ActionHash> {
         )
         .into_wasm_error());
     }
-    if input.resulting_pc < 0.0 || input.resulting_pc > 1.0 || input.resulting_pc.is_nan() {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidProbability,
-            "resulting_pc must be 0-1",
-        )
-        .into_wasm_error());
+    if let Some(pc) = input.resulting_pc {
+        if !pc.is_finite() || !(0.0..=1.0).contains(&pc) {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidProbability,
+                "claimed resulting_pc must be finite and in [0, 1] when present",
+            )
+            .into_wasm_error());
+        }
     }
 
     let agent = agent_info()?.agent_initial_pubkey;
@@ -386,48 +388,9 @@ pub fn submit_proposal(input: SubmitProposalInput) -> ExternResult<ActionHash> {
     // --- Authorization: only session participants can submit proposals ---
     let session = verify_session_participant(&input.session_id, &agent)?;
 
-    // Require a valid checked baseline assessment. Missing TLEs, covariance,
-    // compatible state frames, or an in-envelope Pc estimate must not silently
-    // skip this data-quality gate.
-    let server_pc = verify_pc_from_tles(
-        session.primary_norad_id,
-        session.secondary_norad_id,
-        &input.burn_time,
-    )
-    .ok_or_else(|| {
-        SpaceError::new(
-            SpaceErrorCode::InvalidProposal,
-            "Checked conjunction baseline is unavailable; proposal not accepted",
-        )
-        .into_wasm_error()
-    })?;
-
-    // This is only a coarse baseline consistency gate, not independent
-    // post-maneuver verification and not authority to execute a burn.
-    // Do not let a near-zero value on only one side bypass the check.
-    const PC_ZERO_EPSILON: f64 = 1e-15;
-    let claimed_near_zero = input.resulting_pc <= PC_ZERO_EPSILON;
-    let baseline_near_zero = server_pc <= PC_ZERO_EPSILON;
-    let ratio = if claimed_near_zero && baseline_near_zero {
-        1.0
-    } else if claimed_near_zero || baseline_near_zero {
-        f64::INFINITY
-    } else {
-        (input.resulting_pc / server_pc).max(server_pc / input.resulting_pc)
-    };
-
-    if ratio > 10.0 {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidProbability,
-            "Claimed Pc is inconsistent with checked baseline by more than 10x; review required",
-        )
-        .with_context(format!(
-            "claimed: {:.2e}, baseline: {:.2e}, ratio: {:.1}x",
-            input.resulting_pc, server_pc, ratio
-        ))
-        .into_wasm_error());
-    }
-
+    // A pre-maneuver baseline is not comparable to a claimed post-maneuver
+    // probability. Persist the caller's number only as an unverified claim;
+    // no checked post-maneuver covariance propagation exists yet.
     let proposal = ManeuverProposal {
         session_id: input.session_id.clone(),
         proposer: agent,
@@ -436,7 +399,7 @@ pub fn submit_proposal(input: SubmitProposalInput) -> ExternResult<ActionHash> {
         delta_v_ms: input.delta_v_ms,
         direction: input.direction,
         resulting_miss_km: input.resulting_miss_km,
-        resulting_pc: input.resulting_pc,
+        claimed_resulting_pc: input.resulting_pc,
         cost_estimate: input.cost_estimate,
         status: ProposalStatus::Pending,
         created_at: SpaceTimestamp::now(),
@@ -471,7 +434,9 @@ pub struct SubmitProposalInput {
     pub delta_v_ms: f64,
     pub direction: [f64; 3],
     pub resulting_miss_km: f64,
-    pub resulting_pc: f64,
+    /// Optional caller claim; it is not independently verified by this endpoint.
+    #[serde(default)]
+    pub resulting_pc: Option<f64>,
     pub cost_estimate: Option<CostEstimate>,
 }
 
