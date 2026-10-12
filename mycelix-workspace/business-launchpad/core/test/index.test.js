@@ -356,7 +356,7 @@ test('zero stress assumptions reproduce the base cash projection exactly', () =>
   }
 });
 
-test('three-case cash comparison preserves reconciliation across a fixed-seed stress corpus', () => {
+test('stress and terms-based cash comparison preserve reconciliation across a fixed-seed corpus', () => {
   let seed = 0x5ce7e55;
   const next = maxExclusive => {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
