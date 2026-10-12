@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Deterministic calculator test fixtures only. Figures are illustrative and are not researched market prices, financial advice, demand predictions, or compliance guidance.",
+  "currency": {
+    "code": "ZAR",
+    "minorUnitExponent": 2
+  },
+  "scenarios": [
+    {
+      "id": "service-home-cleaning",
+      "businessType": "service",
+      "description": "Illustrative home-cleaning service scenario.",
+      "input": {
+        "sellingPricePerUnitMinor": 18000,
+        "variableCostPerUnitMinor": 6000,
+        "fixedMonthlyCostsMinor": 90000,
+        "plannedUnitsPerMonth": 50,
+        "setupCostsMinor": 250000,
+        "initialWorkingCapitalBufferMinor": 300000,
+        "availableCashForStartupMinor": 600000,
+        "costCoverage": {
+          "level": "partial",
+          "omittedCategories": ["owner labor", "tax"]
+        }
+      },
+      "expected": {
+        "contributionPerUnitMinor": 12000,
+        "revenueMinor": 900000,
+        "variableCostsMinor": 300000,
+        "contributionMinor": 600000,
+        "fixedCostsMinor": 90000,
+        "operatingResultBeforeExcludedItemsMinor": 510000,
+        "breakEvenUnitsPerMonth": 8,
+        "requiredCashMinor": 550000,
+        "fundingGapMinor": 0
+      }
+    },
+    {
+      "id": "food-stall",
+      "businessType": "food",
+      "description": "Illustrative takeaway food stall scenario; excludes many location- and activity-specific costs.",
+      "input": {
+        "sellingPricePerUnitMinor": 6500,
+        "variableCostPerUnitMinor": 3500,
+        "fixedMonthlyCostsMinor": 200000,
+        "plannedUnitsPerMonth": 200,
+        "setupCostsMinor": 500000,
+        "initialWorkingCapitalBufferMinor": 300000,
+        "availableCashForStartupMinor": 400000,
+        "costCoverage": {
+          "level": "partial",
+          "omittedCategories": ["owner labor", "permit and municipal fees", "unsold/spoiled stock beyond modeled allowance"]
+        }
+      },
+      "expected": {
+        "contributionPerUnitMinor": 3000,
+        "revenueMinor": 1300000,
+        "variableCostsMinor": 700000,
+        "contributionMinor": 600000,
+        "fixedCostsMinor": 200000,
+        "operatingResultBeforeExcludedItemsMinor": 400000,
+        "breakEvenUnitsPerMonth": 67,
+        "requiredCashMinor": 800000,
+        "fundingGapMinor": 400000
+      }
+    },
+    {
+      "id": "retail-resale",
+      "businessType": "retail",
+      "description": "Illustrative small retail resale scenario; excludes several cost and working-capital risks.",
+      "input": {
+        "sellingPricePerUnitMinor": 25000,
+        "variableCostPerUnitMinor": 16000,
+        "fixedMonthlyCostsMinor": 600000,
+        "plannedUnitsPerMonth": 80,
+        "setupCostsMinor": 1500000,
+        "initialWorkingCapitalBufferMinor": 2500000,
+        "availableCashForStartupMinor": 2000000,
+        "costCoverage": {
+          "level": "partial",
+          "omittedCategories": ["payment fees", "returns and stock shrinkage", "tax"]
+        }
+      },
+      "expected": {
+        "contributionPerUnitMinor": 9000,
+        "revenueMinor": 2000000,
+        "variableCostsMinor": 1280000,
+        "contributionMinor": 720000,
+        "fixedCostsMinor": 600000,
+        "operatingResultBeforeExcludedItemsMinor": 120000,
+        "breakEvenUnitsPerMonth": 67,
+        "requiredCashMinor": 4000000,
+        "fundingGapMinor": 2000000
+      }
+    }
+  ]
+}
