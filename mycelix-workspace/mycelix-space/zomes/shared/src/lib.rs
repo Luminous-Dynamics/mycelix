@@ -690,7 +690,8 @@ pub enum AlertType {
     RiskEscalation,
     /// Conjunction risk level de-escalated
     RiskDeescalation,
-    /// Maneuver required
+    /// A qualified, independent operational process has determined that maneuvering is required.
+    /// This event must not be emitted from a Pc screening band alone.
     ManeuverRequired,
     /// Maneuver executed successfully
     ManeuverExecuted,
@@ -711,9 +712,9 @@ pub enum AlertPriority {
     Low,
     /// Medium priority, review recommended
     Medium,
-    /// High priority, action may be needed
+    /// High-priority alert requiring timely independent review
     High,
-    /// Critical priority, immediate action required
+    /// Highest review priority; not itself an action command
     Critical,
 }
 
@@ -753,25 +754,37 @@ pub struct ConjunctionAlert {
     pub generated_at: DateTime<Utc>,
     /// Previous risk level (for escalation alerts)
     pub previous_risk_level: Option<RiskLevel>,
-    /// Recommended action
+    /// Review guidance only. This field is not maneuver authority or a flight command.
     pub recommendation: Option<String>,
 }
 
 impl ConjunctionAlert {
     /// Create a new conjunction detected alert
     pub fn new_conjunction(assessment: &ConjunctionAssessment) -> Self {
+        // RiskLevel is a Pc-only screening band. Because the current Pc and covariance
+        // models are not operationally qualified, these notifications request review
+        // and never direct maneuver execution.
         let recommendation = match assessment.risk_level {
-            RiskLevel::Emergency => {
-                Some("IMMEDIATE ACTION REQUIRED: Initiate collision avoidance maneuver".to_string())
-            }
-            RiskLevel::High => {
-                Some("Prepare collision avoidance maneuver, monitor closely".to_string())
-            }
-            RiskLevel::Medium => {
-                Some("Increase monitoring frequency, prepare contingency plans".to_string())
-            }
-            RiskLevel::Low => Some("Continue monitoring, no immediate action required".to_string()),
-            RiskLevel::Negligible => None,
+            RiskLevel::Emergency => Some(
+                "Highest Pc-only screening band: promptly obtain qualified independent conjunction assessment. This alert is not a maneuver command."
+                    .to_string(),
+            ),
+            RiskLevel::High => Some(
+                "High Pc-only screening band: obtain qualified independent review of source data, covariance realism, and encounter assumptions before any action."
+                    .to_string(),
+            ),
+            RiskLevel::Medium => Some(
+                "Medium Pc-only screening band: increase monitoring and validate data freshness, covariance, and method applicability."
+                    .to_string(),
+            ),
+            RiskLevel::Low => Some(
+                "Low Pc-only screening band: continue monitoring; this estimate does not establish safety."
+                    .to_string(),
+            ),
+            RiskLevel::Negligible => Some(
+                "Below the lowest configured Pc screening band; not a finding of safety or an operational clearance."
+                    .to_string(),
+            ),
         };
 
         Self {
@@ -803,7 +816,8 @@ impl ConjunctionAlert {
         alert
     }
 
-    /// Check if this alert requires immediate attention
+    /// Indicates that the alert should receive prompt review. This does not authorize
+    /// or require physical maneuvering.
     pub fn is_critical(&self) -> bool {
         self.priority == AlertPriority::Critical || self.priority == AlertPriority::High
     }
