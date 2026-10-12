@@ -10,7 +10,7 @@ From this directory:
 
 Open http://127.0.0.1:8080/web/ in a browser. Bind to loopback so the static development server is not exposed to your local network.
 
-The browser worksheet calculates in page memory. It does not upload entered figures or store them in browser storage. Use **Download assumptions JSON** to save a scenario file, **Load assumptions JSON** to restore a scenario file, and **Download calculated report JSON** to save the report with its input assumptions. A file saved on disk is not an automatic backup or business record service.
+The browser worksheet calculates in page memory. It does not upload entered figures or store them in browser storage. Use **Download assumptions JSON** to save a schema-v2 scenario file, **Load assumptions JSON** to restore it, and **Download calculated report JSON** to save the report with its input assumptions and cash projection. Version-1 scenario files remain importable; version-2 files require the month-by-month cash plan, preventing an older version from silently dropping independent cash-timing data. A file saved on disk is not an automatic backup or business record service.
 
 ## Run the deterministic calculator tests
 
