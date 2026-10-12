@@ -13,6 +13,8 @@ use std::collections::BTreeMap;
 
 const REGISTRY_JSON: &str =
     include_str!("../../../../../docs/economy-atlas/model-registry.v1.json");
+const INDICATOR_CATALOG_JSON: &str =
+    include_str!("../../../../../docs/economy-atlas/regenerative-indicators.v1.json");
 
 #[derive(Clone, Debug, Deserialize)]
 struct AtlasRegistry {
@@ -75,6 +77,60 @@ struct AtlasResearchReference {
     published_year: Option<u16>,
     retrieved_on: String,
     url: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasIndicatorCatalog {
+    catalog_status: String,
+    qualification: AtlasIndicatorQualification,
+    global_comparison_contract: Vec<String>,
+    research_refs: Vec<AtlasIndicatorReference>,
+    indicators: Vec<AtlasRegenerativeIndicator>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasIndicatorQualification {
+    empirical_observations_loaded: bool,
+    indicators_computed: bool,
+    independently_validated: bool,
+    composite_score_enabled: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasIndicatorReference {
+    ref_id: String,
+    title: String,
+    publisher: String,
+    reference_type: String,
+    #[serde(default)]
+    published_year: Option<u16>,
+    retrieved_on: String,
+    url: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasRegenerativeIndicator {
+    indicator_id: String,
+    title: String,
+    framework_ids: Vec<String>,
+    domain: String,
+    indicator_type: String,
+    definition: String,
+    native_unit: String,
+    denominator: String,
+    desired_direction: String,
+    spatial_scope_required: String,
+    temporal_resolution_required: String,
+    baseline_and_target: String,
+    uncertainty_required: String,
+    input_requirements: Vec<String>,
+    comparability_key: Vec<String>,
+    missing_data_rule: String,
+    caveats: Vec<String>,
+    research_ref_ids: Vec<String>,
+    status: String,
+    observations_loaded: bool,
+    computed: bool,
 }
 
 fn evidence_label(status: &str) -> &'static str {
@@ -256,6 +312,97 @@ fn render_model_card(model: AtlasModel) -> impl IntoView {
     }
 }
 
+fn render_regenerative_indicator_card(
+    indicator: AtlasRegenerativeIndicator,
+    references: Vec<AtlasIndicatorReference>,
+) -> impl IntoView {
+    let title = indicator.title;
+    let indicator_id = indicator.indicator_id;
+    let domain = indicator.domain.replace('_', " ");
+    let definition = indicator.definition;
+    let native_unit = indicator.native_unit;
+    let direction = indicator.desired_direction.replace('_', " ");
+    let denominator = indicator.denominator;
+    let spatial_scope = indicator.spatial_scope_required;
+    let temporal_resolution = indicator.temporal_resolution_required;
+    let baseline_and_target = indicator.baseline_and_target;
+    let uncertainty = indicator.uncertainty_required;
+    let missing_data_rule = indicator.missing_data_rule;
+    let status = indicator.status.replace('_', " ");
+    let observations_loaded = indicator.observations_loaded;
+    let computed = indicator.computed;
+    let framework_ids = indicator.framework_ids.join(" · ");
+    let indicator_type = indicator.indicator_type.replace('_', " ");
+    let comparability_items = indicator.comparability_key.into_iter().map(|item| {
+        view! { <li>{item}</li> }
+    }).collect_view();
+    let input_items = indicator.input_requirements.into_iter().map(|item| {
+        view! { <li>{item}</li> }
+    }).collect_view();
+    let caveat_items = indicator.caveats.into_iter().map(|item| {
+        view! { <li>{item}</li> }
+    }).collect_view();
+    let linked_references = indicator.research_ref_ids.iter()
+        .filter_map(|ref_id| references.iter().find(|reference| &reference.ref_id == ref_id).cloned())
+        .map(|reference| {
+            let url = reference.url;
+            let title = reference.title;
+            let metadata = format!(
+                "{} · {}{} · retrieved {}",
+                reference.publisher,
+                reference.reference_type.replace('_', " "),
+                reference.published_year.map(|year| format!(" · {year}")).unwrap_or_default(),
+                reference.retrieved_on
+            );
+            view! {
+                <p class="atlas-source-link">
+                    <a href={url} target="_blank" rel="noopener noreferrer">{title}</a>
+                    <span class="atlas-research-meta">{metadata}</span>
+                </p>
+            }
+        }).collect_view();
+
+    view! {
+        <article class="dash-card atlas-indicator-card">
+            <div class="atlas-card-top">
+                <span class="badge atlas-evidence-design">"Candidate definition"</span>
+                <span class="atlas-domain">{domain}</span>
+            </div>
+            <h3>{title}</h3>
+            <p class="atlas-model-id">{indicator_id}</p>
+            <p>{definition}</p>
+            <p class="atlas-indicator-unit"><strong>"Native unit: "</strong>{native_unit}</p>
+            <details>
+                <summary>"Measurement contract, comparability and evidence"</summary>
+                <p><strong>"Type: "</strong>{indicator_type}</p>
+                <p><strong>"Direction: "</strong>{direction}</p>
+                <p><strong>"Denominator: "</strong>{denominator}</p>
+                <p><strong>"Required spatial scope: "</strong>{spatial_scope}</p>
+                <p><strong>"Required time resolution: "</strong>{temporal_resolution}</p>
+                <p><strong>"Baseline and target: "</strong>{baseline_and_target}</p>
+                <p><strong>"Uncertainty: "</strong>{uncertainty}</p>
+                <p><strong>"Missing-data rule: "</strong>{missing_data_rule}</p>
+                <h4>"Required input fields"</h4>
+                <ul>{input_items}</ul>
+                <h4>"Comparability key"</h4>
+                <ul>{comparability_items}</ul>
+                <h4>"Known caveats"</h4>
+                <ul>{caveat_items}</ul>
+                <h4>"Framework linkages"</h4>
+                <p class="atlas-disclaimer">{framework_ids}</p>
+                <h4>"Research provenance"</h4>
+                {linked_references}
+                <p class="atlas-disclaimer">
+                    {format!("Status: {status}. Observations loaded: {observations_loaded}. Computed: {computed}.")}
+                </p>
+                <p class="atlas-disclaimer">
+                    "A candidate definition is a measurement contract, not evidence that the quantity has been measured or improved."
+                </p>
+            </details>
+        </article>
+    }
+}
+
 #[component]
 pub fn EconomyAtlasPage() -> impl IntoView {
     let registry = match serde_json::from_str::<AtlasRegistry>(REGISTRY_JSON) {
@@ -273,6 +420,31 @@ pub fn EconomyAtlasPage() -> impl IntoView {
             .into_any();
         }
     };
+
+    let indicator_catalog = match serde_json::from_str::<AtlasIndicatorCatalog>(INDICATOR_CATALOG_JSON) {
+        Ok(catalog) => catalog,
+        Err(error) => {
+            return view! {
+                <section class="page-economy-atlas" role="alert">
+                    <h1>"Regenerative indicator catalog unavailable"</h1>
+                    <p class="subtitle">
+                        "The checked-in catalog could not be read. No indicator values or fallback definitions were substituted."
+                    </p>
+                    <pre>{error.to_string()}</pre>
+                </section>
+            }
+            .into_any();
+        }
+    };
+    let indicator_count = indicator_catalog.indicators.len();
+    let indicator_references = indicator_catalog.research_refs.clone();
+    let indicator_cards = indicator_catalog.indicators
+        .into_iter()
+        .map(|indicator| render_regenerative_indicator_card(indicator, indicator_references.clone()))
+        .collect_view();
+    let indicator_rules = indicator_catalog.global_comparison_contract;
+    let indicator_catalog_status = indicator_catalog.catalog_status;
+    let indicator_qualification = indicator_catalog.qualification;
 
     let model_count = registry.models.len();
     let source_count: usize = registry.models.iter().map(|model| model.source_refs.len()).sum();
@@ -418,6 +590,32 @@ pub fn EconomyAtlasPage() -> impl IntoView {
                 }}
             </div>
 
+            <section class="atlas-indicators-section" aria-labelledby="regenerative-indicators-heading">
+                <div class="dash-card">
+                    <h2 id="regenerative-indicators-heading">"Regenerative indicator catalog"</h2>
+                    <p class="subtitle">
+                        {format!("{} candidate definitions · catalog status: {}", indicator_count, indicator_catalog_status.replace('_', " "))}
+                    </p>
+                    <p>
+                        "This is a measurement contract catalog only. No empirical observations have been loaded, indicators have not been computed, independent validation has not occurred, and no composite score is enabled."
+                    </p>
+                    <p class="atlas-indicator-qualification">
+                        {format!(
+                            "Observations loaded: {} · Computed: {} · Independently validated: {} · Composite score enabled: {}",
+                            indicator_qualification.empirical_observations_loaded,
+                            indicator_qualification.indicators_computed,
+                            indicator_qualification.independently_validated,
+                            indicator_qualification.composite_score_enabled
+                        )}
+                    </p>
+                    <h3>"Shared comparison contract"</h3>
+                    <ul>{indicator_rules.into_iter().map(|rule| view! { <li>{rule}</li> }).collect_view()}</ul>
+                </div>
+                <div class="dashboard-grid atlas-indicator-grid">
+                    {indicator_cards}
+                </div>
+            </section>
+
             <div class="dash-card" style="margin-top: 1rem;">
                 <h2>"Comparison rules"</h2>
                 <ul>
@@ -440,6 +638,31 @@ mod tests {
 
     fn registry() -> AtlasRegistry {
         serde_json::from_str(REGISTRY_JSON).expect("checked-in Economy Atlas registry must parse")
+    }
+
+    fn indicator_catalog() -> AtlasIndicatorCatalog {
+        serde_json::from_str(INDICATOR_CATALOG_JSON)
+            .expect("checked-in regenerative indicator catalog must parse")
+    }
+
+    #[test]
+    fn regenerative_indicator_catalog_is_candidate_only() {
+        let catalog = indicator_catalog();
+        assert_eq!(catalog.catalog_status, "candidate_indicator_definitions");
+        assert_eq!(catalog.indicators.len(), 18);
+        assert!(!catalog.qualification.empirical_observations_loaded);
+        assert!(!catalog.qualification.indicators_computed);
+        assert!(!catalog.qualification.independently_validated);
+        assert!(!catalog.qualification.composite_score_enabled);
+        assert!(!catalog.global_comparison_contract.is_empty());
+        assert_eq!(catalog.research_refs.len(), 8);
+        for indicator in catalog.indicators {
+            assert_eq!(indicator.status, "candidate_definition");
+            assert!(!indicator.observations_loaded);
+            assert!(!indicator.computed);
+            assert!(!indicator.comparability_key.is_empty(), "{}", indicator.indicator_id);
+            assert!(!indicator.research_ref_ids.is_empty(), "{}", indicator.indicator_id);
+        }
     }
 
     #[test]
