@@ -410,8 +410,8 @@ impl ConjunctionAnalyzer {
         let (projected_miss, cov_2d) =
             self.project_to_encounter_plane(miss_vector, rel_vel, combined_pos_cov);
 
-        // Alfano's 2D Pc calculation
-        let pc = self.alfano_2d_pc(projected_miss, cov_2d, hbr_km);
+        // Gaussian local-density/small-disk approximation, not Alfano's published integral.
+        let pc = self.gaussian_small_disk_pc(projected_miss, cov_2d, hbr_km);
 
         // Heuristic one-order-of-magnitude spread for coarse research screening only.
         // This is not a statistically derived confidence interval or a guaranteed bound.
@@ -494,7 +494,7 @@ impl ConjunctionAnalyzer {
     ///
     /// This computes a local-density approximation and does not evaluate the full
     /// published Alfano or Foster collision-probability integral.
-    fn alfano_2d_pc(
+    fn gaussian_small_disk_pc(
         &self,
         miss_2d: nalgebra::Vector2<f64>,
         cov_2d: Matrix2<f64>,
