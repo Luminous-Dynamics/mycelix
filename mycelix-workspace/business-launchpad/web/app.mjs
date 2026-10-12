@@ -282,6 +282,9 @@ loadScenarioInput.addEventListener('change', async event => {
   if (!file) return;
   hideError();
   try {
+    if (Number.isFinite(file.size) && file.size > 1_000_000) {
+      throw new Error('Scenario files larger than 1 MB are not accepted by this prototype.');
+    }
     const payload = JSON.parse(await file.text());
     const model = validatedScenarioPayload(payload);
     applyModelToForm(model);
