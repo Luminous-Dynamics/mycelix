@@ -239,7 +239,10 @@ def main() -> int:
     )
     require(
         "fn generate_request_nonce() -> Result<String, RequestPreparationError>" in adapter_source
-        and "getrandom::getrandom(bytes).map_err(|_| ())" in adapter_source
+        and "getrandom::getrandom(bytes).map_err(|_| NonceFillError::Unavailable)" in adapter_source
+        and "enum NonceFillError" in adapter_source
+        and "Result<(), NonceFillError>" in adapter_source
+        and "Result<(), ()>" not in adapter_source
         and "fn generate_request_nonce_with(" in adapter_source
         and "let request_nonce = generate_request_nonce()?;" in adapter_source
         and "RequestPreparationError::NonceGenerationFailed" in adapter_source
