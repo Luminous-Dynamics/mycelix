@@ -126,11 +126,11 @@ function applyModelToForm(model) {
   document.getElementById('planned-units').value = String(model.plannedUnitsPerMonth);
   coverageSelect.value = model.costCoverage.level;
   omittedField.value = model.costCoverage.omittedCategories.join(', ');
-  coverageSelect.dispatchEvent(new Event('change'));
+  syncCoverageInput();
 }
 
 function downloadJson(filename, payload) {
-  const blob = new Blob([JSON.stringify(payload, null, 2) + '\\n'], { type: 'application/json;charset=utf-8' });
+  const blob = new Blob([JSON.stringify(payload, null, 2) + '\n'], { type: 'application/json;charset=utf-8' });
   const objectUrl = URL.createObjectURL(blob);
   const link = element('a');
   link.href = objectUrl;
@@ -287,10 +287,12 @@ loadScenarioInput.addEventListener('change', async event => {
   }
 });
 
-coverageSelect.addEventListener('change', () => {
+function syncCoverageInput() {
   const partial = coverageSelect.value === 'partial';
   omittedField.disabled = !partial;
   omittedField.setAttribute('aria-disabled', String(!partial));
-});
+}
 
-omittedField.disabled = coverageSelect.value !== 'partial';
+coverageSelect.addEventListener('change', syncCoverageInput);
+
+syncCoverageInput();
