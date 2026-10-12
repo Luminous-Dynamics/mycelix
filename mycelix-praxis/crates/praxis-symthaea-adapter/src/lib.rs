@@ -603,6 +603,39 @@ mod tests {
     }
 
     #[test]
+    fn oversized_response_consumes_prepared_request() {
+        let ids = ["lesson.fractions.01".to_string()];
+        let mut request = prepare_test_request(
+            &ids,
+            &[LearningSuggestion::OfferHint],
+            &[AdviceReason::RepeatedIncorrectAttempts],
+        );
+        let observed_bytes = Arc::new(AtomicUsize::new(0));
+        let reader = CountingReader {
+            remaining: MAX_ADVISORY_RESPONSE_BYTES * 4,
+            observed_bytes: Arc::clone(&observed_bytes),
+        };
+
+        assert_eq!(
+            request.read_and_validate_response_once(reader, true, false),
+            Err(BoundedAdviceReadError::ResponseTooLarge)
+        );
+        assert_eq!(
+            observed_bytes.load(Ordering::SeqCst),
+            MAX_ADVISORY_RESPONSE_BYTES + 1
+        );
+
+        let encoded = valid_advice_json().replace(
+            &format!("blake3:{}", "0".repeat(64)),
+            request.input_digest(),
+        );
+        assert_eq!(
+            request.read_and_validate_response_once(Cursor::new(encoded.as_bytes()), true, false),
+            Err(BoundedAdviceReadError::ResponseAlreadyConsumed)
+        );
+    }
+
+    #[test]
     fn trusted_validation_path_rejects_an_unallowed_action() {
         let ids = ["lesson.fractions.01".to_string()];
         let mut request = prepare_test_request(
