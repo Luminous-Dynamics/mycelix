@@ -1113,6 +1113,23 @@ mod tests {
     }
 
     #[test]
+    fn pc_method_variants_round_trip_including_legacy_and_unknown_provenance() {
+        let methods = [
+            PcMethod::Alfano2D,
+            PcMethod::Foster3D,
+            PcMethod::ChanMonteCarlo,
+            PcMethod::PateraMax,
+            PcMethod::GaussianSmallDiskApprox2D,
+            PcMethod::Unspecified,
+        ];
+        for method in methods {
+            let json = serde_json::to_string(&method).expect("serialize Pc method");
+            let parsed: PcMethod = serde_json::from_str(&json).expect("deserialize Pc method");
+            assert_eq!(parsed, method);
+        }
+    }
+
+    #[test]
     fn test_conjunction_assessment_serialization() {
         let assessment = ConjunctionAssessment {
             primary_norad_id: 25544,
