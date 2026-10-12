@@ -563,9 +563,10 @@ mod tests {
     use super::*;
     use crate::covariance::{CovarianceFrame, CovarianceMatrix, CovarianceSource};
     use crate::state::ReferenceFrame;
+    use chrono::Utc;
     use nalgebra::Matrix6;
 
-    fn checked_test_state(norad_id: u32, epoch: chrono::DateTime<Utc>) -> OrbitalState {
+    fn checked_test_state(norad_id: u32, epoch: chrono::DateTime<chrono::Utc>) -> OrbitalState {
         let mut covariance =
             CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.01, 0.01, 0.01]);
         covariance.frame = CovarianceFrame::TEME;
