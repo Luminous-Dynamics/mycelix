@@ -320,3 +320,15 @@ test('custom file picker has an associated label and a high-contrast keyboard fo
   assert.ok(contrast(focusColor, '#ffffff') >= 3, 'focus ring should contrast with white panels at 3:1 or higher');
   assert.ok(contrast(focusColor, '#f5f7f4') >= 3, 'focus ring should contrast with the page background at 3:1 or higher');
 });
+
+test('rejects oversized amount and sales-quantity text before numeric conversion', () => {
+  documentMock.reset();
+  documentMock.getElementById('selling-price').value = '9'.repeat(65);
+  documentMock.submit();
+  assert.match(documentMock.getElementById('input-error').textContent, /at most 64 characters/);
+
+  documentMock.reset();
+  documentMock.getElementById('planned-units').value = '9'.repeat(65);
+  documentMock.submit();
+  assert.match(documentMock.getElementById('input-error').textContent, /quantity text is too long/);
+});
