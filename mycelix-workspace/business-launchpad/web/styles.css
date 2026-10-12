@@ -63,7 +63,7 @@ small { display: block; margin-top: 5px; color: var(--muted); font-size: 0.78rem
 .cash-runway-details > .form-footnote { margin: 12px 0; }
 .cash-plan-scroll { max-width: 100%; margin: 12px 0; overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
 .cash-plan-table, .cash-projection-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-.cash-plan-table { min-width: 620px; }
+.cash-plan-table { min-width: 1050px; }
 .cash-plan-table th, .cash-plan-table td, .cash-projection-table th, .cash-projection-table td { padding: 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
 .cash-plan-table th, .cash-projection-table th { background: #f2f7f3; color: #263a35; font-weight: 750; }
 .cash-plan-table td input { min-width: 110px; margin: 0; padding: 8px; }
@@ -71,7 +71,7 @@ small { display: block; margin-top: 5px; color: var(--muted); font-size: 0.78rem
 .reset-cash-plan { width: 100%; margin: 0 0 10px; }
 .cash-runway-result { margin-top: 24px; padding-top: 8px; border-top: 2px solid var(--line); }
 .cash-runway-result .metric-list { margin-top: 12px; }
-.cash-projection-table { min-width: 620px; }
+.cash-projection-table { min-width: 1050px; }
 .cash-runway-result .cash-plan-scroll { margin-top: 12px; }
 .cash-runway-result .section-subheading { margin-top: 18px; }
 .empty-state { padding: 46px 18px; text-align: center; border: 1px dashed #cbd7d0; border-radius: 12px; background: #fafcf9; }
