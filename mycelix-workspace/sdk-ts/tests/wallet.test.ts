@@ -932,6 +932,7 @@ import {
   type QueueItemId,
   type QueueStorage,
   type QueueStorageIdempotencyClaim,
+  type QueueStorageExecutionClaim,
   type QueuedOperation,
   type SendPayload,
 } from '../src/wallet/offline-queue.js';
@@ -950,6 +951,23 @@ class SharedAtomicQueueStorage implements QueueStorage {
 
   async save(item: QueuedOperation): Promise<void> {
     this.items.set(item.id, item);
+  }
+
+  async claimForExecution(
+    id: QueueItemId,
+    startedAt: number
+  ): Promise<QueueStorageExecutionClaim | null> {
+    const stored = this.items.get(id);
+    if (!stored) return null;
+    if (stored.status !== 'pending') return { claimed: false, item: stored };
+    const claimed: QueuedOperation = {
+      ...stored,
+      status: 'syncing',
+      lastAttemptAt: startedAt,
+      attempts: stored.attempts + 1,
+    };
+    this.items.set(id, claimed);
+    return { claimed: true, item: claimed };
   }
 
   async claimIdempotencyKey(item: QueuedOperation): Promise<QueueStorageIdempotencyClaim> {
@@ -1135,6 +1153,35 @@ describe('OfflineQueue', () => {
         expect((await storage.getAll()).filter(
           (item) => item.idempotencyKey === 'cross-instance-key'
         )).toHaveLength(1);
+      } finally {
+        queueA.destroy();
+        queueB.destroy();
+      }
+    });
+
+    it('should dispatch a shared pending item through only one queue instance', async () => {
+      const storage = new SharedAtomicQueueStorage();
+      const executeA = vi.fn(async () => ({ success: true }));
+      const executeB = vi.fn(async () => ({ success: true }));
+      const executorA = { canExecute: () => true, execute: executeA };
+      const executorB = { canExecute: () => true, execute: executeB };
+      const queueA = createOfflineQueue(storage, executorA, { autoSync: false });
+      const queueB = createOfflineQueue(storage, executorB, { autoSync: false });
+
+      try {
+        await Promise.all([queueA.initialize(), queueB.initialize()]);
+        const item = await queueA.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'cross-tab-dispatch-key',
+        });
+        await queueB.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'cross-tab-dispatch-key',
+        });
+
+        const [resultA, resultB] = await Promise.all([queueA.sync(), queueB.sync()]);
+
+        expect(executeA.mock.calls.length + executeB.mock.calls.length).toBe(1);
+        expect((await storage.getAll()).find((stored) => stored.id === item.id)?.status).toBe('completed');
+        expect(resultA.failed + resultB.failed).toBe(0);
       } finally {
         queueA.destroy();
         queueB.destroy();
