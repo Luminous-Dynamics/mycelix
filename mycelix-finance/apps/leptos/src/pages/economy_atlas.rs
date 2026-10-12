@@ -261,6 +261,37 @@ fn display_registry_value(value: &Value) -> String {
         })
 }
 
+fn display_dataset_spatial_entity(value: &Value) -> String {
+    let Some(object) = value.as_object() else {
+        return display_registry_value(value);
+    };
+
+    if let (Some(code), Some(name)) = (
+        object.get("code").and_then(Value::as_str),
+        object.get("name").and_then(Value::as_str),
+    ) {
+        return format!("{name} ({code})");
+    }
+
+    if let (Some(site), Some(context), Some(source_coordinates), Some(coordinates)) = (
+        object.get("site").and_then(Value::as_str),
+        object.get("context").and_then(Value::as_str),
+        object.get("coordinates_as_published").and_then(Value::as_str),
+        object.get("coordinates_decimal_degrees").and_then(Value::as_object),
+    ) {
+        if let (Some(latitude), Some(longitude)) = (
+            coordinates.get("latitude").and_then(Value::as_f64),
+            coordinates.get("longitude").and_then(Value::as_f64),
+        ) {
+            return format!(
+                "Site {site} ({context}): {latitude:.5}, {longitude:.5}; source coordinates: {source_coordinates}"
+            );
+        }
+    }
+
+    display_registry_value(value)
+}
+
 fn render_model_card(model: AtlasModel) -> impl IntoView {
     let model_id = model.model_id.clone();
     let title = model.title.clone();
@@ -517,7 +548,7 @@ fn render_dataset_candidate_card(candidate: AtlasDatasetCandidate) -> impl IntoV
     let geography = candidate.spatial_coverage.geography;
     let spatial_caveat = candidate.spatial_coverage.caveat;
     let entities = candidate.spatial_coverage.entities.into_iter().map(|entity| {
-        let label = display_registry_value(&entity);
+        let label = display_dataset_spatial_entity(&entity);
         view! { <li>{label}</li> }
     }).collect_view();
     let measures = candidate.reported_measures.into_iter().map(|measure| {
@@ -916,6 +947,21 @@ mod tests {
     fn dataset_candidate_catalog() -> AtlasDatasetCandidateCatalog {
         serde_json::from_str(DATASET_CANDIDATES_JSON)
             .expect("checked-in dataset candidate catalog must parse")
+    }
+
+    #[test]
+    fn asm_jukskei_site_coordinates_render_with_source_provenance() {
+        let catalog = dataset_candidate_catalog();
+        let asm = catalog.candidates.iter()
+            .find(|candidate| candidate.candidate_id == "south-africa.jukskei-river-microbial-data.2025.v1")
+            .expect("2025 ASM Jukskei candidate should exist");
+        let site_a = asm.spatial_coverage.entities.iter()
+            .find(|site| site.get("site").and_then(Value::as_str) == Some("A"))
+            .expect("site A should exist");
+        let rendered = display_dataset_spatial_entity(site_a);
+        assert!(rendered.contains("-26.18147, 28.10237"), "{rendered}");
+        assert!(rendered.contains("26,18147°S, 28,10237°E"), "{rendered}");
+        assert!(rendered.contains("business district"), "{rendered}");
     }
 
     #[test]
