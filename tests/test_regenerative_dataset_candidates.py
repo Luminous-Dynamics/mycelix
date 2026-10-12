@@ -103,6 +103,17 @@ class RegenerativeDatasetCandidateTests(unittest.TestCase):
         errors = validate_manifest(self.manifest, self.indicator_catalog)
         self.assertTrue(any("known_findings[0] must be an object" in error for error in errors), errors)
 
+    def test_finding_ids_are_unique_across_candidates(self) -> None:
+        first = self.manifest["candidates"][0]["known_findings"][0]
+        self.manifest["candidates"][1]["known_findings"] = [copy.deepcopy(first)]
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("duplicate finding_id across dataset catalog" in error for error in errors), errors)
+
+    def test_malformed_finding_severity_fails_closed(self) -> None:
+        self.manifest["candidates"][0]["known_findings"][0]["severity"] = {"not": "a severity"}
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any(".severity is invalid" in error for error in errors), errors)
+
     def test_non_object_root_fails_closed(self) -> None:
         self.assertEqual(
             validate_manifest([], self.indicator_catalog),
