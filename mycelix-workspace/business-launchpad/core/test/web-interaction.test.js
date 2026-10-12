@@ -108,7 +108,7 @@ class MockDocument {
 
 const documentMock = new MockDocument();
 globalThis.document = documentMock;
-await import('../web/app.mjs');
+await import('../../web/app.mjs');
 
 test('default business scenario renders deterministic totals and cost warnings', () => {
   documentMock.reset();
@@ -165,7 +165,7 @@ test('malformed currency code and non-integer unit volume produce explicit error
 
 test('static client does not contain application-level network or browser persistence calls', async () => {
   const here = dirname(fileURLToPath(import.meta.url));
-  const source = await readFile(resolve(here, '../web/app.mjs'), 'utf8');
+  const source = await readFile(resolve(here, '../../web/app.mjs'), 'utf8');
   assert.doesNotMatch(source, /\bfetch\s*\(/);
   assert.doesNotMatch(source, /XMLHttpRequest|localStorage|sessionStorage|indexedDB|serviceWorker/);
   assert.doesNotMatch(source, /\.innerHTML\s*=/);
