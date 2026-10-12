@@ -190,8 +190,8 @@ Implemented in this branch:
 - a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, formatting/tests for both advisory crates, and clippy, including while the PR is a draft;
 - a 16 KiB bounded JSON parser in `praxis-core` plus a native-only host reader that caps streaming reads at 16,385 bytes before rejecting oversize bodies;
 - a preferred host integration function that combines bounded read, strict decoding, and trusted semantic validation before returning a `ValidatedAdvisorySuggestion`;
-- deterministic minimized request preparation with exact-body BLAKE3 digest, canonical allowlist ordering, duplicate rejection, and response-validation context frozen to the same prepared scope;
-- twenty-seven `praxis-core` regression tests and eleven host-adapter tests covering valid decoding, oversized and exact-limit streams, malformed JSON, read failures, trusted-policy acceptance/rejection, deterministic request bytes/digest, duplicate inputs, and invalid identifiers.
+- deterministic minimized request preparation with exact-body BLAKE3 digest, canonical allowlist ordering, duplicate rejection, pre-copy action/reason list bounds tied to the finite enum counts, and response-validation context frozen to the same prepared scope;
+- twenty-seven `praxis-core` regression tests and thirteen host-adapter tests covering valid decoding, oversized and exact-limit streams, malformed JSON, read failures, trusted-policy acceptance/rejection, deterministic request bytes/digest, duplicate inputs, invalid identifiers, and allowlist bounds.
 
 Not yet implemented or qualified:
 - live Symthaea service/process transport or production call site (the host crate currently provides request preparation and bounded read/validate primitives, not a network or local-process client);
