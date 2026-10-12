@@ -33,6 +33,7 @@ The CLI reads only the path you provide and emits a JSON report, or returns a no
 - Upward-rounded break-even volume, or explicit unreachable status when contribution is not positive.
 - Setup cash + owner-entered working-capital buffer and the upfront funding gap against available startup cash.
 - A separate editable 12-month cash scenario with sales units, sales cash receipts, operating cash outflows and other inflows/outflows entered independently by month. It shows post-setup cash, monthly closing balances, reserve breaches, first negative balance, lowest projected cash and additional cash needed to maintain the reserve. Starter values are generated from same-month economics only as a convenience; adjust cash timing to reflect customer collection and supplier payment terms. Reset regenerates all 12 months and overwrites cash-plan edits.
+- A deterministic downside/base/upside cash comparison with editable stress settings. It shows lowest and ending cash, reserve-breach/negative-balance timing, extra buffer needs and receipts delayed past the selected horizon. These are explicit sensitivity cases, not probability-weighted forecasts.
 - Exact decimal-text parsing into integer minor units; no binary floating-point amount rounding.
 - Explicit partial-cost declaration and named omissions.
 - Synthetic service, food and retail test fixtures.
