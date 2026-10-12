@@ -33,6 +33,10 @@ use serde::Serialize;
 
 /// Hard cap for the exact serialized request body sent to the host adapter.
 pub const MAX_ADVISORY_REQUEST_BYTES: usize = 16384;
+/// Maximum number of distinct finite actions a request can allow.
+pub const MAX_ALLOWED_ACTIONS: usize = 10;
+/// Maximum number of distinct finite reason codes a request can allow.
+pub const MAX_ALLOWED_REASONS: usize = 8;
 
 /// Trusted inputs from which a minimized, deterministic advisor request is built.
 ///
@@ -56,8 +60,10 @@ pub enum RequestPreparationError {
     TooManyContentReferences,
     DuplicateContentReference,
     EmptyActionAllowlist,
+    TooManyAllowedActions,
     DuplicateAllowedAction,
     EmptyReasonAllowlist,
+    TooManyAllowedReasons,
     DuplicateAllowedReason,
     SerializationFailed,
     RequestTooLarge,
@@ -162,6 +168,9 @@ pub fn prepare_advisory_request(
     if policy.allowed_actions.is_empty() {
         return Err(RequestPreparationError::EmptyActionAllowlist);
     }
+    if policy.allowed_actions.len() > MAX_ALLOWED_ACTIONS {
+        return Err(RequestPreparationError::TooManyAllowedActions);
+    }
     let mut allowed_actions = policy.allowed_actions.to_vec();
     allowed_actions.sort_by_key(action_rank);
     if allowed_actions.windows(2).any(|pair| pair[0] == pair[1]) {
@@ -170,6 +179,9 @@ pub fn prepare_advisory_request(
 
     if policy.allowed_reasons.is_empty() {
         return Err(RequestPreparationError::EmptyReasonAllowlist);
+    }
+    if policy.allowed_reasons.len() > MAX_ALLOWED_REASONS {
+        return Err(RequestPreparationError::TooManyAllowedReasons);
     }
     let mut allowed_reasons = policy.allowed_reasons.to_vec();
     allowed_reasons.sort_by_key(reason_rank);
@@ -526,6 +538,44 @@ mod tests {
             })
             .err(),
             Some(RequestPreparationError::EmptyActionAllowlist)
+        );
+    }
+
+    #[test]
+    fn request_preparation_rejects_oversized_action_allowlist_before_copy() {
+        let ids = ["lesson.fractions.01".to_string()];
+        let actions = vec![LearningSuggestion::OfferHint; MAX_ALLOWED_ACTIONS + 1];
+        assert_eq!(
+            prepare_advisory_request(AdvisoryRequestPolicy {
+                model_id: "symthaea",
+                model_version: "0.5.0",
+                skill_id: "math.fractions",
+                curriculum_revision: "2026.1",
+                allowed_actions: &actions,
+                allowed_reasons: &[AdviceReason::RepeatedIncorrectAttempts],
+                allowed_content_ids: &ids,
+            })
+            .err(),
+            Some(RequestPreparationError::TooManyAllowedActions)
+        );
+    }
+
+    #[test]
+    fn request_preparation_rejects_oversized_reason_allowlist_before_copy() {
+        let ids = ["lesson.fractions.01".to_string()];
+        let reasons = vec![AdviceReason::RepeatedIncorrectAttempts; MAX_ALLOWED_REASONS + 1];
+        assert_eq!(
+            prepare_advisory_request(AdvisoryRequestPolicy {
+                model_id: "symthaea",
+                model_version: "0.5.0",
+                skill_id: "math.fractions",
+                curriculum_revision: "2026.1",
+                allowed_actions: &[LearningSuggestion::OfferHint],
+                allowed_reasons: &reasons,
+                allowed_content_ids: &ids,
+            })
+            .err(),
+            Some(RequestPreparationError::TooManyAllowedReasons)
         );
     }
 
