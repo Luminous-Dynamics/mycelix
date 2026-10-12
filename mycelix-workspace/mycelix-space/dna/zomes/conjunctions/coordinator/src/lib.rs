@@ -80,7 +80,7 @@ pub enum ConjunctionSignal {
     },
 }
 
-/// Risk level threshold for automatic alerts
+/// Minimum Pc-only screening band for priority notifications; not action authority.
 const ALERT_THRESHOLD: RiskLevel = RiskLevel::Medium;
 
 /// Create a conjunction event
@@ -282,6 +282,7 @@ pub struct CreateEventInput {
     pub tca: SpaceTimestamp,
     pub miss_distance_km: f64,
     pub max_pc: f64,
+    /// Pc-only band. In manual mode this must match the band derived from max_pc.
     pub risk_level: RiskLevel,
     /// If true and TLEs are provided, compute collision_probability and miss_distance
     /// using SGP4 propagation and the experimental Gaussian local-density/small-disk
@@ -385,6 +386,7 @@ pub fn update_conjunction_risk(input: UpdateRiskInput) -> ExternResult<ActionHas
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UpdateRiskInput {
     pub event_hash: ActionHash,
+    /// Must match the Pc-only band derived from new_pc.
     pub new_risk_level: RiskLevel,
     pub new_pc: f64,
     pub new_miss_distance_km: f64,
