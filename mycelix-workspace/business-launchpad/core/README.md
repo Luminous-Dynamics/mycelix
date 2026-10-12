@@ -10,7 +10,7 @@ This dependency-free Node.js module computes a transparent single-offer scenario
 - Monthly scenario revenue, variable cost, contribution, and operating result before excluded items.
 - Break-even units using integer ceiling arithmetic. If unit contribution is zero or negative, break-even is explicitly unreachable.
 - Startup cash requirement = one-time setup costs + an explicit working-capital buffer.
-- Startup funding gap after available starting cash.
+- Startup funding gap after available starting cash; this compares setup costs plus the owner-entered buffer with available startup cash, not the full cash runway needed through a slow sales ramp.
 - Explicit cost-coverage state and named omitted categories.
 
 All amounts use integer minor units for the chosen currency. The implementation uses BigInt intermediates and fails closed when any returned result would not fit exactly in JavaScript's safe-integer range. Stable amount formatting is provided for tests and evidence; localized formatting belongs in the UI.
@@ -50,7 +50,7 @@ The bundled service example is invented arithmetic test data, not a researched l
 
 ## Hard boundaries
 
-Currency-code shape validation is not authoritative currency validation. The core does not determine tax treatment, legal structure, licenses, or demand. The monthly operating result is not net profit: it excludes tax, financing/debt service, depreciation, owner draw, and any cost not included in the supplied cost model. Sales volume is an owner-supplied scenario, not a Symthaea prediction. The funding gap is not a loan offer or underwriting decision.
+Currency-code shape validation is not authoritative currency validation. The core does not determine tax treatment, legal structure, licenses, or demand. The monthly operating result is not net profit: it excludes tax, financing/debt service, depreciation, owner draw, and any cost not included in the supplied cost model. Each unit means one average-priced offer/sale defined by the owner; this version does not model a product/service mix, inventory-specific costing, capacity constraints, or multiple periods. Sales volume is an owner-supplied scenario, not a Symthaea prediction. The startup funding gap does not estimate runway for slow sales or operating losses and is not a loan offer or underwriting decision.
 
 No customer data, payment processing, credit issuance, or legal filing is part of this core.
 
@@ -62,4 +62,4 @@ No customer data, payment processing, credit issuance, or legal filing is part o
 - AI-generated numbers or forecasts.
 - Trust/reputation-based credit eligibility.
 
-A static browser worksheet in `../web/` imports this same core and supports explicit versioned scenario JSON download/load and report download. It keeps input in memory, clears the prior result when inputs change, and does not upload or use browser storage. These local-file workflows are not a cloud backup or durable business record system. The mock-DOM test contract covers the file round-trip, stale-report invalidation, and malformed/oversized imports, but those new tests still require exact-head CI execution and do not replace real-browser testing. Next, verify the browser in a permitted real-browser environment, then build a separate persistence/integration layer only after the source of truth for orders and financial records is selected. Jurisdiction-specific guidance must be held in separately reviewed, versioned source packs.
+A static browser worksheet in `../web/` imports this same core and supports explicit versioned scenario JSON download/load and report download. It keeps input in memory, clears the prior result when inputs change, and does not upload or use browser storage. These local-file workflows are not a cloud backup or durable business record system. The mock-DOM tests cover file round-trips, stale-report invalidation, and malformed/oversized imports. A separate exact-head Chromium journey is defined under `test/browser-journey.mjs`; review its completed run and captured evidence before treating browser behavior as qualified. Its test-only Playwright dependency is isolated under `test/` and does not add a runtime dependency to the calculator. Only after the journey is qualified should a separate persistence/integration layer be built, once the source of truth for orders and financial records is selected. Jurisdiction-specific guidance must be held in separately reviewed, versioned source packs.
