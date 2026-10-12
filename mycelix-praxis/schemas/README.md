@@ -73,22 +73,20 @@ which also invokes the trusted semantic validator and returns a
 advice.
 
 The companion `symthaea-advisory-request-v1.schema.json` freezes the strict
-request-body fields and bounded action/reason/content-ID allowlists. The same
-host crate provides `prepare_advisory_request(policy)` for a minimized,
-deterministically serialized request. The host-only `prepare_advisory_request(policy)` builder generates a fresh
+request-body fields and bounded action/reason/content-ID allowlists. The
+host-only `prepare_advisory_request(policy)` builder generates a fresh
 128-bit lowercase-hex `request_nonce` from the OS-provided cryptographic random
 source; callers do not supply it. Entropy failure aborts preparation. Reuse can
 make an old digest match a later otherwise-identical turn, so prepare once per
 exchange and reuse the same `PreparedAdvisoryRequest` bytes/digest for retries;
 consume each response once and prepare a new request for a new turn. The nonce
 is not authentication. The fixed nonce in the sanitized example is illustrative
-only and must never be reused at runtime.
-The builder sorts allowed actions/reasons in protocol order and content IDs
-lexically, rejects duplicate/invalid policy inputs and overlong allowlists
-before copying them, caps the body at 16 KiB, and derives `input_digest()` from
-the exact immutable bytes exposed by `body_bytes()`. The static conformance
-checker requires both request and response schemas to match the Rust field
-sets and enums. Keep this prepared request alive
+only and must never be reused at runtime. The builder sorts allowed
+actions/reasons in protocol order and content IDs lexically, rejects
+duplicate/invalid policy inputs and overlong allowlists before copying them,
+caps the body at 16 KiB, and derives `input_digest()` from the exact immutable
+bytes exposed by `body_bytes()`. The static conformance checker requires both
+request and response schemas to match the Rust field sets and enums. Keep this prepared request alive
 for the response's entire lifecycle and create validation context from
 `validation_context(advisor_enabled, sandbox_active)`; this ties expected model,
 version, skill, curriculum revision, allowed action/reason lists, content IDs,
@@ -99,6 +97,12 @@ self-referential body field. The sanitized
 shape, with illustrative identifiers and no digest or learner history. The
 static checker validates its field set/order, action/reason enum membership,
 reference bounds, and digest exclusion.
+
+The inspected [Symthaea API router](https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/src/api/mod.rs)
+is a benchmark API, not a Praxis learning-advice endpoint. Do not send these
+request bodies to `POST /v1/submit` or assume the API's loopback default
+provides authentication. See the Praxis contract documentation for the pinned
+source review and transport prerequisites.
 
 If a persistent connection returns an oversized body, its owner should
 discard/close the connection rather than reuse a stream with unread body bytes.
