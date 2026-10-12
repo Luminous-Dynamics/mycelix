@@ -121,6 +121,11 @@ class RegenerativeObservationReceiptTests(unittest.TestCase):
         errors = validate_observation(self.record, self.catalog)
         self.assertTrue(any("partial coverage requires a finite" in error for error in errors), errors)
 
+    def test_malformed_coverage_state_fails_closed_without_crashing(self) -> None:
+        self.record["coverage"]["state"] = ["complete"]
+        errors = validate_observation(self.record, self.catalog)
+        self.assertTrue(any("coverage.state must be explicit" in error for error in errors), errors)
+
     def test_invalid_calendar_date_fails(self) -> None:
         self.record["period"]["start_date"] = "2026-02-31"
         errors = validate_observation(self.record, self.catalog)
