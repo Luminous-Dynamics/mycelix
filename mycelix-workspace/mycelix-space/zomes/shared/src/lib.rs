@@ -462,31 +462,34 @@ pub struct StateVectorData {
 // Conjunction Assessment Types
 // =============================================================================
 
-/// Risk level for conjunction events
+/// Pc-only screening classification for conjunction events.
+///
+/// This is not a complete collision-risk assessment, safety finding, or maneuver
+/// authority. The Pc method, covariance realism and intended-use limits still apply.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum RiskLevel {
-    /// Pc < 1e-7, routine monitoring only
+    /// Pc below 1e-7; a screening band, not proof of safety.
     Negligible = 0,
-    /// Pc 1e-7 to 1e-5, increased monitoring
+    /// Pc from 1e-7 to 1e-5.
     Low = 1,
-    /// Pc 1e-5 to 1e-4, planning phase
+    /// Pc from 1e-5 to 1e-4.
     Medium = 2,
-    /// Pc 1e-4 to 1e-3, maneuver recommended
+    /// Pc from 1e-4 to 1e-3; independent review required.
     High = 3,
-    /// Pc > 1e-3, immediate action required
+    /// Pc at or above 1e-3; highest screening band, not an action command.
     Emergency = 4,
 }
 
 impl RiskLevel {
     pub fn from_pc(pc: f64) -> Self {
-        if pc > 1e-3 {
+        if pc >= 1e-3 {
             RiskLevel::Emergency
-        } else if pc > 1e-4 {
+        } else if pc >= 1e-4 {
             RiskLevel::High
-        } else if pc > 1e-5 {
+        } else if pc >= 1e-5 {
             RiskLevel::Medium
-        } else if pc > 1e-7 {
+        } else if pc >= 1e-7 {
             RiskLevel::Low
         } else {
             RiskLevel::Negligible
@@ -1064,6 +1067,15 @@ mod tests {
         let parsed: TleData = serde_json::from_str(&json).expect("Failed to deserialize");
         assert_eq!(parsed.norad_id, 25544);
         assert!(parsed.line1.starts_with("1 25544"));
+    }
+
+    #[test]
+    fn risk_level_thresholds_are_inclusive() {
+        assert_eq!(RiskLevel::from_pc(0.999e-7), RiskLevel::Negligible);
+        assert_eq!(RiskLevel::from_pc(1e-7), RiskLevel::Low);
+        assert_eq!(RiskLevel::from_pc(1e-5), RiskLevel::Medium);
+        assert_eq!(RiskLevel::from_pc(1e-4), RiskLevel::High);
+        assert_eq!(RiskLevel::from_pc(1e-3), RiskLevel::Emergency);
     }
 
     #[test]
