@@ -9,6 +9,6 @@ description = "Host-only bounded wire adapter primitives for optional Symthaea l
 
 [dependencies]
 praxis-core = { path = "../praxis-core" }
-getrandom.workspace = true
+getrandom = "=0.2.17"
 serde.workspace = true
 serde_json.workspace = true
