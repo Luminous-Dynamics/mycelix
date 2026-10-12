@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import assert from 'node:assert/strict';
-import { analyzeBusinessModel, compareCashRunwayScenarios, formatMinorUnits, projectCashRunway } from '../src/index.js';
+import { analyzeBusinessModel, compareCashRunwayScenarios, DEFAULT_CASH_TIMING_SCHEDULE, formatMinorUnits, projectCashRunway, projectCashRunwayWithTimingSchedule } from '../src/index.js';
 
 const completeModel = (overrides = {}) => ({
   currency: { code: 'ZAR', minorUnitExponent: 2 },
@@ -438,6 +438,81 @@ test('three-case cash comparison preserves reconciliation across a fixed-seed st
       'out-of-horizon receipts remain visible in case ' + caseIndex
     );
   }
+});
+
+test('terms-based schedule allocates customer receipts and supplier payments by month and exposes horizon residuals', () => {
+  const model = completeModel({
+    sellingPricePerUnitMinor: 10_000,
+    variableCostPerUnitMinor: 6_000,
+    fixedMonthlyCostsMinor: 100,
+    setupCostsMinor: 0,
+    availableCashForStartupMinor: 500_000,
+    initialWorkingCapitalBufferMinor: 0
+  });
+  const monthlyPlan = [10, 20, 30].map(salesUnits => ({
+    salesUnits,
+    salesCashReceiptsMinor: 0,
+    operatingCashOutflowsMinor: 0,
+    otherCashInflowsMinor: 0,
+    otherCashOutflowsMinor: 0,
+    investingCashInflowsMinor: 0,
+    investingCashOutflowsMinor: 0,
+    financingCashInflowsMinor: 0,
+    financingCashOutflowsMinor: 0
+  }));
+  const timingSchedule = {
+    salesReceiptsPercent: [50, 30, 20],
+    variableSupplierPaymentsPercent: [60, 30, 10]
+  };
+  const result = projectCashRunwayWithTimingSchedule({ model, monthlyPlan, timingSchedule });
+  assert.equal(result.ok, true);
+  assert.equal(result.report.kind, 'business-launchpad-terms-based-cash-projection');
+  assert.deepEqual(result.report.monthlyPlan.map(period => period.salesCashReceiptsMinor), [50_000, 130_000, 230_000]);
+  assert.deepEqual(result.report.monthlyPlan.map(period => period.operatingCashOutflowsMinor), [60_100, 102_100, 154_100]);
+  assert.equal(result.report.deferredSalesCashReceiptsAfterHorizonMinor, 190_000);
+  assert.equal(result.report.deferredVariableSupplierPaymentsAfterHorizonMinor, 30_000);
+  assert.deepEqual(result.report.projection.periods.map(period => period.closingCashMinor), [389_900, 417_800, 493_700]);
+  assert.deepEqual(monthlyPlan.map(period => period.salesCashReceiptsMinor), [0, 0, 0], 'terms case must not overwrite the entered plan');
+});
+
+test('timing schedules require exact 100 percent allocations and terms-based comparison is explicit', () => {
+  const model = completeModel({
+    sellingPricePerUnitMinor: 101,
+    variableCostPerUnitMinor: 37,
+    fixedMonthlyCostsMinor: 10,
+    setupCostsMinor: 0,
+    availableCashForStartupMinor: 1_000
+  });
+  const monthlyPlan = [{
+    salesUnits: 1,
+    salesCashReceiptsMinor: 1,
+    operatingCashOutflowsMinor: 2,
+    otherCashInflowsMinor: 0,
+    otherCashOutflowsMinor: 0,
+    investingCashInflowsMinor: 0,
+    investingCashOutflowsMinor: 0,
+    financingCashInflowsMinor: 0,
+    financingCashOutflowsMinor: 0
+  }];
+  const invalid = projectCashRunwayWithTimingSchedule({
+    model,
+    monthlyPlan,
+    timingSchedule: { ...DEFAULT_CASH_TIMING_SCHEDULE, salesReceiptsPercent: [70, 20, 5] }
+  });
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.error.code, 'invalid_cash_timing_schedule');
+
+  const schedule = {
+    salesReceiptsPercent: [70, 25, 5],
+    variableSupplierPaymentsPercent: [80, 15, 5]
+  };
+  const comparison = compareCashRunwayScenarios({ model, monthlyPlan, timingSchedule: schedule });
+  assert.equal(comparison.ok, true);
+  assert.deepEqual(comparison.report.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside', 'terms-based']);
+  const terms = comparison.report.scenarios[3];
+  assert.equal(terms.deferredSalesCashReceiptsAfterHorizonMinor, 30);
+  assert.equal(terms.deferredVariableSupplierPaymentsAfterHorizonMinor, 7);
+  assert.deepEqual(comparison.report.timingSchedule, schedule);
 });
 
 test('cash scenario comparison validates stress ranges and exact arithmetic limits', () => {
