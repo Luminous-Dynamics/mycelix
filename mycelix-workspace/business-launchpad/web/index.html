@@ -164,17 +164,72 @@
                 <input id="timing-sales-receipts-month-2" name="timing-sales-receipts-month-2" type="number" min="0" max="100" step="1" value="5" required>
               </label>
             </div>
-            <h4>Variable-cost payments (supplier terms)</h4>
-            <div class="field-grid">
-              <label for="timing-supplier-payments-month-0">Paid in originating month (%)
-                <input id="timing-supplier-payments-month-0" name="timing-supplier-payments-month-0" type="number" min="0" max="100" step="1" value="80" required>
-              </label>
-              <label for="timing-supplier-payments-month-1">Paid next month (%)
-                <input id="timing-supplier-payments-month-1" name="timing-supplier-payments-month-1" type="number" min="0" max="100" step="1" value="15" required>
-              </label>
-              <label for="timing-supplier-payments-month-2">Paid two months later (%)
-                <input id="timing-supplier-payments-month-2" name="timing-supplier-payments-month-2" type="number" min="0" max="100" step="1" value="5" required>
-              </label>
+            <p class="form-footnote">Split the total variable cost per sale across these three example categories. Cost shares must total exactly 100%; each category's payment timing must also total exactly 100%. Rename the categories to match your business. The categories only distribute your existing total variable-cost input—they do not add extra costs. This is a sensitivity model, not invoice-level payables.</p>
+            <div class="timing-cost-category">
+              <h4>Variable-cost category 1</h4>
+              <div class="field-grid">
+                <label for="timing-cost-category-1-label">Category name
+                  <input id="timing-cost-category-1-label" name="timing-cost-category-1-label" type="text" maxlength="80" value="Materials / components" required>
+                </label>
+                <label for="timing-cost-category-1-share">Share of per-sale variable cost (%)
+                  <input id="timing-cost-category-1-share" name="timing-cost-category-1-share" type="number" min="0" max="100" step="1" value="60" required>
+                </label>
+              </div>
+              <div class="field-grid">
+                <label for="timing-cost-category-1-month-0">Paid in originating month (%)
+                  <input id="timing-cost-category-1-month-0" name="timing-cost-category-1-month-0" type="number" min="0" max="100" step="1" value="80" required>
+                </label>
+                <label for="timing-cost-category-1-month-1">Paid next month (%)
+                  <input id="timing-cost-category-1-month-1" name="timing-cost-category-1-month-1" type="number" min="0" max="100" step="1" value="15" required>
+                </label>
+                <label for="timing-cost-category-1-month-2">Paid two months later (%)
+                  <input id="timing-cost-category-1-month-2" name="timing-cost-category-1-month-2" type="number" min="0" max="100" step="1" value="5" required>
+                </label>
+              </div>
+            </div>
+            <div class="timing-cost-category">
+              <h4>Variable-cost category 2</h4>
+              <div class="field-grid">
+                <label for="timing-cost-category-2-label">Category name
+                  <input id="timing-cost-category-2-label" name="timing-cost-category-2-label" type="text" maxlength="80" value="Direct labor / subcontractors" required>
+                </label>
+                <label for="timing-cost-category-2-share">Share of per-sale variable cost (%)
+                  <input id="timing-cost-category-2-share" name="timing-cost-category-2-share" type="number" min="0" max="100" step="1" value="25" required>
+                </label>
+              </div>
+              <div class="field-grid">
+                <label for="timing-cost-category-2-month-0">Paid in originating month (%)
+                  <input id="timing-cost-category-2-month-0" name="timing-cost-category-2-month-0" type="number" min="0" max="100" step="1" value="100" required>
+                </label>
+                <label for="timing-cost-category-2-month-1">Paid next month (%)
+                  <input id="timing-cost-category-2-month-1" name="timing-cost-category-2-month-1" type="number" min="0" max="100" step="1" value="0" required>
+                </label>
+                <label for="timing-cost-category-2-month-2">Paid two months later (%)
+                  <input id="timing-cost-category-2-month-2" name="timing-cost-category-2-month-2" type="number" min="0" max="100" step="1" value="0" required>
+                </label>
+              </div>
+            </div>
+            <div class="timing-cost-category">
+              <h4>Variable-cost category 3</h4>
+              <div class="field-grid">
+                <label for="timing-cost-category-3-label">Category name
+                  <input id="timing-cost-category-3-label" name="timing-cost-category-3-label" type="text" maxlength="80" value="Fulfillment / other variable costs" required>
+                </label>
+                <label for="timing-cost-category-3-share">Share of per-sale variable cost (%)
+                  <input id="timing-cost-category-3-share" name="timing-cost-category-3-share" type="number" min="0" max="100" step="1" value="15" required>
+                </label>
+              </div>
+              <div class="field-grid">
+                <label for="timing-cost-category-3-month-0">Paid in originating month (%)
+                  <input id="timing-cost-category-3-month-0" name="timing-cost-category-3-month-0" type="number" min="0" max="100" step="1" value="70" required>
+                </label>
+                <label for="timing-cost-category-3-month-1">Paid next month (%)
+                  <input id="timing-cost-category-3-month-1" name="timing-cost-category-3-month-1" type="number" min="0" max="100" step="1" value="25" required>
+                </label>
+                <label for="timing-cost-category-3-month-2">Paid two months later (%)
+                  <input id="timing-cost-category-3-month-2" name="timing-cost-category-3-month-2" type="number" min="0" max="100" step="1" value="5" required>
+                </label>
+              </div>
             </div>
           </fieldset>
         </details>

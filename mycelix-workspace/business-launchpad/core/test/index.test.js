@@ -526,16 +526,22 @@ test('terms-based schedule allocates customer receipts and supplier payments by 
   }));
   const timingSchedule = {
     salesReceiptsPercent: [50, 30, 20],
-    variableSupplierPaymentsPercent: [60, 30, 10]
+    variableCostCategories: [
+      { id: 'category-1', label: 'Materials', costSharePercent: 60, paymentPercentages: [60, 30, 10] },
+      { id: 'category-2', label: 'Labor', costSharePercent: 25, paymentPercentages: [100, 0, 0] },
+      { id: 'category-3', label: 'Fulfillment', costSharePercent: 15, paymentPercentages: [0, 100, 0] }
+    ]
   };
   const result = projectCashRunwayWithTimingSchedule({ model, monthlyPlan, timingSchedule });
   assert.equal(result.ok, true);
   assert.equal(result.report.kind, 'business-launchpad-terms-based-cash-projection');
   assert.deepEqual(result.report.monthlyPlan.map(period => period.salesCashReceiptsMinor), [50_000, 130_000, 230_000]);
-  assert.deepEqual(result.report.monthlyPlan.map(period => period.operatingCashOutflowsMinor), [36_100, 90_100, 150_100]);
+  assert.deepEqual(result.report.monthlyPlan.map(period => period.operatingCashOutflowsMinor), [36_700, 93_100, 153_100]);
   assert.equal(result.report.deferredSalesCashReceiptsAfterHorizonMinor, 190_000);
-  assert.equal(result.report.deferredVariableSupplierPaymentsAfterHorizonMinor, 84_000);
-  assert.deepEqual(result.report.projection.periods.map(period => period.closingCashMinor), [513_900, 553_800, 633_700]);
+  assert.equal(result.report.deferredVariableSupplierPaymentsAfterHorizonMinor, 77_400);
+  assert.deepEqual(result.report.variableCostCategoryBreakdown.map(category => category.variableCostPerUnitMinor), [3_600, 1_500, 900]);
+  assert.deepEqual(result.report.variableCostCategoryBreakdown.map(category => category.deferredPaymentsAfterHorizonMinor), [50_400, 0, 27_000]);
+  assert.deepEqual(result.report.projection.periods.map(period => period.closingCashMinor), [513_300, 550_200, 627_100]);
   assert.deepEqual(monthlyPlan.map(period => period.salesCashReceiptsMinor), [0, 0, 0], 'terms case must not overwrite the entered plan');
 });
 
@@ -565,6 +571,19 @@ test('timing schedules require exact 100 percent allocations and terms-based com
   });
   assert.equal(invalid.ok, false);
   assert.equal(invalid.error.code, 'invalid_cash_timing_schedule');
+  const invalidShares = projectCashRunwayWithTimingSchedule({
+    model,
+    monthlyPlan,
+    timingSchedule: {
+      ...DEFAULT_CASH_TIMING_SCHEDULE,
+      variableCostCategories: DEFAULT_CASH_TIMING_SCHEDULE.variableCostCategories.map(category => ({
+        ...category,
+        costSharePercent: 50
+      }))
+    }
+  });
+  assert.equal(invalidShares.ok, false);
+  assert.equal(invalidShares.error.code, 'invalid_cash_timing_schedule');
 
   const schedule = {
     salesReceiptsPercent: [70, 25, 5],
@@ -576,7 +595,13 @@ test('timing schedules require exact 100 percent allocations and terms-based com
   const terms = comparison.report.scenarios[3];
   assert.equal(terms.deferredSalesCashReceiptsAfterHorizonMinor, 30);
   assert.equal(terms.deferredVariableSupplierPaymentsAfterHorizonMinor, 7);
-  assert.deepEqual(comparison.report.timingSchedule, schedule);
+  assert.deepEqual(comparison.report.timingSchedule, {
+    salesReceiptsPercent: [70, 25, 5],
+    variableCostCategories: DEFAULT_CASH_TIMING_SCHEDULE.variableCostCategories.map(category => ({
+      ...category,
+      paymentPercentages: [80, 15, 5]
+    }))
+  });
 });
 
 test('cash scenario comparison validates stress ranges and exact arithmetic limits', () => {

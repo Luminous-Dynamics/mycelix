@@ -557,7 +557,11 @@ function transformCashPlanForStress(basePeriods, config, mode) {
  */
 export const DEFAULT_CASH_TIMING_SCHEDULE = Object.freeze({
   salesReceiptsPercent: Object.freeze([70, 25, 5]),
-  variableSupplierPaymentsPercent: Object.freeze([80, 15, 5])
+  variableCostCategories: Object.freeze([
+    Object.freeze({ id: 'category-1', label: 'Materials / components', costSharePercent: 60, paymentPercentages: Object.freeze([80, 15, 5]) }),
+    Object.freeze({ id: 'category-2', label: 'Direct labor / subcontractors', costSharePercent: 25, paymentPercentages: Object.freeze([100, 0, 0]) }),
+    Object.freeze({ id: 'category-3', label: 'Fulfillment / other variable costs', costSharePercent: 15, paymentPercentages: Object.freeze([70, 25, 5]) })
+  ])
 });
 
 function normalizeCashTimingSchedule(value) {
@@ -565,24 +569,104 @@ function normalizeCashTimingSchedule(value) {
   if (!isRecord(source)) {
     return { error: fail('invalid_cash_timing_schedule', 'A collection and supplier-payment timing schedule is required.', 'timingSchedule') };
   }
-  const normalized = {};
-  for (const [field, label] of [
-    ['salesReceiptsPercent', 'salesReceiptsPercent'],
-    ['variableSupplierPaymentsPercent', 'variableSupplierPaymentsPercent']
-  ]) {
-    const values = source[field];
-    if (!Array.isArray(values) || values.length !== 3 ||
-        values.some(value => !isIntegerInRange(value, 0, 100)) ||
-        values.reduce((sum, value) => sum + value, 0) !== 100) {
+  const sales = source.salesReceiptsPercent;
+  if (!Array.isArray(sales) || sales.length !== 3 ||
+      sales.some(value => !isIntegerInRange(value, 0, 100)) ||
+      sales.reduce((sum, value) => sum + value, 0) !== 100) {
+    return { error: fail(
+      'invalid_cash_timing_schedule',
+      'salesReceiptsPercent must contain three integer percentages for this month, next month, and the month after that; the values must total exactly 100.',
+      'timingSchedule.salesReceiptsPercent'
+    ) };
+  }
+
+  let categories = source.variableCostCategories;
+  if (categories === undefined) {
+    // Legacy schema-v5 and earlier: applying the prior aggregate payment curve
+    // to every category preserves the old total timing during migration.
+    const legacy = source.variableSupplierPaymentsPercent;
+    if (!Array.isArray(legacy) || legacy.length !== 3 ||
+        legacy.some(value => !isIntegerInRange(value, 0, 100)) ||
+        legacy.reduce((sum, value) => sum + value, 0) !== 100) {
       return { error: fail(
         'invalid_cash_timing_schedule',
-        label + ' must contain three integer percentages for this month, next month, and the month after that; the values must total exactly 100.',
-        'timingSchedule.' + field
+        'Provide three variable-cost categories or a legacy variableSupplierPaymentsPercent allocation that totals exactly 100.',
+        'timingSchedule.variableCostCategories'
       ) };
     }
-    normalized[field] = [...values];
+    categories = DEFAULT_CASH_TIMING_SCHEDULE.variableCostCategories.map(category => ({
+      ...category,
+      paymentPercentages: [...legacy]
+    }));
   }
-  return { schedule: normalized };
+  if (!Array.isArray(categories) || categories.length !== 3) {
+    return { error: fail(
+      'invalid_cash_timing_schedule',
+      'variableCostCategories must contain exactly three categories so their cost shares and payment timing are explicit.',
+      'timingSchedule.variableCostCategories'
+    ) };
+  }
+
+  const normalizedCategories = [];
+  const labels = new Set();
+  let shareTotal = 0;
+  for (let index = 0; index < categories.length; index += 1) {
+    const category = categories[index];
+    if (!isRecord(category) || category.id !== 'category-' + (index + 1)) {
+      return { error: fail(
+        'invalid_cash_timing_schedule',
+        'Variable-cost category IDs must be category-1, category-2, and category-3 in their defined order.',
+        'timingSchedule.variableCostCategories[' + index + '].id'
+      ) };
+    }
+    const label = typeof category.label === 'string' ? category.label.trim() : '';
+    if (!label || label.length > 80 || /[\u0000-\u001f\u007f]/.test(label) || labels.has(label.toLocaleLowerCase())) {
+      return { error: fail(
+        'invalid_cash_timing_schedule',
+        'Each variable-cost category needs a unique, non-empty label of at most 80 characters.',
+        'timingSchedule.variableCostCategories[' + index + '].label'
+      ) };
+    }
+    if (!isIntegerInRange(category.costSharePercent, 0, 100)) {
+      return { error: fail(
+        'invalid_cash_timing_schedule',
+        'Each variable-cost share must be a whole percentage from 0 through 100.',
+        'timingSchedule.variableCostCategories[' + index + '].costSharePercent'
+      ) };
+    }
+    const payments = category.paymentPercentages;
+    if (!Array.isArray(payments) || payments.length !== 3 ||
+        payments.some(value => !isIntegerInRange(value, 0, 100)) ||
+        payments.reduce((sum, value) => sum + value, 0) !== 100) {
+      return { error: fail(
+        'invalid_cash_timing_schedule',
+        'Each category payment allocation must contain three integer percentages that total exactly 100.',
+        'timingSchedule.variableCostCategories[' + index + '].paymentPercentages'
+      ) };
+    }
+    labels.add(label.toLocaleLowerCase());
+    shareTotal += category.costSharePercent;
+    normalizedCategories.push({
+      id: category.id,
+      label,
+      costSharePercent: category.costSharePercent,
+      paymentPercentages: [...payments]
+    });
+  }
+  if (shareTotal !== 100) {
+    return { error: fail(
+      'invalid_cash_timing_schedule',
+      'Variable-cost category shares must total exactly 100%.',
+      'timingSchedule.variableCostCategories'
+    ) };
+  }
+
+  return {
+    schedule: {
+      salesReceiptsPercent: [...sales],
+      variableCostCategories: normalizedCategories
+    }
+  };
 }
 
 function distributeMinorUnits(totalMinor, percentages) {
@@ -628,6 +712,8 @@ export function projectCashRunwayWithTimingSchedule(input) {
   if (normalized.error) return normalized.error;
 
   const horizon = base.report.periods.length;
+  const schedule = normalized.schedule;
+  const categories = schedule.variableCostCategories;
   const monthlyPlan = base.report.periods.map(period => ({
     salesUnits: period.salesUnitsScenario,
     salesCashReceiptsMinor: 0,
@@ -641,39 +727,59 @@ export function projectCashRunwayWithTimingSchedule(input) {
   }));
   let deferredSalesReceipts = 0n;
   let deferredSupplierPayments = 0n;
+  const deferredByCategory = categories.map(() => 0n);
+  let unitCostByCategory;
 
   try {
+    unitCostByCategory = distributeMinorUnits(
+      input.model.variableCostPerUnitMinor,
+      categories.map(category => category.costSharePercent)
+    );
     for (let cohort = 0; cohort < horizon; cohort += 1) {
       const activity = base.report.periods[cohort].salesUnitsScenario;
       const grossSales = BigInt(input.model.sellingPricePerUnitMinor) * BigInt(activity);
-      const variableSupplierCost = BigInt(input.model.variableCostPerUnitMinor) * BigInt(activity);
-      if (grossSales > MAX_SAFE || variableSupplierCost > MAX_SAFE) {
-        return fail('calculation_overflow', 'Sales or variable supplier costs exceed the supported exact integer range.', 'monthlyPlan[' + cohort + ']');
+      if (grossSales > MAX_SAFE) {
+        return fail('calculation_overflow', 'Sales exceed the supported exact integer range.', 'monthlyPlan[' + cohort + ']');
       }
-      const receipts = distributeMinorUnits(Number(grossSales), normalized.schedule.salesReceiptsPercent);
-      const supplierPayments = distributeMinorUnits(Number(variableSupplierCost), normalized.schedule.variableSupplierPaymentsPercent);
-
+      const receipts = distributeMinorUnits(Number(grossSales), schedule.salesReceiptsPercent);
       for (let offset = 0; offset < 3; offset += 1) {
         const receiptMonth = cohort + offset;
-        const paymentMonth = cohort + offset;
         if (receiptMonth >= horizon) {
           deferredSalesReceipts += BigInt(receipts[offset]);
         } else {
           const sum = BigInt(monthlyPlan[receiptMonth].salesCashReceiptsMinor) + BigInt(receipts[offset]);
-          if (sum > MAX_SAFE) return fail('calculation_overflow', 'Scheduled sales receipts exceed the supported exact integer range.', 'monthlyPlan[' + receiptMonth + '].salesCashReceiptsMinor');
+          if (sum > MAX_SAFE) {
+            return fail('calculation_overflow', 'Scheduled sales receipts exceed the supported exact integer range.', 'monthlyPlan[' + receiptMonth + '].salesCashReceiptsMinor');
+          }
           monthlyPlan[receiptMonth].salesCashReceiptsMinor = Number(sum);
         }
+      }
 
-        if (paymentMonth >= horizon) {
-          deferredSupplierPayments += BigInt(supplierPayments[offset]);
-        } else {
-          const sum = BigInt(monthlyPlan[paymentMonth].operatingCashOutflowsMinor) + BigInt(supplierPayments[offset]);
-          if (sum > MAX_SAFE) return fail('calculation_overflow', 'Scheduled operating payments exceed the supported exact integer range.', 'monthlyPlan[' + paymentMonth + '].operatingCashOutflowsMinor');
-          monthlyPlan[paymentMonth].operatingCashOutflowsMinor = Number(sum);
+      for (let categoryIndex = 0; categoryIndex < categories.length; categoryIndex += 1) {
+        const category = categories[categoryIndex];
+        const categoryCohortCost = BigInt(unitCostByCategory[categoryIndex]) * BigInt(activity);
+        if (categoryCohortCost > MAX_SAFE) {
+          return fail('calculation_overflow', 'A variable-cost category exceeds the supported exact integer range.', 'monthlyPlan[' + cohort + '].salesUnits');
+        }
+        const supplierPayments = distributeMinorUnits(Number(categoryCohortCost), category.paymentPercentages);
+        for (let offset = 0; offset < 3; offset += 1) {
+          const paymentMonth = cohort + offset;
+          if (paymentMonth >= horizon) {
+            const amount = BigInt(supplierPayments[offset]);
+            deferredSupplierPayments += amount;
+            deferredByCategory[categoryIndex] += amount;
+          } else {
+            const sum = BigInt(monthlyPlan[paymentMonth].operatingCashOutflowsMinor) + BigInt(supplierPayments[offset]);
+            if (sum > MAX_SAFE) {
+              return fail('calculation_overflow', 'Scheduled operating payments exceed the supported exact integer range.', 'monthlyPlan[' + paymentMonth + '].operatingCashOutflowsMinor');
+            }
+            monthlyPlan[paymentMonth].operatingCashOutflowsMinor = Number(sum);
+          }
         }
       }
     }
-    if (deferredSalesReceipts > MAX_SAFE || deferredSupplierPayments > MAX_SAFE) {
+    if (deferredSalesReceipts > MAX_SAFE || deferredSupplierPayments > MAX_SAFE ||
+        deferredByCategory.some(amount => amount > MAX_SAFE)) {
       return fail('calculation_overflow', 'The timing-schedule amounts beyond the forecast horizon exceed the supported exact integer range.', 'timingSchedule');
     }
   } catch (error) {
@@ -688,19 +794,24 @@ export function projectCashRunwayWithTimingSchedule(input) {
   return {
     ok: true,
     report: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       kind: 'business-launchpad-terms-based-cash-projection',
       currency: { ...projection.report.currency },
       horizonMonths: horizon,
-      timingSchedule: normalized.schedule,
-      basis: 'Alternative terms-based scenario derived from sales-unit activity; it does not replace the owner-entered base plan. Per-unit variable costs are treated as supplier/payable costs for timing purposes; fixed monthly costs remain due in their originating month.',
+      timingSchedule: schedule,
+      variableCostCategoryBreakdown: categories.map((category, index) => ({
+        ...category,
+        variableCostPerUnitMinor: unitCostByCategory[index],
+        deferredPaymentsAfterHorizonMinor: Number(deferredByCategory[index])
+      })),
+      basis: 'Alternative terms-based scenario derived from sales-unit activity; it does not replace the owner-entered base plan. Variable cost per sale is allocated among three explicitly named categories; each category has its own payment timing. Fixed monthly costs remain due in their originating month.',
       assumptions: [
         'Sales cash receipts are derived from units multiplied by the entered selling price, then allocated to the sale month, next month and following month.',
-        'Per-unit variable costs are treated as supplier/payable costs and derived from units multiplied by entered variable cost, then allocated to the originating month, next month and following month.',
+        'Variable cost per sale is split into three cost categories by owner-entered whole-percent shares; shares must total exactly 100%. Category cash payments are then allocated independently to the originating month, next month and following month.',
         'Fixed monthly costs remain paid in their originating month; setup costs remain paid before Month 1.',
         'Other/unclassified, investing and financing movements are copied from the supplied plan without reclassification.',
-        'This schedule does not model opening accounts receivable/payable, taxes, inventory purchases that precede sales, deposit/refund behavior, bad debt, invoice-level terms or day-level due dates. It treats all per-unit variable costs as one payable cohort; distinct variable-cost types need separate schedules before their actual timing can be represented.',
-        'The percentage schedule is an owner-supplied sensitivity assumption, not a ledger or forecast of actual settlement.'
+        'This schedule does not model opening accounts receivable/payable, taxes, inventory purchases that precede sales, deposit/refund behavior, bad debt, invoice-level terms or day-level due dates. Category labels and distributions are user assumptions, not itemized supplier balances or a ledger.',
+        'Percentage schedules are sensitivity assumptions, not a ledger or a forecast of actual settlement.'
       ],
       deferredSalesCashReceiptsAfterHorizonMinor: Number(deferredSalesReceipts),
       deferredVariableSupplierPaymentsAfterHorizonMinor: Number(deferredSupplierPayments),

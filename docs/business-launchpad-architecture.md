@@ -328,7 +328,7 @@ Use this evidence sequence: (1) automated deterministic simulation and fault inj
 
 ### Phase 3 — Advisory intelligence
 
-- Refine the schema-v5 terms schedule to support separate timing distributions for materially different variable-cost categories; only after an auditable source of actuals is selected, add actual-versus-plan variance. Any later forecasting remains behind an interface/feature flag and must not replace the deterministic calculation.
+- Schema v6 now supports three explicit variable-cost shares with independently timed payments. Test demand for owner-configurable category counts or additional cost drivers before expanding the contract; add actual-versus-plan variance only after selecting an auditable source of actuals. Any later forecasting remains behind an interface/feature flag and must not replace deterministic calculation.
 - Measure against deterministic baselines; record model/data versions and uncertainty.
 - Provide correction and feedback mechanisms that do not silently poison training data.
 

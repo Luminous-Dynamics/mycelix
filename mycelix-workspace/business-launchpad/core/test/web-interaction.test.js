@@ -64,7 +64,9 @@ class MockDocument {
       'downside-operating-cost-increase-percent', 'upside-receipt-increase-percent',
       'upside-receipt-advance-months', 'upside-operating-cost-reduction-percent',
       'timing-sales-receipts-month-0', 'timing-sales-receipts-month-1', 'timing-sales-receipts-month-2',
-      'timing-supplier-payments-month-0', 'timing-supplier-payments-month-1', 'timing-supplier-payments-month-2'
+      'timing-cost-category-1-label', 'timing-cost-category-1-share', 'timing-cost-category-1-month-0', 'timing-cost-category-1-month-1', 'timing-cost-category-1-month-2',
+      'timing-cost-category-2-label', 'timing-cost-category-2-share', 'timing-cost-category-2-month-0', 'timing-cost-category-2-month-1', 'timing-cost-category-2-month-2',
+      'timing-cost-category-3-label', 'timing-cost-category-3-share', 'timing-cost-category-3-month-0', 'timing-cost-category-3-month-1', 'timing-cost-category-3-month-2'
     ];
     for (const id of ids) this.nodes.set(id, new MockElement(id === 'model-form' ? 'form' : 'div', id));
     this.body = new MockElement('body');
@@ -90,9 +92,21 @@ class MockDocument {
     this.nodes.get('timing-sales-receipts-month-0').value = '70';
     this.nodes.get('timing-sales-receipts-month-1').value = '25';
     this.nodes.get('timing-sales-receipts-month-2').value = '5';
-    this.nodes.get('timing-supplier-payments-month-0').value = '80';
-    this.nodes.get('timing-supplier-payments-month-1').value = '15';
-    this.nodes.get('timing-supplier-payments-month-2').value = '5';
+    this.nodes.get('timing-cost-category-1-label').value = 'Materials / components';
+    this.nodes.get('timing-cost-category-1-share').value = '60';
+    this.nodes.get('timing-cost-category-1-month-0').value = '80';
+    this.nodes.get('timing-cost-category-1-month-1').value = '15';
+    this.nodes.get('timing-cost-category-1-month-2').value = '5';
+    this.nodes.get('timing-cost-category-2-label').value = 'Direct labor / subcontractors';
+    this.nodes.get('timing-cost-category-2-share').value = '25';
+    this.nodes.get('timing-cost-category-2-month-0').value = '100';
+    this.nodes.get('timing-cost-category-2-month-1').value = '0';
+    this.nodes.get('timing-cost-category-2-month-2').value = '0';
+    this.nodes.get('timing-cost-category-3-label').value = 'Fulfillment / other variable costs';
+    this.nodes.get('timing-cost-category-3-share').value = '15';
+    this.nodes.get('timing-cost-category-3-month-0').value = '70';
+    this.nodes.get('timing-cost-category-3-month-1').value = '25';
+    this.nodes.get('timing-cost-category-3-month-2').value = '5';
     this.nodes.get('result-status').textContent = 'Example not yet calculated';
   }
   querySelector(selector) {
@@ -250,7 +264,7 @@ test('assumptions export produces versioned portable JSON without uploading inpu
   assert.equal(capturedBlob.type, 'application/json;charset=utf-8');
 
   const payload = JSON.parse(await capturedBlob.text());
-  assert.equal(payload.schemaVersion, 5);
+  assert.equal(payload.schemaVersion, 6);
   assert.equal(payload.kind, 'business-launchpad-scenario');
   assert.equal(payload.input.currency.code, 'ZAR');
   assert.equal(payload.input.sellingPricePerUnitMinor, 18_000);
@@ -273,7 +287,7 @@ test('assumptions export produces versioned portable JSON without uploading inpu
 
   const anchor = documentMock.createdElements.at(-1);
   assert.equal(anchor.tagName, 'A');
-  assert.equal(anchor.download, 'business-launchpad-scenario-v5.json');
+  assert.equal(anchor.download, 'business-launchpad-scenario-v6.json');
   assert.equal(anchor.clicked, true);
   assert.equal(anchor.removed, true);
 });
@@ -286,6 +300,11 @@ test('imported scenario is validated, restores fields, and requires recalculatio
   payload.input.plannedUnitsPerMonth = 40;
   payload.cashScenarioAssumptions.downside.salesReceiptDelayMonths = 2;
   payload.cashTimingSchedule.salesReceiptsPercent = [60, 30, 10];
+  payload.cashTimingSchedule.variableCostCategories[0].label = 'Custom materials';
+  payload.cashTimingSchedule.variableCostCategories[0].costSharePercent = 50;
+  payload.cashTimingSchedule.variableCostCategories[1].costSharePercent = 30;
+  payload.cashTimingSchedule.variableCostCategories[2].costSharePercent = 20;
+  payload.cashTimingSchedule.variableCostCategories[0].paymentPercentages = [60, 30, 10];
 
   const fileInput = documentMock.getElementById('load-scenario-file');
   fileInput.files = [{ text: async () => JSON.stringify(payload) }];
@@ -298,6 +317,11 @@ test('imported scenario is validated, restores fields, and requires recalculatio
   assert.equal(documentMock.getElementById('downside-receipt-delay-months').value, '2');
   assert.equal(documentMock.getElementById('timing-sales-receipts-month-0').value, '60');
   assert.equal(documentMock.getElementById('timing-sales-receipts-month-1').value, '30');
+  assert.equal(documentMock.getElementById('timing-cost-category-1-label').value, 'Custom materials');
+  assert.equal(documentMock.getElementById('timing-cost-category-1-share').value, '50');
+  assert.equal(documentMock.getElementById('timing-cost-category-2-share').value, '30');
+  assert.equal(documentMock.getElementById('timing-cost-category-3-share').value, '20');
+  assert.equal(documentMock.getElementById('timing-cost-category-1-month-1').value, '30');
   assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
   assert.equal(documentMock.getElementById('download-report').disabled, true);
 
@@ -504,7 +528,7 @@ test('report export is disabled until a valid calculation exists and includes bo
   documentMock.getElementById('download-report').dispatchEvent({ type: 'click' });
   const payload = JSON.parse(await capturedBlob.text());
 
-  assert.equal(payload.schemaVersion, 5);
+  assert.equal(payload.schemaVersion, 6);
   assert.equal(payload.kind, 'business-launchpad-report');
   assert.equal(payload.input.currency.code, 'ZAR');
   assert.equal(payload.report.breakEven.unitsPerMonth, 8);
@@ -518,7 +542,7 @@ test('report export is disabled until a valid calculation exists and includes bo
   assert.deepEqual(payload.cashScenarioComparison.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside', 'terms-based']);
   assert.equal(payload.cashScenarioComparison.scenarios[3].assumptions.salesReceiptsPercent[0], 70);
   assert.equal(payload.cashScenarioComparison.scenarios[3].deferredSalesCashReceiptsAfterHorizonMinor > 0, true);
-  assert.equal(documentMock.createdElements.at(-1).download, 'business-launchpad-report-v5.json');
+  assert.equal(documentMock.createdElements.at(-1).download, 'business-launchpad-report-v6.json');
   assert.ok(createdUrls.includes('blob:business-launchpad-test'));
 });
 

@@ -361,13 +361,13 @@ function validatedScenarioPayload(payload) {
   if (
     payload === null ||
     typeof payload !== 'object' ||
-    ![1, 2, 3, 4, 5].includes(payload.schemaVersion) ||
+    ![1, 2, 3, 4, 5, 6].includes(payload.schemaVersion) ||
     payload.kind !== 'business-launchpad-scenario' ||
     payload.input === null ||
     typeof payload.input !== 'object' ||
     Array.isArray(payload.input)
   ) {
-    throw new Error('This file is not a supported Business Launchpad scenario JSON file (schemaVersion 1, 2, 3, 4 or 5 required).');
+    throw new Error('This file is not a supported Business Launchpad scenario JSON file (schemaVersion 1 through 6 required).');
   }
 
   const result = analyzeBusinessModel(payload.input);
@@ -381,7 +381,11 @@ function validatedScenarioPayload(payload) {
     throw new Error('Version ' + payload.schemaVersion + ' scenarios must include explicit cash stress assumptions.');
   }
   if (payload.schemaVersion >= 5 && payload.cashTimingSchedule === undefined) {
-    throw new Error('Version 5 scenarios must include explicit collection and supplier-payment schedules.');
+    throw new Error('Version ' + payload.schemaVersion + ' scenarios must include explicit collection and supplier-payment schedules.');
+  }
+  if (payload.schemaVersion >= 6 &&
+      (!payload.cashTimingSchedule || !Array.isArray(payload.cashTimingSchedule.variableCostCategories))) {
+    throw new Error('Version 6 scenarios must include three explicit variable-cost categories with independent payment schedules.');
   }
   const plan = payload.cashRunwayPlan === undefined
     ? defaultCashRunwayPlan(payload.input)
@@ -456,17 +460,23 @@ function readCashTimingSchedule() {
     }
     return parsed.value;
   };
+  const variableCostCategories = [1, 2, 3].map(index => ({
+    id: 'category-' + index,
+    label: getFieldValue('timing-cost-category-' + index + '-label').trim(),
+    costSharePercent: readPercent('timing-cost-category-' + index + '-share', 'Variable-cost category ' + index + ' share'),
+    paymentPercentages: [
+      readPercent('timing-cost-category-' + index + '-month-0', 'Category ' + index + ' payment this month'),
+      readPercent('timing-cost-category-' + index + '-month-1', 'Category ' + index + ' payment next month'),
+      readPercent('timing-cost-category-' + index + '-month-2', 'Category ' + index + ' payment two months later')
+    ]
+  }));
   return {
     salesReceiptsPercent: [
       readPercent('timing-sales-receipts-month-0', 'Collections in sale month'),
       readPercent('timing-sales-receipts-month-1', 'Collections next month'),
       readPercent('timing-sales-receipts-month-2', 'Collections two months later')
     ],
-    variableSupplierPaymentsPercent: [
-      readPercent('timing-supplier-payments-month-0', 'Supplier payments in sale/purchase month'),
-      readPercent('timing-supplier-payments-month-1', 'Supplier payments next month'),
-      readPercent('timing-supplier-payments-month-2', 'Supplier payments two months later')
-    ]
+    variableCostCategories
   };
 }
 
@@ -474,11 +484,19 @@ function applyCashTimingSchedule(schedule) {
   const fields = [
     ['timing-sales-receipts-month-0', schedule.salesReceiptsPercent[0]],
     ['timing-sales-receipts-month-1', schedule.salesReceiptsPercent[1]],
-    ['timing-sales-receipts-month-2', schedule.salesReceiptsPercent[2]],
-    ['timing-supplier-payments-month-0', schedule.variableSupplierPaymentsPercent[0]],
-    ['timing-supplier-payments-month-1', schedule.variableSupplierPaymentsPercent[1]],
-    ['timing-supplier-payments-month-2', schedule.variableSupplierPaymentsPercent[2]]
+    ['timing-sales-receipts-month-2', schedule.salesReceiptsPercent[2]]
   ];
+  for (let index = 0; index < 3; index += 1) {
+    const category = schedule.variableCostCategories[index];
+    const slot = index + 1;
+    fields.push(
+      ['timing-cost-category-' + slot + '-label', category.label],
+      ['timing-cost-category-' + slot + '-share', category.costSharePercent],
+      ['timing-cost-category-' + slot + '-month-0', category.paymentPercentages[0]],
+      ['timing-cost-category-' + slot + '-month-1', category.paymentPercentages[1]],
+      ['timing-cost-category-' + slot + '-month-2', category.paymentPercentages[2]]
+    );
+  }
   for (const [id, value] of fields) document.getElementById(id).value = String(value);
 }
 
@@ -500,10 +518,14 @@ function renderCashScenarioComparison(comparison, currency) {
   const downside = comparison.assumptions.downside;
   const upside = comparison.assumptions.upside;
   const timing = comparison.timingSchedule;
+  const categoryTiming = timing.variableCostCategories.map(category =>
+    category.label + ' (' + category.costSharePercent + '% of per-sale variable cost): ' +
+    category.paymentPercentages.join(' / ') + '% across originating month, +1 month and +2 months'
+  ).join('; ');
   section.append(element(
     'p',
     'detail',
-    'The base is your entered plan. Downside stress: sales receipts reduced ' + downside.salesReceiptReductionPercent + '%, delayed ' + downside.salesReceiptDelayMonths + ' month(s), and operating payments increased ' + downside.operatingCashOutflowIncreasePercent + '%. Upside stress: sales receipts increased ' + upside.salesReceiptIncreasePercent + '%, later receipts advanced ' + upside.salesReceiptAdvanceMonths + ' month(s), and operating payments reduced ' + upside.operatingCashOutflowReductionPercent + '%. Terms-based timing schedules customer collections ' + timing.salesReceiptsPercent.join(' / ') + '% across sale month, +1 month and +2 months; per-unit variable-cost payments use ' + timing.variableSupplierPaymentsPercent.join(' / ') + '% across the same offsets. Fixed monthly costs remain due in their originating month. These owner-editable values are illustrative, not benchmarks or probabilities. A negative or below-reserve result is an early-warning signal to review, not an automatic business decision.'
+    'The base is your entered plan. Downside stress: sales receipts reduced ' + downside.salesReceiptReductionPercent + '%, delayed ' + downside.salesReceiptDelayMonths + ' month(s), and operating payments increased ' + downside.operatingCashOutflowIncreasePercent + '%. Upside stress: sales receipts increased ' + upside.salesReceiptIncreasePercent + '%, later receipts advanced ' + upside.salesReceiptAdvanceMonths + ' month(s), and operating payments reduced ' + upside.operatingCashOutflowReductionPercent + '%. Terms-based timing schedules customer collections ' + timing.salesReceiptsPercent.join(' / ') + '% across sale month, +1 month and +2 months. Variable cost per sale is allocated by cost share, with independent payment curves: ' + categoryTiming + '. Fixed monthly costs remain due in their originating month. These owner-editable values are illustrative, not benchmarks or probabilities. A negative or below-reserve result is an early-warning signal to review, not an automatic business decision.'
   ));
 
   const scroll = element('div', 'cash-plan-scroll');
@@ -785,8 +807,8 @@ downloadScenarioButton.addEventListener('click', () => {
     if (!cashRunwayResult.ok) throw new Error(cashRunwayResult.error.message);
     const comparison = compareCashRunwayScenarios({ model, monthlyPlan: cashRunwayPlan, assumptions: cashScenarioAssumptions, timingSchedule: cashTimingSchedule });
     if (!comparison.ok) throw new Error(comparison.error.message);
-    downloadJson('business-launchpad-scenario-v5.json', {
-      schemaVersion: 5,
+    downloadJson('business-launchpad-scenario-v6.json', {
+      schemaVersion: 6,
       kind: 'business-launchpad-scenario',
       input: model,
       cashRunwayPlan,
@@ -805,8 +827,8 @@ downloadReportButton.addEventListener('click', () => {
   }
   hideError();
   try {
-    downloadJson('business-launchpad-report-v5.json', {
-      schemaVersion: 5,
+    downloadJson('business-launchpad-report-v6.json', {
+      schemaVersion: 6,
       kind: 'business-launchpad-report',
       input: latestModel,
       report: latestReport,
