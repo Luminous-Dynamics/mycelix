@@ -314,9 +314,10 @@ impl ConjunctionAnalyzer {
         }
         let risk_level = RiskLevel::from_pc(collision_probability.pc);
         let combined_covariance = match (&primary.covariance, &secondary.covariance) {
-            (Some(c1), Some(c2)) => c1
-                .fuse(c2)
-                .ok_or(ConjunctionAssessmentError::InvalidCovariance { object: "combined" })?,
+            (Some(c1), Some(c2)) => Some(
+                c1.fuse(c2)
+                    .ok_or(ConjunctionAssessmentError::InvalidCovariance { object: "combined" })?,
+            ),
             _ => unreachable!("try_assess validates that both covariances are present"),
         };
 
