@@ -661,18 +661,15 @@ function normalizeCashTimingSchedule(value) {
     ) };
   }
 
-  const schedulesMatch = normalizedCategories.every(category =>
-    category.paymentPercentages.every((value, index) => value === normalizedCategories[0].paymentPercentages[index])
-  );
   return {
     schedule: {
       salesReceiptsPercent: [...sales],
       variableCostCategories: normalizedCategories
     },
-    // Equal category schedules are exactly equivalent to the former aggregate
-    // curve. Preserve its minor-unit allocation across time, even after schema-v5
-    // assumptions have been migrated into the visible three-category shape.
-    aggregatePaymentTiming: source.variableCostCategories === undefined || schedulesMatch
+    // Preserve the old aggregate allocation only when importing the legacy
+    // single-curve shape. Schema-v6 category schedules should be honored
+    // individually, even when the three curves happen to match.
+    aggregatePaymentTiming: source.variableCostCategories === undefined
   };
 }
 
@@ -780,10 +777,8 @@ export function projectCashRunwayWithTimingSchedule(input) {
           if (paymentMonth >= horizon) {
             const amount = supplierPayments[offset];
             deferredSupplierPayments += BigInt(amount);
-            const categoryAmounts = distributeMinorUnits(amount, categories.map(category => category.costSharePercent));
-            for (let categoryIndex = 0; categoryIndex < categoryAmounts.length; categoryIndex += 1) {
-              deferredByCategory[categoryIndex] += BigInt(categoryAmounts[categoryIndex]);
-            }
+            // A legacy aggregate schedule does not contain category-level due
+            // dates. Do not manufacture per-category deferral amounts here.
           } else {
             const sum = BigInt(monthlyPlan[paymentMonth].operatingCashOutflowsMinor) + BigInt(supplierPayments[offset]);
             if (sum > MAX_SAFE) {
@@ -838,7 +833,7 @@ export function projectCashRunwayWithTimingSchedule(input) {
       variableCostCategoryBreakdown: categories.map((category, index) => ({
         ...category,
         variableCostTotalMinor: Number(totalCostByCategory[index]),
-        deferredPaymentsAfterHorizonMinor: Number(deferredByCategory[index])
+        deferredPaymentsAfterHorizonMinor: aggregatePaymentTiming ? null : Number(deferredByCategory[index])
       })),
       basis: 'Alternative terms-based scenario derived from sales-unit activity; it does not replace the owner-entered base plan. Variable cost per sale is allocated among three explicitly named categories; each category has its own payment timing. Fixed monthly costs remain due in their originating month.',
       assumptions: [
@@ -847,6 +842,9 @@ export function projectCashRunwayWithTimingSchedule(input) {
         'Fixed monthly costs remain paid in their originating month; setup costs remain paid before Month 1.',
         'Other/unclassified, investing and financing movements are copied from the supplied plan without reclassification.',
         'This schedule does not model opening accounts receivable/payable, taxes, inventory purchases that precede sales, deposit/refund behavior, bad debt, invoice-level terms or day-level due dates. Category labels and distributions are user assumptions, not itemized supplier balances or a ledger.',
+        ...(aggregatePaymentTiming ? [
+          'This projection was migrated from a legacy single supplier-payment curve. The category names and cost shares are illustrative defaults; the aggregate timing is preserved, and per-category horizon deferrals are intentionally not assigned.'
+        ] : []),
         'Percentage schedules are sensitivity assumptions, not a ledger or a forecast of actual settlement.'
       ],
       deferredSalesCashReceiptsAfterHorizonMinor: Number(deferredSalesReceipts),
