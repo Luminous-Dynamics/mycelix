@@ -191,6 +191,8 @@ pub enum ConjunctionAssessmentError {
     InvalidCovarianceProvenance { object: &'static str },
     #[error("relative speed is too small to define a stable 2D encounter plane")]
     DegenerateEncounterGeometry,
+    #[error("encounter is outside the empirical local-density/small-disk approximation envelope")]
+    ApproximationOutsideReferenceEnvelope,
     #[error("hard-body radius must be finite and greater than zero")]
     InvalidHardBodyRadius,
     #[error("computed collision-probability estimate or heuristic spread is invalid")]
@@ -348,7 +350,7 @@ impl ConjunctionAnalyzer {
             primary_covariance.position_covariance() + secondary_covariance.position_covariance();
         let miss_vector = secondary.state.position() - primary.state.position();
         let relative_velocity_vector = secondary.state.velocity() - primary.state.velocity();
-        let (_, encounter_covariance) = self.project_to_encounter_plane(
+        let (encounter_miss, encounter_covariance) = self.project_to_encounter_plane(
             miss_vector,
             relative_velocity_vector,
             combined_position_covariance,
@@ -363,6 +365,13 @@ impl ConjunctionAnalyzer {
             return Err(ConjunctionAssessmentError::InvalidCovariance {
                 object: "encounter plane",
             });
+        }
+        if !Self::within_small_disk_reference_envelope(
+            encounter_miss,
+            encounter_covariance,
+            self.default_hbr_m / 1000.0,
+        ) {
+            return Err(ConjunctionAssessmentError::ApproximationOutsideReferenceEnvelope);
         }
 
         let collision_probability =
@@ -560,6 +569,39 @@ impl ConjunctionAnalyzer {
         (miss_2d, cov_2d)
     }
 
+    /// Empirical eligibility guard anchored to the selected reference cases above.
+    ///
+    /// This is a conservative engineering gate for this experimental approximation,
+    /// not a proof that the approximation is accurate or a statistical error bound.
+    /// It checks both disk size relative to the narrow uncertainty axis and the
+    /// first-order log-density variation across the disk.
+    fn within_small_disk_reference_envelope(
+        miss_2d: nalgebra::Vector2<f64>,
+        cov_2d: Matrix2<f64>,
+        hbr_km: f64,
+    ) -> bool {
+        if !hbr_km.is_finite() || hbr_km <= 0.0 {
+            return false;
+        }
+        if !miss_2d.iter().all(|value| value.is_finite())
+            || !cov_2d.iter().all(|value| value.is_finite())
+        {
+            return false;
+        }
+        let Some(inverse) = cov_2d.try_inverse() else {
+            return false;
+        };
+        let eigenvalues = cov_2d.symmetric_eigen().eigenvalues;
+        let min_eigenvalue = eigenvalues.iter().copied().fold(f64::INFINITY, f64::min);
+        if !min_eigenvalue.is_finite() || min_eigenvalue <= 0.0 {
+            return false;
+        }
+        let sigma_min_km = min_eigenvalue.sqrt();
+        let normalized_radius = hbr_km / sigma_min_km;
+        let log_density_variation = hbr_km * (inverse * miss_2d).norm();
+        normalized_radius <= 0.25 && log_density_variation <= 0.5
+    }
+
     /// Gaussian local-density/small-disk approximation projected into a 2D encounter plane.
     ///
     /// This computes a local-density approximation and does not evaluate the full
@@ -654,6 +696,72 @@ mod tests {
             crate::state::DataSource::SpaceTrack,
         )
         .with_covariance(covariance)
+    }
+
+    /// Scalar local-plane references published in Orekit's Alfano2005Test
+    /// (Orekit 13.1.5), which invokes its Simpson-integrated Alfano 2005 method:
+    /// https://www.orekit.org/site-orekit-13.1.5/xref-test/org/orekit/ssa/collision/shorttermencounter/probability/twod/Alfano2005Test.html
+    ///
+    /// These compare the lightweight local-density approximation to independent
+    /// reference outputs. They are a small selected regression set, not qualification
+    /// across the whole encounter domain.
+    #[test]
+    fn selected_alfano_reference_cases_quantify_small_disk_approximation() {
+        let cases: &[(&str, f64, f64, f64, f64, f64, f64)] = &[
+            // name, xm[m], ym[m], sigma_x[m], sigma_y[m], radius[m], reference Pc
+            ("Chan 01", 0.0, 10.0, 25.0, 50.0, 5.0, 9.742e-3),
+            ("Chan 02", 10.0, 0.0, 25.0, 50.0, 5.0, 9.181e-3),
+            ("Chan 03", 0.0, 10.0, 25.0, 75.0, 5.0, 6.571e-3),
+            (
+                "CSM 01",
+                84.875546,
+                60.583685,
+                57.918666,
+                152.8814468,
+                10.3,
+                1.9002e-3,
+            ),
+            ("Chan 11", 0.0, 5000.0, 1000.0, 3000.0, 50.0, 1.039e-4),
+            ("Chan 12", 5000.0, 0.0, 1000.0, 3000.0, 50.0, 1.564e-9),
+        ];
+        let analyzer = ConjunctionAnalyzer::new();
+        for (name, xm, ym, sigma_x, sigma_y, radius, reference_pc) in cases {
+            let covariance = Matrix2::new(
+                sigma_x.powi(2) / 1_000_000.0,
+                0.0,
+                0.0,
+                sigma_y.powi(2) / 1_000_000.0,
+            );
+            let miss = nalgebra::Vector2::new(xm / 1000.0, ym / 1000.0);
+            let approximation =
+                analyzer.gaussian_small_disk_pc(miss, covariance, radius / 1000.0);
+            let relative_error = (approximation - reference_pc).abs() / reference_pc;
+            assert!(
+                relative_error <= 0.01,
+                "{name}: local-density approximation relative error {relative_error:.4%} exceeded the 1% envelope for this selected case"
+            );
+        }
+    }
+
+    /// Orekit's Alfano test case 3 is intentionally outside the small-disk regime:
+    /// the hard-body radius (15 m) is much larger than the narrow standard deviation
+    /// (1.410183 m), and the published reference Pc is 0.10038. It should not be
+    /// accepted by the checked approximation path simply because a formula returns
+    /// a finite number.
+    #[test]
+    fn small_disk_reference_envelope_rejects_large_disk_relative_to_uncertainty() {
+        let miss = nalgebra::Vector2::new(-3.8872073 / 1000.0, 0.1591646 / 1000.0);
+        let sigma_x = 1.4101830 / 1000.0;
+        let sigma_y = 114.2585190 / 1000.0;
+        let covariance = Matrix2::new(sigma_x.powi(2), 0.0, 0.0, sigma_y.powi(2));
+        assert!(
+            !ConjunctionAnalyzer::within_small_disk_reference_envelope(
+                miss,
+                covariance,
+                15.0 / 1000.0
+            ),
+            "large hard-body radius vs narrow uncertainty must be rejected"
+        );
     }
 
     #[test]
