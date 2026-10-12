@@ -26,14 +26,14 @@
         "water.pollutant-concentration.v1"
       ],
       "discovery_status": "license_not_verified",
-      "reported_availability": "The record is marked Open and lists timeseries CSVs plus NetCDF cubes. The page's Rights/License section does not display an unambiguous file license.",
+      "reported_availability": "The project README describes the datasets as freely/openly accessible through Zenodo. Its GPL-3.0 license section applies to repository code; it does not clearly specify a separate license for the Zenodo data files.",
       "temporal_coverage": {
         "start_date": "2015-08-01",
         "end_date": "2025-08-30",
         "basis": "Sentinel-2 acquisition search period described in record; individual series ranges must be verified from files."
       },
       "spatial_coverage": {
-        "geography": "Six named water bodies in southern Africa",
+        "geography": "Six water bodies that the linked SWAM project README explicitly locates in Western Cape Province, South Africa.",
         "entities": [
           {
             "code": "CW",
@@ -60,7 +60,7 @@
             "name": "Zeekoevlei"
           }
         ],
-        "caveat": "The place-code names and exact polygons must be verified against source metadata; do not assume the Rietvlei record is the Rietvlei nearest Johannesburg without checking the coordinates."
+        "caveat": "Not a Gauteng/Johannesburg proxy. The RV/Rietvlei name is ambiguous nationally, but SWAM scopes its selected water bodies to Western Cape; exact coordinates/polygons are still needed for precise site identity."
       },
       "reported_measures": [
         {
@@ -128,10 +128,13 @@
         "modification": "unknown",
         "evidence_urls": [
           "https://zenodo.org/records/18670504",
+          "https://github.com/DalinJiang/EO-Africa-SWAM",
+          "https://help.zenodo.org/docs/deposit/describe-records/licenses/",
+          "https://support.zenodo.org/help/en-gb/2-content/21-can-i-get-permission-to-use-a-specific-record",
           "https://developers.zenodo.org/",
           "https://about.zenodo.org/policies/"
         ],
-        "assessment_note": "The landing page does not clearly display the record's file license in its Rights section. Zenodo's policies say publicly available files should have a license. Verify the record's API metadata and deposited file-level rights, then retain the exact response. Do not infer CC0 or any other license from platform defaults."
+        "assessment_note": "The Zenodo record's Rights/License field is blank in the inspected page. The linked project's README calls the data free/open via Zenodo but explicitly states GPL-3.0 applies to its code; that code license does not clearly license the separate data files. Zenodo documents that record license conditions govern reuse and a missing displayed file license should be resolved with authoritative record metadata or the rights holder. Do not infer CC-BY or any other data license."
       },
       "ingestion_gate": {
         "status": "blocked",
@@ -141,7 +144,9 @@
           "license_not_verified",
           "spatial_identity_not_verified",
           "source_artifact_not_retained_or_hashed",
-          "metadata_date_range_conflict_unresolved"
+          "metadata_date_range_conflict_unresolved",
+          "code_license_does_not_confirm_dataset_license",
+          "target_geography_mismatch_for_johannesburg_pilot"
         ],
         "required_evidence": [
           "Record-level file license confirmed from authoritative metadata or written rights-holder permission",
@@ -156,9 +161,9 @@
         ]
       },
       "suitability": {
-        "best_initial_use": "A narrow, clearly labeled remote-sensing water-quality evidence pilot after rights and location checks.",
-        "not_suitable_for": "Treating satellite-derived concentrations as laboratory samples, direct drinking-water safety certification, or causal proof that an intervention improved water quality.",
-        "next_action": "Resolve file-level license using record metadata/API or authors' written confirmation. If rights are suitable, inspect one CSV time series before considering the larger NetCDF cube."
+        "best_initial_use": "A Western Cape remote-sensing research pilot after data-file license confirmation, source-byte retention/hash, date-window reconciliation, and water-body identity validation.",
+        "not_suitable_for": "Johannesburg/Gauteng water-quality status claims, drinking-water-safety certification, a laboratory-equivalent concentration claim, or causal proof that an intervention improved water quality.",
+        "next_action": "Resolve the file-level data license and date-window discrepancy; verify coordinates/polygons against the intended Western Cape site. For a Johannesburg/Gauteng pilot, select a separate Gauteng source and independently qualify that source's license and coverage."
       },
       "known_findings": [
         {
@@ -169,15 +174,21 @@
         },
         {
           "finding_id": "SWAM-RIETVLEI-SITE-IDENTITY-001",
-          "severity": "low",
-          "observation": "The catalog maps code RV to the name Rietvlei, but the discovery catalog alone does not establish that this water body is the specific Rietvlei site intended for a Johannesburg-area study.",
-          "required_resolution": "Inspect the dataset's geographic coordinates or water-body polygon and match it to an authoritative site identity before assigning a city/region label."
+          "severity": "medium",
+          "observation": "The linked SWAM project README explicitly scopes its six target water bodies to Western Cape Province. The RV/Rietvlei code must not be assumed to mean the separate Rietvlei Dam/water bodies around Gauteng/Johannesburg.",
+          "required_resolution": "Match the series to the Western Cape site using the GeoJSON water-body polygons or coordinates. If the study target is Johannesburg/Gauteng, use a separate source with verified Gauteng coordinates and qualify its rights independently."
         },
         {
           "finding_id": "SWAM-MULTI-OVERPASS-DAY-001",
           "severity": "low",
           "observation": "The preview for TSM_timeseries_2015_2025_CW.csv contains multiple records for calendar date 2024-12-10 with distinct DateTime_UTC timestamps. This can represent distinct satellite overpasses rather than duplicate observations.",
           "required_resolution": "Use the UTC acquisition timestamp as the event-level key, audit duplicate timestamps separately from multi-overpass days, and record a documented rule before aggregation or deduplication."
+        },
+        {
+          "finding_id": "SWAM-DATA-CODE-LICENSE-SCOPE-001",
+          "severity": "medium",
+          "observation": "The linked EO-Africa-SWAM README describes dataset access as free/open through Zenodo but its License section says GPL-3.0 applies to code; the Zenodo dataset record's Rights/License field is blank in the inspected page. Code licensing is not evidence that separate dataset files are licensed for modification or redistribution.",
+          "required_resolution": "Verify an explicit file/data license in authoritative Zenodo metadata or obtain written rights-holder confirmation covering the intended research, commercial, redistribution and modification uses before import."
         }
       ]
     },

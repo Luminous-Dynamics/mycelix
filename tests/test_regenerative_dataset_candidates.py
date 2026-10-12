@@ -113,6 +113,21 @@ class RegenerativeDatasetCandidateTests(unittest.TestCase):
         self.assertIn("more than 500,000", shape["reported_sample_count_description"].lower())
         self.assertIn("over 2,000", shape["reported_station_count_description"].lower())
 
+    def test_swam_scope_is_western_cape_not_gauteng(self) -> None:
+        swam = self.manifest["candidates"][0]
+        self.assertIn("Western Cape", swam["spatial_coverage"]["geography"])
+        self.assertIn("target_geography_mismatch_for_johannesburg_pilot", swam["ingestion_gate"]["reason_codes"])
+        self.assertIn("https://github.com/DalinJiang/EO-Africa-SWAM", swam["license_assessment"]["evidence_urls"])
+        finding_ids = {finding["finding_id"] for finding in swam["known_findings"]}
+        self.assertIn("SWAM-DATA-CODE-LICENSE-SCOPE-001", finding_ids)
+
+    def test_code_license_is_not_treated_as_dataset_license(self) -> None:
+        swam = self.manifest["candidates"][0]
+        assessment = swam["license_assessment"]["assessment_note"].lower()
+        self.assertIn("does not clearly license", assessment)
+        self.assertEqual(swam["license_assessment"]["license_status"], "unverified")
+        self.assertFalse(swam["ingestion_gate"]["ingestion_authorized"])
+
     def test_duplicate_finding_id_fails(self) -> None:
         findings = self.manifest["candidates"][0]["known_findings"]
         findings.append(copy.deepcopy(findings[0]))

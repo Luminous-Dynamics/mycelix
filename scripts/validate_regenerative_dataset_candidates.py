@@ -116,6 +116,26 @@ def validate_manifest(manifest: object, indicator_catalog: object) -> list[str]:
         reported_shape = candidate.get("reported_data_shape")
         if not isinstance(reported_shape, dict):
             errors.append(f"{location}.reported_data_shape must be an object")
+        elif candidate_id == "south-africa.swam-satellite-water-quality.2026.v1":
+            if "Western Cape" not in candidate.get("spatial_coverage", {}).get("geography", ""):
+                errors.append(f"{location}: SWAM geographic scope must remain explicitly Western Cape")
+            if "target_geography_mismatch_for_johannesburg_pilot" not in candidate.get("ingestion_gate", {}).get("reason_codes", []):
+                errors.append(f"{location}: SWAM must not be qualified as a Johannesburg/Gauteng source")
+            if "https://github.com/DalinJiang/EO-Africa-SWAM" not in candidate.get("license_assessment", {}).get("evidence_urls", []):
+                errors.append(f"{location}: linked project code/data license-scope evidence is required")
+            finding_ids_for_swam = {
+                finding.get("finding_id")
+                for finding in candidate.get("known_findings", [])
+                if isinstance(finding, dict) and isinstance(finding.get("finding_id"), str)
+            }
+            required_swam_findings = {
+                "SWAM-PREVIEW-DATE-WINDOW-001",
+                "SWAM-MULTI-OVERPASS-DAY-001",
+                "SWAM-RIETVLEI-SITE-IDENTITY-001",
+                "SWAM-DATA-CODE-LICENSE-SCOPE-001",
+            }
+            if not required_swam_findings.issubset(finding_ids_for_swam):
+                errors.append(f"{location}: required SWAM date, overpass, site-identity and license-scope findings must be preserved")
         elif candidate_id == "south-africa.national-water-chemistry.1972-2011.v1":
             if "reported_sample_count" in reported_shape or "reported_station_count" in reported_shape:
                 errors.append(f"{location}: approximate source counts must not be encoded as exact numeric counts")
