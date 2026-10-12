@@ -475,6 +475,15 @@ pub fn announce_maneuver(input: AnnounceManeuverInput) -> ExternResult<ActionHas
             .into_wasm_error());
         }
     }
+
+    // Validate timestamp representability before creating entries or links.
+    let execution_time = input.burn_time.try_to_datetime().map_err(|e| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Invalid maneuver burn timestamp: {}", e),
+        )
+        .into_wasm_error()
+    })?;
     let agent = agent_info()?.agent_initial_pubkey;
 
     let maneuver = AvoidanceManeuver {
@@ -508,13 +517,7 @@ pub fn announce_maneuver(input: AnnounceManeuverInput) -> ExternResult<ActionHas
         conjunction_secondary: None,
         maneuver_type: SharedManeuverType::Combined, // Determine from direction
         delta_v_ms: input.delta_v_ms,
-        execution_time: input.burn_time.try_to_datetime().map_err(|e| {
-            SpaceError::new(
-                SpaceErrorCode::InvalidInput,
-                format!("Invalid maneuver burn timestamp: {}", e),
-            )
-            .into_wasm_error()
-        })?,
+        execution_time,
         generated_at: chrono::Utc::now(),
         message: Some(format!(
             "Avoidance maneuver announced for event {}",
