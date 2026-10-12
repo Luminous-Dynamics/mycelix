@@ -47,6 +47,10 @@ ADAPTER_REQUIRED_TESTS = {
     "request_preparation_rejects_invalid_identifiers",
     "request_preparation_rejects_oversized_action_allowlist_before_copy",
     "request_preparation_rejects_oversized_reason_allowlist_before_copy",
+    "request_preparation_rejects_oversized_content_reference_list",
+    "request_preparation_rejects_duplicate_actions",
+    "request_preparation_rejects_duplicate_reasons",
+    "request_preparation_rejects_empty_reason_allowlist",
 }
 
 REQUIRED_TESTS = {
@@ -320,6 +324,20 @@ def main() -> int:
         "if policy.allowed_actions.len() > MAX_ALLOWED_ACTIONS" in adapter_source
         and "if policy.allowed_reasons.len() > MAX_ALLOWED_REASONS" in adapter_source,
         "action/reason list bounds must be checked before copying caller-provided slices",
+        errors,
+    )
+    require(
+        "content_ids.windows(2).any(|pair| pair[0] == pair[1])" in adapter_source
+        and "allowed_actions.windows(2).any(|pair| pair[0] == pair[1])" in adapter_source
+        and "allowed_reasons.windows(2).any(|pair| pair[0] == pair[1])" in adapter_source,
+        "request preparation must fail closed on duplicate content IDs, actions, and reasons",
+        errors,
+    )
+    require(
+        "Some(RequestPreparationError::TooManyContentReferences)" in adapter_source
+        and "Some(RequestPreparationError::DuplicateAllowedAction)" in adapter_source
+        and "Some(RequestPreparationError::DuplicateAllowedReason)" in adapter_source,
+        "host-adapter regression tests must exercise duplicate and over-bound request policy",
         errors,
     )
     require(
