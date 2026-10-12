@@ -9,3 +9,5 @@ description = "Host-only bounded wire adapter primitives for optional Symthaea l
 
 [dependencies]
 praxis-core = { path = "../praxis-core" }
+serde.workspace = true
+serde_json.workspace = true
