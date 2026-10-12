@@ -31,7 +31,7 @@ An isolated calculator module lives at [`mycelix-workspace/business-launchpad/co
 - explicit partial-cost coverage and named omissions;
 - safe-integer/overflow rejection and deterministic amount formatting.
 
-It has synthetic service, food and retail fixtures in `test/fixtures/business-scenarios.v1.json`, a local JSON CLI in `src/cli.js`, and a static browser client in `../web/` that imports the same core. Run `npm run example` for the CLI, or serve `mycelix-workspace/business-launchpad/` on loopback and open `/web/`. The browser prototype calculates in memory but has no persistence or application backend. Fixture/example values are illustrative, not researched local prices or recommendations.
+It has synthetic service, food and retail fixtures in `test/fixtures/business-scenarios.v1.json`, a local JSON CLI in `src/cli.js`, and a static browser client in `../web/` that imports the same core. Run `npm run example` for the CLI, or serve `mycelix-workspace/business-launchpad/` on loopback and open `/web/`. The browser prototype supports explicit local JSON import/export for assumptions and calculated reports; inputs are not uploaded or stored in browser storage. Changing a field invalidates the previous report until recalculation. There is no persistent server-side record system. Fixture/example values are illustrative, not researched local prices or recommendations.
 
 The temporary workspace-shaped scratch checkout ran syntax checks for the calculator, CLI and browser module; `npm test` reported **27 tests/subtests passed** on Node v22.16.0; the CLI example returned expected arithmetic (break-even 8 units/month; startup funding gap 0 minor units for fictional inputs). Six dependency-free mock-DOM tests simulated the browser client's default calculation, excess decimal precision, complete-cost selection, negative contribution, malformed input, and source scan for browser persistence/network APIs. This is an interaction simulation, not a real-browser or accessibility test. Chromium attempts were blocked by this execution environment's managed URL policy for both loopback HTTP and file URLs; that is an environment blocker, not evidence that the app itself fails. The scratch files are not byte-identical to the current GitHub branch files (local source blob `60e83e62b62cbd8c9f4bde5ea8bafa4bc36738c4` vs branch source blob `76b1f4fd70f056b1c051fb62b5368f08c1a972cc`; local core-test blob `779c00a552a41bb04765623ccbdab3c2e4eb68f1` vs branch test blob `d14d90d3522afd94d370da62f0fad5e11881a14e`; local mock-DOM test blob `ebb5e588e7ab8459165ff9d443dafe27210aa0c6` vs current branch mock-DOM blob `7d7995e63ef67531bf96c2ae5a6ba91c61032c9f`). Treat this as **local algorithm/fixture/interaction-simulation evidence only**, not exact-commit verification. Five newer tests for scenario JSON import/export and invalidating stale reports were added after this scratch run and have not yet been executed locally. The pinned Node 24.21.0 GitHub Actions workflow must pass against the current exact head before the claim ceiling rises. Responsive layout, real-browser behavior and accessibility remain unvalidated. The static client is not a persistent database, production integration, jurisdiction rules engine, external payment processor, POS or accounting adapter.
 
@@ -129,6 +129,18 @@ These current files are candidate compatibility contracts, not proof of live suc
 
 Before coding an integration, verify the current contracts against the source at an exact commit. The existing static checkers are drift detectors and do not replace builds, relevant unit tests, conductor tests, independent multi-agent execution, or artifact-bound live promotion.
 
+## 4.1 Portable scenario/report files in the static prototype
+
+These criteria cover the current local-file workflow. Mock-DOM tests have been added, but the newer file-flow tests still require execution at the exact branch head and do not substitute for a real-browser test.
+
+| ID | Scenario | Required assertion | First evidence |
+|---|---|---|---|
+| BL-DATA-001 | Download assumptions | Download a versioned JSON envelope containing the current normalized inputs, stable schema/kind fields, currency metadata and cost-coverage declaration. No input is posted to an application endpoint. | Mock-DOM + exact-head |
+| BL-DATA-002 | Load valid assumptions | Accept only the supported schema version/kind, validate all inputs with the same domain calculator, restore the form, and require an explicit recalculation before a report becomes downloadable. | Mock-DOM + exact-head |
+| BL-DATA-003 | Load malformed, oversized or unsupported file | Show a visible error, do not change the user's current input fields, and keep report download disabled. Cap input file size to prevent unbounded memory use. | Unit/mock-DOM + exact-head |
+| BL-DATA-004 | Change input after calculation | Invalidate the prior report and disable report download until the current input set is recalculated. An old report must not be presented as matching edited inputs. | Mock-DOM + exact-head |
+| BL-DATA-005 | Download report | Export the input assumptions together with the exact deterministic report and a versioned envelope. The report file is an owner-controlled local artifact, not cloud backup or proof of compliance. | Mock-DOM + exact-head |
+
 ## 5. Suggested evidence corpus
 
 Create small, deterministic fixtures with synthetic data:
@@ -160,7 +172,7 @@ The release remains **not releasable** until all are true:
 
 - [ ] The owning repository/application boundary and license obligations are resolved.
 - [ ] The selected pilot jurisdiction and activity have a source-reviewed prerequisite pack with effective dates and explicit unsupported cases.
-- [ ] BL-SET-001 through BL-SET-008, BL-ECO-001 through BL-ECO-006, BL-COM-001 through BL-COM-008, BL-FIN-001 through BL-FIN-010, and BL-SEC-001 through BL-SEC-009 pass at their required evidence levels for the implemented scope. BL-FIN-010 can pass v0.1 by proving the unapproved settlement path remains disabled.
+- [ ] BL-SET-001 through BL-SET-008, BL-ECO-001 through BL-ECO-006, BL-COM-001 through BL-COM-008, BL-FIN-001 through BL-FIN-010, BL-DATA-001 through BL-DATA-005, and BL-SEC-001 through BL-SEC-009 pass at their required evidence levels for the implemented scope. BL-FIN-010 can pass v0.1 by proving the unapproved settlement path remains disabled.
 - [ ] Marketplace contracts are preserved or a reviewed migration documents every changed invariant.
 - [ ] Every consequential effect is capability-bound, payload-bound, idempotent where possible, and recoverable through an explicit failure/indeterminate path.
 - [ ] No real-money movement, lending, stored value, or automated filing is present in v0.1.
