@@ -97,6 +97,22 @@ class RegenerativeDatasetCandidateTests(unittest.TestCase):
         self.assertIn("2025-11-07", finding["observation"])
         self.assertEqual(validate_manifest(self.manifest, self.indicator_catalog), [])
 
+    def test_same_day_multi_overpass_is_preserved(self) -> None:
+        swam = self.manifest["candidates"][0]
+        finding_ids = {finding["finding_id"] for finding in swam["known_findings"]}
+        self.assertIn("SWAM-MULTI-OVERPASS-DAY-001", finding_ids)
+        inspection = swam["reported_data_shape"]["preview_only_inspection"]
+        self.assertFalse(inspection["digest_verified_locally"])
+        self.assertIn("DateTime_UTC", inspection["additional_preview_checks"][0]["required_handling"])
+
+    def test_wro_source_counts_remain_approximate(self) -> None:
+        wro = next(c for c in self.manifest["candidates"] if c["candidate_id"] == "south-africa.national-water-chemistry.1972-2011.v1")
+        shape = wro["reported_data_shape"]
+        self.assertNotIn("reported_sample_count", shape)
+        self.assertNotIn("reported_station_count", shape)
+        self.assertIn("more than 500,000", shape["reported_sample_count_description"].lower())
+        self.assertIn("over 2,000", shape["reported_station_count_description"].lower())
+
     def test_duplicate_finding_id_fails(self) -> None:
         findings = self.manifest["candidates"][0]["known_findings"]
         findings.append(copy.deepcopy(findings[0]))

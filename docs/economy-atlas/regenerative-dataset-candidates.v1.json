@@ -105,7 +105,18 @@
           ],
           "first_displayed_data_date": "2015-08-10",
           "last_displayed_data_date": "2025-11-07",
-          "note": "Preview dates are discovery observations only. Do not treat this as an ingested dataset or a verified complete time range."
+          "note": "Preview dates are discovery observations only. Do not treat this as an ingested dataset or a verified complete time range.",
+          "source_listing_checksum_md5": "1a522a5cb61fa7d23cbaf31fb4a55ea5",
+          "digest_verified_locally": false,
+          "checksum_note": "Zenodo lists this MD5 for the file. It is a metadata claim, not a hash calculated on retained bytes and not the SHA-256 required for a future observation receipt.",
+          "additional_preview_checks": [
+            {
+              "asset": "TSM_timeseries_2015_2025_CW.csv",
+              "source_url": "https://zenodo.org/records/18670504/files/TSM_timeseries_2015_2025_CW.csv?download=1",
+              "preview_observation": "The public preview displays multiple rows for calendar date 2024-12-10 with distinct DateTime_UTC values.",
+              "required_handling": "Preserve acquisition timestamp and date separately. Treat multiple overpasses on one date differently from duplicate timestamp records; do not deduplicate on Date alone."
+            }
+          ]
         }
       },
       "license_assessment": {
@@ -161,6 +172,12 @@
           "severity": "low",
           "observation": "The catalog maps code RV to the name Rietvlei, but the discovery catalog alone does not establish that this water body is the specific Rietvlei site intended for a Johannesburg-area study.",
           "required_resolution": "Inspect the dataset's geographic coordinates or water-body polygon and match it to an authoritative site identity before assigning a city/region label."
+        },
+        {
+          "finding_id": "SWAM-MULTI-OVERPASS-DAY-001",
+          "severity": "low",
+          "observation": "The preview for TSM_timeseries_2015_2025_CW.csv contains multiple records for calendar date 2024-12-10 with distinct DateTime_UTC timestamps. This can represent distinct satellite overpasses rather than duplicate observations.",
+          "required_resolution": "Use the UTC acquisition timestamp as the event-level key, audit duplicate timestamps separately from multi-overpass days, and record a documented rule before aggregation or deduplication."
         }
       ]
     },
@@ -196,9 +213,9 @@
       ],
       "reported_data_shape": {
         "timeseries_format": "Multiple Excel spreadsheets",
-        "reported_sample_count": 500000,
-        "reported_station_count": 2000,
-        "access_note": "The WRO page currently displays a 'Log in to download' message for resources."
+        "access_note": "The WRO page currently displays a 'Log in to download' message for resources.",
+        "reported_sample_count_description": "More than 500,000 complete chemical analyses (source wording; not an exact count)",
+        "reported_station_count_description": "Over 2,000 monitoring stations (source wording; not an exact count)"
       },
       "license_assessment": {
         "license_status": "conflicting",

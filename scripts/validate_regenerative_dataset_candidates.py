@@ -113,6 +113,17 @@ def validate_manifest(manifest: object, indicator_catalog: object) -> list[str]:
                 if not isinstance(link, str) or link not in indicator_ids:
                     errors.append(f"{location} refers to an unknown or malformed indicator_id: {link}")
 
+        reported_shape = candidate.get("reported_data_shape")
+        if not isinstance(reported_shape, dict):
+            errors.append(f"{location}.reported_data_shape must be an object")
+        elif candidate_id == "south-africa.national-water-chemistry.1972-2011.v1":
+            if "reported_sample_count" in reported_shape or "reported_station_count" in reported_shape:
+                errors.append(f"{location}: approximate source counts must not be encoded as exact numeric counts")
+            if not isinstance(reported_shape.get("reported_sample_count_description"), str) or "more than 500,000" not in reported_shape["reported_sample_count_description"].lower():
+                errors.append(f"{location}: preserve the source's 'more than 500,000' count wording")
+            if not isinstance(reported_shape.get("reported_station_count_description"), str) or "over 2,000" not in reported_shape["reported_station_count_description"].lower():
+                errors.append(f"{location}: preserve the source's 'over 2,000' station wording")
+
         coverage = candidate.get("temporal_coverage")
         if not isinstance(coverage, dict):
             errors.append(f"{location}.temporal_coverage must be an object")
