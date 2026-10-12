@@ -158,6 +158,8 @@ struct AtlasDatasetCandidate {
     dataset_url: String,
     related_indicator_ids: Vec<String>,
     discovery_status: String,
+    #[serde(default)]
+    reported_availability: String,
     temporal_coverage: AtlasDatasetTemporalCoverage,
     spatial_coverage: AtlasDatasetSpatialCoverage,
     reported_measures: Vec<AtlasDatasetReportedMeasure>,
@@ -503,6 +505,11 @@ fn render_dataset_candidate_card(candidate: AtlasDatasetCandidate) -> impl IntoV
     let publisher = candidate.publisher;
     let url = candidate.dataset_url;
     let status = candidate.discovery_status.replace('_', " ");
+    let reported_availability = if candidate.reported_availability.trim().is_empty() {
+        "No separate source availability statement is recorded.".to_string()
+    } else {
+        candidate.reported_availability
+    };
     let indicator_ids = candidate.related_indicator_ids.join(" · ");
     let start = candidate.temporal_coverage.start_date.unwrap_or_else(|| "unknown start".to_string());
     let end = candidate.temporal_coverage.end_date.unwrap_or_else(|| "unknown end".to_string());
@@ -570,7 +577,8 @@ fn render_dataset_candidate_card(candidate: AtlasDatasetCandidate) -> impl IntoV
             <h3>{title}</h3>
             <p class="atlas-model-id">{candidate_id}</p>
             <p class="atlas-research-meta">{publisher}</p>
-            <p>{access_status}</p>
+            <p>{reported_availability}</p>
+            <p><strong>"Rights assessment: "</strong>{access_status}</p>
             <p class="atlas-model-id">{format!("Related indicator: {indicator_ids}")}</p>
             <p><strong>"Source record: "</strong><a href={url} target="_blank" rel="noopener noreferrer">"Open source record"</a></p>
             <details>
@@ -944,6 +952,10 @@ mod tests {
         assert!(catalog.candidates.iter().any(|candidate| candidate.candidate_id == "south-africa.jukskei-water-quality-study.2021.v1"));
         assert!(catalog.candidates.iter().any(|candidate| candidate.candidate_id == "south-africa.up-hartbeespoort-roodeplaat-water-quality.2025.v1"));
         assert!(catalog.candidates.iter().any(|candidate| candidate.candidate_id == "south-africa.jukskei-river-microbial-data.2025.v1"));
+        let swam = catalog.candidates.iter().find(|candidate| candidate.candidate_id == "south-africa.swam-satellite-water-quality.2026.v1").expect("SWAM candidate should exist");
+        assert!(swam.reported_availability.contains("GPL-3.0"));
+        let asm = catalog.candidates.iter().find(|candidate| candidate.candidate_id == "south-africa.jukskei-river-microbial-data.2025.v1").expect("ASM Jukskei candidate should exist");
+        assert!(asm.reported_availability.contains("contact the corresponding author"));
     }
 
     #[test]
