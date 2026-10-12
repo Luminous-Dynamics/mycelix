@@ -344,7 +344,7 @@ function renderCashRunwayReport(runway) {
   const table = element('table', 'cash-projection-table');
   const thead = element('thead');
   const headerRow = element('tr');
-  for (const label of ['Period', 'Sales units paid in month', 'Net cash change', 'Closing cash', 'Reserve status']) {
+  for (const label of ['Period', 'Sales units (assumed paid in month)', 'Net cash change', 'Closing cash', 'Reserve status']) {
     const heading = element('th', '', label);
     heading.setAttribute('scope', 'col');
     headerRow.append(heading);
@@ -358,7 +358,7 @@ function renderCashRunwayReport(runway) {
     const periodHeading = element('th', '', 'Month ' + period.period);
     periodHeading.setAttribute('scope', 'row');
     row.append(periodHeading);
-    row.append(element('td', '', period.plannedSalesUnits.toLocaleString()));
+    row.append(element('td', '', period.assumedSalesUnitsCollectedThisMonth.toLocaleString()));
     row.append(element('td', period.netCashChangeMinor < 0 ? 'negative' : '',
       formatMinorUnits(period.netCashChangeMinor, runway.currency)));
     row.append(element('td', period.closingCashMinor < 0 ? 'negative' : '',
