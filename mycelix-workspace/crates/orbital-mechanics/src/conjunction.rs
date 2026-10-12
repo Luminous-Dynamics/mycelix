@@ -161,6 +161,8 @@ pub enum ConjunctionAssessmentError {
     },
     #[error("{object} covariance is non-finite, invalid, or singular for the collision calculation")]
     InvalidCovariance { object: &'static str },
+    #[error("relative speed is too small to define a stable 2D encounter plane")]
+    DegenerateEncounterGeometry,
     #[error("hard-body radius must be finite and greater than zero")]
     InvalidHardBodyRadius,
 }
@@ -286,6 +288,9 @@ impl ConjunctionAnalyzer {
         let relative_velocity = primary.state.relative_velocity(&secondary.state);
         if !miss_distance.is_finite() || !relative_velocity.is_finite() {
             return Err(ConjunctionAssessmentError::NonFiniteState { object: "pair" });
+        }
+        if relative_velocity <= 1e-10 {
+            return Err(ConjunctionAssessmentError::DegenerateEncounterGeometry);
         }
 
         let collision_probability =
@@ -539,7 +544,14 @@ mod tests {
         OrbitalState::new(
             norad_id,
             epoch,
-            StateVector::new(7000.0 + norad_id as f64 * 0.001, 0.0, 0.0, 0.0, 7.5, 0.0),
+            StateVector::new(
+                7000.0 + norad_id as f64 * 0.0001,
+                0.0,
+                0.0,
+                0.0,
+                7.5 + norad_id as f64 * 1e-7,
+                0.0,
+            ),
             crate::state::DataSource::SpaceTrack,
         )
         .with_covariance(covariance)
@@ -631,6 +643,24 @@ mod tests {
         assert_eq!(
             ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
             ConjunctionAssessmentError::InvalidCovariance { object: "primary" }
+        );
+    }
+
+    #[test]
+    fn checked_assessment_rejects_degenerate_encounter_geometry() {
+        let epoch = Utc::now();
+        let mut primary = checked_test_state(25544, epoch);
+        let mut secondary = checked_test_state(12345, epoch);
+        primary.state.vx = 0.0;
+        primary.state.vy = 7.5;
+        primary.state.vz = 0.0;
+        secondary.state.vx = 0.0;
+        secondary.state.vy = 7.5;
+        secondary.state.vz = 0.0;
+
+        assert_eq!(
+            ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
+            ConjunctionAssessmentError::DegenerateEncounterGeometry
         );
     }
 
