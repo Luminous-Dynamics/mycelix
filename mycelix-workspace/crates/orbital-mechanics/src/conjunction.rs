@@ -351,13 +351,13 @@ impl ConjunctionAnalyzer {
                 covariance: covariance.frame,
             });
         }
-        match covariance.source {
+        match &covariance.source {
             CovarianceSource::Official => {}
             CovarianceSource::Estimated { tle_age_hours }
-                if tle_age_hours.is_finite() && tle_age_hours >= 0.0 => {}
+                if tle_age_hours.is_finite() && *tle_age_hours >= 0.0 => {}
             CovarianceSource::Observed { sensor_accuracy_km }
-                if sensor_accuracy_km.is_finite() && sensor_accuracy_km > 0.0 => {}
-            CovarianceSource::Fused { source_count } if source_count >= 2 => {}
+                if sensor_accuracy_km.is_finite() && *sensor_accuracy_km > 0.0 => {}
+            CovarianceSource::Fused { source_count } if *source_count >= 2 => {}
             CovarianceSource::Unknown => {
                 return Err(ConjunctionAssessmentError::UnknownCovarianceProvenance { object });
             }
