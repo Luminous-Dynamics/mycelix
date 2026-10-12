@@ -457,9 +457,19 @@ form.addEventListener('submit', event => {
       showError(result.error.field ? result.error.message + ' (field: ' + result.error.field + ')' : result.error.message);
       return;
     }
+    const cashRunwayPlan = readCashRunwayPlan(model.currency);
+    const cashRunwayResult = projectCashRunway({ model, monthlyPlan: cashRunwayPlan });
+    if (!cashRunwayResult.ok) {
+      showError(cashRunwayResult.error.field
+        ? cashRunwayResult.error.message + ' (field: ' + cashRunwayResult.error.field + ')'
+        : cashRunwayResult.error.message);
+      return;
+    }
     latestModel = model;
     latestReport = result.report;
-    renderReport(result.report);
+    latestCashRunwayPlan = cashRunwayPlan;
+    latestCashRunway = cashRunwayResult.report;
+    renderReport(result.report, cashRunwayResult.report);
     downloadReportButton.disabled = false;
   } catch (error) {
     showError(error instanceof Error ? error.message : 'The scenario could not be read.');
@@ -472,10 +482,14 @@ downloadScenarioButton.addEventListener('click', () => {
     const model = readModel();
     const result = analyzeBusinessModel(model);
     if (!result.ok) throw new Error(result.error.message);
+    const cashRunwayPlan = readCashRunwayPlan(model.currency);
+    const cashRunwayResult = projectCashRunway({ model, monthlyPlan: cashRunwayPlan });
+    if (!cashRunwayResult.ok) throw new Error(cashRunwayResult.error.message);
     downloadJson('business-launchpad-scenario-v1.json', {
       schemaVersion: 1,
       kind: 'business-launchpad-scenario',
-      input: model
+      input: model,
+      cashRunwayPlan
     });
   } catch (error) {
     showError(error instanceof Error ? error.message : 'Scenario could not be exported.');
@@ -483,7 +497,7 @@ downloadScenarioButton.addEventListener('click', () => {
 });
 
 downloadReportButton.addEventListener('click', () => {
-  if (!latestModel || !latestReport || downloadReportButton.disabled) {
+  if (!latestModel || !latestReport || !latestCashRunwayPlan || !latestCashRunway || downloadReportButton.disabled) {
     showError('Calculate the current inputs before downloading the report.');
     return;
   }
@@ -493,7 +507,9 @@ downloadReportButton.addEventListener('click', () => {
       schemaVersion: 1,
       kind: 'business-launchpad-report',
       input: latestModel,
-      report: latestReport
+      report: latestReport,
+      cashRunwayPlan: latestCashRunwayPlan,
+      cashRunwayProjection: latestCashRunway
     });
   } catch (error) {
     showError(error instanceof Error ? error.message : 'Report could not be exported.');
@@ -509,8 +525,9 @@ loadScenarioInput.addEventListener('change', async event => {
       throw new Error('Scenario files larger than 1 MB are not accepted by this prototype.');
     }
     const payload = JSON.parse(await file.text());
-    const model = validatedScenarioPayload(payload);
-    applyModelToForm(model);
+    const scenario = validatedScenarioPayload(payload);
+    applyModelToForm(scenario.input);
+    renderCashRunwayInputs(scenario.cashRunwayPlan, scenario.input.currency);
     clearResult();
     resultStatus.textContent = 'Scenario loaded — calculate to review';
     resultStatus.className = 'status-pill status-muted';
@@ -530,4 +547,20 @@ function syncCoverageInput() {
 
 coverageSelect.addEventListener('change', syncCoverageInput);
 
+resetCashRunwayButton.addEventListener('click', () => {
+  hideError();
+  try {
+    const units = parseWholeUnits(getFieldValue('planned-units'));
+    if (!units.ok) throw new Error(units.error.message);
+    renderCashRunwayInputs(defaultCashRunwayPlan(units.value), describeCurrency());
+    clearResult();
+    resultStatus.textContent = 'Cash plan reset — recalculate';
+    resultStatus.className = 'status-pill status-muted';
+  } catch (error) {
+    showError(error instanceof Error ? error.message : 'Cash plan could not be reset.');
+  }
+});
+
+const initialUnits = parseWholeUnits(getFieldValue('planned-units'));
+if (initialUnits.ok) renderCashRunwayInputs(defaultCashRunwayPlan(initialUnits.value), describeCurrency());
 syncCoverageInput();
