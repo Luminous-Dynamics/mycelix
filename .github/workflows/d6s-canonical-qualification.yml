@@ -6,6 +6,18 @@ on:
       - myc-int-demo-d6t-canonical-encoding
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    # This is a reference-contract gate, not a repository-wide CI job. Only run it
+    # when its exact golden vectors, fixture manifests, independent verifiers, or
+    # Rust conformance implementation are changed. Unrelated PRs must not fail
+    # because their exact-head trees predate the D6S reference artifacts.
+    paths:
+      - 'docs/integral/d6s-canon-1-*'
+      - 'docs/integral/d6s-canon-2-*'
+      - 'scripts/integral/verify_d6s_canon_*.py'
+      - 'mycelix-manufacturing/Cargo.toml'
+      - 'mycelix-manufacturing/Cargo.lock'
+      - 'mycelix-manufacturing/crates/cos_conformance/**'
+      - 'mycelix-manufacturing/crates/manufacturing_common/**'
   workflow_dispatch:
 
 permissions:
