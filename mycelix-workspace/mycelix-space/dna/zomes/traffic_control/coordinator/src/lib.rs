@@ -95,6 +95,17 @@ fn anchor_for_operator_sessions(agent: &AgentPubKey) -> ExternResult<AnyLinkable
 // Authorization helpers
 // =============================================================================
 
+/// Membership must be proven by the session record, not just by a DHT link
+/// under an agent-keyed anchor.
+fn session_matches_participant(
+    session: &NegotiationSession,
+    session_id: &str,
+    agent: &AgentPubKey,
+) -> bool {
+    session.session_id == session_id
+        && (session.primary_operator == *agent || session.secondary_operator == *agent)
+}
+
 /// Verify that the given agent is a participant (primary or secondary operator)
 /// in the named session. Returns the session entry on success.
 fn verify_session_participant(
@@ -123,7 +134,7 @@ fn verify_session_participant(
             .ok()
             .flatten()
         {
-            if session.session_id == session_id {
+            if session_matches_participant(&session, session_id, agent) {
                 return Ok(session);
             }
         }
@@ -148,9 +159,7 @@ fn verify_session_participant(
             .ok()
             .flatten()
         {
-            if session.session_id == session_id
-                && (session.primary_operator == *agent || session.secondary_operator == *agent)
-            {
+            if session_matches_participant(&session, session_id, agent) {
                 return Ok(session);
             }
         }
@@ -2294,7 +2303,11 @@ pub fn get_proposal_agreement(proposal_id: String) -> ExternResult<Option<MultiP
 mod conjunction_reference_tests {
     use super::*;
 
-    fn event(event_id: &str, primary_norad_id: u32, secondary_norad_id: u32) -> ConjunctionReference {
+    fn event(
+        event_id: &str,
+        primary_norad_id: u32,
+        secondary_norad_id: u32,
+    ) -> ConjunctionReference {
         ConjunctionReference {
             event_id: event_id.to_string(),
             primary_norad_id,
@@ -2304,27 +2317,106 @@ mod conjunction_reference_tests {
 
     #[test]
     fn exact_event_and_object_pair_are_accepted() {
-        assert!(validate_conjunction_reference(&[event("cdm:42", 42, 77)], "cdm:42", 42, 77).is_ok());
+        assert!(
+            validate_conjunction_reference(
+                &[event("cdm:42", 42, 77)],
+                "cdm:42",
+                42,
+                77,
+            )
+            .is_ok()
+        );
     }
 
     #[test]
     fn reversed_object_pair_is_accepted() {
-        assert!(validate_conjunction_reference(&[event("cdm:42", 77, 42)], "cdm:42", 42, 77).is_ok());
+        assert!(
+            validate_conjunction_reference(
+                &[event("cdm:42", 77, 42)],
+                "cdm:42",
+                42,
+                77,
+            )
+            .is_ok()
+        );
     }
 
     #[test]
     fn missing_event_id_is_rejected() {
-        assert!(validate_conjunction_reference(&[event("cdm:other", 42, 77)], "cdm:42", 42, 77).is_err());
+        assert!(
+            validate_conjunction_reference(
+                &[event("cdm:other", 42, 77)],
+                "cdm:42",
+                42,
+                77,
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn mismatched_object_pair_is_rejected() {
-        assert!(validate_conjunction_reference(&[event("cdm:42", 42, 99)], "cdm:42", 42, 77).is_err());
+        assert!(
+            validate_conjunction_reference(
+                &[event("cdm:42", 42, 99)],
+                "cdm:42",
+                42,
+                77,
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn duplicate_event_id_is_rejected_as_ambiguous() {
         let records = [event("cdm:42", 42, 77), event("cdm:42", 42, 88)];
-        assert!(validate_conjunction_reference(&records, "cdm:42", 42, 77).is_err());
+        assert!(
+            validate_conjunction_reference(&records, "cdm:42", 42, 77).is_err()
+        );
+    }
+}
+
+#[cfg(test)]
+mod session_participant_tests {
+    use super::*;
+
+    fn key(byte: u8) -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![byte; 36])
+    }
+
+    fn session(primary_operator: AgentPubKey, secondary_operator: AgentPubKey) -> NegotiationSession {
+        NegotiationSession {
+            session_id: "session:1".to_string(),
+            conjunction_id: "cdm:1".to_string(),
+            primary_operator,
+            secondary_operator,
+            primary_norad_id: 42,
+            secondary_norad_id: 77,
+            tca: SpaceTimestamp { micros: 0 },
+            status: SessionStatus::Pending,
+            deadline: SpaceTimestamp { micros: 1 },
+            created_at: SpaceTimestamp { micros: 0 },
+        }
+    }
+
+    #[test]
+    fn recorded_primary_and_secondary_operators_are_participants() {
+        let primary = key(1);
+        let secondary = key(2);
+        let session = session(primary.clone(), secondary.clone());
+
+        assert!(session_matches_participant(&session, "session:1", &primary));
+        assert!(session_matches_participant(&session, "session:1", &secondary));
+    }
+
+    #[test]
+    fn foreign_agent_or_different_session_id_is_rejected() {
+        let primary = key(1);
+        let secondary = key(2);
+        let foreign = key(3);
+        let session = session(primary, secondary);
+
+        assert!(!session_matches_participant(&session, "session:1", &foreign));
+        assert!(!session_matches_participant(&session, "session:other", &foreign));
     }
 }
