@@ -160,7 +160,11 @@ function defaultCashRunwayPlan(model) {
       salesUnits,
       ...safeDefaultCashAmounts(model, salesUnits, month),
       otherCashInflowsMinor: 0,
-      otherCashOutflowsMinor: 0
+      otherCashOutflowsMinor: 0,
+      investingCashInflowsMinor: 0,
+      investingCashOutflowsMinor: 0,
+      financingCashInflowsMinor: 0,
+      financingCashOutflowsMinor: 0
     };
   });
 }
@@ -189,8 +193,12 @@ function renderCashRunwayInputs(plan, currency) {
     for (const [suffix, value, label] of [
       ['sales-receipts', period.salesCashReceiptsMinor, 'sales cash receipts expected this month'],
       ['operating-outflows', period.operatingCashOutflowsMinor, 'operating cash payments expected this month'],
-      ['inflows', period.otherCashInflowsMinor, 'other cash inflows'],
-      ['outflows', period.otherCashOutflowsMinor, 'other cash outflows']
+      ['inflows', period.otherCashInflowsMinor, 'other operating cash inflows'],
+      ['outflows', period.otherCashOutflowsMinor, 'other operating cash outflows'],
+      ['investing-inflows', period.investingCashInflowsMinor ?? 0, 'investing cash inflows (for example, asset sales)'],
+      ['investing-outflows', period.investingCashOutflowsMinor ?? 0, 'investing cash outflows (for example, equipment purchases)'],
+      ['financing-inflows', period.financingCashInflowsMinor ?? 0, 'financing cash inflows (for example, loan proceeds or owner capital)'],
+      ['financing-outflows', period.financingCashOutflowsMinor ?? 0, 'financing cash outflows (for example, principal repayments or owner distributions)']
     ]) {
       const moneyInput = document.createElement('input');
       moneyInput.id = 'cash-month-' + month + '-' + suffix;
@@ -218,8 +226,12 @@ function readCashRunwayPlan(currency) {
     const moneyFieldsForMonth = [
       ['sales-receipts', 'salesCashReceiptsMinor', 'sales cash receipts'],
       ['operating-outflows', 'operatingCashOutflowsMinor', 'operating cash outflows'],
-      ['inflows', 'otherCashInflowsMinor', 'other cash inflows'],
-      ['outflows', 'otherCashOutflowsMinor', 'other cash outflows']
+      ['inflows', 'otherCashInflowsMinor', 'other operating cash inflows'],
+      ['outflows', 'otherCashOutflowsMinor', 'other operating cash outflows'],
+      ['investing-inflows', 'investingCashInflowsMinor', 'investing cash inflows'],
+      ['investing-outflows', 'investingCashOutflowsMinor', 'investing cash outflows'],
+      ['financing-inflows', 'financingCashInflowsMinor', 'financing cash inflows'],
+      ['financing-outflows', 'financingCashOutflowsMinor', 'financing cash outflows']
     ];
     const period = { salesUnits: parsedUnits.value };
     for (const [suffix, key, label] of moneyFieldsForMonth) {
@@ -240,13 +252,28 @@ function validateImportedCashRunwayPlan(plan, model, schemaVersion) {
   }
   const normalized = plan.map((period, index) => {
     if (
-      schemaVersion === 2 &&
+      schemaVersion >= 2 &&
       period !== null &&
       typeof period === 'object' &&
       !Array.isArray(period) &&
       (period.salesCashReceiptsMinor === undefined || period.operatingCashOutflowsMinor === undefined)
     ) {
-      throw new Error('Version 2 cash runway Month ' + (index + 1) + ' must include sales cash receipts and operating cash outflows.');
+      throw new Error('Version ' + schemaVersion + ' cash runway Month ' + (index + 1) + ' must include sales cash receipts and operating cash outflows.');
+    }
+    const newCategoryFields = [
+      'investingCashInflowsMinor',
+      'investingCashOutflowsMinor',
+      'financingCashInflowsMinor',
+      'financingCashOutflowsMinor'
+    ];
+    if (
+      schemaVersion >= 3 &&
+      period !== null &&
+      typeof period === 'object' &&
+      !Array.isArray(period) &&
+      newCategoryFields.some(field => period[field] === undefined)
+    ) {
+      throw new Error('Version 3 cash runway Month ' + (index + 1) + ' must include all investing and financing cash fields.');
     }
     if (
       period === null ||
@@ -277,12 +304,21 @@ function validateImportedCashRunwayPlan(plan, model, schemaVersion) {
     if (!Number.isSafeInteger(operatingCashOutflowsMinor) || operatingCashOutflowsMinor < 0) {
       throw new Error('Cash runway Month ' + (index + 1) + ' has invalid operating cash outflows.');
     }
+    const categories = {};
+    for (const field of newCategoryFields) {
+      const value = period[field] === undefined ? 0 : period[field];
+      if (!Number.isSafeInteger(value) || value < 0) {
+        throw new Error('Cash runway Month ' + (index + 1) + ' has an invalid ' + field + '.');
+      }
+      categories[field] = value;
+    }
     return {
       salesUnits: period.salesUnits,
       salesCashReceiptsMinor,
       operatingCashOutflowsMinor,
       otherCashInflowsMinor: period.otherCashInflowsMinor,
-      otherCashOutflowsMinor: period.otherCashOutflowsMinor
+      otherCashOutflowsMinor: period.otherCashOutflowsMinor,
+      ...categories
     };
   });
   const result = projectCashRunway({ model, monthlyPlan: normalized });
@@ -319,21 +355,21 @@ function validatedScenarioPayload(payload) {
   if (
     payload === null ||
     typeof payload !== 'object' ||
-    ![1, 2].includes(payload.schemaVersion) ||
+    ![1, 2, 3].includes(payload.schemaVersion) ||
     payload.kind !== 'business-launchpad-scenario' ||
     payload.input === null ||
     typeof payload.input !== 'object' ||
     Array.isArray(payload.input)
   ) {
-    throw new Error('This file is not a supported Business Launchpad scenario JSON file (schemaVersion 1 or 2 required).');
+    throw new Error('This file is not a supported Business Launchpad scenario JSON file (schemaVersion 1, 2 or 3 required).');
   }
 
   const result = analyzeBusinessModel(payload.input);
   if (!result.ok) {
     throw new Error('Scenario validation failed: ' + result.error.message);
   }
-  if (payload.schemaVersion === 2 && payload.cashRunwayPlan === undefined) {
-    throw new Error('Version 2 scenarios must include the 12-month cash plan.');
+  if (payload.schemaVersion >= 2 && payload.cashRunwayPlan === undefined) {
+    throw new Error('Version ' + payload.schemaVersion + ' scenarios must include the 12-month cash plan.');
   }
   const plan = payload.cashRunwayPlan === undefined
     ? defaultCashRunwayPlan(payload.input)
@@ -359,7 +395,7 @@ function renderCashRunwayReport(runway) {
   section.append(element(
     'p',
     'detail',
-    'An owner-supplied cash scenario, not a sales forecast. Sales units are activity assumptions; sales cash receipts and operating payments are independently editable by month. Setup costs are paid before Month 1 and the working-capital buffer is a minimum reserve target.'
+    'An owner-supplied cash scenario, not a sales forecast. Sales activity, collections, operating payments, investing movements and financing movements are separate. Setup costs are paid before Month 1; the working-capital buffer is a minimum reserve target. These categories are planning aids, not an accounting classification opinion.'
   ));
 
   const summary = element('dl', 'metric-list');
@@ -397,8 +433,11 @@ function renderCashRunwayReport(runway) {
     'Sales units (activity)',
     'Sales cash receipts',
     'Operating cash outflows',
-    'Other inflows',
-    'Other outflows',
+    'Other operating inflows',
+    'Other operating outflows',
+    'Net operating cash flow',
+    'Net investing cash flow',
+    'Net financing cash flow',
     'Net cash change',
     'Closing cash',
     'Reserve status'
@@ -421,6 +460,9 @@ function renderCashRunwayReport(runway) {
     row.append(element('td', '', formatMinorUnits(period.operatingCashOutflowsMinor, runway.currency)));
     row.append(element('td', '', formatMinorUnits(period.otherCashInflowsMinor, runway.currency)));
     row.append(element('td', '', formatMinorUnits(period.otherCashOutflowsMinor, runway.currency)));
+    row.append(element('td', period.netOperatingCashFlowMinor < 0 ? 'negative' : '', formatMinorUnits(period.netOperatingCashFlowMinor, runway.currency)));
+    row.append(element('td', period.netInvestingCashFlowMinor < 0 ? 'negative' : '', formatMinorUnits(period.netInvestingCashFlowMinor, runway.currency)));
+    row.append(element('td', period.netFinancingCashFlowMinor < 0 ? 'negative' : '', formatMinorUnits(period.netFinancingCashFlowMinor, runway.currency)));
     row.append(element('td', period.netCashChangeMinor < 0 ? 'negative' : '',
       formatMinorUnits(period.netCashChangeMinor, runway.currency)));
     row.append(element('td', period.closingCashMinor < 0 ? 'negative' : '',
@@ -437,7 +479,7 @@ function renderCashRunwayReport(runway) {
     section.append(element(
       'p',
       'coverage-line',
-      'PARTIAL COST COVERAGE ALSO APPLIES TO THIS CASH SCENARIO. Include known taxes, owner draw, debt service, taxes, and other excluded payments in the monthly other-outflow fields; unknown costs remain a limitation.'
+      'PARTIAL COST COVERAGE ALSO APPLIES TO THIS CASH SCENARIO. Include known taxes, owner draw, debt service and omitted operating costs in the other operating outflow field; model loan principal and capital transactions in financing/investing fields where appropriate. Classification depends on transaction and reporting rules; unknown costs remain a limitation.'
     ));
   }
 
@@ -547,8 +589,8 @@ downloadScenarioButton.addEventListener('click', () => {
     const cashRunwayPlan = readCashRunwayPlan(model.currency);
     const cashRunwayResult = projectCashRunway({ model, monthlyPlan: cashRunwayPlan });
     if (!cashRunwayResult.ok) throw new Error(cashRunwayResult.error.message);
-    downloadJson('business-launchpad-scenario-v2.json', {
-      schemaVersion: 2,
+    downloadJson('business-launchpad-scenario-v3.json', {
+      schemaVersion: 3,
       kind: 'business-launchpad-scenario',
       input: model,
       cashRunwayPlan
@@ -565,8 +607,8 @@ downloadReportButton.addEventListener('click', () => {
   }
   hideError();
   try {
-    downloadJson('business-launchpad-report-v2.json', {
-      schemaVersion: 2,
+    downloadJson('business-launchpad-report-v3.json', {
+      schemaVersion: 3,
       kind: 'business-launchpad-report',
       input: latestModel,
       report: latestReport,
