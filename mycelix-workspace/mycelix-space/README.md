@@ -21,7 +21,7 @@ mycelix-space/
 │   ├── state.rs                  State vectors with 6x6 covariance
 │   ├── covariance.rs             Uncertainty matrix operations
 │   ├── propagator.rs             SGP4/SDP4 orbital propagation
-│   ├── conjunction.rs            Alfano 2D collision probability
+│   ├── conjunction.rs            Experimental 2D Gaussian local-density Pc approximation
 │   └── coordinates.rs            TEME ↔ ECEF ↔ geodetic, look angles
 │
 ├── zomes/shared/              Shared types (~1,100 LOC)
@@ -30,7 +30,7 @@ mycelix-space/
 ├── dna/zomes/                 5 Holochain zomes (integrity + coordinator each)
 │   ├── orbital_objects/       Catalog of tracked objects + TLE management
 │   ├── observations/          Sensor data ingestion (optical, radar, laser, RF)
-│   ├── conjunctions/          Collision prediction, CDM screening (SGP4 + Alfano)
+│   ├── conjunctions/          Collision prediction, CDM screening (SGP4 + experimental Pc approximation)
 │   ├── debris_bounties/       Kessler cleanup market with state machine
 │   └── traffic_control/       Automated negotiation + bilateral cosigning
 │
@@ -47,7 +47,7 @@ mycelix-space/
 |------|---------|--------------|
 | **orbital_objects** | OrbitalObject, TwoLineElement, StateVector | TLE deduplication, latest-TLE queries, multi-source fusion |
 | **observations** | Observation, Sensor | Multi-sensor indexing, per-object and per-sensor queries |
-| **conjunctions** | ConjunctionEvent, CDM, Maneuver | SGP4 screening, Alfano 2D Pc, CDM versioning, risk escalation |
+| **conjunctions** | ConjunctionEvent, CDM, Maneuver | SGP4 screening, experimental 2D local-density Pc approximation, CDM versioning, risk escalation |
 | **debris_bounties** | DebrisBounty, RemovalClaim, BountyContribution | State machine, verification threshold, crowdfunded bounties |
 | **traffic_control** | NegotiationSession, Position, Proposal, Agreement | Bilateral negotiation, cosigning, operator indexing |
 
@@ -67,7 +67,7 @@ Ingest data from ground and space-based sensors.
 
 ### Conjunction Analysis
 Calculate collision probabilities with proper uncertainty handling.
-- SGP4 propagation + Alfano 2D analytical Pc
+- SGP4 propagation + experimental Gaussian local-density/small-disk approximation (not a validated Alfano/Foster integral)
 - Conjunction Data Messages (CDM) with versioning
 - Risk escalation with typed signals
 - Cross-zome screening against the object catalog
@@ -88,14 +88,21 @@ Bilateral negotiation between operators for maneuver coordination.
 - Cryptographic cosigning of agreements
 - Operator session indexing
 
-## Covariance and Evidence Limits
+## Covariance and Collision-Probability Limits
 
 The propagator attaches a TLE-age-based covariance heuristic in the same TEME frame
-as its SGP4 output. The heuristic is deliberately marked as estimated: it is not a
-calibrated orbit-determination product, and a mathematically valid covariance matrix
-is not, by itself, evidence of a calibrated collision probability. Operational
-collision-risk claims require verified source provenance, an appropriate covariance
-model, and independent validation.
+as its SGP4 output. This is an estimated, uncalibrated uncertainty model. The current
+2D collision-probability code uses a Gaussian local-density/small-disk approximation;
+it does not implement the published Alfano/Foster collision-probability integral.
+Its one-order-of-magnitude spread values are heuristics, not statistically calibrated
+confidence bounds or guaranteed conservative limits.
+
+NASA's CARA guidance says TLEs are not sufficient for collision-avoidance mitigation
+decisions and describes distinct 2D probability algorithms and method-use conditions.
+This repository's current approximation is for experimental screening only. It must
+not be used alone to authorize maneuvers or claim operational collision-risk accuracy.
+Use an appropriately qualified covariance and independently validated reference
+implementation before making consequential physical risk claims.
 
 **This network must track uncertainty, not points alone.**
 
@@ -144,9 +151,9 @@ cargo run -p celestrak-demo -- ingest --source stations
 
 | Suite | Tests | Coverage |
 |-------|-------|----------|
-| **orbital-mechanics** (unit) | 25 | SGP4, Alfano Pc, TLE, coordinates, covariance |
+| **orbital-mechanics** (unit) | See standalone crate CI | SGP4, approximate Pc, TLE, coordinates, covariance |
 | orbital_mechanics_tests | 13 | TLE parsing, propagation, ISS orbit validation |
-| conjunctions_tests | 18 | Risk assessment, CDM creation, Alfano Pc |
+| conjunctions_tests | Separate integration workspace | Risk assessment, CDM creation, approximate Pc |
 | propagation_tests | 17 | Multi-object propagation, state vector accuracy |
 | edge_case_tests | 55 | Invalid inputs, boundary conditions, degenerate orbits |
 | zome_tests (integration) | 30 | Cross-zome interaction patterns |
@@ -220,7 +227,7 @@ Operators can prove orbital properties without revealing proprietary ephemeris:
 | `submit_cdm` | `SubmitCdmInput` | `ActionHash` | Submit a Conjunction Data Message |
 | `announce_maneuver` | `AnnounceManeuverInput` | `ActionHash` | Announce a planned maneuver |
 | `mark_maneuver_executed` | `ManeuverExecutedInput` | `ActionHash` | Confirm a maneuver was executed |
-| `screen_conjunction` | `ScreenInput` | `Vec<ConjunctionAssessment>` | SGP4 + Alfano Pc screening |
+| `screen_conjunction` | `ScreenInput` | `Vec<ConjunctionAssessment>` | SGP4 + experimental 2D local-density Pc approximation |
 | `screen_conjunction_with_staleness` | `ScreenWithStalenessInput` | `Vec<StalenessAwareAssessment>` | Screening with TLE quality metadata |
 | `screen_conjunction_from_tles` | `ScreenFromTlesInput` | `Vec<ConjunctionAssessment>` | Screen from raw TLE strings |
 | `get_high_risk_conjunctions` | `()` | `Vec<ConjunctionEvent>` | All active high-risk events |
