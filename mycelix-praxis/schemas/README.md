@@ -81,7 +81,10 @@ make an old digest match a later otherwise-identical turn, so prepare once per
 exchange and reuse the same `PreparedAdvisoryRequest` bytes/digest for retries;
 consume each response once and prepare a new request for a new turn. The nonce
 is not authentication. The fixed nonce in the sanitized example is illustrative
-only and must never be reused at runtime. The builder sorts allowed
+only and must never be reused at runtime. The adapter pins its direct
+`getrandom` dependency to `=0.2.17`; the wider Praxis workspace currently has
+no committed Cargo lockfile, so the full dependency graph remains a build/CI
+qualification item. The builder sorts allowed
 actions/reasons in protocol order and content IDs lexically, rejects
 duplicate/invalid policy inputs and overlong allowlists before copying them,
 caps the body at 16 KiB, and derives `input_digest()` from the exact immutable
