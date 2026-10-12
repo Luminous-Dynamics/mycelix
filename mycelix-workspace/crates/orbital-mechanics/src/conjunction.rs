@@ -778,6 +778,53 @@ mod tests {
     }
 
     #[test]
+    fn checked_assessment_rejects_out_of_envelope_reference_case() {
+        let epoch = Utc::now();
+        let sigma_x_km = 1.4101830 / 1000.0;
+        let sigma_y_km = 114.2585190 / 1000.0;
+        let mut covariance = CovarianceMatrix::diagonal([
+            sigma_x_km.powi(2),
+            sigma_y_km.powi(2),
+            sigma_x_km.powi(2),
+            1e-6,
+            1e-6,
+            1e-6,
+        ]);
+        covariance.frame = CovarianceFrame::TEME;
+        covariance.source = CovarianceSource::Estimated { tle_age_hours: 0.0 };
+
+        let primary = OrbitalState::new(
+            25544,
+            epoch,
+            StateVector::new(7000.0, 0.0, 0.0, 0.0, 0.0, 7.5),
+            crate::state::DataSource::SpaceTrack,
+        )
+        .with_covariance(covariance.clone());
+        let secondary = OrbitalState::new(
+            12345,
+            epoch,
+            StateVector::new(
+                7000.0 - 3.8872073 / 1000.0,
+                0.1591646 / 1000.0,
+                0.0,
+                0.0,
+                0.0,
+                7.6,
+            ),
+            crate::state::DataSource::SpaceTrack,
+        )
+        .with_covariance(covariance);
+
+        assert_eq!(
+            ConjunctionAnalyzer::new()
+                .with_hbr(15.0)
+                .try_assess(&primary, &secondary)
+                .unwrap_err(),
+            ConjunctionAssessmentError::ApproximationOutsideReferenceEnvelope
+        );
+    }
+
+    #[test]
     fn checked_assessment_accepts_matching_finite_teme_inputs() {
         let epoch = Utc::now();
         let primary = checked_test_state(25544, epoch);
