@@ -327,11 +327,11 @@ impl ConjunctionAnalyzer {
         let primary_covariance = primary
             .covariance
             .as_ref()
-            .expect("validate_covariance checked the primary covariance");
+            .ok_or(ConjunctionAssessmentError::MissingCovariance { object: "primary" })?;
         let secondary_covariance = secondary
             .covariance
             .as_ref()
-            .expect("validate_covariance checked the secondary covariance");
+            .ok_or(ConjunctionAssessmentError::MissingCovariance { object: "secondary" })?;
         let combined_position_covariance =
             primary_covariance.position_covariance() + secondary_covariance.position_covariance();
         let miss_vector = secondary.state.position() - primary.state.position();
