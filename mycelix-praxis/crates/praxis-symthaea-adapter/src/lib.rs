@@ -535,7 +535,7 @@ mod tests {
                 "skill_id",
             ]
             .into_iter()
-            .collect()
+            .collect::<BTreeSet<_>>()
         );
         assert_eq!(
             value["allowed_actions"],
