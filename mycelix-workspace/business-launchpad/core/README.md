@@ -62,4 +62,4 @@ No customer data, payment processing, credit issuance, or legal filing is part o
 - AI-generated numbers or forecasts.
 - Trust/reputation-based credit eligibility.
 
-Next work should add deterministic scenario fixtures for service, food, and retail businesses, then place this core behind a business-facing UI adapter. Jurisdiction-specific guidance must be held in separately reviewed, versioned source packs.
+A static browser worksheet now imports this core from `../web/`; it is a local prototype, not a hosted business application. Next, add automated browser interaction checks and review the deterministic output capture, then build a separate persistence/integration layer only after the source of truth for orders and financial records is selected. Jurisdiction-specific guidance must be held in separately reviewed, versioned source packs.
