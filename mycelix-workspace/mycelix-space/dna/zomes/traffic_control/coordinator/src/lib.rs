@@ -147,6 +147,18 @@ fn get_maneuver_proposal(proposal_hash: &ActionHash) -> ExternResult<ManeuverPro
         )
 }
 
+fn agreement_has_cosignature(
+    agreements: &[NegotiationAgreement],
+    session_id: &str,
+    accepted_proposal: &ActionHash,
+) -> bool {
+    agreements.iter().any(|agreement| {
+        agreement.session_id == session_id
+            && agreement.accepted_proposal == *accepted_proposal
+            && agreement.secondary_signature.is_some()
+    })
+}
+
 /// Verify that the given agent is a participant (primary or secondary operator)
 /// in the named session. Returns the session entry on success.
 fn verify_session_participant(
@@ -808,14 +820,72 @@ pub fn cosign_agreement(input: CosignAgreementInput) -> ExternResult<ActionHash>
         .into_wasm_error());
     }
 
-    // Set the recorded secondary operator signature and update
+    // Re-read the session's linked agreement snapshots before writing. Holochain
+    // updates are separate actions; checking only the original ActionHash would
+    // allow a repeated request to observe the unsigned original after a cosign.
+    let agreement_anchor = anchor_for_session_agreements(&agreement.session_id)?;
+    let agreement_links = get_links(
+        LinkQuery::try_new(agreement_anchor.clone(), LinkTypes::SessionAgreements)?,
+        GetStrategy::Network,
+    )?;
+    let mut linked_agreements = Vec::new();
+    for link in agreement_links {
+        let Some(target) = link.target.into_action_hash() else {
+            continue;
+        };
+        if target == input.agreement_hash {
+            continue;
+        }
+        let record = get(target, GetOptions::default())?.ok_or(
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Could not resolve a linked agreement snapshot; refusing to cosign",
+            )
+            .into_wasm_error(),
+        )?;
+        if let Some(candidate) = record
+            .entry()
+            .to_app_option::<NegotiationAgreement>()
+            .map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Could not decode a linked agreement snapshot: {:?}", error),
+                )
+                .into_wasm_error()
+            })?
+        {
+            linked_agreements.push(candidate);
+        }
+    }
+    if agreement_has_cosignature(
+        &linked_agreements,
+        &agreement.session_id,
+        &agreement.accepted_proposal,
+    ) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::AlreadySigned,
+            "A linked agreement snapshot already contains the secondary signature",
+        )
+        .into_wasm_error());
+    }
+
+    // Set the recorded secondary operator signature and write an updated snapshot.
     agreement.secondary_signature = Some(session.secondary_operator);
     let action_hash = update_entry(input.agreement_hash.clone(), &agreement)?;
 
-    // Emit signal
+    // Link the update so subsequent calls that still possess the original hash
+    // can discover the cosigned snapshot before attempting another signature.
+    create_link(
+        agreement_anchor,
+        action_hash.clone(),
+        LinkTypes::SessionAgreements,
+        LinkTag::new(format!("agreement-update:{}", input.agreement_hash)),
+    )?;
+
+    // Emit the hash of the updated snapshot, not the stale original.
     emit_signal(TrafficControlSignal::AgreementCosigned {
         session_id: agreement.session_id,
-        agreement_hash: input.agreement_hash,
+        agreement_hash: action_hash.clone(),
     })?;
 
     Ok(action_hash)
@@ -2529,5 +2599,57 @@ mod session_participant_tests {
         assert!(is_secondary_operator(&session, &secondary));
         assert!(!is_secondary_operator(&session, &primary));
         assert!(!is_secondary_operator(&session, &outsider));
+    }
+
+    fn agreement(
+        session_id: &str,
+        accepted_proposal: ActionHash,
+        secondary_signature: Option<AgentPubKey>,
+    ) -> NegotiationAgreement {
+        NegotiationAgreement {
+            session_id: session_id.to_string(),
+            accepted_proposal,
+            primary_signature: Some(key(1)),
+            secondary_signature,
+            agreed_at: SpaceTimestamp { micros: 1 },
+            execution_deadline: SpaceTimestamp { micros: 2 },
+        }
+    }
+
+    #[test]
+    fn replay_detector_finds_cosigned_snapshot_for_same_session_and_proposal() {
+        let proposal = ActionHash::from_raw_36(vec![9; 36]);
+        let signed = agreement("session:1", proposal.clone(), Some(key(2)));
+
+        assert!(agreement_has_cosignature(&[signed], "session:1", &proposal));
+    }
+
+    #[test]
+    fn replay_detector_ignores_unsigned_or_unrelated_snapshots() {
+        let proposal = ActionHash::from_raw_36(vec![9; 36]);
+        let different_proposal = ActionHash::from_raw_36(vec![8; 36]);
+        let unsigned = agreement("session:1", proposal.clone(), None);
+        let other_proposal = agreement("session:1", different_proposal, Some(key(2)));
+        let other_session = agreement(
+            "session:other",
+            proposal.clone(),
+            Some(key(2)),
+        );
+
+        assert!(!agreement_has_cosignature(
+            &[unsigned],
+            "session:1",
+            &proposal,
+        ));
+        assert!(!agreement_has_cosignature(
+            &[other_proposal],
+            "session:1",
+            &proposal,
+        ));
+        assert!(!agreement_has_cosignature(
+            &[other_session],
+            "session:1",
+            &proposal,
+        ));
     }
 }
