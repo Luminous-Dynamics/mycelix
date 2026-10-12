@@ -13,19 +13,23 @@
 #![forbid(unsafe_code)]
 
 #[cfg(target_family = "wasm")]
-compile_error!("praxis-symthaea-adapter is host-only and must not be compiled into WASM guest zomes");
+compile_error!(
+    "praxis-symthaea-adapter is host-only and must not be compiled into WASM guest zomes"
+);
 
-use std::io::{self, Read};
+use std::{
+    collections::BTreeSet,
+    io::{self, Read},
+};
 
 use praxis_core::{
     AdviceReason, AdviceRejection, AdviceValidationContext, AdviceWireRejection,
     LearningSuggestion, MAX_ADVISORY_IDENTIFIER_CHARS, MAX_ADVISORY_RESPONSE_BYTES,
     MAX_SUPPORTING_CONTENT_IDS, SYMTHAEA_ADVISORY_SCHEMA_VERSION, SymthaeaAdvice,
-    ValidatedAdvisorySuggestion, digest_advisory_request_bytes,
-    parse_symthaea_advice_response, validate_symthaea_advice,
+    ValidatedAdvisorySuggestion, digest_advisory_request_bytes, parse_symthaea_advice_response,
+    validate_symthaea_advice,
 };
 use serde::Serialize;
-use std::collections::BTreeSet;
 
 /// Hard cap for the exact serialized request body sent to the host adapter.
 pub const MAX_ADVISORY_REQUEST_BYTES: usize = 16384;
