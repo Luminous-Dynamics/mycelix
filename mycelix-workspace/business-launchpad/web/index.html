@@ -97,7 +97,13 @@
 
         <div id="input-error" class="notice notice-error" role="alert" hidden></div>
         <button class="primary-button" type="submit">Calculate scenario <span aria-hidden="true">→</span></button>
-        <p class="form-footnote">Nothing is submitted to a server by the calculation form. Refreshing this page clears your edits.</p>
+        <div class="transfer-actions" aria-label="Scenario file tools">
+          <button class="secondary-button" id="download-scenario" type="button">Download assumptions JSON</button>
+          <label class="secondary-button file-picker" for="load-scenario-file">Load assumptions JSON
+            <input id="load-scenario-file" type="file" accept="application/json,.json">
+          </label>
+        </div>
+        <p class="form-footnote">Assumptions and reports stay in this page until you choose to download a file. Nothing is uploaded to an application server. Refreshing clears unsaved edits.</p>
       </form>
     </section>
 
@@ -116,6 +122,7 @@
           <p>The report will show contribution, break-even sales, a monthly scenario and an upfront funding gap.</p>
         </div>
       </div>
+      <button class="secondary-button report-download" id="download-report" type="button" disabled>Download calculated report JSON</button>
 
       <div class="notice notice-warning result-warning">
         <strong>Not net profit or a go/no-go decision.</strong>
