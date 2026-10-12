@@ -299,5 +299,5 @@ test('static client does not contain application-level network or browser persis
 test('custom file picker keeps a visible keyboard focus indicator', async () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const css = await readFile(resolve(here, '../../web/styles.css'), 'utf8');
-  assert.match(css, /\\.file-picker:focus-within\\s*\\{\\s*outline:\\s*3px solid #6dbb92;\\s*outline-offset:\\s*3px;\\s*\\}/);
+  assert.ok(css.includes('.file-picker:focus-within { outline: 3px solid #6dbb92; outline-offset: 3px; }'));
 });
