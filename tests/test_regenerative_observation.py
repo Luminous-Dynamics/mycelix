@@ -98,6 +98,11 @@ class RegenerativeObservationReceiptTests(unittest.TestCase):
         errors = validate_observation(self.record, self.catalog)
         self.assertTrue(any("source.artifact_sha256 must be a lowercase SHA-256 digest" in error for error in errors), errors)
 
+    def test_partial_coverage_requires_fraction_between_zero_and_one(self) -> None:
+        self.record["coverage"] = {"state": "partial", "coverage_fraction": None, "definition": "Synthetic partial coverage"}
+        errors = validate_observation(self.record, self.catalog)
+        self.assertTrue(any("partial coverage requires a finite" in error for error in errors), errors)
+
     def test_invalid_calendar_date_fails(self) -> None:
         self.record["period"]["start_date"] = "2026-02-31"
         errors = validate_observation(self.record, self.catalog)
