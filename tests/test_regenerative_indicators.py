@@ -38,7 +38,13 @@ class RegenerativeIndicatorCatalogTests(unittest.TestCase):
 
     def test_required_indicator_set_is_present(self) -> None:
         ids = {indicator["indicator_id"] for indicator in self.catalog["indicators"]}
-        self.assertEqual(len(ids), 18)
+        self.assertEqual(len(ids), 21)
+        for required in (
+            "water.physicochemical-profile.v1",
+            "water.microbial-contamination.v1",
+            "water.toxic-elements-concentration.v1",
+        ):
+            self.assertIn(required, ids)
 
     def test_duplicate_indicator_id_fails(self) -> None:
         self.catalog["indicators"].append(copy.deepcopy(self.catalog["indicators"][0]))

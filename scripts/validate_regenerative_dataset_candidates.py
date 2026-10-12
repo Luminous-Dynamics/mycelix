@@ -19,6 +19,7 @@ CANDIDATE_STATUSES = {
     "license_not_verified",
     "license_metadata_conflict",
     "restricted_noncommercial_use",
+    "license_declared_access_private",
 }
 LICENSE_STATUSES = {"unverified", "conflicting", "restricted", "verified"}
 COMMERCIAL_STATES = {"unknown", "permitted", "prohibited", "permission_required"}
@@ -144,6 +145,31 @@ def validate_manifest(manifest: object, indicator_catalog: object) -> list[str]:
             if not isinstance(reported_shape.get("reported_station_count_description"), str) or "over 2,000" not in reported_shape["reported_station_count_description"].lower():
                 errors.append(f"{location}: preserve the source's 'over 2,000' station wording")
 
+        known_findings = candidate.get("known_findings", [])
+        finding_ids = {
+            finding.get("finding_id")
+            for finding in known_findings
+            if isinstance(finding, dict) and isinstance(finding.get("finding_id"), str)
+        } if isinstance(known_findings, list) else set()
+        if candidate_id == "south-africa.jukskei-water-quality-study.2021.v1":
+            if status != "license_declared_access_private":
+                errors.append(f"{location}: Jukskei study must retain its declared-license/private-access state")
+            if not {"JUKSKEI-PRIVATE-SHARE-ACCESS-001", "JUKSKEI-SIX-SAMPLE-WINDOW-001"}.issubset(finding_ids):
+                errors.append(f"{location}: Jukskei access and short-sample-window findings must be preserved")
+            shape = candidate.get("reported_data_shape", {})
+            if not isinstance(shape, dict) or shape.get("paper_sample_count") != 6:
+                errors.append(f"{location}: preserve the paper's six-sample study design as source-reported metadata")
+            if not isinstance(candidate.get("license_assessment"), dict) or candidate["license_assessment"].get("license_status") != "unverified":
+                errors.append(f"{location}: private-share license status must remain unverified until file-level review")
+        if candidate_id == "south-africa.up-hartbeespoort-roodeplaat-water-quality.2025.v1":
+            if status != "license_not_verified":
+                errors.append(f"{location}: University of Pretoria dataset must remain license_not_verified")
+            if "UP-CATCHMENTS-LICENSE-METADATA-001" not in finding_ids:
+                errors.append(f"{location}: University of Pretoria license/access finding must be preserved")
+            temporal = candidate.get("temporal_coverage", {})
+            if isinstance(temporal, dict) and (temporal.get("start_date") is not None or temporal.get("end_date") is not None):
+                errors.append(f"{location}: do not invent a time window before source-file inspection")
+
         coverage = candidate.get("temporal_coverage")
         if not isinstance(coverage, dict):
             errors.append(f"{location}.temporal_coverage must be an object")
@@ -187,6 +213,7 @@ def validate_manifest(manifest: object, indicator_catalog: object) -> list[str]:
             "license_not_verified": "unverified",
             "license_metadata_conflict": "conflicting",
             "restricted_noncommercial_use": "restricted",
+            "license_declared_access_private": "unverified",
         }
         if isinstance(status, str) and status in consistency and license_status != consistency[status]:
             errors.append(f"{location}: discovery_status conflicts with license_assessment.license_status")

@@ -110,7 +110,8 @@
           "enum": [
             "license_not_verified",
             "license_metadata_conflict",
-            "restricted_noncommercial_use"
+            "restricted_noncommercial_use",
+            "license_declared_access_private"
           ]
         },
         "temporal_coverage": {
@@ -416,6 +417,29 @@
                 "properties": {
                   "license_status": {
                     "const": "restricted"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "discovery_status": {
+                "const": "license_declared_access_private"
+              }
+            },
+            "required": [
+              "discovery_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "license_assessment": {
+                "properties": {
+                  "license_status": {
+                    "const": "unverified"
                   }
                 }
               }

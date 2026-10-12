@@ -37,6 +37,7 @@ class RegenerativeDatasetCandidateTests(unittest.TestCase):
             "license_not_verified",
             "license_metadata_conflict",
             "restricted_noncommercial_use",
+            "license_declared_access_private",
         })
 
     def test_duplicate_candidate_id_fails(self) -> None:
@@ -63,6 +64,21 @@ class RegenerativeDatasetCandidateTests(unittest.TestCase):
         self.manifest["candidates"][0]["discovery_status"] = ["license_not_verified"]
         errors = validate_manifest(self.manifest, self.indicator_catalog)
         self.assertTrue(any(".discovery_status is invalid or missing" in error for error in errors), errors)
+
+    def test_jukskei_candidate_is_gauteng_but_blocked_on_private_access(self) -> None:
+        candidate = next(c for c in self.manifest["candidates"] if c["candidate_id"] == "south-africa.jukskei-water-quality-study.2021.v1")
+        self.assertIn("Johannesburg", candidate["spatial_coverage"]["geography"])
+        self.assertEqual(candidate["license_assessment"]["license_status"], "unverified")
+        self.assertEqual(candidate["ingestion_gate"]["status"], "blocked")
+        self.assertFalse(candidate["ingestion_gate"]["ingestion_authorized"])
+        self.assertIn("JUKSKEI-SIX-SAMPLE-WINDOW-001", {x["finding_id"] for x in candidate["known_findings"]})
+
+    def test_university_of_pretoria_candidate_does_not_invent_license_or_period(self) -> None:
+        candidate = next(c for c in self.manifest["candidates"] if c["candidate_id"] == "south-africa.up-hartbeespoort-roodeplaat-water-quality.2025.v1")
+        self.assertIsNone(candidate["temporal_coverage"]["start_date"])
+        self.assertIsNone(candidate["temporal_coverage"]["end_date"])
+        self.assertIsNone(candidate["license_assessment"]["declared_file_license"])
+        self.assertFalse(candidate["ingestion_gate"]["ingestion_authorized"])
 
     def test_unknown_indicator_fails(self) -> None:
         self.manifest["candidates"][0]["related_indicator_ids"] = ["not.registered"]

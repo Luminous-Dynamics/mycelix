@@ -334,6 +334,200 @@
         "next_action": "Use only if the intended use fits current restrictions; otherwise prioritize a dataset with an unambiguous file-level license."
       },
       "known_findings": []
+    },
+    {
+      "candidate_id": "south-africa.jukskei-water-quality-study.2021.v1",
+      "title": "Jukskei River water-quality study data (Figshare shared item)",
+      "publisher": "University of Johannesburg / Figshare",
+      "dataset_url": "https://figshare.com/s/330479b055d982d4065d",
+      "related_indicator_ids": [
+        "water.physicochemical-profile.v1",
+        "water.microbial-contamination.v1",
+        "water.toxic-elements-concentration.v1"
+      ],
+      "discovery_status": "license_declared_access_private",
+      "reported_availability": "Figshare item page displays a 329.66 kB download, says 'This item is shared privately', and displays CC BY 4.0. Actual archive/files have not been downloaded or inspected in this pass.",
+      "temporal_coverage": {
+        "start_date": "2018-06-01",
+        "end_date": "2018-08-31",
+        "basis": "The linked peer-reviewed article says samples were collected monthly from June through August 2018; exact date range and row dates must be checked in the files."
+      },
+      "spatial_coverage": {
+        "geography": "Jukskei River at Victoria Yards, Lorenzville / central Johannesburg, Gauteng, South Africa.",
+        "entities": [
+          "Upstream sample site at Victoria Yards",
+          "Downstream sample site at Victoria Yards"
+        ],
+        "caveat": "The paper describes two sampling points at one reach and six water samples across three months. Verify file-level coordinates and sample dates before mapping."
+      },
+      "reported_measures": [
+        {
+          "name": "Physicochemical water-quality measures",
+          "native_unit": "Parameter-specific; inspect files for exact unit and calculation",
+          "method_summary": "Paper describes temperature, pH, electrical conductivity, total dissolved solids and turbidity, among other variables."
+        },
+        {
+          "name": "Microbiological / organism measures",
+          "native_unit": "Assay-specific; inspect files",
+          "method_summary": "Paper reports total coliform, E. coli, bacterial isolates, genetic markers and antimicrobial-resistance results."
+        },
+        {
+          "name": "Potentially toxic elements",
+          "native_unit": "Analyte-specific; inspect files",
+          "method_summary": "Paper reports ICP-MS analysis of multiple potentially toxic elements; exact field/unit mapping requires file review."
+        }
+      ],
+      "reported_data_shape": {
+        "timeseries_format": "Small study-support archive; exact internal file formats not verified",
+        "reported_download_size_kb": 329.66,
+        "item_modified_on": "2021-08-03",
+        "paper_sample_count": 6,
+        "design_note": "Two sites (upstream and downstream) at Victoria Yards; sampling described as monthly from June to August 2018.",
+        "limitation": "Not a long-term monitoring time series; do not infer present water quality or city-wide conditions from this small study.",
+        "access_note": "Figshare landing page says item is shared privately even though it displays CC BY 4.0."
+      },
+      "license_assessment": {
+        "license_status": "unverified",
+        "displayed_access_status": "Figshare item is marked 'shared privately'; its item page displays CC BY 4.0.",
+        "declared_file_license": "CC BY 4.0 displayed on the Figshare item page; precise scope and stable access should be checked against the permitted item/files before import.",
+        "commercial_reuse": "unknown",
+        "redistribution": "unknown",
+        "modification": "unknown",
+        "evidence_urls": [
+          "https://figshare.com/s/330479b055d982d4065d",
+          "https://pmc.ncbi.nlm.nih.gov/articles/PMC8392637/",
+          "https://creativecommons.org/licenses/by/4.0/"
+        ],
+        "assessment_note": "The Figshare page displays CC BY 4.0 but also labels the item as shared privately. Record that metadata accurately; do not infer that the underlying archive has been retained, that the share link is stable/public, or that file-level license scope has been independently verified. The associated paper is CC BY, but the actual data item should be confirmed separately."
+      },
+      "ingestion_gate": {
+        "status": "blocked",
+        "ingestion_authorized": false,
+        "values_imported": false,
+        "reason_codes": [
+          "private_share_access_scope_not_resolved",
+          "underlying_files_not_inspected",
+          "small_sample_window_not_a_trend_series"
+        ],
+        "required_evidence": [
+          "Confirm authorized and stable access to the Figshare item and preserve its record metadata",
+          "Verify the CC BY 4.0 license is attached to the actual files and record attribution requirements",
+          "Download only from an authorized access path; retain source file(s), SHA-256 digests, filenames and data dictionary",
+          "Inspect table schema, exact sample dates, upstream/downstream site IDs, row counts, units, missingness, detection limits and methods",
+          "Reconcile sample rows to the paper's six-sample description and document derived/calculated variables",
+          "Label evidence as a small 2018 study rather than a current or long-term monitoring series"
+        ]
+      },
+      "suitability": {
+        "best_initial_use": "A small, explicitly dated receipt-validation pilot for a Johannesburg water-quality research dataset after access and file-level rights are resolved.",
+        "not_suitable_for": "Long-term trend estimation, city-wide water-quality inference, current drinking-water-safety certification, or intervention-causality claims.",
+        "next_action": "Resolve access/rights and inspect the exact files; if appropriate, validate one fully documented record and preserve sample/site/time/method metadata."
+      },
+      "known_findings": [
+        {
+          "finding_id": "JUKSKEI-PRIVATE-SHARE-ACCESS-001",
+          "severity": "medium",
+          "observation": "The Figshare item page displays a CC BY 4.0 license but labels the data item 'shared privately'. This creates an access/persistence qualification question even though the declared license is permissive.",
+          "required_resolution": "Confirm permitted/stable access and file-level CC BY 4.0 scope, preserve metadata and archive digest, and maintain attribution if later redistribution is permitted."
+        },
+        {
+          "finding_id": "JUKSKEI-SIX-SAMPLE-WINDOW-001",
+          "severity": "medium",
+          "observation": "The peer-reviewed paper describes six water samples, two sites at one Jukskei reach, and monthly sampling from June through August 2018. This is not a longitudinal catchment-monitoring series.",
+          "required_resolution": "Preserve the precise sample/site design and collection dates; restrict any use to the paper's narrow context and prohibit long-term trend or current-condition inference."
+        }
+      ]
+    },
+    {
+      "candidate_id": "south-africa.up-hartbeespoort-roodeplaat-water-quality.2025.v1",
+      "title": "Hartbeespoort and Roodeplaat catchments water-quality data (University of Pretoria)",
+      "publisher": "University of Pretoria Research Data",
+      "dataset_url": "https://researchdata.up.ac.za/articles/dataset/Hartbeespoort_and_Roodeplaat_catchments_water_quality_data/29100767",
+      "related_indicator_ids": [
+        "water.physicochemical-profile.v1",
+        "water.microbial-contamination.v1",
+        "water.toxic-elements-concentration.v1"
+      ],
+      "discovery_status": "license_not_verified",
+      "reported_availability": "The indexed repository result reports Version 2 dated 2025-05-22 and a 37.01 kB dataset. The detail page was not inspectable through the current research path; file-level license and data dictionary could not be inspected.",
+      "temporal_coverage": {
+        "start_date": null,
+        "end_date": null,
+        "basis": "Period not confirmed in accessible metadata; inspect repository record and files before describing the time span."
+      },
+      "spatial_coverage": {
+        "geography": "Hartbeespoort and Roodeplaat catchments in South Africa (exact site coordinates and administrative boundaries require metadata inspection).",
+        "entities": [
+          "Jukskei River",
+          "Hennops River",
+          "Crocodile River",
+          "Magalies River",
+          "Swartspruit",
+          "Leeuspruit",
+          "Pienaars River",
+          "Moreletaspruit",
+          "Hartbeesspruit",
+          "Edendalespruit"
+        ],
+        "caveat": "Indexed description says upstream, midstream and downstream sites were selected where possible; exact site coordinates, sample dates and analyte coverage have not been inspected."
+      },
+      "reported_measures": [
+        {
+          "name": "Catchment water-quality measurements",
+          "native_unit": "Analyte-specific; not available in inspected metadata",
+          "method_summary": "The indexed repository result identifies a water-quality dataset compiled from a scientific laboratory; source files and methods not inspected."
+        }
+      ],
+      "reported_data_shape": {
+        "timeseries_format": "Unknown pending authorized file inspection",
+        "reported_download_size_kb": 37.01,
+        "repository_version": 2,
+        "repository_modified_on": "2025-05-22",
+        "limitation": "The license/data details could not be reviewed in this pass; all values are metadata-description claims only."
+      },
+      "license_assessment": {
+        "license_status": "unverified",
+        "displayed_access_status": "The canonical detail page was not inspectable in this review; indexed metadata does not establish a file-level license.",
+        "declared_file_license": null,
+        "commercial_reuse": "unknown",
+        "redistribution": "unknown",
+        "modification": "unknown",
+        "evidence_urls": [
+          "https://researchdata.up.ac.za/articles/dataset/Hartbeespoort_and_Roodeplaat_catchments_water_quality_data/29100767"
+        ],
+        "assessment_note": "No license can be responsibly inferred from a repository search result. Inspect the canonical record, files and license field or obtain rights-holder confirmation before using."
+      },
+      "ingestion_gate": {
+        "status": "blocked",
+        "ingestion_authorized": false,
+        "values_imported": false,
+        "reason_codes": [
+          "license_not_verified",
+          "repository_detail_page_not_inspected",
+          "source_files_and_data_dictionary_not_inspected",
+          "period_and_site_coverage_not_verified"
+        ],
+        "required_evidence": [
+          "Access the canonical record and verify license and permitted use for the actual files",
+          "Record exact file list, file hashes, data dictionary, version and citation metadata",
+          "Inspect sample dates, analytes, units, lab methods, detection limits, missingness and duplicate sample IDs",
+          "Check site coordinates and catchment boundaries, including upstream/midstream/downstream identities",
+          "Match observation unit/denominator and geographic/time scope to relevant indicator contracts"
+        ]
+      },
+      "suitability": {
+        "best_initial_use": "Potential catchment source for a larger South African pilot if rights, file schema and sampling continuity are verified.",
+        "not_suitable_for": "Any computed/public trend until files, sample window, sites, units and license have been reviewed.",
+        "next_action": "Resolve access and rights through the repository, then inspect the small V2 artifact and data dictionary before deciding whether it supports a series or only snapshot comparisons."
+      },
+      "known_findings": [
+        {
+          "finding_id": "UP-CATCHMENTS-LICENSE-METADATA-001",
+          "severity": "medium",
+          "observation": "The indexed repository summary surfaces size, version and catchment information, but the canonical detail page was not inspectable during this review, so no authoritative license field or file contents were available to verify.",
+          "required_resolution": "Retrieve the record through an authorized repository route or contact the depositor, then retain license metadata and inspect the exact artifacts before import."
+        }
+      ]
     }
   ]
 }
