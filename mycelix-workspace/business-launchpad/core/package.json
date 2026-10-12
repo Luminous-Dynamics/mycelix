@@ -8,7 +8,7 @@
   },
   "description": "Dependency-free deterministic business viability calculations for Mycelix Business Launchpad",
   "scripts": {
-    "check": "node --check src/index.js && node --check src/cli.js",
+    "check": "node --check src/index.js && node --check src/cli.js && node --check ../web/app.mjs",
     "test": "node --test",
     "example": "node src/cli.js examples/service-home-cleaning.json",
     "analyze": "node src/cli.js"
