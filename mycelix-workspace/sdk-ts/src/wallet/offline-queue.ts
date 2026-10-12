@@ -94,6 +94,15 @@ export interface QueueStorageExecutionClaim {
   item: QueuedOperation;
 }
 
+export type QueueStorageStatusPatch = Partial<
+  Pick<QueuedOperation, 'status' | 'attempts' | 'error'>
+>;
+
+export interface QueueStorageStatusTransition {
+  updated: boolean;
+  item?: QueuedOperation;
+}
+
 /** Send operation payload */
 export interface SendPayload {
   to: string;
@@ -166,6 +175,12 @@ export interface QueueStorage {
    * This prevents stale queue instances from executing the same stored row.
    */
   claimForExecution(id: QueueItemId, startedAt: number): Promise<QueueStorageExecutionClaim | null>;
+  /** Atomically update status only if the durable row still has expectedStatus. */
+  compareAndSetStatus(
+    id: QueueItemId,
+    expectedStatus: QueueItemStatus,
+    patch: QueueStorageStatusPatch
+  ): Promise<QueueStorageStatusTransition>;
   delete(id: QueueItemId): Promise<void>;
   clear(): Promise<void>;
 }
@@ -240,6 +255,18 @@ class InMemoryQueueStorage implements QueueStorage {
     };
     this.items.set(id, claimed);
     return { claimed: true, item: claimed };
+  }
+
+  async compareAndSetStatus(
+    id: QueueItemId,
+    expectedStatus: QueueItemStatus,
+    patch: QueueStorageStatusPatch
+  ): Promise<QueueStorageStatusTransition> {
+    const stored = this.items.get(id);
+    if (!stored || stored.status !== expectedStatus) return { updated: false, item: stored };
+    const updated: QueuedOperation = { ...stored, ...patch, id: stored.id };
+    this.items.set(id, updated);
+    return { updated: true, item: updated };
   }
 
   async save(item: QueuedOperation): Promise<void> {
@@ -456,6 +483,49 @@ export class IndexedDBQueueStorage implements QueueStorage {
       tx.oncomplete = () => resolve();
       tx.onabort = () => reject(tx.error ?? new Error('Queue save transaction aborted'));
       tx.onerror = () => reject(tx.error ?? new Error('Queue save transaction failed'));
+    });
+  }
+
+  async compareAndSetStatus(
+    id: QueueItemId,
+    expectedStatus: QueueItemStatus,
+    patch: QueueStorageStatusPatch
+  ): Promise<QueueStorageStatusTransition> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      const lookup = store.get(id);
+      let outcome: QueueStorageStatusTransition = { updated: false };
+      let failure: Error | undefined;
+
+      lookup.onerror = () => {
+        failure = lookup.error ?? new Error('Unable to read queue status for conditional update');
+      };
+      lookup.onsuccess = () => {
+        const stored = lookup.result as QueuedOperation | undefined;
+        if (!stored || stored.status !== expectedStatus) {
+          outcome = { updated: false, item: stored };
+          return;
+        }
+        const updated: QueuedOperation = { ...stored, ...patch, id: stored.id };
+        const write = store.put(updated);
+        write.onsuccess = () => {
+          outcome = { updated: true, item: updated };
+        };
+        write.onerror = () => {
+          failure = write.error ?? new Error('Unable to persist conditional queue status update');
+        };
+      };
+
+      tx.oncomplete = () => {
+        if (failure) reject(failure);
+        else resolve(outcome);
+      };
+      tx.onabort = () => reject(failure ?? tx.error ?? new Error('Conditional queue status transaction aborted'));
+      tx.onerror = () => {
+        failure ??= tx.error ?? new Error('Conditional queue status transaction failed');
+      };
     });
   }
 
@@ -877,18 +947,20 @@ export class OfflineQueue {
       return false;
     }
 
-    const updated: QueuedOperation = {
-      ...item,
+    const transition = await this.storage.compareAndSetStatus(id, 'pending', {
       status: 'cancelled',
-    };
-
-    await this.storage.save(updated);
+    });
+    const items = this._state$.value.items
+      .filter((stored) => stored.id !== id)
+      .concat(transition.item ? [transition.item] : []);
     this.updateState({
-      items: this._state$.value.items.map((i) => (i.id === id ? updated : i)),
-      pendingCount: this._state$.value.pendingCount - 1,
+      items,
+      pendingCount: items.filter(
+        (stored) => stored.status === 'pending' || stored.status === 'syncing'
+      ).length,
     });
 
-    return true;
+    return transition.updated;
   }
 
   /**
@@ -903,25 +975,31 @@ export class OfflineQueue {
       return false;
     }
 
-    const updated: QueuedOperation = {
-      ...item,
+    const transition = await this.storage.compareAndSetStatus(id, 'failed', {
       status: 'pending',
       attempts: 0,
       error: undefined,
-    };
-
-    await this.storage.save(updated);
+    });
+    const items = this._state$.value.items
+      .filter((stored) => stored.id !== id)
+      .concat(transition.item ? [transition.item] : []);
     this.updateState({
-      items: this._state$.value.items.map((i) => (i.id === id ? updated : i)),
-      pendingCount: this._state$.value.pendingCount + 1,
+      items,
+      pendingCount: items.filter(
+        (stored) => stored.status === 'pending' || stored.status === 'syncing'
+      ).length,
     });
 
-    // Try immediate sync if autoSync is enabled
-    if (this.config.autoSync && this._state$.value.isOnline && !this._state$.value.isSyncing) {
+    if (
+      transition.updated &&
+      this.config.autoSync &&
+      this._state$.value.isOnline &&
+      !this._state$.value.isSyncing
+    ) {
       void this.sync();
     }
 
-    return true;
+    return transition.updated;
   }
 
   /**
