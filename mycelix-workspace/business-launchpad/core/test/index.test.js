@@ -256,3 +256,10 @@ test('deterministic generated scenarios preserve arithmetic identities across a 
     }
   }
 });
+
+test('rejects extremely long amount text before BigInt conversion', async () => {
+  const { parseMajorToMinorUnits } = await import('../src/index.js');
+  const result = parseMajorToMinorUnits('9'.repeat(65), 2);
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, 'money_text_too_long');
+});
