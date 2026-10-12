@@ -92,6 +92,11 @@ class RegenerativeObservationReceiptTests(unittest.TestCase):
         errors = validate_observation(self.record, self.catalog)
         self.assertTrue(any("observation_status must be an allowed" in error for error in errors), errors)
 
+    def test_invalid_observation_id_fails(self) -> None:
+        self.record["observation_id"] = "../not-safe"
+        errors = validate_observation(self.record, self.catalog)
+        self.assertTrue(any("observation_id must use lowercase" in error for error in errors), errors)
+
     def test_catalog_reference_is_required(self) -> None:
         self.record["indicator_id"] = "not.registered"
         errors = validate_observation(self.record, self.catalog)
