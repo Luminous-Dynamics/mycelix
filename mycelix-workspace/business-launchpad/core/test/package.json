@@ -8,6 +8,6 @@
   },
   "description": "Pinned browser-only qualification dependency; calculator runtime stays dependency-free.",
   "dependencies": {
-    "playwright": "1.64.0-alpha-2026-09-28"
+    "playwright": "1.64.0"
   }
 }
