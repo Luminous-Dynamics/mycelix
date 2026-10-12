@@ -185,7 +185,7 @@ Implemented in this branch:
 - bounds on confidence fields and content references;
 - allowlist/duplicate/grounding validation;
 - action/reason pairing rules (including learner-requested breaks only);
-- a strict JSON Schema that rejects unknown fields and has exact enum parity with the Rust contract;
+- strict request and response JSON Schemas that reject unknown fields and are checked against the actual Rust wire fields, enums, and request-list bounds;
 - an independent standard-library Python checker for schema/Rust enum parity, response bounds, trust gates, and the required adversarial test inventory;
 - a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, formatting/tests for both advisory crates, and clippy, including while the PR is a draft;
 - a 16 KiB bounded JSON parser in `praxis-core` plus a native-only host reader that caps streaming reads at 16,385 bytes before rejecting oversize bodies;
