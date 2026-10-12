@@ -55,6 +55,7 @@ jobs:
           fi
 
           git diff --name-only "${BASE_SHA}...${QUALIFIED_SHA}" > "$changed_file_list"
+          cp "$changed_file_list" d6s-changed-files.txt
           cat "$changed_file_list"
           if grep -Eq '^(docs/integral/d6s-canon-1-.*|docs/integral/d6s-canon-2-.*|scripts/integral/verify_d6s_canon_[^/]*\.py|mycelix-manufacturing/Cargo\.(toml|lock)|mycelix-manufacturing/crates/(cos_conformance|manufacturing_common)/)' "$changed_file_list"; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
@@ -63,6 +64,7 @@ jobs:
           fi
 
       - name: Install pinned Rust
+        id: install_rust
         if: steps.scope.outputs.relevant == 'true'
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
         with:
@@ -70,6 +72,7 @@ jobs:
           components: rustfmt
 
       - name: Assert Rust toolchain identity
+        id: assert_rust
         if: steps.scope.outputs.relevant == 'true'
         run: |
           test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
@@ -82,17 +85,23 @@ jobs:
       # corpus and independent CANON verifiers below.
 
       - name: Generate reference-test dependency lock
+        id: generate_lock
         if: steps.scope.outputs.relevant == 'true'
         run: cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
 
-      - name: Assert resolved reference-test dependency graph
+      # Resolve the full graph, not just local manifests (--no-deps omits the
+      # concrete transitive package graph). Preserve the JSON snapshot alongside
+      # Cargo.lock so the run can be independently inspected later.
+      - name: Capture resolved reference-test dependency graph
+        id: resolve_graph
         if: steps.scope.outputs.relevant == 'true'
-        run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
+        run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --format-version 1 > d6s-cargo-metadata.json
 
       # D6S qualification is scoped to the D6S reference contracts. The
       # broader COS workspace contains unrelated suites whose baseline state
       # must not gate this specific reference qualification.
       - name: Run D6S canonical integration suites
+        id: d6s_tests
         if: steps.scope.outputs.relevant == 'true'
         run: >-
           cargo test
@@ -103,15 +112,18 @@ jobs:
           --test d6s_canon_2_authority_boundary
 
       - name: Run independent D6S-CANON-1 verifier
+        id: canon1_verifier
         if: steps.scope.outputs.relevant == 'true'
         run: python3 scripts/integral/verify_d6s_canon_1.py
 
       - name: Run D6S-CANON-2 authority-boundary fixture verifier
+        id: canon2_verifier
         if: steps.scope.outputs.relevant == 'true'
         run: python3 scripts/integral/verify_d6s_canon_2_authority_boundary.py
 
-      - name: Emit qualification record
-        if: steps.scope.outputs.relevant == 'true'
+      - name: Emit successful qualification record
+        id: qualification_pass
+        if: steps.scope.outputs.relevant == 'true' && success()
         run: |
           {
             echo "D6S CANONICAL REFERENCE GATE"
@@ -136,7 +148,8 @@ jobs:
             echo "rustfmt=$(rustfmt --version)"
             echo "python=$(python3 --version)"
             echo "cargo_lock_sha256=$(sha256sum mycelix-manufacturing/Cargo.lock | cut -d' ' -f1)"
-            echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
+            echo "cargo_metadata_sha256=$(sha256sum d6s-cargo-metadata.json | cut -d' ' -f1)"
+            echo "changed_paths_sha256=$(sha256sum d6s-changed-files.txt | cut -d' ' -f1)"
             echo "canon1_manifest_sha256=$(sha256sum docs/integral/d6s-canon-1-manifest.json | cut -d' ' -f1)"
             echo "canon2_fixture_sha256=$(sha256sum docs/integral/d6s-canon-2-authority-boundary-fixture.json | cut -d' ' -f1)"
             echo "canon2_fixture_git_blob_sha=$(git hash-object docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
@@ -153,6 +166,45 @@ jobs:
             echo "claim_ceiling=ReferenceModelOnly"
           } | tee d6s-canonical-reference-qualification.txt
 
+      - name: Record qualification failure
+        if: steps.scope.outputs.relevant == 'true' && failure()
+        shell: bash
+        run: |
+          {
+            echo "D6S CANONICAL REFERENCE GATE"
+            echo "status=qualification-failed"
+            echo "commit=\${QUALIFIED_SHA}"
+            echo "workflow=\${GITHUB_WORKFLOW}"
+            echo "workflow_ref=\${GITHUB_WORKFLOW_REF}"
+            echo "workflow_sha=$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
+            echo "run_id=\${GITHUB_RUN_ID}"
+            echo "run_attempt=\${GITHUB_RUN_ATTEMPT}"
+            echo "event=\${GITHUB_EVENT_NAME}"
+            echo "install_rust_outcome=\${{ steps.install_rust.outcome }}"
+            echo "assert_rust_outcome=\${{ steps.assert_rust.outcome }}"
+            echo "generate_lock_outcome=\${{ steps.generate_lock.outcome }}"
+            echo "resolve_graph_outcome=\${{ steps.resolve_graph.outcome }}"
+            echo "d6s_tests_outcome=\${{ steps.d6s_tests.outcome }}"
+            echo "canon1_verifier_outcome=\${{ steps.canon1_verifier.outcome }}"
+            echo "canon2_verifier_outcome=\${{ steps.canon2_verifier.outcome }}"
+            echo "rust=$(rustc --version 2>/dev/null || echo NotAvailable)"
+            if [[ -f mycelix-manufacturing/Cargo.lock ]]; then
+              echo "cargo_lock_sha256=$(sha256sum mycelix-manufacturing/Cargo.lock | cut -d' ' -f1)"
+            else
+              echo "cargo_lock_sha256=NotGenerated"
+            fi
+            if [[ -f d6s-cargo-metadata.json ]]; then
+              echo "cargo_metadata_sha256=$(sha256sum d6s-cargo-metadata.json | cut -d' ' -f1)"
+            else
+              echo "cargo_metadata_sha256=NotGenerated"
+            fi
+            if [[ -f d6s-changed-files.txt ]]; then
+              echo "changed_paths_sha256=$(sha256sum d6s-changed-files.txt | cut -d' ' -f1)"
+            fi
+            echo "d6s_runtime_evidence_status=NotExecuted"
+            echo "claim_ceiling=NoQualificationPass"
+          } | tee d6s-canonical-reference-qualification.txt
+
       - name: Record qualification not applicable
         if: steps.scope.outputs.relevant == 'false'
         shell: bash
@@ -166,14 +218,32 @@ jobs:
             echo "run_id=${GITHUB_RUN_ID}"
             echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
             echo "event=${GITHUB_EVENT_NAME}"
-            echo "changed_paths_sha256=$(sha256sum "$RUNNER_TEMP/d6s-changed-files.txt" | cut -d' ' -f1)"
+            echo "changed_paths_sha256=$(sha256sum d6s-changed-files.txt | cut -d' ' -f1)"
             echo "d6s_runtime_evidence_status=NotExecuted"
             echo "claim_ceiling=NoD6SQualificationPerformed"
           } | tee d6s-canonical-reference-qualification.txt
 
-      - name: Upload qualification record
-        if: steps.scope.outputs.relevant == 'false' || success()
+      # Always preserve applicable-run diagnostics, including on test/verifier
+      # failure. A hash alone cannot reproduce the dependency resolution, so
+      # upload the generated lockfile and complete Cargo metadata when available.
+      - name: Upload applicable qualification evidence
+        if: always() && steps.scope.outputs.relevant == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
-          path: d6s-canonical-reference-qualification.txt
+          name: d6s-canonical-reference-\${{ env.QUALIFIED_SHA }}
+          path: |
+            d6s-canonical-reference-qualification.txt
+            d6s-changed-files.txt
+            mycelix-manufacturing/Cargo.lock
+            d6s-cargo-metadata.json
+          if-no-files-found: warn
+
+      - name: Upload not-applicable qualification record
+        if: always() && steps.scope.outputs.relevant == 'false'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: d6s-canonical-reference-\${{ env.QUALIFIED_SHA }}
+          path: |
+            d6s-canonical-reference-qualification.txt
+            d6s-changed-files.txt
+          if-no-files-found: error
