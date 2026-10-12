@@ -177,7 +177,7 @@ try {
   exportedScenario.input.sellingPricePerUnitMinor = 20_000;
   exportedScenario.input.plannedUnitsPerMonth = 40;
   await page.locator('#load-scenario-file').setInputFiles({
-    name: 'business-launchpad-scenario-v1.json',
+    name: 'business-launchpad-scenario-v2.json',
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify(exportedScenario))
   });
