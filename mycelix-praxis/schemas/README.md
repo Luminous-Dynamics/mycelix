@@ -7,6 +7,7 @@ This directory contains schema definitions for Mycelix Praxis.
 ```
 schemas/
 ├── symthaea-advisory-v1.schema.json # Strict Symthaea response structure
+├── symthaea-advisory-request-v1.schema.json # Minimized, digest-bound request body
 ├── vc/                           # Verifiable Credentials schemas
 │   ├── EduAchievementCredential.schema.json
 │   └── contexts/
@@ -69,11 +70,15 @@ which also invokes the trusted semantic validator and returns a
 `ValidatedAdvisorySuggestion`; the lower-level decoder alone is not trusted
 advice.
 
-The same crate provides `prepare_advisory_request(policy)` for a minimized,
+The companion `symthaea-advisory-request-v1.schema.json` freezes the strict
+request-body fields and bounded action/reason/content-ID allowlists. The same
+host crate provides `prepare_advisory_request(policy)` for a minimized,
 deterministically serialized request. It sorts allowed actions/reasons in
 protocol order and content IDs lexically, rejects duplicate/invalid policy
-inputs, caps the body at 16 KiB, and derives `input_digest()` from the exact
-immutable bytes exposed by `body_bytes()`. Keep this prepared request alive
+inputs and overlong allowlists before copying them, caps the body at 16 KiB,
+and derives `input_digest()` from the exact immutable bytes exposed by
+`body_bytes()`. The static conformance checker requires both request and
+response schemas to match the Rust field sets and enums. Keep this prepared request alive
 for the response's entire lifecycle and create validation context from
 `validation_context(advisor_enabled, sandbox_active)`; this ties expected model,
 version, skill, curriculum revision, allowed action/reason lists, content IDs,
