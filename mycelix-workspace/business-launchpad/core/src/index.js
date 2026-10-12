@@ -277,7 +277,7 @@ export function projectCashRunway(input) {
 
       periods.push({
         period: periodNumber,
-        plannedSalesUnits: period.salesUnits,
+        assumedSalesUnitsCollectedThisMonth: period.salesUnits,
         assumedSalesCashReceiptsMinor: outputInteger(salesReceipts, 'period' + periodNumber + '.assumedSalesCashReceiptsMinor'),
         otherCashInflowsMinor: period.otherCashInflowsMinor,
         totalCashReceiptsMinor: outputInteger(totalCashReceipts, 'period' + periodNumber + '.totalCashReceiptsMinor'),
