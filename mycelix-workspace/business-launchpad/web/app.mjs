@@ -226,8 +226,8 @@ function readCashRunwayPlan(currency) {
     const moneyFieldsForMonth = [
       ['sales-receipts', 'salesCashReceiptsMinor', 'sales cash receipts'],
       ['operating-outflows', 'operatingCashOutflowsMinor', 'operating cash outflows'],
-      ['inflows', 'otherCashInflowsMinor', 'other operating cash inflows'],
-      ['outflows', 'otherCashOutflowsMinor', 'other operating cash outflows'],
+      ['inflows', 'otherCashInflowsMinor', 'other/unclassified cash inflows'],
+      ['outflows', 'otherCashOutflowsMinor', 'other/unclassified cash outflows'],
       ['investing-inflows', 'investingCashInflowsMinor', 'investing cash inflows'],
       ['investing-outflows', 'investingCashOutflowsMinor', 'investing cash outflows'],
       ['financing-inflows', 'financingCashInflowsMinor', 'financing cash inflows'],
