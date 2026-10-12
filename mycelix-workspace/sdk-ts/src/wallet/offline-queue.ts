@@ -448,11 +448,11 @@ export class IndexedDBQueueStorage implements QueueStorage {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readwrite');
-      const store = tx.objectStore(this.storeName);
-      const request = store.delete(id);
+      tx.objectStore(this.storeName).delete(id);
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error ?? new Error('Queue delete transaction aborted'));
+      tx.onerror = () => reject(tx.error ?? new Error('Queue delete transaction failed'));
     });
   }
 
@@ -460,11 +460,11 @@ export class IndexedDBQueueStorage implements QueueStorage {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readwrite');
-      const store = tx.objectStore(this.storeName);
-      const request = store.clear();
+      tx.objectStore(this.storeName).clear();
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error ?? new Error('Queue clear transaction aborted'));
+      tx.onerror = () => reject(tx.error ?? new Error('Queue clear transaction failed'));
     });
   }
 
@@ -1028,7 +1028,16 @@ export class OfflineQueue {
     // The persisted row is authoritative. A second tab with a stale "pending"
     // snapshot must not invoke the executor if another tab already claimed it.
     const claim = await this.storage.claimForExecution(item.id, Date.now());
-    if (!claim) return { success: false, skipped: true };
+    if (!claim) {
+      const items = this._state$.value.items.filter((stored) => stored.id !== item.id);
+      this.updateState({
+        items,
+        pendingCount: items.filter(
+          (stored) => stored.status === 'pending' || stored.status === 'syncing'
+        ).length,
+      });
+      return { success: false, skipped: true };
+    }
 
     const persisted = claim.item;
     this.updateState({
