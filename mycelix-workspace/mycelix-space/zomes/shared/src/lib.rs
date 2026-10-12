@@ -494,17 +494,21 @@ impl RiskLevel {
     }
 }
 
-/// Probability of collision calculation method
+/// Probability-of-collision method descriptor.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum PcMethod {
-    /// Alfano 2D screening
+    /// Legacy serialized label retained for historical records; not emitted by the
+    /// current orbital-mechanics small-disk approximation.
     Alfano2D,
-    /// Foster 3D integration
+    /// Legacy descriptor for historical Foster-method records.
     Foster3D,
-    /// Chan Monte Carlo
+    /// Chan Monte Carlo.
     ChanMonteCarlo,
-    /// Patera maximum
+    /// Patera maximum.
     PateraMax,
+    /// Gaussian local-density/small-disk approximation on a 2D encounter plane.
+    /// This descriptor does not claim a validated Alfano/Foster integration method.
+    GaussianSmallDiskApprox2D,
 }
 
 /// Conjunction assessment entry
@@ -1068,7 +1072,7 @@ mod tests {
             miss_distance_km: 0.5,
             relative_velocity_kms: 14.5,
             collision_probability: 1e-5,
-            pc_method: PcMethod::Alfano2D,
+            pc_method: PcMethod::GaussianSmallDiskApprox2D,
             risk_level: RiskLevel::Medium,
             hard_body_radius_m: 20.0,
             screening_volume_km: 5.0,
