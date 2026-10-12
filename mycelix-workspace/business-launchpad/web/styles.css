@@ -45,8 +45,8 @@ legend { margin-bottom: 14px; padding: 0; font-size: 0.98rem; font-weight: 800; 
 label { display: block; min-width: 0; margin-bottom: 14px; color: #263a35; font-size: 0.87rem; font-weight: 720; }
 input, select, textarea { display: block; width: 100%; min-width: 0; margin-top: 6px; padding: 11px 12px; border: 1px solid #c4d0ca; border-radius: 9px; background: #fff; color: var(--ink); font: inherit; font-size: 1rem; }
 textarea { resize: vertical; }
-input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid #6dbb92; outline-offset: 2px; }
-.file-picker:focus-within { outline: 3px solid #6dbb92; outline-offset: 3px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid #176c52; outline-offset: 2px; }
+.file-picker:focus-within { outline: 3px solid #176c52; outline-offset: 3px; }
 small { display: block; margin-top: 5px; color: var(--muted); font-size: 0.78rem; font-weight: 450; line-height: 1.4; }
 .primary-button { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 17px; border: 0; border-radius: 10px; background: var(--green); color: white; font: inherit; font-size: 1rem; font-weight: 800; cursor: pointer; }
 .primary-button:hover { background: var(--green-dark); }
