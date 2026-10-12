@@ -163,21 +163,23 @@ try {
   const exportedScenario = await readDownloadJson(
     page,
     '#download-scenario',
-    'business-launchpad-scenario-v2.json'
+    'business-launchpad-scenario-v3.json'
   );
-  assert.equal(exportedScenario.schemaVersion, 2);
+  assert.equal(exportedScenario.schemaVersion, 3);
   assert.equal(exportedScenario.kind, 'business-launchpad-scenario');
   assert.equal(exportedScenario.input.currency.code, 'ZAR');
   assert.equal(exportedScenario.cashRunwayPlan.length, 12);
   assert.equal(exportedScenario.cashRunwayPlan[0].salesUnits, 25);
   assert.equal(exportedScenario.cashRunwayPlan[0].salesCashReceiptsMinor, 450_000);
   assert.equal(exportedScenario.cashRunwayPlan[0].operatingCashOutflowsMinor, 240_000);
+  assert.equal(exportedScenario.cashRunwayPlan[0].investingCashOutflowsMinor, 0);
+  assert.equal(exportedScenario.cashRunwayPlan[0].financingCashInflowsMinor, 0);
   completedChecks.push('assumptions export is versioned JSON with independent activity and cash timing');
 
   exportedScenario.input.sellingPricePerUnitMinor = 20_000;
   exportedScenario.input.plannedUnitsPerMonth = 40;
   await page.locator('#load-scenario-file').setInputFiles({
-    name: 'business-launchpad-scenario-v2.json',
+    name: 'business-launchpad-scenario-v3.json',
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify(exportedScenario))
   });
@@ -195,9 +197,9 @@ try {
   const report = await readDownloadJson(
     page,
     '#download-report',
-    'business-launchpad-report-v2.json'
+    'business-launchpad-report-v3.json'
   );
-  assert.equal(report.schemaVersion, 2);
+  assert.equal(report.schemaVersion, 3);
   assert.equal(report.kind, 'business-launchpad-report');
   assert.equal(report.input.sellingPricePerUnitMinor, 20_000);
   assert.equal(report.report.monthlyScenario.operatingResultBeforeExcludedItemsMinor, 470_000);
@@ -220,13 +222,28 @@ try {
   assert.equal(await monthOneCells.nth(1).innerText(), 'ZAR 0.00', 'Month 1 sales activity does not force same-month cash collection');
   assert.equal(await monthOneCells.nth(2).innerText(), 'ZAR 900.00', 'Month 1 operating payments are explicit');
   assert.equal(await monthTwoCells.nth(1).innerText(), 'ZAR 5000.00', 'a later month may contain the delayed collection');
+  await page.locator('#cash-month-3-investing-outflows').fill('1250.00');
+  await page.locator('#cash-month-4-financing-inflows').fill('5000.00');
+  await page.getByRole('button', { name: /Calculate scenario/ }).click();
+  const monthThreeCells = page.locator('.cash-projection-table tbody tr').nth(2).locator('td');
+  const monthFourCells = page.locator('.cash-projection-table tbody tr').nth(3).locator('td');
+  assert.equal(await monthThreeCells.nth(6).innerText(), 'ZAR -1250.00', 'an equipment purchase appears as investing outflow');
+  assert.equal(await monthFourCells.nth(7).innerText(), 'ZAR 5000.00', 'loan or capital receipts appear as financing inflow');
+  const classifiedReport = await readDownloadJson(page, '#download-report', 'business-launchpad-report-v3.json');
+  assert.equal(classifiedReport.schemaVersion, 3);
+  assert.equal(classifiedReport.cashRunwayPlan[2].investingCashOutflowsMinor, 125_000);
+  assert.equal(classifiedReport.cashRunwayPlan[3].financingCashInflowsMinor, 500_000);
+  assert.equal(classifiedReport.cashRunwayProjection.periods[2].netInvestingCashFlowMinor, -125_000);
+  assert.equal(classifiedReport.cashRunwayProjection.periods[3].netFinancingCashFlowMinor, 500_000);
   await page.screenshot({ path: resolve(evidenceDir, '03-cash-runway-delayed-receipts.png'), fullPage: true });
-  completedChecks.push('cash receipts can move independently of activity units and monthly operating payments');
+  completedChecks.push('delayed collections coexist with explicit investing outflows and financing inflows, and export receipts preserve categories');
 
   await page.locator('#reset-cash-runway').click();
   assert.equal(await page.locator('#cash-month-1-sales-receipts').inputValue(), '5000.00');
   assert.equal(await page.locator('#cash-month-1-operating-outflows').inputValue(), '2400.00');
   assert.equal(await page.locator('#cash-month-1-inflows').inputValue(), '0.00');
+  assert.equal(await page.locator('#cash-month-1-investing-outflows').inputValue(), '0.00');
+  assert.equal(await page.locator('#cash-month-1-financing-inflows').inputValue(), '0.00');
   assert.equal(await page.locator('#download-report').isDisabled(), true);
   await page.getByRole('button', { name: /Calculate scenario/ }).click();
   assert.equal(await page.locator('#download-report').isDisabled(), false);
@@ -247,7 +264,7 @@ try {
     buffer: Buffer.from(JSON.stringify({ schemaVersion: 99, kind: 'business-launchpad-scenario', input: {} }))
   });
   await errorBox.waitFor({ state: 'visible' });
-  assert.match(await errorBox.innerText(), /schemaVersion 1 or 2 required/);
+  assert.match(await errorBox.innerText(), /schemaVersion 1, 2 or 3 required/);
   assert.equal(await page.locator('#selling-price').inputValue(), priceBeforeInvalidImport);
   completedChecks.push('unsupported scenario version fails visibly without overwriting entered values');
 
@@ -282,7 +299,7 @@ try {
     qualifiedSha: process.env.QUALIFIED_SHA || 'not-provided',
     browser: 'Chromium',
     browserVersion: browser.version(),
-    cashScenarioSchemaVersion: 2,
+    cashScenarioSchemaVersion: 3,
     checks: completedChecks,
     pageErrors,
     mobileLayout,
