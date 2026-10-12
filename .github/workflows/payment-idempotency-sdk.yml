@@ -53,9 +53,6 @@ jobs:
       - name: Install TypeScript SDK dependencies
         working-directory: mycelix-workspace/sdk-ts
         run: npm ci
-      - name: Typecheck SDK source
-        working-directory: mycelix-workspace/sdk-ts
-        run: npm run typecheck
       - name: Run focused payment idempotency regressions
         working-directory: mycelix-workspace/sdk-ts
         run: >-
@@ -63,3 +60,6 @@ jobs:
           src/clients/finance/__tests__/finance.test.ts
           tests/wallet.test.ts
           -t "sendPayment extracts entry from record|HolochainFinanceProvider payment idempotency|should dedupe exact payloads by idempotency key|should assign one key to an unkeyed generic send|should reject conflicting payload and metadata keys before persistence|should serialize concurrent enqueues with the same key|should resolve the same key across separate queue instances|should reject changed payload under an existing idempotency key|should preserve key binding after a queue item is cancelled|should preserve an explicit payment key in the persisted payload|should forward the persisted payment key to the executor"
+      - name: Typecheck SDK source
+        working-directory: mycelix-workspace/sdk-ts
+        run: npm run typecheck
