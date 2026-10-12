@@ -194,21 +194,39 @@ fn verify_session_participant(
 // Write operations
 // =============================================================================
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+enum ConjunctionReferenceStatus {
+    Screening,
+    Monitoring,
+    Planning,
+    Mitigated,
+    Passed,
+    Collision,
+}
+
+impl ConjunctionReferenceStatus {
+    fn is_open_for_negotiation(self) -> bool {
+        matches!(self, Self::Screening | Self::Monitoring | Self::Planning)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ConjunctionReference {
     event_id: String,
     primary_norad_id: u32,
     secondary_norad_id: u32,
+    tca: SpaceTimestamp,
+    status: ConjunctionReferenceStatus,
 }
 
-/// Validate the exact event ID and unordered object pair returned by the
-/// conjunction zome. Event IDs are not assumed globally unique unless the
-/// matching event resolves unambiguously here.
+/// Validate the exact event ID, unordered object pair, state, and TCA returned
+/// by the conjunction zome. Ambiguous or non-actionable event records fail closed.
 fn validate_conjunction_reference(
     records: &[ConjunctionReference],
     conjunction_id: &str,
     primary_norad_id: u32,
     secondary_norad_id: u32,
+    now_micros: i64,
 ) -> Result<(), String> {
     let candidates = records
         .iter()
@@ -225,18 +243,29 @@ fn validate_conjunction_reference(
                 && event.secondary_norad_id == secondary_norad_id;
             let reversed_pair = event.primary_norad_id == secondary_norad_id
                 && event.secondary_norad_id == primary_norad_id;
-            if direct_pair || reversed_pair {
-                Ok(())
-            } else {
-                Err(format!(
+            if !direct_pair && !reversed_pair {
+                return Err(format!(
                     "Conjunction {:?} references object pair {} / {}, not requested pair {} / {}",
                     conjunction_id,
                     event.primary_norad_id,
                     event.secondary_norad_id,
                     primary_norad_id,
                     secondary_norad_id
-                ))
+                ));
             }
+            if !event.status.is_open_for_negotiation() {
+                return Err(format!(
+                    "Conjunction {:?} is not open for negotiation: {:?}",
+                    conjunction_id, event.status
+                ));
+            }
+            if event.tca.micros <= now_micros {
+                return Err(format!(
+                    "Conjunction {:?} TCA has passed or is not in the future",
+                    conjunction_id
+                ));
+            }
+            Ok(())
         }
         _ => Err(format!(
             "Conjunction ID {:?} resolved to {} records; refusing ambiguous match",
@@ -316,6 +345,7 @@ pub fn initiate_negotiation(input: InitiateNegotiationInput) -> ExternResult<Act
         &input.conjunction_id,
         input.primary_norad_id,
         input.secondary_norad_id,
+        SpaceTimestamp::now().micros,
     )
     .map_err(|message| SpaceError::new(SpaceErrorCode::NotFound, message).into_wasm_error())?;
 
@@ -2357,6 +2387,9 @@ pub fn get_proposal_agreement(proposal_id: String) -> ExternResult<Option<MultiP
 mod conjunction_reference_tests {
     use super::*;
 
+    const NOW_MICROS: i64 = 1_000_000;
+    const FUTURE_TCA_MICROS: i64 = 2_000_000;
+
     fn event(
         event_id: &str,
         primary_norad_id: u32,
@@ -2366,67 +2399,55 @@ mod conjunction_reference_tests {
             event_id: event_id.to_string(),
             primary_norad_id,
             secondary_norad_id,
+            tca: SpaceTimestamp {
+                micros: FUTURE_TCA_MICROS,
+            },
+            status: ConjunctionReferenceStatus::Monitoring,
         }
+    }
+
+    fn validate(records: &[ConjunctionReference], event_id: &str, primary: u32, secondary: u32) -> Result<(), String> {
+        validate_conjunction_reference(records, event_id, primary, secondary, NOW_MICROS)
     }
 
     #[test]
     fn exact_event_and_object_pair_are_accepted() {
-        assert!(
-            validate_conjunction_reference(
-                &[event("cdm:42", 42, 77)],
-                "cdm:42",
-                42,
-                77,
-            )
-            .is_ok()
-        );
+        assert!(validate(&[event("cdm:42", 42, 77)], "cdm:42", 42, 77).is_ok());
     }
 
     #[test]
     fn reversed_object_pair_is_accepted() {
-        assert!(
-            validate_conjunction_reference(
-                &[event("cdm:42", 77, 42)],
-                "cdm:42",
-                42,
-                77,
-            )
-            .is_ok()
-        );
+        assert!(validate(&[event("cdm:42", 77, 42)], "cdm:42", 42, 77).is_ok());
     }
 
     #[test]
     fn missing_event_id_is_rejected() {
-        assert!(
-            validate_conjunction_reference(
-                &[event("cdm:other", 42, 77)],
-                "cdm:42",
-                42,
-                77,
-            )
-            .is_err()
-        );
+        assert!(validate(&[event("cdm:other", 42, 77)], "cdm:42", 42, 77).is_err());
     }
 
     #[test]
     fn mismatched_object_pair_is_rejected() {
-        assert!(
-            validate_conjunction_reference(
-                &[event("cdm:42", 42, 99)],
-                "cdm:42",
-                42,
-                77,
-            )
-            .is_err()
-        );
+        assert!(validate(&[event("cdm:42", 42, 99)], "cdm:42", 42, 77).is_err());
     }
 
     #[test]
     fn duplicate_event_id_is_rejected_as_ambiguous() {
         let records = [event("cdm:42", 42, 77), event("cdm:42", 42, 88)];
-        assert!(
-            validate_conjunction_reference(&records, "cdm:42", 42, 77).is_err()
-        );
+        assert!(validate(&records, "cdm:42", 42, 77).is_err());
+    }
+
+    #[test]
+    fn closed_conjunction_status_is_rejected() {
+        let mut closed = event("cdm:42", 42, 77);
+        closed.status = ConjunctionReferenceStatus::Passed;
+        assert!(validate(&[closed], "cdm:42", 42, 77).is_err());
+    }
+
+    #[test]
+    fn tca_at_or_before_now_is_rejected() {
+        let mut expired = event("cdm:42", 42, 77);
+        expired.tca.micros = NOW_MICROS;
+        assert!(validate(&[expired], "cdm:42", 42, 77).is_err());
     }
 }
 
