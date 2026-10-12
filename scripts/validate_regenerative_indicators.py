@@ -181,9 +181,11 @@ def validate_catalog(catalog: dict, model_registry: dict) -> list[str]:
             errors.append(f"{where}.observations_loaded must be false until evidence is attached")
         if indicator.get("computed") is not False:
             errors.append(f"{where}.computed must be false until a qualified runner exists")
-        if indicator.get("desired_direction") not in DIRECTIONS:
+        direction = indicator.get("desired_direction")
+        if not isinstance(direction, str) or direction not in DIRECTIONS:
             errors.append(f"{where}.desired_direction is not an allowed value")
-        if indicator.get("indicator_type") not in INDICATOR_TYPES:
+        indicator_type = indicator.get("indicator_type")
+        if not isinstance(indicator_type, str) or indicator_type not in INDICATOR_TYPES:
             errors.append(f"{where}.indicator_type is not an allowed value")
 
         for field in ("framework_ids", "input_requirements", "comparability_key", "caveats", "research_ref_ids"):
