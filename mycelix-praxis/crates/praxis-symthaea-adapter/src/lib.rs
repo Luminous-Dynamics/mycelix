@@ -28,7 +28,7 @@ use serde::Serialize;
 use std::collections::BTreeSet;
 
 /// Hard cap for the exact serialized request body sent to the host adapter.
-pub const MAX_ADVISORY_REQUEST_BYTES: usize = 16 * 1024;
+pub const MAX_ADVISORY_REQUEST_BYTES: usize = 16384;
 
 /// Trusted inputs from which a minimized, deterministic advisor request is built.
 ///
