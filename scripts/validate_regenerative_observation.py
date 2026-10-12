@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG_PATH = ROOT / "docs" / "economy-atlas" / "regenerative-indicators.v1.json"
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
+OBSERVATION_ID = re.compile(r"^[a-z0-9][a-z0-9._:-]*$")
 STATUSES = {
     "observed", "estimated", "below_detection_limit", "not_collected",
     "not_applicable", "suppressed", "not_computable", "unknown",
@@ -60,6 +61,10 @@ def validate_observation(record: object, catalog: object, expected_catalog_sha25
     for field in ("observation_id", "indicator_id", "native_unit", "denominator_definition", "indicator_native_unit_contract", "unit_mapping_note", "denominator_contract_note"):
         if not isinstance(record.get(field), str) or not record[field].strip():
             errors.append(f"{field} must be a non-empty string")
+
+    observation_id = record.get("observation_id")
+    if isinstance(observation_id, str) and not OBSERVATION_ID.fullmatch(observation_id):
+        errors.append("observation_id must use lowercase letters, digits, dots, underscores, colons, or hyphens")
 
     catalog_digest = record.get("indicator_catalog_sha256")
     if not isinstance(catalog_digest, str) or not SHA256.fullmatch(catalog_digest):
