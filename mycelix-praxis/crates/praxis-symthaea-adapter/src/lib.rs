@@ -238,15 +238,22 @@ fn prepare_advisory_request_with_nonce(
     })
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum NonceFillError {
+    Unavailable,
+}
+
 /// Generate an opaque 128-bit nonce using the platform's secure random source.
 fn generate_request_nonce() -> Result<String, RequestPreparationError> {
-    generate_request_nonce_with(|bytes| getrandom::getrandom(bytes).map_err(|_| ()))
+    generate_request_nonce_with(|bytes| {
+        getrandom::getrandom(bytes).map_err(|_| NonceFillError::Unavailable)
+    })
 }
 
 /// Internal injection point for deterministic testing of entropy failure.
 /// Production always calls `generate_request_nonce` with the OS CSPRNG.
 fn generate_request_nonce_with(
-    fill: impl FnOnce(&mut [u8; 16]) -> Result<(), ()>,
+    fill: impl FnOnce(&mut [u8; 16]) -> Result<(), NonceFillError>,
 ) -> Result<String, RequestPreparationError> {
     let mut bytes = [0u8; 16];
     fill(&mut bytes).map_err(|_| RequestPreparationError::NonceGenerationFailed)?;
@@ -613,7 +620,7 @@ mod tests {
 
     #[test]
     fn nonce_entropy_failure_fails_closed() {
-        let result = generate_request_nonce_with(|_bytes| Err(()));
+        let result = generate_request_nonce_with(|_bytes| Err(NonceFillError::Unavailable));
         assert_eq!(
             result,
             Err(RequestPreparationError::NonceGenerationFailed)
