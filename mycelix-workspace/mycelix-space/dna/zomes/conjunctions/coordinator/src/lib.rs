@@ -86,8 +86,10 @@ const ALERT_THRESHOLD: RiskLevel = RiskLevel::Medium;
 /// Create a conjunction event
 ///
 /// When `compute_details` is true and TLEs are provided, the collision probability,
-/// miss distance, and risk level are computed using SGP4 propagation and Alfano 2D
-/// analysis. Otherwise, the manually-provided values are used (backward compatible).
+/// miss distance, and Pc-only screening band are computed using SGP4 propagation and
+/// the experimental Gaussian local-density/small-disk approximation. This is not the
+/// published Alfano/Foster integral or qualified maneuver-risk evidence. Otherwise, the
+/// manually-provided values are used (backward compatible).
 #[hdk_extern]
 pub fn create_conjunction_event(input: CreateEventInput) -> ExternResult<ActionHash> {
     gate_space_operation(
@@ -264,7 +266,8 @@ pub struct CreateEventInput {
     pub max_pc: f64,
     pub risk_level: RiskLevel,
     /// If true and TLEs are provided, compute collision_probability and miss_distance
-    /// using SGP4 propagation and Alfano 2D analysis instead of using manual values.
+    /// using SGP4 propagation and the experimental Gaussian local-density/small-disk
+    /// approximation instead of manual values; it is not a validated Alfano/Foster integral.
     #[serde(default)]
     pub compute_details: bool,
     /// Primary TLE (line1, line2) - required when compute_details is true
