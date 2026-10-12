@@ -379,6 +379,54 @@ mod tests {
         assert!(mahalanobis_distance(&delta, &eci, &teme).is_none());
     }
 
+    fn make_serialized_matrix_asymmetric(value: &mut serde_json::Value) -> bool {
+        if let Some(array) = value.as_array_mut() {
+            if array.len() == 36 && array.iter().all(|entry| entry.is_number()) {
+                // For row-major or column-major flat 6x6 storage, these are a
+                // transposed pair: (0, 1) and (1, 0).
+                array[1] = serde_json::json!(0.25);
+                array[6] = serde_json::json!(0.0);
+                return true;
+            }
+            if array.len() == 6
+                && array.iter().all(|row| {
+                    row.as_array().is_some_and(|entries| {
+                        entries.len() == 6 && entries.iter().all(|entry| entry.is_number())
+                    })
+                })
+            {
+                array[0][1] = serde_json::json!(0.25);
+                array[1][0] = serde_json::json!(0.0);
+                return true;
+            }
+            for child in array.iter_mut() {
+                if make_serialized_matrix_asymmetric(child) {
+                    return true;
+                }
+            }
+        }
+        if let Some(object) = value.as_object_mut() {
+            for child in object.values_mut() {
+                if make_serialized_matrix_asymmetric(child) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    #[test]
+    fn asymmetric_deserialized_covariance_is_invalid() {
+        let covariance = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+        let mut serialized = serde_json::to_value(covariance).unwrap();
+        assert!(
+            make_serialized_matrix_asymmetric(&mut serialized),
+            "test must mutate the serialized nalgebra matrix representation"
+        );
+        let decoded: CovarianceMatrix = serde_json::from_value(serialized).unwrap();
+        assert!(!decoded.is_valid());
+    }
+
     #[test]
     fn non_finite_covariance_is_invalid() {
         let mut matrix = Matrix6::identity();
