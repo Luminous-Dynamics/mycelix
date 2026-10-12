@@ -238,6 +238,7 @@ fn validate_conjunction_reference(
     conjunction_id: &str,
     primary_norad_id: u32,
     secondary_norad_id: u32,
+    requested_tca_micros: i64,
     now_micros: i64,
 ) -> Result<(), String> {
     let candidates = records
@@ -271,6 +272,12 @@ fn validate_conjunction_reference(
                     conjunction_id, event.status
                 ));
             }
+            if event.tca.micros != requested_tca_micros {
+                return Err(format!(
+                    "Requested TCA {} does not match conjunction {:?} TCA {}",
+                    requested_tca_micros, conjunction_id, event.tca.micros
+                ));
+            }
             if event.tca.micros <= now_micros {
                 return Err(format!(
                     "Conjunction {:?} TCA has passed or is not in the future",
@@ -285,6 +292,22 @@ fn validate_conjunction_reference(
             candidates.len()
         )),
     }
+}
+
+/// Negotiation must close before (or at) TCA, and the deadline must still
+/// be in the future when the session is created.
+fn validate_session_deadline(
+    deadline_micros: i64,
+    tca_micros: i64,
+    now_micros: i64,
+) -> Result<(), String> {
+    if deadline_micros <= now_micros {
+        return Err("Negotiation deadline must be in the future".to_string());
+    }
+    if deadline_micros > tca_micros {
+        return Err("Negotiation deadline must not be later than the conjunction TCA".to_string());
+    }
+    Ok(())
 }
 
 /// Initiate a negotiation session.
@@ -352,14 +375,18 @@ pub fn initiate_negotiation(input: InitiateNegotiationInput) -> ExternResult<Act
         }
     };
 
+    let now_micros = SpaceTimestamp::now().micros;
     validate_conjunction_reference(
         &conjunctions,
         &input.conjunction_id,
         input.primary_norad_id,
         input.secondary_norad_id,
-        SpaceTimestamp::now().micros,
+        input.tca.micros,
+        now_micros,
     )
     .map_err(|message| SpaceError::new(SpaceErrorCode::NotFound, message).into_wasm_error())?;
+    validate_session_deadline(input.deadline.micros, input.tca.micros, now_micros)
+        .map_err(|message| SpaceError::new(SpaceErrorCode::InvalidInput, message).into_wasm_error())?;
 
     let session = NegotiationSession {
         session_id: input.session_id.clone(),
@@ -2482,7 +2509,14 @@ mod conjunction_reference_tests {
         primary: u32,
         secondary: u32,
     ) -> Result<(), String> {
-        validate_conjunction_reference(records, event_id, primary, secondary, NOW_MICROS)
+        validate_conjunction_reference(
+            records,
+            event_id,
+            primary,
+            secondary,
+            FUTURE_TCA_MICROS,
+            NOW_MICROS,
+        )
     }
 
     #[test]
@@ -2516,6 +2550,34 @@ mod conjunction_reference_tests {
         let mut closed = event("cdm:42", 42, 77);
         closed.status = ConjunctionReferenceStatus::Passed;
         assert!(validate(&[closed], "cdm:42", 42, 77).is_err());
+    }
+
+    #[test]
+    fn caller_tca_must_match_recorded_conjunction_tca() {
+        let records = [event("cdm:42", 42, 77)];
+        assert!(validate_conjunction_reference(
+            &records,
+            "cdm:42",
+            42,
+            77,
+            FUTURE_TCA_MICROS + 1,
+            NOW_MICROS,
+        ).is_err());
+        assert!(validate_conjunction_reference(
+            &records,
+            "cdm:42",
+            42,
+            77,
+            FUTURE_TCA_MICROS,
+            NOW_MICROS,
+        ).is_ok());
+    }
+
+    #[test]
+    fn negotiation_deadline_must_be_future_and_no_later_than_tca() {
+        assert!(validate_session_deadline(NOW_MICROS + 1, FUTURE_TCA_MICROS, NOW_MICROS).is_ok());
+        assert!(validate_session_deadline(NOW_MICROS, FUTURE_TCA_MICROS, NOW_MICROS).is_err());
+        assert!(validate_session_deadline(FUTURE_TCA_MICROS + 1, FUTURE_TCA_MICROS, NOW_MICROS).is_err());
     }
 
     #[test]
