@@ -310,11 +310,36 @@ fn validate_session_deadline(
     Ok(())
 }
 
-/// Ensure an agreement's execution window remains within the originating
-/// negotiation window and authoritative conjunction timeline.
+/// Validate that a proposed burn remains actionable: it must be in the future,
+/// before TCA, and after the negotiation deadline so both parties can agree in
+/// time to execute it.
+fn validate_proposal_burn_window(
+    burn_time_micros: i64,
+    session_deadline_micros: i64,
+    tca_micros: i64,
+    now_micros: i64,
+) -> Result<(), String> {
+    if burn_time_micros <= now_micros {
+        return Err("Proposed burn time must be in the future".to_string());
+    }
+    if burn_time_micros >= tca_micros {
+        return Err("Proposed burn time must precede conjunction TCA".to_string());
+    }
+    if session_deadline_micros <= now_micros {
+        return Err("Negotiation session deadline has passed".to_string());
+    }
+    if session_deadline_micros >= burn_time_micros {
+        return Err("Negotiation deadline must precede the proposed burn time".to_string());
+    }
+    Ok(())
+}
+
+/// Ensure an agreement's execution deadline remains within the negotiation
+/// window and precedes both the maneuver burn time and conjunction TCA.
 fn validate_agreement_deadline(
     execution_deadline_micros: i64,
     session_deadline_micros: i64,
+    burn_time_micros: i64,
     tca_micros: i64,
     now_micros: i64,
 ) -> Result<(), String> {
@@ -326,6 +351,9 @@ fn validate_agreement_deadline(
     }
     if execution_deadline_micros > session_deadline_micros {
         return Err("Agreement execution deadline must not outlive the negotiation session".to_string());
+    }
+    if execution_deadline_micros > burn_time_micros {
+        return Err("Agreement execution deadline must not be later than proposed burn time".to_string());
     }
     if execution_deadline_micros > tca_micros {
         return Err("Agreement execution deadline must not be later than conjunction TCA".to_string());
@@ -605,6 +633,21 @@ pub fn submit_proposal(input: SubmitProposalInput) -> ExternResult<ActionHash> {
         ))
         .into_wasm_error());
     }
+    let now = SpaceTimestamp::now();
+    validate_proposal_burn_window(
+        input.burn_time.micros,
+        session.deadline.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidProposal, message)
+            .with_context(format!(
+                "burn time: {}, negotiation deadline: {}, TCA: {}, now: {}",
+                input.burn_time.micros, session.deadline.micros, session.tca.micros, now.micros
+            ))
+            .into_wasm_error()
+    })?;
 
     // A pre-maneuver baseline is not comparable to a claimed post-maneuver
     // probability. Persist the caller's number only as an unverified claim;
@@ -728,11 +771,22 @@ pub fn accept_proposal(input: AcceptProposalInput) -> ExternResult<ActionHash> {
         .into_wasm_error());
     }
 
-    // Keep the agreement deadline inside the session's own decision window.
+    // Re-check the burn window even for legacy proposals, then bind the
+    // execution deadline to that specific burn rather than only to TCA.
     let now = SpaceTimestamp::now();
+    validate_proposal_burn_window(
+        proposal.burn_time.micros,
+        session.deadline.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidProposal, message).into_wasm_error()
+    })?;
     validate_agreement_deadline(
         input.execution_deadline.micros,
         session.deadline.micros,
+        proposal.burn_time.micros,
         session.tca.micros,
         now.micros,
     )
@@ -843,6 +897,7 @@ pub fn cosign_agreement(input: CosignAgreementInput) -> ExternResult<ActionHash>
     validate_agreement_deadline(
         agreement.execution_deadline.micros,
         session.deadline.micros,
+        get_maneuver_proposal(&agreement.accepted_proposal)?.burn_time.micros,
         session.tca.micros,
         now.micros,
     )
@@ -2618,10 +2673,13 @@ mod conjunction_reference_tests {
 
     #[test]
     fn agreement_deadline_cannot_outlive_session_or_tca() {
+        let burn_time = FUTURE_TCA_MICROS - 10;
+        let session_deadline = FUTURE_TCA_MICROS - 20;
         assert!(
             validate_agreement_deadline(
                 NOW_MICROS + 10,
-                FUTURE_TCA_MICROS,
+                session_deadline,
+                burn_time,
                 FUTURE_TCA_MICROS,
                 NOW_MICROS,
             )
@@ -2631,6 +2689,7 @@ mod conjunction_reference_tests {
             validate_agreement_deadline(
                 NOW_MICROS + 10,
                 NOW_MICROS + 5,
+                burn_time,
                 FUTURE_TCA_MICROS,
                 NOW_MICROS,
             )
@@ -2639,7 +2698,18 @@ mod conjunction_reference_tests {
         assert!(
             validate_agreement_deadline(
                 FUTURE_TCA_MICROS + 1,
-                FUTURE_TCA_MICROS + 100,
+                FUTURE_TCA_MICROS - 20,
+                burn_time,
+                FUTURE_TCA_MICROS,
+                NOW_MICROS,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_agreement_deadline(
+                burn_time + 1,
+                session_deadline,
+                burn_time,
                 FUTURE_TCA_MICROS,
                 NOW_MICROS,
             )
@@ -2648,12 +2718,34 @@ mod conjunction_reference_tests {
         assert!(
             validate_agreement_deadline(
                 NOW_MICROS + 10,
-                FUTURE_TCA_MICROS,
+                session_deadline,
+                burn_time,
                 FUTURE_TCA_MICROS,
                 FUTURE_TCA_MICROS,
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn proposed_burn_window_must_be_future_after_deadline_and_before_tca() {
+        let burn_time = NOW_MICROS + 500;
+        let deadline = NOW_MICROS + 100;
+        assert!(validate_proposal_burn_window(
+            burn_time, deadline, FUTURE_TCA_MICROS, NOW_MICROS
+        ).is_ok());
+        assert!(validate_proposal_burn_window(
+            NOW_MICROS, deadline, FUTURE_TCA_MICROS, NOW_MICROS
+        ).is_err());
+        assert!(validate_proposal_burn_window(
+            FUTURE_TCA_MICROS, deadline, FUTURE_TCA_MICROS, NOW_MICROS
+        ).is_err());
+        assert!(validate_proposal_burn_window(
+            burn_time, burn_time, FUTURE_TCA_MICROS, NOW_MICROS
+        ).is_err());
+        assert!(validate_proposal_burn_window(
+            burn_time, NOW_MICROS, FUTURE_TCA_MICROS, burn_time
+        ).is_err());
     }
 
     #[test]
