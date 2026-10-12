@@ -180,6 +180,8 @@ test('default business scenario renders deterministic totals and cost warnings',
   assert.match(result.textContent, /PARTIAL COST COVERAGE/);
   assert.match(result.textContent, /owner labor, tax, insurance/);
   assert.match(result.textContent, /12-month cash runway scenario/);
+  assert.match(result.textContent, /Downside \/ base \/ upside comparison/);
+  assert.match(result.textContent, /Receipts delayed beyond horizon/);
   assert.match(result.textContent, /same month/);
   assert.equal(documentMock.getElementById('input-error').hidden, true);
 });
@@ -457,6 +459,9 @@ test('report export is disabled until a valid calculation exists and includes bo
   assert.equal(payload.cashRunwayPlan.length, 12);
   assert.equal(payload.cashRunwayProjection.horizonMonths, 12);
   assert.equal(payload.cashRunwayProjection.kind, 'business-launchpad-cash-runway-report');
+  assert.equal(payload.cashScenarioComparison.kind, 'business-launchpad-cash-scenario-comparison');
+  assert.deepEqual(payload.cashScenarioComparison.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside']);
+  assert.equal(payload.cashScenarioComparison.scenarios[1].summary.endingCashMinor, payload.cashRunwayProjection.summary.endingCashMinor);
   assert.equal(documentMock.createdElements.at(-1).download, 'business-launchpad-report-v4.json');
   assert.ok(createdUrls.includes('blob:business-launchpad-test'));
 });
