@@ -10,7 +10,7 @@ From this directory, start a loopback-only static server:
 
 Then open http://127.0.0.1:8080/web/ in your browser.
 
-No package install is required. The page imports the dependency-free calculator in `../core/src/index.js`. The form calculates in browser memory; it does not persist the inputs or submit them to an application endpoint. The static assets are still fetched from the local web server.
+No package install is required. The page imports the dependency-free calculator in `../core/src/index.js`. Calculations run in browser memory; the application does not upload inputs or use browser storage. Use **Download assumptions JSON** to save a portable versioned input file, **Load assumptions JSON** to restore one, and **Download calculated report JSON** after calculating to save the report alongside its inputs. These are explicit local file operations, not cloud backup. If you change any input, the prior report is invalidated until you calculate again. The static assets are still fetched from the local web server.
 
 ## Important boundaries
 
