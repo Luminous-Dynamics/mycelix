@@ -240,6 +240,12 @@ def main() -> int:
         errors,
     )
     require(
+        "serde.workspace = true" in adapter_manifest
+        and "serde_json.workspace = true" in adapter_manifest,
+        "host adapter must declare the serializer dependencies it uses directly",
+        errors,
+    )
+    require(
         not re.search(r"(?m)^\s*symthaea(?:-[a-z0-9_-]+)?\s*=", adapter_manifest),
         "host adapter must not pull the Symthaea runtime into the contract workspace boundary",
         errors,
@@ -326,6 +332,11 @@ def main() -> int:
     require(
         "first.input_digest(),\n            digest_advisory_request_bytes(first.body_bytes())" in adapter_source,
         "adapter tests must check that the digest binds to the exact serialized bytes",
+        errors,
+    )
+    require(
+        'assert!(!body.contains("input_digest")' in adapter_source,
+        "adapter tests must ensure the digest is out-of-band rather than self-referential in the body",
         errors,
     )
 
