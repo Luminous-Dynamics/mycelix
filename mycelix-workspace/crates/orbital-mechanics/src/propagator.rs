@@ -358,7 +358,7 @@ mod tests {
         let covariance = state.covariance.as_ref().expect("covariance is present");
         assert_eq!(covariance.frame, CovarianceFrame::TEME);
         assert!(matches!(
-            covariance.source,
+            &covariance.source,
             crate::covariance::CovarianceSource::Estimated { .. }
         ));
     }
