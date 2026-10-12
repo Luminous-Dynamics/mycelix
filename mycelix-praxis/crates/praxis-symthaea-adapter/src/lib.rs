@@ -622,6 +622,19 @@ mod tests {
             ),
             Err(BoundedAdviceReadError::Rejected(AdviceRejection::StaleInput))
         );
+
+        let current_response = valid_advice_json().replace(
+            &format!("blake3:{}", "0".repeat(64)),
+            current_request.input_digest(),
+        );
+        assert_eq!(
+            current_request.read_and_validate_response_once(
+                Cursor::new(current_response.as_bytes()),
+                true,
+                false,
+            ),
+            Err(BoundedAdviceReadError::ResponseAlreadyConsumed)
+        );
     }
 
     #[test]
