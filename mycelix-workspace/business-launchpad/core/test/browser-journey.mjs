@@ -135,6 +135,7 @@ try {
   await page.locator('#result').getByText('ZAR 5100.00', { exact: true }).waitFor({ state: 'visible' });
   assert.match(await page.locator('#result').innerText(), /8 units\/month/);
   assert.match(await page.locator('#result').innerText(), /PARTIAL COST COVERAGE/);
+  assert.match(await page.locator('#result').innerText(), /12-month cash runway scenario/);
   assert.match(await page.locator('#result').innerText(), /does not estimate extra runway for slow sales or operating losses/);
   assert.match(await page.locator('#result').innerText(), /single-offer model/);
   await page.screenshot({ path: resolve(evidenceDir, '02-keyboard-calculation-result.png'), fullPage: true });
@@ -166,7 +167,9 @@ try {
   assert.equal(exportedScenario.schemaVersion, 1);
   assert.equal(exportedScenario.kind, 'business-launchpad-scenario');
   assert.equal(exportedScenario.input.currency.code, 'ZAR');
-  completedChecks.push('assumptions export is versioned JSON with the expected schema');
+  assert.equal(exportedScenario.cashRunwayPlan.length, 12);
+  assert.equal(exportedScenario.cashRunwayPlan[0].salesUnits, 25);
+  completedChecks.push('assumptions export is versioned JSON with the 12-month cash plan');
 
   exportedScenario.input.sellingPricePerUnitMinor = 20_000;
   exportedScenario.input.plannedUnitsPerMonth = 40;
@@ -195,7 +198,17 @@ try {
   assert.equal(report.kind, 'business-launchpad-report');
   assert.equal(report.input.sellingPricePerUnitMinor, 20_000);
   assert.equal(report.report.monthlyScenario.operatingResultBeforeExcludedItemsMinor, 470_000);
-  completedChecks.push('report export contains the evaluated inputs and matching integer-minor-unit result');
+  assert.equal(report.cashRunwayPlan.length, 12);
+  assert.equal(report.cashRunwayProjection.horizonMonths, 12);
+  assert.equal(report.cashRunwayProjection.kind, 'business-launchpad-cash-runway-report');
+  completedChecks.push('report export contains the evaluated inputs and 12-month liquidity projection');
+
+  await page.locator('#cash-runway-details > summary').click();
+  await page.locator('#cash-month-1-sales').fill('0');
+  await page.getByRole('button', { name: /Calculate scenario/ }).click();
+  assert.match(await page.locator('#result').innerText(), /First reserve breach\s*Month 1/);
+  assert.match(await page.locator('#result').innerText(), /ZAR 400\.00/);
+  completedChecks.push('changing the monthly sales ramp recomputes reserve breaches and required cash buffer');
 
   await page.locator('#selling-price').fill('201.00');
   assert.equal(
