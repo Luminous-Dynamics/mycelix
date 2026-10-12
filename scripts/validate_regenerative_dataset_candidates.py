@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import sys
 from datetime import date
+import math
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -162,6 +163,56 @@ def validate_manifest(manifest: object, indicator_catalog: object) -> list[str]:
             if not isinstance(candidate.get("license_assessment"), dict) or candidate["license_assessment"].get("license_status") != "unverified":
                 errors.append(f"{location}: private-share license status must remain unverified until file-level review")
         if candidate_id == "south-africa.jukskei-river-microbial-data.2025.v1":
+            spatial_record = candidate.get("spatial_coverage", {})
+            sites = spatial_record.get("entities", []) if isinstance(spatial_record, dict) else []
+            expected_coordinates = {
+                "A": (-26.18147, 28.10237),
+                "B": (-26.16475, 28.13029),
+                "C": (-26.08208, 28.10873),
+                "D": (-26.06715, 28.10767),
+                "E": (-25.98690, 27.99731),
+            }
+            seen_sites: set[str] = set()
+            if not isinstance(sites, list) or len(sites) != 5:
+                errors.append(f"{location}: ASM Jukskei candidate must preserve its five source-reported site records")
+                sites = []
+            for site_index, site in enumerate(sites):
+                site_location = f"{location}.spatial_coverage.entities[{site_index}]"
+                if not isinstance(site, dict):
+                    errors.append(f"{site_location} must be a site object with source and normalized coordinates")
+                    continue
+                site_id = site.get("site")
+                if not isinstance(site_id, str) or site_id not in expected_coordinates:
+                    errors.append(f"{site_location}.site must be one of the source site IDs A-E")
+                    continue
+                if site_id in seen_sites:
+                    errors.append(f"{location}: duplicate ASM site ID {site_id}")
+                seen_sites.add(site_id)
+                raw_coordinates = site.get("coordinates_as_published")
+                if not isinstance(raw_coordinates, str) or not raw_coordinates.strip():
+                    errors.append(f"{site_location}.coordinates_as_published must preserve the paper's original coordinate notation")
+                normalized = site.get("coordinates_decimal_degrees")
+                if not isinstance(normalized, dict):
+                    errors.append(f"{site_location}.coordinates_decimal_degrees must be an object")
+                    continue
+                latitude = normalized.get("latitude")
+                longitude = normalized.get("longitude")
+                if not isinstance(latitude, (int, float)) or isinstance(latitude, bool) or not math.isfinite(latitude):
+                    errors.append(f"{site_location}.coordinates_decimal_degrees.latitude must be finite")
+                    continue
+                if not isinstance(longitude, (int, float)) or isinstance(longitude, bool) or not math.isfinite(longitude):
+                    errors.append(f"{site_location}.coordinates_decimal_degrees.longitude must be finite")
+                    continue
+                expected_latitude, expected_longitude = expected_coordinates[site_id]
+                if latitude != expected_latitude or longitude != expected_longitude:
+                    errors.append(f"{site_location}: normalized coordinates must match the source-pinned decimal conversion for site {site_id}")
+                if not (-27.0 <= latitude <= -25.0 and 27.0 <= longitude <= 29.0):
+                    errors.append(f"{site_location}: normalized coordinate falls outside the broad published Gauteng study-area bounds")
+                conversion_note = normalized.get("conversion_note")
+                if not isinstance(conversion_note, str) or "coordinates_as_published" not in conversion_note:
+                    errors.append(f"{site_location}: coordinate conversion rule must be documented")
+            if seen_sites != set(expected_coordinates):
+                errors.append(f"{location}: ASM site IDs must be exactly A, B, C, D and E")
             if status != "license_not_verified":
                 errors.append(f"{location}: ASM Jukskei supplemental data must remain license_not_verified")
             if not {"ASM-JUKSKEI-SUPPLEMENT-REUSE-RIGHTS-001", "ASM-JUKSKEI-12-MONTH-WINDOW-001"}.issubset(finding_ids):

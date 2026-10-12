@@ -82,6 +82,29 @@ class RegenerativeDatasetCandidateTests(unittest.TestCase):
         self.assertFalse(candidate["ingestion_gate"]["ingestion_authorized"])
         self.assertIn("ASM-JUKSKEI-SUPPLEMENT-REUSE-RIGHTS-001", {f["finding_id"] for f in candidate["known_findings"]})
 
+    def test_2025_asm_jukskei_coordinates_preserve_source_and_normalize_decimal_degrees(self) -> None:
+        candidate = next(c for c in self.manifest["candidates"] if c["candidate_id"] == "south-africa.jukskei-river-microbial-data.2025.v1")
+        sites = {site["site"]: site for site in candidate["spatial_coverage"]["entities"]}
+        self.assertEqual(set(sites), {"A", "B", "C", "D", "E"})
+        self.assertEqual(sites["A"]["coordinates_as_published"], "26,18147°S, 28,10237°E")
+        self.assertEqual(sites["A"]["coordinates_decimal_degrees"]["latitude"], -26.18147)
+        self.assertEqual(sites["A"]["coordinates_decimal_degrees"]["longitude"], 28.10237)
+        self.assertIn("coordinates_as_published", sites["A"]["coordinates_decimal_degrees"]["conversion_note"])
+        self.assertEqual(validate_manifest(self.manifest, self.indicator_catalog), [])
+
+    def test_2025_asm_jukskei_rejects_coordinate_transcription_drift(self) -> None:
+        candidate = next(c for c in self.manifest["candidates"] if c["candidate_id"] == "south-africa.jukskei-river-microbial-data.2025.v1")
+        site_a = next(site for site in candidate["spatial_coverage"]["entities"] if site["site"] == "A")
+        site_a["coordinates_decimal_degrees"]["longitude"] = 28.10273
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("source-pinned decimal conversion" in error for error in errors), errors)
+
+    def test_2025_asm_jukskei_rejects_duplicate_site_id(self) -> None:
+        candidate = next(c for c in self.manifest["candidates"] if c["candidate_id"] == "south-africa.jukskei-river-microbial-data.2025.v1")
+        candidate["spatial_coverage"]["entities"][1]["site"] = "A"
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("duplicate ASM site ID" in error for error in errors), errors)
+
     def test_university_of_pretoria_candidate_does_not_invent_license_or_period(self) -> None:
         candidate = next(c for c in self.manifest["candidates"] if c["candidate_id"] == "south-africa.up-hartbeespoort-roodeplaat-water-quality.2025.v1")
         self.assertIsNone(candidate["temporal_coverage"]["start_date"])

@@ -551,27 +551,52 @@
           {
             "site": "A",
             "context": "business district",
-            "coordinates_as_published": "26,18147°S, 28,10237°E"
+            "coordinates_as_published": "26,18147°S, 28,10237°E",
+            "coordinates_decimal_degrees": {
+              "latitude": -26.18147,
+              "longitude": 28.10237,
+              "conversion_note": "Converted from the source's comma-decimal notation; latitude south is negative and longitude east is positive. Original coordinates_as_published is retained verbatim."
+            }
           },
           {
             "site": "B",
             "context": "recreational park",
-            "coordinates_as_published": "26,16475°S, 28,13029°E"
+            "coordinates_as_published": "26,16475°S, 28,13029°E",
+            "coordinates_decimal_degrees": {
+              "latitude": -26.16475,
+              "longitude": 28.13029,
+              "conversion_note": "Converted from the source's comma-decimal notation; latitude south is negative and longitude east is positive. Original coordinates_as_published is retained verbatim."
+            }
           },
           {
             "site": "C",
             "context": "densely populated informal settlement",
-            "coordinates_as_published": "26,08208°S, 28,10873°E"
+            "coordinates_as_published": "26,08208°S, 28,10873°E",
+            "coordinates_decimal_degrees": {
+              "latitude": -26.08208,
+              "longitude": 28.10873,
+              "conversion_note": "Converted from the source's comma-decimal notation; latitude south is negative and longitude east is positive. Original coordinates_as_published is retained verbatim."
+            }
           },
           {
             "site": "D",
             "context": "residential suburb",
-            "coordinates_as_published": "26,06715°S, 28,10767°E"
+            "coordinates_as_published": "26,06715°S, 28,10767°E",
+            "coordinates_decimal_degrees": {
+              "latitude": -26.06715,
+              "longitude": 28.10767,
+              "conversion_note": "Converted from the source's comma-decimal notation; latitude south is negative and longitude east is positive. Original coordinates_as_published is retained verbatim."
+            }
           },
           {
             "site": "E",
             "context": "golf estate",
-            "coordinates_as_published": "25,98690°S, 27,99731°E"
+            "coordinates_as_published": "25,98690°S, 27,99731°E",
+            "coordinates_decimal_degrees": {
+              "latitude": -25.9869,
+              "longitude": 27.99731,
+              "conversion_note": "Converted from the source's comma-decimal notation; latitude south is negative and longitude east is positive. Original coordinates_as_published is retained verbatim."
+            }
           }
         ],
         "caveat": "Locations and coordinate formatting are copied as published. Confirm conversion and study-site identity before map plotting; spatial coverage describes the study's five sites, not the entire Jukskei catchment."
