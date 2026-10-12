@@ -433,7 +433,10 @@ fn test_pc_method_with_covariance() {
     let analyzer = ConjunctionAnalyzer::new();
     let assessment = analyzer.assess(&primary, &secondary);
 
-    // Should use Alfano 2D method when covariance available
+    // The emitted method must describe the actual approximation.
     use orbital_mechanics::conjunction::PcMethod;
-    assert_eq!(assessment.collision_probability.method, PcMethod::Alfano2D);
+    assert_eq!(
+        assessment.collision_probability.method,
+        PcMethod::GaussianSmallDiskApprox2D
+    );
 }
