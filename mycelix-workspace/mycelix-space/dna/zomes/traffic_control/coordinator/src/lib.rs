@@ -458,6 +458,52 @@ pub fn accept_proposal(input: AcceptProposalInput) -> ExternResult<ActionHash> {
     // --- Authorization: only session participants can accept proposals ---
     verify_session_participant(&input.session_id, &agent)?;
 
+    // Resolve the exact proposed entry before writing an agreement. An arbitrary
+    // ActionHash must not be accepted merely because the caller belongs to this
+    // session.
+    let proposal_record = get(input.proposal_hash.clone(), GetOptions::default())?.ok_or(
+        SpaceError::new(SpaceErrorCode::NotFound, "Maneuver proposal not found")
+            .with_context(format!("hash: {}", input.proposal_hash))
+            .into_wasm_error(),
+    )?;
+    let proposal: ManeuverProposal = proposal_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Failed to decode maneuver proposal: {:?}", e),
+            )
+            .into_wasm_error()
+        })?
+        .ok_or(
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Accepted ActionHash is not a maneuver proposal",
+            )
+            .into_wasm_error(),
+        )?;
+
+    if proposal.session_id != input.session_id {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Maneuver proposal belongs to a different negotiation session",
+        )
+        .with_context(format!(
+            "requested session: {}, proposal session: {}",
+            input.session_id, proposal.session_id
+        ))
+        .into_wasm_error());
+    }
+    if proposal.status != ProposalStatus::Pending {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Only a pending maneuver proposal can be accepted",
+        )
+        .with_context(format!("status: {:?}", proposal.status))
+        .into_wasm_error());
+    }
+
     // --- Deadline check: execution_deadline must be in the future ---
     let now = SpaceTimestamp::now();
     if now.micros >= input.execution_deadline.micros {
