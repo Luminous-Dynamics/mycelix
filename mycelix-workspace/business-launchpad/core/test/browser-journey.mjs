@@ -239,8 +239,9 @@ try {
   completedChecks.push('delayed collections coexist with explicit investing outflows and financing inflows, and export receipts preserve categories');
 
   await page.locator('#reset-cash-runway').click();
-  assert.equal(await page.locator('#cash-month-1-sales-receipts').inputValue(), '5000.00');
-  assert.equal(await page.locator('#cash-month-1-operating-outflows').inputValue(), '2400.00');
+  assert.equal(await page.locator('#cash-month-1-sales').inputValue(), '20', 'reset should follow the imported 40-unit target ramp');
+  assert.equal(await page.locator('#cash-month-1-sales-receipts').inputValue(), '4000.00');
+  assert.equal(await page.locator('#cash-month-1-operating-outflows').inputValue(), '2100.00');
   assert.equal(await page.locator('#cash-month-1-inflows').inputValue(), '0.00');
   assert.equal(await page.locator('#cash-month-1-investing-outflows').inputValue(), '0.00');
   assert.equal(await page.locator('#cash-month-1-financing-inflows').inputValue(), '0.00');
