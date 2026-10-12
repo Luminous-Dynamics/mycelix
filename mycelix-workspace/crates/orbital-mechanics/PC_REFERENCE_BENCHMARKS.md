@@ -22,11 +22,18 @@ All scalar inputs are in meters. The expected Pc values below are those asserted
 | Chan 01: x=0, y=10, σx=25, σy=50, R=5 | 9.742e-3 | 9.80198673307e-3 | 0.616% |
 | Chan 02: x=10, y=0, σx=25, σy=50, R=5 | 9.181e-3 | 9.23116346387e-3 | 0.546% |
 | Chan 03: x=0, y=10, σx=25, σy=75, R=5 | 6.571e-3 | 6.60767000326e-3 | 0.558% |
+| Chan 04: x=10, y=0, σx=25, σy=75, R=5 | 6.125e-3 | 6.15410897591e-3 | 0.475% |
+| Chan 05: x=0, y=1000, σx=1000, σy=3000, R=10 | 1.577e-5 | 1.57659911484e-5 | 0.0254% |
+| Chan 06: x=1000, y=0, σx=1000, σy=3000, R=10 | 1.011e-5 | 1.01088443285e-5 | 0.0114% |
+| Chan 07: x=0, y=10000, σx=1000, σy=3000, R=10 | 6.443e-8 | 6.44320023245e-8 | 0.00311% |
+| Chan 08: x=10000, y=0, σx=1000, σy=3000, R=10 | 3.219e-27 | 3.21458307994e-27 | 0.137% |
+| Chan 09: x=0, y=10000, σx=1000, σy=10000, R=10 | 3.033e-6 | 3.03265329856e-6 | 0.0114% |
+| Chan 10: x=10000, y=0, σx=1000, σy=10000, R=10 | 9.656e-28 | 9.64374923982e-28 | 0.127% |
 | CSM 01: x=84.875546, y=60.583685, σx=57.918666, σy=152.8814468, R=10.3 | 1.9002e-3 | 1.89257357031e-3 | 0.401% |
 | Chan 11: x=0, y=5000, σx=1000, σy=3000, R=50 | 1.039e-4 | 1.03896753657e-4 | 0.0031% |
 | Chan 12: x=5000, y=0, σx=1000, σy=3000, R=50 | 1.564e-9 | 1.55277215503e-9 | 0.718% |
 
-The unit test `selected_alfano_reference_cases_quantify_small_disk_approximation` re-computes the approximation and asserts that each selected case stays within 1% relative difference of its frozen reference value. This is a narrowly scoped regression threshold, not a statistical confidence bound.
+The unit test `selected_alfano_reference_cases_quantify_small_disk_approximation` re-computes the approximation and asserts that each selected case stays within 1% relative difference of its frozen reference value. The 13 cases cover Pc values from roughly `1e-3` to `1e-28`, but remain a small curated scalar set. This is a narrowly scoped regression threshold, not a statistical confidence bound.
 
 ## Explicit out-of-envelope case
 
