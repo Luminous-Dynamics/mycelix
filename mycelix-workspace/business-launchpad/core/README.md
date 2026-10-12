@@ -21,6 +21,15 @@ Requires Node.js 24.21.0. No dependency installation is required.
 
     npm run check
     npm test
+    npm run example
+
+To analyze your own JSON scenario:
+
+    npm run analyze -- path/to/scenario.json
+
+The CLI prints a JSON report on success. Invalid scenario data or an unreadable file exits non-zero and does not print a report. It reads only the file explicitly passed; it does not connect to other services.
+
+The bundled service example is invented arithmetic test data, not a researched local price benchmark or recommendation.
 
 ## Input example
 
