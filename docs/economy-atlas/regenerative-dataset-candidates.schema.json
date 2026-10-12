@@ -339,6 +339,10 @@
             }
           },
           "additionalProperties": false
+        },
+        "reported_availability": {
+          "type": "string",
+          "minLength": 5
         }
       },
       "allOf": [
