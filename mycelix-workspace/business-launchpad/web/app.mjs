@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { analyzeBusinessModel, compareCashRunwayScenarios, DEFAULT_CASH_SCENARIO_ASSUMPTIONS, formatMinorUnits, parseMajorToMinorUnits, projectCashRunway } from '../core/src/index.js';
+import { analyzeBusinessModel, compareCashRunwayScenarios, DEFAULT_CASH_SCENARIO_ASSUMPTIONS, DEFAULT_CASH_TIMING_SCHEDULE, formatMinorUnits, parseMajorToMinorUnits, projectCashRunway } from '../core/src/index.js';
 
 const form = document.querySelector('#model-form');
 const errorBox = document.querySelector('#input-error');
@@ -22,6 +22,7 @@ let latestCashRunwayPlan = null;
 let latestCashRunway = null;
 let latestCashScenarioAssumptions = null;
 let latestCashScenarioComparison = null;
+let latestCashTimingSchedule = null;
 
 const moneyFields = [
   ['selling-price', 'sellingPricePerUnitMinor', 'Price per sale'],
@@ -49,6 +50,7 @@ function clearResult() {
   latestCashRunway = null;
   latestCashScenarioAssumptions = null;
   latestCashScenarioComparison = null;
+  latestCashTimingSchedule = null;
   downloadReportButton.disabled = true;
 }
 
@@ -359,13 +361,13 @@ function validatedScenarioPayload(payload) {
   if (
     payload === null ||
     typeof payload !== 'object' ||
-    ![1, 2, 3, 4].includes(payload.schemaVersion) ||
+    ![1, 2, 3, 4, 5].includes(payload.schemaVersion) ||
     payload.kind !== 'business-launchpad-scenario' ||
     payload.input === null ||
     typeof payload.input !== 'object' ||
     Array.isArray(payload.input)
   ) {
-    throw new Error('This file is not a supported Business Launchpad scenario JSON file (schemaVersion 1, 2, 3 or 4 required).');
+    throw new Error('This file is not a supported Business Launchpad scenario JSON file (schemaVersion 1, 2, 3, 4 or 5 required).');
   }
 
   const result = analyzeBusinessModel(payload.input);
@@ -376,7 +378,10 @@ function validatedScenarioPayload(payload) {
     throw new Error('Version ' + payload.schemaVersion + ' scenarios must include the 12-month cash plan.');
   }
   if (payload.schemaVersion >= 4 && payload.cashScenarioAssumptions === undefined) {
-    throw new Error('Version 4 scenarios must include explicit cash stress assumptions.');
+    throw new Error('Version ' + payload.schemaVersion + ' scenarios must include explicit cash stress assumptions.');
+  }
+  if (payload.schemaVersion >= 5 && payload.cashTimingSchedule === undefined) {
+    throw new Error('Version 5 scenarios must include explicit collection and supplier-payment schedules.');
   }
   const plan = payload.cashRunwayPlan === undefined
     ? defaultCashRunwayPlan(payload.input)
@@ -384,14 +389,16 @@ function validatedScenarioPayload(payload) {
   const assumptions = payload.schemaVersion >= 4
     ? payload.cashScenarioAssumptions
     : DEFAULT_CASH_SCENARIO_ASSUMPTIONS;
-  const comparison = compareCashRunwayScenarios({ model: payload.input, monthlyPlan: plan, assumptions });
+  const timingSchedule = payload.schemaVersion >= 5 ? payload.cashTimingSchedule : DEFAULT_CASH_TIMING_SCHEDULE;
+  const comparison = compareCashRunwayScenarios({ model: payload.input, monthlyPlan: plan, assumptions, timingSchedule });
   if (!comparison.ok) {
     throw new Error('Cash scenario assumptions failed validation: ' + comparison.error.message);
   }
   return {
     input: payload.input,
     cashRunwayPlan: plan,
-    cashScenarioAssumptions: comparison.report.assumptions
+    cashScenarioAssumptions: comparison.report.assumptions,
+    cashTimingSchedule: comparison.report.timingSchedule
   };
 }
 
@@ -441,6 +448,40 @@ function readCashScenarioAssumptions() {
   };
 }
 
+function readCashTimingSchedule() {
+  const readPercent = (id, label) => {
+    const parsed = parseWholeUnits(getFieldValue(id));
+    if (!parsed.ok || parsed.value < 0 || parsed.value > 100) {
+      throw new Error(label + ' must be a whole percentage from 0 through 100.');
+    }
+    return parsed.value;
+  };
+  return {
+    salesReceiptsPercent: [
+      readPercent('timing-sales-receipts-month-0', 'Collections in sale month'),
+      readPercent('timing-sales-receipts-month-1', 'Collections next month'),
+      readPercent('timing-sales-receipts-month-2', 'Collections two months later')
+    ],
+    variableSupplierPaymentsPercent: [
+      readPercent('timing-supplier-payments-month-0', 'Supplier payments in sale/purchase month'),
+      readPercent('timing-supplier-payments-month-1', 'Supplier payments next month'),
+      readPercent('timing-supplier-payments-month-2', 'Supplier payments two months later')
+    ]
+  };
+}
+
+function applyCashTimingSchedule(schedule) {
+  const fields = [
+    ['timing-sales-receipts-month-0', schedule.salesReceiptsPercent[0]],
+    ['timing-sales-receipts-month-1', schedule.salesReceiptsPercent[1]],
+    ['timing-sales-receipts-month-2', schedule.salesReceiptsPercent[2]],
+    ['timing-supplier-payments-month-0', schedule.variableSupplierPaymentsPercent[0]],
+    ['timing-supplier-payments-month-1', schedule.variableSupplierPaymentsPercent[1]],
+    ['timing-supplier-payments-month-2', schedule.variableSupplierPaymentsPercent[2]]
+  ];
+  for (const [id, value] of fields) document.getElementById(id).value = String(value);
+}
+
 function applyCashScenarioAssumptions(assumptions) {
   const fields = [
     ['downside-receipt-reduction-percent', assumptions.downside.salesReceiptReductionPercent],
@@ -458,10 +499,11 @@ function renderCashScenarioComparison(comparison, currency) {
   section.append(element('h3', 'section-subheading', 'Downside / base / upside comparison'));
   const downside = comparison.assumptions.downside;
   const upside = comparison.assumptions.upside;
+  const timing = comparison.timingSchedule;
   section.append(element(
     'p',
     'detail',
-    'The base is your entered plan. Downside stress: sales receipts reduced ' + downside.salesReceiptReductionPercent + '%, delayed ' + downside.salesReceiptDelayMonths + ' month(s), and operating payments increased ' + downside.operatingCashOutflowIncreasePercent + '%. Upside stress: sales receipts increased ' + upside.salesReceiptIncreasePercent + '%, later receipts advanced ' + upside.salesReceiptAdvanceMonths + ' month(s), and operating payments reduced ' + upside.operatingCashOutflowReductionPercent + '%. These owner-editable defaults are illustrative, not benchmarks or probabilities. A negative or below-reserve result is an early-warning signal to review, not an automatic business decision.'
+    'The base is your entered plan. Downside stress: sales receipts reduced ' + downside.salesReceiptReductionPercent + '%, delayed ' + downside.salesReceiptDelayMonths + ' month(s), and operating payments increased ' + downside.operatingCashOutflowIncreasePercent + '%. Upside stress: sales receipts increased ' + upside.salesReceiptIncreasePercent + '%, later receipts advanced ' + upside.salesReceiptAdvanceMonths + ' month(s), and operating payments reduced ' + upside.operatingCashOutflowReductionPercent + '%. Terms-based timing schedules customer collections ' + timing.salesReceiptsPercent.join(' / ') + '% across sale month, +1 month and +2 months; variable supplier payments use ' + timing.variableSupplierPaymentsPercent.join(' / ') + '% across the same offsets. Fixed monthly costs remain due in their originating month. These owner-editable values are illustrative, not benchmarks or probabilities. A negative or below-reserve result is an early-warning signal to review, not an automatic business decision.'
   ));
 
   const scroll = element('div', 'cash-plan-scroll');
@@ -479,7 +521,8 @@ function renderCashScenarioComparison(comparison, currency) {
     'First reserve breach',
     'First negative balance',
     'Extra cash to maintain reserve',
-    'Receipts delayed beyond horizon'
+    'Receipts delayed beyond horizon',
+    'Supplier payments after horizon'
   ]) {
     const th = element('th', '', label);
     th.setAttribute('scope', 'col');
@@ -508,6 +551,8 @@ function renderCashScenarioComparison(comparison, currency) {
       formatMinorUnits(summary.additionalCashNeededToMaintainReserveMinor, currency)));
     row.append(element('td', scenario.deferredSalesCashReceiptsAfterHorizonMinor > 0 ? 'negative' : '',
       formatMinorUnits(scenario.deferredSalesCashReceiptsAfterHorizonMinor, currency)));
+    row.append(element('td', scenario.deferredVariableSupplierPaymentsAfterHorizonMinor > 0 ? 'negative' : '',
+      formatMinorUnits(scenario.deferredVariableSupplierPaymentsAfterHorizonMinor, currency)));
     body.append(row);
   }
   table.append(body);
@@ -698,6 +743,7 @@ form.addEventListener('submit', event => {
     }
     const cashRunwayPlan = readCashRunwayPlan(model.currency);
     const cashScenarioAssumptions = readCashScenarioAssumptions();
+    const cashTimingSchedule = readCashTimingSchedule();
     const cashRunwayResult = projectCashRunway({ model, monthlyPlan: cashRunwayPlan });
     if (!cashRunwayResult.ok) {
       showError(cashRunwayResult.error.field
@@ -705,7 +751,7 @@ form.addEventListener('submit', event => {
         : cashRunwayResult.error.message);
       return;
     }
-    const comparison = compareCashRunwayScenarios({ model, monthlyPlan: cashRunwayPlan, assumptions: cashScenarioAssumptions });
+    const comparison = compareCashRunwayScenarios({ model, monthlyPlan: cashRunwayPlan, assumptions: cashScenarioAssumptions, timingSchedule: cashTimingSchedule });
     if (!comparison.ok) {
       showError(comparison.error.field
         ? comparison.error.message + ' (field: ' + comparison.error.field + ')'
@@ -718,6 +764,7 @@ form.addEventListener('submit', event => {
     latestCashRunway = cashRunwayResult.report;
     latestCashScenarioAssumptions = comparison.report.assumptions;
     latestCashScenarioComparison = comparison.report;
+    latestCashTimingSchedule = comparison.report.timingSchedule;
     renderReport(result.report, cashRunwayResult.report, comparison.report);
     downloadReportButton.disabled = false;
   } catch (error) {
@@ -733,16 +780,18 @@ downloadScenarioButton.addEventListener('click', () => {
     if (!result.ok) throw new Error(result.error.message);
     const cashRunwayPlan = readCashRunwayPlan(model.currency);
     const cashScenarioAssumptions = readCashScenarioAssumptions();
+    const cashTimingSchedule = readCashTimingSchedule();
     const cashRunwayResult = projectCashRunway({ model, monthlyPlan: cashRunwayPlan });
     if (!cashRunwayResult.ok) throw new Error(cashRunwayResult.error.message);
-    const comparison = compareCashRunwayScenarios({ model, monthlyPlan: cashRunwayPlan, assumptions: cashScenarioAssumptions });
+    const comparison = compareCashRunwayScenarios({ model, monthlyPlan: cashRunwayPlan, assumptions: cashScenarioAssumptions, timingSchedule: cashTimingSchedule });
     if (!comparison.ok) throw new Error(comparison.error.message);
-    downloadJson('business-launchpad-scenario-v4.json', {
-      schemaVersion: 4,
+    downloadJson('business-launchpad-scenario-v5.json', {
+      schemaVersion: 5,
       kind: 'business-launchpad-scenario',
       input: model,
       cashRunwayPlan,
-      cashScenarioAssumptions: comparison.report.assumptions
+      cashScenarioAssumptions: comparison.report.assumptions,
+      cashTimingSchedule: comparison.report.timingSchedule
     });
   } catch (error) {
     showError(error instanceof Error ? error.message : 'Scenario could not be exported.');
@@ -750,20 +799,21 @@ downloadScenarioButton.addEventListener('click', () => {
 });
 
 downloadReportButton.addEventListener('click', () => {
-  if (!latestModel || !latestReport || !latestCashRunwayPlan || !latestCashRunway || !latestCashScenarioAssumptions || !latestCashScenarioComparison || downloadReportButton.disabled) {
+  if (!latestModel || !latestReport || !latestCashRunwayPlan || !latestCashRunway || !latestCashScenarioAssumptions || !latestCashScenarioComparison || !latestCashTimingSchedule || downloadReportButton.disabled) {
     showError('Calculate the current inputs before downloading the report.');
     return;
   }
   hideError();
   try {
-    downloadJson('business-launchpad-report-v4.json', {
-      schemaVersion: 4,
+    downloadJson('business-launchpad-report-v5.json', {
+      schemaVersion: 5,
       kind: 'business-launchpad-report',
       input: latestModel,
       report: latestReport,
       cashRunwayPlan: latestCashRunwayPlan,
       cashRunwayProjection: latestCashRunway,
       cashScenarioAssumptions: latestCashScenarioAssumptions,
+      cashTimingSchedule: latestCashTimingSchedule,
       cashScenarioComparison: latestCashScenarioComparison
     });
   } catch (error) {
@@ -784,6 +834,7 @@ loadScenarioInput.addEventListener('change', async event => {
     applyModelToForm(scenario.input);
     renderCashRunwayInputs(scenario.cashRunwayPlan, scenario.input.currency);
     applyCashScenarioAssumptions(scenario.cashScenarioAssumptions);
+    applyCashTimingSchedule(scenario.cashTimingSchedule);
     clearResult();
     resultStatus.textContent = 'Scenario loaded — calculate to review';
     resultStatus.className = 'status-pill status-muted';
@@ -817,5 +868,5 @@ resetCashRunwayButton.addEventListener('click', () => {
   }
 });
 
-try { const initialModel = readModel(); renderCashRunwayInputs(defaultCashRunwayPlan(initialModel), initialModel.currency); applyCashScenarioAssumptions(DEFAULT_CASH_SCENARIO_ASSUMPTIONS); } catch { /* show validation only when the owner requests a calculation */ }
+try { const initialModel = readModel(); renderCashRunwayInputs(defaultCashRunwayPlan(initialModel), initialModel.currency); applyCashScenarioAssumptions(DEFAULT_CASH_SCENARIO_ASSUMPTIONS); applyCashTimingSchedule(DEFAULT_CASH_TIMING_SCHEDULE); } catch { /* show validation only when the owner requests a calculation */ }
 syncCoverageInput();
