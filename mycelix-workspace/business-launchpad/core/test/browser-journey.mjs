@@ -220,6 +220,7 @@ try {
   assert.equal(await monthOneCells.nth(1).innerText(), 'ZAR 0.00', 'Month 1 sales activity does not force same-month cash collection');
   assert.equal(await monthOneCells.nth(2).innerText(), 'ZAR 900.00', 'Month 1 operating payments are explicit');
   assert.equal(await monthTwoCells.nth(1).innerText(), 'ZAR 5000.00', 'a later month may contain the delayed collection');
+  await page.screenshot({ path: resolve(evidenceDir, '03-cash-runway-delayed-receipts.png'), fullPage: true });
   completedChecks.push('cash receipts can move independently of activity units and monthly operating payments');
 
   await page.locator('#selling-price').fill('201.00');
@@ -262,7 +263,7 @@ try {
     mobileLayout.documentScrollWidth <= mobileLayout.viewportWidth,
     'mobile layout should not require horizontal scrolling: ' + JSON.stringify(mobileLayout)
   );
-  await page.screenshot({ path: resolve(evidenceDir, '03-mobile-calculation.png'), fullPage: true });
+  await page.screenshot({ path: resolve(evidenceDir, '04-mobile-calculation.png'), fullPage: true });
   completedChecks.push('390px viewport renders a calculation without horizontal page overflow');
 
   assert.deepEqual(pageErrors, [], 'browser runtime should not emit uncaught page or console errors');
@@ -278,7 +279,8 @@ try {
     screenshots: [
       '01-keyboard-validation-error.png',
       '02-keyboard-calculation-result.png',
-      '03-mobile-calculation.png'
+      '03-cash-runway-delayed-receipts.png',
+      '04-mobile-calculation.png'
     ],
     limits: [
       'One Chromium version only; cross-browser compatibility is not established.',
