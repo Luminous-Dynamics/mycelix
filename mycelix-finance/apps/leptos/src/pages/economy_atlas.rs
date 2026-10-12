@@ -15,6 +15,8 @@ const REGISTRY_JSON: &str =
     include_str!("../../../../../docs/economy-atlas/model-registry.v1.json");
 const INDICATOR_CATALOG_JSON: &str =
     include_str!("../../../../../docs/economy-atlas/regenerative-indicators.v1.json");
+const DATASET_CANDIDATES_JSON: &str =
+    include_str!("../../../../../docs/economy-atlas/regenerative-dataset-candidates.v1.json");
 
 #[derive(Clone, Debug, Deserialize)]
 struct AtlasRegistry {
@@ -131,6 +133,87 @@ struct AtlasRegenerativeIndicator {
     status: String,
     observations_loaded: bool,
     computed: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasDatasetCandidateCatalog {
+    catalog_status: String,
+    qualification: AtlasDatasetQualification,
+    candidates: Vec<AtlasDatasetCandidate>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasDatasetQualification {
+    source_artifacts_downloaded: bool,
+    real_observations_imported: bool,
+    candidate_ingestion_gates_passed: bool,
+    dataset_rights_independently_verified: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasDatasetCandidate {
+    candidate_id: String,
+    title: String,
+    publisher: String,
+    dataset_url: String,
+    related_indicator_ids: Vec<String>,
+    discovery_status: String,
+    temporal_coverage: AtlasDatasetTemporalCoverage,
+    spatial_coverage: AtlasDatasetSpatialCoverage,
+    reported_measures: Vec<AtlasDatasetReportedMeasure>,
+    reported_data_shape: BTreeMap<String, Value>,
+    license_assessment: AtlasDatasetLicenseAssessment,
+    ingestion_gate: AtlasDatasetIngestionGate,
+    suitability: AtlasDatasetSuitability,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasDatasetTemporalCoverage {
+    start_date: Option<String>,
+    end_date: Option<String>,
+    basis: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasDatasetSpatialCoverage {
+    geography: String,
+    entities: Vec<Value>,
+    caveat: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasDatasetReportedMeasure {
+    name: String,
+    native_unit: String,
+    method_summary: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasDatasetLicenseAssessment {
+    license_status: String,
+    displayed_access_status: String,
+    declared_file_license: Option<String>,
+    commercial_reuse: String,
+    redistribution: String,
+    modification: String,
+    evidence_urls: Vec<String>,
+    assessment_note: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasDatasetIngestionGate {
+    status: String,
+    ingestion_authorized: bool,
+    values_imported: bool,
+    reason_codes: Vec<String>,
+    required_evidence: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasDatasetSuitability {
+    best_initial_use: String,
+    not_suitable_for: String,
+    next_action: String,
 }
 
 fn evidence_label(status: &str) -> &'static str {
@@ -403,6 +486,113 @@ fn render_regenerative_indicator_card(
     }
 }
 
+
+fn render_dataset_candidate_card(candidate: AtlasDatasetCandidate) -> impl IntoView {
+    let candidate_id = candidate.candidate_id;
+    let title = candidate.title;
+    let publisher = candidate.publisher;
+    let url = candidate.dataset_url;
+    let status = candidate.discovery_status.replace('_', " ");
+    let indicator_ids = candidate.related_indicator_ids.join(" · ");
+    let start = candidate.temporal_coverage.start_date.unwrap_or_else(|| "unknown start".to_string());
+    let end = candidate.temporal_coverage.end_date.unwrap_or_else(|| "unknown end".to_string());
+    let temporal_basis = candidate.temporal_coverage.basis;
+    let geography = candidate.spatial_coverage.geography;
+    let spatial_caveat = candidate.spatial_coverage.caveat;
+    let entities = candidate.spatial_coverage.entities.into_iter().map(|entity| {
+        let label = display_registry_value(&entity);
+        view! { <li>{label}</li> }
+    }).collect_view();
+    let measures = candidate.reported_measures.into_iter().map(|measure| {
+        view! {
+            <li>
+                <strong>{measure.name}</strong>
+                <span>{format!(" · Native unit: {}", measure.native_unit)}</span>
+                <p>{measure.method_summary}</p>
+            </li>
+        }
+    }).collect_view();
+    let shape = serde_json::to_string_pretty(&Value::Object(
+        candidate.reported_data_shape.into_iter().collect()
+    )).unwrap_or_else(|error| format!("Reported metadata could not be formatted: {error}"));
+    let license_status = candidate.license_assessment.license_status.replace('_', " ");
+    let access_status = candidate.license_assessment.displayed_access_status;
+    let declared_license = candidate.license_assessment.declared_file_license
+        .unwrap_or_else(|| "Not explicitly displayed".to_string());
+    let commercial_reuse = candidate.license_assessment.commercial_reuse.replace('_', " ");
+    let redistribution = candidate.license_assessment.redistribution.replace('_', " ");
+    let modification = candidate.license_assessment.modification.replace('_', " ");
+    let license_note = candidate.license_assessment.assessment_note;
+    let evidence_links = candidate.license_assessment.evidence_urls.into_iter().map(|evidence_url| {
+        let label = evidence_url.clone();
+        view! {
+            <li><a href={evidence_url} target="_blank" rel="noopener noreferrer">{label}</a></li>
+        }
+    }).collect_view();
+    let gate_status = candidate.ingestion_gate.status;
+    let ingestion_authorized = candidate.ingestion_gate.ingestion_authorized;
+    let values_imported = candidate.ingestion_gate.values_imported;
+    let reason_codes = candidate.ingestion_gate.reason_codes.into_iter().map(|reason| {
+        view! { <li>{reason.replace('_', " ")}</li> }
+    }).collect_view();
+    let required_evidence = candidate.ingestion_gate.required_evidence.into_iter().map(|item| {
+        view! { <li>{item}</li> }
+    }).collect_view();
+    let best_use = candidate.suitability.best_initial_use;
+    let excluded_use = candidate.suitability.not_suitable_for;
+    let next_action = candidate.suitability.next_action;
+
+    view! {
+        <article class="dash-card atlas-dataset-card">
+            <div class="atlas-card-top">
+                <span class="badge atlas-evidence-unknown">"Import blocked"</span>
+                <span class="atlas-domain">{status}</span>
+            </div>
+            <h3>{title}</h3>
+            <p class="atlas-model-id">{candidate_id}</p>
+            <p class="atlas-research-meta">{publisher}</p>
+            <p>{access_status}</p>
+            <p class="atlas-model-id">{format!("Related indicator: {indicator_ids}")}</p>
+            <p><strong>"Source record: "</strong><a href={url} target="_blank" rel="noopener noreferrer">"Open source record"</a></p>
+            <details>
+                <summary>"Rights, coverage and ingestion gate"</summary>
+                <p><strong>"Declared file license: "</strong>{declared_license}</p>
+                <p><strong>"License review status: "</strong>{license_status}</p>
+                <p><strong>"Commercial reuse: "</strong>{commercial_reuse}</p>
+                <p><strong>"Redistribution: "</strong>{redistribution}</p>
+                <p><strong>"Modification: "</strong>{modification}</p>
+                <p>{license_note}</p>
+                <h4>"Temporal coverage (reported)"</h4>
+                <p>{format!("{start} to {end}")}</p>
+                <p>{temporal_basis}</p>
+                <h4>"Spatial coverage (reported)"</h4>
+                <p>{geography}</p>
+                <p>{spatial_caveat}</p>
+                <ul>{entities}</ul>
+                <h4>"Reported measures"</h4>
+                <ul>{measures}</ul>
+                <h4>"Reported data shape"</h4>
+                <pre>{shape}</pre>
+                <h4>"Rights evidence links"</h4>
+                <ul>{evidence_links}</ul>
+                <h4>"Ingestion gate"</h4>
+                <p>{format!("Status: {gate_status}. Authorized: {ingestion_authorized}. Values imported: {values_imported}.")}</p>
+                <h4>"Blocking reasons"</h4>
+                <ul>{reason_codes}</ul>
+                <h4>"Evidence needed before import"</h4>
+                <ul>{required_evidence}</ul>
+                <h4>"Scope and next step"</h4>
+                <p><strong>"Potential use: "</strong>{best_use}</p>
+                <p><strong>"Not suitable for: "</strong>{excluded_use}</p>
+                <p><strong>"Next action: "</strong>{next_action}</p>
+                <p class="atlas-disclaimer">
+                    "This is a discovery record, not legal advice or evidence that any source file has been authenticated. No values are imported by this catalog."
+                </p>
+            </details>
+        </article>
+    }
+}
+
 #[component]
 pub fn EconomyAtlasPage() -> impl IntoView {
     let registry = match serde_json::from_str::<AtlasRegistry>(REGISTRY_JSON) {
@@ -436,6 +626,28 @@ pub fn EconomyAtlasPage() -> impl IntoView {
             .into_any();
         }
     };
+    let dataset_candidate_catalog = match serde_json::from_str::<AtlasDatasetCandidateCatalog>(DATASET_CANDIDATES_JSON) {
+        Ok(catalog) => catalog,
+        Err(error) => {
+            return view! {
+                <section class="page-economy-atlas" role="alert">
+                    <h1>"Regenerative dataset catalog unavailable"</h1>
+                    <p class="subtitle">
+                        "The checked-in dataset catalog could not be read. No source data or fallback records were substituted."
+                    </p>
+                    <pre>{error.to_string()}</pre>
+                </section>
+            }
+            .into_any();
+        }
+    };
+    let dataset_candidate_count = dataset_candidate_catalog.candidates.len();
+    let dataset_catalog_status = dataset_candidate_catalog.catalog_status;
+    let dataset_qualification = dataset_candidate_catalog.qualification;
+    let dataset_candidate_cards = dataset_candidate_catalog.candidates
+        .into_iter()
+        .map(render_dataset_candidate_card)
+        .collect_view();
     let indicator_count = indicator_catalog.indicators.len();
     let indicator_references = indicator_catalog.research_refs.clone();
     let indicator_cards = indicator_catalog.indicators
@@ -616,6 +828,30 @@ pub fn EconomyAtlasPage() -> impl IntoView {
                 </div>
             </section>
 
+            <section class="atlas-indicators-section" aria-labelledby="regenerative-dataset-candidates-heading">
+                <div class="dash-card">
+                    <h2 id="regenerative-dataset-candidates-heading">"Dataset candidates and rights gates"</h2>
+                    <p class="subtitle">
+                        {format!("{} data-source candidates · catalog status: {}", dataset_candidate_count, dataset_catalog_status.replace('_', " "))}
+                    </p>
+                    <p>
+                        "Dataset access is not the same as reuse permission. Every candidate remains blocked until rights, coverage, data dictionary and source-file provenance have been reviewed."
+                    </p>
+                    <p class="atlas-indicator-qualification">
+                        {format!(
+                            "Source artifacts downloaded: {} · Real observations imported: {} · Ingestion gates passed: {} · Dataset rights independently verified: {}",
+                            dataset_qualification.source_artifacts_downloaded,
+                            dataset_qualification.real_observations_imported,
+                            dataset_qualification.candidate_ingestion_gates_passed,
+                            dataset_qualification.dataset_rights_independently_verified
+                        )}
+                    </p>
+                </div>
+                <div class="dashboard-grid atlas-dataset-grid">
+                    {dataset_candidate_cards}
+                </div>
+            </section>
+
             <div class="dash-card" style="margin-top: 1rem;">
                 <h2>"Comparison rules"</h2>
                 <ul>
@@ -643,6 +879,40 @@ mod tests {
     fn indicator_catalog() -> AtlasIndicatorCatalog {
         serde_json::from_str(INDICATOR_CATALOG_JSON)
             .expect("checked-in regenerative indicator catalog must parse")
+    }
+
+    fn dataset_candidate_catalog() -> AtlasDatasetCandidateCatalog {
+        serde_json::from_str(DATASET_CANDIDATES_JSON)
+            .expect("checked-in dataset candidate catalog must parse")
+    }
+
+    #[test]
+    fn dataset_candidate_catalog_is_discovery_only_and_fail_closed() {
+        let catalog = dataset_candidate_catalog();
+        assert_eq!(catalog.catalog_status, "source_discovery_only");
+        assert_eq!(catalog.candidates.len(), 3);
+        assert!(!catalog.qualification.source_artifacts_downloaded);
+        assert!(!catalog.qualification.real_observations_imported);
+        assert!(!catalog.qualification.candidate_ingestion_gates_passed);
+        assert!(!catalog.qualification.dataset_rights_independently_verified);
+        let ids = catalog.candidates.iter().map(|candidate| candidate.candidate_id.as_str()).collect::<HashSet<_>>();
+        assert_eq!(ids.len(), catalog.candidates.len());
+        let indicator_catalog = indicator_catalog();
+        let indicator_ids = indicator_catalog.indicators.iter().map(|indicator| indicator.indicator_id.as_str()).collect::<HashSet<_>>();
+        let mut statuses = HashSet::new();
+        for candidate in &catalog.candidates {
+            assert!(candidate.dataset_url.starts_with("https://"));
+            assert!(candidate.related_indicator_ids.iter().all(|id| indicator_ids.contains(id.as_str())));
+            assert_eq!(candidate.ingestion_gate.status, "blocked");
+            assert!(!candidate.ingestion_gate.ingestion_authorized);
+            assert!(!candidate.ingestion_gate.values_imported);
+            assert!(!candidate.ingestion_gate.required_evidence.is_empty());
+            assert!(!candidate.license_assessment.evidence_urls.is_empty());
+            statuses.insert(candidate.discovery_status.as_str());
+        }
+        assert!(statuses.contains("license_not_verified"));
+        assert!(statuses.contains("license_metadata_conflict"));
+        assert!(statuses.contains("restricted_noncommercial_use"));
     }
 
     #[test]
