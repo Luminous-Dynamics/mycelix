@@ -31,9 +31,9 @@ An isolated calculator module lives at [`mycelix-workspace/business-launchpad/co
 - explicit partial-cost coverage and named omissions;
 - safe-integer/overflow rejection and deterministic amount formatting.
 
-It has synthetic service, food and retail fixtures in `test/fixtures/business-scenarios.v1.json`. Their numbers are deliberately illustrative, not researched local prices or recommendations.
+It has synthetic service, food and retail fixtures in `test/fixtures/business-scenarios.v1.json`, plus a local JSON CLI in `src/cli.js` and illustrative input in `examples/service-home-cleaning.json`. Run `npm run example` to print the report or `npm run analyze -- path/to/file.json` to supply another input. The CLI remains a local calculator, not a hosted business tool. Fixture/example values are illustrative, not researched local prices or recommendations.
 
-The local scratch checkout passed `node --check src/index.js` and `node --test`: **19 assertions/subtests passed** on Node v22.16.0. This is local evidence for the equivalent source/fixture set, **not** a claim that the committed branch's pinned Node 24.21.0 workflow has passed. The custom GitHub Actions run must finish against the exact head SHA before claiming exact-head CI evidence. The core has no UI, persistent database, production integration, legal rules, external payment processing, POS or accounting adapter.
+The temporary scratch checkout ran `npm run check`, `npm test`, and the direct CLI example: **19 tests/subtests passed** on Node v22.16.0, and the example printed the expected JSON fields. Important precision: these scratch files are not byte-identical to the current GitHub branch files (local source blob `f5263d53b50d1faaed5d201ecbac035eb54632c4` versus branch source blob `64af1a92cc8714280828f084e4c171b811db611d`; local test blob `ace4eaa3e42adc40c7d71509fd61e59a1913357f` versus branch test blob `0085f820ad890c2775468a2c40fa8bd56869fbcf`). Treat the local run as algorithm/fixture smoke evidence only, **not exact-commit verification**. The pinned Node 24.21.0 GitHub Actions workflow must pass against the current exact head before the claim ceiling rises. The core has no UI, persistent database, production integration, legal rules, external payment processing, POS or accounting adapter.
 
 ## 2. Test classes and evidence levels
 
