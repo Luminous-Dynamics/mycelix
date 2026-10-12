@@ -549,7 +549,7 @@ pub fn screen_catalog(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::covariance::{CovarianceFrame, CovarianceMatrix};
+    use crate::covariance::{CovarianceFrame, CovarianceMatrix, CovarianceSource};
     use crate::state::ReferenceFrame;
     use nalgebra::Matrix6;
 
