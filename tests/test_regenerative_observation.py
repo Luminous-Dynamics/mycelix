@@ -24,6 +24,9 @@ def fixture_record() -> dict:
         "qualification_status": "unreviewed_source_observation",
         "indicator_id": "soil.organic-carbon-stock.v1",
         "indicator_catalog_sha256": TEST_DIGEST,
+        "indicator_native_unit_contract": "tonnes of carbon per hectare for a stated depth (t C/ha, depth specified)",
+        "unit_mapping_note": "Synthetic test unit is an illustrative depth-qualified choice under the catalog's native-unit contract.",
+        "denominator_contract_note": "The synthetic plot/soil-depth denominator maps to the indicator's stated area-and-depth contract.",
         "observation_status": "observed",
         "source": {
             "publisher": "Synthetic Test Publisher",
@@ -56,6 +59,7 @@ def fixture_record() -> dict:
             "version": "1",
             "description": "Synthetic no-op transformation for tests",
             "parameters": {},
+            "output_unit": "t C/ha, sampled depth 0-30 cm (synthetic test unit)",
             "input_sha256": TEST_DIGEST
         },
         "coverage": {
@@ -92,6 +96,15 @@ class RegenerativeObservationReceiptTests(unittest.TestCase):
         self.record["indicator_id"] = "not.registered"
         errors = validate_observation(self.record, self.catalog)
         self.assertTrue(any("not present in the candidate catalog" in error for error in errors), errors)
+
+    def test_catalog_digest_must_match_when_expected_digest_is_supplied(self) -> None:
+        errors = validate_observation(self.record, self.catalog, expected_catalog_sha256="b" * 64)
+        self.assertTrue(any("does not match the checked-in catalog bytes" in error for error in errors), errors)
+
+    def test_identity_transform_input_digest_must_match_source_artifact(self) -> None:
+        self.record["transformation"]["input_sha256"] = "b" * 64
+        errors = validate_observation(self.record, self.catalog)
+        self.assertTrue(any("identity transformation input_sha256 must match" in error for error in errors), errors)
 
     def test_source_artifact_digest_is_required(self) -> None:
         self.record["source"]["artifact_sha256"] = "not-a-digest"
