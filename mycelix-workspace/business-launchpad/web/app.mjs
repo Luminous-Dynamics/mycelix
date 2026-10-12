@@ -162,7 +162,7 @@ function renderCashRunwayInputs(plan, currency) {
     salesInput.inputMode = 'numeric';
     salesInput.autocomplete = 'off';
     salesInput.value = String(period.salesUnits);
-    salesInput.setAttribute('aria-label', 'Month ' + month + ' expected sales units');
+    salesInput.setAttribute('aria-label', 'Month ' + month + ' sales units assumed paid in the same month');
     const salesCell = element('td');
     salesCell.append(salesInput);
     row.append(salesCell);
@@ -344,7 +344,7 @@ function renderCashRunwayReport(runway) {
   const table = element('table', 'cash-projection-table');
   const thead = element('thead');
   const headerRow = element('tr');
-  for (const label of ['Period', 'Expected sales units', 'Net cash change', 'Closing cash', 'Reserve status']) {
+  for (const label of ['Period', 'Sales units paid in month', 'Net cash change', 'Closing cash', 'Reserve status']) {
     const heading = element('th', '', label);
     heading.setAttribute('scope', 'col');
     headerRow.append(heading);
