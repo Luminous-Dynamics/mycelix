@@ -171,6 +171,8 @@ pub enum ConjunctionAssessmentError {
         primary: ReferenceFrame,
         secondary: ReferenceFrame,
     },
+    #[error("reference-frame label {frame:?} is too generic for checked assessment; provide a qualified frame realization or use TEME")]
+    UnsupportedFrameConvention { frame: ReferenceFrame },
     #[error("{object} state contains a non-finite position or velocity component")]
     NonFiniteState { object: &'static str },
     #[error("{object} state has no covariance; checked assessment will not synthesize one")]
@@ -297,6 +299,16 @@ impl ConjunctionAnalyzer {
                 secondary: secondary.frame,
             });
         }
+        // ReferenceFrame::ECI is a generic label without a realization, origin,
+        // orientation, or epoch convention. Equal generic labels alone do not
+        // establish coordinate compatibility. Until OrbitalState carries a
+        // qualified frame identity, this checked path accepts only the explicit
+        // TEME convention used by the current SGP4/TLE propagator.
+        if primary.frame != ReferenceFrame::TEME {
+            return Err(ConjunctionAssessmentError::UnsupportedFrameConvention {
+                frame: primary.frame,
+            });
+        }
 
         if !primary.state.to_array().iter().all(|value| value.is_finite()) {
             return Err(ConjunctionAssessmentError::NonFiniteState { object: "primary" });
@@ -408,7 +420,6 @@ impl ConjunctionAnalyzer {
         let frame_matches = matches!(
             (state.frame, covariance.frame),
             (ReferenceFrame::TEME, CovarianceFrame::TEME)
-                | (ReferenceFrame::ECI, CovarianceFrame::ECI)
         );
         if !frame_matches {
             return Err(ConjunctionAssessmentError::CovarianceFrameMismatch {
@@ -668,6 +679,24 @@ mod tests {
         assert_eq!(
             ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
             ConjunctionAssessmentError::EpochMismatch
+        );
+    }
+
+    #[test]
+    fn checked_assessment_rejects_unqualified_generic_eci_frame() {
+        let epoch = Utc::now();
+        let mut primary = checked_test_state(25544, epoch);
+        let mut secondary = checked_test_state(12345, epoch);
+        primary.frame = ReferenceFrame::ECI;
+        secondary.frame = ReferenceFrame::ECI;
+        primary.covariance.as_mut().unwrap().frame = CovarianceFrame::ECI;
+        secondary.covariance.as_mut().unwrap().frame = CovarianceFrame::ECI;
+
+        assert_eq!(
+            ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
+            ConjunctionAssessmentError::UnsupportedFrameConvention {
+                frame: ReferenceFrame::ECI
+            }
         );
     }
 
