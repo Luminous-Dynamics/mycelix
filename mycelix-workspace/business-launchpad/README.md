@@ -29,16 +29,18 @@ The CLI reads only the path you provide and emits a JSON report, or returns a no
 
 ## What is implemented
 
-- Single-offer unit contribution and one-month scenario arithmetic.
+- Single-offer unit contribution and one-month scenario arithmetic; define one unit consistently (for example, one cleaning job, one meal, or one retail item).
 - Upward-rounded break-even volume, or explicit unreachable status when contribution is not positive.
-- Setup cash + working-capital buffer and simple startup funding gap.
+- Setup cash + owner-entered working-capital buffer and the gap against available startup cash. This is not a cash-runway estimate for slow sales or operating losses.
 - Exact decimal-text parsing into integer minor units; no binary floating-point amount rounding.
 - Explicit partial-cost declaration and named omissions.
 - Synthetic service, food and retail test fixtures.
 - Static browser inputs/results and portable scenario/report JSON export/import.
 
+For the separate Chromium journey and its isolated locked test dependency, see [`core/README.md`](core/README.md). The browser workflow is the canonical exact-head run; do not treat a local smoke run or source-level accessibility guard as full browser/accessibility qualification.
+
 ## What is not implemented
 
 There is no account system, durable database, multi-user tenancy, full general ledger, inventory/POS, payment processor, external accounting integration, tax or regulatory rule engine, Symthaea forecasting integration, or Mycelix Marketplace/Finance integration. The calculations are not tax/legal advice, a net-profit statement, a demand forecast, an underwriting decision, or a promise that a business will succeed.
 
-Example inputs are fictional. Replace them with current supplier quotes, credible demand information, all applicable costs, and authoritative local requirements before using a result to make a financial commitment.
+Example inputs are fictional. The calculation assumes one average-priced offer and one month of sales; it does not model offer mix, inventory-specific costing, capacity constraints, or multi-period cash flow. Replace example inputs with current supplier quotes, credible demand information, all applicable costs, and authoritative local requirements before using a result to make a financial commitment.
