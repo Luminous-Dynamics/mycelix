@@ -145,6 +145,10 @@ Send the body bytes unchanged. Convey the digest as authenticated transport meta
 
 The request intentionally does not include learner identity, raw answer history, demographics, or inferred affect. The eligible reason codes are the trusted evidence projection available for the current turn; the builder is a serialization and scoping boundary, not itself the authority that determines which evidence is true.
 
+### Native entropy and the workspace's `getrandom/custom` feature
+
+The Praxis workspace enables `getrandom` 0.2's `custom` feature for unsupported-target/WASM compatibility. In the reviewed `getrandom` 0.2.17 implementation, the custom registration mechanism affects targets that otherwise lack a supported backend; supported OS targets continue to use their normal secure platform implementation. See the [pinned 0.2.17 source documentation](https://github.com/rust-random/getrandom/blob/v0.2.17/src/lib.rs#L55-L75) and [custom-implementation notes](https://github.com/rust-random/getrandom/blob/v0.2.17/src/lib.rs#L160-L177). Because the Praxis workspace constraint is `version = "0.2"` rather than an exact patch pin, the resolved version must still be reviewed as part of lockfile/build qualification. The adapter fails closed if the entropy call returns an error; this is not a substitute for running the exact native build and test suite.
+
 The response contract uses a finite action and reason vocabulary instead of allowing model-generated free text to control system behavior. When an explanation is needed, retrieve from reviewed curriculum sources, show provenance, and continue to treat generated prose as unverified until independently checked.
 
 ## Suggested interaction loop
