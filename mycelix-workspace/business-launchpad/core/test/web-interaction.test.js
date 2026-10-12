@@ -260,6 +260,7 @@ test('invalid cash runway plan is rejected before imported base inputs are appli
   const originalPrice = documentMock.getElementById('selling-price').value;
   documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
   const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 1;
   payload.input.sellingPricePerUnitMinor = 50_000;
   payload.cashRunwayPlan = Array.from({ length: 12 }, (_, index) => ({
     salesUnits: index === 0 ? -1 : 25,
@@ -275,6 +276,27 @@ test('invalid cash runway plan is rejected before imported base inputs are appli
   assert.equal(documentMock.getElementById('download-report').disabled, true);
   assert.equal(documentMock.getElementById('input-error').hidden, false);
   assert.match(documentMock.getElementById('input-error').textContent, /Cash runway Month 1 contains an invalid amount or sales quantity/);
+});
+
+test('schema-v2 cash plan rejects missing explicit cash timing fields', async () => {
+  documentMock.reset();
+  const originalPrice = documentMock.getElementById('selling-price').value;
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.cashRunwayPlan[0] = {
+    salesUnits: 25,
+    otherCashInflowsMinor: 0,
+    otherCashOutflowsMinor: 0
+  };
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('selling-price').value, originalPrice);
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /Version 2 cash runway Month 1 must include sales cash receipts and operating cash outflows/);
 });
 
 test('legacy version-1 cash plan periods derive missing cash timing fields safely', async () => {
