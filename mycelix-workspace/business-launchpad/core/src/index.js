@@ -211,3 +211,43 @@ export function formatMinorUnits(amountMinor, currency) {
     : '.' + remainder.toString().padStart(currency.minorUnitExponent, '0');
   return currency.code + ' ' + (negative ? '-' : '') + whole.toString() + suffix;
 }
+
+
+/**
+ * Parse a non-negative major-unit decimal string into exact integer minor units.
+ * Designed for text input; never round a binary floating-point number.
+ *
+ * @param {string} value Decimal text such as "123.45".
+ * @param {number} minorUnitExponent Number of fractional digits for the chosen currency.
+ * @returns {{ok: true, amountMinor: number} | {ok: false, error: {code: string, message: string, field: string|null}}}
+ */
+export function parseMajorToMinorUnits(value, minorUnitExponent) {
+  if (typeof value !== 'string') {
+    return fail('invalid_money_text', 'Amount must be supplied as decimal text.');
+  }
+  if (!Number.isInteger(minorUnitExponent) || minorUnitExponent < 0 || minorUnitExponent > MAX_MINOR_UNIT_EXPONENT) {
+    return fail('invalid_currency_precision', 'Currency minor-unit exponent must be an integer from 0 to ' + MAX_MINOR_UNIT_EXPONENT + '.', 'minorUnitExponent');
+  }
+
+  const text = value.trim();
+  if (!/^\\d+(?:\\.\\d+)?$/.test(text)) {
+    return fail('invalid_money_text', 'Enter a non-negative decimal amount without a currency symbol or thousands separators.', 'amount');
+  }
+
+  const [wholeText, fractionText = ''] = text.split('.');
+  if (fractionText.length > minorUnitExponent) {
+    return fail('excess_fractional_digits', 'Amount has more fractional digits than the selected currency precision permits.', 'amount');
+  }
+
+  try {
+    const scale = 10n ** BigInt(minorUnitExponent);
+    const fraction = fractionText.padEnd(minorUnitExponent, '0');
+    const amount = BigInt(wholeText) * scale + BigInt(fraction || '0');
+    if (amount > MAX_SAFE) {
+      return fail('calculation_overflow', 'Amount exceeds the supported exact integer range.', 'amount');
+    }
+    return { ok: true, amountMinor: Number(amount) };
+  } catch {
+    return fail('invalid_money_text', 'Amount could not be parsed exactly.', 'amount');
+  }
+}
