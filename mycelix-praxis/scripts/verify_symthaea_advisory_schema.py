@@ -269,7 +269,7 @@ def main() -> int:
         errors,
     )
     size_check = adapter_source.find("if bytes.len() > MAX_ADVISORY_RESPONSE_BYTES")
-    parse_call = adapter_source.find("parse_symthaea_advice_response(&bytes)")
+    parse_call = adapter_source.find("parse_bounded_response(&bytes)")
     require(
         size_check >= 0 and parse_call > size_check,
         "host adapter must reject oversized streams before JSON decoding",
