@@ -1,6 +1,6 @@
 # Business Launchpad: Cross-Ecosystem Architecture RFC
 
-**Status:** Proposal — not implemented; not a compliance or production-readiness claim  
+**Status:** Draft RFC; an isolated deterministic calculator and test fixtures now exist, but no business UI, persistence, payment/accounting adapter, or verified jurisdiction pack is implemented. Not a compliance or production-readiness claim.  
 **Date:** 2026-10-12  
 **Scope:** Mycelix + Symthaea + Luminous Platform  
 **Working name:** Business Launchpad  
@@ -229,7 +229,7 @@ Each jurisdiction pack needs:
 
 ### South Africa pilot notes — validate before release
 
-- SARS's current small-business material notes 2026 changes to VAT and turnover-tax thresholds effective 1 April 2026. The application must link to current SARS sources and avoid embedding a threshold without its effective date and verification metadata. Individual taxpayer circumstances and eligibility still matter.
+- **VAT legal-status distinction:** SARS's September 2026 VAT Connect says the 2026 Draft Rates Bill proposes raising compulsory VAT registration from R1m to R2.3m and voluntary registration from R50,000 to R120,000 from 1 April 2026; SARS is applying the R2.3m compulsory threshold for new registration/deregistration requests, while noting the proposed amendments will be retrospective once promulgated and that automatic cancellation is not occurring yet. Thus do not encode this solely as 'enacted law': represent (a) the official administrative practice currently described by SARS, (b) the bill's promulgation status and effective-date wording, and (c) a source verification date as separate fields. Re-check the official source and current legislation before each consequential recommendation. Sources: https://www.sars.gov.za/businesses-and-employers/my-business-and-tax/vat-connect-issue-21-september-2026/ and https://www.sars.gov.za/about-sars-tax-and-customs-system/budget/budget-2026-frequently-asked-questions/. Individual taxpayer circumstances, taxable supplies, exceptions, and registration status still matter.
 - Food businesses need a distinct food-premises workflow. National Department of Health Regulation R638 governs general hygiene requirements for food premises and food transport; municipal authorities may administer Certificate of Acceptability processes and premises checks. This is not replaceable by a generic company-registration checklist.
 - POPIA controls are required wherever personal information is processed. Implement data minimization, purpose limitation, access controls, appropriate security safeguards, retention/deletion controls, breach workflows, and a process for data-subject requests. Never present a privacy checklist as legal certification.
 - Business registration is not the same as permission to conduct every activity at every premises. Zoning, municipal by-laws, sector licenses, tax, labor and consumer obligations can remain independently applicable.
@@ -238,6 +238,8 @@ Each jurisdiction pack needs:
 Official source starting points (verify on every pack update):
 - SARS small businesses and taxpayers: https://www.sars.gov.za/businesses-and-employers/small-businesses-taxpayers/
 - SARS VAT information: https://www.sars.gov.za/types-of-tax/value-added-tax/register-for-vat/
+- SARS VAT Connect Issue 21 (September 2026), including draft-Bill / current administrative-practice distinction: https://www.sars.gov.za/businesses-and-employers/my-business-and-tax/vat-connect-issue-21-september-2026/
+- SARS Budget 2026 FAQs: https://www.sars.gov.za/about-sars-tax-and-customs-system/budget/budget-2026-frequently-asked-questions/
 - SARS starting a business and tax: https://www.sars.gov.za/businesses-and-employers/small-businesses-taxpayers/starting-a-business-and-tax/
 - National Department of Health food-control regulations: https://www.health.gov.za/food-control-regulations/
 - City of Cape Town Certificate of Acceptability process as a municipal example, not a national substitute: https://www.capetown.gov.za/city-connect/apply/licences-and-permits/business-and-trade/apply-for-a-certificate-of-acceptability
@@ -295,13 +297,16 @@ Use this evidence sequence: (1) automated deterministic simulation and fault inj
 
 ### Phase 0 — Evidence and fit
 
+**Progress:** an initial read-only source/capability audit has been performed, and an isolated calculator core now exists under `mycelix-workspace/business-launchpad/core/`. The audit is not complete: no clean-checkout Marketplace Rust/WASM/conductor run, external ERP compatibility spike, legal review, or runtime integration has been demonstrated by this documentation pass. See [the Phase 0 audit](business-launchpad-phase0-audit.md).
+
 - Map exact APIs, zome manifests, frontend contracts, current maturity evidence, license obligations, and live-test status for Marketplace, Commons/food, Finance, Identity, and workspace integration.
 - Reconcile the checked-in Marketplace vertical-slice/lifecycle contracts with current source; run the named static checkers, then the documented Rust/WASM and conductor tests from a clean, exact-head checkout. Capture command, toolchain, exact commit, outputs, and artifact digests. Confirm the canonical path and ownership of any supply-chain code instead of assuming a top-level module exists.
 - Map available Luminous Platform APIs and deployment/secret/back-up primitives.
 - Compare ERPNext/Odoo operational coverage and licensing; build no adapter until the contract is agreed.
-- Produce a repository-specific capability matrix with links to exact files and passing test evidence.
+- Select one pilot municipality and precise business activity; build no compliance pack until authoritative-source provenance, legal status, effective dates and applicability are represented and reviewed.
+- Produce a repository-specific capability matrix with links to exact files and reproducible test evidence.
 
-**Exit gate:** no duplicate domain service is started before the capability and licensing map is reviewed.
+**Exit gate:** no duplicate domain service or consequential integration is started before the capability, maturity, licensing and jurisdiction-source maps are reviewed.
 
 ### Phase 1 — Vertical slice without money movement
 
