@@ -188,14 +188,16 @@ export function analyzeBusinessModel(input) {
 /**
  * Project a bounded month-by-month cash scenario from the single-offer model.
  *
- * This is a transparent scenario, not a forecast: every planned sale is assumed
- * to be fully collected in its stated month and the corresponding variable cash
- * cost is assumed paid in that same month. The caller must supply month-specific
- * non-sales inflows/outflows where known. Setup cost is deducted before month 1;
- * the working-capital buffer is treated as a minimum reserve target, not a second
- * cash payment.
+ * Sales activity, sales cash receipts, and operating cash payments are separate
+ * inputs. The browser generates same-month defaults for convenience, but callers
+ * can independently model delayed customer collection or advance supplier payments.
+ * Setup cost is deducted before month one; the working-capital buffer is a reserve
+ * threshold rather than a second cash payment.
  *
- * @param {{model: object, monthlyPlan: Array<{salesUnits:number, otherCashInflowsMinor:number, otherCashOutflowsMinor:number}>}} input
+ * Backward compatibility: legacy plan periods with only salesUnits and "other"
+ * cash fields receive generated same-month sales receipts and operating payments.
+ *
+ * @param {{model:object, monthlyPlan:Array<{salesUnits:number,salesCashReceiptsMinor?:number,operatingCashOutflowsMinor?:number,otherCashInflowsMinor:number,otherCashOutflowsMinor:number}>}} input
  * @returns {{ok:true, report:object} | {ok:false, error:object}}
  */
 export function projectCashRunway(input) {
@@ -212,13 +214,13 @@ export function projectCashRunway(input) {
   }
 
   const normalizedPlan = [];
-  const fields = ['salesUnits', 'otherCashInflowsMinor', 'otherCashOutflowsMinor'];
+  const requiredFields = ['salesUnits', 'otherCashInflowsMinor', 'otherCashOutflowsMinor'];
   for (let index = 0; index < plan.length; index += 1) {
     const period = plan[index];
     if (!isRecord(period)) {
       return fail('invalid_cash_runway_period', 'Each monthly cash-plan entry must be an object.', 'monthlyPlan[' + index + ']');
     }
-    for (const field of fields) {
+    for (const field of requiredFields) {
       if (!isNonNegativeSafeInteger(period[field])) {
         return fail(
           'invalid_cash_runway_amount',
@@ -227,23 +229,58 @@ export function projectCashRunway(input) {
         );
       }
     }
+
+    const periodSales = BigInt(period.salesUnits);
+    const calculatedReceipts = BigInt(model.sellingPricePerUnitMinor) * periodSales;
+    const calculatedOperatingOutflows =
+      BigInt(model.variableCostPerUnitMinor) * periodSales + BigInt(model.fixedMonthlyCostsMinor);
+    const salesCashReceiptsMinor = period.salesCashReceiptsMinor === undefined
+      ? calculatedReceipts
+      : period.salesCashReceiptsMinor;
+    const operatingCashOutflowsMinor = period.operatingCashOutflowsMinor === undefined
+      ? calculatedOperatingOutflows
+      : period.operatingCashOutflowsMinor;
+
+    if (!isNonNegativeSafeInteger(salesCashReceiptsMinor)) {
+      return fail(
+        'invalid_cash_runway_amount',
+        'salesCashReceiptsMinor must be a non-negative safe integer representing cash expected to be collected this month.',
+        'monthlyPlan[' + index + '].salesCashReceiptsMinor'
+      );
+    }
+    if (!isNonNegativeSafeInteger(operatingCashOutflowsMinor)) {
+      return fail(
+        'invalid_cash_runway_amount',
+        'operatingCashOutflowsMinor must be a non-negative safe integer representing operating cash payments expected this month.',
+        'monthlyPlan[' + index + '].operatingCashOutflowsMinor'
+      );
+    }
+
+    // A missing legacy cash field is derived from the same-month unit model. Fail
+    // closed if this compatibility path would exceed the exact output range.
+    if (
+      (period.salesCashReceiptsMinor === undefined && calculatedReceipts > MAX_SAFE) ||
+      (period.operatingCashOutflowsMinor === undefined && calculatedOperatingOutflows > MAX_SAFE)
+    ) {
+      return fail('calculation_overflow', 'A default monthly cash amount exceeds the supported exact integer range.', 'monthlyPlan[' + index + ']');
+    }
+
     normalizedPlan.push({
       salesUnits: period.salesUnits,
+      salesCashReceiptsMinor,
+      operatingCashOutflowsMinor,
       otherCashInflowsMinor: period.otherCashInflowsMinor,
       otherCashOutflowsMinor: period.otherCashOutflowsMinor
     });
   }
 
   try {
-    const price = BigInt(model.sellingPricePerUnitMinor);
-    const variableCostPerUnit = BigInt(model.variableCostPerUnitMinor);
-    const fixedMonthlyCosts = BigInt(model.fixedMonthlyCostsMinor);
     const setupOutflow = BigInt(model.setupCostsMinor);
     const openingCash = BigInt(model.availableCashForStartupMinor);
     const reserveTarget = BigInt(model.initialWorkingCapitalBufferMinor);
 
     // Setup is paid once before the first projected month. Do not subtract the
-    // working-capital reserve: it is a threshold against which liquidity is judged.
+    // working-capital reserve: it is the threshold against which liquidity is judged.
     let cash = openingCash - setupOutflow;
     let minimumCash = cash;
     let minimumCashPeriod = 0;
@@ -253,13 +290,12 @@ export function projectCashRunway(input) {
 
     for (let index = 0; index < normalizedPlan.length; index += 1) {
       const period = normalizedPlan[index];
-      const salesUnits = BigInt(period.salesUnits);
-      const salesReceipts = price * salesUnits;
-      const variableCashCosts = variableCostPerUnit * salesUnits;
+      const salesCashReceipts = BigInt(period.salesCashReceiptsMinor);
+      const operatingCashOutflows = BigInt(period.operatingCashOutflowsMinor);
       const otherInflows = BigInt(period.otherCashInflowsMinor);
       const otherOutflows = BigInt(period.otherCashOutflowsMinor);
-      const totalCashReceipts = salesReceipts + otherInflows;
-      const totalCashOutflows = variableCashCosts + fixedMonthlyCosts + otherOutflows;
+      const totalCashReceipts = salesCashReceipts + otherInflows;
+      const totalCashOutflows = operatingCashOutflows + otherOutflows;
       const netCashChange = totalCashReceipts - totalCashOutflows;
       cash += netCashChange;
       const periodNumber = index + 1;
@@ -277,12 +313,11 @@ export function projectCashRunway(input) {
 
       periods.push({
         period: periodNumber,
-        assumedSalesUnitsCollectedThisMonth: period.salesUnits,
-        assumedSalesCashReceiptsMinor: outputInteger(salesReceipts, 'period' + periodNumber + '.assumedSalesCashReceiptsMinor'),
+        salesUnitsScenario: period.salesUnits,
+        salesCashReceiptsMinor: period.salesCashReceiptsMinor,
         otherCashInflowsMinor: period.otherCashInflowsMinor,
         totalCashReceiptsMinor: outputInteger(totalCashReceipts, 'period' + periodNumber + '.totalCashReceiptsMinor'),
-        variableCashCostsMinor: outputInteger(variableCashCosts, 'period' + periodNumber + '.variableCashCostsMinor'),
-        fixedCashCostsMinor: model.fixedMonthlyCostsMinor,
+        operatingCashOutflowsMinor: period.operatingCashOutflowsMinor,
         otherCashOutflowsMinor: period.otherCashOutflowsMinor,
         totalCashOutflowsMinor: outputInteger(totalCashOutflows, 'period' + periodNumber + '.totalCashOutflowsMinor'),
         netCashChangeMinor: outputInteger(netCashChange, 'period' + periodNumber + '.netCashChangeMinor'),
@@ -297,7 +332,7 @@ export function projectCashRunway(input) {
       schemaVersion: 1,
       kind: 'business-launchpad-cash-runway-report',
       currency: { ...model.currency },
-      basis: 'Owner-supplied month-by-month scenario; not a demand forecast.',
+      basis: 'Owner-supplied monthly cash receipts and payments; not a demand forecast.',
       horizonMonths: normalizedPlan.length,
       startup: {
         openingCashBeforeSetupMinor: model.availableCashForStartupMinor,
@@ -330,13 +365,14 @@ export function projectCashRunway(input) {
         omittedCategories: [...model.costCoverage.omittedCategories]
       },
       scopeLimitations: [
-        'This is a deterministic scenario using owner-entered monthly sales units, not a demand prediction or guarantee of sales.',
-        'Every planned sale is assumed to be collected fully in the same month; receivables, delayed settlement and bad debt are not modeled.',
-        'Per-unit variable cash costs are assumed paid in the same month as the sale; inventory purchased in advance, supplier credit and payables timing are not modeled.',
+        'This is a deterministic owner-supplied cash scenario, not a demand prediction or guarantee of sales.',
+        'Sales units are activity assumptions, not proof of cash collection. Enter salesCashReceiptsMinor for the month cash is expected to arrive; by default only, legacy plans derive receipts as if each sale is collected in the same month.',
+        'Enter operatingCashOutflowsMinor for the month operating payments are expected to leave cash. By default only, legacy plans derive variable and fixed operating cash costs from same-month sales activity.',
+        'The model does not maintain an accounts-receivable/accounts-payable ledger, age invoices, reconcile actual settlement, or model supplier-credit balances. User-supplied monthly cash timing is a scenario assumption.',
         'Setup costs are deducted once before month one. The working-capital amount is a reserve threshold, not an additional cash outflow.',
         'Taxes, owner draw, financing, debt service and other costs must be entered as monthly other cash outflows if they are to be included; omitted/unknown costs remain a limitation.',
-        'Other monthly inflows/outflows are additive to the modelled sales receipts and fixed/variable costs; they cannot replace or re-time those base amounts.',
-        'Each period uses one average selling price, one average variable cash cost and fixed monthly costs from the base model; product mix, seasonality, capacity and operational disruptions are not modeled.'
+        'Other monthly inflows/outflows are additive to sales cash receipts and operating cash payments; they do not replace or re-time those fields.',
+        'Each period uses one average offer for its activity assumption; product mix, seasonality, capacity and operational disruptions are not modeled.'
       ]
     };
     return { ok: true, report };
