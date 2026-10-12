@@ -7,7 +7,6 @@ calculate indicators, establish causality, or certify regenerative outcomes.
 from __future__ import annotations
 
 import json
-import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -16,7 +15,6 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG_PATH = ROOT / "docs" / "economy-atlas" / "regenerative-indicators.v1.json"
 REGISTRY_PATH = ROOT / "docs" / "economy-atlas" / "model-registry.v1.json"
-SHA40 = re.compile(r"^[0-9a-f]{40}$")
 DIRECTIONS = {
     "higher_is_better",
     "lower_is_better",
@@ -65,7 +63,12 @@ REQUIRED_INDICATOR_FIELDS = (
 
 
 def validate_catalog(catalog: dict, model_registry: dict) -> list[str]:
+    if not isinstance(catalog, dict):
+        return ["catalog root must be an object"]
     errors: list[str] = []
+    if not isinstance(model_registry, dict):
+        errors.append("model registry root must be an object")
+        model_registry = {}
     if catalog.get("schema_version") != "1.0.0":
         errors.append("schema_version must be 1.0.0")
     if catalog.get("catalog_id") != "mycelix.regenerative-indicators":
@@ -90,8 +93,12 @@ def validate_catalog(catalog: dict, model_registry: dict) -> list[str]:
         errors.append("global_comparison_contract must contain substantive rules")
 
     missingness = catalog.get("missingness_vocabulary")
-    if not isinstance(missingness, list) or len(missingness) != len(set(missingness or [])):
-        errors.append("missingness_vocabulary must be a non-empty unique list")
+    if not isinstance(missingness, list) or not missingness or any(
+        not isinstance(value, str) or not value.strip() for value in missingness
+    ):
+        errors.append("missingness_vocabulary must be a non-empty string list")
+    elif len(missingness) != len(set(missingness)):
+        errors.append("missingness_vocabulary must not contain duplicates")
     elif not {"unknown", "not_collected", "not_computable"}.issubset(set(missingness)):
         errors.append("missingness_vocabulary must distinguish unknown, not_collected, and not_computable")
 
@@ -128,9 +135,13 @@ def validate_catalog(catalog: dict, model_registry: dict) -> list[str]:
         if year is not None and (not isinstance(year, int) or year < 1900 or year > 2100):
             errors.append(f"research_refs[{index}].published_year must be a plausible year")
 
+    model_records = model_registry.get("models", [])
+    if not isinstance(model_records, list):
+        errors.append("model registry models must be a list")
+        model_records = []
     known_models = {
         model.get("model_id")
-        for model in model_registry.get("models", [])
+        for model in model_records
         if isinstance(model, dict) and isinstance(model.get("model_id"), str)
     }
     indicators = catalog.get("indicators")
