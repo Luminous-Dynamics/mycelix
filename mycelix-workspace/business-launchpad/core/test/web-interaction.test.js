@@ -251,6 +251,25 @@ test('imported scenario is validated, restores fields, and requires recalculatio
   assert.equal(documentMock.getElementById('download-report').disabled, false);
 });
 
+test('legacy version-1 scenarios without a cash plan receive an explicit default ramp', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  delete payload.cashRunwayPlan;
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
+  assert.equal(documentMock.getElementById('cash-month-1-sales').value, '25');
+  assert.equal(documentMock.getElementById('cash-month-2-sales').value, '38');
+  assert.equal(documentMock.getElementById('cash-month-12-sales').value, '50');
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+  documentMock.submit();
+  assert.match(documentMock.getElementById('result').textContent, /12-month cash runway scenario/);
+});
+
 test('report export is disabled until a valid calculation exists and includes both inputs and report', async () => {
   documentMock.reset();
   assert.equal(documentMock.getElementById('download-report').disabled, true);
