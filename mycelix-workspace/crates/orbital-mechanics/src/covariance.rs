@@ -188,7 +188,9 @@ impl CovarianceMatrix {
         let pos_cov = self.position_covariance();
         let eigen = SymmetricEigen::new(pos_cov);
         let mut eigenvalues: Vec<f64> = eigen.eigenvalues.iter().map(|&v| v.sqrt()).collect();
-        eigenvalues.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        // total_cmp is non-panicking even if callers inspect a matrix before
+        // checking is_valid(); invalid inputs still yield non-meaningful axes.
+        eigenvalues.sort_by(|a, b| b.total_cmp(a));
         (eigenvalues[0], eigenvalues[1], eigenvalues[2])
     }
 
@@ -210,7 +212,13 @@ impl CovarianceMatrix {
         }
     }
 
-    /// Transform covariance to RTN frame given position and velocity
+    /// Rotate covariance axes into the local Radial-Transverse-Normal (RTN) basis.
+    ///
+    /// `position` and `velocity` must be expressed in the same source frame as
+    /// this covariance. This applies a block-diagonal orientation rotation to the
+    /// position and velocity blocks; it is **not** a full six-state transformation
+    /// into a rotating RTN coordinate system because it omits frame angular-rate
+    /// terms. Do not treat it as a flight-quality RTN covariance transform.
     pub fn to_rtn(&self, position: Vector3<f64>, velocity: Vector3<f64>) -> Self {
         if self.frame == CovarianceFrame::RTN {
             return self.clone();
@@ -222,7 +230,7 @@ impl CovarianceMatrix {
         let n_hat = h.normalize();
         let t_hat = n_hat.cross(&r_hat);
 
-        // Build rotation matrix (ECI to RTN)
+        // Build the basis rotation from the caller-supplied source coordinates to RTN.
         let rot = Matrix3::from_rows(&[r_hat.transpose(), t_hat.transpose(), n_hat.transpose()]);
 
         // Build 6x6 rotation matrix
@@ -230,7 +238,8 @@ impl CovarianceMatrix {
         rot6.fixed_view_mut::<3, 3>(0, 0).copy_from(&rot);
         rot6.fixed_view_mut::<3, 3>(3, 3).copy_from(&rot);
 
-        // Transform: C_rtn = R * C_eci * R^T
+        // Orientation-only rotation: full rotating-frame state covariance also
+        // needs the RTN angular-rate terms described in the method documentation.
         let new_data = rot6 * self.data * rot6.transpose();
 
         Self {
@@ -299,6 +308,12 @@ pub fn mahalanobis_distance(
     cov1: &CovarianceMatrix,
     cov2: &CovarianceMatrix,
 ) -> Option<f64> {
+    // Delta and both covariances must use the same coordinate frame. The
+    // vector frame cannot be checked from this API, but mixed covariance frames
+    // must not be silently combined.
+    if cov1.frame != cov2.frame {
+        return None;
+    }
     let combined_cov = cov1.matrix() + cov2.matrix();
     let inv = combined_cov.try_inverse()?;
     let d_squared = delta.transpose() * inv * delta;
@@ -333,6 +348,16 @@ mod tests {
     fn test_covariance_validity() {
         let valid = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
         assert!(valid.is_valid());
+    }
+
+    #[test]
+    fn mahalanobis_distance_rejects_mixed_covariance_frames() {
+        let delta = Vector6::zeros();
+        let eci = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+        let mut teme = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+        teme.frame = CovarianceFrame::TEME;
+
+        assert!(mahalanobis_distance(&delta, &eci, &teme).is_none());
     }
 
     #[test]
