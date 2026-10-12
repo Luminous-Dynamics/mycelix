@@ -296,8 +296,27 @@ test('static client does not contain application-level network or browser persis
   assert.doesNotMatch(source, /\.innerHTML\s*=/);
 });
 
-test('custom file picker keeps a visible keyboard focus indicator', async () => {
+test('custom file picker has an associated label and a high-contrast keyboard focus indicator', async () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const css = await readFile(resolve(here, '../../web/styles.css'), 'utf8');
-  assert.ok(css.includes('.file-picker:focus-within { outline: 3px solid #6dbb92; outline-offset: 3px; }'));
+  const html = await readFile(resolve(here, '../../web/index.html'), 'utf8');
+  const focusColor = '#176c52';
+  assert.ok(css.includes('input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid #176c52; outline-offset: 2px; }'));
+  assert.ok(css.includes('.file-picker:focus-within { outline: 3px solid #176c52; outline-offset: 3px; }'));
+  assert.ok(html.includes('<label class="secondary-button file-picker" for="load-scenario-file">'));
+  assert.ok(html.includes('<input id="load-scenario-file" type="file"'));
+
+  const luminance = hex => {
+    const channel = offset => {
+      const value = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  };
+  const contrast = (first, second) => {
+    const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
+    return (values[0] + 0.05) / (values[1] + 0.05);
+  };
+  assert.ok(contrast(focusColor, '#ffffff') >= 3, 'focus ring should contrast with white panels at 3:1 or higher');
+  assert.ok(contrast(focusColor, '#f5f7f4') >= 3, 'focus ring should contrast with the page background at 3:1 or higher');
 });
