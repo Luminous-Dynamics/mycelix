@@ -1,0 +1,177 @@
+name: Business Launchpad Chromium Journey
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/business-launchpad/core/**'
+      - 'mycelix-workspace/business-launchpad/web/**'
+      - '.github/workflows/business-launchpad-browser.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/business-launchpad/core/**'
+      - 'mycelix-workspace/business-launchpad/web/**'
+      - '.github/workflows/business-launchpad-browser.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: business-launchpad-browser-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chromium-journey:
+    name: Chromium business launch journey
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact qualification subject
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Node.js
+        id: setup-node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+
+      - name: Assert pinned runtime
+        id: runtime
+        continue-on-error: true
+        run: test "$(node --version)" = "v24.21.0"
+
+      - name: Install pinned Playwright test dependency
+        id: playwright-package
+        if: ${{ always() && steps.runtime.outcome == 'success' }}
+        continue-on-error: true
+        working-directory: mycelix-workspace/business-launchpad/core
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false --ignore-scripts playwright@1.64.0 2>&1 | tee playwright-install.log
+          test "$(node -p "require('./node_modules/playwright/package.json').version")" = "1.64.0"
+          test "$(node -p "require('./node_modules/playwright-core/package.json').version")" = "1.64.0"
+
+      - name: Install Chromium and Linux browser dependencies
+        id: chromium
+        if: ${{ always() && steps.playwright-package.outcome == 'success' }}
+        continue-on-error: true
+        working-directory: mycelix-workspace/business-launchpad/core
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/playwright install --with-deps chromium 2>&1 | tee browser-install.log
+
+      - name: Run real-browser interaction journey
+        id: browser-test
+        if: ${{ always() && steps.chromium.outcome == 'success' }}
+        continue-on-error: true
+        working-directory: mycelix-workspace/business-launchpad/core
+        run: |
+          set -euo pipefail
+          node test/browser-journey.mjs 2>&1 | tee browser-journey.log
+
+      - name: Emit exact-head browser qualification record
+        if: always()
+        working-directory: mycelix-workspace/business-launchpad/core
+        env:
+          SETUP_NODE_OUTCOME: ${{ steps.setup-node.outcome }}
+          RUNTIME_OUTCOME: ${{ steps.runtime.outcome }}
+          PLAYWRIGHT_OUTCOME: ${{ steps.playwright-package.outcome }}
+          CHROMIUM_OUTCOME: ${{ steps.chromium.outcome }}
+          BROWSER_TEST_OUTCOME: ${{ steps.browser-test.outcome }}
+        run: |
+          set -euo pipefail
+          hash_file() {
+            if [[ -f "$1" ]]; then
+              sha256sum "$1" | cut -d' ' -f1
+            else
+              printf 'unavailable'
+            fi
+          }
+          setup_status="${SETUP_NODE_OUTCOME:-skipped}"
+          runtime_status="${RUNTIME_OUTCOME:-skipped}"
+          playwright_status="${PLAYWRIGHT_OUTCOME:-skipped}"
+          chromium_status="${CHROMIUM_OUTCOME:-skipped}"
+          browser_test_status="${BROWSER_TEST_OUTCOME:-skipped}"
+          gate_status=passed
+          for outcome in "$setup_status" "$runtime_status" "$playwright_status" "$chromium_status" "$browser_test_status"; do
+            if [[ "$outcome" != "success" ]]; then
+              gate_status=not-passed
+            fi
+          done
+          workflow_blob_sha1="$(git -C "$GITHUB_WORKSPACE" hash-object .github/workflows/business-launchpad-browser.yml 2>/dev/null || printf 'unavailable')"
+          {
+            echo "BUSINESS LAUNCHPAD CHROMIUM GATE"
+            if [[ "$gate_status" == "passed" ]]; then
+              echo "status=chromium-journey-passed"
+              echo "claim_ceiling=ChromiumKeyboardAndScenarioJourneyOnly"
+            else
+              echo "status=chromium-journey-not-passed"
+              echo "claim_ceiling=NoBrowserQualification;inspectStepOutcomesAndCapturedLogs"
+            fi
+            echo "gate_status=$gate_status"
+            echo "setup_node_status=$setup_status"
+            echo "runtime_status=$runtime_status"
+            echo "playwright_install_status=$playwright_status"
+            echo "chromium_install_status=$chromium_status"
+            echo "browser_test_status=$browser_test_status"
+            echo "commit=${QUALIFIED_SHA}"
+            echo "workflow_git_blob_sha1=$workflow_blob_sha1"
+            echo "workflow_sha256=$(hash_file "$GITHUB_WORKSPACE/.github/workflows/business-launchpad-browser.yml")"
+            echo "runner_image_os=${ImageOS:-unknown}"
+            echo "runner_image_version=${ImageVersion:-unknown}"
+            echo "node=$(node --version 2>/dev/null || printf 'unavailable')"
+            echo "npm=$(npm --version 2>/dev/null || printf 'unavailable')"
+            echo "playwright_version=$(node -p "require('./node_modules/playwright/package.json').version" 2>/dev/null || printf 'unavailable')"
+            echo "browser_test_sha256=$(hash_file test/browser-journey.mjs)"
+            echo "source_sha256=$(hash_file core/src/index.js)"
+            echo "browser_module_sha256=$(hash_file ../web/app.mjs)"
+            echo "browser_html_sha256=$(hash_file ../web/index.html)"
+            echo "browser_css_sha256=$(hash_file ../web/styles.css)"
+            echo "playwright_install_log_sha256=$(hash_file playwright-install.log)"
+            echo "browser_install_log_sha256=$(hash_file browser-install.log)"
+            echo "browser_journey_log_sha256=$(hash_file browser-journey.log)"
+            echo "browser_journey_result_sha256=$(hash_file test/browser-evidence/browser-journey-result.json)"
+            echo "scope=RealChromiumSingleEngineJourney"
+            echo "cross_browser_status=NotEvaluated"
+            echo "assistive_technology_status=NotEvaluated"
+            echo "legal_and_market_fit_status=NotEvaluated"
+          } | tee browser-qualification.txt
+
+      - name: Upload browser qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: business-launchpad-browser-${{ env.QUALIFIED_SHA }}
+          path: |
+            mycelix-workspace/business-launchpad/core/browser-qualification.txt
+            mycelix-workspace/business-launchpad/core/playwright-install.log
+            mycelix-workspace/business-launchpad/core/browser-install.log
+            mycelix-workspace/business-launchpad/core/browser-journey.log
+            mycelix-workspace/business-launchpad/core/test/browser-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Enforce browser qualification verdict after evidence capture
+        if: always()
+        env:
+          SETUP_NODE_OUTCOME: ${{ steps.setup-node.outcome }}
+          RUNTIME_OUTCOME: ${{ steps.runtime.outcome }}
+          PLAYWRIGHT_OUTCOME: ${{ steps.playwright-package.outcome }}
+          CHROMIUM_OUTCOME: ${{ steps.chromium.outcome }}
+          BROWSER_TEST_OUTCOME: ${{ steps.browser-test.outcome }}
+        run: |
+          test "$SETUP_NODE_OUTCOME" = "success"
+          test "$RUNTIME_OUTCOME" = "success"
+          test "$PLAYWRIGHT_OUTCOME" = "success"
+          test "$CHROMIUM_OUTCOME" = "success"
+          test "$BROWSER_TEST_OUTCOME" = "success"
