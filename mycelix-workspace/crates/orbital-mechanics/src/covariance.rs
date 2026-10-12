@@ -47,7 +47,9 @@ pub struct CovarianceMatrix {
 /// Reference frame for covariance
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum CovarianceFrame {
-    /// Earth-Centered Inertial (most common for conjunction)
+    /// True Equator Mean Equinox (the coordinate frame emitted by the SGP4 propagator here)
+    TEME,
+    /// Earth-Centered Inertial (generic frame label; callers must still agree on the exact convention)
     #[default]
     ECI,
     /// Radial-Transverse-Normal (along-track frame)
@@ -106,20 +108,34 @@ impl CovarianceMatrix {
         }
     }
 
-    /// Create an estimated covariance based on TLE age
-    /// Uses empirical growth models for LEO objects
+    /// Create a rough, uncalibrated covariance heuristic based on elapsed TLE age.
+    ///
+    /// This default constructor retains the historical ECI frame label for callers
+    /// that do not supply a frame. Prefer `from_tle_age_in_frame` when the associated
+    /// state frame is known.
+    ///
+    /// This empirical LEO heuristic is not a calibrated uncertainty product and must
+    /// not, by itself, be treated as authoritative collision-risk evidence.
     pub fn from_tle_age(age_hours: f64) -> Self {
-        // Empirical uncertainty growth for LEO (very approximate)
-        // Position uncertainty grows roughly linearly with time
-        // Velocity uncertainty grows more slowly
+        Self::from_tle_age_in_frame(age_hours, CovarianceFrame::default())
+    }
 
-        // Base uncertainty for fresh TLE (from Space-Track accuracy)
-        let base_pos_km = 1.0; // ~1 km position uncertainty
-        let base_vel_kms = 0.001; // ~1 m/s velocity uncertainty
+    /// Create an estimated covariance with an explicit coordinate-frame label.
+    ///
+    /// The values remain the same approximate TLE-age heuristic regardless of frame;
+    /// this method does not perform orbit determination, calibration, or covariance
+    /// propagation. The caller is responsible for supplying the frame of the associated
+    /// state.
+    pub fn from_tle_age_in_frame(age_hours: f64, frame: CovarianceFrame) -> Self {
+        // Empirical uncertainty growth for LEO (very approximate).
+        // Position uncertainty grows roughly linearly with elapsed time;
+        // velocity uncertainty grows more slowly. These values are heuristics only.
+        let base_pos_km = 1.0; // heuristic ~1 km position uncertainty for a fresh TLE
+        let base_vel_kms = 0.001; // heuristic ~1 m/s velocity uncertainty
 
-        // Growth rates (km/day for position, km/s/day for velocity)
-        let pos_growth_rate = 5.0 / 24.0; // ~5 km/day
-        let vel_growth_rate = 0.01 / 24.0; // ~10 m/s/day
+        // Growth rates (km/day for position, km/s/day for velocity).
+        let pos_growth_rate = 5.0 / 24.0;
+        let vel_growth_rate = 0.01 / 24.0;
 
         let pos_sigma = base_pos_km + pos_growth_rate * age_hours;
         let vel_sigma = base_vel_kms + vel_growth_rate * age_hours;
@@ -127,6 +143,7 @@ impl CovarianceMatrix {
         let mut cov = Self::diagonal([
             pos_sigma, pos_sigma, pos_sigma, vel_sigma, vel_sigma, vel_sigma,
         ]);
+        cov.frame = frame;
         cov.source = CovarianceSource::Estimated {
             tle_age_hours: age_hours,
         };
@@ -177,6 +194,9 @@ impl CovarianceMatrix {
 
     /// Check if covariance is positive semi-definite (valid)
     pub fn is_valid(&self) -> bool {
+        if !self.data.iter().all(|value| value.is_finite()) {
+            return false;
+        }
         let eigen = SymmetricEigen::new(self.data);
         eigen.eigenvalues.iter().all(|&v| v >= -1e-10)
     }
@@ -313,6 +333,14 @@ mod tests {
     fn test_covariance_validity() {
         let valid = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
         assert!(valid.is_valid());
+    }
+
+    #[test]
+    fn non_finite_covariance_is_invalid() {
+        let mut matrix = Matrix6::identity();
+        matrix[(0, 0)] = f64::NAN;
+        let covariance = CovarianceMatrix::from_matrix(matrix);
+        assert!(!covariance.is_valid());
     }
 
     #[test]
