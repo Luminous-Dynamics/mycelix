@@ -315,7 +315,7 @@ test('compares base, downside and upside cash scenarios with explicit assumption
   assert.equal(result.report.scenarios[1].report.summary.endingCashMinor, 5_000);
   assert.equal(result.report.scenarios[2].report.periods[0].salesCashReceiptsMinor, 2_200);
   assert.equal(result.report.scenarios[2].report.periods[0].operatingCashOutflowsMinor, 950);
-  assert.equal(result.report.scenarios[2].report.summary.endingCashMinor, 5_500);
+  assert.equal(result.report.scenarios[2].report.summary.endingCashMinor, 5_300);
   assert.match(result.report.basis, /not a prediction/);
 });
 
