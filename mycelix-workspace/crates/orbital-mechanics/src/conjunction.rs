@@ -124,8 +124,12 @@ pub enum RiskLevel {
 }
 
 impl RiskLevel {
-    pub fn from_pc(pc: f64) -> Self {
-        if pc >= 1e-3 {
+    /// Return a screening band only for a finite Pc in [0, 1].
+    pub fn try_from_pc(pc: f64) -> Option<Self> {
+        if !pc.is_finite() || !(0.0..=1.0).contains(&pc) {
+            return None;
+        }
+        Some(if pc >= 1e-3 {
             RiskLevel::Emergency
         } else if pc >= 1e-4 {
             RiskLevel::High
@@ -135,7 +139,14 @@ impl RiskLevel {
             RiskLevel::Low
         } else {
             RiskLevel::Negligible
-        }
+        })
+    }
+
+    /// Legacy total mapping. Invalid Pc values map to the highest screening band
+    /// to avoid silently classifying malformed values as negligible; callers
+    /// handling untrusted input should prefer try_from_pc and preserve failure.
+    pub fn from_pc(pc: f64) -> Self {
+        Self::try_from_pc(pc).unwrap_or(RiskLevel::Emergency)
     }
 
     /// Human-readable screening description; none of these strings authorizes action.
@@ -180,6 +191,8 @@ pub enum ConjunctionAssessmentError {
     DegenerateEncounterGeometry,
     #[error("hard-body radius must be finite and greater than zero")]
     InvalidHardBodyRadius,
+    #[error("computed collision-probability estimate or heuristic spread is invalid")]
+    InvalidCollisionProbability,
 }
 
 /// Conjunction analyzer for computing collision probabilities
@@ -310,13 +323,22 @@ impl ConjunctionAnalyzer {
 
         let collision_probability =
             self.calculate_pc(primary, secondary, miss_distance, self.default_hbr_m);
-        if !collision_probability.pc.is_finite()
-            || !collision_probability.pc_lower.is_finite()
-            || !collision_probability.pc_upper.is_finite()
+        let pc = collision_probability.pc;
+        let pc_lower = collision_probability.pc_lower;
+        let pc_upper = collision_probability.pc_upper;
+        if !pc.is_finite()
+            || !pc_lower.is_finite()
+            || !pc_upper.is_finite()
+            || !(0.0..=1.0).contains(&pc)
+            || !(0.0..=1.0).contains(&pc_lower)
+            || !(0.0..=1.0).contains(&pc_upper)
+            || pc_lower > pc
+            || pc > pc_upper
         {
-            return Err(ConjunctionAssessmentError::InvalidCovariance { object: "combined" });
+            return Err(ConjunctionAssessmentError::InvalidCollisionProbability);
         }
-        let risk_level = RiskLevel::from_pc(collision_probability.pc);
+        let risk_level = RiskLevel::try_from_pc(pc)
+            .ok_or(ConjunctionAssessmentError::InvalidCollisionProbability)?;
         let combined_covariance = match (&primary.covariance, &secondary.covariance) {
             (Some(c1), Some(c2)) => Some(
                 c1.fuse(c2)
@@ -748,6 +770,15 @@ mod tests {
             ).unwrap_err(),
             ConjunctionAssessmentError::InvalidHardBodyRadius
         );
+    }
+
+    #[test]
+    fn risk_level_rejects_non_finite_and_out_of_range_pc() {
+        assert_eq!(RiskLevel::try_from_pc(f64::NAN), None);
+        assert_eq!(RiskLevel::try_from_pc(f64::INFINITY), None);
+        assert_eq!(RiskLevel::try_from_pc(-0.1), None);
+        assert_eq!(RiskLevel::try_from_pc(1.1), None);
+        assert_eq!(RiskLevel::from_pc(f64::NAN), RiskLevel::Emergency);
     }
 
     #[test]
