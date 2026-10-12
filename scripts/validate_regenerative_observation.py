@@ -180,6 +180,7 @@ def validate_observation(record: object, catalog: object, expected_catalog_sha25
     fraction = coverage.get("coverage_fraction")
     if not isinstance(coverage_state, str) or coverage_state not in {"complete", "partial", "unknown", "not_applicable"}:
         errors.append("coverage.state must be explicit")
+        coverage_state = None
     if fraction is not None and (not _finite_number(fraction) or fraction < 0 or fraction > 1):
         errors.append("coverage.coverage_fraction must be null or a number in [0, 1]")
     if coverage_state == "complete" and fraction != 1:
