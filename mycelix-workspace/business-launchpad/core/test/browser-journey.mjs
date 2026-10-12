@@ -134,6 +134,8 @@ try {
   await page.locator('#result').getByText('ZAR 5100.00', { exact: true }).waitFor({ state: 'visible' });
   assert.match(await page.locator('#result').innerText(), /8 units\/month/);
   assert.match(await page.locator('#result').innerText(), /PARTIAL COST COVERAGE/);
+  assert.match(await page.locator('#result').innerText(), /does not estimate extra runway for slow sales or operating losses/);
+  assert.match(await page.locator('#result').innerText(), /single-offer model/);
   await page.screenshot({ path: resolve(evidenceDir, '02-keyboard-calculation-result.png'), fullPage: true });
   completedChecks.push('keyboard-only calculation shows result, break-even and partial-cost warning');
 
