@@ -193,8 +193,8 @@ function renderCashRunwayInputs(plan, currency) {
     for (const [suffix, value, label] of [
       ['sales-receipts', period.salesCashReceiptsMinor, 'sales cash receipts expected this month'],
       ['operating-outflows', period.operatingCashOutflowsMinor, 'operating cash payments expected this month'],
-      ['inflows', period.otherCashInflowsMinor, 'other operating cash inflows'],
-      ['outflows', period.otherCashOutflowsMinor, 'other operating cash outflows'],
+      ['inflows', period.otherCashInflowsMinor, 'other/unclassified cash inflows'],
+      ['outflows', period.otherCashOutflowsMinor, 'other/unclassified cash outflows'],
       ['investing-inflows', period.investingCashInflowsMinor ?? 0, 'investing cash inflows (for example, asset sales)'],
       ['investing-outflows', period.investingCashOutflowsMinor ?? 0, 'investing cash outflows (for example, equipment purchases)'],
       ['financing-inflows', period.financingCashInflowsMinor ?? 0, 'financing cash inflows (for example, loan proceeds or owner capital)'],
@@ -395,7 +395,7 @@ function renderCashRunwayReport(runway) {
   section.append(element(
     'p',
     'detail',
-    'An owner-supplied cash scenario, not a sales forecast. Sales activity, collections, operating payments, investing movements and financing movements are separate. Setup costs are paid before Month 1; the working-capital buffer is a minimum reserve target. These categories are planning aids, not an accounting classification opinion.'
+    'An owner-supplied cash scenario, not a sales forecast. Sales activity, collections, operating payments, investing movements and financing movements are separate. Legacy generic “other” cash amounts stay unclassified and still affect closing cash, but are not included in any category subtotal. Setup costs are paid before Month 1; the working-capital buffer is a reserve target. These categories are planning aids, not an accounting classification opinion.'
   ));
 
   const summary = element('dl', 'metric-list');
@@ -433,9 +433,10 @@ function renderCashRunwayReport(runway) {
     'Sales units (activity)',
     'Sales cash receipts',
     'Operating cash outflows',
-    'Other operating inflows',
-    'Other operating outflows',
+    'Other/unclassified inflows',
+    'Other/unclassified outflows',
     'Net operating cash flow',
+    'Net unclassified cash flow',
     'Net investing cash flow',
     'Net financing cash flow',
     'Net cash change',
@@ -461,6 +462,7 @@ function renderCashRunwayReport(runway) {
     row.append(element('td', '', formatMinorUnits(period.otherCashInflowsMinor, runway.currency)));
     row.append(element('td', '', formatMinorUnits(period.otherCashOutflowsMinor, runway.currency)));
     row.append(element('td', period.netOperatingCashFlowMinor < 0 ? 'negative' : '', formatMinorUnits(period.netOperatingCashFlowMinor, runway.currency)));
+    row.append(element('td', period.netUnclassifiedCashFlowMinor < 0 ? 'negative' : '', formatMinorUnits(period.netUnclassifiedCashFlowMinor, runway.currency)));
     row.append(element('td', period.netInvestingCashFlowMinor < 0 ? 'negative' : '', formatMinorUnits(period.netInvestingCashFlowMinor, runway.currency)));
     row.append(element('td', period.netFinancingCashFlowMinor < 0 ? 'negative' : '', formatMinorUnits(period.netFinancingCashFlowMinor, runway.currency)));
     row.append(element('td', period.netCashChangeMinor < 0 ? 'negative' : '',
@@ -479,7 +481,7 @@ function renderCashRunwayReport(runway) {
     section.append(element(
       'p',
       'coverage-line',
-      'PARTIAL COST COVERAGE ALSO APPLIES TO THIS CASH SCENARIO. Include known taxes, owner draw, debt service and omitted operating costs in the other operating outflow field; model loan principal and capital transactions in financing/investing fields where appropriate. Classification depends on transaction and reporting rules; unknown costs remain a limitation.'
+      'PARTIAL COST COVERAGE ALSO APPLIES TO THIS CASH SCENARIO. Include known operating costs in operating cash outflows when appropriate; keep unclassified payments in the other/unclassified field until they can be categorized. Model capital purchases and loan principal/capital events in investing/financing fields where appropriate. Classification depends on transaction and reporting rules; unknown costs remain a limitation.'
     ));
   }
 
