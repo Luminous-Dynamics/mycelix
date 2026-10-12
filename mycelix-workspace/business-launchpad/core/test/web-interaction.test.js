@@ -182,6 +182,8 @@ test('default business scenario renders deterministic totals and cost warnings',
   assert.match(result.textContent, /12-month cash runway scenario/);
   assert.match(result.textContent, /Downside \/ base \/ upside comparison/);
   assert.match(result.textContent, /Receipts delayed beyond horizon/);
+  assert.match(result.textContent, /Downside stress: sales receipts reduced 20%, delayed 1 month/);
+  assert.match(result.textContent, /Upside stress: sales receipts increased 10%/);
   assert.match(result.textContent, /same month/);
   assert.equal(documentMock.getElementById('input-error').hidden, true);
 });
