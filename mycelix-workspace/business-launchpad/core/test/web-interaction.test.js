@@ -118,8 +118,10 @@ class MockDocument {
     this.nodes.get('load-scenario-file').files = [];
     this.nodes.get('download-report').disabled = true;
     for (let month = 1; month <= 12; month += 1) {
-      this.getElementById('cash-month-' + month + '-sales').value =
-        month === 1 ? '25' : month === 2 ? '38' : '50';
+      const units = month === 1 ? 25 : month === 2 ? 38 : 50;
+      this.getElementById('cash-month-' + month + '-sales').value = String(units);
+      this.getElementById('cash-month-' + month + '-sales-receipts').value = (180 * units).toFixed(2);
+      this.getElementById('cash-month-' + month + '-operating-outflows').value = (60 * units + 900).toFixed(2);
       this.getElementById('cash-month-' + month + '-inflows').value = '0.00';
       this.getElementById('cash-month-' + month + '-outflows').value = '0.00';
     }
@@ -218,6 +220,8 @@ test('assumptions export produces versioned portable JSON without uploading inpu
   assert.deepEqual(payload.input.costCoverage.omittedCategories, ['owner labor', 'tax', 'insurance']);
   assert.equal(payload.cashRunwayPlan.length, 12);
   assert.equal(payload.cashRunwayPlan[0].salesUnits, 25);
+  assert.equal(payload.cashRunwayPlan[0].salesCashReceiptsMinor, 450_000);
+  assert.equal(payload.cashRunwayPlan[0].operatingCashOutflowsMinor, 240_000);
   assert.equal(payload.cashRunwayPlan[1].salesUnits, 38);
 
   const anchor = documentMock.createdElements.at(-1);
@@ -273,6 +277,27 @@ test('invalid cash runway plan is rejected before imported base inputs are appli
   assert.match(documentMock.getElementById('input-error').textContent, /Cash runway Month 1 contains an invalid amount or sales quantity/);
 });
 
+test('legacy version-1 cash plan periods derive missing cash timing fields safely', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.cashRunwayPlan = payload.cashRunwayPlan.map(period => ({
+    salesUnits: period.salesUnits,
+    otherCashInflowsMinor: period.otherCashInflowsMinor,
+    otherCashOutflowsMinor: period.otherCashOutflowsMinor
+  }));
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
+  assert.equal(documentMock.getElementById('cash-month-1-sales-receipts').value, '4500.00');
+  assert.equal(documentMock.getElementById('cash-month-1-operating-outflows').value, '2400.00');
+  documentMock.submit();
+  assert.equal(documentMock.getElementById('download-report').disabled, false);
+});
+
 test('legacy version-1 scenarios without a cash plan receive an explicit default ramp', async () => {
   documentMock.reset();
   documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
@@ -287,6 +312,8 @@ test('legacy version-1 scenarios without a cash plan receive an explicit default
   assert.equal(documentMock.getElementById('cash-month-1-sales').value, '25');
   assert.equal(documentMock.getElementById('cash-month-2-sales').value, '38');
   assert.equal(documentMock.getElementById('cash-month-12-sales').value, '50');
+  assert.equal(documentMock.getElementById('cash-month-1-sales-receipts').value, '4500.00');
+  assert.equal(documentMock.getElementById('cash-month-1-operating-outflows').value, '2400.00');
   assert.equal(documentMock.getElementById('download-report').disabled, true);
   documentMock.submit();
   assert.match(documentMock.getElementById('result').textContent, /12-month cash runway scenario/);
@@ -339,6 +366,8 @@ test('malformed or unsupported import files fail visibly without changing inputs
 test('cash runway exposes reserve breaches when the first month has no sales', () => {
   documentMock.reset();
   documentMock.getElementById('cash-month-1-sales').value = '0';
+  documentMock.getElementById('cash-month-1-sales-receipts').value = '0.00';
+  documentMock.getElementById('cash-month-1-operating-outflows').value = '900.00';
   documentMock.submit();
   const output = documentMock.getElementById('result').textContent;
   assert.match(output, /First reserve breachMonth 1/);
