@@ -659,6 +659,34 @@ mod tests {
     }
 
     #[test]
+    fn malformed_response_consumes_prepared_request() {
+        let ids = ["lesson.fractions.01".to_string()];
+        let mut request = prepare_test_request(
+            &ids,
+            &[LearningSuggestion::OfferHint],
+            &[AdviceReason::RepeatedIncorrectAttempts],
+        );
+
+        assert_eq!(
+            request.read_and_validate_response_once(Cursor::new(&b"{"[..]), true, false),
+            Err(BoundedAdviceReadError::MalformedJson)
+        );
+
+        let encoded = valid_advice_json().replace(
+            &format!("blake3:{}", "0".repeat(64)),
+            request.input_digest(),
+        );
+        assert_eq!(
+            request.read_and_validate_response_once(
+                Cursor::new(encoded.as_bytes()),
+                true,
+                false,
+            ),
+            Err(BoundedAdviceReadError::ResponseAlreadyConsumed)
+        );
+    }
+
+    #[test]
     fn oversized_response_consumes_prepared_request() {
         let ids = ["lesson.fractions.01".to_string()];
         let mut request = prepare_test_request(
