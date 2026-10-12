@@ -262,6 +262,16 @@ test('malformed or unsupported import files fail visibly without changing inputs
   assert.equal(documentMock.getElementById('input-error').hidden, false);
   assert.match(documentMock.getElementById('input-error').textContent, /schemaVersion 1 required/);
   assert.equal(fileInput.value, '');
+
+  fileInput.files = [{
+    size: 1_000_001,
+    text: async () => JSON.stringify({ schemaVersion: 1, kind: 'business-launchpad-scenario', input: {} })
+  }];
+  fileInput.value = 'oversized.json';
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+  assert.equal(documentMock.getElementById('selling-price').value, originalPrice);
+  assert.match(documentMock.getElementById('input-error').textContent, /larger than 1 MB/);
+  assert.equal(fileInput.value, '');
 });
 
 test('editing inputs invalidates a previously calculated report', () => {
