@@ -7,12 +7,14 @@ on:
       - 'mycelix-workspace/business-launchpad/core/**'
       - 'mycelix-workspace/business-launchpad/web/**'
       - '.github/workflows/business-launchpad-browser.yml'
+      - '.github/workflows/business-launchpad-core.yml'
   push:
     branches: [main]
     paths:
       - 'mycelix-workspace/business-launchpad/core/**'
       - 'mycelix-workspace/business-launchpad/web/**'
       - '.github/workflows/business-launchpad-browser.yml'
+      - '.github/workflows/business-launchpad-core.yml'
 
 permissions:
   contents: read
@@ -58,8 +60,8 @@ jobs:
         run: |
           set -euo pipefail
           npm ci --prefix test --ignore-scripts --no-audit --no-fund 2>&1 | tee playwright-install.log
-          test "$(node -p "require('./test/node_modules/playwright/package.json').version")" = "1.64.0-alpha-2026-09-28"
-          test "$(node -p "require('./test/node_modules/playwright-core/package.json').version")" = "1.64.0-alpha-2026-09-28"
+          test "$(node -p "require('./test/node_modules/playwright/package.json').version")" = "1.64.0"
+          test "$(node -p "require('./test/node_modules/playwright-core/package.json').version")" = "1.64.0"
 
       - name: Install Chromium and Linux browser dependencies
         id: chromium
