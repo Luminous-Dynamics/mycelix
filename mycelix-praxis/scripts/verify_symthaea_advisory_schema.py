@@ -230,8 +230,9 @@ def main() -> int:
     )
     require(
         "fn valid_request_nonce(value: &str) -> bool" in adapter_source
-        and "if !valid_request_nonce(policy.request_nonce)" in adapter_source,
-        "Rust request builder must validate the request nonce before serialization",
+        and "if !valid_request_nonce(policy.request_nonce)" in adapter_source
+        and "request_nonce: policy.request_nonce" in adapter_source,
+        "Rust request builder must validate and serialize the trusted request nonce",
         errors,
     )
     require("input_digest" not in request_schema_fields,
