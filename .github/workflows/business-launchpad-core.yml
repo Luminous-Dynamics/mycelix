@@ -114,6 +114,7 @@ jobs:
             echo "source_sha256=$(hash_file src/index.js)"
             echo "core_tests_sha256=$(hash_file test/index.test.js)"
             echo "mock_dom_tests_sha256=$(hash_file test/web-interaction.test.js)"
+            echo "browser_journey_sha256=$(hash_file test/browser-journey.mjs)"
             echo "fixtures_sha256=$(hash_file test/fixtures/business-scenarios.v1.json)"
             echo "cli_sha256=$(hash_file src/cli.js)"
             echo "core_package_json_sha256=$(hash_file package.json)"
