@@ -213,7 +213,7 @@ test('assumptions export produces versioned portable JSON without uploading inpu
   assert.equal(capturedBlob.type, 'application/json;charset=utf-8');
 
   const payload = JSON.parse(await capturedBlob.text());
-  assert.equal(payload.schemaVersion, 1);
+  assert.equal(payload.schemaVersion, 2);
   assert.equal(payload.kind, 'business-launchpad-scenario');
   assert.equal(payload.input.currency.code, 'ZAR');
   assert.equal(payload.input.sellingPricePerUnitMinor, 18_000);
@@ -226,7 +226,7 @@ test('assumptions export produces versioned portable JSON without uploading inpu
 
   const anchor = documentMock.createdElements.at(-1);
   assert.equal(anchor.tagName, 'A');
-  assert.equal(anchor.download, 'business-launchpad-scenario-v1.json');
+  assert.equal(anchor.download, 'business-launchpad-scenario-v2.json');
   assert.equal(anchor.clicked, true);
   assert.equal(anchor.removed, true);
 });
@@ -281,6 +281,7 @@ test('legacy version-1 cash plan periods derive missing cash timing fields safel
   documentMock.reset();
   documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
   const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 1;
   payload.cashRunwayPlan = payload.cashRunwayPlan.map(period => ({
     salesUnits: period.salesUnits,
     otherCashInflowsMinor: period.otherCashInflowsMinor,
@@ -298,10 +299,26 @@ test('legacy version-1 cash plan periods derive missing cash timing fields safel
   assert.equal(documentMock.getElementById('download-report').disabled, false);
 });
 
+test('version-2 scenarios missing the cash plan are rejected instead of silently downgraded', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  delete payload.cashRunwayPlan;
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /Version 2 scenarios must include the 12-month cash plan/);
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+});
+
 test('legacy version-1 scenarios without a cash plan receive an explicit default ramp', async () => {
   documentMock.reset();
   documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
   const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 1;
   delete payload.cashRunwayPlan;
 
   const fileInput = documentMock.getElementById('load-scenario-file');
@@ -328,7 +345,7 @@ test('report export is disabled until a valid calculation exists and includes bo
   documentMock.getElementById('download-report').dispatchEvent({ type: 'click' });
   const payload = JSON.parse(await capturedBlob.text());
 
-  assert.equal(payload.schemaVersion, 1);
+  assert.equal(payload.schemaVersion, 2);
   assert.equal(payload.kind, 'business-launchpad-report');
   assert.equal(payload.input.currency.code, 'ZAR');
   assert.equal(payload.report.breakEven.unitsPerMonth, 8);
@@ -336,7 +353,7 @@ test('report export is disabled until a valid calculation exists and includes bo
   assert.equal(payload.cashRunwayPlan.length, 12);
   assert.equal(payload.cashRunwayProjection.horizonMonths, 12);
   assert.equal(payload.cashRunwayProjection.kind, 'business-launchpad-cash-runway-report');
-  assert.equal(documentMock.createdElements.at(-1).download, 'business-launchpad-report-v1.json');
+  assert.equal(documentMock.createdElements.at(-1).download, 'business-launchpad-report-v2.json');
   assert.ok(createdUrls.includes('blob:business-launchpad-test'));
 });
 
@@ -344,12 +361,12 @@ test('malformed or unsupported import files fail visibly without changing inputs
   documentMock.reset();
   const originalPrice = documentMock.getElementById('selling-price').value;
   const fileInput = documentMock.getElementById('load-scenario-file');
-  fileInput.files = [{ text: async () => JSON.stringify({ schemaVersion: 2, kind: 'business-launchpad-scenario', input: {} }) }];
+  fileInput.files = [{ text: async () => JSON.stringify({ schemaVersion: 99, kind: 'business-launchpad-scenario', input: {} }) }];
   await fileInput.listeners.get('change')[0]({ target: fileInput });
 
   assert.equal(documentMock.getElementById('selling-price').value, originalPrice);
   assert.equal(documentMock.getElementById('input-error').hidden, false);
-  assert.match(documentMock.getElementById('input-error').textContent, /schemaVersion 1 required/);
+  assert.match(documentMock.getElementById('input-error').textContent, /schemaVersion 1 or 2 required/);
   assert.equal(fileInput.value, '');
 
   fileInput.files = [{
