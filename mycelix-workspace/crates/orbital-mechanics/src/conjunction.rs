@@ -105,18 +105,21 @@ pub enum PcMethod {
     GaussianSmallDiskApprox2D,
 }
 
-/// Risk level for prioritization
+/// Pc-only screening band for prioritization.
+///
+/// This is not a complete collision-risk assessment, safety finding, or maneuver
+/// decision. The current Pc approximation and TLE-age covariance remain unqualified.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RiskLevel {
-    /// No action needed (Pc < 1e-7 or miss > 5km)
+    /// Pc below 1e-7: below this screening band, not proof of safety.
     Negligible,
-    /// Monitor but no immediate action (Pc < 1e-5)
+    /// Pc from 1e-7 to 1e-5: low screening band.
     Low,
-    /// Increased monitoring, prepare for possible action (Pc < 1e-4)
+    /// Pc from 1e-5 to 1e-4: medium screening band.
     Medium,
-    /// Maneuver planning should begin (Pc < 1e-3)
+    /// Pc from 1e-4 to 1e-3: high screening band; independent review required.
     High,
-    /// Emergency - maneuver required (Pc >= 1e-3)
+    /// Pc at or above 1e-3: highest screening band; not a maneuver command.
     Emergency,
 }
 
@@ -135,13 +138,14 @@ impl RiskLevel {
         }
     }
 
+    /// Human-readable screening description; none of these strings authorizes action.
     pub fn description(&self) -> &'static str {
         match self {
-            RiskLevel::Negligible => "No action required",
-            RiskLevel::Low => "Standard monitoring",
-            RiskLevel::Medium => "Enhanced monitoring, evaluate options",
-            RiskLevel::High => "Begin maneuver planning",
-            RiskLevel::Emergency => "Execute collision avoidance maneuver",
+            RiskLevel::Negligible => "Below the lowest Pc screening band; not a safety finding",
+            RiskLevel::Low => "Low Pc-only screening band; interpret with data quality and uncertainty",
+            RiskLevel::Medium => "Medium Pc-only screening band; independent assessment required",
+            RiskLevel::High => "High Pc-only screening band; independent operational review required",
+            RiskLevel::Emergency => "Highest Pc-only screening band; not a maneuver command",
         }
     }
 }
