@@ -499,7 +499,7 @@ def main() -> int:
     )
     one_shot_start = adapter_source.find("pub fn read_and_validate_response_once<R: Read>(")
     one_shot_parse = adapter_source.find("parse_bounded_response(&bytes)", one_shot_start)
-    one_shot_read = adapter_source.find("read_bounded_response_bytes(reader)?", one_shot_start)
+    one_shot_read = adapter_source.find("match read_bounded_response_bytes(reader)", one_shot_start)
     require(
         one_shot_start >= 0 and one_shot_read > one_shot_start
         and one_shot_parse > one_shot_read,
@@ -578,7 +578,7 @@ def main() -> int:
     )
     require(
         "assert_ne!(first.input_digest(), second.input_digest());" in adapter_source
-        and '"request_body_digest_changes_for_fresh_nonce"' in adapter_source,
+        and "fn request_body_digest_changes_for_fresh_nonce()" in adapter_source,
         "adapter tests must prove fresh nonces change request digests",
         errors,
     )
@@ -605,7 +605,7 @@ def main() -> int:
         errors,
     )
     one_shot_start = adapter_source.find("pub fn read_and_validate_response_once<R: Read>(")
-    one_shot_end = adapter_source.find("\n    }", one_shot_start)
+    one_shot_end = adapter_source.find("\n    }\n}\n\n/// Prepare a minimized request body", one_shot_start)
     one_shot = adapter_source[one_shot_start:one_shot_end]
     require(
         "if self.response_consumed" in one_shot
