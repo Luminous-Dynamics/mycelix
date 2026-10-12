@@ -344,7 +344,7 @@ function renderCashRunwayReport(runway) {
   section.append(element(
     'p',
     'detail',
-    'An owner-supplied cash scenario, not a sales forecast. Setup costs are paid before Month 1; the working-capital buffer is a minimum reserve target.'
+    'An owner-supplied cash scenario, not a sales forecast. Sales units are activity assumptions; sales cash receipts and operating payments are independently editable by month. Setup costs are paid before Month 1 and the working-capital buffer is a minimum reserve target.'
   ));
 
   const summary = element('dl', 'metric-list');
@@ -377,7 +377,17 @@ function renderCashRunwayReport(runway) {
   const table = element('table', 'cash-projection-table');
   const thead = element('thead');
   const headerRow = element('tr');
-  for (const label of ['Period', 'Sales units (assumed paid in month)', 'Net cash change', 'Closing cash', 'Reserve status']) {
+  for (const label of [
+    'Period',
+    'Sales units (activity)',
+    'Sales cash receipts',
+    'Operating cash outflows',
+    'Other inflows',
+    'Other outflows',
+    'Net cash change',
+    'Closing cash',
+    'Reserve status'
+  ]) {
     const heading = element('th', '', label);
     heading.setAttribute('scope', 'col');
     headerRow.append(heading);
@@ -391,7 +401,11 @@ function renderCashRunwayReport(runway) {
     const periodHeading = element('th', '', 'Month ' + period.period);
     periodHeading.setAttribute('scope', 'row');
     row.append(periodHeading);
-    row.append(element('td', '', period.assumedSalesUnitsCollectedThisMonth.toLocaleString()));
+    row.append(element('td', '', period.salesUnitsScenario.toLocaleString()));
+    row.append(element('td', '', formatMinorUnits(period.salesCashReceiptsMinor, runway.currency)));
+    row.append(element('td', '', formatMinorUnits(period.operatingCashOutflowsMinor, runway.currency)));
+    row.append(element('td', '', formatMinorUnits(period.otherCashInflowsMinor, runway.currency)));
+    row.append(element('td', '', formatMinorUnits(period.otherCashOutflowsMinor, runway.currency)));
     row.append(element('td', period.netCashChangeMinor < 0 ? 'negative' : '',
       formatMinorUnits(period.netCashChangeMinor, runway.currency)));
     row.append(element('td', period.closingCashMinor < 0 ? 'negative' : '',
@@ -408,7 +422,7 @@ function renderCashRunwayReport(runway) {
     section.append(element(
       'p',
       'coverage-line',
-      'PARTIAL COST COVERAGE ALSO APPLIES TO THIS CASH SCENARIO. Unknown costs do not disappear; add credible estimates to the monthly other-cash-outflow fields where available.'
+      'PARTIAL COST COVERAGE ALSO APPLIES TO THIS CASH SCENARIO. Include known taxes, owner draw, debt service, taxes, and other excluded payments in the monthly other-outflow fields; unknown costs remain a limitation.'
     ));
   }
 
