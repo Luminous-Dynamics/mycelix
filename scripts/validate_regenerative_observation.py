@@ -105,8 +105,9 @@ def validate_observation(record: object, catalog: object) -> list[str]:
         errors.append("period.temporal_resolution must be a non-empty string")
 
     status = record.get("observation_status")
-    if status not in STATUSES:
+    if not isinstance(status, str) or status not in STATUSES:
         errors.append("observation_status must be an allowed explicit evidence/missingness state")
+        status = None
     measurement = record.get("measurement")
     if not isinstance(measurement, dict):
         errors.append("measurement must be an object")
@@ -123,7 +124,7 @@ def validate_observation(record: object, catalog: object) -> list[str]:
         if kind != "censored" or value is not None or not isinstance(censoring, dict):
             errors.append("below_detection_limit requires censored kind, null value and censoring metadata")
         else:
-            if censoring.get("operator") not in {"<", "<="}:
+            if not isinstance(censoring.get("operator"), str) or censoring.get("operator") not in {"<", "<="}:
                 errors.append("censoring.operator must be < or <=")
             if not _finite_number(censoring.get("threshold")):
                 errors.append("censoring.threshold must be finite")
@@ -139,7 +140,7 @@ def validate_observation(record: object, catalog: object) -> list[str]:
     if not isinstance(transformation, dict):
         errors.append("transformation must be an object")
         transformation = {}
-    if transformation.get("kind") not in {"identity", "unit_conversion", "aggregation", "normalization", "model_estimate"}:
+    if not isinstance(transformation.get("kind"), str) or transformation.get("kind") not in {"identity", "unit_conversion", "aggregation", "normalization", "model_estimate"}:
         errors.append("transformation.kind must be an explicit allowed method")
     for field in ("method_id", "version", "description"):
         if not isinstance(transformation.get(field), str) or not transformation[field].strip():
@@ -155,7 +156,7 @@ def validate_observation(record: object, catalog: object) -> list[str]:
         coverage = {}
     coverage_state = coverage.get("state")
     fraction = coverage.get("coverage_fraction")
-    if coverage_state not in {"complete", "partial", "unknown", "not_applicable"}:
+    if not isinstance(coverage_state, str) or coverage_state not in {"complete", "partial", "unknown", "not_applicable"}:
         errors.append("coverage.state must be explicit")
     if fraction is not None and (not _finite_number(fraction) or fraction < 0 or fraction > 1):
         errors.append("coverage.coverage_fraction must be null or a number in [0, 1]")
@@ -171,7 +172,7 @@ def validate_observation(record: object, catalog: object) -> list[str]:
         errors.append("uncertainty must be an object")
         uncertainty = {}
     uncertainty_status = uncertainty.get("status")
-    if uncertainty_status not in {"quantified", "qualitative", "not_assessed"}:
+    if not isinstance(uncertainty_status, str) or uncertainty_status not in {"quantified", "qualitative", "not_assessed"}:
         errors.append("uncertainty.status must be explicit")
     for field in ("method", "description"):
         if not isinstance(uncertainty.get(field), str) or not uncertainty[field].strip():
