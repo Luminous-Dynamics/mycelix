@@ -7,6 +7,7 @@
 const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
 const CURRENCY_CODE = /^[A-Z]{3}$/;
 const MAX_MINOR_UNIT_EXPONENT = 6;
+const MAX_MONEY_TEXT_LENGTH = 64;
 
 const SCOPE_LIMITATIONS = Object.freeze([
   'This is a contribution and fixed-cost worksheet, not a full accounting ledger.',
@@ -224,6 +225,9 @@ export function formatMinorUnits(amountMinor, currency) {
 export function parseMajorToMinorUnits(value, minorUnitExponent) {
   if (typeof value !== 'string') {
     return fail('invalid_money_text', 'Amount must be supplied as decimal text.');
+  }
+  if (value.length > MAX_MONEY_TEXT_LENGTH) {
+    return fail('money_text_too_long', 'Amount text must be at most ' + MAX_MONEY_TEXT_LENGTH + ' characters; shorten it and retry.', 'amount');
   }
   if (!Number.isInteger(minorUnitExponent) || minorUnitExponent < 0 || minorUnitExponent > MAX_MINOR_UNIT_EXPONENT) {
     return fail('invalid_currency_precision', 'Currency minor-unit exponent must be an integer from 0 to ' + MAX_MINOR_UNIT_EXPONENT + '.', 'minorUnitExponent');
