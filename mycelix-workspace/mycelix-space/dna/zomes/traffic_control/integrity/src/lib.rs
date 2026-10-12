@@ -224,8 +224,12 @@ pub struct ManeuverProposal {
     /// Resulting miss distance (km)
     pub resulting_miss_km: f64,
 
-    /// Resulting collision probability
-    pub resulting_pc: f64,
+    /// Caller-reported post-maneuver collision-probability claim.
+    ///
+    /// This is not a verified result. It remains a claim until an independent
+    /// post-maneuver state/covariance propagation and checked Pc assessment exist.
+    #[serde(default, alias = "resulting_pc")]
+    pub claimed_resulting_pc: Option<f64>,
 
     /// Cost estimate
     pub cost_estimate: Option<CostEstimate>,
@@ -644,12 +648,14 @@ fn validate_proposal(prop: &ManeuverProposal) -> ExternResult<ValidateCallbackRe
         )));
     }
 
-    // Resulting Pc must be in [0, 1]
-    if !prop.resulting_pc.is_finite() || prop.resulting_pc < 0.0 || prop.resulting_pc > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "Resulting Pc must be between 0 and 1, got {}",
-            prop.resulting_pc
-        )));
+    // Validate any caller-reported Pc claim. Absence stays unknown, not zero.
+    if let Some(pc) = prop.claimed_resulting_pc {
+        if !pc.is_finite() || !(0.0..=1.0).contains(&pc) {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Claimed resulting Pc must be finite and between 0 and 1 when present, got {}",
+                pc
+            )));
+        }
     }
 
     // Validate cost estimate if present
