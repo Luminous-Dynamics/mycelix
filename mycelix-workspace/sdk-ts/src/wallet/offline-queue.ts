@@ -88,6 +88,12 @@ export interface QueueStorageIdempotencyClaim {
   item: QueuedOperation;
 }
 
+/** Atomic transition result before an operation is dispatched. */
+export interface QueueStorageExecutionClaim {
+  claimed: boolean;
+  item: QueuedOperation;
+}
+
 /** Send operation payload */
 export interface SendPayload {
   to: string;
@@ -155,6 +161,11 @@ export interface QueueStorage {
    * sharing the same durable store (including separate browser tabs).
    */
   claimIdempotencyKey(item: QueuedOperation): Promise<QueueStorageIdempotencyClaim>;
+  /**
+   * Atomically claim an item only while its persisted status is pending.
+   * This prevents stale queue instances from executing the same stored row.
+   */
+  claimForExecution(id: QueueItemId, startedAt: number): Promise<QueueStorageExecutionClaim | null>;
   delete(id: QueueItemId): Promise<void>;
   clear(): Promise<void>;
 }
@@ -211,6 +222,24 @@ class InMemoryQueueStorage implements QueueStorage {
     // is atomic within the JavaScript agent.
     this.items.set(item.id, item);
     return { kind: 'inserted', item };
+  }
+
+  async claimForExecution(
+    id: QueueItemId,
+    startedAt: number
+  ): Promise<QueueStorageExecutionClaim | null> {
+    const stored = this.items.get(id);
+    if (!stored) return null;
+    if (stored.status !== 'pending') return { claimed: false, item: stored };
+
+    const claimed: QueuedOperation = {
+      ...stored,
+      status: 'syncing',
+      lastAttemptAt: startedAt,
+      attempts: stored.attempts + 1,
+    };
+    this.items.set(id, claimed);
+    return { claimed: true, item: claimed };
   }
 
   async save(item: QueuedOperation): Promise<void> {
@@ -346,6 +375,58 @@ export class IndexedDBQueueStorage implements QueueStorage {
       };
       tx.onerror = () => {
         failure ??= tx.error ?? new Error('IndexedDB idempotency transaction failed');
+      };
+    });
+  }
+
+  async claimForExecution(
+    id: QueueItemId,
+    startedAt: number
+  ): Promise<QueueStorageExecutionClaim | null> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      const lookup = store.get(id);
+      let outcome: QueueStorageExecutionClaim | null = null;
+      let failure: Error | undefined;
+
+      lookup.onerror = () => {
+        failure = lookup.error ?? new Error('Unable to read queue item before execution');
+      };
+      lookup.onsuccess = () => {
+        const stored = lookup.result as QueuedOperation | undefined;
+        if (!stored) {
+          outcome = null;
+          return;
+        }
+        if (stored.status !== 'pending') {
+          outcome = { claimed: false, item: stored };
+          return;
+        }
+
+        const claimed: QueuedOperation = {
+          ...stored,
+          status: 'syncing',
+          lastAttemptAt: startedAt,
+          attempts: stored.attempts + 1,
+        };
+        const write = store.put(claimed);
+        write.onsuccess = () => {
+          outcome = { claimed: true, item: claimed };
+        };
+        write.onerror = () => {
+          failure = write.error ?? new Error('Unable to persist execution claim');
+        };
+      };
+
+      tx.oncomplete = () => {
+        if (failure) reject(failure);
+        else resolve(outcome);
+      };
+      tx.onabort = () => reject(failure ?? tx.error ?? new Error('Execution claim transaction aborted'));
+      tx.onerror = () => {
+        failure ??= tx.error ?? new Error('Execution claim transaction failed');
       };
     });
   }
@@ -888,6 +969,7 @@ export class OfflineQueue {
 
         // Process the item
         const result = await this.processItem(item);
+        if (result.skipped) continue;
         if (result.success) {
           processed++;
         } else {
@@ -930,18 +1012,26 @@ export class OfflineQueue {
   /**
    * Process a single item
    */
-  private async processItem(item: QueuedOperation): Promise<{ success: boolean }> {
-    // Mark as syncing
-    const syncing: QueuedOperation = {
-      ...item,
-      status: 'syncing',
-      lastAttemptAt: Date.now(),
-      attempts: item.attempts + 1,
-    };
-    await this.storage.save(syncing);
+  private async processItem(
+    item: QueuedOperation
+  ): Promise<{ success: boolean; skipped?: boolean }> {
+    // The persisted row is authoritative. A second tab with a stale "pending"
+    // snapshot must not invoke the executor if another tab already claimed it.
+    const claim = await this.storage.claimForExecution(item.id, Date.now());
+    if (!claim) return { success: false, skipped: true };
+
+    const persisted = claim.item;
     this.updateState({
-      items: this._state$.value.items.map((i) => (i.id === item.id ? syncing : i)),
+      items: this._state$.value.items.map((stored) => (stored.id === item.id ? persisted : stored)),
+      pendingCount: this._state$.value.items.filter(
+        (stored) =>
+          (stored.id === item.id ? persisted.status : stored.status) === 'pending' ||
+          (stored.id === item.id ? persisted.status : stored.status) === 'syncing'
+      ).length,
     });
+    if (!claim.claimed) return { success: false, skipped: true };
+
+    const syncing = persisted;
 
     try {
       const result = await this.executor.execute(syncing);
