@@ -98,6 +98,14 @@
       "published_year": 2020,
       "retrieved_on": "2026-10-12",
       "url": "https://doi.org/10.3389/fsufs.2020.577723"
+    },
+    {
+      "ref_id": "dws-water-quality-data-explorer",
+      "title": "Water quality data exploration tool",
+      "publisher": "Department of Water and Sanitation, South Africa",
+      "reference_type": "data_discovery_portal",
+      "retrieved_on": "2026-10-12",
+      "url": "https://www.dws.gov.za/iwqs/wms/data/000key.asp"
     }
   ],
   "indicators": [
@@ -395,7 +403,8 @@
       ],
       "research_ref_ids": [
         "un-sdg-indicator-metadata",
-        "regenerative-agriculture-outcomes-review"
+        "regenerative-agriculture-outcomes-review",
+        "dws-water-quality-data-explorer"
       ],
       "status": "candidate_definition",
       "observations_loaded": false,
