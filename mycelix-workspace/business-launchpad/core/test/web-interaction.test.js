@@ -62,7 +62,9 @@ class MockDocument {
       'cash-runway-periods', 'reset-cash-runway',
       'downside-receipt-reduction-percent', 'downside-receipt-delay-months',
       'downside-operating-cost-increase-percent', 'upside-receipt-increase-percent',
-      'upside-receipt-advance-months', 'upside-operating-cost-reduction-percent'
+      'upside-receipt-advance-months', 'upside-operating-cost-reduction-percent',
+      'timing-sales-receipts-month-0', 'timing-sales-receipts-month-1', 'timing-sales-receipts-month-2',
+      'timing-supplier-payments-month-0', 'timing-supplier-payments-month-1', 'timing-supplier-payments-month-2'
     ];
     for (const id of ids) this.nodes.set(id, new MockElement(id === 'model-form' ? 'form' : 'div', id));
     this.body = new MockElement('body');
@@ -85,6 +87,12 @@ class MockDocument {
     this.nodes.get('upside-receipt-increase-percent').value = '10';
     this.nodes.get('upside-receipt-advance-months').value = '1';
     this.nodes.get('upside-operating-cost-reduction-percent').value = '5';
+    this.nodes.get('timing-sales-receipts-month-0').value = '70';
+    this.nodes.get('timing-sales-receipts-month-1').value = '25';
+    this.nodes.get('timing-sales-receipts-month-2').value = '5';
+    this.nodes.get('timing-supplier-payments-month-0').value = '80';
+    this.nodes.get('timing-supplier-payments-month-1').value = '15';
+    this.nodes.get('timing-supplier-payments-month-2').value = '5';
     this.nodes.get('result-status').textContent = 'Example not yet calculated';
   }
   querySelector(selector) {
@@ -121,7 +129,13 @@ class MockDocument {
       'downside-operating-cost-increase-percent': '15',
       'upside-receipt-increase-percent': '10',
       'upside-receipt-advance-months': '1',
-      'upside-operating-cost-reduction-percent': '5'
+      'upside-operating-cost-reduction-percent': '5',
+      'timing-sales-receipts-month-0': '70',
+      'timing-sales-receipts-month-1': '25',
+      'timing-sales-receipts-month-2': '5',
+      'timing-supplier-payments-month-0': '80',
+      'timing-supplier-payments-month-1': '15',
+      'timing-supplier-payments-month-2': '5'
     };
     for (const [id, value] of Object.entries(values)) this.nodes.get(id).value = value;
     this.nodes.get('input-error').hidden = true;
@@ -236,7 +250,7 @@ test('assumptions export produces versioned portable JSON without uploading inpu
   assert.equal(capturedBlob.type, 'application/json;charset=utf-8');
 
   const payload = JSON.parse(await capturedBlob.text());
-  assert.equal(payload.schemaVersion, 4);
+  assert.equal(payload.schemaVersion, 5);
   assert.equal(payload.kind, 'business-launchpad-scenario');
   assert.equal(payload.input.currency.code, 'ZAR');
   assert.equal(payload.input.sellingPricePerUnitMinor, 18_000);
@@ -251,11 +265,15 @@ test('assumptions export produces versioned portable JSON without uploading inpu
     downside: { salesReceiptReductionPercent: 20, salesReceiptDelayMonths: 1, operatingCashOutflowIncreasePercent: 15 },
     upside: { salesReceiptIncreasePercent: 10, salesReceiptAdvanceMonths: 1, operatingCashOutflowReductionPercent: 5 }
   });
+  assert.deepEqual(payload.cashTimingSchedule, {
+    salesReceiptsPercent: [70, 25, 5],
+    variableSupplierPaymentsPercent: [80, 15, 5]
+  });
   assert.equal(payload.cashRunwayPlan[1].salesUnits, 38);
 
   const anchor = documentMock.createdElements.at(-1);
   assert.equal(anchor.tagName, 'A');
-  assert.equal(anchor.download, 'business-launchpad-scenario-v4.json');
+  assert.equal(anchor.download, 'business-launchpad-scenario-v5.json');
   assert.equal(anchor.clicked, true);
   assert.equal(anchor.removed, true);
 });
@@ -267,6 +285,7 @@ test('imported scenario is validated, restores fields, and requires recalculatio
   payload.input.sellingPricePerUnitMinor = 20_000;
   payload.input.plannedUnitsPerMonth = 40;
   payload.cashScenarioAssumptions.downside.salesReceiptDelayMonths = 2;
+  payload.cashTimingSchedule.salesReceiptsPercent = [60, 30, 10];
 
   const fileInput = documentMock.getElementById('load-scenario-file');
   fileInput.files = [{ text: async () => JSON.stringify(payload) }];
@@ -277,6 +296,8 @@ test('imported scenario is validated, restores fields, and requires recalculatio
   assert.equal(documentMock.getElementById('selling-price').value, '200.00');
   assert.equal(documentMock.getElementById('planned-units').value, '40');
   assert.equal(documentMock.getElementById('downside-receipt-delay-months').value, '2');
+  assert.equal(documentMock.getElementById('timing-sales-receipts-month-0').value, '60');
+  assert.equal(documentMock.getElementById('timing-sales-receipts-month-1').value, '30');
   assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
   assert.equal(documentMock.getElementById('download-report').disabled, true);
 
@@ -406,6 +427,36 @@ test('schema-v4 requires valid stress assumptions and cannot silently default th
   assert.equal(documentMock.getElementById('download-report').disabled, true);
 });
 
+test('schema-v5 requires an explicit valid collection and supplier-payment schedule', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.cashTimingSchedule.salesReceiptsPercent = [70, 20, 5];
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /Cash scenario assumptions failed validation/);
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+});
+
+test('schema-v4 import receives explicit illustrative timing defaults', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 4;
+  delete payload.cashTimingSchedule;
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
+  assert.equal(documentMock.getElementById('timing-sales-receipts-month-0').value, '70');
+  assert.equal(documentMock.getElementById('timing-supplier-payments-month-2').value, '5');
+});
+
 test('schema-v3 plans require all explicit investing and financing cash fields', async () => {
   documentMock.reset();
   documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
@@ -453,7 +504,7 @@ test('report export is disabled until a valid calculation exists and includes bo
   documentMock.getElementById('download-report').dispatchEvent({ type: 'click' });
   const payload = JSON.parse(await capturedBlob.text());
 
-  assert.equal(payload.schemaVersion, 4);
+  assert.equal(payload.schemaVersion, 5);
   assert.equal(payload.kind, 'business-launchpad-report');
   assert.equal(payload.input.currency.code, 'ZAR');
   assert.equal(payload.report.breakEven.unitsPerMonth, 8);
@@ -464,7 +515,10 @@ test('report export is disabled until a valid calculation exists and includes bo
   assert.equal(payload.cashScenarioComparison.kind, 'business-launchpad-cash-scenario-comparison');
   assert.deepEqual(payload.cashScenarioComparison.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside']);
   assert.equal(payload.cashScenarioComparison.scenarios[1].summary.endingCashMinor, payload.cashRunwayProjection.summary.endingCashMinor);
-  assert.equal(documentMock.createdElements.at(-1).download, 'business-launchpad-report-v4.json');
+  assert.deepEqual(payload.cashScenarioComparison.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside', 'terms-based']);
+  assert.equal(payload.cashScenarioComparison.scenarios[3].assumptions.salesReceiptsPercent[0], 70);
+  assert.equal(payload.cashScenarioComparison.scenarios[3].deferredSalesCashReceiptsAfterHorizonMinor > 0, true);
+  assert.equal(documentMock.createdElements.at(-1).download, 'business-launchpad-report-v5.json');
   assert.ok(createdUrls.includes('blob:business-launchpad-test'));
 });
 
@@ -477,7 +531,7 @@ test('malformed or unsupported import files fail visibly without changing inputs
 
   assert.equal(documentMock.getElementById('selling-price').value, originalPrice);
   assert.equal(documentMock.getElementById('input-error').hidden, false);
-  assert.match(documentMock.getElementById('input-error').textContent, /schemaVersion 1, 2, 3 or 4 required/);
+  assert.match(documentMock.getElementById('input-error').textContent, /schemaVersion 1, 2, 3, 4 or 5 required/);
   assert.equal(fileInput.value, '');
 
   fileInput.files = [{
