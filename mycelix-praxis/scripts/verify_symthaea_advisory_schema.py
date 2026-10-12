@@ -67,6 +67,7 @@ ADAPTER_REQUIRED_TESTS = {
     "request_preparation_rejects_empty_reason_allowlist",
     "request_body_digest_changes_for_fresh_nonce",
     "request_preparation_rejects_invalid_request_nonce",
+    "public_request_builder_generates_fresh_nonces",
 }
 
 REQUIRED_TESTS = {
@@ -230,9 +231,23 @@ def main() -> int:
     )
     require(
         "fn valid_request_nonce(value: &str) -> bool" in adapter_source
-        and "if !valid_request_nonce(policy.request_nonce)" in adapter_source
-        and "request_nonce: policy.request_nonce" in adapter_source,
-        "Rust request builder must validate and serialize the trusted request nonce",
+        and "if !valid_request_nonce(request_nonce)" in adapter_source
+        and "request_nonce," in adapter_source,
+        "Rust request serializer must validate and serialize the request nonce",
+        errors,
+    )
+    require(
+        "fn generate_request_nonce() -> Result<String, RequestPreparationError>" in adapter_source
+        and "getrandom::getrandom(&mut bytes)" in adapter_source
+        and "let request_nonce = generate_request_nonce()?;" in adapter_source
+        and "RequestPreparationError::NonceGenerationFailed" in adapter_source,
+        "public request builder must fail closed when OS cryptographic randomness is unavailable",
+        errors,
+    )
+    require(
+        "fn public_request_builder_generates_fresh_nonces()" in adapter_source
+        and "assert_ne!(first_nonce, second_nonce);" in adapter_source,
+        "adapter regression tests must check public builder nonce freshness",
         errors,
     )
     require("input_digest" not in request_schema_fields,
@@ -422,9 +437,10 @@ def main() -> int:
         errors,
     )
     require(
-        "serde.workspace = true" in adapter_manifest
+        "getrandom.workspace = true" in adapter_manifest
+        and "serde.workspace = true" in adapter_manifest
         and "serde_json.workspace = true" in adapter_manifest,
-        "host adapter must declare the serializer dependencies it uses directly",
+        "host adapter must declare its direct OS-randomness and serializer dependencies",
         errors,
     )
     require(
