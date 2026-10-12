@@ -85,10 +85,12 @@ function readModel() {
   model.plannedUnitsPerMonth = units.value;
 
   const level = getFieldValue('cost-coverage');
-  const omittedCategories = getFieldValue('omitted-costs')
-    .split(',')
-    .map(value => value.trim())
-    .filter(Boolean);
+  const omittedCategories = level === 'partial'
+    ? getFieldValue('omitted-costs')
+        .split(',')
+        .map(value => value.trim())
+        .filter(Boolean)
+    : [];
   model.costCoverage = { level, omittedCategories };
   return model;
 }
