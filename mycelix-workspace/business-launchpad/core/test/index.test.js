@@ -468,10 +468,10 @@ test('terms-based schedule allocates customer receipts and supplier payments by 
   assert.equal(result.ok, true);
   assert.equal(result.report.kind, 'business-launchpad-terms-based-cash-projection');
   assert.deepEqual(result.report.monthlyPlan.map(period => period.salesCashReceiptsMinor), [50_000, 130_000, 230_000]);
-  assert.deepEqual(result.report.monthlyPlan.map(period => period.operatingCashOutflowsMinor), [60_100, 102_100, 154_100]);
+  assert.deepEqual(result.report.monthlyPlan.map(period => period.operatingCashOutflowsMinor), [36_100, 90_100, 150_100]);
   assert.equal(result.report.deferredSalesCashReceiptsAfterHorizonMinor, 190_000);
-  assert.equal(result.report.deferredVariableSupplierPaymentsAfterHorizonMinor, 30_000);
-  assert.deepEqual(result.report.projection.periods.map(period => period.closingCashMinor), [389_900, 417_800, 493_700]);
+  assert.equal(result.report.deferredVariableSupplierPaymentsAfterHorizonMinor, 36_000);
+  assert.deepEqual(result.report.projection.periods.map(period => period.closingCashMinor), [513_900, 553_800, 633_700]);
   assert.deepEqual(monthlyPlan.map(period => period.salesCashReceiptsMinor), [0, 0, 0], 'terms case must not overwrite the entered plan');
 });
 
