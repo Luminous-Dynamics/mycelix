@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Business Launchpad — Viability Worksheet</title>
+  <meta name="description" content="A local-first, deterministic business scenario worksheet. No account or upload required in this prototype.">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="shell">
+      <p class="eyebrow">LUMINOUS DYNAMICS · EXPERIMENTAL PROTOTYPE</p>
+      <h1>Business viability worksheet</h1>
+      <p class="lede">Check the arithmetic before committing money. Use your own costs, prices and sales assumptions.</p>
+    </div>
+  </header>
+
+  <main class="shell layout">
+    <section class="panel form-panel" aria-labelledby="inputs-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">01 / INPUTS</p>
+          <h2 id="inputs-heading">Describe the scenario</h2>
+        </div>
+        <span class="status-pill">Calculates locally</span>
+      </div>
+
+      <div class="notice notice-warning">
+        <strong>These values are fictional example defaults.</strong>
+        Replace them with quoted costs and realistic sales assumptions before using the result to make a decision.
+      </div>
+
+      <form id="model-form" novalidate>
+        <fieldset>
+          <legend>Currency and unit economics</legend>
+          <div class="field-grid currency-grid">
+            <label for="currency-code">Currency code
+              <input id="currency-code" name="currency-code" value="ZAR" maxlength="3" autocomplete="off" required>
+              <small>Three-letter code shape only; support is not verified.</small>
+            </label>
+            <label for="minor-unit-exponent">Decimal places
+              <input id="minor-unit-exponent" name="minor-unit-exponent" type="number" min="0" max="6" step="1" value="2" required>
+              <small>For example, ZAR normally uses 2.</small>
+            </label>
+          </div>
+          <div class="field-grid">
+            <label for="selling-price">Price per sale
+              <input id="selling-price" name="selling-price" type="text" inputmode="decimal" value="180.00" autocomplete="off" required>
+            </label>
+            <label for="variable-cost">Variable cost per sale
+              <input id="variable-cost" name="variable-cost" type="text" inputmode="decimal" value="60.00" autocomplete="off" required>
+            </label>
+          </div>
+          <label for="planned-units">Sales you expect per month
+            <input id="planned-units" name="planned-units" type="number" min="0" step="1" value="50" required>
+            <small>This is your assumption, not a demand forecast.</small>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Monthly and startup costs</legend>
+          <div class="field-grid">
+            <label for="fixed-monthly">Fixed costs per month
+              <input id="fixed-monthly" name="fixed-monthly" type="text" inputmode="decimal" value="900.00" autocomplete="off" required>
+            </label>
+            <label for="setup-costs">One-time setup costs
+              <input id="setup-costs" name="setup-costs" type="text" inputmode="decimal" value="2500.00" autocomplete="off" required>
+            </label>
+          </div>
+          <div class="field-grid">
+            <label for="working-capital">Initial working-capital buffer
+              <input id="working-capital" name="working-capital" type="text" inputmode="decimal" value="3000.00" autocomplete="off" required>
+            </label>
+            <label for="available-cash">Cash available for startup
+              <input id="available-cash" name="available-cash" type="text" inputmode="decimal" value="6000.00" autocomplete="off" required>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>What is still missing?</legend>
+          <label for="cost-coverage">Cost coverage
+            <select id="cost-coverage" name="cost-coverage">
+              <option value="partial" selected>Partial — some costs unknown or omitted</option>
+              <option value="complete_for_declared_scope">Complete for the scope I entered</option>
+            </select>
+          </label>
+          <label for="omitted-costs">Omitted or uncertain cost categories
+            <textarea id="omitted-costs" name="omitted-costs" rows="3">owner labor, tax, insurance</textarea>
+            <small>Separate categories with commas. Do not treat unknown costs as zero.</small>
+          </label>
+        </fieldset>
+
+        <div id="input-error" class="notice notice-error" role="alert" hidden></div>
+        <button class="primary-button" type="submit">Calculate scenario <span aria-hidden="true">→</span></button>
+        <p class="form-footnote">Nothing is submitted to a server by the calculation form. Refreshing this page clears your edits.</p>
+      </form>
+    </section>
+
+    <section class="panel results-panel" aria-labelledby="results-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">02 / RESULT</p>
+          <h2 id="results-heading">The numbers</h2>
+        </div>
+        <span id="result-status" class="status-pill status-muted">Example not yet calculated</span>
+      </div>
+      <div id="result" aria-live="polite" aria-atomic="true">
+        <div class="empty-state">
+          <div class="empty-icon" aria-hidden="true">∑</div>
+          <h3>Run the worksheet</h3>
+          <p>The report will show contribution, break-even sales, a monthly scenario and an upfront funding gap.</p>
+        </div>
+      </div>
+
+      <div class="notice notice-warning result-warning">
+        <strong>Not net profit or a go/no-go decision.</strong>
+        The worksheet does not calculate taxes, debt service, owner draw, depreciation, demand, seasonality or costs you have not entered. It does not verify licenses or tell you whether you can legally operate at a specific location.
+      </div>
+      <details class="privacy-details">
+        <summary>What happens to my data?</summary>
+        <p>This static prototype makes no application-level network requests and stores no form inputs. The browser loads the page and its code as ordinary static files; calculations happen in the browser. This is not a hosted account, backup or business record system. Do not use it as the only copy of important information.</p>
+      </details>
+    </section>
+  </main>
+
+  <footer class="shell site-footer">
+    <p>Business Launchpad is experimental software. Verify assumptions, source documents, local rules and financial details independently.</p>
+    <p><a href="https://github.com/Luminous-Dynamics/mycelix/tree/rfc/business-launchpad-architecture/mycelix-workspace/business-launchpad">Source and limitations</a></p>
+  </footer>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>
