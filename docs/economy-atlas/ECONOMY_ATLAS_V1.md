@@ -284,7 +284,7 @@ python3 scripts/validate_regenerative_observation.py path/to/observation-record.
 python3 -m unittest discover -s tests -p 'test_regenerative_observation.py'
 ```
 
-The test fixture is explicitly synthetic and is never registered as a real environmental or socioeconomic observation. This PR adds no real data values; source discovery, dataset licensing/retention, unit harmonization and quality review are a separate evidence-ingestion step.
+The test fixture is explicitly synthetic and is never registered as a real environmental or socioeconomic observation. No real data values are imported by this change. Source discovery, dataset licensing/retention, unit harmonization and quality review are a separate evidence-ingestion step.
 
 
 ### First candidate for a real-data pilot: South African water quality
