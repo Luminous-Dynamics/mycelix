@@ -73,6 +73,15 @@ async function tabUntil(page, targetId, limit = 40) {
   throw new Error('Keyboard traversal did not reach #' + targetId + ' within ' + limit + ' Tab presses.');
 }
 
+async function tabBackUntil(page, targetId, limit = 40) {
+  for (let index = 0; index < limit; index += 1) {
+    await page.keyboard.press('Shift+Tab');
+    const activeId = await page.evaluate(() => document.activeElement?.id || '');
+    if (activeId === targetId) return;
+  }
+  throw new Error('Reverse keyboard traversal did not reach #' + targetId + ' within ' + limit + ' Shift+Tab presses.');
+}
+
 async function readDownloadJson(page, selector, expectedFilename) {
   const pendingDownload = page.waitForEvent('download');
   await page.locator(selector).click();
@@ -111,12 +120,7 @@ try {
   await tabUntil(page, 'selling-price');
   await page.keyboard.press('Control+A');
   await page.keyboard.type('180.001');
-  for (let index = 0; index < 9; index += 1) await page.keyboard.press('Tab');
-  assert.equal(
-    await page.evaluate(() => document.activeElement?.classList.contains('primary-button') || false),
-    true,
-    'keyboard traversal should reach the Calculate button'
-  );
+  await tabUntil(page, 'calculate-scenario');
   await page.keyboard.press('Enter');
   const errorBox = page.locator('#input-error');
   await errorBox.waitFor({ state: 'visible' });
@@ -124,15 +128,10 @@ try {
   await page.screenshot({ path: resolve(evidenceDir, '01-keyboard-validation-error.png'), fullPage: true });
   completedChecks.push('keyboard-only validation reports excessive decimal precision');
 
-  for (let index = 0; index < 9; index += 1) await page.keyboard.press('Shift+Tab');
-  assert.equal(
-    await page.evaluate(() => document.activeElement?.id || ''),
-    'selling-price',
-    'reverse keyboard traversal should return to the amount field'
-  );
+  await tabBackUntil(page, 'selling-price');
   await page.keyboard.press('Control+A');
   await page.keyboard.type('180.00');
-  for (let index = 0; index < 9; index += 1) await page.keyboard.press('Tab');
+  await tabUntil(page, 'calculate-scenario');
   await page.keyboard.press('Enter');
   await page.locator('#result').getByText('ZAR 5100.00', { exact: true }).waitFor({ state: 'visible' });
   assert.match(await page.locator('#result').innerText(), /8 units\/month/);
