@@ -416,13 +416,18 @@ mod tests {
 
     const TEST_REQUEST_NONCE: &str = "0123456789abcdef0123456789abcdef";
 
+    fn prepare_with_test_nonce(
+        policy: AdvisoryRequestPolicy<'_>,
+    ) -> Result<PreparedAdvisoryRequest, RequestPreparationError> {
+        prepare_advisory_request_with_nonce(policy, TEST_REQUEST_NONCE)
+    }
+
     fn prepare_test_request<'a>(
         allowed_content_ids: &'a [String],
         allowed_actions: &'a [LearningSuggestion],
         allowed_reasons: &'a [AdviceReason],
     ) -> PreparedAdvisoryRequest {
-        prepare_advisory_request(AdvisoryRequestPolicy {
-            request_nonce: TEST_REQUEST_NONCE,
+        prepare_with_test_nonce(AdvisoryRequestPolicy {
             model_id: "symthaea",
             model_version: "0.5.0",
             skill_id: "math.fractions",
@@ -599,12 +604,11 @@ mod tests {
     }
 
     #[test]
-    fn request_body_digest_changes_for_fresh_nonce() {
+    fn public_request_builder_generates_fresh_nonces() {
         let ids = ["lesson.fractions.01".to_string()];
         let actions = [LearningSuggestion::OfferHint];
         let reasons = [AdviceReason::RepeatedIncorrectAttempts];
         let first = prepare_advisory_request(AdvisoryRequestPolicy {
-            request_nonce: TEST_REQUEST_NONCE,
             model_id: "symthaea",
             model_version: "0.5.0",
             skill_id: "math.fractions",
@@ -613,9 +617,8 @@ mod tests {
             allowed_reasons: &reasons,
             allowed_content_ids: &ids,
         })
-        .expect("first nonce is valid");
+        .expect("OS randomness should provide a nonce");
         let second = prepare_advisory_request(AdvisoryRequestPolicy {
-            request_nonce: "fedcba9876543210fedcba9876543210",
             model_id: "symthaea",
             model_version: "0.5.0",
             skill_id: "math.fractions",
@@ -624,6 +627,54 @@ mod tests {
             allowed_reasons: &reasons,
             allowed_content_ids: &ids,
         })
+        .expect("OS randomness should provide a second nonce");
+        let first_json: serde_json::Value =
+            serde_json::from_slice(first.body_bytes()).expect("first request JSON");
+        let second_json: serde_json::Value =
+            serde_json::from_slice(second.body_bytes()).expect("second request JSON");
+        let first_nonce = first_json["request_nonce"]
+            .as_str()
+            .expect("nonce is a string");
+        let second_nonce = second_json["request_nonce"]
+            .as_str()
+            .expect("nonce is a string");
+
+        assert!(valid_request_nonce(first_nonce));
+        assert!(valid_request_nonce(second_nonce));
+        assert_ne!(first_nonce, second_nonce);
+        assert_ne!(first.input_digest(), second.input_digest());
+    }
+
+    #[test]
+    fn request_body_digest_changes_for_fresh_nonce() {
+        let ids = ["lesson.fractions.01".to_string()];
+        let actions = [LearningSuggestion::OfferHint];
+        let reasons = [AdviceReason::RepeatedIncorrectAttempts];
+        let first = prepare_advisory_request_with_nonce(
+            AdvisoryRequestPolicy {
+                model_id: "symthaea",
+                model_version: "0.5.0",
+                skill_id: "math.fractions",
+                curriculum_revision: "2026.1",
+                allowed_actions: &actions,
+                allowed_reasons: &reasons,
+                allowed_content_ids: &ids,
+            },
+            TEST_REQUEST_NONCE,
+        )
+        .expect("first nonce is valid");
+        let second = prepare_advisory_request_with_nonce(
+            AdvisoryRequestPolicy {
+                model_id: "symthaea",
+                model_version: "0.5.0",
+                skill_id: "math.fractions",
+                curriculum_revision: "2026.1",
+                allowed_actions: &actions,
+                allowed_reasons: &reasons,
+                allowed_content_ids: &ids,
+            },
+            "fedcba9876543210fedcba9876543210",
+        )
         .expect("fresh nonce is valid");
 
         assert_ne!(first.body_bytes(), second.body_bytes());
@@ -641,16 +692,18 @@ mod tests {
             "0123456789abcdef0123456789abcdeg",
         ] {
             assert_eq!(
-                prepare_advisory_request(AdvisoryRequestPolicy {
-                    request_nonce: nonce,
-                    model_id: "symthaea",
-                    model_version: "0.5.0",
-                    skill_id: "math.fractions",
-                    curriculum_revision: "2026.1",
-                    allowed_actions: &[LearningSuggestion::OfferHint],
-                    allowed_reasons: &[AdviceReason::RepeatedIncorrectAttempts],
-                    allowed_content_ids: &ids,
-                })
+                prepare_advisory_request_with_nonce(
+                    AdvisoryRequestPolicy {
+                        model_id: "symthaea",
+                        model_version: "0.5.0",
+                        skill_id: "math.fractions",
+                        curriculum_revision: "2026.1",
+                        allowed_actions: &[LearningSuggestion::OfferHint],
+                        allowed_reasons: &[AdviceReason::RepeatedIncorrectAttempts],
+                        allowed_content_ids: &ids,
+                    },
+                    nonce,
+                )
                 .err(),
                 Some(RequestPreparationError::InvalidRequestNonce),
                 "should reject nonce {nonce:?}"
@@ -662,8 +715,7 @@ mod tests {
     fn request_preparation_rejects_duplicate_content_ids() {
         let ids = ["lesson.fractions.01".to_string(), "lesson.fractions.01".to_string()];
         assert_eq!(
-            prepare_advisory_request(AdvisoryRequestPolicy {
-                request_nonce: TEST_REQUEST_NONCE,
+            prepare_with_test_nonce(AdvisoryRequestPolicy {
                 model_id: "symthaea",
                 model_version: "0.5.0",
                 skill_id: "math.fractions",
@@ -681,8 +733,7 @@ mod tests {
     fn request_preparation_rejects_empty_action_allowlist() {
         let ids = ["lesson.fractions.01".to_string()];
         assert_eq!(
-            prepare_advisory_request(AdvisoryRequestPolicy {
-                request_nonce: TEST_REQUEST_NONCE,
+            prepare_with_test_nonce(AdvisoryRequestPolicy {
                 model_id: "symthaea",
                 model_version: "0.5.0",
                 skill_id: "math.fractions",
@@ -701,8 +752,7 @@ mod tests {
         let ids = ["lesson.fractions.01".to_string()];
         let actions = vec![LearningSuggestion::OfferHint; MAX_ALLOWED_ACTIONS + 1];
         assert_eq!(
-            prepare_advisory_request(AdvisoryRequestPolicy {
-                request_nonce: TEST_REQUEST_NONCE,
+            prepare_with_test_nonce(AdvisoryRequestPolicy {
                 model_id: "symthaea",
                 model_version: "0.5.0",
                 skill_id: "math.fractions",
@@ -722,8 +772,7 @@ mod tests {
             .map(|index| format!("lesson.item.{index:02}"))
             .collect::<Vec<_>>();
         assert_eq!(
-            prepare_advisory_request(AdvisoryRequestPolicy {
-                request_nonce: TEST_REQUEST_NONCE,
+            prepare_with_test_nonce(AdvisoryRequestPolicy {
                 model_id: "symthaea",
                 model_version: "0.5.0",
                 skill_id: "math.fractions",
@@ -745,8 +794,7 @@ mod tests {
             LearningSuggestion::OfferHint,
         ];
         assert_eq!(
-            prepare_advisory_request(AdvisoryRequestPolicy {
-                request_nonce: TEST_REQUEST_NONCE,
+            prepare_with_test_nonce(AdvisoryRequestPolicy {
                 model_id: "symthaea",
                 model_version: "0.5.0",
                 skill_id: "math.fractions",
@@ -768,8 +816,7 @@ mod tests {
             AdviceReason::RepeatedIncorrectAttempts,
         ];
         assert_eq!(
-            prepare_advisory_request(AdvisoryRequestPolicy {
-                request_nonce: TEST_REQUEST_NONCE,
+            prepare_with_test_nonce(AdvisoryRequestPolicy {
                 model_id: "symthaea",
                 model_version: "0.5.0",
                 skill_id: "math.fractions",
@@ -787,8 +834,7 @@ mod tests {
     fn request_preparation_rejects_empty_reason_allowlist() {
         let ids = ["lesson.fractions.01".to_string()];
         assert_eq!(
-            prepare_advisory_request(AdvisoryRequestPolicy {
-                request_nonce: TEST_REQUEST_NONCE,
+            prepare_with_test_nonce(AdvisoryRequestPolicy {
                 model_id: "symthaea",
                 model_version: "0.5.0",
                 skill_id: "math.fractions",
@@ -807,8 +853,7 @@ mod tests {
         let ids = ["lesson.fractions.01".to_string()];
         let reasons = vec![AdviceReason::RepeatedIncorrectAttempts; MAX_ALLOWED_REASONS + 1];
         assert_eq!(
-            prepare_advisory_request(AdvisoryRequestPolicy {
-                request_nonce: TEST_REQUEST_NONCE,
+            prepare_with_test_nonce(AdvisoryRequestPolicy {
                 model_id: "symthaea",
                 model_version: "0.5.0",
                 skill_id: "math.fractions",
@@ -826,8 +871,7 @@ mod tests {
     fn request_preparation_rejects_invalid_identifiers() {
         let ids = ["lesson.fractions.01".to_string()];
         assert_eq!(
-            prepare_advisory_request(AdvisoryRequestPolicy {
-                request_nonce: TEST_REQUEST_NONCE,
+            prepare_with_test_nonce(AdvisoryRequestPolicy {
                 model_id: "symthaea\nforged",
                 model_version: "0.5.0",
                 skill_id: "math.fractions",
