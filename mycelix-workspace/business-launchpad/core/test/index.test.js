@@ -163,7 +163,7 @@ test('projects independently timed cash receipts and operating payments', () => 
   assert.equal(result.report.summary.firstBelowReservePeriod, 0);
   assert.equal(result.report.summary.additionalCashNeededToMaintainReserveMinor, 300_000);
   assert.deepEqual(result.report.summary.periodsBelowReserve, [0, 1, 2]);
-  assert.deepEqual(result.report.summary.periodsWithNegativeCash, [0, 1]);
+  assert.deepEqual(result.report.summary.periodsWithNegativeCash, [0, 1, 2]);
 });
 
 test('sales activity does not automatically become cash receipts, and cash payments can precede collections', () => {
@@ -316,7 +316,7 @@ test('compares base, downside and upside cash scenarios with explicit assumption
   assert.equal(result.report.scenarios[2].report.periods[0].salesCashReceiptsMinor, 2_200);
   assert.equal(result.report.scenarios[2].report.periods[0].operatingCashOutflowsMinor, 950);
   assert.equal(result.report.scenarios[2].report.summary.endingCashMinor, 5_300);
-  assert.match(result.report.basis, /not a prediction/);
+  assert.match(result.report.basis, /no scenario is a prediction/);
 });
 
 test('zero stress assumptions reproduce the base cash projection exactly', () => {
