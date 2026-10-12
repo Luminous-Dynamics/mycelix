@@ -748,6 +748,7 @@ export function compareCashRunwayScenarios(input) {
         label: 'Downside stress',
         assumptions: { ...normalized.assumptions.downside },
         deferredSalesCashReceiptsAfterHorizonMinor: down.deferredSalesCashReceiptsAfterHorizonMinor,
+        deferredVariableSupplierPaymentsAfterHorizonMinor: 0,
         report: downsideReport.report
       },
       {
@@ -755,6 +756,7 @@ export function compareCashRunwayScenarios(input) {
         label: 'Base — entered plan',
         assumptions: null,
         deferredSalesCashReceiptsAfterHorizonMinor: 0,
+        deferredVariableSupplierPaymentsAfterHorizonMinor: 0,
         report: base.report
       },
       {
@@ -762,23 +764,44 @@ export function compareCashRunwayScenarios(input) {
         label: 'Upside stress',
         assumptions: { ...normalized.assumptions.upside },
         deferredSalesCashReceiptsAfterHorizonMinor: 0,
+        deferredVariableSupplierPaymentsAfterHorizonMinor: 0,
         report: upsideReport.report
       }
     ];
+    let timingSchedule = null;
+    if (input.timingSchedule !== undefined) {
+      const termsBased = projectCashRunwayWithTimingSchedule({
+        model: input.model,
+        monthlyPlan: input.monthlyPlan,
+        timingSchedule: input.timingSchedule
+      });
+      if (!termsBased.ok) return termsBased;
+      timingSchedule = termsBased.report.timingSchedule;
+      scenarios.push({
+        id: 'terms-based',
+        label: 'Terms-based timing',
+        assumptions: termsBased.report.timingSchedule,
+        deferredSalesCashReceiptsAfterHorizonMinor: termsBased.report.deferredSalesCashReceiptsAfterHorizonMinor,
+        deferredVariableSupplierPaymentsAfterHorizonMinor: termsBased.report.deferredVariableSupplierPaymentsAfterHorizonMinor,
+        report: termsBased.report.projection
+      });
+    }
     return {
       ok: true,
       report: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         kind: 'business-launchpad-cash-scenario-comparison',
         currency: { ...base.report.currency },
         horizonMonths: base.report.horizonMonths,
         basis: 'Owner-authored base plan plus deterministic downside/upside stress transformations; no scenario is a prediction, probability or industry benchmark.',
         assumptions: normalized.assumptions,
+        timingSchedule,
         scenarios: scenarios.map(scenario => ({
           id: scenario.id,
           label: scenario.label,
           assumptions: scenario.assumptions,
           deferredSalesCashReceiptsAfterHorizonMinor: scenario.deferredSalesCashReceiptsAfterHorizonMinor,
+          deferredVariableSupplierPaymentsAfterHorizonMinor: scenario.deferredVariableSupplierPaymentsAfterHorizonMinor,
           summary: {
             endingCashMinor: scenario.report.summary.endingCashMinor,
             minimumProjectedCashMinor: scenario.report.summary.minimumProjectedCashMinor,
@@ -795,6 +818,8 @@ export function compareCashRunwayScenarios(input) {
           'The downside reduces sales receipts before delaying them. Receipts delayed beyond the horizon are reported separately and do not appear as cash collected within the horizon.',
           'The upside case advances receipts from later months toward earlier months, but leaves Month 1 receipts in Month 1 because this comparison has no pre-horizon period.',
           'Stress transformations change sales cash receipts and operating cash outflows only; sales activity, unclassified amounts, investing movements, financing movements and setup cash remain as entered.',
+          'When supplied, the terms-based case is separate from the manually entered base plan: it derives receipts from unit activity and selling price, schedules variable supplier cost using the visible percentages, keeps fixed monthly costs due in their originating month, and carries other/investing/financing movements unchanged.',
+          'Receipts and variable supplier payments moved beyond the horizon are reported separately; the comparison does not model opening receivables/payables, pre-sales inventory purchases, invoice aging, taxes or day-level due dates.',
           'No scenario establishes solvency, profitability, financing eligibility, demand, tax treatment or accounting compliance.'
         ]
       }
