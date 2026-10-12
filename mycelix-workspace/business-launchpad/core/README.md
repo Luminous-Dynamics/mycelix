@@ -13,6 +13,7 @@ This dependency-free Node.js module computes a transparent single-offer scenario
 - Startup funding gap after available starting cash; this compares setup costs plus the owner-entered buffer with available startup cash, not the full cash runway needed through a slow sales ramp.
 - Explicit cost-coverage state and named omitted categories.
 - A separate 1–24 month cash-runway scenario with independent month-by-month sales activity, sales cash receipts, operating cash payments and other inflows/outflows; it reports post-setup cash, lowest projected cash, first reserve breach, first negative balance, and the additional buffer needed to maintain the reserve.
+- `compareCashRunwayScenarios`: a three-column downside/base/upside comparison using the owner-entered base plan and explicit configurable stress assumptions. The downside reduces receipts, delays collection and increases operating payments; the upside increases receipts, advances later receipts within the horizon and reduces operating payments. The exact assumptions and full projection for every case are included in exports; receipts delayed past the horizon are disclosed separately.
 
 All amounts use integer minor units for the chosen currency. The implementation uses BigInt intermediates and fails closed when any returned result would not fit exactly in JavaScript's safe-integer range. Stable amount formatting is provided for tests and evidence; localized formatting belongs in the UI.
 
