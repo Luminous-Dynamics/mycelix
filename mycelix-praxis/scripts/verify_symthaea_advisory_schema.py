@@ -469,7 +469,7 @@ def main() -> int:
         errors,
     )
     require(
-        "permissions:\\n  contents: read" in workflow_source
+        "permissions:\n  contents: read" in workflow_source
         and "timeout-minutes: 30" in workflow_source
         and "types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]" in workflow_source
         and "workflow_dispatch:" in workflow_source,
@@ -478,13 +478,13 @@ def main() -> int:
     )
 
     pull_request_trigger = (
-        workflow_source.split("  pull_request:\\n", 1)[1].split("\\n  push:", 1)[0]
-        if "  pull_request:\\n" in workflow_source and "\\n  push:" in workflow_source
+        workflow_source.split("  pull_request:\n", 1)[1].split("\n  push:", 1)[0]
+        if "  pull_request:\n" in workflow_source and "\n  push:" in workflow_source
         else ""
     )
     push_trigger = (
-        workflow_source.split("  push:\\n", 1)[1].split("\\n  workflow_dispatch:", 1)[0]
-        if "  push:\\n" in workflow_source and "\\n  workflow_dispatch:" in workflow_source
+        workflow_source.split("  push:\n", 1)[1].split("\n  workflow_dispatch:", 1)[0]
+        if "  push:\n" in workflow_source and "\n  workflow_dispatch:" in workflow_source
         else ""
     )
     required_workflow_paths = (
