@@ -157,7 +157,7 @@ def validate_manifest(manifest: object, indicator_catalog: object) -> list[str]:
             "license_metadata_conflict": "conflicting",
             "restricted_noncommercial_use": "restricted",
         }
-        if status in consistency and license_status != consistency[status]:
+        if isinstance(status, str) and status in consistency and license_status != consistency[status]:
             errors.append(f"{location}: discovery_status conflicts with license_assessment.license_status")
         for key, allowed in (
             ("commercial_reuse", COMMERCIAL_STATES),
