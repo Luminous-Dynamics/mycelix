@@ -815,7 +815,7 @@ pub fn cosign_agreement(input: CosignAgreementInput) -> ExternResult<ActionHash>
     {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidProposal,
-            "Agreement's proposal is not a pending, session-bound proposal from a session participant",
+            "Agreement proposal failed session, status, object, or proposer checks",
         )
         .into_wasm_error());
     }
@@ -2534,7 +2534,10 @@ mod session_participant_tests {
         AgentPubKey::from_raw_36(vec![byte; 36])
     }
 
-    fn session(primary_operator: AgentPubKey, secondary_operator: AgentPubKey) -> NegotiationSession {
+    fn session(
+        primary_operator: AgentPubKey,
+        secondary_operator: AgentPubKey,
+    ) -> NegotiationSession {
         NegotiationSession {
             session_id: "session:1".to_string(),
             conjunction_id: "cdm:1".to_string(),
