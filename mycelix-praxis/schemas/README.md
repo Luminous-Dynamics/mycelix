@@ -75,12 +75,16 @@ advice.
 The companion `symthaea-advisory-request-v1.schema.json` freezes the strict
 request-body fields and bounded action/reason/content-ID allowlists. The same
 host crate provides `prepare_advisory_request(policy)` for a minimized,
-deterministically serialized request. It sorts allowed actions/reasons in
-protocol order and content IDs lexically, rejects duplicate/invalid policy
-inputs and overlong allowlists before copying them, caps the body at 16 KiB,
-and derives `input_digest()` from the exact immutable bytes exposed by
-`body_bytes()`. The static conformance checker requires both request and
-response schemas to match the Rust field sets and enums. Keep this prepared request alive
+deterministically serialized request. Each request must carry a fresh 128-bit
+lowercase-hex `request_nonce` from trusted host code. Reuse can make an old
+digest match a later otherwise-identical turn, so generate a new nonce for
+every exchange and consume each response once; the nonce is not authentication.
+The builder sorts allowed actions/reasons in protocol order and content IDs
+lexically, rejects duplicate/invalid policy inputs and overlong allowlists
+before copying them, caps the body at 16 KiB, and derives `input_digest()` from
+the exact immutable bytes exposed by `body_bytes()`. The static conformance
+checker requires both request and response schemas to match the Rust field
+sets and enums. Keep this prepared request alive
 for the response's entire lifecycle and create validation context from
 `validation_context(advisor_enabled, sandbox_active)`; this ties expected model,
 version, skill, curriculum revision, allowed action/reason lists, content IDs,
