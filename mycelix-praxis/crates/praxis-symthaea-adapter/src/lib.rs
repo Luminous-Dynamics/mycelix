@@ -573,6 +573,88 @@ mod tests {
     }
 
     #[test]
+    fn request_preparation_rejects_oversized_content_reference_list() {
+        let ids = (0..=MAX_SUPPORTING_CONTENT_IDS)
+            .map(|index| format!("lesson.item.{index:02}"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            prepare_advisory_request(AdvisoryRequestPolicy {
+                model_id: "symthaea",
+                model_version: "0.5.0",
+                skill_id: "math.fractions",
+                curriculum_revision: "2026.1",
+                allowed_actions: &[LearningSuggestion::OfferHint],
+                allowed_reasons: &[AdviceReason::RepeatedIncorrectAttempts],
+                allowed_content_ids: &ids,
+            })
+            .err(),
+            Some(RequestPreparationError::TooManyContentReferences)
+        );
+    }
+
+    #[test]
+    fn request_preparation_rejects_duplicate_actions() {
+        let ids = ["lesson.fractions.01".to_string()];
+        let actions = [
+            LearningSuggestion::OfferHint,
+            LearningSuggestion::OfferHint,
+        ];
+        assert_eq!(
+            prepare_advisory_request(AdvisoryRequestPolicy {
+                model_id: "symthaea",
+                model_version: "0.5.0",
+                skill_id: "math.fractions",
+                curriculum_revision: "2026.1",
+                allowed_actions: &actions,
+                allowed_reasons: &[AdviceReason::RepeatedIncorrectAttempts],
+                allowed_content_ids: &ids,
+            })
+            .err(),
+            Some(RequestPreparationError::DuplicateAllowedAction)
+        );
+    }
+
+    #[test]
+    fn request_preparation_rejects_duplicate_reasons() {
+        let ids = ["lesson.fractions.01".to_string()];
+        let reasons = [
+            AdviceReason::RepeatedIncorrectAttempts,
+            AdviceReason::RepeatedIncorrectAttempts,
+        ];
+        assert_eq!(
+            prepare_advisory_request(AdvisoryRequestPolicy {
+                model_id: "symthaea",
+                model_version: "0.5.0",
+                skill_id: "math.fractions",
+                curriculum_revision: "2026.1",
+                allowed_actions: &[LearningSuggestion::OfferHint],
+                allowed_reasons: &reasons,
+                allowed_content_ids: &ids,
+            })
+            .err(),
+            Some(RequestPreparationError::DuplicateAllowedReason)
+        );
+    }
+
+    #[test]
+    fn request_preparation_rejects_empty_reason_allowlist() {
+        let ids = ["lesson.fractions.01".to_string()];
+        assert_eq!(
+            prepare_advisory_request(AdvisoryRequestPolicy {
+                model_id: "symthaea",
+                model_version: "0.5.0",
+                skill_id: "math.fractions",
+                curriculum_revision: "2026.1",
+                allowed_actions: &[LearningSuggestion::OfferHint],
+                allowed_reasons: &[],
+                allowed_content_ids: &ids,
+            })
+            .err(),
+            Some(RequestPreparationError::EmptyReasonAllowlist)
+        );
+    }
+
+    #[test]
     fn request_preparation_rejects_oversized_reason_allowlist_before_copy() {
         let ids = ["lesson.fractions.01".to_string()];
         let reasons = vec![AdviceReason::RepeatedIncorrectAttempts; MAX_ALLOWED_REASONS + 1];
