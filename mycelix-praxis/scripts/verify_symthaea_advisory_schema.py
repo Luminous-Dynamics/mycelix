@@ -37,6 +37,7 @@ EXPECTED_FIELDS = {
 
 EXPECTED_REQUEST_FIELDS = {
     "schema_version",
+    "request_nonce",
     "model_id",
     "model_version",
     "skill_id",
@@ -64,6 +65,8 @@ ADAPTER_REQUIRED_TESTS = {
     "request_preparation_rejects_duplicate_actions",
     "request_preparation_rejects_duplicate_reasons",
     "request_preparation_rejects_empty_reason_allowlist",
+    "request_body_digest_changes_for_fresh_nonce",
+    "request_preparation_rejects_invalid_request_nonce",
 }
 
 REQUIRED_TESTS = {
@@ -216,6 +219,21 @@ def main() -> int:
             "request schema required fields must match the frozen request fields", errors)
     require(request_properties.get("schema_version", {}).get("const") == schema_version,
             "request schema version must match the Rust protocol constant", errors)
+    request_nonce_schema = request_properties.get("request_nonce", {})
+    require(
+        request_nonce_schema.get("type") == "string"
+        and request_nonce_schema.get("minLength") == 32
+        and request_nonce_schema.get("maxLength") == 32
+        and request_nonce_schema.get("pattern") == "^[0-9a-f]{32}$",
+        "request nonce must be a canonical lowercase hexadecimal 128-bit value",
+        errors,
+    )
+    require(
+        "fn valid_request_nonce(value: &str) -> bool" in adapter_source
+        and "if !valid_request_nonce(policy.request_nonce)" in adapter_source,
+        "Rust request builder must validate the request nonce before serialization",
+        errors,
+    )
     require("input_digest" not in request_schema_fields,
             "request digest must remain outside the hashed request body", errors)
     require(
@@ -263,6 +281,13 @@ def main() -> int:
         request_example.get("schema_version") == schema_version
         and "input_digest" not in request_example,
         "request example must be v1 and keep the digest outside the body",
+        errors,
+    )
+    request_nonce = request_example.get("request_nonce")
+    require(
+        isinstance(request_nonce, str)
+        and re.fullmatch(r"[0-9a-f]{32}", request_nonce) is not None,
+        "request example nonce must be a lowercase hexadecimal 128-bit value",
         errors,
     )
     example_actions = request_example.get("allowed_actions", [])
@@ -493,6 +518,12 @@ def main() -> int:
         "pub fn prepare_advisory_request(" in adapter_source
         and "let input_digest = digest_advisory_request_bytes(&body);" in adapter_source,
         "adapter must derive the request digest from the exact finalized body bytes",
+        errors,
+    )
+    require(
+        "assert_ne!(first.input_digest(), second.input_digest());" in adapter_source
+        and '"request_body_digest_changes_for_fresh_nonce"' in adapter_source,
+        "adapter tests must prove fresh nonces change request digests",
         errors,
     )
     request_size_check = adapter_source.find("if body.len() > MAX_ADVISORY_REQUEST_BYTES")
