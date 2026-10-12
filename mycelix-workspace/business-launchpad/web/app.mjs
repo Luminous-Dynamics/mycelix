@@ -134,16 +134,35 @@ function ceilRatioUnits(value, numerator, denominator) {
   return Number((n + d - 1n) / d);
 }
 
-function defaultCashRunwayPlan(targetUnits) {
-  return Array.from({ length: CASH_RUNWAY_MONTHS }, (_, index) => ({
-    salesUnits: index === 0
+function safeDefaultCashAmounts(model, units, month) {
+  const salesReceipts = BigInt(model.sellingPricePerUnitMinor) * BigInt(units);
+  const operatingOutflows = BigInt(model.variableCostPerUnitMinor) * BigInt(units)
+    + BigInt(model.fixedMonthlyCostsMinor);
+  if (salesReceipts > BigInt(Number.MAX_SAFE_INTEGER) || operatingOutflows > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error('The generated Month ' + month + ' cash default exceeds the supported exact integer range. Enter a smaller sales assumption or edit the cash values explicitly.');
+  }
+  return {
+    salesCashReceiptsMinor: Number(salesReceipts),
+    operatingCashOutflowsMinor: Number(operatingOutflows)
+  };
+}
+
+function defaultCashRunwayPlan(model) {
+  const targetUnits = model.plannedUnitsPerMonth;
+  return Array.from({ length: CASH_RUNWAY_MONTHS }, (_, index) => {
+    const month = index + 1;
+    const salesUnits = index === 0
       ? ceilRatioUnits(targetUnits, 1, 2)
       : index === 1
         ? ceilRatioUnits(targetUnits, 3, 4)
-        : targetUnits,
-    otherCashInflowsMinor: 0,
-    otherCashOutflowsMinor: 0
-  }));
+        : targetUnits;
+    return {
+      salesUnits,
+      ...safeDefaultCashAmounts(model, salesUnits, month),
+      otherCashInflowsMinor: 0,
+      otherCashOutflowsMinor: 0
+    };
+  });
 }
 
 function renderCashRunwayInputs(plan, currency) {
@@ -162,12 +181,14 @@ function renderCashRunwayInputs(plan, currency) {
     salesInput.inputMode = 'numeric';
     salesInput.autocomplete = 'off';
     salesInput.value = String(period.salesUnits);
-    salesInput.setAttribute('aria-label', 'Month ' + month + ' sales units assumed paid in the same month');
+    salesInput.setAttribute('aria-label', 'Month ' + month + ' sales units activity assumption');
     const salesCell = element('td');
     salesCell.append(salesInput);
     row.append(salesCell);
 
     for (const [suffix, value, label] of [
+      ['sales-receipts', period.salesCashReceiptsMinor, 'sales cash receipts expected this month'],
+      ['operating-outflows', period.operatingCashOutflowsMinor, 'operating cash payments expected this month'],
       ['inflows', period.otherCashInflowsMinor, 'other cash inflows'],
       ['outflows', period.otherCashOutflowsMinor, 'other cash outflows']
     ]) {
@@ -194,25 +215,22 @@ function readCashRunwayPlan(currency) {
     if (!parsedUnits.ok) {
       throw new Error('Month ' + month + ' sales units: ' + parsedUnits.error.message);
     }
-    const otherCashInflows = parseMajorToMinorUnits(
-      getFieldValue('cash-month-' + month + '-inflows'),
-      currency.minorUnitExponent
-    );
-    if (!otherCashInflows.ok) {
-      throw new Error('Month ' + month + ' other cash inflows: ' + otherCashInflows.error.message);
+    const moneyFieldsForMonth = [
+      ['sales-receipts', 'salesCashReceiptsMinor', 'sales cash receipts'],
+      ['operating-outflows', 'operatingCashOutflowsMinor', 'operating cash outflows'],
+      ['inflows', 'otherCashInflowsMinor', 'other cash inflows'],
+      ['outflows', 'otherCashOutflowsMinor', 'other cash outflows']
+    ];
+    const period = { salesUnits: parsedUnits.value };
+    for (const [suffix, key, label] of moneyFieldsForMonth) {
+      const parsed = parseMajorToMinorUnits(
+        getFieldValue('cash-month-' + month + '-' + suffix),
+        currency.minorUnitExponent
+      );
+      if (!parsed.ok) throw new Error('Month ' + month + ' ' + label + ': ' + parsed.error.message);
+      period[key] = parsed.amountMinor;
     }
-    const otherCashOutflows = parseMajorToMinorUnits(
-      getFieldValue('cash-month-' + month + '-outflows'),
-      currency.minorUnitExponent
-    );
-    if (!otherCashOutflows.ok) {
-      throw new Error('Month ' + month + ' other cash outflows: ' + otherCashOutflows.error.message);
-    }
-    return {
-      salesUnits: parsedUnits.value,
-      otherCashInflowsMinor: otherCashInflows.amountMinor,
-      otherCashOutflowsMinor: otherCashOutflows.amountMinor
-    };
+    return period;
   });
 }
 
@@ -234,8 +252,23 @@ function validateImportedCashRunwayPlan(plan, model) {
     ) {
       throw new Error('Cash runway Month ' + (index + 1) + ' contains an invalid amount or sales quantity.');
     }
+    const defaults = safeDefaultCashAmounts(model, period.salesUnits, index + 1);
+    const salesCashReceiptsMinor = period.salesCashReceiptsMinor === undefined
+      ? defaults.salesCashReceiptsMinor
+      : period.salesCashReceiptsMinor;
+    const operatingCashOutflowsMinor = period.operatingCashOutflowsMinor === undefined
+      ? defaults.operatingCashOutflowsMinor
+      : period.operatingCashOutflowsMinor;
+    if (!Number.isSafeInteger(salesCashReceiptsMinor) || salesCashReceiptsMinor < 0) {
+      throw new Error('Cash runway Month ' + (index + 1) + ' has invalid sales cash receipts.');
+    }
+    if (!Number.isSafeInteger(operatingCashOutflowsMinor) || operatingCashOutflowsMinor < 0) {
+      throw new Error('Cash runway Month ' + (index + 1) + ' has invalid operating cash outflows.');
+    }
     return {
       salesUnits: period.salesUnits,
+      salesCashReceiptsMinor,
+      operatingCashOutflowsMinor,
       otherCashInflowsMinor: period.otherCashInflowsMinor,
       otherCashOutflowsMinor: period.otherCashOutflowsMinor
     };
@@ -288,7 +321,7 @@ function validatedScenarioPayload(payload) {
     throw new Error('Scenario validation failed: ' + result.error.message);
   }
   const plan = payload.cashRunwayPlan === undefined
-    ? defaultCashRunwayPlan(payload.input.plannedUnitsPerMonth)
+    ? defaultCashRunwayPlan(payload.input)
     : validateImportedCashRunwayPlan(payload.cashRunwayPlan, payload.input);
   return { input: payload.input, cashRunwayPlan: plan };
 }
@@ -552,7 +585,7 @@ resetCashRunwayButton.addEventListener('click', () => {
   try {
     const units = parseWholeUnits(getFieldValue('planned-units'));
     if (!units.ok) throw new Error(units.error.message);
-    renderCashRunwayInputs(defaultCashRunwayPlan(units.value), describeCurrency());
+    renderCashRunwayInputs(defaultCashRunwayPlan(readModel()), describeCurrency());
     clearResult();
     resultStatus.textContent = 'Cash plan reset — recalculate';
     resultStatus.className = 'status-pill status-muted';
@@ -561,6 +594,5 @@ resetCashRunwayButton.addEventListener('click', () => {
   }
 });
 
-const initialUnits = parseWholeUnits(getFieldValue('planned-units'));
-if (initialUnits.ok) renderCashRunwayInputs(defaultCashRunwayPlan(initialUnits.value), describeCurrency());
+try { const initialModel = readModel(); renderCashRunwayInputs(defaultCashRunwayPlan(initialModel), initialModel.currency); } catch { /* show validation only when the owner requests a calculation */ }
 syncCoverageInput();
