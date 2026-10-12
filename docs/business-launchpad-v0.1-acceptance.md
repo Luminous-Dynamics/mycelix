@@ -1,6 +1,6 @@
 # Business Launchpad v0.1 — Acceptance and Evidence Matrix
 
-**Status:** Proposed acceptance contract; no product implementation or test pass is claimed  
+**Status:** Proposed acceptance contract. A deterministic calculator core and fixtures now exist; the core is not wired into a UI or operational systems, and no exact-head CI pass is being claimed.  
 **Companion:** [Business Launchpad architecture RFC](business-launchpad-architecture.md)  
 **Date:** 2026-10-12  
 **Purpose:** Turn the RFC into testable acceptance criteria before code is assigned to an existing repository or a new application.
@@ -20,6 +20,20 @@ The minimum complete journey is:
 7. See applicable launch prerequisites, source freshness, and unresolved blockers.
 
 A service-business journey is a reasonable first end-to-end slice because it avoids needing an inventory/accounting engine on day one. The domain model must still keep extension points for food and retail. The first municipality and business activity remain explicit configuration decisions; do not imply global compliance coverage in v0.1.
+
+## 1.1 What exists in the current branch
+
+An isolated calculator module lives at [`mycelix-workspace/business-launchpad/core/`](../mycelix-workspace/business-launchpad/core/). Its current responsibility is limited to single-offer scenario arithmetic:
+
+- contribution per unit and monthly illustrative totals using integer minor currency units;
+- upward-rounded break-even unit calculation, or explicit `unreachable` when contribution is not positive;
+- setup cost + working-capital requirement and the arithmetic gap after available startup cash;
+- explicit partial-cost coverage and named omissions;
+- safe-integer/overflow rejection and deterministic amount formatting.
+
+It has synthetic service, food and retail fixtures in `test/fixtures/business-scenarios.v1.json`. Their numbers are deliberately illustrative, not researched local prices or recommendations.
+
+The local scratch checkout passed `node --check src/index.js` and `node --test`: **19 assertions/subtests passed** on Node v22.16.0. This is local evidence for the equivalent source/fixture set, **not** a claim that the committed branch's pinned Node 24.21.0 workflow has passed. The custom GitHub Actions run must finish against the exact head SHA before claiming exact-head CI evidence. The core has no UI, persistent database, production integration, legal rules, external payment processing, POS or accounting adapter.
 
 ## 2. Test classes and evidence levels
 
