@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import assert from 'node:assert/strict';
-import { analyzeBusinessModel, formatMinorUnits } from '../src/index.js';
+import { analyzeBusinessModel, formatMinorUnits, projectCashRunway } from '../src/index.js';
 
 const completeModel = (overrides = {}) => ({
   currency: { code: 'ZAR', minorUnitExponent: 2 },
@@ -139,6 +139,104 @@ test('fails closed when products exceed exact JavaScript integer range', () => {
   }));
   assert.equal(result.ok, false);
   assert.equal(result.error.code, 'calculation_overflow');
+});
+
+test('projects monthly cash, identifies reserve breaches and labels period zero as post-setup', () => {
+  const result = projectCashRunway({
+    model: completeModel(),
+    monthlyPlan: [
+      { salesUnits: 0, otherCashInflowsMinor: 0, otherCashOutflowsMinor: 0 },
+      { salesUnits: 50, otherCashInflowsMinor: 0, otherCashOutflowsMinor: 0 },
+      { salesUnits: 100, otherCashInflowsMinor: 25_000, otherCashOutflowsMinor: 10_000 }
+    ]
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.report.kind, 'business-launchpad-cash-runway-report');
+  assert.equal(result.report.startup.cashAfterSetupBeforeMonthOneMinor, -100_000);
+  assert.deepEqual(result.report.periods.map(period => period.closingCashMinor), [-200_000, -100_000, 215_000]);
+  assert.equal(result.report.summary.minimumProjectedCashMinor, -200_000);
+  assert.equal(result.report.summary.minimumCashPeriod, 1);
+  assert.equal(result.report.summary.firstNegativeCashPeriod, 0);
+  assert.equal(result.report.summary.firstBelowReservePeriod, 0);
+  assert.equal(result.report.summary.additionalCashNeededToMaintainReserveMinor, 300_000);
+  assert.deepEqual(result.report.summary.periodsBelowReserve, [0, 1, 2]);
+  assert.deepEqual(result.report.summary.periodsWithNegativeCash, [0, 1]);
+});
+
+test('cash-runway projection rejects missing, oversized and invalid monthly plans', () => {
+  const model = completeModel();
+  assert.equal(projectCashRunway({ model, monthlyPlan: [] }).error.code, 'invalid_cash_runway_horizon');
+  assert.equal(projectCashRunway({ model, monthlyPlan: Array.from({ length: 25 }, () => ({
+    salesUnits: 0, otherCashInflowsMinor: 0, otherCashOutflowsMinor: 0
+  })) }).error.code, 'invalid_cash_runway_horizon');
+  assert.equal(projectCashRunway({ model, monthlyPlan: [{ salesUnits: -1, otherCashInflowsMinor: 0, otherCashOutflowsMinor: 0 }] }).error.code, 'invalid_cash_runway_amount');
+  assert.equal(projectCashRunway({ model, monthlyPlan: [{ salesUnits: 1, otherCashInflowsMinor: 0, otherCashOutflowsMinor: Number.MAX_SAFE_INTEGER + 1 }] }).error.code, 'invalid_cash_runway_amount');
+  assert.equal(projectCashRunway({ model: null, monthlyPlan: [{ salesUnits: 0, otherCashInflowsMinor: 0, otherCashOutflowsMinor: 0 }] }).error.code, 'invalid_input');
+});
+
+test('cash-runway projection fails closed when a period total exceeds exact integer range', () => {
+  const result = projectCashRunway({
+    model: completeModel({ sellingPricePerUnitMinor: 9_000_000_000_000_000, variableCostPerUnitMinor: 0 }),
+    monthlyPlan: [{ salesUnits: 2, otherCashInflowsMinor: 0, otherCashOutflowsMinor: 0 }]
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, 'calculation_overflow');
+});
+
+test('cash-runway monthly balance recurrence holds for 200 fixed-seed scenarios', () => {
+  let seed = 0x51a7cafe;
+  const next = (maxExclusive) => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed % maxExclusive;
+  };
+  for (let caseIndex = 0; caseIndex < 200; caseIndex += 1) {
+    const model = completeModel({
+      sellingPricePerUnitMinor: next(20_000),
+      variableCostPerUnitMinor: next(12_000),
+      fixedMonthlyCostsMinor: next(80_000),
+      setupCostsMinor: next(100_000),
+      initialWorkingCapitalBufferMinor: next(40_000),
+      availableCashForStartupMinor: next(150_000)
+    });
+    const monthlyPlan = Array.from({ length: 1 + next(12) }, () => ({
+      salesUnits: next(100),
+      otherCashInflowsMinor: next(10_000),
+      otherCashOutflowsMinor: next(15_000)
+    }));
+    const result = projectCashRunway({ model, monthlyPlan });
+    assert.equal(result.ok, true, 'result must be valid in bounded corpus ' + caseIndex);
+    let expectedCash = BigInt(model.availableCashForStartupMinor) - BigInt(model.setupCostsMinor);
+    let expectedMinimum = expectedCash;
+    let expectedMinimumPeriod = 0;
+    const expectedBelowReserve = expectedCash < BigInt(model.initialWorkingCapitalBufferMinor) ? [0] : [];
+    const expectedNegative = expectedCash < 0n ? [0] : [];
+    for (let index = 0; index < monthlyPlan.length; index += 1) {
+      const period = monthlyPlan[index];
+      expectedCash += BigInt(model.sellingPricePerUnitMinor) * BigInt(period.salesUnits)
+        - BigInt(model.variableCostPerUnitMinor) * BigInt(period.salesUnits)
+        - BigInt(model.fixedMonthlyCostsMinor)
+        - BigInt(period.otherCashOutflowsMinor)
+        + BigInt(period.otherCashInflowsMinor);
+      assert.equal(result.report.periods[index].closingCashMinor, Number(expectedCash), 'closing cash case ' + caseIndex + ' period ' + (index + 1));
+      assert.equal(
+        result.report.periods[index].netCashChangeMinor,
+        result.report.periods[index].totalCashReceiptsMinor - result.report.periods[index].totalCashOutflowsMinor,
+        'cash receipt/outflow identity case ' + caseIndex + ' period ' + (index + 1)
+      );
+      const p = index + 1;
+      if (expectedCash < expectedMinimum) {
+        expectedMinimum = expectedCash;
+        expectedMinimumPeriod = p;
+      }
+      if (expectedCash < BigInt(model.initialWorkingCapitalBufferMinor)) expectedBelowReserve.push(p);
+      if (expectedCash < 0n) expectedNegative.push(p);
+    }
+    assert.equal(result.report.summary.endingCashMinor, Number(expectedCash), 'ending cash case ' + caseIndex);
+    assert.equal(result.report.summary.minimumProjectedCashMinor, Number(expectedMinimum), 'minimum cash case ' + caseIndex);
+    assert.equal(result.report.summary.minimumCashPeriod, expectedMinimumPeriod, 'minimum period case ' + caseIndex);
+    assert.deepEqual(result.report.summary.periodsBelowReserve, expectedBelowReserve, 'reserve breaches case ' + caseIndex);
+    assert.deepEqual(result.report.summary.periodsWithNegativeCash, expectedNegative, 'negative balances case ' + caseIndex);
+  }
 });
 
 test('formats signed values deterministically without floating point', () => {
