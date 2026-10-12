@@ -193,6 +193,28 @@ def validate_manifest(manifest: object, indicator_catalog: object) -> list[str]:
             if len(reason_codes) != len(set(reason_codes)):
                 errors.append(f"{location}.ingestion_gate.reason_codes must be unique")
 
+        findings = candidate.get("known_findings")
+        if not isinstance(findings, list):
+            errors.append(f"{location}.known_findings must be a list")
+        else:
+            finding_ids: set[str] = set()
+            for finding_index, finding in enumerate(findings):
+                finding_location = f"{location}.known_findings[{finding_index}]"
+                if not isinstance(finding, dict):
+                    errors.append(f"{finding_location} must be an object")
+                    continue
+                finding_id = finding.get("finding_id")
+                if not isinstance(finding_id, str) or not finding_id.strip():
+                    errors.append(f"{finding_location}.finding_id must be a non-empty string")
+                elif finding_id in finding_ids:
+                    errors.append(f"{location} has duplicate finding_id: {finding_id}")
+                else:
+                    finding_ids.add(finding_id)
+                if finding.get("severity") not in {"low", "medium", "high", "critical"}:
+                    errors.append(f"{finding_location}.severity is invalid")
+                for field in ("observation", "required_resolution"):
+                    if not isinstance(finding.get(field), str) or len(finding[field].strip()) < (20 if field == "observation" else 10):
+                        errors.append(f"{finding_location}.{field} must be substantive")
         suitability = candidate.get("suitability")
         if not isinstance(suitability, dict) or not all(
             isinstance(suitability.get(key), str) and suitability[key].strip()
