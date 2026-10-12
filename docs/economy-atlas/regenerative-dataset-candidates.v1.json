@@ -1,0 +1,273 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_id": "mycelix.regenerative-dataset-candidates",
+  "catalog_status": "source_discovery_only",
+  "qualification": {
+    "source_artifacts_downloaded": false,
+    "real_observations_imported": false,
+    "candidate_ingestion_gates_passed": false,
+    "dataset_rights_independently_verified": false
+  },
+  "global_ingestion_rules": [
+    "A web page marked open or a metadata license field is not by itself sufficient when the same record has contradictory or absent license information.",
+    "Do not download, check in, transform, redistribute or embed source data until access permissions, license scope, attribution obligations, modification rights and intended use are documented.",
+    "Dataset access and dataset reuse rights are separate questions. A downloadable file is not automatically licensed for reuse.",
+    "Do not promote metadata statements to observed data quality; inspect source artifact bytes, schema, data dictionary, station/time coverage, missingness, units and revisions before accepting a series.",
+    "Any later receipt must bind source artifact digest, exact indicator catalog digest, source revision, unit mapping and time/geography definitions.",
+    "A dataset may be appropriate for scholarly analysis but not for a public, commercial or redistributed product; qualification must be scoped to the actual intended use."
+  ],
+  "candidates": [
+    {
+      "candidate_id": "south-africa.swam-satellite-water-quality.2026.v1",
+      "title": "EO Africa SWAM satellite-derived water-quality series",
+      "publisher": "Zenodo record; work by CSIR, University of Cape Town and University of Stirling",
+      "dataset_url": "https://zenodo.org/records/18670504",
+      "related_indicator_ids": [
+        "water.pollutant-concentration.v1"
+      ],
+      "discovery_status": "license_not_verified",
+      "reported_availability": "The record is marked Open and lists timeseries CSVs plus NetCDF cubes. The page's Rights/License section does not display an unambiguous file license.",
+      "temporal_coverage": {
+        "start_date": "2015-08-01",
+        "end_date": "2025-08-30",
+        "basis": "Sentinel-2 acquisition search period described in record; individual series ranges must be verified from files."
+      },
+      "spatial_coverage": {
+        "geography": "Six named water bodies in southern Africa",
+        "entities": [
+          {
+            "code": "CW",
+            "name": "Clanwilliam Dam"
+          },
+          {
+            "code": "MV",
+            "name": "Misverstand Dam"
+          },
+          {
+            "code": "RV",
+            "name": "Rietvlei"
+          },
+          {
+            "code": "TW",
+            "name": "Theewaterskloof Dam"
+          },
+          {
+            "code": "VV",
+            "name": "Voelvlei Dam"
+          },
+          {
+            "code": "ZV",
+            "name": "Zeekoevlei"
+          }
+        ],
+        "caveat": "The place-code names and exact polygons must be verified against source metadata; do not assume the Rietvlei record is the Rietvlei nearest Johannesburg without checking the coordinates."
+      },
+      "reported_measures": [
+        {
+          "name": "Chlorophyll-a concentration",
+          "native_unit": "mg m^-3",
+          "method_summary": "The record describes ACOLITE-RAdCor atmospheric correction and an MDN algorithm."
+        },
+        {
+          "name": "Total suspended matter concentration",
+          "native_unit": "g m^-3",
+          "method_summary": "The record describes C2RCC/C2X-Complex and the Jiang et al. 2023 algorithm."
+        }
+      ],
+      "reported_data_shape": {
+        "timeseries_format": "CSV",
+        "gridded_format": "NetCDF4 (time, lat, lon)",
+        "reported_total_file_volume_mb": 223.4,
+        "quality_coverage_rule": "Records are included only where more than 5% of total water-body area has valid pixels after atmospheric correction and the water-quality algorithm.",
+        "columns_reported": [
+          "water-body name",
+          "satellite overpass date/time UTC",
+          "date",
+          "10th percentile",
+          "mean or median concentration depending on variable",
+          "90th percentile",
+          "number of valid pixels"
+        ]
+      },
+      "license_assessment": {
+        "license_status": "unverified",
+        "displayed_access_status": "open",
+        "declared_file_license": null,
+        "commercial_reuse": "unknown",
+        "redistribution": "unknown",
+        "modification": "unknown",
+        "evidence_urls": [
+          "https://zenodo.org/records/18670504",
+          "https://developers.zenodo.org/",
+          "https://about.zenodo.org/policies/"
+        ],
+        "assessment_note": "The landing page does not clearly display the record's file license in its Rights section. Zenodo's policies say publicly available files should have a license. Verify the record's API metadata and deposited file-level rights, then retain the exact response. Do not infer CC0 or any other license from platform defaults."
+      },
+      "ingestion_gate": {
+        "status": "blocked",
+        "ingestion_authorized": false,
+        "values_imported": false,
+        "reason_codes": [
+          "license_not_verified",
+          "spatial_identity_not_verified",
+          "source_files_not_inspected"
+        ],
+        "required_evidence": [
+          "Record-level file license confirmed from authoritative metadata or written rights-holder permission",
+          "Attribution and citation text recorded",
+          "Commercial/research redistribution and transformation rights confirmed for the intended product",
+          "Original file downloaded in an approved workspace and SHA-256 calculated",
+          "CSV schema, row counts, date range, missingness, duplicate timestamps and non-finite values inspected",
+          "Water-body coordinates/polygons and site identity checked against the record",
+          "Algorithm, atmospheric correction, valid-pixel threshold and remote-sensing uncertainty recorded"
+        ]
+      },
+      "suitability": {
+        "best_initial_use": "A narrow, clearly labeled remote-sensing water-quality evidence pilot after rights and location checks.",
+        "not_suitable_for": "Treating satellite-derived concentrations as laboratory samples, direct drinking-water safety certification, or causal proof that an intervention improved water quality.",
+        "next_action": "Resolve file-level license using record metadata/API or authors' written confirmation. If rights are suitable, inspect one CSV time series before considering the larger NetCDF cube."
+      }
+    },
+    {
+      "candidate_id": "south-africa.national-water-chemistry.1972-2011.v1",
+      "title": "South African river, dam and lake inorganic water chemistry dataset (1972–2011)",
+      "publisher": "Water Research Observatory / Water SA; underlying data attributed to Department of Water Affairs and CSIR",
+      "dataset_url": "https://wrcwro01.arc.agric.za/dataset/an-inorganic-water-chemistry-dataset-1972-2011-of-rivers-dams-and-lakes-in-south-africa",
+      "related_indicator_ids": [
+        "water.pollutant-concentration.v1"
+      ],
+      "discovery_status": "license_metadata_conflict",
+      "temporal_coverage": {
+        "start_date": "1972-01-01",
+        "end_date": "2011-12-31",
+        "basis": "Dataset record metadata; confirm per file."
+      },
+      "spatial_coverage": {
+        "geography": "National South African surface waters",
+        "entities": [
+          "rivers",
+          "dams",
+          "lakes"
+        ],
+        "caveat": "The catalogue describes more than 2,000 monitoring stations; do not infer every station has dense or continuous records."
+      },
+      "reported_measures": [
+        {
+          "name": "Inorganic surface-water chemistry",
+          "native_unit": "variable-specific; inspect data dictionary",
+          "method_summary": "Record describes measured major ions, pH, conductivity, alkalinity and dissolved solids plus calculated variables."
+        }
+      ],
+      "reported_data_shape": {
+        "timeseries_format": "Multiple Excel spreadsheets",
+        "reported_sample_count": 500000,
+        "reported_station_count": 2000,
+        "access_note": "The WRO page currently displays a 'Log in to download' message for resources."
+      },
+      "license_assessment": {
+        "license_status": "conflicting",
+        "displayed_access_status": "WRO dataset page says 'No License Provided' in the top License section; an additional metadata field later claims 'Open (Creative commons)' with CC BY-SA 4.0 URL.",
+        "declared_file_license": "CC BY-SA 4.0 is claimed in one metadata field but is not consistent with the page's top-level license state.",
+        "commercial_reuse": "unknown",
+        "redistribution": "unknown",
+        "modification": "unknown",
+        "evidence_urls": [
+          "https://wrcwro01.arc.agric.za/dataset/an-inorganic-water-chemistry-dataset-1972-2011-of-rivers-dams-and-lakes-in-south-africa",
+          "https://creativecommons.org/licenses/by-sa/4.0/"
+        ],
+        "assessment_note": "The conflicting license representations and login-gated downloads must be resolved against authoritative terms and actual files before use."
+      },
+      "ingestion_gate": {
+        "status": "blocked",
+        "ingestion_authorized": false,
+        "values_imported": false,
+        "reason_codes": [
+          "license_metadata_conflict",
+          "download_requires_login",
+          "processed_dataset_methodology_requires_review"
+        ],
+        "required_evidence": [
+          "Written or authoritative record-level license confirmation resolves the conflict",
+          "Download/access terms reviewed; authorized access established",
+          "Original files and accompanying station/data dictionary artifacts retained with SHA-256 digests",
+          "Processing and exclusions of incomplete analyses documented from publication/source metadata",
+          "Measured and calculated variables distinguished before use"
+        ]
+      },
+      "suitability": {
+        "best_initial_use": "Potential historical baseline after license and method reconciliation.",
+        "not_suitable_for": "Treating it as raw unprocessed monitoring data without auditing its reported exclusion and derived-variable processing.",
+        "next_action": "Resolve record-level license conflict and download terms; then compare data dictionary and published paper before selecting any series."
+      }
+    },
+    {
+      "candidate_id": "south-africa.dws-water-quality-monitoring-portal.v1",
+      "title": "Department of Water and Sanitation water-quality monitoring portal",
+      "publisher": "South African Department of Water and Sanitation",
+      "dataset_url": "https://www.dws.gov.za/iwqs/wms/data/000key.asp",
+      "related_indicator_ids": [
+        "water.pollutant-concentration.v1"
+      ],
+      "discovery_status": "restricted_noncommercial_use",
+      "temporal_coverage": {
+        "start_date": null,
+        "end_date": null,
+        "basis": "Portal describes records as old as the 1950s at some sites; coverage must be checked per station."
+      },
+      "spatial_coverage": {
+        "geography": "South Africa",
+        "entities": [
+          "groundwater",
+          "rivers",
+          "dams",
+          "estuaries"
+        ],
+        "caveat": "Coverage is highly uneven; some groundwater sites have only one record and some river sites have thousands of samples."
+      },
+      "reported_measures": [
+        {
+          "name": "Common water-quality constituents",
+          "native_unit": "analyte-specific; verify per file",
+          "method_summary": "Portal provides site selection, tabular data and supporting plots."
+        }
+      ],
+      "reported_data_shape": {
+        "timeseries_format": "Portal-linked data files",
+        "reported_sample_count": null,
+        "reported_station_count": null
+      },
+      "license_assessment": {
+        "license_status": "restricted",
+        "displayed_access_status": "Portal states data are supplied free of charge and may not be sold; use is restricted to academic, research or personal purposes.",
+        "declared_file_license": "No general commercial reuse permission established by portal language.",
+        "commercial_reuse": "permission_required",
+        "redistribution": "prohibited_unless_permission_granted",
+        "modification": "permission_required",
+        "evidence_urls": [
+          "https://www.dws.gov.za/iwqs/wms/data/000key.asp",
+          "https://www.dws.gov.za/niwis2/Info/WaterQualityMonitoringNetworkInfo"
+        ],
+        "assessment_note": "Do not incorporate into a commercial service, resell, or redistribute under an assumed open-data license. Obtain explicit permission for any intended use beyond the portal's stated scope."
+      },
+      "ingestion_gate": {
+        "status": "blocked",
+        "ingestion_authorized": false,
+        "values_imported": false,
+        "reason_codes": [
+          "noncommercial_use_restriction",
+          "redistribution_terms_not_cleared"
+        ],
+        "required_evidence": [
+          "Explicit written permission covers the exact planned use and distribution model",
+          "Attribution language and any additional conditions recorded",
+          "Selected station's record continuity, units, detection limits and metadata inspected"
+        ]
+      },
+      "suitability": {
+        "best_initial_use": "Potential academic, research or personal analysis within the portal's current terms.",
+        "not_suitable_for": "Default source for a public or commercial Mycelix product without written permission.",
+        "next_action": "Use only if the intended use fits current restrictions; otherwise prioritize a dataset with an unambiguous file-level license."
+      }
+    }
+  ]
+}
