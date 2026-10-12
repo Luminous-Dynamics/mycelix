@@ -946,6 +946,16 @@ export class OfflineQueue {
     let failed = 0;
 
     try {
+      // Refresh from shared storage before selecting work: another tab may have
+      // claimed or completed an item after this instance's last state update.
+      const latestItems = await this.storage.getAll();
+      this.updateState({
+        items: latestItems,
+        pendingCount: latestItems.filter(
+          (stored) => stored.status === 'pending' || stored.status === 'syncing'
+        ).length,
+      });
+
       // Get pending items, sorted by priority and creation time
       const pending = this._state$.value.items
         .filter((i) => i.status === 'pending')
