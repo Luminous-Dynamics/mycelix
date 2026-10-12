@@ -216,6 +216,13 @@ function renderReport(report) {
   resultStatus.className = 'status-pill';
 }
 
+form.addEventListener('input', () => {
+  clearResult();
+  resultStatus.textContent = 'Inputs changed — recalculate';
+  resultStatus.className = 'status-pill status-muted';
+  hideError();
+});
+
 form.addEventListener('submit', event => {
   event.preventDefault();
   hideError();
@@ -255,17 +262,21 @@ downloadScenarioButton.addEventListener('click', () => {
 });
 
 downloadReportButton.addEventListener('click', () => {
-  if (!latestModel || !latestReport) {
-    showError('Calculate a valid scenario before downloading the report.');
+  if (!latestModel || !latestReport || downloadReportButton.disabled) {
+    showError('Calculate the current inputs before downloading the report.');
     return;
   }
   hideError();
-  downloadJson('business-launchpad-report-v1.json', {
-    schemaVersion: 1,
-    kind: 'business-launchpad-report',
-    input: latestModel,
-    report: latestReport
-  });
+  try {
+    downloadJson('business-launchpad-report-v1.json', {
+      schemaVersion: 1,
+      kind: 'business-launchpad-report',
+      input: latestModel,
+      report: latestReport
+    });
+  } catch (error) {
+    showError(error instanceof Error ? error.message : 'Report could not be exported.');
+  }
 });
 
 loadScenarioInput.addEventListener('change', async event => {
