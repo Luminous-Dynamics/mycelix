@@ -273,6 +273,7 @@ try {
     qualifiedSha: process.env.QUALIFIED_SHA || 'not-provided',
     browser: 'Chromium',
     browserVersion: browser.version(),
+    cashScenarioSchemaVersion: 2,
     checks: completedChecks,
     pageErrors,
     mobileLayout,
