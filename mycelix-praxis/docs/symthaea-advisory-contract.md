@@ -86,12 +86,18 @@ and OWASP's [API4:2023 unrestricted resource consumption guidance](https://api-s
 
 The host adapter remains a **bounded decoder**, not a live transport. The
 supplied reader must still have appropriate authentication and read-timeout
-behavior. Prefer `read_bounded_and_validate_symthaea_advice(reader, context)`:
-it reads within the limit, parses the strict wire response, and invokes
-`validate_symthaea_advice` with trusted per-turn `AdviceValidationContext`
-before returning a `ValidatedAdvisorySuggestion`. Rejections fail closed.
-The lower-level `read_bounded_symthaea_advice` function returns an untrusted
-wire object and must not be used as though it had passed semantic validation.
+behavior. Prefer
+`PreparedAdvisoryRequest::read_and_validate_response_once(reader, advisor_enabled, sandbox_active)`.
+It reads within the limit, parses the strict response, validates it against the
+same frozen request scope, and allows only one received response for the
+prepared request. A reader/transport error leaves the prepared request
+retryable, so callers can resend the exact same body and digest; after a
+bounded response is received (even malformed or oversized), a second response
+is rejected. Rejections fail closed. The lower-level
+`read_bounded_symthaea_advice` function returns an untrusted wire object, and
+`read_bounded_and_validate_symthaea_advice(reader, context)` remains available
+for explicit custom contexts but does not supply the prepared-request one-shot
+guard. Neither should replace the preferred one-shot path.
 Regression tests assert that an oversized stream is read only through the
 maximum-plus-one byte, exact-limit input reaches the JSON parser, malformed
 bodies and I/O failures fail closed, and trusted validation accepts only
@@ -218,9 +224,9 @@ Implemented in this branch:
 - an independent standard-library Python checker for actual Rust request/response field parity, schema/Rust enum parity, request example shape/order, response/request bounds, trust gates, and the required adversarial test inventory;
 - a focused GitHub Actions workflow that checks out the exact PR head and runs the schema checker, formatting/tests for both advisory crates, and clippy, including while the PR is a draft;
 - a 16 KiB bounded JSON parser in `praxis-core` plus a native-only host reader that caps streaming reads at 16,385 bytes before rejecting oversize bodies;
-- a preferred host integration function that combines bounded read, strict decoding, and trusted semantic validation before returning a `ValidatedAdvisorySuggestion`;
+- a preferred prepared-request method that bounds the response, validates against the frozen request scope, and rejects a second response for the same prepared request; reader failures remain retryable with the exact same request bytes/digest;
 - deterministic minimized request preparation with exact-body BLAKE3 digest, canonical allowlist ordering, duplicate rejection, pre-copy action/reason list bounds tied to the finite enum counts, and response-validation context frozen to the same prepared scope;
-- twenty-seven `praxis-core` regression tests and twenty-one host-adapter tests covering valid decoding, oversized and exact-limit streams, malformed JSON, read failures, trusted-policy acceptance/rejection, deterministic request bytes/digest, fresh-nonce digest changes, invalid nonce rejection, duplicate inputs, invalid identifiers, and content/action/reason allowlist bounds.
+- twenty-seven `praxis-core` regression tests and twenty-three host-adapter tests covering valid decoding, oversized and exact-limit streams, malformed JSON, read failures, trusted-policy acceptance/rejection, deterministic request bytes/digest, fresh-nonce digest changes, invalid nonce rejection, duplicate inputs, invalid identifiers, and content/action/reason allowlist bounds.
 
 Not yet implemented or qualified:
 - live Symthaea service/process transport or production call site (the host crate currently provides request preparation and bounded read/validate primitives, not a network or local-process client);
