@@ -378,3 +378,6 @@ The smallest credible product is an **evidence-first business launch and operati
 - Odoo: https://www.odoo.com/
 - Paystack payment channels (availability varies by country/merchant): https://paystack.com/docs/payments/payment-channels/
 - Current South African primary-source links are listed in Section 10 and require verification on each update.
+
+- IFRS Foundation, [IAS 7 — Statement of Cash Flows](https://www.ifrs.org/issued-standards/list-of-standards/ias-7-statement-of-cash-flows/): cash-flow reporting concerns period cash movement and distinguishes operating, investing and financing activities. The Launchpad prototype is not an IAS 7 statement or accounting product.
+- Government of South Africa, Department of Forestry, Fisheries and the Environment, [Green Business Guide for Small Enterprises — Cash Flow Plan](https://www.dffe.gov.za/sites/default/files/docs/strategy.framework/ccaq/greenbusinessguide.smallenterprise.pdf): highlights monthly cash in/out and the practical effects of delayed customer payments and advance costs. This is why the current prototype labels its immediate-collection assumption explicitly; the next finance-design iteration should add explicit collection/payment timing instead of treating invoiced sales as cash.
