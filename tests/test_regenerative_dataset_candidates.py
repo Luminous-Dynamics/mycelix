@@ -73,11 +73,20 @@ class RegenerativeDatasetCandidateTests(unittest.TestCase):
         self.assertFalse(candidate["ingestion_gate"]["ingestion_authorized"])
         self.assertIn("JUKSKEI-SIX-SAMPLE-WINDOW-001", {x["finding_id"] for x in candidate["known_findings"]})
 
+    def test_2025_asm_jukskei_supplement_stays_rights_blocked(self) -> None:
+        candidate = next(c for c in self.manifest["candidates"] if c["candidate_id"] == "south-africa.jukskei-river-microbial-data.2025.v1")
+        self.assertEqual(candidate["reported_data_shape"]["study_sample_count"], 60)
+        self.assertEqual(candidate["reported_data_shape"]["site_count"], 5)
+        self.assertIsNone(candidate["temporal_coverage"]["start_date"])
+        self.assertIsNone(candidate["temporal_coverage"]["end_date"])
+        self.assertFalse(candidate["ingestion_gate"]["ingestion_authorized"])
+        self.assertIn("ASM-JUKSKEI-SUPPLEMENT-REUSE-RIGHTS-001", {f["finding_id"] for f in candidate["known_findings"]})
+
     def test_university_of_pretoria_candidate_does_not_invent_license_or_period(self) -> None:
         candidate = next(c for c in self.manifest["candidates"] if c["candidate_id"] == "south-africa.up-hartbeespoort-roodeplaat-water-quality.2025.v1")
         self.assertIsNone(candidate["temporal_coverage"]["start_date"])
         self.assertIsNone(candidate["temporal_coverage"]["end_date"])
-        self.assertIsNone(candidate["license_assessment"]["declared_file_license"])
+        self.assertIn("CC BY 4.0", candidate["license_assessment"]["declared_file_license"])
         self.assertFalse(candidate["ingestion_gate"]["ingestion_authorized"])
 
     def test_unknown_indicator_fails(self) -> None:

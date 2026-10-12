@@ -449,7 +449,7 @@
         "water.toxic-elements-concentration.v1"
       ],
       "discovery_status": "license_not_verified",
-      "reported_availability": "The indexed repository result reports Version 2 dated 2025-05-22 and a 37.01 kB dataset. The detail page was not inspectable through the current research path; file-level license and data dictionary could not be inspected.",
+      "reported_availability": "The indexed institutional repository page states 'Licence CC BY 4.0' and reports Version 2 modified 2025-05-22 (37.01 kB). The detail page/files were not inspected directly in this pass, so file-level license association, attribution details and data dictionary still require verification.",
       "temporal_coverage": {
         "start_date": null,
         "end_date": null,
@@ -488,14 +488,14 @@
       "license_assessment": {
         "license_status": "unverified",
         "displayed_access_status": "The canonical detail page was not inspectable in this review; indexed metadata does not establish a file-level license.",
-        "declared_file_license": null,
+        "declared_file_license": "CC BY 4.0 is displayed in the indexed institutional repository metadata; association with actual files and attribution details remain to be confirmed directly.",
         "commercial_reuse": "unknown",
         "redistribution": "unknown",
         "modification": "unknown",
         "evidence_urls": [
           "https://researchdata.up.ac.za/articles/dataset/Hartbeespoort_and_Roodeplaat_catchments_water_quality_data/29100767"
         ],
-        "assessment_note": "No license can be responsibly inferred from a repository search result. Inspect the canonical record, files and license field or obtain rights-holder confirmation before using."
+        "assessment_note": "The indexed University of Pretoria record reports CC BY 4.0, but the canonical detail page/files were not inspected directly during this pass. Retain the declaration as source metadata, not as independent file-level verification. Review exact terms, attribution and underlying file metadata before import."
       },
       "ingestion_gate": {
         "status": "blocked",
@@ -526,6 +526,127 @@
           "severity": "medium",
           "observation": "The indexed repository summary surfaces size, version and catchment information, but the canonical detail page was not inspectable during this review, so no authoritative license field or file contents were available to verify.",
           "required_resolution": "Retrieve the record through an authorized repository route or contact the depositor, then retain license metadata and inspect the exact artifacts before import."
+        }
+      ]
+    },
+    {
+      "candidate_id": "south-africa.jukskei-river-microbial-data.2025.v1",
+      "title": "A river in crisis: Jukskei River water-quality and microbial-burden study data",
+      "publisher": "American Society for Microbiology / Applied and Environmental Microbiology; study by University of the Witwatersrand collaborators",
+      "dataset_url": "https://journals.asm.org/doi/10.1128/aem.01566-25",
+      "related_indicator_ids": [
+        "water.physicochemical-profile.v1",
+        "water.microbial-contamination.v1"
+      ],
+      "discovery_status": "license_not_verified",
+      "reported_availability": "The article is open access and says raw bacterial counts are in Table S2 of the supplementary material. The publisher states it does not own supplementary-material copyright and asks users to contact the corresponding author for reuse. The DOCX supplement has not been downloaded or imported.",
+      "temporal_coverage": {
+        "start_date": null,
+        "end_date": null,
+        "basis": "The article states water was sampled monthly over 12 months; exact first/last sample dates were not captured in the accessible metadata excerpt and must be transcribed from the actual records before setting bounds."
+      },
+      "spatial_coverage": {
+        "geography": "Jukskei River, Johannesburg, Gauteng, South Africa; five study sites A–E described by the paper.",
+        "entities": [
+          {
+            "site": "A",
+            "context": "business district",
+            "coordinates_as_published": "26,18147°S, 28,10237°E"
+          },
+          {
+            "site": "B",
+            "context": "recreational park",
+            "coordinates_as_published": "26,16475°S, 28,13029°E"
+          },
+          {
+            "site": "C",
+            "context": "densely populated informal settlement",
+            "coordinates_as_published": "26,08208°S, 28,10873°E"
+          },
+          {
+            "site": "D",
+            "context": "residential suburb",
+            "coordinates_as_published": "26,06715°S, 28,10767°E"
+          },
+          {
+            "site": "E",
+            "context": "golf estate",
+            "coordinates_as_published": "25,98690°S, 27,99731°E"
+          }
+        ],
+        "caveat": "Locations and coordinate formatting are copied as published. Confirm conversion and study-site identity before map plotting; spatial coverage describes the study's five sites, not the entire Jukskei catchment."
+      },
+      "reported_measures": [
+        {
+          "name": "Physicochemical and fecal-indicator parameters",
+          "native_unit": "Parameter-specific; inspect paper/supplement for each exact unit",
+          "method_summary": "The paper describes temperature, pH, total dissolved solids, total coliform and E. coli measurements across five sites."
+        },
+        {
+          "name": "Pathogen bacterial counts",
+          "native_unit": "Log CFU per 100 mL for reported bacterial counts",
+          "method_summary": "Salmonella, Shigella and Vibrio cholerae enumeration with culture-based methods and real-time PCR targeting invA, ipaH and toxR."
+        }
+      ],
+      "reported_data_shape": {
+        "timeseries_format": "Supplementary DOCX contains site metadata and raw bacterial count data (Table S2); exact row schema not locally inspected",
+        "study_sample_count": 60,
+        "site_count": 5,
+        "reported_sampling_frequency": "Monthly over 12 months",
+        "supplement_filename": "aem.01566-25-s0002.docx",
+        "supplement_size_kb": 29.55,
+        "article_published_on": "2025-10-08",
+        "study_design_note": "60 water samples (five sites sampled monthly over 12 months) as described in the article methods; exact collection-date range must be verified from source records.",
+        "limitation": "A one-year, five-site study may support a tightly bounded season/site comparison after validation but does not establish long-term trends or current river-wide safety."
+      },
+      "license_assessment": {
+        "license_status": "unverified",
+        "displayed_access_status": "Article is open access; publisher says raw bacterial-count data are in supplemental material but explicitly states it does not own the supplement copyright and asks users to contact the corresponding author for reuse.",
+        "declared_file_license": "No separate reuse license for the supplemental raw data was established from the article page during this review.",
+        "commercial_reuse": "permission_required",
+        "redistribution": "permission_required",
+        "modification": "permission_required",
+        "evidence_urls": [
+          "https://journals.asm.org/doi/10.1128/aem.01566-25",
+          "https://doi.org/10.1128/aem.01566-25"
+        ],
+        "assessment_note": "Open-access article status is not by itself a license for the supplementary raw data. The publisher says it holds only a non-exclusive license to publish the supplemental files and instructs users to contact the corresponding author for reuse. Obtain permission or authoritative license terms for the planned analysis, adaptation and redistribution before importing."
+      },
+      "ingestion_gate": {
+        "status": "blocked",
+        "ingestion_authorized": false,
+        "values_imported": false,
+        "reason_codes": [
+          "supplemental_reuse_rights_not_verified",
+          "source_file_not_retained_or_hashed",
+          "exact_sample_date_range_not_verified"
+        ],
+        "required_evidence": [
+          "Obtain written permission or authoritative supplemental-file license terms from the corresponding author covering the intended reuse and redistribution",
+          "Download the supplemental DOCX only after access/permission review; retain source bytes, filename, source revision and SHA-256 digest",
+          "Inspect Table S2 and the site table; record schema, row counts, sample IDs, date/time, site codes, analytes, native units and quality flags",
+          "Reconcile the study's 60-sample/five-site/12-month description to the actual sample rows",
+          "Record culture/PCR method, censoring/detection semantics and transformation provenance if tables are normalized",
+          "Preserve exact collection-date range before writing temporal bounds or comparing seasons"
+        ]
+      },
+      "suitability": {
+        "best_initial_use": "A Gauteng-relevant observation-receipt prototype for five-site Jukskei measurements once supplementary-data reuse rights and source files are verified.",
+        "not_suitable_for": "Current safety certification, long-term multi-year trend estimation, catchment-wide claims without representativeness analysis, or causal intervention claims.",
+        "next_action": "Contact the corresponding author about reuse of Table S2/supplement, then inspect and hash the actual file before preparing even one observation receipt."
+      },
+      "known_findings": [
+        {
+          "finding_id": "ASM-JUKSKEI-SUPPLEMENT-REUSE-RIGHTS-001",
+          "severity": "high",
+          "observation": "The 2025 article is open access, but the publisher explicitly says it does not own the supplemental material copyright and directs users to the corresponding author for reuse. A separate reusable-data license was not established during this review.",
+          "required_resolution": "Obtain written permission or file-level license terms for the actual supplemental DOCX, intended transformations, publication and redistribution before ingestion."
+        },
+        {
+          "finding_id": "ASM-JUKSKEI-12-MONTH-WINDOW-001",
+          "severity": "medium",
+          "observation": "The article reports 60 water samples from five sites sampled monthly over 12 months, but the exact inclusive first/last sample dates were not captured in the accessible source metadata reviewed here.",
+          "required_resolution": "Inspect the supplement's date/site records and reconcile the 60 samples before setting temporal bounds, season labels or comparison periods."
         }
       ]
     }

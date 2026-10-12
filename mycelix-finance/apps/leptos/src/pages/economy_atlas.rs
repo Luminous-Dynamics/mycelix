@@ -914,7 +914,7 @@ mod tests {
     fn dataset_candidate_catalog_is_discovery_only_and_fail_closed() {
         let catalog = dataset_candidate_catalog();
         assert_eq!(catalog.catalog_status, "source_discovery_only");
-        assert_eq!(catalog.candidates.len(), 5);
+        assert_eq!(catalog.candidates.len(), 6);
         assert!(!catalog.qualification.source_artifacts_downloaded);
         assert!(!catalog.qualification.real_observations_imported);
         assert!(!catalog.qualification.candidate_ingestion_gates_passed);
@@ -943,6 +943,7 @@ mod tests {
         assert!(statuses.contains("license_declared_access_private"));
         assert!(catalog.candidates.iter().any(|candidate| candidate.candidate_id == "south-africa.jukskei-water-quality-study.2021.v1"));
         assert!(catalog.candidates.iter().any(|candidate| candidate.candidate_id == "south-africa.up-hartbeespoort-roodeplaat-water-quality.2025.v1"));
+        assert!(catalog.candidates.iter().any(|candidate| candidate.candidate_id == "south-africa.jukskei-river-microbial-data.2025.v1"));
     }
 
     #[test]
@@ -955,7 +956,7 @@ mod tests {
         assert!(!catalog.qualification.independently_validated);
         assert!(!catalog.qualification.composite_score_enabled);
         assert!(!catalog.global_comparison_contract.is_empty());
-        assert_eq!(catalog.research_refs.len(), 13);
+        assert_eq!(catalog.research_refs.len(), 14);
         let reference_ids = catalog.research_refs.iter().map(|reference| reference.ref_id.as_str()).collect::<HashSet<_>>();
         let model_registry = registry();
         let framework_ids = model_registry.models.iter().map(|model| model.model_id.as_str()).collect::<HashSet<_>>();

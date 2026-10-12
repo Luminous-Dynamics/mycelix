@@ -161,6 +161,20 @@ def validate_manifest(manifest: object, indicator_catalog: object) -> list[str]:
                 errors.append(f"{location}: preserve the paper's six-sample study design as source-reported metadata")
             if not isinstance(candidate.get("license_assessment"), dict) or candidate["license_assessment"].get("license_status") != "unverified":
                 errors.append(f"{location}: private-share license status must remain unverified until file-level review")
+        if candidate_id == "south-africa.jukskei-river-microbial-data.2025.v1":
+            if status != "license_not_verified":
+                errors.append(f"{location}: ASM Jukskei supplemental data must remain license_not_verified")
+            if not {"ASM-JUKSKEI-SUPPLEMENT-REUSE-RIGHTS-001", "ASM-JUKSKEI-12-MONTH-WINDOW-001"}.issubset(finding_ids):
+                errors.append(f"{location}: ASM supplemental rights and date-window findings must be preserved")
+            shape = candidate.get("reported_data_shape", {})
+            if not isinstance(shape, dict) or shape.get("study_sample_count") != 60 or shape.get("site_count") != 5:
+                errors.append(f"{location}: preserve the article's source-reported 60-sample/five-site design")
+            temporal = candidate.get("temporal_coverage", {})
+            if isinstance(temporal, dict) and (temporal.get("start_date") is not None or temporal.get("end_date") is not None):
+                errors.append(f"{location}: do not invent ASM study date bounds before inspecting the sample records")
+            license_info = candidate.get("license_assessment", {})
+            if isinstance(license_info, dict) and license_info.get("license_status") != "unverified":
+                errors.append(f"{location}: supplemental-data reuse rights must remain unverified")
         if candidate_id == "south-africa.up-hartbeespoort-roodeplaat-water-quality.2025.v1":
             if status != "license_not_verified":
                 errors.append(f"{location}: University of Pretoria dataset must remain license_not_verified")

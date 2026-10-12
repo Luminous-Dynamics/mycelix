@@ -143,6 +143,15 @@
       "published_year": 2025,
       "retrieved_on": "2026-10-12",
       "url": "https://researchdata.up.ac.za/articles/dataset/Hartbeespoort_and_Roodeplaat_catchments_water_quality_data/29100767"
+    },
+    {
+      "ref_id": "asm-jukskei-water-quality-study-2025",
+      "title": "A river in crisis: water quality, microbial burden, and public health implications of a South African urban river",
+      "publisher": "American Society for Microbiology, Applied and Environmental Microbiology",
+      "reference_type": "peer_reviewed_article_with_supplemental_raw_data",
+      "published_year": 2025,
+      "retrieved_on": "2026-10-12",
+      "url": "https://journals.asm.org/doi/10.1128/aem.01566-25"
     }
   ],
   "indicators": [
@@ -976,7 +985,8 @@
         "jukskei-water-quality-study-data",
         "up-hartbeespoort-roodeplaat-water-quality-data",
         "dws-water-quality-data-explorer",
-        "un-sdg-indicator-metadata"
+        "un-sdg-indicator-metadata",
+        "asm-jukskei-water-quality-study-2025"
       ],
       "status": "candidate_definition",
       "observations_loaded": false,
@@ -1024,7 +1034,8 @@
       ],
       "research_ref_ids": [
         "jukskei-water-quality-study-data",
-        "un-sdg-indicator-metadata"
+        "un-sdg-indicator-metadata",
+        "asm-jukskei-water-quality-study-2025"
       ],
       "status": "candidate_definition",
       "observations_loaded": false,
