@@ -238,6 +238,11 @@ def main() -> int:
         errors,
     )
     require(
+        'getrandom = "=0.2.17"' in adapter_manifest,
+        "host adapter must pin getrandom to reviewed version 0.2.17",
+        errors,
+    )
+    require(
         "fn generate_request_nonce() -> Result<String, RequestPreparationError>" in adapter_source
         and "getrandom::getrandom(bytes).map_err(|_| NonceFillError::Unavailable)" in adapter_source
         and "enum NonceFillError" in adapter_source
@@ -443,10 +448,11 @@ def main() -> int:
         errors,
     )
     require(
-        "getrandom.workspace = true" in adapter_manifest
+        'getrandom = "=0.2.17"' in adapter_manifest
+        and "getrandom.workspace = true" not in adapter_manifest
         and "serde.workspace = true" in adapter_manifest
         and "serde_json.workspace = true" in adapter_manifest,
-        "host adapter must declare its direct OS-randomness and serializer dependencies",
+        "host adapter must pin the reviewed OS-randomness patch and declare direct serializer dependencies",
         errors,
     )
     require(
