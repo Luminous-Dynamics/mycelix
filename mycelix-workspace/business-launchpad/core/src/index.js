@@ -552,6 +552,165 @@ function transformCashPlanForStress(basePeriods, config, mode) {
 }
 
 /**
+ * Default terms-based timing schedule, expressed as integer percentages.
+ * These are illustrative starting values rather than industry defaults.
+ */
+export const DEFAULT_CASH_TIMING_SCHEDULE = Object.freeze({
+  salesReceiptsPercent: Object.freeze([70, 25, 5]),
+  variableSupplierPaymentsPercent: Object.freeze([80, 15, 5])
+});
+
+function normalizeCashTimingSchedule(value) {
+  const source = value === undefined ? DEFAULT_CASH_TIMING_SCHEDULE : value;
+  if (!isRecord(source)) {
+    return { error: fail('invalid_cash_timing_schedule', 'A collection and supplier-payment timing schedule is required.', 'timingSchedule') };
+  }
+  const normalized = {};
+  for (const [field, label] of [
+    ['salesReceiptsPercent', 'salesReceiptsPercent'],
+    ['variableSupplierPaymentsPercent', 'variableSupplierPaymentsPercent']
+  ]) {
+    const values = source[field];
+    if (!Array.isArray(values) || values.length !== 3 ||
+        values.some(value => !isIntegerInRange(value, 0, 100)) ||
+        values.reduce((sum, value) => sum + value, 0) !== 100) {
+      return { error: fail(
+        'invalid_cash_timing_schedule',
+        label + ' must contain three integer percentages for this month, next month, and the month after that; the values must total exactly 100.',
+        'timingSchedule.' + field
+      ) };
+    }
+    normalized[field] = [...values];
+  }
+  return { schedule: normalized };
+}
+
+function distributeMinorUnits(totalMinor, percentages) {
+  const total = BigInt(totalMinor);
+  const buckets = percentages.map((percent, index) => {
+    const numerator = total * BigInt(percent);
+    return {
+      index,
+      amount: numerator / 100n,
+      remainder: numerator % 100n
+    };
+  });
+  let remaining = total - buckets.reduce((sum, bucket) => sum + bucket.amount, 0n);
+  const priority = [...buckets].sort((left, right) =>
+    left.remainder === right.remainder
+      ? left.index - right.index
+      : left.remainder > right.remainder ? -1 : 1
+  );
+  for (let index = 0; remaining > 0n; index += 1, remaining -= 1n) {
+    priority[index % priority.length].amount += 1n;
+  }
+  return buckets.sort((left, right) => left.index - right.index).map(bucket => Number(bucket.amount));
+}
+
+/**
+ * Build an alternative cash plan from monthly sales activity and an explicit
+ * three-bucket customer/supplier timing schedule. This must not overwrite the
+ * owner's original receipts/payments. It models gross sales receipts and
+ * variable supplier costs from the unit assumptions, keeps fixed monthly costs
+ * due in their originating month, and carries other/investing/financing flows
+ * from the supplied plan without recategorizing them.
+ *
+ * @param {{model:object,monthlyPlan:Array,timingSchedule?:object}} input
+ * @returns {{ok:true,report:object}|{ok:false,error:object}}
+ */
+export function projectCashRunwayWithTimingSchedule(input) {
+  if (!isRecord(input)) {
+    return fail('invalid_cash_timing_input', 'A timing-schedule projection input object is required.');
+  }
+  const base = projectCashRunway({ model: input.model, monthlyPlan: input.monthlyPlan });
+  if (!base.ok) return base;
+  const normalized = normalizeCashTimingSchedule(input.timingSchedule);
+  if (normalized.error) return normalized.error;
+
+  const horizon = base.report.periods.length;
+  const monthlyPlan = base.report.periods.map(period => ({
+    salesUnits: period.salesUnitsScenario,
+    salesCashReceiptsMinor: 0,
+    operatingCashOutflowsMinor: input.model.fixedMonthlyCostsMinor,
+    otherCashInflowsMinor: period.otherCashInflowsMinor,
+    otherCashOutflowsMinor: period.otherCashOutflowsMinor,
+    investingCashInflowsMinor: period.investingCashInflowsMinor,
+    investingCashOutflowsMinor: period.investingCashOutflowsMinor,
+    financingCashInflowsMinor: period.financingCashInflowsMinor,
+    financingCashOutflowsMinor: period.financingCashOutflowsMinor
+  }));
+  let deferredSalesReceipts = 0n;
+  let deferredSupplierPayments = 0n;
+
+  try {
+    for (let cohort = 0; cohort < horizon; cohort += 1) {
+      const activity = base.report.periods[cohort].salesUnitsScenario;
+      const grossSales = BigInt(input.model.sellingPricePerUnitMinor) * BigInt(activity);
+      const variableSupplierCost = BigInt(input.model.variableCostPerUnitMinor) * BigInt(activity);
+      if (grossSales > MAX_SAFE || variableSupplierCost > MAX_SAFE) {
+        return fail('calculation_overflow', 'Sales or variable supplier costs exceed the supported exact integer range.', 'monthlyPlan[' + cohort + ']');
+      }
+      const receipts = distributeMinorUnits(Number(grossSales), normalized.schedule.salesReceiptsPercent);
+      const supplierPayments = distributeMinorUnits(Number(variableSupplierCost), normalized.schedule.variableSupplierPaymentsPercent);
+
+      for (let offset = 0; offset < 3; offset += 1) {
+        const receiptMonth = cohort + offset;
+        const paymentMonth = cohort + offset;
+        if (receiptMonth >= horizon) {
+          deferredSalesReceipts += BigInt(receipts[offset]);
+        } else {
+          const sum = BigInt(monthlyPlan[receiptMonth].salesCashReceiptsMinor) + BigInt(receipts[offset]);
+          if (sum > MAX_SAFE) return fail('calculation_overflow', 'Scheduled sales receipts exceed the supported exact integer range.', 'monthlyPlan[' + receiptMonth + '].salesCashReceiptsMinor');
+          monthlyPlan[receiptMonth].salesCashReceiptsMinor = Number(sum);
+        }
+
+        if (paymentMonth >= horizon) {
+          deferredSupplierPayments += BigInt(supplierPayments[offset]);
+        } else {
+          const sum = BigInt(monthlyPlan[paymentMonth].operatingCashOutflowsMinor) + BigInt(supplierPayments[offset]);
+          if (sum > MAX_SAFE) return fail('calculation_overflow', 'Scheduled operating payments exceed the supported exact integer range.', 'monthlyPlan[' + paymentMonth + '].operatingCashOutflowsMinor');
+          monthlyPlan[paymentMonth].operatingCashOutflowsMinor = Number(sum);
+        }
+      }
+    }
+    if (deferredSalesReceipts > MAX_SAFE || deferredSupplierPayments > MAX_SAFE) {
+      return fail('calculation_overflow', 'The timing-schedule amounts beyond the forecast horizon exceed the supported exact integer range.', 'timingSchedule');
+    }
+  } catch (error) {
+    if (error instanceof RangeError) {
+      return fail('calculation_overflow', 'The timing schedule could not be applied within the exact integer range.', 'timingSchedule');
+    }
+    return fail('calculation_error', 'The timing schedule could not be applied safely.', 'timingSchedule');
+  }
+
+  const projection = projectCashRunway({ model: input.model, monthlyPlan });
+  if (!projection.ok) return projection;
+  return {
+    ok: true,
+    report: {
+      schemaVersion: 1,
+      kind: 'business-launchpad-terms-based-cash-projection',
+      currency: { ...projection.report.currency },
+      horizonMonths: horizon,
+      timingSchedule: normalized.schedule,
+      basis: 'Alternative terms-based scenario derived from sales-unit activity; it does not replace the owner-entered base plan. Variable supplier costs are scheduled by cohort; fixed monthly costs remain due in their originating month.',
+      assumptions: [
+        'Sales cash receipts are derived from units multiplied by the entered selling price, then allocated to the sale month, next month and following month.',
+        'Variable supplier payments are derived from units multiplied by the entered variable cost, then allocated to the purchase/sale cohort month, next month and following month.',
+        'Fixed monthly costs remain paid in their originating month; setup costs remain paid before Month 1.',
+        'Other/unclassified, investing and financing movements are copied from the owner's plan without reclassification.',
+        'This schedule does not model opening accounts receivable/payable, taxes, inventory purchases that precede sales, deposit/refund behavior, bad debt, invoice-level terms or day-level due dates.',
+        'The percentage schedule is an owner-supplied sensitivity assumption, not a ledger or forecast of actual settlement.'
+      ],
+      deferredSalesCashReceiptsAfterHorizonMinor: Number(deferredSalesReceipts),
+      deferredVariableSupplierPaymentsAfterHorizonMinor: Number(deferredSupplierPayments),
+      monthlyPlan,
+      projection: projection.report
+    }
+  };
+}
+
+/**
  * Compare the owner-entered cash plan with explicit downside and upside stress
  * cases. This changes only sales receipts and operating cash payments according
  * to the accompanying visible assumptions. It does not alter sales activity,
