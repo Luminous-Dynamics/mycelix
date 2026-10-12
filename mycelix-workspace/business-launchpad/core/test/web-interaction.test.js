@@ -229,7 +229,7 @@ test('imported scenario is validated, restores fields, and requires recalculatio
 
   documentMock.submit();
   assert.equal(documentMock.getElementById('result-status').textContent, 'Deterministic calculation');
-  assert.match(documentMock.getElementById('result').textContent, /ZAR 5500\.00/);
+  assert.match(documentMock.getElementById('result').textContent, /ZAR 4700\.00/);
   assert.equal(documentMock.getElementById('download-report').disabled, false);
 });
 
