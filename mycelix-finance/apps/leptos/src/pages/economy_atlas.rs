@@ -655,7 +655,7 @@ mod tests {
         assert!(!catalog.qualification.independently_validated);
         assert!(!catalog.qualification.composite_score_enabled);
         assert!(!catalog.global_comparison_contract.is_empty());
-        assert_eq!(catalog.research_refs.len(), 8);
+        assert_eq!(catalog.research_refs.len(), 9);
         let reference_ids = catalog.research_refs.iter().map(|reference| reference.ref_id.as_str()).collect::<HashSet<_>>();
         let model_registry = registry();
         let framework_ids = model_registry.models.iter().map(|model| model.model_id.as_str()).collect::<HashSet<_>>();
