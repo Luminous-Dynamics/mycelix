@@ -456,10 +456,12 @@ function applyCashScenarioAssumptions(assumptions) {
 function renderCashScenarioComparison(comparison, currency) {
   const section = element('section', 'cash-runway-result cash-scenario-comparison');
   section.append(element('h3', 'section-subheading', 'Downside / base / upside comparison'));
+  const downside = comparison.assumptions.downside;
+  const upside = comparison.assumptions.upside;
   section.append(element(
     'p',
     'detail',
-    'The base is your entered plan. The two stress cases transform sales receipts and operating cash payments using the assumptions you supplied above. Defaults are illustrative, not benchmarks or probabilities. A negative or below-reserve result is an early-warning signal to review, not an automatic business decision.'
+    'The base is your entered plan. Downside stress: sales receipts reduced ' + downside.salesReceiptReductionPercent + '%, delayed ' + downside.salesReceiptDelayMonths + ' month(s), and operating payments increased ' + downside.operatingCashOutflowIncreasePercent + '%. Upside stress: sales receipts increased ' + upside.salesReceiptIncreasePercent + '%, later receipts advanced ' + upside.salesReceiptAdvanceMonths + ' month(s), and operating payments reduced ' + upside.operatingCashOutflowReductionPercent + '%. These owner-editable defaults are illustrative, not benchmarks or probabilities. A negative or below-reserve result is an early-warning signal to review, not an automatic business decision.'
   ));
 
   const scroll = element('div', 'cash-plan-scroll');
