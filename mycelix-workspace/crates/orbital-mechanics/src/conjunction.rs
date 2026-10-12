@@ -758,11 +758,20 @@ mod tests {
         let sigma_x = 1.4101830 / 1000.0;
         let sigma_y = 114.2585190 / 1000.0;
         let covariance = Matrix2::new(sigma_x.powi(2), 0.0, 0.0, sigma_y.powi(2));
+        let radius_km = 15.0 / 1000.0;
+        let analyzer = ConjunctionAnalyzer::new();
+        let approximation = analyzer.gaussian_small_disk_pc(miss, covariance, radius_km);
+        let reference_pc = 0.10038;
+        let relative_error = (approximation - reference_pc).abs() / reference_pc;
+        assert!(
+            relative_error > 0.80,
+            "fixture must continue to demonstrate the approximation's out-of-domain error"
+        );
         assert!(
             !ConjunctionAnalyzer::within_small_disk_reference_envelope(
                 miss,
                 covariance,
-                15.0 / 1000.0
+                radius_km
             ),
             "large hard-body radius vs narrow uncertainty must be rejected"
         );
