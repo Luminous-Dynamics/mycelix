@@ -59,7 +59,10 @@ class MockDocument {
       'minor-unit-exponent', 'selling-price', 'variable-cost', 'planned-units',
       'fixed-monthly', 'setup-costs', 'working-capital', 'available-cash',
       'cost-coverage', 'omitted-costs', 'download-scenario', 'load-scenario-file', 'download-report',
-      'cash-runway-periods', 'reset-cash-runway'
+      'cash-runway-periods', 'reset-cash-runway',
+      'downside-receipt-reduction-percent', 'downside-receipt-delay-months',
+      'downside-operating-cost-increase-percent', 'upside-receipt-increase-percent',
+      'upside-receipt-advance-months', 'upside-operating-cost-reduction-percent'
     ];
     for (const id of ids) this.nodes.set(id, new MockElement(id === 'model-form' ? 'form' : 'div', id));
     this.body = new MockElement('body');
@@ -76,6 +79,12 @@ class MockDocument {
     this.nodes.get('available-cash').value = '6000.00';
     this.nodes.get('cost-coverage').value = 'partial';
     this.nodes.get('omitted-costs').value = 'owner labor, tax, insurance';
+    this.nodes.get('downside-receipt-reduction-percent').value = '20';
+    this.nodes.get('downside-receipt-delay-months').value = '1';
+    this.nodes.get('downside-operating-cost-increase-percent').value = '15';
+    this.nodes.get('upside-receipt-increase-percent').value = '10';
+    this.nodes.get('upside-receipt-advance-months').value = '1';
+    this.nodes.get('upside-operating-cost-reduction-percent').value = '5';
     this.nodes.get('result-status').textContent = 'Example not yet calculated';
   }
   querySelector(selector) {
@@ -106,7 +115,13 @@ class MockDocument {
       'working-capital': '3000.00',
       'available-cash': '6000.00',
       'cost-coverage': 'partial',
-      'omitted-costs': 'owner labor, tax, insurance'
+      'omitted-costs': 'owner labor, tax, insurance',
+      'downside-receipt-reduction-percent': '20',
+      'downside-receipt-delay-months': '1',
+      'downside-operating-cost-increase-percent': '15',
+      'upside-receipt-increase-percent': '10',
+      'upside-receipt-advance-months': '1',
+      'upside-operating-cost-reduction-percent': '5'
     };
     for (const [id, value] of Object.entries(values)) this.nodes.get(id).value = value;
     this.nodes.get('input-error').hidden = true;
@@ -124,6 +139,10 @@ class MockDocument {
       this.getElementById('cash-month-' + month + '-operating-outflows').value = (60 * units + 900).toFixed(2);
       this.getElementById('cash-month-' + month + '-inflows').value = '0.00';
       this.getElementById('cash-month-' + month + '-outflows').value = '0.00';
+      this.getElementById('cash-month-' + month + '-investing-inflows').value = '0.00';
+      this.getElementById('cash-month-' + month + '-investing-outflows').value = '0.00';
+      this.getElementById('cash-month-' + month + '-financing-inflows').value = '0.00';
+      this.getElementById('cash-month-' + month + '-financing-outflows').value = '0.00';
     }
   }
   submit() {
@@ -213,7 +232,7 @@ test('assumptions export produces versioned portable JSON without uploading inpu
   assert.equal(capturedBlob.type, 'application/json;charset=utf-8');
 
   const payload = JSON.parse(await capturedBlob.text());
-  assert.equal(payload.schemaVersion, 3);
+  assert.equal(payload.schemaVersion, 4);
   assert.equal(payload.kind, 'business-launchpad-scenario');
   assert.equal(payload.input.currency.code, 'ZAR');
   assert.equal(payload.input.sellingPricePerUnitMinor, 18_000);
@@ -224,11 +243,15 @@ test('assumptions export produces versioned portable JSON without uploading inpu
   assert.equal(payload.cashRunwayPlan[0].operatingCashOutflowsMinor, 240_000);
   assert.equal(payload.cashRunwayPlan[0].investingCashOutflowsMinor, 0);
   assert.equal(payload.cashRunwayPlan[0].financingCashInflowsMinor, 0);
+  assert.deepEqual(payload.cashScenarioAssumptions, {
+    downside: { salesReceiptReductionPercent: 20, salesReceiptDelayMonths: 1, operatingCashOutflowIncreasePercent: 15 },
+    upside: { salesReceiptIncreasePercent: 10, salesReceiptAdvanceMonths: 1, operatingCashOutflowReductionPercent: 5 }
+  });
   assert.equal(payload.cashRunwayPlan[1].salesUnits, 38);
 
   const anchor = documentMock.createdElements.at(-1);
   assert.equal(anchor.tagName, 'A');
-  assert.equal(anchor.download, 'business-launchpad-scenario-v3.json');
+  assert.equal(anchor.download, 'business-launchpad-scenario-v4.json');
   assert.equal(anchor.clicked, true);
   assert.equal(anchor.removed, true);
 });
@@ -239,6 +262,7 @@ test('imported scenario is validated, restores fields, and requires recalculatio
   const payload = JSON.parse(await capturedBlob.text());
   payload.input.sellingPricePerUnitMinor = 20_000;
   payload.input.plannedUnitsPerMonth = 40;
+  payload.cashScenarioAssumptions.downside.salesReceiptDelayMonths = 2;
 
   const fileInput = documentMock.getElementById('load-scenario-file');
   fileInput.files = [{ text: async () => JSON.stringify(payload) }];
@@ -248,6 +272,7 @@ test('imported scenario is validated, restores fields, and requires recalculatio
   assert.equal(fileInput.value, '');
   assert.equal(documentMock.getElementById('selling-price').value, '200.00');
   assert.equal(documentMock.getElementById('planned-units').value, '40');
+  assert.equal(documentMock.getElementById('downside-receipt-delay-months').value, '2');
   assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
   assert.equal(documentMock.getElementById('download-report').disabled, true);
 
@@ -362,10 +387,26 @@ test('legacy version-1 scenarios without a cash plan receive an explicit default
   assert.match(documentMock.getElementById('result').textContent, /12-month cash runway scenario/);
 });
 
+test('schema-v4 requires valid stress assumptions and cannot silently default them', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  delete payload.cashScenarioAssumptions.downside.salesReceiptDelayMonths;
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /Cash scenario assumptions failed validation/);
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+});
+
 test('schema-v3 plans require all explicit investing and financing cash fields', async () => {
   documentMock.reset();
   documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
   const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 3;
   delete payload.cashRunwayPlan[0].financingCashOutflowsMinor;
 
   const fileInput = documentMock.getElementById('load-scenario-file');
@@ -408,7 +449,7 @@ test('report export is disabled until a valid calculation exists and includes bo
   documentMock.getElementById('download-report').dispatchEvent({ type: 'click' });
   const payload = JSON.parse(await capturedBlob.text());
 
-  assert.equal(payload.schemaVersion, 3);
+  assert.equal(payload.schemaVersion, 4);
   assert.equal(payload.kind, 'business-launchpad-report');
   assert.equal(payload.input.currency.code, 'ZAR');
   assert.equal(payload.report.breakEven.unitsPerMonth, 8);
@@ -416,7 +457,7 @@ test('report export is disabled until a valid calculation exists and includes bo
   assert.equal(payload.cashRunwayPlan.length, 12);
   assert.equal(payload.cashRunwayProjection.horizonMonths, 12);
   assert.equal(payload.cashRunwayProjection.kind, 'business-launchpad-cash-runway-report');
-  assert.equal(documentMock.createdElements.at(-1).download, 'business-launchpad-report-v3.json');
+  assert.equal(documentMock.createdElements.at(-1).download, 'business-launchpad-report-v4.json');
   assert.ok(createdUrls.includes('blob:business-launchpad-test'));
 });
 
@@ -429,7 +470,7 @@ test('malformed or unsupported import files fail visibly without changing inputs
 
   assert.equal(documentMock.getElementById('selling-price').value, originalPrice);
   assert.equal(documentMock.getElementById('input-error').hidden, false);
-  assert.match(documentMock.getElementById('input-error').textContent, /schemaVersion 1, 2 or 3 required/);
+  assert.match(documentMock.getElementById('input-error').textContent, /schemaVersion 1, 2, 3 or 4 required/);
   assert.equal(fileInput.value, '');
 
   fileInput.files = [{
