@@ -1,0 +1,95 @@
+"""Regression tests for fail-closed dataset discovery and license gating."""
+from __future__ import annotations
+
+import copy
+import json
+import sys
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from validate_regenerative_dataset_candidates import validate_manifest  # noqa: E402
+
+MANIFEST = ROOT / "docs/economy-atlas/regenerative-dataset-candidates.v1.json"
+INDICATORS = ROOT / "docs/economy-atlas/regenerative-indicators.v1.json"
+
+
+class RegenerativeDatasetCandidateTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.fixture = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        cls.indicator_catalog = json.loads(INDICATORS.read_text(encoding="utf-8"))
+
+    def setUp(self) -> None:
+        self.manifest = copy.deepcopy(self.fixture)
+
+    def test_current_candidates_are_structurally_valid_and_blocked(self) -> None:
+        self.assertEqual(validate_manifest(self.manifest, self.indicator_catalog), [])
+        for item in self.manifest["candidates"]:
+            self.assertEqual(item["ingestion_gate"]["status"], "blocked")
+            self.assertFalse(item["ingestion_gate"]["ingestion_authorized"])
+            self.assertFalse(item["ingestion_gate"]["values_imported"])
+
+    def test_current_candidates_cover_license_states(self) -> None:
+        states = {item["discovery_status"] for item in self.manifest["candidates"]}
+        self.assertEqual(states, {
+            "license_not_verified",
+            "license_metadata_conflict",
+            "restricted_noncommercial_use",
+        })
+
+    def test_duplicate_candidate_id_fails(self) -> None:
+        self.manifest["candidates"].append(copy.deepcopy(self.manifest["candidates"][0]))
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("duplicate candidate_id" in error for error in errors), errors)
+
+    def test_ingestion_authorization_cannot_be_enabled_in_discovery_catalog(self) -> None:
+        self.manifest["candidates"][0]["ingestion_gate"]["ingestion_authorized"] = True
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("ingestion_authorized must be false" in error for error in errors), errors)
+
+    def test_global_qualification_cannot_be_enabled(self) -> None:
+        self.manifest["qualification"]["real_observations_imported"] = True
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("all qualification flags must remain false" in error for error in errors), errors)
+
+    def test_unverified_license_cannot_be_marked_verified(self) -> None:
+        self.manifest["candidates"][0]["license_assessment"]["license_status"] = "verified"
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("discovery_status conflicts with license_assessment" in error for error in errors), errors)
+
+    def test_unknown_indicator_fails(self) -> None:
+        self.manifest["candidates"][0]["related_indicator_ids"] = ["not.registered"]
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("unknown indicator_id" in error for error in errors), errors)
+
+    def test_non_https_candidate_url_fails(self) -> None:
+        self.manifest["candidates"][0]["dataset_url"] = "http://example.invalid/dataset"
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("dataset_url must be HTTPS" in error for error in errors), errors)
+
+    def test_real_calendar_dates_required(self) -> None:
+        self.manifest["candidates"][0]["temporal_coverage"]["start_date"] = "2026-02-31"
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("start_date must be a real" in error for error in errors), errors)
+
+    def test_conflicting_license_status_is_required(self) -> None:
+        self.manifest["candidates"][1]["license_assessment"]["license_status"] = "unverified"
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("discovery_status conflicts" in error for error in errors), errors)
+
+    def test_missing_rationale_fails(self) -> None:
+        self.manifest["candidates"][2]["ingestion_gate"]["required_evidence"] = []
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("required_evidence must be a non-empty" in error for error in errors), errors)
+
+    def test_non_object_root_fails_closed(self) -> None:
+        self.assertEqual(
+            validate_manifest([], self.indicator_catalog),
+            ["dataset candidate catalog root must be an object"],
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
