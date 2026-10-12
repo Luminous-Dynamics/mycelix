@@ -321,6 +321,34 @@ impl ConjunctionAnalyzer {
             return Err(ConjunctionAssessmentError::DegenerateEncounterGeometry);
         }
 
+        // Validate the projected encounter-plane covariance before invoking the
+        // legacy numerical kernel. Otherwise its determinant fallback can return
+        // Pc = 0 for singular/non-finite geometry, which would look like negligible risk.
+        let primary_covariance = primary
+            .covariance
+            .as_ref()
+            .expect("validate_covariance checked the primary covariance");
+        let secondary_covariance = secondary
+            .covariance
+            .as_ref()
+            .expect("validate_covariance checked the secondary covariance");
+        let combined_position_covariance =
+            primary_covariance.position_covariance() + secondary_covariance.position_covariance();
+        let miss_vector = secondary.state.position() - primary.state.position();
+        let relative_velocity_vector = secondary.state.velocity() - primary.state.velocity();
+        let (_, encounter_covariance) = self.project_to_encounter_plane(
+            miss_vector,
+            relative_velocity_vector,
+            combined_position_covariance,
+        );
+        if !encounter_covariance.iter().all(|value| value.is_finite())
+            || encounter_covariance.cholesky().is_none()
+        {
+            return Err(ConjunctionAssessmentError::InvalidCovariance {
+                object: "encounter plane",
+            });
+        }
+
         let collision_probability =
             self.calculate_pc(primary, secondary, miss_distance, self.default_hbr_m);
         let pc = collision_probability.pc;
