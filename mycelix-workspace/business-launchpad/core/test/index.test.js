@@ -381,6 +381,14 @@ test('three-case cash comparison preserves reconciliation across a fixed-seed st
       financingCashInflowsMinor: next(8_000),
       financingCashOutflowsMinor: next(7_000)
     }));
+    const receiptCurrent = next(101);
+    const receiptNext = next(101 - receiptCurrent);
+    const supplierCurrent = next(101);
+    const supplierNext = next(101 - supplierCurrent);
+    const timingSchedule = {
+      salesReceiptsPercent: [receiptCurrent, receiptNext, 100 - receiptCurrent - receiptNext],
+      variableSupplierPaymentsPercent: [supplierCurrent, supplierNext, 100 - supplierCurrent - supplierNext]
+    };
     const assumptions = {
       downside: {
         salesReceiptReductionPercent: next(101),
@@ -393,9 +401,9 @@ test('three-case cash comparison preserves reconciliation across a fixed-seed st
         operatingCashOutflowReductionPercent: next(101)
       }
     };
-    const result = compareCashRunwayScenarios({ model, monthlyPlan, assumptions });
+    const result = compareCashRunwayScenarios({ model, monthlyPlan, assumptions, timingSchedule });
     assert.equal(result.ok, true, 'stress corpus case ' + caseIndex);
-    assert.deepEqual(result.report.scenarios.map(item => item.id), ['downside', 'base', 'upside']);
+    assert.deepEqual(result.report.scenarios.map(item => item.id), ['downside', 'base', 'upside', 'terms-based']);
 
     for (const scenario of result.report.scenarios) {
       let expectedCash = BigInt(scenario.report.startup.cashAfterSetupBeforeMonthOneMinor);
@@ -425,6 +433,52 @@ test('three-case cash comparison preserves reconciliation across a fixed-seed st
       assert.equal(scenario.report.summary.endingCashMinor, Number(expectedCash),
         'ending cash case ' + caseIndex + ' scenario ' + scenario.id);
     }
+
+    const terms = result.report.scenarios[3];
+    const allocate = (amount, percentages) => {
+      const buckets = percentages.map((percent, index) => ({
+        index,
+        amount: Math.floor(amount * percent / 100),
+        remainder: (amount * percent) % 100
+      }));
+      let remaining = amount - buckets.reduce((sum, bucket) => sum + bucket.amount, 0);
+      const priority = [...buckets].sort((left, right) =>
+        left.remainder === right.remainder
+          ? left.index - right.index
+          : right.remainder - left.remainder
+      );
+      for (let index = 0; remaining > 0; index += 1, remaining -= 1) {
+        priority[index % priority.length].amount += 1;
+      }
+      return buckets.sort((left, right) => left.index - right.index).map(bucket => bucket.amount);
+    };
+    const expectedScheduledReceipts = Array(horizon).fill(0);
+    const expectedScheduledSupplierPayments = Array(horizon).fill(0);
+    let deferredScheduledReceipts = 0;
+    let deferredScheduledSupplierPayments = 0;
+    monthlyPlan.forEach((period, cohort) => {
+      const receiptBuckets = allocate(model.sellingPricePerUnitMinor * period.salesUnits, timingSchedule.salesReceiptsPercent);
+      const supplierBuckets = allocate(model.variableCostPerUnitMinor * period.salesUnits, timingSchedule.variableSupplierPaymentsPercent);
+      for (let offset = 0; offset < 3; offset += 1) {
+        if (cohort + offset >= horizon) {
+          deferredScheduledReceipts += receiptBuckets[offset];
+          deferredScheduledSupplierPayments += supplierBuckets[offset];
+        } else {
+          expectedScheduledReceipts[cohort + offset] += receiptBuckets[offset];
+          expectedScheduledSupplierPayments[cohort + offset] += supplierBuckets[offset];
+        }
+      }
+    });
+    assert.equal(terms.deferredSalesCashReceiptsAfterHorizonMinor, deferredScheduledReceipts,
+      'terms-based receipts after horizon case ' + caseIndex);
+    assert.equal(terms.deferredVariableSupplierPaymentsAfterHorizonMinor, deferredScheduledSupplierPayments,
+      'terms-based supplier payments after horizon case ' + caseIndex);
+    terms.report.periods.forEach((period, index) => {
+      assert.equal(period.salesCashReceiptsMinor, expectedScheduledReceipts[index],
+        'terms-based collections case ' + caseIndex + ' month ' + index);
+      assert.equal(period.operatingCashOutflowsMinor, model.fixedMonthlyCostsMinor + expectedScheduledSupplierPayments[index],
+        'terms-based supplier payments case ' + caseIndex + ' month ' + index);
+    });
 
     const reduction = assumptions.downside.salesReceiptReductionPercent;
     const delay = assumptions.downside.salesReceiptDelayMonths;
