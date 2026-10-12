@@ -21,6 +21,7 @@ REQUEST_EXAMPLE_PATH = ROOT / "schemas/examples/symthaea-advisory-request-v1.jso
 ADAPTER_PATH = ROOT / "crates/praxis-symthaea-adapter/src/lib.rs"
 ADAPTER_CARGO_PATH = ROOT / "crates/praxis-symthaea-adapter/Cargo.toml"
 WORKSPACE_PATH = ROOT / "Cargo.toml"
+WORKFLOW_PATH = ROOT.parent / ".github/workflows/praxis-symthaea-advisory.yml"
 
 EXPECTED_FIELDS = {
     "schema_version",
@@ -159,6 +160,7 @@ def main() -> int:
         adapter_source = ADAPTER_PATH.read_text(encoding="utf-8")
         adapter_manifest = ADAPTER_CARGO_PATH.read_text(encoding="utf-8")
         workspace_manifest = WORKSPACE_PATH.read_text(encoding="utf-8")
+        workflow_source = WORKFLOW_PATH.read_text(encoding="utf-8")
         schema: dict[str, Any] = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
         request_schema: dict[str, Any] = json.loads(
             REQUEST_SCHEMA_PATH.read_text(encoding="utf-8")
@@ -444,6 +446,35 @@ def main() -> int:
     require(
         '"crates/praxis-symthaea-adapter"' in workspace_manifest,
         "host-only adapter must be an explicit workspace member so CI cannot silently skip it",
+        errors,
+    )
+
+    # Dependency resolution is captured once for this run; all compiler/test
+    # operations then use Cargo's locked mode. This provides within-run graph
+    # consistency and an inspectable artifact, not cross-run lockfile pinning.
+    require(
+        "cargo generate-lockfile --manifest-path mycelix-praxis/Cargo.toml" in workflow_source,
+        "qualification workflow must explicitly resolve the workspace graph before locked checks",
+        errors,
+    )
+    require(
+        "cargo metadata --manifest-path mycelix-praxis/Cargo.toml --locked --format-version 1 > advisory-cargo-metadata.json" in workflow_source,
+        "qualification workflow must capture full resolved metadata using the generated lockfile",
+        errors,
+    )
+    require(
+        "cargo test --manifest-path mycelix-praxis/Cargo.toml --locked -p praxis-core" in workflow_source
+        and "cargo test --manifest-path mycelix-praxis/Cargo.toml --locked -p praxis-symthaea-adapter" in workflow_source
+        and "cargo clippy --manifest-path mycelix-praxis/Cargo.toml --locked -p praxis-core -p praxis-symthaea-adapter --all-targets -- -D warnings" in workflow_source,
+        "test and clippy steps must not refresh the resolved dependency graph",
+        errors,
+    )
+    require(
+        "uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02" in workflow_source
+        and "mycelix-praxis/Cargo.lock" in workflow_source
+        and "advisory-cargo-metadata.json" in workflow_source
+        and "advisory-qualification-lock.txt" in workflow_source,
+        "qualification workflow must retain lockfile, metadata, and source/toolchain fingerprint as an artifact",
         errors,
     )
     require(
