@@ -69,6 +69,8 @@ ADAPTER_REQUIRED_TESTS = {
     "request_preparation_rejects_invalid_request_nonce",
     "public_request_builder_generates_fresh_nonces",
     "nonce_entropy_failure_fails_closed",
+    "retry_after_reader_failure_reuses_same_prepared_request",
+    "prepared_request_rejects_a_second_response",
 }
 
 REQUIRED_TESTS = {
@@ -492,7 +494,12 @@ def main() -> int:
     )
     require(
         "pub fn read_bounded_and_validate_symthaea_advice<R: Read>(" in adapter_source,
-        "adapter must expose a read-plus-semantic-validation integration path",
+        "adapter must retain the lower-level bounded reader for explicit custom contexts",
+        errors,
+    )
+    require(
+        "pub fn read_and_validate_response_once<R: Read>(" in adapter_source,
+        "preferred prepared-request path must enforce one response per request",
         errors,
     )
     parse_candidate = adapter_source.find("let candidate = parse_bounded_response(&bytes)?;")
@@ -572,8 +579,26 @@ def main() -> int:
     require(
         "pub fn body_bytes(&self) -> &[u8]" in adapter_source
         and "pub fn input_digest(&self) -> &str" in adapter_source
-        and "pub fn validation_context(" in adapter_source,
-        "prepared request must expose immutable exact bytes/digest and same-scope validator context",
+        and "fn validation_context(" in adapter_source
+        and "pub fn read_and_validate_response_once<R: Read>(" in adapter_source,
+        "prepared request must expose immutable bytes/digest and one-shot same-scope response validation",
+        errors,
+    )
+    one_shot_start = adapter_source.find("pub fn read_and_validate_response_once<R: Read>(")
+    one_shot_end = adapter_source.find("\n    }", one_shot_start)
+    one_shot = adapter_source[one_shot_start:one_shot_end]
+    require(
+        "if self.response_consumed" in one_shot
+        and "return Err(BoundedAdviceReadError::ResponseAlreadyConsumed)" in one_shot
+        and "self.response_consumed = true;" in one_shot,
+        "prepared response validation must fail closed after one received response",
+        errors,
+    )
+    require(
+        "fn prepared_request_rejects_a_second_response()" in adapter_source
+        and "fn retry_after_reader_failure_reuses_same_prepared_request()" in adapter_source
+        and "Err(error) => return Err(error)" in one_shot,
+        "adapter tests must cover single-use replay rejection and retry after a reader failure",
         errors,
     )
     require(
