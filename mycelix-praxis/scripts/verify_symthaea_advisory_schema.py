@@ -129,6 +129,19 @@ def integer_constant(source: str, name: str) -> int:
     return int(match.group(1))
 
 
+def struct_field_names(source: str, name: str) -> set[str]:
+    match = re.search(
+        rf"(?:pub )?struct {re.escape(name)}(?:<[^>]+>)?\s*\{{(.*?)^\}}",
+        source,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    if not match:
+        raise ValueError(f"could not locate Rust struct {name}")
+    return set(
+        re.findall(r"(?m)^\s*(?:pub\s+)?([a-z][a-z0-9_]*)\s*:", match.group(1))
+    )
+
+
 def main() -> int:
     errors: list[str] = []
     try:
@@ -156,6 +169,8 @@ def main() -> int:
         max_refs = integer_constant(source, "MAX_SUPPORTING_CONTENT_IDS")
         max_identifier_chars = integer_constant(source, "MAX_ADVISORY_IDENTIFIER_CHARS")
         max_response_bytes = integer_constant(source, "MAX_ADVISORY_RESPONSE_BYTES")
+        response_wire_fields = struct_field_names(source, "SymthaeaAdvice")
+        request_wire_fields = struct_field_names(adapter_source, "AdvisoryRequestWireV1")
         max_allowed_actions = integer_constant(adapter_source, "MAX_ALLOWED_ACTIONS")
         max_allowed_reasons = integer_constant(adapter_source, "MAX_ALLOWED_REASONS")
     except (AttributeError, TypeError, ValueError) as error:
@@ -172,6 +187,8 @@ def main() -> int:
             "schema required fields must exactly match the frozen response fields", errors)
     require(schema_fields == EXPECTED_FIELDS,
             "schema properties must exactly match the frozen response fields", errors)
+    require(response_wire_fields == EXPECTED_FIELDS,
+            "Rust response struct fields must exactly match the frozen response fields", errors)
     require(properties.get("schema_version", {}).get("const") == schema_version,
             "schema version must match the Rust protocol constant", errors)
 
@@ -183,6 +200,8 @@ def main() -> int:
             "request schema must reject unknown fields", errors)
     require(request_schema_fields == EXPECTED_REQUEST_FIELDS,
             "request schema properties must exactly match the Rust request wire fields", errors)
+    require(request_wire_fields == EXPECTED_REQUEST_FIELDS,
+            "Rust request struct fields must exactly match the frozen request fields", errors)
     require(request_schema.get("required") is not None
             and set(request_schema["required"]) == EXPECTED_REQUEST_FIELDS,
             "request schema required fields must match the frozen request fields", errors)
