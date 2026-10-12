@@ -407,9 +407,13 @@ pub fn initiate_negotiation(input: InitiateNegotiationInput) -> ExternResult<Act
         input.tca.micros,
         now_micros,
     )
-    .map_err(|message| SpaceError::new(SpaceErrorCode::NotFound, message).into_wasm_error())?;
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::NotFound, message).into_wasm_error()
+    })?;
     validate_session_deadline(input.deadline.micros, input.tca.micros, now_micros)
-        .map_err(|message| SpaceError::new(SpaceErrorCode::InvalidInput, message).into_wasm_error())?;
+        .map_err(|message| {
+            SpaceError::new(SpaceErrorCode::InvalidInput, message).into_wasm_error()
+        })?;
 
     let session = NegotiationSession {
         session_id: input.session_id.clone(),
@@ -2588,57 +2592,82 @@ mod conjunction_reference_tests {
     #[test]
     fn caller_tca_must_match_recorded_conjunction_tca() {
         let records = [event("cdm:42", 42, 77)];
-        assert!(validate_conjunction_reference(
-            &records,
-            "cdm:42",
-            42,
-            77,
-            FUTURE_TCA_MICROS + 1,
-            NOW_MICROS,
-        ).is_err());
-        assert!(validate_conjunction_reference(
-            &records,
-            "cdm:42",
-            42,
-            77,
-            FUTURE_TCA_MICROS,
-            NOW_MICROS,
-        ).is_ok());
+        assert!(
+            validate_conjunction_reference(
+                &records,
+                "cdm:42",
+                42,
+                77,
+                FUTURE_TCA_MICROS + 1,
+                NOW_MICROS,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_conjunction_reference(
+                &records,
+                "cdm:42",
+                42,
+                77,
+                FUTURE_TCA_MICROS,
+                NOW_MICROS,
+            )
+            .is_ok()
+        );
     }
 
     #[test]
     fn agreement_deadline_cannot_outlive_session_or_tca() {
-        assert!(validate_agreement_deadline(
-            NOW_MICROS + 10,
-            FUTURE_TCA_MICROS,
-            FUTURE_TCA_MICROS,
-            NOW_MICROS,
-        ).is_ok());
-        assert!(validate_agreement_deadline(
-            NOW_MICROS + 10,
-            NOW_MICROS + 5,
-            FUTURE_TCA_MICROS,
-            NOW_MICROS,
-        ).is_err());
-        assert!(validate_agreement_deadline(
-            FUTURE_TCA_MICROS + 1,
-            FUTURE_TCA_MICROS + 100,
-            FUTURE_TCA_MICROS,
-            NOW_MICROS,
-        ).is_err());
-        assert!(validate_agreement_deadline(
-            NOW_MICROS + 10,
-            FUTURE_TCA_MICROS,
-            FUTURE_TCA_MICROS,
-            FUTURE_TCA_MICROS,
-        ).is_err());
+        assert!(
+            validate_agreement_deadline(
+                NOW_MICROS + 10,
+                FUTURE_TCA_MICROS,
+                FUTURE_TCA_MICROS,
+                NOW_MICROS,
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_agreement_deadline(
+                NOW_MICROS + 10,
+                NOW_MICROS + 5,
+                FUTURE_TCA_MICROS,
+                NOW_MICROS,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_agreement_deadline(
+                FUTURE_TCA_MICROS + 1,
+                FUTURE_TCA_MICROS + 100,
+                FUTURE_TCA_MICROS,
+                NOW_MICROS,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_agreement_deadline(
+                NOW_MICROS + 10,
+                FUTURE_TCA_MICROS,
+                FUTURE_TCA_MICROS,
+                FUTURE_TCA_MICROS,
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn negotiation_deadline_must_be_future_and_no_later_than_tca() {
-        assert!(validate_session_deadline(NOW_MICROS + 1, FUTURE_TCA_MICROS, NOW_MICROS).is_ok());
-        assert!(validate_session_deadline(NOW_MICROS, FUTURE_TCA_MICROS, NOW_MICROS).is_err());
-        assert!(validate_session_deadline(FUTURE_TCA_MICROS + 1, FUTURE_TCA_MICROS, NOW_MICROS).is_err());
+        assert!(
+            validate_session_deadline(NOW_MICROS + 1, FUTURE_TCA_MICROS, NOW_MICROS).is_ok()
+        );
+        assert!(
+            validate_session_deadline(NOW_MICROS, FUTURE_TCA_MICROS, NOW_MICROS).is_err()
+        );
+        assert!(
+            validate_session_deadline(FUTURE_TCA_MICROS + 1, FUTURE_TCA_MICROS, NOW_MICROS)
+                .is_err()
+        );
     }
 
     #[test]
