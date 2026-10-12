@@ -252,7 +252,10 @@ function validateImportedCashRunwayPlan(plan, model) {
     ) {
       throw new Error('Cash runway Month ' + (index + 1) + ' contains an invalid amount or sales quantity.');
     }
-    const defaults = safeDefaultCashAmounts(model, period.salesUnits, index + 1);
+    const defaults = (
+      period.salesCashReceiptsMinor === undefined ||
+      period.operatingCashOutflowsMinor === undefined
+    ) ? safeDefaultCashAmounts(model, period.salesUnits, index + 1) : null;
     const salesCashReceiptsMinor = period.salesCashReceiptsMinor === undefined
       ? defaults.salesCashReceiptsMinor
       : period.salesCashReceiptsMinor;
