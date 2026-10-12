@@ -356,6 +356,90 @@ test('zero stress assumptions reproduce the base cash projection exactly', () =>
   }
 });
 
+test('three-case cash comparison preserves reconciliation across a fixed-seed stress corpus', () => {
+  let seed = 0x5ce7e55;
+  const next = maxExclusive => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed % maxExclusive;
+  };
+
+  for (let caseIndex = 0; caseIndex < 100; caseIndex += 1) {
+    const model = completeModel({
+      setupCostsMinor: next(20_000),
+      availableCashForStartupMinor: next(50_000),
+      initialWorkingCapitalBufferMinor: next(10_000)
+    });
+    const horizon = 1 + next(8);
+    const monthlyPlan = Array.from({ length: horizon }, () => ({
+      salesUnits: next(300),
+      salesCashReceiptsMinor: next(30_000),
+      operatingCashOutflowsMinor: next(25_000),
+      otherCashInflowsMinor: next(3_000),
+      otherCashOutflowsMinor: next(4_000),
+      investingCashInflowsMinor: next(5_000),
+      investingCashOutflowsMinor: next(6_000),
+      financingCashInflowsMinor: next(8_000),
+      financingCashOutflowsMinor: next(7_000)
+    }));
+    const assumptions = {
+      downside: {
+        salesReceiptReductionPercent: next(101),
+        salesReceiptDelayMonths: next(4),
+        operatingCashOutflowIncreasePercent: next(101)
+      },
+      upside: {
+        salesReceiptIncreasePercent: next(101),
+        salesReceiptAdvanceMonths: next(4),
+        operatingCashOutflowReductionPercent: next(101)
+      }
+    };
+    const result = compareCashRunwayScenarios({ model, monthlyPlan, assumptions });
+    assert.equal(result.ok, true, 'stress corpus case ' + caseIndex);
+    assert.deepEqual(result.report.scenarios.map(item => item.id), ['downside', 'base', 'upside']);
+
+    for (const scenario of result.report.scenarios) {
+      let expectedCash = BigInt(scenario.report.startup.cashAfterSetupBeforeMonthOneMinor);
+      for (let index = 0; index < horizon; index += 1) {
+        const period = scenario.report.periods[index];
+        const expectedNet =
+          BigInt(period.netOperatingCashFlowMinor) +
+          BigInt(period.netUnclassifiedCashFlowMinor) +
+          BigInt(period.netInvestingCashFlowMinor) +
+          BigInt(period.netFinancingCashFlowMinor);
+        assert.equal(period.netCashChangeMinor, Number(expectedNet),
+          'category-to-total identity case ' + caseIndex + ' period ' + index + ' scenario ' + scenario.id);
+        assert.equal(period.totalCashReceiptsMinor,
+          period.salesCashReceiptsMinor + period.otherCashInflowsMinor +
+          period.investingCashInflowsMinor + period.financingCashInflowsMinor,
+          'receipt total case ' + caseIndex + ' period ' + index + ' scenario ' + scenario.id);
+        assert.equal(period.totalCashOutflowsMinor,
+          period.operatingCashOutflowsMinor + period.otherCashOutflowsMinor +
+          period.investingCashOutflowsMinor + period.financingCashOutflowsMinor,
+          'payment total case ' + caseIndex + ' period ' + index + ' scenario ' + scenario.id);
+        expectedCash += expectedNet;
+        assert.equal(period.closingCashMinor, Number(expectedCash),
+          'closing cash recurrence case ' + caseIndex + ' period ' + index + ' scenario ' + scenario.id);
+        assert.equal(period.salesUnitsScenario, monthlyPlan[index].salesUnits,
+          'stress must not fabricate a change in activity case ' + caseIndex + ' period ' + index + ' scenario ' + scenario.id);
+      }
+      assert.equal(scenario.report.summary.endingCashMinor, Number(expectedCash),
+        'ending cash case ' + caseIndex + ' scenario ' + scenario.id);
+    }
+
+    const reduction = assumptions.downside.salesReceiptReductionPercent;
+    const delay = assumptions.downside.salesReceiptDelayMonths;
+    const expectedDeferred = monthlyPlan.reduce((total, period, index) => {
+      if (index + delay < horizon) return total;
+      return total + Math.floor(period.salesCashReceiptsMinor * (100 - reduction) / 100);
+    }, 0);
+    assert.equal(
+      result.report.scenarios[0].deferredSalesCashReceiptsAfterHorizonMinor,
+      expectedDeferred,
+      'out-of-horizon receipts remain visible in case ' + caseIndex
+    );
+  }
+});
+
 test('cash scenario comparison validates stress ranges and exact arithmetic limits', () => {
   const model = completeModel({ setupCostsMinor: 0, availableCashForStartupMinor: 1 });
   const monthlyPlan = [{
