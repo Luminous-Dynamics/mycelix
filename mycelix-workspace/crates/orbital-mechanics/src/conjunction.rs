@@ -72,10 +72,12 @@ pub struct CollisionProbability {
     /// Point estimate of Pc
     pub pc: f64,
 
-    /// Lower bound (conservative)
+    /// Heuristic lower spread value; not a statistically calibrated confidence bound
+    /// or guaranteed conservative bound.
     pub pc_lower: f64,
 
-    /// Upper bound (worst case)
+    /// Heuristic upper spread value; not a statistically calibrated confidence bound
+    /// or guaranteed worst-case bound.
     pub pc_upper: f64,
 
     /// Method used for calculation
@@ -85,17 +87,22 @@ pub struct CollisionProbability {
     pub has_covariance: bool,
 }
 
-/// Method used for Pc calculation
+/// Method used for Pc calculation.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum PcMethod {
-    /// Alfano's method (2D projection)
+    /// Legacy serialized label for historical records. The current implementation
+    /// does not execute Alfano's published 2D integration algorithm.
     Alfano2D,
-    /// Foster's method (1D simplification)
+    /// Foster's method (1D simplification).
     Foster1D,
-    /// Monte Carlo simulation
+    /// Monte Carlo simulation.
     MonteCarlo { samples: u32 },
-    /// Estimated from miss distance only (low confidence)
+    /// Estimated from miss distance only (low confidence).
     MissDistanceOnly,
+    /// Gaussian local-density / small-disk approximation on a 2D encounter plane.
+    /// This is a lightweight approximation, not the full Alfano/Foster integral and
+    /// not suitable for unqualified operational collision-risk claims.
+    GaussianSmallDiskApprox2D,
 }
 
 /// Risk level for prioritization
@@ -406,7 +413,8 @@ impl ConjunctionAnalyzer {
         // Alfano's 2D Pc calculation
         let pc = self.alfano_2d_pc(projected_miss, cov_2d, hbr_km);
 
-        // Estimate bounds (±1 order of magnitude for TLE-based)
+        // Heuristic one-order-of-magnitude spread for coarse research screening only.
+        // This is not a statistically derived confidence interval or a guaranteed bound.
         let pc_lower = pc / 10.0;
         let pc_upper = (pc * 10.0).min(1.0);
 
@@ -414,7 +422,7 @@ impl ConjunctionAnalyzer {
             pc,
             pc_lower,
             pc_upper,
-            method: PcMethod::Alfano2D,
+            method: PcMethod::GaussianSmallDiskApprox2D,
             has_covariance: true,
         }
     }
@@ -482,7 +490,10 @@ impl ConjunctionAnalyzer {
         (miss_2d, cov_2d)
     }
 
-    /// Alfano's 2D Pc calculation
+    /// Gaussian local-density/small-disk approximation projected into a 2D encounter plane.
+    ///
+    /// This computes a local-density approximation and does not evaluate the full
+    /// published Alfano or Foster collision-probability integral.
     fn alfano_2d_pc(
         &self,
         miss_2d: nalgebra::Vector2<f64>,
@@ -582,7 +593,10 @@ mod tests {
         let result = ConjunctionAnalyzer::new().try_assess(&primary, &secondary);
         let assessment = result.expect("matching TEME states with valid covariances should assess");
         assert!(assessment.collision_probability.has_covariance);
-        assert_eq!(assessment.collision_probability.method, PcMethod::Alfano2D);
+        assert_eq!(
+            assessment.collision_probability.method,
+            PcMethod::GaussianSmallDiskApprox2D
+        );
         assert!(assessment.combined_covariance.is_some());
     }
 
