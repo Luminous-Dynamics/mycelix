@@ -656,12 +656,23 @@ mod tests {
         assert!(!catalog.qualification.composite_score_enabled);
         assert!(!catalog.global_comparison_contract.is_empty());
         assert_eq!(catalog.research_refs.len(), 8);
-        for indicator in catalog.indicators {
+        let reference_ids = catalog.research_refs.iter().map(|reference| reference.ref_id.as_str()).collect::<HashSet<_>>();
+        let model_registry = registry();
+        let framework_ids = model_registry.models.iter().map(|model| model.model_id.as_str()).collect::<HashSet<_>>();
+        let indicator_ids = catalog.indicators.iter().map(|indicator| indicator.indicator_id.as_str()).collect::<HashSet<_>>();
+        assert_eq!(indicator_ids.len(), catalog.indicators.len());
+        for indicator in &catalog.indicators {
             assert_eq!(indicator.status, "candidate_definition");
             assert!(!indicator.observations_loaded);
             assert!(!indicator.computed);
             assert!(!indicator.comparability_key.is_empty(), "{}", indicator.indicator_id);
             assert!(!indicator.research_ref_ids.is_empty(), "{}", indicator.indicator_id);
+            for research_ref in &indicator.research_ref_ids {
+                assert!(reference_ids.contains(research_ref.as_str()), "{} has missing research ref {}", indicator.indicator_id, research_ref);
+            }
+            for framework in &indicator.framework_ids {
+                assert!(framework_ids.contains(framework.as_str()), "{} references an unknown framework {}", indicator.indicator_id, framework);
+            }
         }
     }
 
