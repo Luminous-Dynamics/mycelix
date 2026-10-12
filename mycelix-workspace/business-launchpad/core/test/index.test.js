@@ -193,3 +193,66 @@ test('rejects invalid, negative, over-precise, and unsafe decimal text', async (
   assert.equal(parseMajorToMinorUnits('90071992547409.92', 2).error.code, 'calculation_overflow');
   assert.equal(parseMajorToMinorUnits('1.00', 8).error.code, 'invalid_currency_precision');
 });
+
+test('deterministic generated scenarios preserve arithmetic identities across a bounded input corpus', () => {
+  let seed = 0x51f15e;
+  const next = ceiling => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed % (ceiling + 1);
+  };
+
+  for (let index = 0; index < 500; index += 1) {
+    const sellingPrice = next(100_000);
+    const variableCost = next(100_000);
+    const fixedCosts = next(10_000_000);
+    const plannedUnits = next(2_000);
+    const setupCosts = next(10_000_000);
+    const workingCapital = next(10_000_000);
+    const availableCash = next(10_000_000);
+
+    const result = analyzeBusinessModel(completeModel({
+      sellingPricePerUnitMinor: sellingPrice,
+      variableCostPerUnitMinor: variableCost,
+      fixedMonthlyCostsMinor: fixedCosts,
+      plannedUnitsPerMonth: plannedUnits,
+      setupCostsMinor: setupCosts,
+      initialWorkingCapitalBufferMinor: workingCapital,
+      availableCashForStartupMinor: availableCash
+    }));
+    assert.equal(result.ok, true, 'valid generated case ' + index);
+    const report = result.report;
+
+    const unitContribution = sellingPrice - variableCost;
+    const revenue = sellingPrice * plannedUnits;
+    const variableCosts = variableCost * plannedUnits;
+    const contribution = revenue - variableCosts;
+    const operatingResult = contribution - fixedCosts;
+    const requiredCash = setupCosts + workingCapital;
+    const fundingGap = Math.max(0, requiredCash - availableCash);
+
+    assert.equal(report.unitEconomics.contributionPerUnitMinor, unitContribution, 'unit contribution case ' + index);
+    assert.equal(report.monthlyScenario.revenueMinor, revenue, 'revenue case ' + index);
+    assert.equal(report.monthlyScenario.variableCostsMinor, variableCosts, 'variable costs case ' + index);
+    assert.equal(report.monthlyScenario.contributionMinor, contribution, 'contribution case ' + index);
+    assert.equal(report.monthlyScenario.operatingResultBeforeExcludedItemsMinor, operatingResult, 'operating result case ' + index);
+    assert.equal(report.startup.requiredCashMinor, requiredCash, 'required cash case ' + index);
+    assert.equal(report.startup.fundingGapMinor, fundingGap, 'funding gap case ' + index);
+
+    if (unitContribution > 0) {
+      const expectedBreakEven = Math.floor((fixedCosts + unitContribution - 1) / unitContribution);
+      assert.equal(report.breakEven.status, 'reachable', 'break-even status case ' + index);
+      assert.equal(report.breakEven.unitsPerMonth, expectedBreakEven, 'break-even units case ' + index);
+
+      const contributionPerUnitBig = BigInt(unitContribution);
+      const fixedCostsBig = BigInt(fixedCosts);
+      const breakEvenBig = BigInt(report.breakEven.unitsPerMonth);
+      assert.ok(breakEvenBig * contributionPerUnitBig >= fixedCostsBig, 'break-even must cover fixed costs, case ' + index);
+      if (breakEvenBig > 0n) {
+        assert.ok((breakEvenBig - 1n) * contributionPerUnitBig < fixedCostsBig, 'one fewer unit must not cover fixed costs, case ' + index);
+      }
+    } else {
+      assert.equal(report.breakEven.status, 'unreachable', 'break-even status for non-positive contribution, case ' + index);
+      assert.equal(report.breakEven.unitsPerMonth, null, 'no finite non-negative break-even units, case ' + index);
+    }
+  }
+});
