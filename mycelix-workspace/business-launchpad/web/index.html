@@ -119,6 +119,35 @@
           </div>
           <button class="secondary-button reset-cash-plan" id="reset-cash-runway" type="button">Reset cash plan to illustrative defaults</button>
           <small>The initial sales ramp is illustrative: 50% of target in Month 1, 75% in Month 2, and the target from Month 3 onward. Replace it with your own assumptions. This remains a scenario, not a demand forecast.</small>
+
+          <fieldset class="stress-assumptions">
+            <legend>Compare downside, base and upside</legend>
+            <p class="form-footnote">The base uses your entries. Stress cases use the assumptions below; these default values are illustrative, not measured benchmarks or probabilities. Edit them to fit your business. Downside receipts delayed beyond Month 12 are reported separately, not counted as collected within the horizon.</p>
+            <h4>Downside stress</h4>
+            <div class="field-grid">
+              <label for="downside-receipt-reduction-percent">Sales receipts reduced (%)
+                <input id="downside-receipt-reduction-percent" name="downside-receipt-reduction-percent" type="number" min="0" max="100" step="1" value="20" required>
+              </label>
+              <label for="downside-receipt-delay-months">Receipt delay (months)
+                <input id="downside-receipt-delay-months" name="downside-receipt-delay-months" type="number" min="0" max="24" step="1" value="1" required>
+              </label>
+              <label for="downside-operating-cost-increase-percent">Operating payments increased (%)
+                <input id="downside-operating-cost-increase-percent" name="downside-operating-cost-increase-percent" type="number" min="0" max="500" step="1" value="15" required>
+              </label>
+            </div>
+            <h4>Upside stress</h4>
+            <div class="field-grid">
+              <label for="upside-receipt-increase-percent">Sales receipts increased (%)
+                <input id="upside-receipt-increase-percent" name="upside-receipt-increase-percent" type="number" min="0" max="500" step="1" value="10" required>
+              </label>
+              <label for="upside-receipt-advance-months">Later receipts brought forward (months)
+                <input id="upside-receipt-advance-months" name="upside-receipt-advance-months" type="number" min="0" max="24" step="1" value="1" required>
+              </label>
+              <label for="upside-operating-cost-reduction-percent">Operating payments reduced (%)
+                <input id="upside-operating-cost-reduction-percent" name="upside-operating-cost-reduction-percent" type="number" min="0" max="100" step="1" value="5" required>
+              </label>
+            </div>
+          </fieldset>
         </details>
 
         <div id="input-error" class="notice notice-error" role="alert" hidden></div>
