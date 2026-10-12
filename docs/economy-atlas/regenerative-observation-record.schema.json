@@ -16,6 +16,7 @@
     "period",
     "native_unit",
     "denominator_definition",
+    "observation_status",
     "measurement",
     "transformation",
     "coverage",
@@ -319,54 +320,50 @@
         "type": "string",
         "minLength": 2
       }
+    },
+    "observation_status": {
+      "enum": [
+        "observed",
+        "estimated",
+        "below_detection_limit",
+        "not_collected",
+        "not_applicable",
+        "suppressed",
+        "not_computable",
+        "unknown"
+      ]
     }
   },
   "allOf": [
     {
       "if": {
         "properties": {
-          "qualification_status": {
-            "const": "unreviewed_source_observation"
+          "observation_status": {
+            "enum": [
+              "observed",
+              "estimated"
+            ]
           }
         },
         "required": [
-          "qualification_status"
+          "observation_status"
         ]
       },
       "then": {
-        "properties": {
-          "qualification_status": {
-            "const": "unreviewed_source_observation"
-          }
-        }
-      }
-    },
-    {
-      "if": {
         "properties": {
           "measurement": {
             "properties": {
               "kind": {
                 "const": "point"
-              }
-            },
-            "required": [
-              "kind"
-            ]
-          }
-        },
-        "required": [
-          "measurement"
-        ]
-      },
-      "then": {
-        "properties": {
-          "measurement": {
-            "properties": {
+              },
               "value": {
                 "type": "number"
               }
             },
+            "required": [
+              "kind",
+              "value"
+            ],
             "not": {
               "required": [
                 "censoring"
@@ -379,30 +376,28 @@
     {
       "if": {
         "properties": {
-          "measurement": {
-            "properties": {
-              "kind": {
-                "const": "censored"
-              }
-            },
-            "required": [
-              "kind"
-            ]
+          "observation_status": {
+            "const": "below_detection_limit"
           }
         },
         "required": [
-          "measurement"
+          "observation_status"
         ]
       },
       "then": {
         "properties": {
           "measurement": {
             "properties": {
+              "kind": {
+                "const": "censored"
+              },
               "value": {
                 "type": "null"
               }
             },
             "required": [
+              "kind",
+              "value",
               "censoring"
             ]
           }
@@ -412,29 +407,35 @@
     {
       "if": {
         "properties": {
-          "measurement": {
-            "properties": {
-              "kind": {
-                "const": "missing"
-              }
-            },
-            "required": [
-              "kind"
+          "observation_status": {
+            "enum": [
+              "not_collected",
+              "not_applicable",
+              "suppressed",
+              "not_computable",
+              "unknown"
             ]
           }
         },
         "required": [
-          "measurement"
+          "observation_status"
         ]
       },
       "then": {
         "properties": {
           "measurement": {
             "properties": {
+              "kind": {
+                "const": "missing"
+              },
               "value": {
                 "type": "null"
               }
             },
+            "required": [
+              "kind",
+              "value"
+            ],
             "not": {
               "required": [
                 "censoring"
