@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import assert from 'node:assert/strict';
-import { analyzeBusinessModel, formatMinorUnits, projectCashRunway } from '../src/index.js';
+import { analyzeBusinessModel, compareCashRunwayScenarios, formatMinorUnits, projectCashRunway } from '../src/index.js';
 
 const completeModel = (overrides = {}) => ({
   currency: { code: 'ZAR', minorUnitExponent: 2 },
@@ -272,6 +272,132 @@ test('rejects invalid investing or financing cash amounts rather than silently c
     assert.equal(result.error.code, 'invalid_cash_runway_amount', field);
     assert.match(result.error.field, new RegExp(field), field);
   }
+});
+
+test('compares base, downside and upside cash scenarios with explicit assumptions', () => {
+  const model = completeModel({
+    setupCostsMinor: 0,
+    availableCashForStartupMinor: 5_000,
+    initialWorkingCapitalBufferMinor: 1_000
+  });
+  const monthlyPlan = [
+    {
+      salesUnits: 10,
+      salesCashReceiptsMinor: 1_000,
+      operatingCashOutflowsMinor: 1_000,
+      otherCashInflowsMinor: 0,
+      otherCashOutflowsMinor: 0,
+      investingCashInflowsMinor: 0,
+      investingCashOutflowsMinor: 0,
+      financingCashInflowsMinor: 0,
+      financingCashOutflowsMinor: 0
+    },
+    {
+      salesUnits: 10,
+      salesCashReceiptsMinor: 1_000,
+      operatingCashOutflowsMinor: 1_000,
+      otherCashInflowsMinor: 0,
+      otherCashOutflowsMinor: 0,
+      investingCashInflowsMinor: 0,
+      investingCashOutflowsMinor: 0,
+      financingCashInflowsMinor: 0,
+      financingCashOutflowsMinor: 0
+    }
+  ];
+  const result = compareCashRunwayScenarios({ model, monthlyPlan });
+  assert.equal(result.ok, true);
+  assert.equal(result.report.kind, 'business-launchpad-cash-scenario-comparison');
+  assert.deepEqual(result.report.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside']);
+  assert.equal(result.report.scenarios[0].report.periods[0].salesCashReceiptsMinor, 0);
+  assert.equal(result.report.scenarios[0].report.periods[0].operatingCashOutflowsMinor, 1_150);
+  assert.equal(result.report.scenarios[0].report.periods[1].salesCashReceiptsMinor, 800);
+  assert.equal(result.report.scenarios[0].deferredSalesCashReceiptsAfterHorizonMinor, 800);
+  assert.equal(result.report.scenarios[1].report.summary.endingCashMinor, 5_000);
+  assert.equal(result.report.scenarios[2].report.periods[0].salesCashReceiptsMinor, 2_200);
+  assert.equal(result.report.scenarios[2].report.periods[0].operatingCashOutflowsMinor, 950);
+  assert.equal(result.report.scenarios[2].report.summary.endingCashMinor, 5_500);
+  assert.match(result.report.basis, /not a prediction/);
+});
+
+test('zero stress assumptions reproduce the base cash projection exactly', () => {
+  const model = completeModel({ setupCostsMinor: 0, availableCashForStartupMinor: 10_000 });
+  const monthlyPlan = [{
+    salesUnits: 1,
+    salesCashReceiptsMinor: 123,
+    operatingCashOutflowsMinor: 45,
+    otherCashInflowsMinor: 2,
+    otherCashOutflowsMinor: 3,
+    investingCashInflowsMinor: 4,
+    investingCashOutflowsMinor: 5,
+    financingCashInflowsMinor: 6,
+    financingCashOutflowsMinor: 7
+  }];
+  const assumptions = {
+    downside: {
+      salesReceiptReductionPercent: 0,
+      salesReceiptDelayMonths: 0,
+      operatingCashOutflowIncreasePercent: 0
+    },
+    upside: {
+      salesReceiptIncreasePercent: 0,
+      salesReceiptAdvanceMonths: 0,
+      operatingCashOutflowReductionPercent: 0
+    }
+  };
+  const result = compareCashRunwayScenarios({ model, monthlyPlan, assumptions });
+  assert.equal(result.ok, true);
+  const base = result.report.scenarios.find(scenario => scenario.id === 'base').report;
+  for (const id of ['downside', 'upside']) {
+    const stress = result.report.scenarios.find(scenario => scenario.id === id).report;
+    assert.equal(stress.summary.endingCashMinor, base.summary.endingCashMinor, id);
+    assert.equal(stress.summary.minimumProjectedCashMinor, base.summary.minimumProjectedCashMinor, id);
+    assert.equal(stress.periods[0].netCashChangeMinor, base.periods[0].netCashChangeMinor, id);
+    assert.equal(stress.periods[0].closingCashMinor, base.periods[0].closingCashMinor, id);
+  }
+});
+
+test('cash scenario comparison validates stress ranges and exact arithmetic limits', () => {
+  const model = completeModel({ setupCostsMinor: 0, availableCashForStartupMinor: 1 });
+  const monthlyPlan = [{
+    salesUnits: 1,
+    salesCashReceiptsMinor: 1,
+    operatingCashOutflowsMinor: 1,
+    otherCashInflowsMinor: 0,
+    otherCashOutflowsMinor: 0,
+    investingCashInflowsMinor: 0,
+    investingCashOutflowsMinor: 0,
+    financingCashInflowsMinor: 0,
+    financingCashOutflowsMinor: 0
+  }];
+  const invalid = compareCashRunwayScenarios({
+    model,
+    monthlyPlan,
+    assumptions: { downside: { salesReceiptReductionPercent: 101 } }
+  });
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.error.code, 'invalid_cash_scenario_assumptions');
+
+  const overflow = compareCashRunwayScenarios({
+    model,
+    monthlyPlan: [{
+      ...monthlyPlan[0],
+      salesCashReceiptsMinor: Number.MAX_SAFE_INTEGER
+    }],
+    assumptions: {
+      downside: {
+        salesReceiptReductionPercent: 0,
+        salesReceiptDelayMonths: 0,
+        operatingCashOutflowIncreasePercent: 0
+      },
+      upside: {
+        salesReceiptIncreasePercent: 500,
+        salesReceiptAdvanceMonths: 0,
+        operatingCashOutflowReductionPercent: 0
+      }
+    }
+  });
+  assert.equal(overflow.ok, false);
+  assert.equal(overflow.error.code, 'calculation_overflow');
 });
 
 test('legacy cash plans derive only missing receipt and payment fields', () => {
