@@ -11,6 +11,7 @@ on:
     branches: [main]
     paths:
       - 'mycelix-workspace/business-launchpad/core/**'
+      - 'mycelix-workspace/business-launchpad/web/**'
       - '.github/workflows/business-launchpad-core.yml'
 
 permissions:
@@ -56,16 +57,22 @@ jobs:
         run: |
           {
             echo "BUSINESS LAUNCHPAD CORE GATE"
-            echo "status=unit-gate-passed"
+            echo "status=deterministic-test-gate-passed"
             echo "commit=${QUALIFIED_SHA}"
             echo "workflow_sha=$(git -C "$GITHUB_WORKSPACE" hash-object .github/workflows/business-launchpad-core.yml)"
             echo "runner_image=${ImageOS:-unknown}"
             echo "node=$(node --version)"
             echo "npm=$(npm --version)"
             echo "source_sha256=$(sha256sum src/index.js | cut -d' ' -f1)"
-            echo "tests_sha256=$(sha256sum test/index.test.js | cut -d' ' -f1)"
+            echo "core_tests_sha256=$(sha256sum test/index.test.js | cut -d' ' -f1)"
+            echo "mock_dom_tests_sha256=$(sha256sum test/web-interaction.test.js | cut -d' ' -f1)"
+            echo "fixtures_sha256=$(sha256sum test/fixtures/business-scenarios.v1.json | cut -d' ' -f1)"
+            echo "cli_sha256=$(sha256sum src/cli.js | cut -d' ' -f1)"
+            echo "browser_module_sha256=$(sha256sum ../web/app.mjs | cut -d' ' -f1)"
+            echo "browser_html_sha256=$(sha256sum ../web/index.html | cut -d' ' -f1)"
+            echo "browser_css_sha256=$(sha256sum ../web/styles.css | cut -d' ' -f1)"
             echo "test_output_sha256=$(sha256sum test-output.tap | cut -d' ' -f1)"
-            echo "claim_ceiling=DeterministicUnitTestsOnly"
+            echo "claim_ceiling=DeterministicCoreAndMockDomInteractionTestsOnly"
             echo "integration_status=NotExecuted"
             echo "market_fit_status=NotEvaluated"
           } | tee business-launchpad-core-qualification.txt
