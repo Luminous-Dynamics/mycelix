@@ -165,6 +165,8 @@ struct AtlasDatasetCandidate {
     license_assessment: AtlasDatasetLicenseAssessment,
     ingestion_gate: AtlasDatasetIngestionGate,
     suitability: AtlasDatasetSuitability,
+    #[serde(default)]
+    known_findings: Vec<AtlasDatasetFinding>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -214,6 +216,14 @@ struct AtlasDatasetSuitability {
     best_initial_use: String,
     not_suitable_for: String,
     next_action: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AtlasDatasetFinding {
+    finding_id: String,
+    severity: String,
+    observation: String,
+    required_resolution: String,
 }
 
 fn evidence_label(status: &str) -> &'static str {
@@ -541,6 +551,15 @@ fn render_dataset_candidate_card(candidate: AtlasDatasetCandidate) -> impl IntoV
     let best_use = candidate.suitability.best_initial_use;
     let excluded_use = candidate.suitability.not_suitable_for;
     let next_action = candidate.suitability.next_action;
+    let metadata_findings = candidate.known_findings.into_iter().map(|finding| {
+        view! {
+            <li>
+                <strong>{format!("{} · {}", finding.finding_id, finding.severity)}</strong>
+                <p>{finding.observation}</p>
+                <p><strong>"Required resolution: "</strong>{finding.required_resolution}</p>
+            </li>
+        }
+    }).collect_view();
 
     view! {
         <article class="dash-card atlas-dataset-card">
@@ -573,6 +592,11 @@ fn render_dataset_candidate_card(candidate: AtlasDatasetCandidate) -> impl IntoV
                 <ul>{measures}</ul>
                 <h4>"Reported data shape"</h4>
                 <pre>{shape}</pre>
+                <h4>"Recorded metadata findings (preview/source-level)"</h4>
+                <ul>{metadata_findings}</ul>
+                <p class="atlas-disclaimer">
+                    "These are metadata discrepancies to reconcile, not a verdict that the underlying measurements are wrong."
+                </p>
                 <h4>"Rights evidence links"</h4>
                 <ul>{evidence_links}</ul>
                 <h4>"Ingestion gate"</h4>
@@ -908,6 +932,9 @@ mod tests {
             assert!(!candidate.ingestion_gate.values_imported);
             assert!(!candidate.ingestion_gate.required_evidence.is_empty());
             assert!(!candidate.license_assessment.evidence_urls.is_empty());
+            if candidate.candidate_id == "south-africa.swam-satellite-water-quality.2026.v1" {
+                assert!(candidate.known_findings.iter().any(|finding| finding.finding_id == "SWAM-PREVIEW-DATE-WINDOW-001"));
+            }
             statuses.insert(candidate.discovery_status.as_str());
         }
         assert!(statuses.contains("license_not_verified"));
