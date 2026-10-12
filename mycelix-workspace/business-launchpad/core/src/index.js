@@ -371,7 +371,7 @@ export function projectCashRunway(input) {
         'The model does not maintain an accounts-receivable/accounts-payable ledger, age invoices, reconcile actual settlement, or model supplier-credit balances. User-supplied monthly cash timing is a scenario assumption.',
         'Setup costs are deducted once before month one. The working-capital amount is a reserve threshold, not an additional cash outflow.',
         'Taxes, owner draw, financing, debt service and other costs must be entered as monthly other cash outflows if they are to be included; omitted/unknown costs remain a limitation.',
-        'Other monthly inflows/outflows are additive to sales cash receipts and operating cash payments; they do not replace or re-time those fields.',
+        'Other monthly inflows/outflows are additive to sales cash receipts and operating cash payments; they do not replace or re-time those fields. Do not count an expense in both operatingCashOutflowsMinor and otherCashOutflowsMinor.',
         'Each period uses one average offer for its activity assumption; product mix, seasonality, capacity and operational disruptions are not modeled.'
       ]
     };
