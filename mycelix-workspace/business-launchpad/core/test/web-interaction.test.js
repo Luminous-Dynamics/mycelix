@@ -455,7 +455,7 @@ test('schema-v4 requires valid stress assumptions and cannot silently default th
   assert.equal(documentMock.getElementById('download-report').disabled, true);
 });
 
-test('schema-v5 requires an explicit valid collection and supplier-payment schedule', async () => {
+test('schema-v6 requires a valid category-specific collection and payment schedule', async () => {
   documentMock.reset();
   documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
   const payload = JSON.parse(await capturedBlob.text());
@@ -467,6 +467,19 @@ test('schema-v5 requires an explicit valid collection and supplier-payment sched
 
   assert.equal(documentMock.getElementById('input-error').hidden, false);
   assert.match(documentMock.getElementById('input-error').textContent, /Cash scenario assumptions failed validation/);
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const missingCategories = JSON.parse(await capturedBlob.text());
+  delete missingCategories.cashTimingSchedule.variableCostCategories;
+  missingCategories.schemaVersion = 6;
+  missingCategories.cashTimingSchedule.variableSupplierPaymentsPercent = [80, 15, 5];
+  const secondInput = documentMock.getElementById('load-scenario-file');
+  secondInput.files = [{ text: async () => JSON.stringify(missingCategories) }];
+  await secondInput.listeners.get('change')[0]({ target: secondInput });
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /Version 6 scenarios must include three explicit variable-cost categories/);
   assert.equal(documentMock.getElementById('download-report').disabled, true);
 });
 
@@ -482,7 +495,31 @@ test('schema-v4 import receives explicit illustrative timing defaults', async ()
 
   assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
   assert.equal(documentMock.getElementById('timing-sales-receipts-month-0').value, '70');
-  assert.equal(documentMock.getElementById('timing-supplier-payments-month-2').value, '5');
+  assert.equal(documentMock.getElementById('timing-cost-category-3-month-2').value, '5');
+});
+
+test('schema-v5 migration preserves the prior aggregate supplier-payment curve', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.schemaVersion = 5;
+  payload.cashTimingSchedule = {
+    salesReceiptsPercent: [55, 35, 10],
+    variableSupplierPaymentsPercent: [60, 30, 10]
+  };
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
+  assert.equal(documentMock.getElementById('timing-sales-receipts-month-0').value, '55');
+  assert.equal(documentMock.getElementById('timing-sales-receipts-month-1').value, '35');
+  for (const index of [1, 2, 3]) {
+    assert.equal(documentMock.getElementById('timing-cost-category-' + index + '-month-0').value, '60');
+    assert.equal(documentMock.getElementById('timing-cost-category-' + index + '-month-1').value, '30');
+    assert.equal(documentMock.getElementById('timing-cost-category-' + index + '-month-2').value, '10');
+  }
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
 });
 
 test('schema-v3 plans require all explicit investing and financing cash fields', async () => {
@@ -559,7 +596,7 @@ test('malformed or unsupported import files fail visibly without changing inputs
 
   assert.equal(documentMock.getElementById('selling-price').value, originalPrice);
   assert.equal(documentMock.getElementById('input-error').hidden, false);
-  assert.match(documentMock.getElementById('input-error').textContent, /schemaVersion 1, 2, 3, 4 or 5 required/);
+  assert.match(documentMock.getElementById('input-error').textContent, /schemaVersion 1 through 6 required/);
   assert.equal(fileInput.value, '');
 
   fileInput.files = [{
