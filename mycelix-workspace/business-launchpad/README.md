@@ -31,7 +31,8 @@ The CLI reads only the path you provide and emits a JSON report, or returns a no
 
 - Single-offer unit contribution and one-month scenario arithmetic; define one unit consistently (for example, one cleaning job, one meal, or one retail item).
 - Upward-rounded break-even volume, or explicit unreachable status when contribution is not positive.
-- Setup cash + owner-entered working-capital buffer and the gap against available startup cash. This is not a cash-runway estimate for slow sales or operating losses.
+- Setup cash + owner-entered working-capital buffer and the upfront funding gap against available startup cash.
+- A separate editable 12-month cash scenario showing post-setup cash, monthly closing balances, reserve breaches, first negative balance, lowest projected cash and additional cash needed to maintain the reserve. It assumes full same-month collections and same-month variable-cost payments; it is not a demand forecast or full receivables/payables model.
 - Exact decimal-text parsing into integer minor units; no binary floating-point amount rounding.
 - Explicit partial-cost declaration and named omissions.
 - Synthetic service, food and retail test fixtures.
@@ -43,4 +44,4 @@ For the separate Chromium journey and its isolated locked test dependency, see [
 
 There is no account system, durable database, multi-user tenancy, full general ledger, inventory/POS, payment processor, external accounting integration, tax or regulatory rule engine, Symthaea forecasting integration, or Mycelix Marketplace/Finance integration. The calculations are not tax/legal advice, a net-profit statement, a demand forecast, an underwriting decision, or a promise that a business will succeed.
 
-Example inputs are fictional. The calculation assumes one average-priced offer and one month of sales; it does not model offer mix, inventory-specific costing, capacity constraints, or multi-period cash flow. Replace example inputs with current supplier quotes, credible demand information, all applicable costs, and authoritative local requirements before using a result to make a financial commitment.
+Example inputs are fictional. The unit-economics calculation assumes one average-priced offer; the separate cash projection uses owner-entered month-by-month sales units and other cash flows but assumes immediate same-month collection/payment. Neither models offer mix, inventory-specific costing, capacity constraints, receivables/payables timing, seasonality or demand. Replace example inputs with current supplier quotes, credible demand information, all applicable costs, and authoritative local requirements before using a result to make a financial commitment.
