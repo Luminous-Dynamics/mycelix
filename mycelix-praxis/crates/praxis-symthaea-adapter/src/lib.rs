@@ -240,8 +240,16 @@ fn prepare_advisory_request_with_nonce(
 
 /// Generate an opaque 128-bit nonce using the platform's secure random source.
 fn generate_request_nonce() -> Result<String, RequestPreparationError> {
+    generate_request_nonce_with(|bytes| getrandom::getrandom(bytes).map_err(|_| ()))
+}
+
+/// Internal injection point for deterministic testing of entropy failure.
+/// Production always calls `generate_request_nonce` with the OS CSPRNG.
+fn generate_request_nonce_with(
+    fill: impl FnOnce(&mut [u8; 16]) -> Result<(), ()>,
+) -> Result<String, RequestPreparationError> {
     let mut bytes = [0u8; 16];
-    getrandom::getrandom(&mut bytes).map_err(|_| RequestPreparationError::NonceGenerationFailed)?;
+    fill(&mut bytes).map_err(|_| RequestPreparationError::NonceGenerationFailed)?;
 
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut encoded = String::with_capacity(32);
@@ -601,6 +609,15 @@ mod tests {
             ])
         );
         assert!(body.find("a.content").unwrap() < body.find("z.content").unwrap());
+    }
+
+    #[test]
+    fn nonce_entropy_failure_fails_closed() {
+        let result = generate_request_nonce_with(|_bytes| Err(()));
+        assert_eq!(
+            result,
+            Err(RequestPreparationError::NonceGenerationFailed)
+        );
     }
 
     #[test]
