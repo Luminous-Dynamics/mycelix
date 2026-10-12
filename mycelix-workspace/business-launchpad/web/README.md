@@ -19,8 +19,8 @@ The exact-head Chromium journey is maintained at `../core/test/browser-journey.m
 
 - Initial numbers are fictional examples; replace them with verified quotes and realistic assumptions.
 - The unit-economics worksheet uses one average-priced offer and one month of arithmetic; define one unit consistently (e.g., one cleaning job, one meal, or one retail item).
-- The separate 12-month cash scenario lets you edit paid sales units and other cash inflows/outflows month by month. It deducts setup costs before Month 1 and treats the working-capital buffer as the reserve floor.
-- The cash scenario assumes every listed sale is collected in full in the same month and the associated variable cost is paid in that month. Receivables, supplier-credit timing, inventory paid in advance, capacity, seasonality and demand forecasting are not modeled. Add tax, owner draw, debt service and other known excluded outflows to the month-specific other-cash-outflow fields.
+- The separate 12-month cash scenario lets you edit sales activity, sales cash receipts, operating cash payments and other inflows/outflows independently month by month. It deducts setup costs before Month 1 and treats the working-capital buffer as the reserve floor.
+- Starter receipts/payments are generated from the single-offer worksheet as a convenience only; edit them to reflect delayed customer collection or payments made before sales cash arrives. The prototype does not maintain or reconcile actual receivable/payable balances, invoices, provider settlement or supplier credit. Capacity, inventory-specific costing, seasonality and demand forecasting are not modeled. Add tax, owner draw, debt service and other known excluded outflows to the month-specific other-cash-outflow fields.
 - It does not fetch or verify currency support, tax thresholds, licenses or municipal requirements.
 - “Complete costs” is only the owner's declaration for the entered scope, not an independent audit.
 - A positive pre-exclusion result does not establish profitability, demand, compliance, or a safe decision to invest.
