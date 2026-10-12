@@ -161,6 +161,11 @@ def main() -> int:
         print(f"Symthaea advisory static conformance FAILED: {error}", file=sys.stderr)
         return 1
 
+    if not all(isinstance(value, dict) for value in (schema, request_schema, request_example)):
+        print("Symthaea advisory static conformance FAILED: schemas and example must be JSON objects",
+              file=sys.stderr)
+        return 1
+
     try:
         action_variants = enum_variants(source, "LearningSuggestion")
         reason_variants = enum_variants(source, "AdviceReason")
@@ -263,6 +268,7 @@ def main() -> int:
     example_actions = request_example.get("allowed_actions", [])
     require(
         isinstance(example_actions, list)
+        and all(isinstance(action, str) for action in example_actions)
         and 1 <= len(example_actions) <= max_allowed_actions
         and len(example_actions) == len(set(example_actions))
         and all(action in action_variants for action in example_actions),
@@ -272,6 +278,7 @@ def main() -> int:
     example_reasons = request_example.get("allowed_reasons", [])
     require(
         isinstance(example_reasons, list)
+        and all(isinstance(reason, str) for reason in example_reasons)
         and 1 <= len(example_reasons) <= max_allowed_reasons
         and len(example_reasons) == len(set(example_reasons))
         and all(reason in reason_variants for reason in example_reasons),
@@ -281,11 +288,11 @@ def main() -> int:
     example_content_ids = request_example.get("allowed_content_ids", [])
     require(
         isinstance(example_content_ids, list)
+        and all(isinstance(value, str) for value in example_content_ids)
         and len(example_content_ids) <= max_refs
         and len(example_content_ids) == len(set(example_content_ids))
         and all(
-            isinstance(value, str)
-            and value
+            value
             and value.strip() == value
             and len(value) <= max_identifier_chars
             and not any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in value)
