@@ -693,13 +693,13 @@ export function projectCashRunwayWithTimingSchedule(input) {
       currency: { ...projection.report.currency },
       horizonMonths: horizon,
       timingSchedule: normalized.schedule,
-      basis: 'Alternative terms-based scenario derived from sales-unit activity; it does not replace the owner-entered base plan. Variable supplier costs are scheduled by cohort; fixed monthly costs remain due in their originating month.',
+      basis: 'Alternative terms-based scenario derived from sales-unit activity; it does not replace the owner-entered base plan. Per-unit variable costs are treated as supplier/payable costs for timing purposes; fixed monthly costs remain due in their originating month.',
       assumptions: [
         'Sales cash receipts are derived from units multiplied by the entered selling price, then allocated to the sale month, next month and following month.',
-        'Variable supplier payments are derived from units multiplied by the entered variable cost, then allocated to the purchase/sale cohort month, next month and following month.',
+        'Per-unit variable costs are treated as supplier/payable costs and derived from units multiplied by entered variable cost, then allocated to the originating month, next month and following month.',
         'Fixed monthly costs remain paid in their originating month; setup costs remain paid before Month 1.',
         'Other/unclassified, investing and financing movements are copied from the supplied plan without reclassification.',
-        'This schedule does not model opening accounts receivable/payable, taxes, inventory purchases that precede sales, deposit/refund behavior, bad debt, invoice-level terms or day-level due dates.',
+        'This schedule does not model opening accounts receivable/payable, taxes, inventory purchases that precede sales, deposit/refund behavior, bad debt, invoice-level terms or day-level due dates. It treats all per-unit variable costs as one payable cohort; distinct variable-cost types need separate schedules before their actual timing can be represented.',
         'The percentage schedule is an owner-supplied sensitivity assumption, not a ledger or forecast of actual settlement.'
       ],
       deferredSalesCashReceiptsAfterHorizonMinor: Number(deferredSalesReceipts),
