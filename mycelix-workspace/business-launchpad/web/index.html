@@ -97,13 +97,15 @@
 
         <details id="cash-runway-details" class="cash-runway-details">
           <summary>Optional 12-month cash runway scenario</summary>
-          <p class="form-footnote">A separate, editable month-by-month scenario. Setup costs are deducted before Month 1; your working-capital buffer is treated as a minimum cash reserve, not another payment. Each planned sale is assumed to be collected in full and its variable cost paid in the same month. Other cash inflows/outflows are added on top of those base sales receipts, fixed costs and variable costs; they do not replace them. Delayed customer payments and supplier-credit timing are not supported here. If you change the steady-state target above, use Reset to regenerate the starter ramp; edits to this table are otherwise kept.</p>
+          <p class="form-footnote">A separate, editable month-by-month scenario. Sales units describe activity, not collections. Sales cash receipts and operating cash payments are entered separately for each month, so you can move receipts later or payments earlier. Defaults initially mirror same-month sales/costs for convenience only. Setup costs are deducted before Month 1; the working-capital buffer is a minimum cash reserve, not another payment. Other cash inflows/outflows are added on top of the separately entered sales receipts and operating payments. The worksheet does not reconcile actual invoices, aged receivables or supplier balances. If you change the steady-state target above, use Reset to regenerate the illustrative ramp and cash defaults; edits to this table are otherwise kept.</p>
           <div class="cash-plan-scroll" role="region" aria-label="Twelve-month cash plan inputs" tabindex="0">
             <table class="cash-plan-table">
               <thead>
                 <tr>
                   <th scope="col">Period</th>
-                  <th scope="col">Sales units (assumed paid in month)</th>
+                  <th scope="col">Sales units (activity)</th>
+                  <th scope="col">Sales cash receipts</th>
+                  <th scope="col">Operating cash outflows</th>
                   <th scope="col">Other cash inflows</th>
                   <th scope="col">Other cash outflows</th>
                 </tr>
