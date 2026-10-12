@@ -263,7 +263,8 @@ class InMemoryQueueStorage implements QueueStorage {
     patch: QueueStorageStatusPatch
   ): Promise<QueueStorageStatusTransition> {
     const stored = this.items.get(id);
-    if (!stored || stored.status !== expectedStatus) return { updated: false, item: stored };
+    if (!stored) return { updated: false };
+    if (stored.status !== expectedStatus) return { updated: false, item: stored };
     const updated: QueuedOperation = { ...stored, ...patch, id: stored.id };
     this.items.set(id, updated);
     return { updated: true, item: updated };
@@ -504,7 +505,11 @@ export class IndexedDBQueueStorage implements QueueStorage {
       };
       lookup.onsuccess = () => {
         const stored = lookup.result as QueuedOperation | undefined;
-        if (!stored || stored.status !== expectedStatus) {
+        if (!stored) {
+          outcome = { updated: false };
+          return;
+        }
+        if (stored.status !== expectedStatus) {
           outcome = { updated: false, item: stored };
           return;
         }
