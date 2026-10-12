@@ -733,7 +733,6 @@ downloadScenarioButton.addEventListener('click', () => {
     const cashScenarioAssumptions = readCashScenarioAssumptions();
     const cashRunwayResult = projectCashRunway({ model, monthlyPlan: cashRunwayPlan });
     if (!cashRunwayResult.ok) throw new Error(cashRunwayResult.error.message);
-    const cashScenarioAssumptions = readCashScenarioAssumptions();
     const comparison = compareCashRunwayScenarios({ model, monthlyPlan: cashRunwayPlan, assumptions: cashScenarioAssumptions });
     if (!comparison.ok) throw new Error(comparison.error.message);
     downloadJson('business-launchpad-scenario-v4.json', {
