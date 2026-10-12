@@ -56,7 +56,11 @@ function getFieldValue(id) {
 }
 
 function parseWholeUnits(raw) {
-  const text = String(raw).trim();
+  const rawText = String(raw);
+  if (rawText.length > 64) {
+    return { ok: false, error: { message: 'The monthly sales quantity text is too long to analyze safely.' } };
+  }
+  const text = rawText.trim();
   if (!/^\d+$/.test(text)) {
     return { ok: false, error: { message: 'Enter a whole, non-negative number of sales per month.' } };
   }
