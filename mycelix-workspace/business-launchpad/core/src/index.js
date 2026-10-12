@@ -335,6 +335,7 @@ export function projectCashRunway(input) {
         'Per-unit variable cash costs are assumed paid in the same month as the sale; inventory purchased in advance, supplier credit and payables timing are not modeled.',
         'Setup costs are deducted once before month one. The working-capital amount is a reserve threshold, not an additional cash outflow.',
         'Taxes, owner draw, financing, debt service and other costs must be entered as monthly other cash outflows if they are to be included; omitted/unknown costs remain a limitation.',
+        'Other monthly inflows/outflows are additive to the modelled sales receipts and fixed/variable costs; they cannot replace or re-time those base amounts.',
         'Each period uses one average selling price, one average variable cash cost and fixed monthly costs from the base model; product mix, seasonality, capacity and operational disruptions are not modeled.'
       ]
     };
