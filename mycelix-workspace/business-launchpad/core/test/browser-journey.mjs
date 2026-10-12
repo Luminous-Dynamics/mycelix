@@ -215,8 +215,11 @@ try {
   const cashOutput = await page.locator('#result').innerText();
   assert.match(cashOutput, /First reserve breach\s*Month 1/);
   assert.match(cashOutput, /ZAR 400\.00/);
-  assert.match(cashOutput, /Sales cash receiptsZAR 0\.00/);
-  assert.match(cashOutput, /Sales cash receiptsZAR 5000\.00/);
+  const monthOneCells = page.locator('.cash-projection-table tbody tr').nth(0).locator('td');
+  const monthTwoCells = page.locator('.cash-projection-table tbody tr').nth(1).locator('td');
+  assert.equal(await monthOneCells.nth(1).innerText(), 'ZAR 0.00', 'Month 1 sales activity does not force same-month cash collection');
+  assert.equal(await monthOneCells.nth(2).innerText(), 'ZAR 900.00', 'Month 1 operating payments are explicit');
+  assert.equal(await monthTwoCells.nth(1).innerText(), 'ZAR 5000.00', 'a later month may contain the delayed collection');
   completedChecks.push('cash receipts can move independently of activity units and monthly operating payments');
 
   await page.locator('#selling-price').fill('201.00');
