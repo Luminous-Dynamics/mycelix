@@ -234,11 +234,20 @@ function readCashRunwayPlan(currency) {
   });
 }
 
-function validateImportedCashRunwayPlan(plan, model) {
+function validateImportedCashRunwayPlan(plan, model, schemaVersion) {
   if (!Array.isArray(plan) || plan.length !== CASH_RUNWAY_MONTHS) {
     throw new Error('Cash runway data must contain exactly 12 monthly entries.');
   }
   const normalized = plan.map((period, index) => {
+    if (
+      schemaVersion === 2 &&
+      period !== null &&
+      typeof period === 'object' &&
+      !Array.isArray(period) &&
+      (period.salesCashReceiptsMinor === undefined || period.operatingCashOutflowsMinor === undefined)
+    ) {
+      throw new Error('Version 2 cash runway Month ' + (index + 1) + ' must include sales cash receipts and operating cash outflows.');
+    }
     if (
       period === null ||
       typeof period !== 'object' ||
@@ -328,7 +337,7 @@ function validatedScenarioPayload(payload) {
   }
   const plan = payload.cashRunwayPlan === undefined
     ? defaultCashRunwayPlan(payload.input)
-    : validateImportedCashRunwayPlan(payload.cashRunwayPlan, payload.input);
+    : validateImportedCashRunwayPlan(payload.cashRunwayPlan, payload.input, payload.schemaVersion);
   return { input: payload.input, cashRunwayPlan: plan };
 }
 
