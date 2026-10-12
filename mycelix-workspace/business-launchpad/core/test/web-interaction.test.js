@@ -251,6 +251,28 @@ test('imported scenario is validated, restores fields, and requires recalculatio
   assert.equal(documentMock.getElementById('download-report').disabled, false);
 });
 
+test('invalid cash runway plan is rejected before imported base inputs are applied', async () => {
+  documentMock.reset();
+  const originalPrice = documentMock.getElementById('selling-price').value;
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.input.sellingPricePerUnitMinor = 50_000;
+  payload.cashRunwayPlan = [{
+    salesUnits: -1,
+    otherCashInflowsMinor: 0,
+    otherCashOutflowsMinor: 0
+  }];
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('selling-price').value, originalPrice);
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /Cash runway data must contain exactly 12 monthly entries/);
+});
+
 test('legacy version-1 scenarios without a cash plan receive an explicit default ramp', async () => {
   documentMock.reset();
   documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
