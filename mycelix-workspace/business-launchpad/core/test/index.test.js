@@ -235,9 +235,10 @@ test('separates operating, investing and financing cash flows and reconciles to 
   });
   assert.equal(result.ok, true);
   assert.equal(result.report.schemaVersion, 2);
-  assert.equal(result.report.periods[0].totalOperatingCashReceiptsMinor, 105);
-  assert.equal(result.report.periods[0].totalOperatingCashOutflowsMinor, 50);
-  assert.equal(result.report.periods[0].netOperatingCashFlowMinor, 55);
+  assert.equal(result.report.periods[0].totalOperatingCashReceiptsMinor, 100);
+  assert.equal(result.report.periods[0].totalOperatingCashOutflowsMinor, 40);
+  assert.equal(result.report.periods[0].netOperatingCashFlowMinor, 60);
+  assert.equal(result.report.periods[0].netUnclassifiedCashFlowMinor, -5);
   assert.equal(result.report.periods[0].netInvestingCashFlowMinor, -30);
   assert.equal(result.report.periods[0].netFinancingCashFlowMinor, 275);
   assert.equal(result.report.periods[0].totalCashReceiptsMinor, 425);
