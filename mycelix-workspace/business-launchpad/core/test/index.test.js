@@ -44,6 +44,14 @@ test('calculates contribution, break-even, monthly result and startup funding ga
     availableCashMinor: 300_000,
     fundingGapMinor: 200_000
   });
+  assert.ok(
+    result.report.scopeLimitations.some(message => message.includes('single-offer model')),
+    'the report must disclose that product/service mix is not modeled'
+  );
+  assert.ok(
+    result.report.scopeLimitations.some(message => message.includes('extra runway for slow sales or operating losses')),
+    'the report must not imply its funding gap calculates runway'
+  );
 });
 
 test('rounds break-even units upward instead of understating required sales', () => {
