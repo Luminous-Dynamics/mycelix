@@ -628,7 +628,7 @@ def main() -> int:
     prior_turn_start = adapter_source.find(
         "fn prior_turn_response_is_rejected_for_new_prepared_request()"
     )
-    prior_turn_end = adapter_source.find("\\n    #[test]", prior_turn_start + 1)
+    prior_turn_end = adapter_source.find("\n    #[test]", prior_turn_start + 1)
     prior_turn_test = (
         adapter_source[prior_turn_start:prior_turn_end]
         if prior_turn_start >= 0 and prior_turn_end > prior_turn_start
