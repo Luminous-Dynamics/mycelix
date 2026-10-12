@@ -402,6 +402,25 @@ test('malformed or unsupported import files fail visibly without changing inputs
   assert.equal(fileInput.value, '');
 });
 
+test('resetting cash plan regenerates every cash field and invalidates prior results', () => {
+  documentMock.reset();
+  documentMock.getElementById('selling-price').value = '200.00';
+  documentMock.submit();
+  assert.equal(documentMock.getElementById('download-report').disabled, false);
+
+  documentMock.getElementById('cash-month-1-sales-receipts').value = '0.00';
+  documentMock.getElementById('cash-month-1-operating-outflows').value = '900.00';
+  documentMock.getElementById('cash-month-1-inflows').value = '777.00';
+  documentMock.getElementById('reset-cash-runway').dispatchEvent({ type: 'click' });
+
+  assert.equal(documentMock.getElementById('cash-month-1-sales').value, '25');
+  assert.equal(documentMock.getElementById('cash-month-1-sales-receipts').value, '5000.00');
+  assert.equal(documentMock.getElementById('cash-month-1-operating-outflows').value, '2400.00');
+  assert.equal(documentMock.getElementById('cash-month-1-inflows').value, '0.00');
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Cash plan reset — recalculate');
+});
+
 test('cash runway exposes reserve breaches when the first month has no sales', () => {
   documentMock.reset();
   documentMock.getElementById('cash-month-1-sales').value = '0';
