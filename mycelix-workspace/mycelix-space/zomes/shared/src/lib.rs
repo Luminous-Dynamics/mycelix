@@ -94,10 +94,13 @@ impl SpaceTimestamp {
         &self,
         now_micros: i64,
     ) -> Result<i64, SpaceTimestampError> {
+        // Validate the reference clock too; arbitrary integers are not necessarily
+        // timestamps accepted by chrono.
+        DateTime::from_timestamp_micros(now_micros).ok_or(SpaceTimestampError::OutOfRange)?;
+        self.try_to_datetime()?;
         let elapsed_micros = now_micros
             .checked_sub(self.micros)
             .ok_or(SpaceTimestampError::AgeOverflow)?;
-        self.try_to_datetime()?;
         if elapsed_micros < 0 {
             return Err(SpaceTimestampError::FutureTimestamp);
         }
@@ -1919,8 +1922,12 @@ mod space_timestamp_validation_tests {
 
     #[test]
     fn checked_age_seconds_rejects_subtraction_overflow() {
+        let earliest = SpaceTimestamp { micros: -7_000_000_000_000_000_000 };
+        let latest = SpaceTimestamp { micros: 7_000_000_000_000_000_000 };
+        assert!(earliest.try_to_datetime().is_ok());
+        assert!(latest.try_to_datetime().is_ok());
         assert_eq!(
-            SpaceTimestamp { micros: i64::MIN }.checked_age_seconds_at(i64::MAX),
+            earliest.checked_age_seconds_at(latest.micros),
             Err(SpaceTimestampError::AgeOverflow)
         );
     }
