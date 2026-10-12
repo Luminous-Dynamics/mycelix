@@ -724,10 +724,16 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
         .into_wasm_error()
     })?;
 
-    // Burn time = TCA - lead_time
-    let lead_secs = (input.lead_time_hours * 3600.0) as i64;
-    let burn_dt = tca_dt - chrono::Duration::seconds(lead_secs);
-    let tof_secs = input.lead_time_hours * 3600.0;
+    // Derive one representable burn time and use its exact whole-second
+    // interval for Lambert, avoiding divergent propagation/solver epochs.
+    let (burn_dt, tof_secs) =
+        checked_burn_time(tca_dt, input.lead_time_hours).map_err(|e| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Invalid burn-time window: {:?}", e),
+            )
+            .into_wasm_error()
+        })?;
 
     // Propagate primary to burn time and TCA
     let p_burn = primary_prop.propagate_to(burn_dt).map_err(|e| {
@@ -792,10 +798,7 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
 
     let max_dv_kms = input.max_delta_v_ms / 1000.0;
 
-    let burn_epoch_micros = input.tca.micros - (lead_secs * 1_000_000);
-    let burn_ts = SpaceTimestamp {
-        micros: burn_epoch_micros,
-    };
+    let burn_ts = SpaceTimestamp::from_datetime(burn_dt);
 
     let mut options = Vec::new();
 
@@ -2245,4 +2248,93 @@ pub fn get_proposal_agreement(proposal_id: String) -> ExternResult<Option<MultiP
     }
 
     Ok(None)
+}
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BurnTimeError {
+    InvalidLeadTime,
+    DurationOutOfRange,
+    BurnTimeOutOfRange,
+}
+
+/// Compute a single, representable burn epoch and the matching Lambert time-of-flight.
+///
+/// Lead times are truncated to whole seconds, matching the historical burn-time
+/// conversion. The solver receives that same truncated interval rather than the
+/// original fractional-hour value.
+fn checked_burn_time(
+    tca: chrono::DateTime<chrono::Utc>,
+    lead_time_hours: f64,
+) -> Result<(chrono::DateTime<chrono::Utc>, f64), BurnTimeError> {
+    if !lead_time_hours.is_finite() || lead_time_hours <= 0.0 {
+        return Err(BurnTimeError::InvalidLeadTime);
+    }
+
+    let seconds = lead_time_hours * 3600.0;
+    if !seconds.is_finite() || seconds < 1.0 || seconds >= i64::MAX as f64 {
+        return Err(BurnTimeError::DurationOutOfRange);
+    }
+
+    let whole_seconds = seconds.trunc() as i64;
+    let duration = chrono::Duration::try_seconds(whole_seconds)
+        .ok_or(BurnTimeError::DurationOutOfRange)?;
+    let burn_time = tca
+        .checked_sub_signed(duration)
+        .ok_or(BurnTimeError::BurnTimeOutOfRange)?;
+
+    Ok((burn_time, whole_seconds as f64))
+}
+
+#[cfg(test)]
+mod checked_burn_time_tests {
+    use super::{BurnTimeError, checked_burn_time};
+    use chrono::{Duration, TimeZone, Utc};
+
+    fn reference_tca() -> chrono::DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 10, 12, 12, 0, 0)
+            .single()
+            .expect("valid TCA")
+    }
+
+    #[test]
+    fn burn_epoch_and_solver_interval_are_identical() {
+        let tca = reference_tca();
+        let (burn, tof_seconds) = checked_burn_time(tca, 1.5).expect("valid burn time");
+        assert_eq!(tof_seconds, 5_400.0);
+        assert_eq!(tca.signed_duration_since(burn), Duration::seconds(5_400));
+    }
+
+    #[test]
+    fn rejects_nonpositive_and_nonfinite_lead_times() {
+        let tca = reference_tca();
+        for hours in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(
+                checked_burn_time(tca, hours),
+                Err(BurnTimeError::InvalidLeadTime)
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_seconds_that_overflow_or_truncate_to_zero() {
+        let tca = reference_tca();
+        assert_eq!(
+            checked_burn_time(tca, f64::MAX),
+            Err(BurnTimeError::DurationOutOfRange)
+        );
+        assert_eq!(
+            checked_burn_time(tca, 0.0001),
+            Err(BurnTimeError::DurationOutOfRange)
+        );
+    }
+
+    #[test]
+    fn rejects_burn_epoch_outside_datetime_range() {
+        let earliest = chrono::DateTime::<Utc>::MIN_UTC;
+        assert_eq!(
+            checked_burn_time(earliest, 1.0),
+            Err(BurnTimeError::BurnTimeOutOfRange)
+        );
+    }
 }
