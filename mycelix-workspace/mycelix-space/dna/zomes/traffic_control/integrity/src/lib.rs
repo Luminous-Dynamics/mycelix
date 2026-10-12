@@ -291,8 +291,11 @@ pub struct AvoidanceOption {
     /// Resulting miss distance after maneuver (km)
     pub resulting_miss_distance_km: f64,
 
-    /// Resulting collision probability after maneuver
-    pub resulting_pc: f64,
+    /// Checked post-maneuver collision-probability estimate, if available.
+    ///
+    /// `None` means the option is geometric only and no defensible Pc estimate
+    /// was produced. It must never be rendered or interpreted as zero risk.
+    pub resulting_pc: Option<f64>,
 
     /// Transfer type: "prograde", "retrograde", "radial", or "normal"
     pub transfer_type: String,
@@ -739,12 +742,14 @@ fn validate_avoidance_option(opt: &AvoidanceOption) -> ExternResult<ValidateCall
         )));
     }
 
-    // Pc must be in [0, 1]
-    if !opt.resulting_pc.is_finite() || opt.resulting_pc < 0.0 || opt.resulting_pc > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "resulting_pc must be between 0 and 1, got {}",
-            opt.resulting_pc
-        )));
+    // An absent Pc means inconclusive/unavailable, not zero risk.
+    if let Some(pc) = opt.resulting_pc {
+        if !pc.is_finite() || !(0.0..=1.0).contains(&pc) {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "resulting_pc must be finite and between 0 and 1 when present, got {}",
+                pc
+            )));
+        }
     }
 
     // Transfer type must be one of the valid types
@@ -1104,5 +1109,45 @@ mod tests {
             post_maneuver_pc: 0.5,
         };
         assert!(opt.post_maneuver_pc >= 0.0 && opt.post_maneuver_pc <= 1.0);
+    }
+}
+
+
+#[cfg(test)]
+mod avoidance_option_pc_tests {
+    use super::*;
+
+    fn option(resulting_pc: Option<f64>) -> AvoidanceOption {
+        AvoidanceOption {
+            session_id: "session:test".to_string(),
+            maneuver_time: SpaceTimestamp { micros: 1_000_000 },
+            delta_v: vec![0.001, 0.0, 0.0],
+            delta_v_magnitude_ms: 1.0,
+            resulting_miss_distance_km: 1.0,
+            resulting_pc,
+            transfer_type: "prograde".to_string(),
+        }
+    }
+
+    #[test]
+    fn missing_probability_is_allowed_as_unassessed_geometry_not_zero() {
+        assert!(matches!(
+            validate_avoidance_option(&option(None)).expect("validator"),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn present_probability_must_be_finite_and_bounded() {
+        assert!(matches!(
+            validate_avoidance_option(&option(Some(0.2))).expect("validator"),
+            ValidateCallbackResult::Valid
+        ));
+        for pc in [f64::NAN, f64::INFINITY, -0.01, 1.01] {
+            assert!(matches!(
+                validate_avoidance_option(&option(Some(pc))).expect("validator"),
+                ValidateCallbackResult::Invalid(_)
+            ));
+        }
     }
 }
