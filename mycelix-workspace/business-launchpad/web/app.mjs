@@ -503,7 +503,7 @@ function renderCashScenarioComparison(comparison, currency) {
   section.append(element(
     'p',
     'detail',
-    'The base is your entered plan. Downside stress: sales receipts reduced ' + downside.salesReceiptReductionPercent + '%, delayed ' + downside.salesReceiptDelayMonths + ' month(s), and operating payments increased ' + downside.operatingCashOutflowIncreasePercent + '%. Upside stress: sales receipts increased ' + upside.salesReceiptIncreasePercent + '%, later receipts advanced ' + upside.salesReceiptAdvanceMonths + ' month(s), and operating payments reduced ' + upside.operatingCashOutflowReductionPercent + '%. Terms-based timing schedules customer collections ' + timing.salesReceiptsPercent.join(' / ') + '% across sale month, +1 month and +2 months; variable supplier payments use ' + timing.variableSupplierPaymentsPercent.join(' / ') + '% across the same offsets. Fixed monthly costs remain due in their originating month. These owner-editable values are illustrative, not benchmarks or probabilities. A negative or below-reserve result is an early-warning signal to review, not an automatic business decision.'
+    'The base is your entered plan. Downside stress: sales receipts reduced ' + downside.salesReceiptReductionPercent + '%, delayed ' + downside.salesReceiptDelayMonths + ' month(s), and operating payments increased ' + downside.operatingCashOutflowIncreasePercent + '%. Upside stress: sales receipts increased ' + upside.salesReceiptIncreasePercent + '%, later receipts advanced ' + upside.salesReceiptAdvanceMonths + ' month(s), and operating payments reduced ' + upside.operatingCashOutflowReductionPercent + '%. Terms-based timing schedules customer collections ' + timing.salesReceiptsPercent.join(' / ') + '% across sale month, +1 month and +2 months; per-unit variable-cost payments use ' + timing.variableSupplierPaymentsPercent.join(' / ') + '% across the same offsets. Fixed monthly costs remain due in their originating month. These owner-editable values are illustrative, not benchmarks or probabilities. A negative or below-reserve result is an early-warning signal to review, not an automatic business decision.'
   ));
 
   const scroll = element('div', 'cash-plan-scroll');
@@ -522,7 +522,7 @@ function renderCashScenarioComparison(comparison, currency) {
     'First negative balance',
     'Extra cash to maintain reserve',
     'Receipts delayed beyond horizon',
-    'Supplier payments after horizon'
+    'Variable-cost payments after horizon'
   ]) {
     const th = element('th', '', label);
     th.setAttribute('scope', 'col');
