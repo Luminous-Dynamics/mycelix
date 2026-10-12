@@ -5,6 +5,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     paths:
       - 'mycelix-workspace/business-launchpad/core/**'
+      - 'mycelix-workspace/business-launchpad/web/**'
       - '.github/workflows/business-launchpad-core.yml'
   push:
     branches: [main]
