@@ -328,7 +328,7 @@ Use this evidence sequence: (1) automated deterministic simulation and fault inj
 
 ### Phase 3 — Advisory intelligence
 
-- Extend the existing schema-v4 owner-authored downside/base/upside comparison with explicit collection/payment schedules and, only after a selected source of truth exists, actual-versus-plan variance. Any later forecasting remains behind an interface/feature flag and must not replace the deterministic calculation.
+- Refine the schema-v5 terms schedule to support separate timing distributions for materially different variable-cost categories; only after an auditable source of actuals is selected, add actual-versus-plan variance. Any later forecasting remains behind an interface/feature flag and must not replace the deterministic calculation.
 - Measure against deterministic baselines; record model/data versions and uncertainty.
 - Provide correction and feedback mechanisms that do not silently poison training data.
 
