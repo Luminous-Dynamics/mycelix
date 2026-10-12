@@ -58,6 +58,22 @@ small { display: block; margin-top: 5px; color: var(--muted); font-size: 0.78rem
 .file-picker input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
 .report-download { width: 100%; margin-top: 12px; }
 .form-footnote { margin: 10px 0 0; color: var(--muted); font-size: 0.78rem; }
+.cash-runway-details { margin: 20px 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #fbfdfb; }
+.cash-runway-details > summary { color: var(--green-dark); font-weight: 800; cursor: pointer; }
+.cash-runway-details > .form-footnote { margin: 12px 0; }
+.cash-plan-scroll { max-width: 100%; margin: 12px 0; overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+.cash-plan-table, .cash-projection-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.cash-plan-table { min-width: 620px; }
+.cash-plan-table th, .cash-plan-table td, .cash-projection-table th, .cash-projection-table td { padding: 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.cash-plan-table th, .cash-projection-table th { background: #f2f7f3; color: #263a35; font-weight: 750; }
+.cash-plan-table td input { min-width: 110px; margin: 0; padding: 8px; }
+.cash-plan-table td:first-of-type { min-width: 140px; }
+.reset-cash-plan { width: 100%; margin: 0 0 10px; }
+.cash-runway-result { margin-top: 24px; padding-top: 8px; border-top: 2px solid var(--line); }
+.cash-runway-result .metric-list { margin-top: 12px; }
+.cash-projection-table { min-width: 620px; }
+.cash-runway-result .cash-plan-scroll { margin-top: 12px; }
+.cash-runway-result .section-subheading { margin-top: 18px; }
 .empty-state { padding: 46px 18px; text-align: center; border: 1px dashed #cbd7d0; border-radius: 12px; background: #fafcf9; }
 .empty-icon { display: grid; width: 48px; height: 48px; margin: 0 auto 14px; place-items: center; border-radius: 13px; background: var(--green-pale); color: var(--green); font-size: 1.8rem; font-weight: 700; }
 .empty-state h3 { margin-bottom: 7px; font-size: 1.12rem; }
