@@ -1,6 +1,6 @@
 # Business Launchpad: Cross-Ecosystem Architecture RFC
 
-**Status:** Draft RFC; an isolated deterministic calculator and test fixtures now exist, but no business UI, persistence, payment/accounting adapter, or verified jurisdiction pack is implemented. Not a compliance or production-readiness claim.  
+**Status:** Draft RFC; a deterministic calculator, synthetic test fixtures, CLI, and static browser worksheet now exist. There is still no persistent business record system, payment/accounting adapter, integrated Mycelix/Symthaea workflow, or verified jurisdiction pack. Not a compliance or production-readiness claim.  
 **Date:** 2026-10-12  
 **Scope:** Mycelix + Symthaea + Luminous Platform  
 **Working name:** Business Launchpad  
