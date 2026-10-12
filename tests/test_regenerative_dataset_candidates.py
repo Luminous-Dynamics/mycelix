@@ -84,6 +84,25 @@ class RegenerativeDatasetCandidateTests(unittest.TestCase):
         errors = validate_manifest(self.manifest, self.indicator_catalog)
         self.assertTrue(any("required_evidence must be a non-empty" in error for error in errors), errors)
 
+    def test_date_window_discrepancy_is_preserved_as_a_finding(self) -> None:
+        swam = self.manifest["candidates"][0]
+        findings = {finding["finding_id"]: finding for finding in swam["known_findings"]}
+        finding = findings["SWAM-PREVIEW-DATE-WINDOW-001"]
+        self.assertIn("2025-08-30", finding["observation"])
+        self.assertIn("2025-11-07", finding["observation"])
+        self.assertEqual(validate_manifest(self.manifest, self.indicator_catalog), [])
+
+    def test_duplicate_finding_id_fails(self) -> None:
+        findings = self.manifest["candidates"][0]["known_findings"]
+        findings.append(copy.deepcopy(findings[0]))
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("duplicate finding_id" in error for error in errors), errors)
+
+    def test_malformed_finding_fails_closed(self) -> None:
+        self.manifest["candidates"][0]["known_findings"] = [None]
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("known_findings[0] must be an object" in error for error in errors), errors)
+
     def test_non_object_root_fails_closed(self) -> None:
         self.assertEqual(
             validate_manifest([], self.indicator_catalog),
