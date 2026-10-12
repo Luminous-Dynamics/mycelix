@@ -41,6 +41,10 @@ ADAPTER_REQUIRED_TESTS = {
     "reader_errors_fail_closed",
     "trusted_validation_path_returns_only_a_validated_suggestion",
     "trusted_validation_path_rejects_an_unallowed_action",
+    "request_body_and_digest_are_deterministic_and_bound_to_exact_bytes",
+    "request_preparation_rejects_duplicate_content_ids",
+    "request_preparation_rejects_empty_action_allowlist",
+    "request_preparation_rejects_invalid_identifiers",
 }
 
 REQUIRED_TESTS = {
@@ -284,6 +288,44 @@ def main() -> int:
     require(
         "BoundedAdviceReadError::Rejected" in adapter_source,
         "semantic rejection must fail closed through the adapter result",
+        errors,
+    )
+    request_max = integer_constant(adapter_source, "MAX_ADVISORY_REQUEST_BYTES")
+    require(
+        request_max == 16384,
+        "request body must retain a reviewed 16 KiB maximum",
+        errors,
+    )
+    require(
+        "pub fn prepare_advisory_request(" in adapter_source
+        and "let input_digest = digest_advisory_request_bytes(&body);" in adapter_source,
+        "adapter must derive the request digest from the exact finalized body bytes",
+        errors,
+    )
+    request_size_check = adapter_source.find("if body.len() > MAX_ADVISORY_REQUEST_BYTES")
+    request_digest = adapter_source.find("let input_digest = digest_advisory_request_bytes(&body);")
+    require(
+        request_size_check >= 0 and request_digest > request_size_check,
+        "request-size validation must occur before digest finalization",
+        errors,
+    )
+    require(
+        "content_ids.sort();" in adapter_source
+        and "allowed_actions.sort_by_key(action_rank);" in adapter_source
+        and "allowed_reasons.sort_by_key(reason_rank);" in adapter_source,
+        "request serialization must use explicit deterministic collection ordering",
+        errors,
+    )
+    require(
+        "pub fn body_bytes(&self) -> &[u8]" in adapter_source
+        and "pub fn input_digest(&self) -> &str" in adapter_source
+        and "pub fn validation_context(" in adapter_source,
+        "prepared request must expose immutable exact bytes/digest and same-scope validator context",
+        errors,
+    )
+    require(
+        "first.input_digest(),\n            digest_advisory_request_bytes(first.body_bytes())" in adapter_source,
+        "adapter tests must check that the digest binds to the exact serialized bytes",
         errors,
     )
 
