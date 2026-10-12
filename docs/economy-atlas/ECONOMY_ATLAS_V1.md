@@ -285,3 +285,12 @@ python3 -m unittest discover -s tests -p 'test_regenerative_observation.py'
 ```
 
 The test fixture is explicitly synthetic and is never registered as a real environmental or socioeconomic observation. This PR adds no real data values; source discovery, dataset licensing/retention, unit harmonization and quality review are a separate evidence-ingestion step.
+
+
+### First candidate for a real-data pilot: South African water quality
+
+The South African Department of Water and Sanitation's [water quality data exploration tool](https://www.dws.gov.za/iwqs/wms/data/000key.asp) describes historical monitoring sites and downloadable data files for common water-quality constituents. The catalog links this as a *data-discovery reference* to `water.pollutant-concentration.v1`; no station series has been downloaded, normalized or asserted to be suitable yet.
+
+Important restriction: the Department's [water-quality portal guidance](https://www.dws.gov.za/niwis2/Info/WaterQualityMonitoringNetworkInfo?AspxAutoDetectCookieSupport=1) says the dashboard can lag the underlying database, data are supplied without an accuracy/completeness warranty, and use is restricted to academic, research or personal purposes; redistribution/commercial applicability needs review. Before importing anything into a public or commercial product, check the terms directly with the Department and obtain permission where needed. Preserve the source's station identifiers, analyte, native unit, sample date, detection limit, method, data-quality caveats and the original file digest; do not turn no sample into a zero or a below-detection-limit value into zero.
+
+This is a pilot-source candidate, not an assertion that Johannesburg coverage, suitable historical density, reuse rights or a validated trend have already been confirmed. The next data step should inspect source terms and station/analyte coverage first, then create a source-bound observation receipt only for a clearly scoped series.
