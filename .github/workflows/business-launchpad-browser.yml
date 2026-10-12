@@ -133,7 +133,7 @@ jobs:
             echo "npm=$(npm --version 2>/dev/null || printf 'unavailable')"
             echo "playwright_version=$(node -p "require('./node_modules/playwright/package.json').version" 2>/dev/null || printf 'unavailable')"
             echo "browser_test_sha256=$(hash_file test/browser-journey.mjs)"
-            echo "source_sha256=$(hash_file core/src/index.js)"
+            echo "source_sha256=$(hash_file src/index.js)"
             echo "browser_module_sha256=$(hash_file ../web/app.mjs)"
             echo "browser_html_sha256=$(hash_file ../web/index.html)"
             echo "browser_css_sha256=$(hash_file ../web/styles.css)"
