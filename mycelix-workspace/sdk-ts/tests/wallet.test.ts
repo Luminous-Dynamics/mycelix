@@ -1182,6 +1182,11 @@ describe('OfflineQueue', () => {
         expect(executeA.mock.calls.length + executeB.mock.calls.length).toBe(1);
         expect((await storage.getAll()).find((stored) => stored.id === item.id)?.status).toBe('completed');
         expect(resultA.failed + resultB.failed).toBe(0);
+
+        // A later sync refreshes this instance's stale snapshot from shared storage.
+        await queueB.sync();
+        expect(queueB.get(item.id)?.status).toBe('completed');
+        expect(executeA.mock.calls.length + executeB.mock.calls.length).toBe(1);
       } finally {
         queueA.destroy();
         queueB.destroy();
