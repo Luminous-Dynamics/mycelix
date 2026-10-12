@@ -34,6 +34,26 @@ The Luminous Platform repository currently focuses on the NixOS/sovereign runtim
 
 This RFC adds no claim that code, APIs, UIs, jurisdiction data, or integrations described below already exist.
 
+## 2.1 Existing implementation map (initial repository inspection)
+
+This is a first-pass source map, not a substitute for running the named tests or inspecting every call path. Paths link to the current repository tree.
+
+| Existing area | Evidence in the repository | Recommended treatment |
+|---|---|---|
+| [Marketplace](https://github.com/Luminous-Dynamics/mycelix/tree/main/mycelix-marketplace) | Its README calls the project research-grade/pre-alpha and describes a canonical Leptos frontend path, 8 backend zomes, listing discovery, purchase creation, lifecycle recovery, seller shipment, buyer delivery confirmation, cancellation, arbitration, a Finance settlement projection, and artifact-bound promotion tooling. It explicitly says production readiness and Byzantine tolerance are not established. | **First candidate for the commerce transaction spine.** Reuse its listing/purchase/fulfillment and dispute concepts if the exact current APIs and evidence gates meet the use case. Do not implement a parallel purchase lifecycle before demonstrating a missing capability. Do not infer production readiness from the feature list or promotion scripts. |
+| [Commons](https://github.com/Luminous-Dynamics/mycelix/tree/main/mycelix-commons) | The Commons README documents `food-production`, `food-distribution`, `food-preservation`, and `food-knowledge` zomes; it lists conductor-based test targets but those targets still need to be re-run at the selected HEAD. | Reuse for consented food-production/distribution coordination and provenance only where the underlying integrity rules and live tests support the claim. It is not a retail POS, stock ledger, food-safety regulator, or complete food-business workflow. |
+| [Finance](https://github.com/Luminous-Dynamics/mycelix/tree/main/mycelix-finance) | The Finance README documents SAP, TEND, and MYCEL semantics, plus payment, treasury and bridge zomes. It describes a model of demurrage, mutual credit and collateral bridging. | Keep as a separately reviewed community-economic protocol. Do **not** treat it as an ordinary card/bank payment gateway, fiat settlement proof, accounting ledger, or production-ready credit provider. Business Launchpad v0.1 should accept external payment evidence or manual reconciliation and should not issue balances or credit. |
+| [Identity](https://github.com/Luminous-Dynamics/mycelix/tree/main/mycelix-identity) | Mycelix's root architecture identifies identity/DID/MFA/credential work, but the product-specific capability and status must be checked for each credential type. | Consume narrowly scoped credentials only after issuer, revocation, subject binding, authorization and privacy assumptions are verified. Keep ordinary owner login and transaction authorization independent of community reputation. |
+| [Workspace integration and tests](https://github.com/Luminous-Dynamics/mycelix/tree/main/mycelix-workspace) | The workspace documents the unified hApp, SDKs, bridges and test harnesses; the root README warns that multi-agent integration coverage varies across domains. | Add the new workflow to an existing supported integration path only after confirming exact hApp roles, versions, API contracts, and reproducible test status at the selected commit. |
+| Supply-chain domain | The root README mentions Supplychain in maturity/status context, but the top-level tree inspected at this revision does not expose a `mycelix-supplychain/` directory. | Resolve current ownership/path and status before planning a dependency. Do not infer that a same-named historical or standalone repository is the canonical implementation now that Mycelix has consolidated domains. |
+| [Luminous Platform](https://github.com/Luminous-Dynamics/luminous-platform) | The platform README is focused on sovereign boot, NixOS management, operations, and network/runtime infrastructure. | Keep the runtime/security boundary; do not add commerce business rules to the OS layer. A business-facing application may be a separate client/service that consumes stable Mycelix and Symthaea interfaces. |
+
+### Consequence
+
+The first implementation should **wrap, test, and extend the existing Marketplace lifecycle**, not immediately fork it or duplicate it. Build missing owner-facing setup, viability, compliance checklist, quote/job/order context, expenses, exports, and reporting around the proven operations that already exist. Treat all integration claims as provisional until confirmed against source, an exact commit, and passing tests.
+
+This map also surfaces a license review requirement: the root repository notes license variation by component, while Marketplace labels itself AGPL-3.0-or-later and Finance labels itself Apache-2.0. Verify the exact directory and transitive dependency obligations before deciding packaging, distribution, or commercial licensing. Do not infer one license covers the entire Mycelix tree.
+
 ## 3. Product principles
 
 1. **Owner sovereignty.** The owner controls their business data, connected accounts, permissions, exports, and decisions. The platform must not make data portability contingent on staying subscribed.
@@ -147,6 +167,8 @@ The business UI must make uncertainty visible. It must never label a prepared, q
 The first release should validate the common business lifecycle before adding complex finance or on-chain-like economic flows.
 
 ### Required v0.1 workflows
+
+**Commerce reuse rule:** Mycelix Marketplace is the first candidate for listing, purchase, fulfillment, cancellation, arbitration, and settlement-projection semantics. Re-check its current API contracts and runnable evidence on the exact integration commit; reuse those semantics where valid, and extend only the missing business-launch/operations context. Do not start a parallel transaction state machine unless a documented gap requires one.
 
 1. Create a local business profile and choose sole trader, partnership, cooperative, or company as applicable to the jurisdiction pack. If the user is unsure, explain options and direct them to authoritative or qualified advice; do not silently choose a legal structure.
 2. Define products/services, prices, supplier costs, opening costs, and operating assumptions.
@@ -263,7 +285,7 @@ Simulations are useful evidence for state and failure behavior, not evidence of 
 
 ### Phase 0 — Evidence and fit
 
-- Map the current Mycelix finance, Commons/food, identity, marketplace and supply-chain APIs, tests, license obligations, and UI maturity.
+- Map exact APIs, zome manifests, frontend contracts, current maturity evidence, license obligations, and live-test status for Marketplace, Commons/food, Finance, Identity, and workspace integration. Confirm the canonical path and ownership of any supply-chain code instead of assuming a top-level module exists.
 - Map available Luminous Platform APIs and deployment/secret/back-up primitives.
 - Compare ERPNext/Odoo operational coverage and licensing; build no adapter until the contract is agreed.
 - Produce a repository-specific capability matrix with links to exact files and passing test evidence.
@@ -272,7 +294,7 @@ Simulations are useful evidence for state and failure behavior, not evidence of 
 
 ### Phase 1 — Vertical slice without money movement
 
-- Business profile, catalog, cost/price worksheet, quote/order/job lifecycle, expense records, exports and audit events.
+- Business profile, catalog, cost/price worksheet, expenses, export and audit evidence around the existing Marketplace listing/purchase/fulfillment lifecycle where supported; do not duplicate transaction semantics that are already validated.
 - Local-first UI with explicit pending/synced state.
 - One mock adapter and deterministic fixtures; no real customer funds or automated legal filings.
 - A reference service-business journey, with extension points for food and retail.
