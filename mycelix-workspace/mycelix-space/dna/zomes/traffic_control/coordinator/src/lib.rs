@@ -294,7 +294,7 @@ fn validate_conjunction_reference(
     }
 }
 
-/// Negotiation must close before (or at) TCA, and the deadline must still
+/// Negotiation must close strictly before TCA, and the deadline must still
 /// be in the future when the session is created.
 fn validate_session_deadline(
     deadline_micros: i64,
@@ -304,8 +304,8 @@ fn validate_session_deadline(
     if deadline_micros <= now_micros {
         return Err("Negotiation deadline must be in the future".to_string());
     }
-    if deadline_micros > tca_micros {
-        return Err("Negotiation deadline must not be later than the conjunction TCA".to_string());
+    if deadline_micros >= tca_micros {
+        return Err("Negotiation deadline must strictly precede conjunction TCA".to_string());
     }
     Ok(())
 }
@@ -2769,6 +2769,10 @@ mod conjunction_reference_tests {
         );
         assert!(
             validate_session_deadline(FUTURE_TCA_MICROS + 1, FUTURE_TCA_MICROS, NOW_MICROS)
+                .is_err()
+        );
+        assert!(
+            validate_session_deadline(FUTURE_TCA_MICROS, FUTURE_TCA_MICROS, NOW_MICROS)
                 .is_err()
         );
     }
