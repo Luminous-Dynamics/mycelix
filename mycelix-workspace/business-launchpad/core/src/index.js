@@ -12,8 +12,9 @@ const MAX_MONEY_TEXT_LENGTH = 64;
 const SCOPE_LIMITATIONS = Object.freeze([
   'This is a contribution and fixed-cost worksheet, not a full accounting ledger.',
   'The monthly result is before tax, financing/debt service, depreciation, and owner draw unless those items are explicitly included in the supplied costs.',
-  'The funding gap compares one-time setup costs plus the stated working-capital buffer with cash made available for startup; it is not a lending decision.',
+  'The funding gap is setup costs plus the owner-entered working-capital buffer less available startup cash; it does not calculate extra runway for slow sales or operating losses and is not a lending decision.',
   'Currency-code shape is checked, but currency validity, tax treatment, and jurisdictional rules must come from a separately verified jurisdiction pack.',
+  'This is a single-offer model with one average selling price and one average variable cost per unit; product/service mix, inventory-specific costing, and capacity constraints are not modeled.',
   'Forecast units are an owner-supplied scenario, not a demand prediction or guarantee of sales.'
 ]);
 
