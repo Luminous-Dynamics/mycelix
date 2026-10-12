@@ -254,8 +254,6 @@ downloadScenarioButton.addEventListener('click', () => {
       kind: 'business-launchpad-scenario',
       input: model
     });
-    resultStatus.textContent = 'Assumptions file prepared';
-    resultStatus.className = 'status-pill';
   } catch (error) {
     showError(error instanceof Error ? error.message : 'Scenario could not be exported.');
   }
