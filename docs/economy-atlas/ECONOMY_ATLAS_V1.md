@@ -214,3 +214,42 @@ Regenerative economics should cross-link the finance, energy, commons, governanc
 The four regenerative framework records are mandatory registry entries and are covered by validation checks for HTTPS research metadata. The overall registry remains `qualified_for_execution=false`.
 
 
+
+
+## Regenerative indicator catalog v1
+
+The regenerative-economics lens now has a separate, versioned measurement catalog:
+
+- `docs/economy-atlas/regenerative-indicators.v1.json` — 18 candidate indicator definitions across social needs, ecosystem extent/condition/services, climate pressure, freshwater quality, soil, biodiversity, materials, product/material circulation, waste, agricultural yield stability, and energy-flow networks.
+- `docs/economy-atlas/regenerative-indicators.schema.json` — machine-readable shape for the candidate definitions, comparison contract, reference metadata and fail-closed qualification flags.
+- `scripts/validate_regenerative_indicators.py` — standard-library structural/provenance validator; checks required indicator IDs, duplicate IDs, field contracts, source-reference IDs, HTTPS links, real retrieval dates, framework links back to the model registry, and all qualification flags.
+- `tests/test_regenerative_indicators.py` — regression cases covering duplicates, missing required indicators, unknown citations/frameworks, non-HTTPS references, impossible dates, missing comparability keys and attempts to claim computed/validated results.
+- The Leptos `/atlas` page renders the catalog and its comparison/missingness rules. Each card exposes its native unit, denominator, boundaries, time window, baseline/target requirements, uncertainty, required inputs, comparability key, missing-data rule, caveats and cited research.
+
+### Catalog evidence contract
+
+Every entry is `candidate_definition`, with `observations_loaded=false` and `computed=false`. The catalog's qualification flags for loaded observations, computed indicators, independent validation and composite scoring must remain false until each is deliberately implemented and supported by evidence. A linked paper or methodology describes the source of a proposed definition; it does not establish that Mycelix measured it or that a real-world outcome improved.
+
+The initial source base combines the UN's [SEEA Ecosystem Accounting](https://seea.un.org/en/methodology/ecosystem-accounting), the [SDG indicator metadata repository](https://unstats.un.org/sdgs/metadata/), FAO's [Global Soil Health Indicators and Assessment](https://www.fao.org/soils-portal/soil-degradation-restoration/global-soil-health-indicators-and-assessment/en/), the Ellen MacArthur Foundation's [circular-economy measurement guidance](https://www.ellenmacarthurfoundation.org/topics/measurement/overview) and [Material Circularity Indicator](https://www.ellenmacarthurfoundation.org/material-circularity-indicator), DEAL's [Doughnut Data Portrait methodology](https://doughnuteconomics.org/tools/doughnut-data-portraits-a-methodological-guide), Fath et al.'s [energy-network/regenerative economics article](https://doi.org/10.1016/j.glt.2019.02.002), and the [review of regenerative-agriculture definitions](https://doi.org/10.3389/fsufs.2020.577723). Reference retrieval dates aid change tracking but are not content digests or proof that external pages are immutable.
+
+### Rules that protect interpretation
+
+- Preserve each native unit and component series. Normalization is a separately versioned transform; it must not overwrite the native value.
+- Compare only when definition, denominator, geography/population, time window, boundary and relevant method versions match.
+- Report absolute emissions/material flows alongside per-capita or intensity ratios. Intensity can improve while total pressure worsens.
+- A missing observation, not-collected observation, suppressed value, below-detection-limit result, not-applicable case, and not-computable result are different states. None silently becomes zero.
+- Ecosystem extent, condition, service flows, wellbeing, financial transactions, material throughput and energy flows remain separate dimensions. Money alone is not a proxy for ecological or care flows.
+- Any future composite score requires an explicit target/weight provenance, sensitivity analysis, and separate presentation of components. There is no default regeneration score in v1.
+
+Run the catalog check and tests from the repository root:
+
+```bash
+python3 scripts/validate_regenerative_indicators.py
+python3 -m unittest discover -s tests -p 'test_regenerative_indicators.py'
+```
+
+These are intended checks; they are not reported as executed by this authoring pass. They validate catalog contracts only and do not load datasets, calculate indicators, establish causal effects, or qualify model execution.
+
+### Next evidence milestone
+
+Only after the catalog contract is reviewed should an observation dataset be attached. Each imported series should carry a source institution, dataset/series ID, source revision or retrieval date, geography/boundary, time range, native unit, denominator, transformation, coverage and missingness, uncertainty/quality flags, and a content digest where the source artifact can be retained. Preserve the original series and transformed series side by side. Start with one narrowly scoped, high-quality, repeatable series rather than bulk-importing poorly harmonized sustainability data.
