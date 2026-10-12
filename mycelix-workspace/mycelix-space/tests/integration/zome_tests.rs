@@ -383,10 +383,12 @@ fn test_bounty_status_enum() {
 #[test]
 fn test_pc_method_enum() {
     let methods = vec![
-        PcMethod::Alfano2D,
-        PcMethod::Foster3D,
+        PcMethod::Alfano2D, // Legacy serialized value
+        PcMethod::Foster3D, // Legacy serialized value
         PcMethod::ChanMonteCarlo,
         PcMethod::PateraMax,
+        PcMethod::GaussianSmallDiskApprox2D,
+        PcMethod::Unspecified,
     ];
 
     for method in methods {
