@@ -6,6 +6,7 @@ retrieve sources, verify their claims, infer causality, or qualify an indicator.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -34,10 +35,15 @@ def _real_iso_date(value: object) -> bool:
 
 
 def _finite_number(value: object) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value)
+    except (OverflowError, TypeError):
+        return False
 
 
-def validate_observation(record: object, catalog: object) -> list[str]:
+def validate_observation(record: object, catalog: object, expected_catalog_sha256: str | None = None) -> list[str]:
     if not isinstance(record, dict):
         return ["observation record root must be an object"]
     if not isinstance(catalog, dict):
@@ -50,22 +56,32 @@ def validate_observation(record: object, catalog: object) -> list[str]:
     if record.get("qualification_status") != "unreviewed_source_observation":
         errors.append("qualification_status must remain unreviewed_source_observation")
 
-    for field in ("observation_id", "indicator_id", "native_unit", "denominator_definition"):
+    for field in ("observation_id", "indicator_id", "native_unit", "denominator_definition", "indicator_native_unit_contract", "unit_mapping_note", "denominator_contract_note"):
         if not isinstance(record.get(field), str) or not record[field].strip():
             errors.append(f"{field} must be a non-empty string")
 
     catalog_digest = record.get("indicator_catalog_sha256")
     if not isinstance(catalog_digest, str) or not SHA256.fullmatch(catalog_digest):
         errors.append("indicator_catalog_sha256 must be a lowercase SHA-256 digest")
+    elif expected_catalog_sha256 is not None and catalog_digest != expected_catalog_sha256:
+        errors.append("indicator_catalog_sha256 does not match the checked-in catalog bytes")
 
-    indicator_ids = {
-        i.get("indicator_id")
+    catalog_indicators = {
+        i.get("indicator_id"): i
         for i in catalog.get("indicators", [])
         if isinstance(i, dict) and isinstance(i.get("indicator_id"), str)
-    } if isinstance(catalog.get("indicators"), list) else set()
+    } if isinstance(catalog.get("indicators"), list) else {}
     indicator_id = record.get("indicator_id")
-    if isinstance(indicator_id, str) and indicator_id not in indicator_ids:
+    indicator_definition = catalog_indicators.get(indicator_id) if isinstance(indicator_id, str) else None
+    if isinstance(indicator_id, str) and indicator_definition is None:
         errors.append(f"indicator_id is not present in the candidate catalog: {indicator_id}")
+    if indicator_definition is not None:
+        contract = record.get("indicator_native_unit_contract")
+        if contract != indicator_definition.get("native_unit"):
+            errors.append("indicator_native_unit_contract must exactly match the selected catalog definition")
+    for field in ("unit_mapping_note", "denominator_contract_note"):
+        if not isinstance(record.get(field), str) or not record[field].strip():
+            errors.append(f"{field} must explain how the series aligns with the catalog contract")
 
     source = record.get("source")
     if not isinstance(source, dict):
@@ -142,13 +158,17 @@ def validate_observation(record: object, catalog: object) -> list[str]:
         transformation = {}
     if not isinstance(transformation.get("kind"), str) or transformation.get("kind") not in {"identity", "unit_conversion", "aggregation", "normalization", "model_estimate"}:
         errors.append("transformation.kind must be an explicit allowed method")
-    for field in ("method_id", "version", "description"):
+    for field in ("method_id", "version", "description", "output_unit"):
         if not isinstance(transformation.get(field), str) or not transformation[field].strip():
             errors.append(f"transformation.{field} must be a non-empty string")
     if not isinstance(transformation.get("parameters"), dict):
         errors.append("transformation.parameters must be an object, including an empty object for identity")
+    if transformation.get("output_unit") != record.get("native_unit"):
+        errors.append("transformation.output_unit must match the recorded native_unit")
     if not isinstance(transformation.get("input_sha256"), str) or not SHA256.fullmatch(transformation["input_sha256"]):
         errors.append("transformation.input_sha256 must be a lowercase SHA-256 digest")
+    if transformation.get("kind") == "identity" and transformation.get("input_sha256") != source.get("artifact_sha256"):
+        errors.append("identity transformation input_sha256 must match source.artifact_sha256")
 
     coverage = record.get("coverage")
     if not isinstance(coverage, dict):
@@ -202,11 +222,13 @@ def main() -> int:
         return 2
     try:
         record = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-        catalog = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
+        catalog_bytes = CATALOG_PATH.read_bytes()
+        catalog = json.loads(catalog_bytes)
+        catalog_digest = hashlib.sha256(catalog_bytes).hexdigest()
     except (OSError, json.JSONDecodeError) as exc:
         print(f"FAIL: cannot read record or catalog: {exc}", file=sys.stderr)
         return 1
-    errors = validate_observation(record, catalog)
+    errors = validate_observation(record, catalog, expected_catalog_sha256=catalog_digest)
     if errors:
         for error in errors:
             print(f"FAIL: {error}", file=sys.stderr)
