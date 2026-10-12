@@ -58,7 +58,8 @@ class MockDocument {
       'model-form', 'input-error', 'result', 'result-status', 'currency-code',
       'minor-unit-exponent', 'selling-price', 'variable-cost', 'planned-units',
       'fixed-monthly', 'setup-costs', 'working-capital', 'available-cash',
-      'cost-coverage', 'omitted-costs', 'download-scenario', 'load-scenario-file', 'download-report'
+      'cost-coverage', 'omitted-costs', 'download-scenario', 'load-scenario-file', 'download-report',
+      'cash-runway-periods', 'reset-cash-runway'
     ];
     for (const id of ids) this.nodes.set(id, new MockElement(id === 'model-form' ? 'form' : 'div', id));
     this.body = new MockElement('body');
@@ -79,9 +80,15 @@ class MockDocument {
   }
   querySelector(selector) {
     if (!selector.startsWith('#')) throw new Error('Mock DOM only implements ID selectors.');
-    return this.nodes.get(selector.slice(1)) ?? null;
+    return this.getElementById(selector.slice(1));
   }
-  getElementById(id) { return this.nodes.get(id) ?? null; }
+  getElementById(id) {
+    if (this.nodes.has(id)) return this.nodes.get(id);
+    for (let index = this.createdElements.length - 1; index >= 0; index -= 1) {
+      if (this.createdElements[index].id === id) return this.createdElements[index];
+    }
+    return null;
+  }
   createElement(tag) {
     const node = new MockElement(tag);
     this.createdElements.push(node);
@@ -110,6 +117,12 @@ class MockDocument {
     this.nodes.get('load-scenario-file').value = '';
     this.nodes.get('load-scenario-file').files = [];
     this.nodes.get('download-report').disabled = true;
+    for (let month = 1; month <= 12; month += 1) {
+      this.getElementById('cash-month-' + month + '-sales').value =
+        month === 1 ? '25' : month === 2 ? '38' : '50';
+      this.getElementById('cash-month-' + month + '-inflows').value = '0.00';
+      this.getElementById('cash-month-' + month + '-outflows').value = '0.00';
+    }
   }
   submit() {
     this.nodes.get('model-form').dispatchEvent({
@@ -145,6 +158,8 @@ test('default business scenario renders deterministic totals and cost warnings',
   assert.match(result.textContent, /8 units\/month/);
   assert.match(result.textContent, /PARTIAL COST COVERAGE/);
   assert.match(result.textContent, /owner labor, tax, insurance/);
+  assert.match(result.textContent, /12-month cash runway scenario/);
+  assert.match(result.textContent, /same month/);
   assert.equal(documentMock.getElementById('input-error').hidden, true);
 });
 
@@ -201,6 +216,9 @@ test('assumptions export produces versioned portable JSON without uploading inpu
   assert.equal(payload.input.currency.code, 'ZAR');
   assert.equal(payload.input.sellingPricePerUnitMinor, 18_000);
   assert.deepEqual(payload.input.costCoverage.omittedCategories, ['owner labor', 'tax', 'insurance']);
+  assert.equal(payload.cashRunwayPlan.length, 12);
+  assert.equal(payload.cashRunwayPlan[0].salesUnits, 25);
+  assert.equal(payload.cashRunwayPlan[1].salesUnits, 38);
 
   const anchor = documentMock.createdElements.at(-1);
   assert.equal(anchor.tagName, 'A');
@@ -247,6 +265,9 @@ test('report export is disabled until a valid calculation exists and includes bo
   assert.equal(payload.input.currency.code, 'ZAR');
   assert.equal(payload.report.breakEven.unitsPerMonth, 8);
   assert.equal(payload.report.startup.fundingGapMinor, 0);
+  assert.equal(payload.cashRunwayPlan.length, 12);
+  assert.equal(payload.cashRunwayProjection.horizonMonths, 12);
+  assert.equal(payload.cashRunwayProjection.kind, 'business-launchpad-cash-runway-report');
   assert.equal(documentMock.createdElements.at(-1).download, 'business-launchpad-report-v1.json');
   assert.ok(createdUrls.includes('blob:business-launchpad-test'));
 });
@@ -272,6 +293,16 @@ test('malformed or unsupported import files fail visibly without changing inputs
   assert.equal(documentMock.getElementById('selling-price').value, originalPrice);
   assert.match(documentMock.getElementById('input-error').textContent, /larger than 1 MB/);
   assert.equal(fileInput.value, '');
+});
+
+test('cash runway exposes reserve breaches when the first month has no sales', () => {
+  documentMock.reset();
+  documentMock.getElementById('cash-month-1-sales').value = '0';
+  documentMock.submit();
+  const output = documentMock.getElementById('result').textContent;
+  assert.match(output, /First reserve breachMonth 1/);
+  assert.match(output, /Extra cash to maintain reserveZAR 400\.00/);
+  assert.match(output, /Month 1/);
 });
 
 test('editing inputs invalidates a previously calculated report', () => {
