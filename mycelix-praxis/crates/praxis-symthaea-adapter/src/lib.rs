@@ -582,6 +582,49 @@ mod tests {
     }
 
     #[test]
+    fn prior_turn_response_is_rejected_for_new_prepared_request() {
+        let ids = ["lesson.fractions.01".to_string()];
+        let actions = [LearningSuggestion::OfferHint];
+        let reasons = [AdviceReason::RepeatedIncorrectAttempts];
+
+        let prior_request = prepare_advisory_request(AdvisoryRequestPolicy {
+            model_id: "symthaea",
+            model_version: "0.5.0",
+            skill_id: "math.fractions",
+            curriculum_revision: "2026.1",
+            allowed_actions: &actions,
+            allowed_reasons: &reasons,
+            allowed_content_ids: &ids,
+        })
+        .expect("prior request should prepare");
+        let mut current_request = prepare_advisory_request(AdvisoryRequestPolicy {
+            model_id: "symthaea",
+            model_version: "0.5.0",
+            skill_id: "math.fractions",
+            curriculum_revision: "2026.1",
+            allowed_actions: &actions,
+            allowed_reasons: &reasons,
+            allowed_content_ids: &ids,
+        })
+        .expect("current request should prepare");
+
+        assert_ne!(prior_request.input_digest(), current_request.input_digest());
+        let prior_response = valid_advice_json().replace(
+            &format!("blake3:{}", "0".repeat(64)),
+            prior_request.input_digest(),
+        );
+
+        assert_eq!(
+            current_request.read_and_validate_response_once(
+                Cursor::new(prior_response.as_bytes()),
+                true,
+                false,
+            ),
+            Err(BoundedAdviceReadError::Rejected(AdviceRejection::StaleInput))
+        );
+    }
+
+    #[test]
     fn prepared_request_rejects_a_second_response() {
         let ids = ["lesson.fractions.01".to_string()];
         let mut request = prepare_test_request(
