@@ -569,7 +569,18 @@ pub fn mark_maneuver_executed(input: ManeuverExecutedInput) -> ExternResult<Acti
             .into_wasm_error(),
         )?;
 
-    // Update status
+    // Validate every fallible field needed by the signal before mutating the
+    // source-chain record. Otherwise an invalid stored timestamp could leave an
+    // Executed status committed without its corresponding event signal.
+    let execution_time = maneuver.burn_time.try_to_datetime().map_err(|e| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Invalid stored maneuver burn timestamp: {}", e),
+        )
+        .into_wasm_error()
+    })?;
+
+    // Update status only after the event payload is known to be representable.
     maneuver.status = ManeuverStatus::Executed;
 
     let action_hash = update_entry(input.maneuver_hash, &maneuver)?;
@@ -583,13 +594,7 @@ pub fn mark_maneuver_executed(input: ManeuverExecutedInput) -> ExternResult<Acti
         conjunction_secondary: None,
         maneuver_type: SharedManeuverType::Combined,
         delta_v_ms: maneuver.delta_v_ms,
-        execution_time: maneuver.burn_time.try_to_datetime().map_err(|e| {
-            SpaceError::new(
-                SpaceErrorCode::InvalidInput,
-                format!("Invalid stored maneuver burn timestamp: {}", e),
-            )
-            .into_wasm_error()
-        })?,
+        execution_time,
         generated_at: chrono::Utc::now(),
         message: Some(format!("Maneuver executed for event {}", maneuver.event_id)),
     };
