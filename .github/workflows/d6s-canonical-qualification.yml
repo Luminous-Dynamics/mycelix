@@ -173,20 +173,20 @@ jobs:
           {
             echo "D6S CANONICAL REFERENCE GATE"
             echo "status=qualification-failed"
-            echo "commit=\${QUALIFIED_SHA}"
-            echo "workflow=\${GITHUB_WORKFLOW}"
-            echo "workflow_ref=\${GITHUB_WORKFLOW_REF}"
+            echo "commit=${QUALIFIED_SHA}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "workflow_ref=${GITHUB_WORKFLOW_REF}"
             echo "workflow_sha=$(git hash-object .github/workflows/d6s-canonical-qualification.yml)"
-            echo "run_id=\${GITHUB_RUN_ID}"
-            echo "run_attempt=\${GITHUB_RUN_ATTEMPT}"
-            echo "event=\${GITHUB_EVENT_NAME}"
-            echo "install_rust_outcome=\${{ steps.install_rust.outcome }}"
-            echo "assert_rust_outcome=\${{ steps.assert_rust.outcome }}"
-            echo "generate_lock_outcome=\${{ steps.generate_lock.outcome }}"
-            echo "resolve_graph_outcome=\${{ steps.resolve_graph.outcome }}"
-            echo "d6s_tests_outcome=\${{ steps.d6s_tests.outcome }}"
-            echo "canon1_verifier_outcome=\${{ steps.canon1_verifier.outcome }}"
-            echo "canon2_verifier_outcome=\${{ steps.canon2_verifier.outcome }}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "install_rust_outcome=${{ steps.install_rust.outcome }}"
+            echo "assert_rust_outcome=${{ steps.assert_rust.outcome }}"
+            echo "generate_lock_outcome=${{ steps.generate_lock.outcome }}"
+            echo "resolve_graph_outcome=${{ steps.resolve_graph.outcome }}"
+            echo "d6s_tests_outcome=${{ steps.d6s_tests.outcome }}"
+            echo "canon1_verifier_outcome=${{ steps.canon1_verifier.outcome }}"
+            echo "canon2_verifier_outcome=${{ steps.canon2_verifier.outcome }}"
             echo "rust=$(rustc --version 2>/dev/null || echo NotAvailable)"
             if [[ -f mycelix-manufacturing/Cargo.lock ]]; then
               echo "cargo_lock_sha256=$(sha256sum mycelix-manufacturing/Cargo.lock | cut -d' ' -f1)"
@@ -230,7 +230,7 @@ jobs:
         if: always() && steps.scope.outputs.relevant == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: d6s-canonical-reference-\${{ env.QUALIFIED_SHA }}
+          name: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
           path: |
             d6s-canonical-reference-qualification.txt
             d6s-changed-files.txt
@@ -242,7 +242,7 @@ jobs:
         if: always() && steps.scope.outputs.relevant == 'false'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: d6s-canonical-reference-\${{ env.QUALIFIED_SHA }}
+          name: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
           path: |
             d6s-canonical-reference-qualification.txt
             d6s-changed-files.txt
