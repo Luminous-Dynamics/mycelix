@@ -1,0 +1,109 @@
+name: Regenerative Data Contracts
+
+on:
+  push:
+    paths:
+      - ".github/workflows/regenerative-data-contracts.yml"
+      - "docs/economy-atlas/**"
+      - "scripts/validate_economy_atlas_registry.py"
+      - "scripts/validate_regenerative_*.py"
+      - "tests/test_economy_atlas_registry.py"
+      - "tests/test_regenerative_*.py"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - ".github/workflows/regenerative-data-contracts.yml"
+      - "docs/economy-atlas/**"
+      - "scripts/validate_economy_atlas_registry.py"
+      - "scripts/validate_regenerative_*.py"
+      - "tests/test_economy_atlas_registry.py"
+      - "tests/test_regenerative_*.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regenerative-data-contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  catalog-contracts:
+    name: Candidate catalog and schema validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact commit
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile validators and tests
+        run: |
+          python -m compileall -q \
+            scripts/validate_economy_atlas_registry.py \
+            scripts/validate_regenerative_indicators.py \
+            scripts/validate_regenerative_observation.py \
+            scripts/validate_regenerative_dataset_candidates.py \
+            tests/test_economy_atlas_registry.py \
+            tests/test_regenerative_indicators.py \
+            tests/test_regenerative_observation.py \
+            tests/test_regenerative_dataset_candidates.py
+
+      - name: Validate source-pinned model registry
+        run: |
+          python3 scripts/validate_economy_atlas_registry.py
+          python3 -m unittest discover -s tests -p 'test_economy_atlas_registry.py'
+
+      - name: Validate regenerative indicator catalog
+        run: |
+          python3 scripts/validate_regenerative_indicators.py
+          python3 -m unittest discover -s tests -p 'test_regenerative_indicators.py'
+
+      - name: Validate observation receipt contract
+        run: |
+          python3 -m unittest discover -s tests -p 'test_regenerative_observation.py'
+
+      - name: Validate dataset rights gates
+        run: |
+          python3 scripts/validate_regenerative_dataset_candidates.py
+          python3 -m unittest discover -s tests -p 'test_regenerative_dataset_candidates.py'
+
+      - name: Validate JSON Schemas and checked-in artifacts
+        run: |
+          python -m pip install --disable-pip-version-check 'jsonschema>=4.23,<5'
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          import jsonschema
+
+          root = Path(".")
+          pairs = [
+              ("docs/economy-atlas/model-registry.schema.json",
+               "docs/economy-atlas/model-registry.v1.json"),
+              ("docs/economy-atlas/regenerative-indicators.schema.json",
+               "docs/economy-atlas/regenerative-indicators.v1.json"),
+              ("docs/economy-atlas/regenerative-dataset-candidates.schema.json",
+               "docs/economy-atlas/regenerative-dataset-candidates.v1.json"),
+          ]
+          for schema_name, artifact_name in pairs:
+              schema = json.loads((root / schema_name).read_text(encoding="utf-8"))
+              artifact = json.loads((root / artifact_name).read_text(encoding="utf-8"))
+              jsonschema.Draft202012Validator.check_schema(schema)
+              jsonschema.Draft202012Validator(schema).validate(artifact)
+              print(f"PASS: {artifact_name} conforms to {schema_name}")
+
+          receipt_schema = json.loads(
+              (root / "docs/economy-atlas/regenerative-observation-record.schema.json")
+              .read_text(encoding="utf-8")
+          )
+          jsonschema.Draft202012Validator.check_schema(receipt_schema)
+          sys.path.insert(0, str(root / "tests"))
+          from test_regenerative_observation import fixture_record
+          jsonschema.Draft202012Validator(receipt_schema).validate(fixture_record())
+          print("PASS: synthetic-only observation receipt fixture conforms to the observation schema")
+          PY
