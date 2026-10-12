@@ -186,6 +186,162 @@ export function analyzeBusinessModel(input) {
 }
 
 /**
+ * Project a bounded month-by-month cash scenario from the single-offer model.
+ *
+ * This is a transparent scenario, not a forecast: every planned sale is assumed
+ * to be fully collected in its stated month and the corresponding variable cash
+ * cost is assumed paid in that same month. The caller must supply month-specific
+ * non-sales inflows/outflows where known. Setup cost is deducted before month 1;
+ * the working-capital buffer is treated as a minimum reserve target, not a second
+ * cash payment.
+ *
+ * @param {{model: object, monthlyPlan: Array<{salesUnits:number, otherCashInflowsMinor:number, otherCashOutflowsMinor:number}>}} input
+ * @returns {{ok:true, report:object} | {ok:false, error:object}}
+ */
+export function projectCashRunway(input) {
+  if (!isRecord(input)) {
+    return fail('invalid_cash_runway_input', 'A cash-runway scenario object is required.');
+  }
+  const validation = validateModel(input.model);
+  if (validation.error) return validation.error;
+  const model = validation.model;
+  const plan = input.monthlyPlan;
+
+  if (!Array.isArray(plan) || plan.length < 1 || plan.length > 24) {
+    return fail('invalid_cash_runway_horizon', 'The monthly cash plan must contain between 1 and 24 months.', 'monthlyPlan');
+  }
+
+  const normalizedPlan = [];
+  const fields = ['salesUnits', 'otherCashInflowsMinor', 'otherCashOutflowsMinor'];
+  for (let index = 0; index < plan.length; index += 1) {
+    const period = plan[index];
+    if (!isRecord(period)) {
+      return fail('invalid_cash_runway_period', 'Each monthly cash-plan entry must be an object.', 'monthlyPlan[' + index + ']');
+    }
+    for (const field of fields) {
+      if (!isNonNegativeSafeInteger(period[field])) {
+        return fail(
+          'invalid_cash_runway_amount',
+          field + ' must be a non-negative safe integer in the stated units/minor currency units.',
+          'monthlyPlan[' + index + '].' + field
+        );
+      }
+    }
+    normalizedPlan.push({
+      salesUnits: period.salesUnits,
+      otherCashInflowsMinor: period.otherCashInflowsMinor,
+      otherCashOutflowsMinor: period.otherCashOutflowsMinor
+    });
+  }
+
+  try {
+    const price = BigInt(model.sellingPricePerUnitMinor);
+    const variableCostPerUnit = BigInt(model.variableCostPerUnitMinor);
+    const fixedMonthlyCosts = BigInt(model.fixedMonthlyCostsMinor);
+    const setupOutflow = BigInt(model.setupCostsMinor);
+    const openingCash = BigInt(model.availableCashForStartupMinor);
+    const reserveTarget = BigInt(model.initialWorkingCapitalBufferMinor);
+
+    // Setup is paid once before the first projected month. Do not subtract the
+    // working-capital reserve: it is a threshold against which liquidity is judged.
+    let cash = openingCash - setupOutflow;
+    let minimumCash = cash;
+    let minimumCashPeriod = 0;
+    let firstNegativeCashPeriod = cash < 0n ? 0 : null;
+    let firstBelowReservePeriod = cash < reserveTarget ? 0 : null;
+    const periods = [];
+
+    for (let index = 0; index < normalizedPlan.length; index += 1) {
+      const period = normalizedPlan[index];
+      const salesUnits = BigInt(period.salesUnits);
+      const salesReceipts = price * salesUnits;
+      const variableCashCosts = variableCostPerUnit * salesUnits;
+      const otherInflows = BigInt(period.otherCashInflowsMinor);
+      const otherOutflows = BigInt(period.otherCashOutflowsMinor);
+      const totalCashReceipts = salesReceipts + otherInflows;
+      const totalCashOutflows = variableCashCosts + fixedMonthlyCosts + otherOutflows;
+      const netCashChange = totalCashReceipts - totalCashOutflows;
+      cash += netCashChange;
+      const periodNumber = index + 1;
+
+      if (cash < minimumCash) {
+        minimumCash = cash;
+        minimumCashPeriod = periodNumber;
+      }
+      if (firstNegativeCashPeriod === null && cash < 0n) {
+        firstNegativeCashPeriod = periodNumber;
+      }
+      if (firstBelowReservePeriod === null && cash < reserveTarget) {
+        firstBelowReservePeriod = periodNumber;
+      }
+
+      periods.push({
+        period: periodNumber,
+        plannedSalesUnits: period.salesUnits,
+        assumedSalesCashReceiptsMinor: outputInteger(salesReceipts, 'period' + periodNumber + '.assumedSalesCashReceiptsMinor'),
+        otherCashInflowsMinor: period.otherCashInflowsMinor,
+        totalCashReceiptsMinor: outputInteger(totalCashReceipts, 'period' + periodNumber + '.totalCashReceiptsMinor'),
+        variableCashCostsMinor: outputInteger(variableCashCosts, 'period' + periodNumber + '.variableCashCostsMinor'),
+        fixedCashCostsMinor: model.fixedMonthlyCostsMinor,
+        otherCashOutflowsMinor: period.otherCashOutflowsMinor,
+        totalCashOutflowsMinor: outputInteger(totalCashOutflows, 'period' + periodNumber + '.totalCashOutflowsMinor'),
+        netCashChangeMinor: outputInteger(netCashChange, 'period' + periodNumber + '.netCashChangeMinor'),
+        closingCashMinor: outputInteger(cash, 'period' + periodNumber + '.closingCashMinor'),
+        belowReserve: cash < reserveTarget,
+        negativeCash: cash < 0n
+      });
+    }
+
+    const minimumCashNumber = outputInteger(minimumCash, 'minimumCashMinor');
+    const report = {
+      schemaVersion: 1,
+      kind: 'business-launchpad-cash-runway-report',
+      currency: { ...model.currency },
+      basis: 'Owner-supplied month-by-month scenario; not a demand forecast.',
+      horizonMonths: normalizedPlan.length,
+      startup: {
+        openingCashBeforeSetupMinor: model.availableCashForStartupMinor,
+        oneTimeSetupCashOutflowMinor: model.setupCostsMinor,
+        cashAfterSetupBeforeMonthOneMinor: outputInteger(openingCash - setupOutflow, 'cashAfterSetupBeforeMonthOneMinor'),
+        minimumCashReserveTargetMinor: model.initialWorkingCapitalBufferMinor
+      },
+      periods,
+      summary: {
+        endingCashMinor: outputInteger(cash, 'endingCashMinor'),
+        minimumProjectedCashMinor: minimumCashNumber,
+        minimumCashPeriod,
+        firstNegativeCashPeriod,
+        firstBelowReservePeriod,
+        additionalCashNeededToMaintainReserveMinor: outputInteger(
+          minimumCash < reserveTarget ? reserveTarget - minimumCash : 0n,
+          'additionalCashNeededToMaintainReserveMinor'
+        ),
+        periodsBelowReserve: periods.filter(period => period.belowReserve).map(period => period.period),
+        periodsWithNegativeCash: periods.filter(period => period.negativeCash).map(period => period.period)
+      },
+      costCoverage: {
+        level: model.costCoverage.level,
+        omittedCategories: [...model.costCoverage.omittedCategories]
+      },
+      scopeLimitations: [
+        'This is a deterministic scenario using owner-entered monthly sales units, not a demand prediction or guarantee of sales.',
+        'Every planned sale is assumed to be collected fully in the same month; receivables, delayed settlement and bad debt are not modeled.',
+        'Per-unit variable cash costs are assumed paid in the same month as the sale; inventory purchased in advance, supplier credit and payables timing are not modeled.',
+        'Setup costs are deducted once before month one. The working-capital amount is a reserve threshold, not an additional cash outflow.',
+        'Taxes, owner draw, financing, debt service and other costs must be entered as monthly other cash outflows if they are to be included; omitted/unknown costs remain a limitation.',
+        'Each period uses one average selling price, one average variable cash cost and fixed monthly costs from the base model; product mix, seasonality, capacity and operational disruptions are not modeled.'
+      ]
+    };
+    return { ok: true, report };
+  } catch (error) {
+    if (error instanceof RangeError && error.code === 'calculation_overflow') {
+      return fail(error.code, error.message, error.field ?? null);
+    }
+    return fail('calculation_error', 'The cash-runway scenario could not be analyzed safely. No projection has been produced.');
+  }
+}
+
+/**
  * Format a signed minor-unit amount deterministically (not locale-specific).
  * The UI may localize display separately.
  *
