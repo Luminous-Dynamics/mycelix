@@ -109,8 +109,7 @@
           "enum": [
             "license_not_verified",
             "license_metadata_conflict",
-            "restricted_noncommercial_use",
-            "eligible_for_manual_review"
+            "restricted_noncommercial_use"
           ]
         },
         "temporal_coverage": {
