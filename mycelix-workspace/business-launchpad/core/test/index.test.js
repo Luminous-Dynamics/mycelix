@@ -166,6 +166,41 @@ test('projects independently timed cash receipts and operating payments', () => 
   assert.deepEqual(result.report.summary.periodsWithNegativeCash, [0, 1]);
 });
 
+test('sales activity does not automatically become cash receipts, and cash payments can precede collections', () => {
+  const result = projectCashRunway({
+    model: completeModel({
+      setupCostsMinor: 0,
+      availableCashForStartupMinor: 200_000,
+      initialWorkingCapitalBufferMinor: 50_000
+    }),
+    monthlyPlan: [
+      {
+        salesUnits: 100,
+        salesCashReceiptsMinor: 0,
+        operatingCashOutflowsMinor: 160_000,
+        otherCashInflowsMinor: 0,
+        otherCashOutflowsMinor: 0
+      },
+      {
+        salesUnits: 0,
+        salesCashReceiptsMinor: 1_000_000,
+        operatingCashOutflowsMinor: 0,
+        otherCashInflowsMinor: 0,
+        otherCashOutflowsMinor: 0
+      }
+    ]
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.report.periods[0].salesUnitsScenario, 100);
+  assert.equal(result.report.periods[0].salesCashReceiptsMinor, 0);
+  assert.equal(result.report.periods[0].operatingCashOutflowsMinor, 160_000);
+  assert.equal(result.report.periods[0].closingCashMinor, 40_000);
+  assert.equal(result.report.periods[1].salesUnitsScenario, 0);
+  assert.equal(result.report.periods[1].salesCashReceiptsMinor, 1_000_000);
+  assert.equal(result.report.periods[1].closingCashMinor, 1_040_000);
+  assert.equal(result.report.summary.firstBelowReservePeriod, 1);
+});
+
 test('legacy cash plans derive only missing receipt and payment fields', () => {
   const model = completeModel();
   const legacy = projectCashRunway({
