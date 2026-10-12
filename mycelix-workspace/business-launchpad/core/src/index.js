@@ -189,9 +189,9 @@ export function analyzeBusinessModel(input) {
  * Project a bounded month-by-month cash scenario from the single-offer model.
  *
  * Sales activity, sales cash receipts, operating payments, investing cash flows,
- * and financing cash flows are separate inputs. Same-month sales/cost defaults are
- * only conveniences; callers can move collections/payments and model capital or
- * financing events in their expected cash months. Setup is deducted before month 1;
+ * and financing cash flows are separate inputs. The legacy generic "other" amounts
+ * remain unclassified rather than being silently relabeled as operating cash. Same-
+ * month sales/cost defaults are only conveniences. Setup is deducted before month 1;
  * the working-capital buffer is a reserve threshold, not a second payment.
  *
  * Backward compatibility: legacy plans missing receipt/payment fields receive the
@@ -318,14 +318,15 @@ export function projectCashRunway(input) {
       const investingOutflows = BigInt(period.investingCashOutflowsMinor);
       const financingInflows = BigInt(period.financingCashInflowsMinor);
       const financingOutflows = BigInt(period.financingCashOutflowsMinor);
-      const totalOperatingCashReceipts = salesCashReceipts + otherInflows;
-      const totalOperatingCashOutflows = operatingCashOutflows + otherOutflows;
+      const totalOperatingCashReceipts = salesCashReceipts;
+      const totalOperatingCashOutflows = operatingCashOutflows;
       const netOperatingCashFlow = totalOperatingCashReceipts - totalOperatingCashOutflows;
+      const netUnclassifiedCashFlow = otherInflows - otherOutflows;
       const netInvestingCashFlow = investingInflows - investingOutflows;
       const netFinancingCashFlow = financingInflows - financingOutflows;
-      const totalCashReceipts = totalOperatingCashReceipts + investingInflows + financingInflows;
-      const totalCashOutflows = totalOperatingCashOutflows + investingOutflows + financingOutflows;
-      const netCashChange = netOperatingCashFlow + netInvestingCashFlow + netFinancingCashFlow;
+      const totalCashReceipts = salesCashReceipts + otherInflows + investingInflows + financingInflows;
+      const totalCashOutflows = operatingCashOutflows + otherOutflows + investingOutflows + financingOutflows;
+      const netCashChange = netOperatingCashFlow + netUnclassifiedCashFlow + netInvestingCashFlow + netFinancingCashFlow;
       cash += netCashChange;
       const periodNumber = index + 1;
 
@@ -351,6 +352,7 @@ export function projectCashRunway(input) {
         otherCashOutflowsMinor: period.otherCashOutflowsMinor,
         totalOperatingCashOutflowsMinor: outputInteger(totalOperatingCashOutflows, 'period' + periodNumber + '.totalOperatingCashOutflowsMinor'),
         netOperatingCashFlowMinor: outputInteger(netOperatingCashFlow, 'period' + periodNumber + '.netOperatingCashFlowMinor'),
+        netUnclassifiedCashFlowMinor: outputInteger(netUnclassifiedCashFlow, 'period' + periodNumber + '.netUnclassifiedCashFlowMinor'),
         investingCashInflowsMinor: period.investingCashInflowsMinor,
         investingCashOutflowsMinor: period.investingCashOutflowsMinor,
         netInvestingCashFlowMinor: outputInteger(netInvestingCashFlow, 'period' + periodNumber + '.netInvestingCashFlowMinor'),
@@ -370,7 +372,7 @@ export function projectCashRunway(input) {
       schemaVersion: 2,
       kind: 'business-launchpad-cash-runway-report',
       currency: { ...model.currency },
-      basis: 'Owner-supplied monthly cash receipts and payments classified into planning buckets for operating, investing and financing movements; not a demand forecast or accounting statement.',
+      basis: 'Owner-supplied monthly cash receipts and payments in operating, investing and financing planning buckets plus an explicitly unclassified residual; not a demand forecast or accounting statement.',
       horizonMonths: normalizedPlan.length,
       startup: {
         openingCashBeforeSetupMinor: model.availableCashForStartupMinor,
@@ -408,10 +410,10 @@ export function projectCashRunway(input) {
         'Enter operatingCashOutflowsMinor for the month operating payments are expected to leave cash. By default only, legacy plans derive variable and fixed operating cash costs from same-month sales activity.',
         'The model does not maintain an accounts-receivable/accounts-payable ledger, age invoices, reconcile actual settlement, or model supplier-credit balances. User-supplied monthly cash timing is a scenario assumption.',
         'Setup costs are deducted once before month one. The working-capital amount is a reserve threshold, not an additional cash outflow.',
-        'Other operating inflows/outflows are additive to sales receipts and operating payments. Do not count one transaction in more than one bucket.',
+        'The legacy otherCashInflowsMinor/otherCashOutflowsMinor fields are unclassified residuals. They affect total cash, but do not contribute to the operating/investing/financing net-flow subtotals until an owner reclassifies the underlying item. This preserves ambiguous values imported from old scenario files rather than guessing their accounting category. Do not count one transaction in more than one bucket.',
         'Investing fields capture cash from asset/investment disposals and cash paid for long-term assets; financing fields capture cash from capital/borrowing and cash paid for owner distributions or principal repayments. Enter only cash movements, not non-cash transactions.',
         'These categories are planning labels, not accounting classification advice. Actual classification can depend on the transaction, applicable reporting framework and jurisdiction; this prototype is not an IAS 7 statement.',
-        'Missing investing/financing fields in legacy plans are treated as zero for compatibility, which may leave their runway understated if a real capital or financing event was omitted.',
+        'Missing investing/financing fields in legacy plans are treated as zero for compatibility, which may leave their runway understated if a real capital or financing event was omitted. The generic other fields are not automatically assigned to a category.',
         'Each period uses one average offer for its activity assumption; product mix, seasonality, capacity and operational disruptions are not modeled.'
       ]
     };
