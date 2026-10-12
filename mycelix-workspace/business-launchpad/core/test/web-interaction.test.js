@@ -22,6 +22,9 @@ class MockElement {
     this.children = [];
     this.listeners = new Map();
     this._text = '';
+    this.files = [];
+    this.clicked = false;
+    this.removed = false;
   }
   set textContent(value) {
     this._text = value == null ? '' : String(value);
@@ -32,6 +35,8 @@ class MockElement {
   }
   append(child) { this.children.push(child); }
   replaceChildren(...children) { this._text = ''; this.children = children; }
+  click() { this.clicked = true; }
+  remove() { this.removed = true; }
   setAttribute(name, value) { this.attributes[name] = String(value); }
   addEventListener(type, listener) {
     const entries = this.listeners.get(type) ?? [];
@@ -53,9 +58,12 @@ class MockDocument {
       'model-form', 'input-error', 'result', 'result-status', 'currency-code',
       'minor-unit-exponent', 'selling-price', 'variable-cost', 'planned-units',
       'fixed-monthly', 'setup-costs', 'working-capital', 'available-cash',
-      'cost-coverage', 'omitted-costs'
+      'cost-coverage', 'omitted-costs', 'download-scenario', 'load-scenario-file', 'download-report'
     ];
     for (const id of ids) this.nodes.set(id, new MockElement(id === 'model-form' ? 'form' : 'div', id));
+    this.body = new MockElement('body');
+    this.createdElements = [];
+    this.nodes.get('download-report').disabled = true;
     this.nodes.get('currency-code').value = 'ZAR';
     this.nodes.get('minor-unit-exponent').value = '2';
     this.nodes.get('selling-price').value = '180.00';
@@ -74,7 +82,11 @@ class MockDocument {
     return this.nodes.get(selector.slice(1)) ?? null;
   }
   getElementById(id) { return this.nodes.get(id) ?? null; }
-  createElement(tag) { return new MockElement(tag); }
+  createElement(tag) {
+    const node = new MockElement(tag);
+    this.createdElements.push(node);
+    return node;
+  }
   reset() {
     const values = {
       'currency-code': 'ZAR',
@@ -95,6 +107,9 @@ class MockDocument {
     this.nodes.get('result').replaceChildren();
     this.nodes.get('result-status').textContent = 'Example not yet calculated';
     this.nodes.get('omitted-costs').disabled = false;
+    this.nodes.get('load-scenario-file').value = '';
+    this.nodes.get('load-scenario-file').files = [];
+    this.nodes.get('download-report').disabled = true;
   }
   submit() {
     this.nodes.get('model-form').dispatchEvent({
@@ -108,6 +123,17 @@ class MockDocument {
 
 const documentMock = new MockDocument();
 globalThis.document = documentMock;
+let capturedBlob = null;
+const revokedUrls = [];
+globalThis.URL = {
+  createObjectURL(blob) {
+    capturedBlob = blob;
+    return 'blob:business-launchpad-test';
+  },
+  revokeObjectURL(url) {
+    revokedUrls.push(url);
+  }
+};
 await import('../../web/app.mjs');
 
 test('default business scenario renders deterministic totals and cost warnings', () => {
@@ -163,10 +189,87 @@ test('malformed currency code and non-integer unit volume produce explicit error
   assert.match(documentMock.getElementById('input-error').textContent, /whole, non-negative number/);
 });
 
+test('assumptions export produces versioned portable JSON without uploading inputs', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  assert.ok(capturedBlob instanceof Blob);
+  assert.equal(capturedBlob.type, 'application/json;charset=utf-8');
+
+  const payload = JSON.parse(await capturedBlob.text());
+  assert.equal(payload.schemaVersion, 1);
+  assert.equal(payload.kind, 'business-launchpad-scenario');
+  assert.equal(payload.input.currency.code, 'ZAR');
+  assert.equal(payload.input.sellingPricePerUnitMinor, 18_000);
+  assert.deepEqual(payload.input.costCoverage.omittedCategories, ['owner labor', 'tax', 'insurance']);
+
+  const anchor = documentMock.createdElements.at(-1);
+  assert.equal(anchor.tagName, 'A');
+  assert.equal(anchor.download, 'business-launchpad-scenario-v1.json');
+  assert.equal(anchor.clicked, true);
+  assert.equal(anchor.removed, true);
+});
+
+test('imported scenario is validated, restores fields, and requires recalculation', async () => {
+  documentMock.reset();
+  documentMock.getElementById('download-scenario').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+  payload.input.sellingPricePerUnitMinor = 20_000;
+  payload.input.plannedUnitsPerMonth = 40;
+
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify(payload) }];
+  fileInput.value = 'modified-scenario.json';
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(fileInput.value, '');
+  assert.equal(documentMock.getElementById('selling-price').value, '200.00');
+  assert.equal(documentMock.getElementById('planned-units').value, '40');
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Scenario loaded — calculate to review');
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+
+  documentMock.submit();
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Deterministic calculation');
+  assert.match(documentMock.getElementById('result').textContent, /ZAR 5500\.00/);
+  assert.equal(documentMock.getElementById('download-report').disabled, false);
+});
+
+test('report export is disabled until a valid calculation exists and includes both inputs and report', async () => {
+  documentMock.reset();
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+
+  documentMock.submit();
+  assert.equal(documentMock.getElementById('download-report').disabled, false);
+  documentMock.getElementById('download-report').dispatchEvent({ type: 'click' });
+  const payload = JSON.parse(await capturedBlob.text());
+
+  assert.equal(payload.schemaVersion, 1);
+  assert.equal(payload.kind, 'business-launchpad-report');
+  assert.equal(payload.input.currency.code, 'ZAR');
+  assert.equal(payload.report.breakEven.unitsPerMonth, 8);
+  assert.equal(payload.report.startup.fundingGapMinor, 0);
+  assert.equal(documentMock.createdElements.at(-1).download, 'business-launchpad-report-v1.json');
+  assert.ok(revokedUrls.includes('blob:business-launchpad-test'));
+});
+
+test('malformed or unsupported import files fail visibly without changing inputs', async () => {
+  documentMock.reset();
+  const originalPrice = documentMock.getElementById('selling-price').value;
+  const fileInput = documentMock.getElementById('load-scenario-file');
+  fileInput.files = [{ text: async () => JSON.stringify({ schemaVersion: 2, kind: 'business-launchpad-scenario', input: {} }) }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(documentMock.getElementById('selling-price').value, originalPrice);
+  assert.equal(documentMock.getElementById('input-error').hidden, false);
+  assert.match(documentMock.getElementById('input-error').textContent, /schemaVersion 1 required/);
+  assert.equal(fileInput.value, '');
+});
+
 test('static client does not contain application-level network or browser persistence calls', async () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const source = await readFile(resolve(here, '../../web/app.mjs'), 'utf8');
   assert.doesNotMatch(source, /\bfetch\s*\(/);
   assert.doesNotMatch(source, /XMLHttpRequest|localStorage|sessionStorage|indexedDB|serviceWorker/);
+  assert.match(source, /URL\.createObjectURL/);
+  assert.match(source, /file\.text\(\)/);
   assert.doesNotMatch(source, /\.innerHTML\s*=/);
 });
