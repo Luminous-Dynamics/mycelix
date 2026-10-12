@@ -609,8 +609,9 @@ def main() -> int:
     require(
         "if self.response_consumed" in one_shot
         and "return Err(BoundedAdviceReadError::ResponseAlreadyConsumed)" in one_shot
-        and "self.response_consumed = true;" in one_shot,
-        "prepared response validation must fail closed after one received response",
+        and "self.response_consumed = true;" in one_shot
+        and "Err(error @ BoundedAdviceReadError::ResponseTooLarge)" in one_shot,
+        "prepared response validation must fail closed after accepted/oversized body and block replays",
         errors,
     )
     require(
