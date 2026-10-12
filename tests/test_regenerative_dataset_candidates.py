@@ -90,6 +90,16 @@ class RegenerativeDatasetCandidateTests(unittest.TestCase):
             ["dataset candidate catalog root must be an object"],
         )
 
+    def test_unhashable_related_indicator_fails_closed(self) -> None:
+        self.manifest["candidates"][0]["related_indicator_ids"] = [{"not": "an ID"}]
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("unknown or malformed indicator_id" in error for error in errors), errors)
+
+    def test_unhashable_reason_code_does_not_crash(self) -> None:
+        self.manifest["candidates"][0]["ingestion_gate"]["reason_codes"] = [{"not": "a string"}]
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("reason_codes must be a non-empty string list" in error for error in errors), errors)
+
 
 if __name__ == "__main__":
     unittest.main()
