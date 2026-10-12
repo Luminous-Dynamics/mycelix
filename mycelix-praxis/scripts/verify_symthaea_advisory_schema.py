@@ -449,6 +449,67 @@ def main() -> int:
         errors,
     )
 
+    # Workflow integrity is part of the qualified contract. Check the
+    # source subject, action/toolchain pins, least privilege, and trigger scope
+    # so a drifted workflow cannot silently weaken the checks this script claims.
+    require(
+        "QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}" in workflow_source
+        and "uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683" in workflow_source
+        and "ref: ${{ env.QUALIFIED_SHA }}" in workflow_source
+        and 'test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"' in workflow_source
+        and "persist-credentials: false" in workflow_source,
+        "qualification workflow must check out and assert the exact source subject without persisting checkout credentials",
+        errors,
+    )
+    require(
+        "uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9" in workflow_source
+        and "toolchain: 1.96.0" in workflow_source
+        and "components: rustfmt" in workflow_source,
+        "qualification workflow must pin the Rust action revision and toolchain",
+        errors,
+    )
+    require(
+        "permissions:\\n  contents: read" in workflow_source
+        and "timeout-minutes: 30" in workflow_source
+        and "types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]" in workflow_source
+        and "workflow_dispatch:" in workflow_source,
+        "qualification workflow must retain read-only permissions, a job timeout, draft-inclusive PR events, and manual dispatch",
+        errors,
+    )
+
+    pull_request_trigger = (
+        workflow_source.split("  pull_request:\\n", 1)[1].split("\\n  push:", 1)[0]
+        if "  pull_request:\\n" in workflow_source and "\\n  push:" in workflow_source
+        else ""
+    )
+    push_trigger = (
+        workflow_source.split("  push:\\n", 1)[1].split("\\n  workflow_dispatch:", 1)[0]
+        if "  push:\\n" in workflow_source and "\\n  workflow_dispatch:" in workflow_source
+        else ""
+    )
+    required_workflow_paths = (
+        "mycelix-praxis/crates/praxis-core/**",
+        "mycelix-praxis/crates/praxis-symthaea-adapter/**",
+        "mycelix-praxis/Cargo.toml",
+        "mycelix-praxis/schemas/symthaea-advisory-v1.schema.json",
+        "mycelix-praxis/schemas/symthaea-advisory-request-v1.schema.json",
+        "mycelix-praxis/schemas/examples/symthaea-advisory-request-v1.json",
+        "mycelix-praxis/schemas/README.md",
+        "mycelix-praxis/docs/symthaea-advisory-contract.md",
+        "mycelix-praxis/scripts/verify_symthaea_advisory_schema.py",
+        ".github/workflows/praxis-symthaea-advisory.yml",
+    )
+    for event_name, trigger_source in (
+        ("pull_request", pull_request_trigger),
+        ("push", push_trigger),
+    ):
+        require(
+            bool(trigger_source)
+            and all(f'"{path}"' in trigger_source for path in required_workflow_paths),
+            f"{event_name} trigger must cover every contract, schema, checker, and workflow input",
+            errors,
+        )
+
     # Dependency resolution is captured once for this run; all compiler/test
     # operations then use Cargo's locked mode. This provides within-run graph
     # consistency and an inspectable artifact, not cross-run lockfile pinning.
