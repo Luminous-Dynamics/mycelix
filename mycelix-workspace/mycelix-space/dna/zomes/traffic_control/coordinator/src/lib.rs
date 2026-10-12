@@ -2406,7 +2406,12 @@ mod conjunction_reference_tests {
         }
     }
 
-    fn validate(records: &[ConjunctionReference], event_id: &str, primary: u32, secondary: u32) -> Result<(), String> {
+    fn validate(
+        records: &[ConjunctionReference],
+        event_id: &str,
+        primary: u32,
+        secondary: u32,
+    ) -> Result<(), String> {
         validate_conjunction_reference(records, event_id, primary, secondary, NOW_MICROS)
     }
 
