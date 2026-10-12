@@ -189,7 +189,13 @@ pub fn create_conjunction_event(input: CreateEventInput) -> ExternResult<ActionH
         })?;
 
         let analyzer = ConjunctionAnalyzer::new();
-        let assessment = analyzer.assess(&primary_state, &secondary_state);
+        let assessment = analyzer.try_assess(&primary_state, &secondary_state).map_err(|e| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Checked conjunction assessment rejected: {}", e),
+            )
+            .into_wasm_error()
+        })?;
 
         (
             assessment.miss_distance_km,
@@ -1021,7 +1027,13 @@ pub fn screen_conjunction_from_tles(
             Err(_) => continue,
         };
 
-        let assessment = analyzer.assess(&p_state, &s_state);
+        let assessment = analyzer.try_assess(&p_state, &s_state).map_err(|e| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Checked conjunction assessment rejected; batch is incomplete: {}", e),
+            )
+            .into_wasm_error()
+        })?;
 
         if assessment.collision_probability.pc >= input.pc_threshold {
             let shared_assessment = ConjunctionAssessment {
@@ -1267,7 +1279,13 @@ pub fn rescreen_conjunction(event_hash: ActionHash) -> ExternResult<ConjunctionE
     })?;
 
     let analyzer = ConjunctionAnalyzer::new();
-    let assessment = analyzer.assess(&primary_state, &secondary_state);
+    let assessment = analyzer.try_assess(&primary_state, &secondary_state).map_err(|e| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Checked conjunction assessment rejected: {}", e),
+            )
+            .into_wasm_error()
+        })?;
     let new_risk = convert_lib_risk_to_integrity(assessment.risk_level);
     let new_pc = assessment.collision_probability.pc;
     let new_miss = assessment.miss_distance_km;
