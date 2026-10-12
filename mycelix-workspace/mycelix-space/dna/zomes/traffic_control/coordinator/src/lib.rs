@@ -310,6 +310,29 @@ fn validate_session_deadline(
     Ok(())
 }
 
+/// Ensure an agreement's execution window remains within the originating
+/// negotiation window and authoritative conjunction timeline.
+fn validate_agreement_deadline(
+    execution_deadline_micros: i64,
+    session_deadline_micros: i64,
+    tca_micros: i64,
+    now_micros: i64,
+) -> Result<(), String> {
+    if session_deadline_micros <= now_micros {
+        return Err("Negotiation session deadline has passed".to_string());
+    }
+    if execution_deadline_micros <= now_micros {
+        return Err("Agreement execution deadline must be in the future".to_string());
+    }
+    if execution_deadline_micros > session_deadline_micros {
+        return Err("Agreement execution deadline must not outlive the negotiation session".to_string());
+    }
+    if execution_deadline_micros > tca_micros {
+        return Err("Agreement execution deadline must not be later than conjunction TCA".to_string());
+    }
+    Ok(())
+}
+
 /// Initiate a negotiation session.
 ///
 /// Cross-zome verifies that the requested conjunction exists and references
@@ -701,19 +724,25 @@ pub fn accept_proposal(input: AcceptProposalInput) -> ExternResult<ActionHash> {
         .into_wasm_error());
     }
 
-    // --- Deadline check: execution_deadline must be in the future ---
+    // Keep the agreement deadline inside the session's own decision window.
     let now = SpaceTimestamp::now();
-    if now.micros >= input.execution_deadline.micros {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            "Execution deadline has already passed",
-        )
-        .with_context(format!(
-            "now: {}, deadline: {}",
-            now.micros, input.execution_deadline.micros
-        ))
-        .into_wasm_error());
-    }
+    validate_agreement_deadline(
+        input.execution_deadline.micros,
+        session.deadline.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidInput, message)
+            .with_context(format!(
+                "now: {}, execution deadline: {}, session deadline: {}, TCA: {}",
+                now.micros,
+                input.execution_deadline.micros,
+                session.deadline.micros,
+                session.tca.micros
+            ))
+            .into_wasm_error()
+    })?;
 
     // --- Uniqueness: only one agreement per session ---
     let agr_anchor = anchor_for_session_agreements(&input.session_id)?;
@@ -793,19 +822,7 @@ pub fn cosign_agreement(input: CosignAgreementInput) -> ExternResult<ActionHash>
             .into_wasm_error(),
         )?;
 
-    // --- Deadline check: execution_deadline must not have passed ---
     let now = SpaceTimestamp::now();
-    if now.micros >= agreement.execution_deadline.micros {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            "Execution deadline has passed — agreement can no longer be cosigned",
-        )
-        .with_context(format!(
-            "now: {}, deadline: {}",
-            now.micros, agreement.execution_deadline.micros
-        ))
-        .into_wasm_error());
-    }
 
     // Check that secondary_signature is not already set
     if agreement.secondary_signature.is_some() {
@@ -819,6 +836,22 @@ pub fn cosign_agreement(input: CosignAgreementInput) -> ExternResult<ActionHash>
     // Resolve the referenced session and bind the second signature to the
     // recorded secondary operator, not merely to any different agent key.
     let session = verify_session_participant(&agreement.session_id, &agent)?;
+    validate_agreement_deadline(
+        agreement.execution_deadline.micros,
+        session.deadline.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidInput, message)
+            .with_context(format!(
+                "execution deadline: {}, session deadline: {}, TCA: {}",
+                agreement.execution_deadline.micros,
+                session.deadline.micros,
+                session.tca.micros
+            ))
+            .into_wasm_error()
+    })?;
     if !is_secondary_operator(&session, &agent) {
         return Err(SpaceError::new(
             SpaceErrorCode::Unauthorized,
@@ -2571,6 +2604,34 @@ mod conjunction_reference_tests {
             FUTURE_TCA_MICROS,
             NOW_MICROS,
         ).is_ok());
+    }
+
+    #[test]
+    fn agreement_deadline_cannot_outlive_session_or_tca() {
+        assert!(validate_agreement_deadline(
+            NOW_MICROS + 10,
+            FUTURE_TCA_MICROS,
+            FUTURE_TCA_MICROS,
+            NOW_MICROS,
+        ).is_ok());
+        assert!(validate_agreement_deadline(
+            NOW_MICROS + 10,
+            NOW_MICROS + 5,
+            FUTURE_TCA_MICROS,
+            NOW_MICROS,
+        ).is_err());
+        assert!(validate_agreement_deadline(
+            NOW_MICROS + 10,
+            FUTURE_TCA_MICROS + 100,
+            FUTURE_TCA_MICROS,
+            NOW_MICROS,
+        ).is_err());
+        assert!(validate_agreement_deadline(
+            NOW_MICROS + 10,
+            FUTURE_TCA_MICROS,
+            FUTURE_TCA_MICROS,
+            FUTURE_TCA_MICROS,
+        ).is_err());
     }
 
     #[test]
