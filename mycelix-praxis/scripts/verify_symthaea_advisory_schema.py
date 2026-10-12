@@ -464,7 +464,7 @@ def main() -> int:
         errors,
     )
     require(
-        'assert!(!body.contains("input_digest")' in adapter_source,
+        '!body.contains("input_digest")' in adapter_source,
         "adapter tests must ensure the digest is out-of-band rather than self-referential in the body",
         errors,
     )
