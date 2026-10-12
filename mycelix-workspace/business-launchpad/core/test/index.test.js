@@ -469,6 +469,16 @@ test('stress and terms-based cash comparison preserve reconciliation across a fi
         }
       }
     });
+    assert.equal(
+      expectedScheduledReceipts.reduce((sum, amount) => sum + amount, 0) + deferredScheduledReceipts,
+      monthlyPlan.reduce((sum, period) => sum + model.sellingPricePerUnitMinor * period.salesUnits, 0),
+      'scheduled gross receipts conserve every sale cohort in case ' + caseIndex
+    );
+    assert.equal(
+      expectedScheduledSupplierPayments.reduce((sum, amount) => sum + amount, 0) + deferredScheduledSupplierPayments,
+      monthlyPlan.reduce((sum, period) => sum + model.variableCostPerUnitMinor * period.salesUnits, 0),
+      'scheduled variable costs conserve every payable cohort in case ' + caseIndex
+    );
     assert.equal(terms.deferredSalesCashReceiptsAfterHorizonMinor, deferredScheduledReceipts,
       'terms-based receipts after horizon case ' + caseIndex);
     assert.equal(terms.deferredVariableSupplierPaymentsAfterHorizonMinor, deferredScheduledSupplierPayments,
