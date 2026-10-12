@@ -513,7 +513,7 @@ test('report export is disabled until a valid calculation exists and includes bo
   assert.equal(payload.cashRunwayProjection.horizonMonths, 12);
   assert.equal(payload.cashRunwayProjection.kind, 'business-launchpad-cash-runway-report');
   assert.equal(payload.cashScenarioComparison.kind, 'business-launchpad-cash-scenario-comparison');
-  assert.deepEqual(payload.cashScenarioComparison.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside']);
+  assert.deepEqual(payload.cashScenarioComparison.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside', 'terms-based']);
   assert.equal(payload.cashScenarioComparison.scenarios[1].summary.endingCashMinor, payload.cashRunwayProjection.summary.endingCashMinor);
   assert.deepEqual(payload.cashScenarioComparison.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside', 'terms-based']);
   assert.equal(payload.cashScenarioComparison.scenarios[3].assumptions.salesReceiptsPercent[0], 70);
