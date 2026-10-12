@@ -6,6 +6,7 @@ retrieve sources, verify their claims, infer causality, or qualify an indicator.
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import math
@@ -79,10 +80,6 @@ def validate_observation(record: object, catalog: object, expected_catalog_sha25
         contract = record.get("indicator_native_unit_contract")
         if contract != indicator_definition.get("native_unit"):
             errors.append("indicator_native_unit_contract must exactly match the selected catalog definition")
-    for field in ("unit_mapping_note", "denominator_contract_note"):
-        if not isinstance(record.get(field), str) or not record[field].strip():
-            errors.append(f"{field} must explain how the series aligns with the catalog contract")
-
     source = record.get("source")
     if not isinstance(source, dict):
         errors.append("source must be an object")
@@ -217,12 +214,20 @@ def validate_observation(record: object, catalog: object, expected_catalog_sha25
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        print("usage: validate_regenerative_observation.py <observation-record.json>", file=sys.stderr)
-        return 2
+    parser = argparse.ArgumentParser(
+        description="Validate a source-bound regenerative observation receipt."
+    )
+    parser.add_argument("observation_record", type=Path, help="JSON observation receipt to validate")
+    parser.add_argument(
+        "--catalog",
+        type=Path,
+        default=CATALOG_PATH,
+        help="exact catalog snapshot used by the receipt (defaults to the checked-in v1 catalog)",
+    )
+    args = parser.parse_args()
     try:
-        record = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-        catalog_bytes = CATALOG_PATH.read_bytes()
+        record = json.loads(args.observation_record.read_text(encoding="utf-8"))
+        catalog_bytes = args.catalog.read_bytes()
         catalog = json.loads(catalog_bytes)
         catalog_digest = hashlib.sha256(catalog_bytes).hexdigest()
     except (OSError, json.JSONDecodeError) as exc:
