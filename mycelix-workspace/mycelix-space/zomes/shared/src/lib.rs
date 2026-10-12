@@ -482,8 +482,12 @@ pub enum RiskLevel {
 }
 
 impl RiskLevel {
-    pub fn from_pc(pc: f64) -> Self {
-        if pc >= 1e-3 {
+    /// Return a Pc-only screening band for a finite probability in [0, 1].
+    pub fn try_from_pc(pc: f64) -> Option<Self> {
+        if !pc.is_finite() || !(0.0..=1.0).contains(&pc) {
+            return None;
+        }
+        Some(if pc >= 1e-3 {
             RiskLevel::Emergency
         } else if pc >= 1e-4 {
             RiskLevel::High
@@ -493,7 +497,14 @@ impl RiskLevel {
             RiskLevel::Low
         } else {
             RiskLevel::Negligible
-        }
+        })
+    }
+
+    /// Legacy total mapping. Invalid values map to the highest screening band
+    /// instead of silently falling through to negligible. Prefer try_from_pc
+    /// when handling untrusted or externally supplied Pc values.
+    pub fn from_pc(pc: f64) -> Self {
+        Self::try_from_pc(pc).unwrap_or(RiskLevel::Emergency)
     }
 }
 
@@ -1076,6 +1087,15 @@ mod tests {
         assert_eq!(RiskLevel::from_pc(1e-5), RiskLevel::Medium);
         assert_eq!(RiskLevel::from_pc(1e-4), RiskLevel::High);
         assert_eq!(RiskLevel::from_pc(1e-3), RiskLevel::Emergency);
+    }
+
+    #[test]
+    fn risk_level_rejects_non_finite_and_out_of_range_pc() {
+        assert_eq!(RiskLevel::try_from_pc(f64::NAN), None);
+        assert_eq!(RiskLevel::try_from_pc(f64::INFINITY), None);
+        assert_eq!(RiskLevel::try_from_pc(-0.1), None);
+        assert_eq!(RiskLevel::try_from_pc(1.1), None);
+        assert_eq!(RiskLevel::from_pc(f64::NAN), RiskLevel::Emergency);
     }
 
     #[test]
