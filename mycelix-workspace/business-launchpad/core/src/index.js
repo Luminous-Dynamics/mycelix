@@ -230,7 +230,7 @@ export function parseMajorToMinorUnits(value, minorUnitExponent) {
   }
 
   const text = value.trim();
-  if (!/^\\d+(?:\\.\\d+)?$/.test(text)) {
+  if (!/^\d+(?:\.\d+)?$/.test(text)) {
     return fail('invalid_money_text', 'Enter a non-negative decimal amount without a currency symbol or thousands separators.', 'amount');
   }
 
