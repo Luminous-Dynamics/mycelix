@@ -9,6 +9,12 @@ const resultRoot = document.querySelector('#result');
 const resultStatus = document.querySelector('#result-status');
 const coverageSelect = document.querySelector('#cost-coverage');
 const omittedField = document.querySelector('#omitted-costs');
+const downloadScenarioButton = document.querySelector('#download-scenario');
+const loadScenarioInput = document.querySelector('#load-scenario-file');
+const downloadReportButton = document.querySelector('#download-report');
+
+let latestModel = null;
+let latestReport = null;
 
 const moneyFields = [
   ['selling-price', 'sellingPricePerUnitMinor', 'Price per sale'],
@@ -30,6 +36,9 @@ function clearResult() {
   resultRoot.replaceChildren();
   resultStatus.textContent = 'Calculation failed';
   resultStatus.className = 'status-pill status-muted';
+  latestModel = null;
+  latestReport = null;
+  downloadReportButton.disabled = true;
 }
 
 function showError(message) {
@@ -98,6 +107,61 @@ function readModel() {
   return model;
 }
 
+function minorToMajorInput(amountMinor, minorUnitExponent) {
+  const amount = BigInt(amountMinor);
+  const scale = 10n ** BigInt(minorUnitExponent);
+  const whole = amount / scale;
+  const remainder = amount % scale;
+  return minorUnitExponent === 0
+    ? whole.toString()
+    : whole.toString() + '.' + remainder.toString().padStart(minorUnitExponent, '0');
+}
+
+function applyModelToForm(model) {
+  document.getElementById('currency-code').value = model.currency.code;
+  document.getElementById('minor-unit-exponent').value = String(model.currency.minorUnitExponent);
+  for (const [id, key] of moneyFields) {
+    document.getElementById(id).value = minorToMajorInput(model[key], model.currency.minorUnitExponent);
+  }
+  document.getElementById('planned-units').value = String(model.plannedUnitsPerMonth);
+  coverageSelect.value = model.costCoverage.level;
+  omittedField.value = model.costCoverage.omittedCategories.join(', ');
+  coverageSelect.dispatchEvent(new Event('change'));
+}
+
+function downloadJson(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2) + '\\n'], { type: 'application/json;charset=utf-8' });
+  const objectUrl = URL.createObjectURL(blob);
+  const link = element('a');
+  link.href = objectUrl;
+  link.download = filename;
+  link.hidden = true;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  globalThis.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+function validatedScenarioPayload(payload) {
+  if (
+    payload === null ||
+    typeof payload !== 'object' ||
+    payload.schemaVersion !== 1 ||
+    payload.kind !== 'business-launchpad-scenario' ||
+    payload.input === null ||
+    typeof payload.input !== 'object' ||
+    Array.isArray(payload.input)
+  ) {
+    throw new Error('This file is not a supported Business Launchpad scenario JSON file (schemaVersion 1 required).');
+  }
+
+  const result = analyzeBusinessModel(payload.input);
+  if (!result.ok) {
+    throw new Error('Scenario validation failed: ' + result.error.message);
+  }
+  return payload.input;
+}
+
 function addMetric(list, label, value, extraClass = '') {
   const item = element('div', 'metric');
   item.append(element('dt', '', label));
@@ -163,9 +227,63 @@ form.addEventListener('submit', event => {
       showError(result.error.field ? result.error.message + ' (field: ' + result.error.field + ')' : result.error.message);
       return;
     }
+    latestModel = model;
+    latestReport = result.report;
     renderReport(result.report);
+    downloadReportButton.disabled = false;
   } catch (error) {
     showError(error instanceof Error ? error.message : 'The scenario could not be read.');
+  }
+});
+
+downloadScenarioButton.addEventListener('click', () => {
+  hideError();
+  try {
+    const model = readModel();
+    const result = analyzeBusinessModel(model);
+    if (!result.ok) throw new Error(result.error.message);
+    downloadJson('business-launchpad-scenario-v1.json', {
+      schemaVersion: 1,
+      kind: 'business-launchpad-scenario',
+      input: model
+    });
+    resultStatus.textContent = 'Assumptions file prepared';
+    resultStatus.className = 'status-pill';
+  } catch (error) {
+    showError(error instanceof Error ? error.message : 'Scenario could not be exported.');
+  }
+});
+
+downloadReportButton.addEventListener('click', () => {
+  if (!latestModel || !latestReport) {
+    showError('Calculate a valid scenario before downloading the report.');
+    return;
+  }
+  hideError();
+  downloadJson('business-launchpad-report-v1.json', {
+    schemaVersion: 1,
+    kind: 'business-launchpad-report',
+    input: latestModel,
+    report: latestReport
+  });
+});
+
+loadScenarioInput.addEventListener('change', async event => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  hideError();
+  try {
+    const payload = JSON.parse(await file.text());
+    const model = validatedScenarioPayload(payload);
+    applyModelToForm(model);
+    clearResult();
+    resultStatus.textContent = 'Scenario loaded — calculate to review';
+    resultStatus.className = 'status-pill status-muted';
+  } catch (error) {
+    clearResult();
+    showError(error instanceof Error ? error.message : 'Scenario file could not be loaded.');
+  } finally {
+    loadScenarioInput.value = '';
   }
 });
 
