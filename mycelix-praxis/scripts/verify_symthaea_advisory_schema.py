@@ -45,6 +45,8 @@ ADAPTER_REQUIRED_TESTS = {
     "request_preparation_rejects_duplicate_content_ids",
     "request_preparation_rejects_empty_action_allowlist",
     "request_preparation_rejects_invalid_identifiers",
+    "request_preparation_rejects_oversized_action_allowlist_before_copy",
+    "request_preparation_rejects_oversized_reason_allowlist_before_copy",
 }
 
 REQUIRED_TESTS = {
@@ -300,6 +302,24 @@ def main() -> int:
     require(
         request_max == 16384,
         "request body must retain a reviewed 16 KiB maximum",
+        errors,
+    )
+    max_allowed_actions = integer_constant(adapter_source, "MAX_ALLOWED_ACTIONS")
+    max_allowed_reasons = integer_constant(adapter_source, "MAX_ALLOWED_REASONS")
+    require(
+        max_allowed_actions == len(action_variants),
+        "request action-list cap must track the finite Rust action enum",
+        errors,
+    )
+    require(
+        max_allowed_reasons == len(reason_variants),
+        "request reason-list cap must track the finite Rust reason enum",
+        errors,
+    )
+    require(
+        "if policy.allowed_actions.len() > MAX_ALLOWED_ACTIONS" in adapter_source
+        and "if policy.allowed_reasons.len() > MAX_ALLOWED_REASONS" in adapter_source,
+        "action/reason list bounds must be checked before copying caller-provided slices",
         errors,
     )
     require(
