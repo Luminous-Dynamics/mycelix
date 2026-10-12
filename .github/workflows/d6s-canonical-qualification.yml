@@ -59,7 +59,9 @@ jobs:
             exit 0
           fi
 
-          git diff --name-only "${BASE_SHA}...${QUALIFIED_SHA}" > "$changed_file_list"
+          # Disable rename detection so moving a relevant input out of scope
+          # still reports its original path and cannot suppress qualification.
+          git diff --no-renames --name-only "${BASE_SHA}...${QUALIFIED_SHA}" > "$changed_file_list"
           cp "$changed_file_list" d6s-changed-files.txt
           cat "$changed_file_list"
           relevant="$(python3 scripts/integral/d6s_qualification_scope.py < "$changed_file_list")"
