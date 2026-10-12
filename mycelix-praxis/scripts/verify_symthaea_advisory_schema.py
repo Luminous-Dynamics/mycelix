@@ -625,6 +625,21 @@ def main() -> int:
         "adapter tests must cover same-request replay, cross-turn stale responses, and retry after reader failure",
         errors,
     )
+    prior_turn_start = adapter_source.find(
+        "fn prior_turn_response_is_rejected_for_new_prepared_request()"
+    )
+    prior_turn_end = adapter_source.find("\\n    #[test]", prior_turn_start + 1)
+    prior_turn_test = (
+        adapter_source[prior_turn_start:prior_turn_end]
+        if prior_turn_start >= 0 and prior_turn_end > prior_turn_start
+        else ""
+    )
+    require(
+        "AdviceRejection::StaleInput" in prior_turn_test
+        and "BoundedAdviceReadError::ResponseAlreadyConsumed" in prior_turn_test,
+        "cross-turn replay regression must reject stale digest and consume the one-response request",
+        errors,
+    )
     require(
         "first.input_digest(),\n            digest_advisory_request_bytes(first.body_bytes())" in adapter_source,
         "adapter tests must check that the digest binds to the exact serialized bytes",
