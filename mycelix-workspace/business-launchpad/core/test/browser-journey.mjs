@@ -170,7 +170,9 @@ try {
   assert.equal(exportedScenario.input.currency.code, 'ZAR');
   assert.equal(exportedScenario.cashRunwayPlan.length, 12);
   assert.equal(exportedScenario.cashRunwayPlan[0].salesUnits, 25);
-  completedChecks.push('assumptions export is versioned JSON with the 12-month cash plan');
+  assert.equal(exportedScenario.cashRunwayPlan[0].salesCashReceiptsMinor, 450_000);
+  assert.equal(exportedScenario.cashRunwayPlan[0].operatingCashOutflowsMinor, 240_000);
+  completedChecks.push('assumptions export is versioned JSON with independent activity and cash timing');
 
   exportedScenario.input.sellingPricePerUnitMinor = 20_000;
   exportedScenario.input.plannedUnitsPerMonth = 40;
@@ -205,11 +207,17 @@ try {
   completedChecks.push('report export contains the evaluated inputs and 12-month liquidity projection');
 
   await page.locator('#cash-runway-details > summary').click();
-  await page.locator('#cash-month-1-sales').fill('0');
+  await page.locator('#cash-month-1-sales').fill('25');
+  await page.locator('#cash-month-1-sales-receipts').fill('0.00');
+  await page.locator('#cash-month-1-operating-outflows').fill('900.00');
+  await page.locator('#cash-month-2-sales-receipts').fill('5000.00');
   await page.getByRole('button', { name: /Calculate scenario/ }).click();
-  assert.match(await page.locator('#result').innerText(), /First reserve breach\s*Month 1/);
-  assert.match(await page.locator('#result').innerText(), /ZAR 400\.00/);
-  completedChecks.push('changing the monthly sales ramp recomputes reserve breaches and required cash buffer');
+  const cashOutput = await page.locator('#result').innerText();
+  assert.match(cashOutput, /First reserve breach\s*Month 1/);
+  assert.match(cashOutput, /ZAR 400\.00/);
+  assert.match(cashOutput, /Sales cash receiptsZAR 0\.00/);
+  assert.match(cashOutput, /Sales cash receiptsZAR 5000\.00/);
+  completedChecks.push('cash receipts can move independently of activity units and monthly operating payments');
 
   await page.locator('#selling-price').fill('201.00');
   assert.equal(
