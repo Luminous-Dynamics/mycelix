@@ -230,6 +230,17 @@ The regenerative-economics lens now has a separate, versioned measurement catalo
 
 Every entry is `candidate_definition`, with `observations_loaded=false` and `computed=false`. The catalog's qualification flags for loaded observations, computed indicators, independent validation and composite scoring must remain false until each is deliberately implemented and supported by evidence. A linked paper or methodology describes the source of a proposed definition; it does not establish that Mycelix measured it or that a real-world outcome improved.
 
+### New Gauteng-relevant water indicator contracts
+
+The catalog now includes three additional, separate water measurement contracts:
+
+- `water.physicochemical-profile.v1` — parameter-specific series for pH, temperature, electrical conductivity, total dissolved solids, turbidity and alkalinity. Native units and lab/field methods stay distinct.
+- `water.microbial-contamination.v1` — organism/indicator/assay series. Culture counts, MPN/CFU, molecular copies, non-detection and antimicrobial-susceptibility categories are not interchangeable.
+- `water.toxic-elements-concentration.v1` — element/speciation-specific concentrations, retaining dissolved vs. total fractions, detection/quantification limits and water-use-specific threshold provenance.
+
+These are candidate *contracts*, not observations or a composite water score. The Jukskei River study is a small, six-sample study covering two sites near Victoria Yards in June–August 2018; it is a possible receipt-validation fixture only after data access/rights are resolved. The University of Pretoria Hartbeespoort/Roodeplaat dataset is a geographically relevant discovery lead, but its detail page, license, files and time window were not verified in this pass. Neither dataset is imported.
+
+
 The initial source base combines the UN's [SEEA Ecosystem Accounting](https://seea.un.org/en/methodology/ecosystem-accounting), the [SDG indicator metadata repository](https://unstats.un.org/sdgs/metadata/), FAO's [Global Soil Health Indicators and Assessment](https://www.fao.org/soils-portal/soil-degradation-restoration/global-soil-health-indicators-and-assessment/en/), the Ellen MacArthur Foundation's [circular-economy measurement guidance](https://www.ellenmacarthurfoundation.org/topics/measurement/overview) and [Material Circularity Indicator](https://www.ellenmacarthurfoundation.org/material-circularity-indicator), DEAL's [Doughnut Data Portrait methodology](https://doughnuteconomics.org/tools/doughnut-data-portraits-a-methodological-guide), Fath et al.'s [energy-network/regenerative economics article](https://doi.org/10.1016/j.glt.2019.02.002), and the [review of regenerative-agriculture definitions](https://doi.org/10.3389/fsufs.2020.577723). Reference retrieval dates aid change tracking but are not content digests or proof that external pages are immutable.
 
 ### Rules that protect interpretation
@@ -320,9 +331,9 @@ Source: [DWS water-quality data explorer](https://www.dws.gov.za/iwqs/wms/data/0
 
 ### Import decision
 
-All three sources are currently `blocked`. “Open” access, a download link, or one field in catalogue metadata is not sufficient if file-level rights are missing or contradictory. Before any data import, record: the applicable license/permission in an authoritative source, intended-use compatibility, attribution and redistribution rules, source artifact digest, dataset/version identifier, data dictionary, station coordinates/site identity, method/version, native units, missingness/censoring semantics, temporal and spatial coverage, and quality limitations.
+All five candidates are currently `blocked`. “Open” access, a download link, or one field in catalogue metadata is not sufficient if file-level rights are missing or contradictory. Before any data import, record: the applicable license/permission in an authoritative source, intended-use compatibility, attribution and redistribution rules, source artifact digest, dataset/version identifier, data dictionary, station coordinates/site identity, method/version, native units, missingness/censoring semantics, temporal and spatial coverage, and quality limitations.
 
-If the SWAM license is confirmed suitable, start with one small CSV series rather than importing the 223.4 MB collection or the NetCDF cubes wholesale. Inspect and report its columns, rows, dates, duplicate timestamps, missing/non-finite values and algorithm/valid-pixel limitations; then construct a source-bound observation receipt. The `Rietvlei` label alone does not prove that the data refer to the intended site near Johannesburg; verify the site coordinates and water-body identity first.
+If the SWAM license is confirmed suitable, start with one small CSV series rather than importing the 223.4 MB collection or the NetCDF cubes wholesale. Inspect and report its columns, rows, dates, duplicate timestamps, missing/non-finite values and algorithm/valid-pixel limitations; then construct a source-bound observation receipt. The `Rietvlei` label refers to a SWAM water body within the project's Western Cape scope and must not be conflated with Gauteng's separate Rietvlei water bodies.
 
 Run the manifest checks from the repository root:
 
