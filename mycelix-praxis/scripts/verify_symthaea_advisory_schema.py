@@ -16,6 +16,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 RUST_PATH = ROOT / "crates/praxis-core/src/symthaea_advisory.rs"
 SCHEMA_PATH = ROOT / "schemas/symthaea-advisory-v1.schema.json"
+REQUEST_SCHEMA_PATH = ROOT / "schemas/symthaea-advisory-request-v1.schema.json"
 ADAPTER_PATH = ROOT / "crates/praxis-symthaea-adapter/src/lib.rs"
 ADAPTER_CARGO_PATH = ROOT / "crates/praxis-symthaea-adapter/Cargo.toml"
 WORKSPACE_PATH = ROOT / "Cargo.toml"
@@ -31,6 +32,17 @@ EXPECTED_FIELDS = {
     "reported_confidence_permille",
     "reason",
     "supporting_content_ids",
+}
+
+EXPECTED_REQUEST_FIELDS = {
+    "schema_version",
+    "model_id",
+    "model_version",
+    "skill_id",
+    "curriculum_revision",
+    "allowed_actions",
+    "allowed_reasons",
+    "allowed_content_ids",
 }
 
 ADAPTER_REQUIRED_TESTS = {
@@ -125,6 +137,9 @@ def main() -> int:
         adapter_manifest = ADAPTER_CARGO_PATH.read_text(encoding="utf-8")
         workspace_manifest = WORKSPACE_PATH.read_text(encoding="utf-8")
         schema: dict[str, Any] = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+        request_schema: dict[str, Any] = json.loads(
+            REQUEST_SCHEMA_PATH.read_text(encoding="utf-8")
+        )
     except (OSError, json.JSONDecodeError) as error:
         print(f"Symthaea advisory static conformance FAILED: {error}", file=sys.stderr)
         return 1
@@ -157,6 +172,63 @@ def main() -> int:
             "schema properties must exactly match the frozen response fields", errors)
     require(properties.get("schema_version", {}).get("const") == schema_version,
             "schema version must match the Rust protocol constant", errors)
+
+    request_properties = request_schema.get("properties", {})
+    request_schema_fields = set(request_properties)
+    require(request_schema.get("$schema") == "https://json-schema.org/draft/2020-12/schema",
+            "request schema must declare JSON Schema 2020-12", errors)
+    require(request_schema.get("additionalProperties") is False,
+            "request schema must reject unknown fields", errors)
+    require(request_schema_fields == EXPECTED_REQUEST_FIELDS,
+            "request schema properties must exactly match the Rust request wire fields", errors)
+    require(request_schema.get("required") is not None
+            and set(request_schema["required"]) == EXPECTED_REQUEST_FIELDS,
+            "request schema required fields must match the frozen request fields", errors)
+    require(request_properties.get("schema_version", {}).get("const") == schema_version,
+            "request schema version must match the Rust protocol constant", errors)
+    require("input_digest" not in request_schema_fields,
+            "request digest must remain outside the hashed request body", errors)
+    require(
+        "struct AdvisoryRequestWireV1" in adapter_source
+        and "input_digest:" not in adapter_source.split("struct AdvisoryRequestWireV1", 1)[1].split("}", 1)[0],
+        "Rust request body type must not contain a self-referential input digest",
+        errors,
+    )
+    request_actions = request_properties.get("allowed_actions", {})
+    require(
+        request_actions.get("type") == "array"
+        and request_actions.get("minItems") == 1
+        and request_actions.get("maxItems") == max_allowed_actions
+        and request_actions.get("uniqueItems") is True
+        and sorted(request_actions.get("items", {}).get("enum", [])) == sorted(action_variants),
+        "request schema action allowlist must be finite, nonempty, unique, bounded, and match Rust",
+        errors,
+    )
+    request_reasons = request_properties.get("allowed_reasons", {})
+    require(
+        request_reasons.get("type") == "array"
+        and request_reasons.get("minItems") == 1
+        and request_reasons.get("maxItems") == max_allowed_reasons
+        and request_reasons.get("uniqueItems") is True
+        and sorted(request_reasons.get("items", {}).get("enum", [])) == sorted(reason_variants),
+        "request schema reason allowlist must be finite, nonempty, unique, bounded, and match Rust",
+        errors,
+    )
+    request_content = request_properties.get("allowed_content_ids", {})
+    require(
+        request_content.get("type") == "array"
+        and request_content.get("maxItems") == max_refs
+        and request_content.get("uniqueItems") is True
+        and request_content.get("items", {}).get("maxLength") == max_identifier_chars,
+        "request schema content references must be unique and bounded to the Rust limits",
+        errors,
+    )
+    for field in ("model_id", "model_version", "skill_id", "curriculum_revision"):
+        require(
+            request_properties.get(field, {}).get("maxLength") == max_identifier_chars,
+            f"request {field} maxLength must match Rust",
+            errors,
+        )
     require(sorted(properties.get("action", {}).get("enum", [])) == sorted(action_variants),
             "schema action enum drifted from Rust LearningSuggestion", errors)
     require(sorted(properties.get("reason", {}).get("enum", [])) == sorted(reason_variants),
