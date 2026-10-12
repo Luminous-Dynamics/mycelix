@@ -198,6 +198,11 @@ function renderReport(report) {
   addMetric(metrics, 'Cash available', formatMinorUnits(report.startup.availableCashMinor, report.currency));
   addMetric(metrics, 'Startup funding gap', formatMinorUnits(report.startup.fundingGapMinor, report.currency), report.startup.fundingGapMinor > 0 ? 'negative' : '');
   resultRoot.append(metrics);
+  resultRoot.append(element(
+    'p',
+    'form-footnote',
+    'Funding-gap scope: this compares setup costs plus your entered working-capital buffer with available startup cash. It does not estimate extra runway for slow sales or operating losses.'
+  ));
 
   const coverage = element('p', 'coverage-line');
   const omissions = report.costCoverage.omittedCategories.length
