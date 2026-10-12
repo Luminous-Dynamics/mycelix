@@ -63,6 +63,12 @@ small { display: block; margin-top: 5px; color: var(--muted); font-size: 0.78rem
 .cash-runway-details > .form-footnote { margin: 12px 0; }
 .cash-plan-scroll { max-width: 100%; margin: 12px 0; overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
 .cash-plan-table, .cash-projection-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.stress-assumptions { margin-top: 22px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; }
+.stress-assumptions h4 { margin: 16px 0 10px; font-size: 0.94rem; }
+.stress-assumptions .field-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.cash-scenario-table { min-width: 850px; width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.cash-scenario-table th, .cash-scenario-table td { padding: 9px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.cash-scenario-table th { background: #f2f7f3; color: #263a35; font-weight: 750; }
 .cash-plan-table { min-width: 1050px; }
 .cash-plan-table th, .cash-plan-table td, .cash-projection-table th, .cash-projection-table td { padding: 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
 .cash-plan-table th, .cash-projection-table th { background: #f2f7f3; color: #263a35; font-weight: 750; }
