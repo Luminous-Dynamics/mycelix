@@ -334,10 +334,19 @@ mod tests {
     };
 
     fn valid_advice_json() -> String {
-        format!(
-            r#"{{"schema_version":1,"model_id":"symthaea","model_version":"0.5.0","skill_id":"math.fractions","curriculum_revision":"2026.1","input_digest":"blake3:{}","action":"offer_hint","reported_confidence_permille":500,"reason":"repeated_incorrect_attempts","supporting_content_ids":["lesson.fractions.01"]}}"#,
-            "0".repeat(64)
-        )
+        serde_json::json!({
+            "schema_version": 1,
+            "model_id": "symthaea",
+            "model_version": "0.5.0",
+            "skill_id": "math.fractions",
+            "curriculum_revision": "2026.1",
+            "input_digest": format!("blake3:{}", "0".repeat(64)),
+            "action": "offer_hint",
+            "reported_confidence_permille": 500,
+            "reason": "repeated_incorrect_attempts",
+            "supporting_content_ids": ["lesson.fractions.01"],
+        })
+        .to_string()
     }
 
     struct CountingReader {
@@ -501,7 +510,10 @@ mod tests {
             digest_advisory_request_bytes(first.body_bytes())
         );
         let body = std::str::from_utf8(first.body_bytes()).expect("JSON is UTF-8");
-        assert!(!body.contains("input_digest"), "digest metadata must not make the body self-referential");
+        assert!(
+            !body.contains("input_digest"),
+            "digest metadata must not make the body self-referential"
+        );
         assert!(body.find("a.content").unwrap() < body.find("z.content").unwrap());
     }
 
