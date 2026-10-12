@@ -253,3 +253,34 @@ These are intended checks; they are not reported as executed by this authoring p
 ### Next evidence milestone
 
 Only after the catalog contract is reviewed should an observation dataset be attached. Each imported series should carry a source institution, dataset/series ID, source revision or retrieval date, geography/boundary, time range, native unit, denominator, transformation, coverage and missingness, uncertainty/quality flags, and a content digest where the source artifact can be retained. Preserve the original series and transformed series side by side. Start with one narrowly scoped, high-quality, repeatable series rather than bulk-importing poorly harmonized sustainability data.
+
+
+## Regenerative observation receipt contract
+
+The next layer is a **receipt format**, not a data import. It defines what evidence must accompany a future numeric observation and prevents a missing value from being silently represented as zero.
+
+Artifacts:
+
+- `docs/economy-atlas/regenerative-observation-record.schema.json` — JSON Schema contract for a single observation receipt.
+- `scripts/validate_regenerative_observation.py` — standard-library validator bound to indicator IDs in the checked-in candidate catalog.
+- `tests/test_regenerative_observation.py` — synthetic-only unit fixtures for source-digest requirements, date ordering, non-finite values, status/measurement consistency, below-detection-limit censoring, and anti-overclaiming.
+
+Each receipt must carry the selected indicator ID and catalog SHA-256, source publisher/dataset/series/revision, HTTPS source URL, source retrieval date, access/licensing note, retained source-artifact digest, geographic and boundary identifiers, period and temporal resolution, native unit and denominator definition, explicit observation state, transformation method/version/parameters/input digest, data coverage, uncertainty status, and quality flags. The source-artifact and transformation-input hashes provide identity checks when the corresponding source bytes are available; the validator does not independently fetch or authenticate those bytes.
+
+### Measurement/missingness rules
+
+- `observed` and `estimated` require a finite numeric point value. Estimates remain marked as estimates.
+- `below_detection_limit` requires an explicit censoring operator, threshold and unit; it is not converted to zero.
+- `not_collected`, `not_applicable`, `suppressed`, `not_computable` and `unknown` require a null value with an explicit missing state.
+- A complete coverage claim requires coverage fraction 1.0. Partial coverage needs a defined denominator. Unknown/not-applicable coverage carries a null fraction.
+- Quantified uncertainty requires finite ordered bounds and a unit. Qualitative or not-assessed uncertainty must explain its basis rather than leave a blank.
+- Every receipt remains `unreviewed_source_observation`. Structural acceptance does not establish source truth, causality, intervention impact, or indicator qualification.
+
+Run the receipt validator with a source-bound JSON record:
+
+```bash
+python3 scripts/validate_regenerative_observation.py path/to/observation-record.json
+python3 -m unittest discover -s tests -p 'test_regenerative_observation.py'
+```
+
+The test fixture is explicitly synthetic and is never registered as a real environmental or socioeconomic observation. This PR adds no real data values; source discovery, dataset licensing/retention, unit harmonization and quality review are a separate evidence-ingestion step.
