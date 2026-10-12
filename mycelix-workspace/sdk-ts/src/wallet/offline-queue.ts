@@ -276,16 +276,31 @@ export class IndexedDBQueueStorage implements QueueStorage {
 
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, 2);
+      let settled = false;
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => {
+        if (settled) return;
+        settled = true;
+        reject(request.error ?? new Error('Unable to open IndexedDB queue storage'));
+      };
+      request.onblocked = () => {
+        if (settled) return;
+        settled = true;
+        reject(new Error('IndexedDB queue upgrade is blocked by another open tab; close older Mycelix tabs and retry'));
+      };
       request.onsuccess = () => {
         const db = request.result;
+        // A blocked open may complete later after the original caller failed closed.
+        if (settled) {
+          db.close();
+          return;
+        }
         this.db = db;
-        // Let a newer tab upgrade the database instead of leaving it blocked.
         db.onversionchange = () => {
           db.close();
           if (this.db === db) this.db = null;
         };
+        settled = true;
         resolve(db);
       };
 
