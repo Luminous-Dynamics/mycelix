@@ -287,10 +287,41 @@ python3 -m unittest discover -s tests -p 'test_regenerative_observation.py'
 The test fixture is explicitly synthetic and is never registered as a real environmental or socioeconomic observation. No real data values are imported by this change. Source discovery, dataset licensing/retention, unit harmonization and quality review are a separate evidence-ingestion step.
 
 
-### First candidate for a real-data pilot: South African water quality
+## Dataset discovery and rights qualification
 
-The South African Department of Water and Sanitation's [water quality data exploration tool](https://www.dws.gov.za/iwqs/wms/data/000key.asp) describes historical monitoring sites and downloadable data files for common water-quality constituents. The catalog links this as a *data-discovery reference* to `water.pollutant-concentration.v1`; no station series has been downloaded, normalized or asserted to be suitable yet.
+The dataset-candidate layer is separate from the indicator definitions and observation receipts. Its manifest, schema, validator, regression tests and Leptos cards are intended to prevent a promising dataset description from silently becoming an authorized import.
 
-Important restriction: the Department's [water-quality portal guidance](https://www.dws.gov.za/niwis2/Info/WaterQualityMonitoringNetworkInfo?AspxAutoDetectCookieSupport=1) says the dashboard can lag the underlying database, data are supplied without an accuracy/completeness warranty, and use is restricted to academic, research or personal purposes; redistribution/commercial applicability needs review. Before importing anything into a public or commercial product, check the terms directly with the Department and obtain permission where needed. Preserve the source's station identifiers, analyte, native unit, sample date, detection limit, method, data-quality caveats and the original file digest; do not turn no sample into a zero or a below-detection-limit value into zero.
+- `docs/economy-atlas/regenerative-dataset-candidates.v1.json` records candidate sources, reported units/time/spatial coverage, the rights evidence observed, unresolved restrictions, and a fail-closed ingestion gate.
+- `docs/economy-atlas/regenerative-dataset-candidates.schema.json` is the JSON Schema.
+- `scripts/validate_regenerative_dataset_candidates.py` checks candidate IDs and indicator links, actual calendar dates, HTTPS source/evidence links, consistent rights states, and that all import/qualification flags remain false.
+- `tests/test_regenerative_dataset_candidates.py` covers license-state conflicts, attempts to turn ingestion on, invalid IDs/URLs/dates, missing required review evidence and malformed manifests.
+- The `/atlas` page exposes each candidate's coverage, reported measures, rights statement, unresolved conditions, and the evidence required before import.
 
-This is a pilot-source candidate, not an assertion that Johannesburg coverage, suitable historical density, reuse rights or a validated trend have already been confirmed. The next data step should inspect source terms and station/analyte coverage first, then create a source-bound observation receipt only for a clearly scoped series.
+### Current source assessment
+
+**1. EO Africa SWAM / Zenodo (2026): best scientific pilot candidate, license still unverified.** The record by researchers at CSIR, the University of Cape Town and the University of Stirling lists satellite-derived chlorophyll-a (reported in mg m⁻³) and total suspended matter (g m⁻³) for six named water bodies for a Sentinel-2 period spanning 2015–2025. It provides small time-series CSVs as well as larger NetCDF cubes; reported records are only included where more than 5% of a water body's area has valid pixels after atmospheric correction and water-quality algorithms. The record provides useful algorithm/method notes and its file table reports checksums. However, the Zenodo landing page's Rights/License section does not clearly expose the deposited file license. Zenodo's platform documentation says publicly available files should have a license, so the record's authoritative metadata or rights-holder confirmation must be checked rather than inferring a default license. No SWAM file has been downloaded or imported by this PR.
+
+Source: [Zenodo record 18670504](https://zenodo.org/records/18670504); see also [Zenodo API and license documentation](https://developers.zenodo.org/).
+
+**2. National inorganic water chemistry (1972–2011): useful historical baseline, conflicting license metadata.** The Water Research Observatory description reports more than 500,000 chemical analyses across over 2,000 stations and names major ions, pH, conductivity, alkalinity and dissolved solids, together with calculated variables. The page's top-level License section says “No License Provided,” while a later metadata field labels it Creative Commons BY-SA 4.0. Some resources also show a login-to-download prompt. The contradiction and terms of access must be resolved before use. The source also says the published dataset excludes incomplete analyses and includes derived fields, so it should not be mislabeled as the unmodified raw monitoring database.
+
+Source: [Water Research Observatory dataset record](https://wrcwro01.arc.agric.za/dataset/an-inorganic-water-chemistry-dataset-1972-2011-of-rivers-dams-and-lakes-in-south-africa), [claimed CC BY-SA 4.0 terms](https://creativecommons.org/licenses/by-sa/4.0/).
+
+**3. DWS Water Quality Data Explorer: research-only / personal-use restriction.** DWS describes historical monitoring points, with very uneven record density, and a portal disclaimer says the data may lag its definitive database, are supplied without a suitability/accuracy/completeness warranty, may not be sold, and use is restricted to academic, research or personal purposes. Unless written permission covers the intended product and distribution model, this is not a source for a public or commercial Mycelix data product.
+
+Source: [DWS water-quality data explorer](https://www.dws.gov.za/iwqs/wms/data/000key.asp) and [NIWIS water-quality monitoring network notes](https://www.dws.gov.za/niwis2/Info/WaterQualityMonitoringNetworkInfo).
+
+### Import decision
+
+All three sources are currently `blocked`. “Open” access, a download link, or one field in catalogue metadata is not sufficient if file-level rights are missing or contradictory. Before any data import, record: the applicable license/permission in an authoritative source, intended-use compatibility, attribution and redistribution rules, source artifact digest, dataset/version identifier, data dictionary, station coordinates/site identity, method/version, native units, missingness/censoring semantics, temporal and spatial coverage, and quality limitations.
+
+If the SWAM license is confirmed suitable, start with one small CSV series rather than importing the 223.4 MB collection or the NetCDF cubes wholesale. Inspect and report its columns, rows, dates, duplicate timestamps, missing/non-finite values and algorithm/valid-pixel limitations; then construct a source-bound observation receipt. The `Rietvlei` label alone does not prove that the data refer to the intended site near Johannesburg; verify the site coordinates and water-body identity first.
+
+Run the manifest checks from the repository root:
+
+```bash
+python3 scripts/validate_regenerative_dataset_candidates.py
+python3 -m unittest discover -s tests -p 'test_regenerative_dataset_candidates.py'
+```
+
+These validate the dataset-discovery contract, not legal status, source bytes, water quality, or a trend. The checked-in manifest deliberately contains source metadata only, not observations.
