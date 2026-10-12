@@ -13,7 +13,7 @@ Proceed with a small, separate business-facing product layer and a deterministic
 
 There is enough reusable groundwork to avoid starting entirely from scratch: Mycelix Marketplace has a guarded listing/purchase/fulfillment model, Commons has food-production/distribution concepts, and Luminous Platform provides a separate host/runtime layer. There is not yet evidence from this audit of an integrated merchant application that completes onboarding, viability assessment, order/job operations, payment reconciliation, bookkeeping and local compliance end-to-end.
 
-The first code slice committed on the Business Launchpad branch is therefore deliberately narrower: a pure calculation module using integer minor currency units, transparent assumptions, explicit omitted costs, and deterministic tests. It does not call Symthaea, interact with Holochain, move money, persist business records, or decide legal compliance.
+The first code slice is deliberately narrower than an integrated merchant product: a pure calculation module using integer minor currency units, transparent assumptions, explicit omitted costs and deterministic tests, plus a CLI and static browser worksheet that import the same module. The browser form has no backend and keeps input only in page memory. It does not call Symthaea, interact with Holochain, move money, persist business records or decide legal compliance.
 
 ## 2. Repository evidence
 
@@ -57,9 +57,11 @@ The [Platform README](https://github.com/Luminous-Dynamics/luminous-platform/blo
 
 Paths:
 
-- [Core](https://github.com/Luminous-Dynamics/mycelix/tree/rfc/business-launchpad-architecture/mycelix-workspace/business-launchpad/core)
-- [Source](https://github.com/Luminous-Dynamics/mycelix/blob/rfc/business-launchpad-architecture/mycelix-workspace/business-launchpad/core/src/index.js)
+- [Core and package](https://github.com/Luminous-Dynamics/mycelix/tree/rfc/business-launchpad-architecture/mycelix-workspace/business-launchpad/core)
+- [Core source](https://github.com/Luminous-Dynamics/mycelix/blob/rfc/business-launchpad-architecture/mycelix-workspace/business-launchpad/core/src/index.js)
 - [Test fixtures](https://github.com/Luminous-Dynamics/mycelix/blob/rfc/business-launchpad-architecture/mycelix-workspace/business-launchpad/core/test/fixtures/business-scenarios.v1.json)
+- [CLI](https://github.com/Luminous-Dynamics/mycelix/blob/rfc/business-launchpad-architecture/mycelix-workspace/business-launchpad/core/src/cli.js)
+- [Static browser worksheet](https://github.com/Luminous-Dynamics/mycelix/tree/rfc/business-launchpad-architecture/mycelix-workspace/business-launchpad/web)
 - [Test workflow](https://github.com/Luminous-Dynamics/mycelix/blob/rfc/business-launchpad-architecture/.github/workflows/business-launchpad-core.yml)
 
 Current responsibilities:
@@ -68,15 +70,15 @@ Current responsibilities:
 - Unit contribution, monthly scenario arithmetic, break-even units, required startup cash, and simple funding gap.
 - Explicit incomplete-cost declarations and named omissions.
 - Three frozen synthetic scenario fixtures: service, food and retail.
-- Deterministic Node.js tests and an exact-head, version-pinned GitHub Actions workflow.
+- Deterministic Node.js tests, a local JSON CLI, a static browser worksheet, and an exact-head, version-pinned GitHub Actions workflow.
 
-The local scratch checkout ran `node --check src/index.js` and `node --test`: 19 tests/subtests passed on Node v22.16.0. This is useful local evidence for the equivalent source and fixtures, not an exact-head CI pass. The pinned workflow targets Node 24.21.0; its run must complete against the current branch head before claiming that result.
+The temporary scratch checkout ran syntax checks for the calculator, CLI and browser module; `npm test` reported **21 tests/subtests passed** on Node v22.16.0; and the CLI example returned the expected arithmetic (break-even 8 units/month, startup funding gap 0 minor units for fictional inputs). This is not an exact-head pass: local source blob `60e83e62b62cbd8c9f4bde5ea8bafa4bc36738c` differs from branch source blob `76b1f4fd70f056b1c051fb62b5368f08c1a972cc`; local test blob `779c00a552a41bb04765623ccbdab3c2e4eb68f1` differs from branch test blob `d14d90d3522afd94d370da62f0fad5e11881a14e`. The pinned workflow targets Node 24.21.0 and must pass against the exact current branch head before we claim exact-head test evidence. The browser module has syntax-level validation only; no browser runtime, accessibility or responsive-layout test has run.
 
 The example numbers are invented test values in ZAR minor units, not gathered Johannesburg prices, cost benchmarks, profit projections, or recommendations. The calculated “operating result” excludes any omitted costs and is not net profit. The current code does not calculate a time-based cash runway, full working-capital cycle, creditworthiness, local taxes, or demand.
 
 ## 4. Current hard gaps
 
-1. **No user-facing business product.** There is no integrated onboarding, business dashboard, persistence model, accessible low-bandwidth UI, or end-to-end owner journey in this slice.
+1. **No integrated business product.** A static worksheet UI exists, but there is no durable business profile, account system, onboarding/checklist workflow, order/job management, persistent record store, or complete owner journey.
 2. **No single source of truth for merchant transactions.** Marketplace is the reuse candidate for its supported commerce lifecycle; service quotes/jobs may need a distinct typed model. This choice has not been implemented or integration-tested.
 3. **No external accounting/POS/payment adapter.** No sandbox operation, webhook verification, reconciliation, or actual external payment evidence was executed in this audit.
 4. **No jurisdiction pack.** The calculator has no official rules or tax rates; current South African VAT source status is nuanced and must not be reduced to a static threshold.
@@ -104,16 +106,16 @@ ERPNext's official documentation describes [POS with inventory integration](http
 
 ## 6. Next work in dependency order
 
-1. **Finish exact-head local validation of the isolated core:** fetch current branch head; run package checks and tests; compare local and Actions result. Treat queued as not passed.
-2. **Add mutation-free CLI/example interface or UI spike:** render a sample report and the explicit limitations; do not mix business assumptions with Mycelix currency/tokenomics.
+1. **Obtain exact-head automated validation:** run the pinned Node 24.21.0 workflow on the current branch head and inspect the qualification artifact. Treat queued, skipped or missing as not passed.
+2. **Test the browser interaction path:** automate input, calculate, invalid-input, partial-cost and complete-cost scenarios; inspect the captured report for exact amounts, labels, errors and absence of unexpected network/persistence effects. Current validation is syntax plus core unit tests, not a browser runtime pass.
 3. **Do an ERPNext disposable adapter spike:** import a synthetic catalog and expense; create and reconcile a synthetic order/invoice/payment record; verify IDs, totals, export and retry semantics. No real provider credentials.
 4. **Choose the first market slice:** one municipality and one business activity, with source-reviewed official prerequisites. Do not call it “global compliance”.
-5. **Only after the above, build the business-facing UI**, keeping the calculator deterministic and Symthaea advisory-only.
+5. **After browser interaction is verified, decide whether the static worksheet should stay separate or be ported into an existing client.** Do not integrate into Marketplace's purchase flow or Observatory's community UI without explicit ownership and data-source decisions.
 6. **Integrate Marketplace/Mycelix only for proven shared semantics**, after reproducing the current vertical-slice/lifecycle and multi-agent evidence at an exact commit.
 7. **Pilot with explicit opt-in and measurement:** compare setup time/cost and administrative burden against a baseline. Do not claim success from simulation, README counts, or feature presence.
 
 ## 7. Decision
 
-**Continue, but keep scope narrow.** There is a credible reuse path through Mycelix Marketplace and Commons, with Symthaea for optional advice and Luminous Platform for underlying secure infrastructure. The current truth is that we have added a deterministic calculator with synthetic fixtures and tests—not an integrated business-launch product yet.
+**Continue, but keep scope narrow.** There is a credible reuse path through Mycelix Marketplace and Commons, with Symthaea for optional advice and Luminous Platform for underlying secure infrastructure. The current truth is a deterministic calculator, fictional fixtures, a local CLI and a static browser worksheet—not an integrated business-launch product.
 
 The next meaningful proof is not another architecture diagram. It is an exact-head test pass, one reproducible integration spike, a source-reviewed local prerequisite pack, and one complete owner-facing flow that records what happened without inventing payments, compliance, or profitability.
