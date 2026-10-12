@@ -223,6 +223,15 @@ try {
   await page.screenshot({ path: resolve(evidenceDir, '03-cash-runway-delayed-receipts.png'), fullPage: true });
   completedChecks.push('cash receipts can move independently of activity units and monthly operating payments');
 
+  await page.locator('#reset-cash-runway').click();
+  assert.equal(await page.locator('#cash-month-1-sales-receipts').inputValue(), '5000.00');
+  assert.equal(await page.locator('#cash-month-1-operating-outflows').inputValue(), '2400.00');
+  assert.equal(await page.locator('#cash-month-1-inflows').inputValue(), '0.00');
+  assert.equal(await page.locator('#download-report').isDisabled(), true);
+  await page.getByRole('button', { name: /Calculate scenario/ }).click();
+  assert.equal(await page.locator('#download-report').isDisabled(), false);
+  completedChecks.push('reset makes its destructive effect explicit, regenerates cash defaults and requires recalculation');
+
   await page.locator('#selling-price').fill('201.00');
   assert.equal(
     await page.locator('#download-report').isDisabled(),
