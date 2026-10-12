@@ -71,6 +71,7 @@ ADAPTER_REQUIRED_TESTS = {
     "nonce_entropy_failure_fails_closed",
     "retry_after_reader_failure_reuses_same_prepared_request",
     "prepared_request_rejects_a_second_response",
+    "prior_turn_response_is_rejected_for_new_prepared_request",
     "oversized_response_consumes_prepared_request",
 }
 
@@ -618,8 +619,10 @@ def main() -> int:
         "fn prepared_request_rejects_a_second_response()" in adapter_source
         and "fn oversized_response_consumes_prepared_request()" in adapter_source
         and "fn retry_after_reader_failure_reuses_same_prepared_request()" in adapter_source
+        and "fn prior_turn_response_is_rejected_for_new_prepared_request()" in adapter_source
+        and "Err(BoundedAdviceReadError::Rejected(AdviceRejection::StaleInput))" in adapter_source
         and "Err(error) => return Err(error)" in one_shot,
-        "adapter tests must cover single-use replay rejection and retry after a reader failure",
+        "adapter tests must cover same-request replay, cross-turn stale responses, and retry after reader failure",
         errors,
     )
     require(
