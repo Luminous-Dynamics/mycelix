@@ -82,6 +82,7 @@ jobs:
           node test/browser-journey.mjs 2>&1 | tee browser-journey.log
 
       - name: Emit exact-head browser qualification record
+        id: receipt
         if: always()
         working-directory: mycelix-workspace/business-launchpad/core
         env:
@@ -152,6 +153,7 @@ jobs:
           } | tee browser-qualification.txt
 
       - name: Upload browser qualification evidence
+        id: artifact
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -173,9 +175,13 @@ jobs:
           PLAYWRIGHT_OUTCOME: ${{ steps.playwright-package.outcome }}
           CHROMIUM_OUTCOME: ${{ steps.chromium.outcome }}
           BROWSER_TEST_OUTCOME: ${{ steps.browser-test.outcome }}
+          RECEIPT_OUTCOME: ${{ steps.receipt.outcome }}
+          ARTIFACT_OUTCOME: ${{ steps.artifact.outcome }}
         run: |
           test "$SETUP_NODE_OUTCOME" = "success"
           test "$RUNTIME_OUTCOME" = "success"
           test "$PLAYWRIGHT_OUTCOME" = "success"
           test "$CHROMIUM_OUTCOME" = "success"
           test "$BROWSER_TEST_OUTCOME" = "success"
+          test "$RECEIPT_OUTCOME" = "success"
+          test "$ARTIFACT_OUTCOME" = "success"
