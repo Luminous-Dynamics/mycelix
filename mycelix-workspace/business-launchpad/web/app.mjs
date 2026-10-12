@@ -277,7 +277,7 @@ function validateImportedCashRunwayPlan(plan, model, schemaVersion) {
       !Array.isArray(period) &&
       newCategoryFields.some(field => period[field] === undefined)
     ) {
-      throw new Error('Version 3 cash runway Month ' + (index + 1) + ' must include all investing and financing cash fields.');
+      throw new Error('Version ' + schemaVersion + ' cash runway Month ' + (index + 1) + ' must include all investing and financing cash fields.');
     }
     if (
       period === null ||
