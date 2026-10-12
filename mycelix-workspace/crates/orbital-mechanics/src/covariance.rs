@@ -194,13 +194,32 @@ impl CovarianceMatrix {
         (eigenvalues[0], eigenvalues[1], eigenvalues[2])
     }
 
-    /// Check if covariance is positive semi-definite (valid)
+    /// Check whether the matrix is finite, symmetric and positive semidefinite.
+    ///
+    /// This is a mathematical structure check only; it does not authenticate the
+    /// source, establish covariance realism, or calibrate orbital uncertainty.
     pub fn is_valid(&self) -> bool {
         if !self.data.iter().all(|value| value.is_finite()) {
             return false;
         }
+
+        // Deserialization can bypass constructors that symmetrize their input.
+        // Reject materially asymmetric matrices before passing them to a symmetric
+        // eigensolver, and reject norm overflow even when individual entries are finite.
+        let scale = self.data.norm();
+        let asymmetry = (self.data - self.data.transpose()).norm();
+        if !scale.is_finite() || !asymmetry.is_finite() {
+            return false;
+        }
+        if asymmetry > 1e-12 * scale.max(1.0) {
+            return false;
+        }
+
         let eigen = SymmetricEigen::new(self.data);
-        eigen.eigenvalues.iter().all(|&v| v >= -1e-10)
+        eigen
+            .eigenvalues
+            .iter()
+            .all(|&value| value.is_finite() && value >= -1e-10)
     }
 
     /// Scale covariance (e.g., for k-sigma calculations)
