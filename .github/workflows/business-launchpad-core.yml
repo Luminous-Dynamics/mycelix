@@ -58,6 +58,8 @@ jobs:
           {
             echo "BUSINESS LAUNCHPAD CORE GATE"
             echo "status=deterministic-test-gate-passed"
+            echo "check_status=passed"
+            echo "test_status=passed"
             echo "commit=${QUALIFIED_SHA}"
             echo "workflow_git_blob_sha1=$(git -C "$GITHUB_WORKSPACE" hash-object .github/workflows/business-launchpad-core.yml)"
             echo "workflow_sha256=$(sha256sum "$GITHUB_WORKSPACE/.github/workflows/business-launchpad-core.yml" | cut -d' ' -f1)"
