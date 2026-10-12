@@ -300,7 +300,93 @@ function addMetric(list, label, value, extraClass = '') {
   list.append(item);
 }
 
-function renderReport(report) {
+function formatCashPeriod(period) {
+  if (period === 0) return 'After setup, before Month 1';
+  return 'Month ' + period;
+}
+
+function renderCashRunwayReport(runway) {
+  const section = element('section', 'cash-runway-result');
+  section.append(element('h3', 'section-subheading', '12-month cash runway scenario'));
+  section.append(element(
+    'p',
+    'detail',
+    'An owner-supplied cash scenario, not a sales forecast. Setup costs are paid before Month 1; the working-capital buffer is a minimum reserve target.'
+  ));
+
+  const summary = element('dl', 'metric-list');
+  addMetric(summary, 'Cash after setup', formatMinorUnits(runway.startup.cashAfterSetupBeforeMonthOneMinor, runway.currency),
+    runway.startup.cashAfterSetupBeforeMonthOneMinor < 0 ? 'negative' : '');
+  addMetric(summary, 'Lowest projected cash', formatMinorUnits(runway.summary.minimumProjectedCashMinor, runway.currency),
+    runway.summary.minimumProjectedCashMinor < 0 ? 'negative' : '');
+  addMetric(summary, 'Ending cash', formatMinorUnits(runway.summary.endingCashMinor, runway.currency),
+    runway.summary.endingCashMinor < 0 ? 'negative' : '');
+  addMetric(summary, 'Reserve target', formatMinorUnits(runway.startup.minimumCashReserveTargetMinor, runway.currency));
+  addMetric(summary, 'First reserve breach',
+    runway.summary.firstBelowReservePeriod === null
+      ? 'None during this scenario'
+      : formatCashPeriod(runway.summary.firstBelowReservePeriod),
+    runway.summary.firstBelowReservePeriod === null ? '' : 'negative');
+  addMetric(summary, 'First negative cash balance',
+    runway.summary.firstNegativeCashPeriod === null
+      ? 'None during this scenario'
+      : formatCashPeriod(runway.summary.firstNegativeCashPeriod),
+    runway.summary.firstNegativeCashPeriod === null ? '' : 'negative');
+  addMetric(summary, 'Extra cash to maintain reserve',
+    formatMinorUnits(runway.summary.additionalCashNeededToMaintainReserveMinor, runway.currency),
+    runway.summary.additionalCashNeededToMaintainReserveMinor > 0 ? 'negative' : '');
+  section.append(summary);
+
+  const scroll = element('div', 'cash-plan-scroll');
+  scroll.setAttribute('role', 'region');
+  scroll.setAttribute('aria-label', 'Projected monthly cash balances');
+  scroll.setAttribute('tabindex', '0');
+  const table = element('table', 'cash-projection-table');
+  const thead = element('thead');
+  const headerRow = element('tr');
+  for (const label of ['Period', 'Expected sales units', 'Net cash change', 'Closing cash', 'Reserve status']) {
+    const heading = element('th', '', label);
+    heading.setAttribute('scope', 'col');
+    headerRow.append(heading);
+  }
+  thead.append(headerRow);
+  table.append(thead);
+
+  const body = element('tbody');
+  runway.periods.forEach(period => {
+    const row = element('tr');
+    const periodHeading = element('th', '', 'Month ' + period.period);
+    periodHeading.setAttribute('scope', 'row');
+    row.append(periodHeading);
+    row.append(element('td', '', period.plannedSalesUnits.toLocaleString()));
+    row.append(element('td', period.netCashChangeMinor < 0 ? 'negative' : '',
+      formatMinorUnits(period.netCashChangeMinor, runway.currency)));
+    row.append(element('td', period.closingCashMinor < 0 ? 'negative' : '',
+      formatMinorUnits(period.closingCashMinor, runway.currency)));
+    row.append(element('td', period.belowReserve ? 'negative' : '',
+      period.belowReserve ? 'Below reserve' : 'At or above reserve'));
+    body.append(row);
+  });
+  table.append(body);
+  scroll.append(table);
+  section.append(scroll);
+
+  if (runway.costCoverage.level === 'partial') {
+    section.append(element(
+      'p',
+      'coverage-line',
+      'PARTIAL COST COVERAGE ALSO APPLIES TO THIS CASH SCENARIO. Unknown costs do not disappear; add credible estimates to the monthly other-cash-outflow fields where available.'
+    ));
+  }
+
+  section.append(element('h4', 'section-subheading', 'Cash scenario limitations'));
+  const limitations = element('ul', 'limitations');
+  for (const item of runway.scopeLimitations) limitations.append(element('li', '', item));
+  section.append(limitations);
+  return section;
+}
+
+function renderReport(report, cashRunwayReport) {
   resultRoot.replaceChildren();
 
   const headline = element('div', 'result-headline');
@@ -347,6 +433,7 @@ function renderReport(report) {
     list.append(element('li', '', limitation));
   }
   resultRoot.append(list);
+  resultRoot.append(renderCashRunwayReport(cashRunwayReport));
 
   resultStatus.textContent = 'Deterministic calculation';
   resultStatus.className = 'status-pill';
