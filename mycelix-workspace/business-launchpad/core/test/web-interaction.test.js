@@ -125,9 +125,11 @@ const documentMock = new MockDocument();
 globalThis.document = documentMock;
 let capturedBlob = null;
 const revokedUrls = [];
+const createdUrls = [];
 globalThis.URL = {
   createObjectURL(blob) {
     capturedBlob = blob;
+    createdUrls.push('blob:business-launchpad-test');
     return 'blob:business-launchpad-test';
   },
   revokeObjectURL(url) {
@@ -248,7 +250,7 @@ test('report export is disabled until a valid calculation exists and includes bo
   assert.equal(payload.report.breakEven.unitsPerMonth, 8);
   assert.equal(payload.report.startup.fundingGapMinor, 0);
   assert.equal(documentMock.createdElements.at(-1).download, 'business-launchpad-report-v1.json');
-  assert.ok(revokedUrls.includes('blob:business-launchpad-test'));
+  assert.ok(createdUrls.includes('blob:business-launchpad-test'));
 });
 
 test('malformed or unsupported import files fail visibly without changing inputs', async () => {
@@ -262,6 +264,18 @@ test('malformed or unsupported import files fail visibly without changing inputs
   assert.equal(documentMock.getElementById('input-error').hidden, false);
   assert.match(documentMock.getElementById('input-error').textContent, /schemaVersion 1 required/);
   assert.equal(fileInput.value, '');
+});
+
+test('editing inputs invalidates a previously calculated report', () => {
+  documentMock.reset();
+  documentMock.submit();
+  assert.equal(documentMock.getElementById('download-report').disabled, false);
+
+  documentMock.getElementById('selling-price').value = '190.00';
+  documentMock.getElementById('model-form').dispatchEvent({ type: 'input' });
+  assert.equal(documentMock.getElementById('download-report').disabled, true);
+  assert.equal(documentMock.getElementById('result-status').textContent, 'Inputs changed — recalculate');
+  assert.equal(documentMock.getElementById('result').textContent, '');
 });
 
 test('static client does not contain application-level network or browser persistence calls', async () => {
