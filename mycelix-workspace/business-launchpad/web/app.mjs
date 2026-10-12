@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { analyzeBusinessModel, formatMinorUnits, parseMajorToMinorUnits } from '../core/src/index.js';
 
 const form = document.querySelector('#model-form');
