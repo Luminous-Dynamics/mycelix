@@ -83,6 +83,11 @@ class RegenerativeObservationReceiptTests(unittest.TestCase):
     def test_synthetic_point_fixture_passes(self) -> None:
         self.assertEqual(validate_observation(self.record, self.catalog), [])
 
+    def test_malformed_observation_status_fails_closed(self) -> None:
+        self.record["observation_status"] = ["observed"]
+        errors = validate_observation(self.record, self.catalog)
+        self.assertTrue(any("observation_status must be an allowed" in error for error in errors), errors)
+
     def test_catalog_reference_is_required(self) -> None:
         self.record["indicator_id"] = "not.registered"
         errors = validate_observation(self.record, self.catalog)
