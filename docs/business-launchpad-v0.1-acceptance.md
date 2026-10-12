@@ -139,11 +139,11 @@ These criteria cover the current local-file workflow, including the month-by-mon
 
 | ID | Scenario | Required assertion | First evidence |
 |---|---|---|---|
-| BL-DATA-001 | Download assumptions | Download a versioned JSON envelope containing current normalized model inputs, the 12-month cash plan, stable schema/kind fields, currency metadata and cost-coverage declaration. No input is posted to an application endpoint. | Mock-DOM + exact-head |
-| BL-DATA-002 | Load valid assumptions | Accept only the supported schema version/kind; validate model inputs and every cash-plan period with the same domain contract; support legacy version-1 files without a plan by creating an illustrative ramp and legacy plans missing receipt/payment fields by deriving disclosed starter values; never overwrite explicit valid timing; restore the form and require recalculation before a report becomes downloadable. | Mock-DOM + exact-head |
+| BL-DATA-001 | Download assumptions | Download a schema-version-2 JSON envelope containing current normalized model inputs, the 12-month cash plan with explicit monthly sales receipts and operating payments, currency metadata and cost-coverage declaration. No input is posted to an application endpoint. | Mock-DOM + exact-head |
+| BL-DATA-002 | Load valid assumptions | Accept schema versions 1 and 2 only; version 2 must include its 12-month cash plan, version 1 without a plan receives an illustrative ramp, and legacy plans missing receipt/payment fields receive disclosed starter values. Validate the model and all cash-plan fields with the same domain contract, never overwrite explicit valid timing, restore the form and require recalculation before a report becomes downloadable. | Mock-DOM + exact-head |
 | BL-DATA-003 | Load malformed, oversized or unsupported file | Show a visible error, do not change the user's current input fields, and keep report download disabled. Cap input file size to prevent unbounded memory use. | Unit/mock-DOM + exact-head |
 | BL-DATA-004 | Change input after calculation | Invalidate the prior report and disable report download until the current input set is recalculated. An old report must not be presented as matching edited inputs. | Mock-DOM + exact-head |
-| BL-DATA-005 | Download report | Export input assumptions, the exact deterministic economics report, the 12-month cash plan and its projection in a versioned envelope. The report file is an owner-controlled local artifact, not cloud backup or proof of compliance. | Mock-DOM + exact-head |
+| BL-DATA-005 | Download report | Export input assumptions, the deterministic economics report, the 12-month cash plan and its projection in a schema-version-2 envelope. The report file is an owner-controlled local artifact, not cloud backup or proof of compliance. | Mock-DOM + exact-head |
 
 ## 5. Suggested evidence corpus
 
