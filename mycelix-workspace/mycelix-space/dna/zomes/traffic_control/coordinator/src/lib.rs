@@ -366,12 +366,14 @@ pub fn submit_proposal(input: SubmitProposalInput) -> ExternResult<ActionHash> {
         )
         .into_wasm_error());
     }
-    if input.resulting_miss_km < 0.0 || input.resulting_miss_km.is_nan() {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidProposal,
-            "resulting_miss_km must be non-negative",
-        )
-        .into_wasm_error());
+    if let Some(distance_km) = input.resulting_miss_km {
+        if !distance_km.is_finite() || distance_km < 0.0 {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidProposal,
+                "claimed resulting miss distance must be finite and non-negative when present",
+            )
+            .into_wasm_error());
+        }
     }
     if let Some(pc) = input.resulting_pc {
         if !pc.is_finite() || !(0.0..=1.0).contains(&pc) {
@@ -398,7 +400,7 @@ pub fn submit_proposal(input: SubmitProposalInput) -> ExternResult<ActionHash> {
         burn_time: input.burn_time,
         delta_v_ms: input.delta_v_ms,
         direction: input.direction,
-        resulting_miss_km: input.resulting_miss_km,
+        claimed_resulting_miss_km: input.resulting_miss_km,
         claimed_resulting_pc: input.resulting_pc,
         cost_estimate: input.cost_estimate,
         status: ProposalStatus::Pending,
@@ -433,8 +435,10 @@ pub struct SubmitProposalInput {
     pub burn_time: SpaceTimestamp,
     pub delta_v_ms: f64,
     pub direction: [f64; 3],
-    pub resulting_miss_km: f64,
-    /// Optional caller claim; it is not independently verified by this endpoint.
+    /// Optional caller-reported miss distance; not independently verified here.
+    #[serde(default, alias = "resulting_miss_km")]
+    pub resulting_miss_km: Option<f64>,
+    /// Optional caller-reported Pc claim; not independently verified by this endpoint.
     #[serde(default)]
     pub resulting_pc: Option<f64>,
     pub cost_estimate: Option<CostEstimate>,
