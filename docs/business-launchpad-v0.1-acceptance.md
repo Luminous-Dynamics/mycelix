@@ -1,6 +1,6 @@
 # Business Launchpad v0.1 — Acceptance and Evidence Matrix
 
-**Status:** Proposed acceptance contract. A deterministic calculator core and fixtures now exist; the core is not wired into a UI or operational systems, and no exact-head CI pass is being claimed.  
+**Status:** Proposed acceptance contract. A deterministic calculator core, CLI and static browser worksheet exist; the workflow is not integrated with persistent records, Marketplace transactions, Symthaea or external accounting/payment systems. No exact-head CI pass is being claimed.  
 **Companion:** [Business Launchpad architecture RFC](business-launchpad-architecture.md)  
 **Date:** 2026-10-12  
 **Purpose:** Turn the RFC into testable acceptance criteria before code is assigned to an existing repository or a new application.
