@@ -162,6 +162,10 @@ def validate_observation(record: object, catalog: object) -> list[str]:
         errors.append("coverage.coverage_fraction must be null or a number in [0, 1]")
     if coverage_state == "complete" and fraction != 1:
         errors.append("complete coverage requires coverage_fraction=1")
+    if coverage_state == "partial" and (
+        not _finite_number(fraction) or fraction <= 0 or fraction >= 1
+    ):
+        errors.append("partial coverage requires a finite coverage_fraction strictly between 0 and 1")
     if coverage_state in {"unknown", "not_applicable"} and fraction is not None:
         errors.append("unknown/not_applicable coverage requires a null fraction")
     if not isinstance(coverage.get("definition"), str) or not coverage["definition"].strip():
