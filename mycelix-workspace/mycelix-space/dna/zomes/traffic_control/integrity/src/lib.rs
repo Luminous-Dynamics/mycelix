@@ -600,6 +600,18 @@ fn validate_position(pos: &NegotiationPosition) -> ExternResult<ValidateCallback
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_claimed_resulting_pc(pc: Option<f64>) -> Result<(), String> {
+    if let Some(value) = pc {
+        if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+            return Err(format!(
+                "Claimed resulting Pc must be finite and between 0 and 1 when present, got {}",
+                value
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn validate_proposal(prop: &ManeuverProposal) -> ExternResult<ValidateCallbackResult> {
     // Session ID must not be empty
     if prop.session_id.trim().is_empty() {
@@ -649,13 +661,8 @@ fn validate_proposal(prop: &ManeuverProposal) -> ExternResult<ValidateCallbackRe
     }
 
     // Validate any caller-reported Pc claim. Absence stays unknown, not zero.
-    if let Some(pc) = prop.claimed_resulting_pc {
-        if !pc.is_finite() || !(0.0..=1.0).contains(&pc) {
-            return Ok(ValidateCallbackResult::Invalid(format!(
-                "Claimed resulting Pc must be finite and between 0 and 1 when present, got {}",
-                pc
-            )));
-        }
+    if let Err(message) = validate_claimed_resulting_pc(prop.claimed_resulting_pc) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
 
     // Validate cost estimate if present
@@ -1154,6 +1161,16 @@ mod avoidance_option_pc_tests {
                 validate_avoidance_option(&option(Some(pc))).expect("validator"),
                 ValidateCallbackResult::Invalid(_)
             ));
+        }
+    }
+
+    #[test]
+    fn maneuver_claimed_pc_distinguishes_absent_from_zero() {
+        assert!(validate_claimed_resulting_pc(None).is_ok());
+        assert!(validate_claimed_resulting_pc(Some(0.0)).is_ok());
+        assert!(validate_claimed_resulting_pc(Some(1.0)).is_ok());
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.01, 1.01] {
+            assert!(validate_claimed_resulting_pc(Some(value)).is_err());
         }
     }
 }
