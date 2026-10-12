@@ -106,6 +106,24 @@
       "reference_type": "data_discovery_portal",
       "retrieved_on": "2026-10-12",
       "url": "https://www.dws.gov.za/iwqs/wms/data/000key.asp"
+    },
+    {
+      "ref_id": "swam-water-quality-zenodo-2026",
+      "title": "Datasets produced during the EOAfrica Sentinel-2 user-relevant water quality monitoring project",
+      "publisher": "Zenodo; dataset produced by CSIR, University of Cape Town and University of Stirling",
+      "reference_type": "research_dataset_discovery",
+      "published_year": 2026,
+      "retrieved_on": "2026-10-12",
+      "url": "https://zenodo.org/records/18670504"
+    },
+    {
+      "ref_id": "wro-south-african-water-chemistry-1972-2011",
+      "title": "An inorganic water chemistry dataset (1972–2011) of rivers, dams and lakes in South Africa",
+      "publisher": "Water Research Observatory / Water SA",
+      "reference_type": "research_dataset_discovery",
+      "published_year": 2013,
+      "retrieved_on": "2026-10-12",
+      "url": "https://wrcwro01.arc.agric.za/dataset/an-inorganic-water-chemistry-dataset-1972-2011-of-rivers-dams-and-lakes-in-south-africa"
     }
   ],
   "indicators": [
@@ -404,7 +422,9 @@
       "research_ref_ids": [
         "un-sdg-indicator-metadata",
         "regenerative-agriculture-outcomes-review",
-        "dws-water-quality-data-explorer"
+        "dws-water-quality-data-explorer",
+        "swam-water-quality-zenodo-2026",
+        "wro-south-african-water-chemistry-1972-2011"
       ],
       "status": "candidate_definition",
       "observations_loaded": false,
