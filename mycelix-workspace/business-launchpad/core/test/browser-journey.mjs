@@ -163,9 +163,9 @@ try {
   const exportedScenario = await readDownloadJson(
     page,
     '#download-scenario',
-    'business-launchpad-scenario-v1.json'
+    'business-launchpad-scenario-v2.json'
   );
-  assert.equal(exportedScenario.schemaVersion, 1);
+  assert.equal(exportedScenario.schemaVersion, 2);
   assert.equal(exportedScenario.kind, 'business-launchpad-scenario');
   assert.equal(exportedScenario.input.currency.code, 'ZAR');
   assert.equal(exportedScenario.cashRunwayPlan.length, 12);
@@ -195,9 +195,9 @@ try {
   const report = await readDownloadJson(
     page,
     '#download-report',
-    'business-launchpad-report-v1.json'
+    'business-launchpad-report-v2.json'
   );
-  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.schemaVersion, 2);
   assert.equal(report.kind, 'business-launchpad-report');
   assert.equal(report.input.sellingPricePerUnitMinor, 20_000);
   assert.equal(report.report.monthlyScenario.operatingResultBeforeExcludedItemsMinor, 470_000);
@@ -234,10 +234,10 @@ try {
   await page.locator('#load-scenario-file').setInputFiles({
     name: 'unsupported.json',
     mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify({ schemaVersion: 2, kind: 'business-launchpad-scenario', input: {} }))
+    buffer: Buffer.from(JSON.stringify({ schemaVersion: 99, kind: 'business-launchpad-scenario', input: {} }))
   });
   await errorBox.waitFor({ state: 'visible' });
-  assert.match(await errorBox.innerText(), /schemaVersion 1 required/);
+  assert.match(await errorBox.innerText(), /schemaVersion 1 or 2 required/);
   assert.equal(await page.locator('#selling-price').inputValue(), priceBeforeInvalidImport);
   completedChecks.push('unsupported scenario version fails visibly without overwriting entered values');
 
