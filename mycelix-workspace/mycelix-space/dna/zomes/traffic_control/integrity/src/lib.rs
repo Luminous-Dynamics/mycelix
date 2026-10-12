@@ -528,10 +528,11 @@ fn validate_session(session: &NegotiationSession) -> ExternResult<ValidateCallba
         ));
     }
 
-    // Deadline must be after TCA (negotiation window)
-    if session.deadline.micros < session.tca.micros {
+    // The negotiation deadline must be strictly before TCA so approval can
+    // complete before the conjunction. Equality or a later deadline is invalid.
+    if session.deadline.micros >= session.tca.micros {
         return Ok(ValidateCallbackResult::Invalid(
-            "Deadline cannot be before TCA".to_string(),
+            "Negotiation deadline must be strictly before TCA".to_string(),
         ));
     }
 
@@ -1056,6 +1057,39 @@ fn validate_multi_party_agreement(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn negotiation_session(deadline_micros: i64, tca_micros: i64) -> NegotiationSession {
+        NegotiationSession {
+            session_id: "session:test".to_string(),
+            conjunction_id: "conjunction:test".to_string(),
+            primary_operator: AgentPubKey::from_raw_36(vec![1; 36]),
+            secondary_operator: AgentPubKey::from_raw_36(vec![2; 36]),
+            primary_norad_id: 42,
+            secondary_norad_id: 77,
+            tca: SpaceTimestamp { micros: tca_micros },
+            status: SessionStatus::Pending,
+            deadline: SpaceTimestamp { micros: deadline_micros },
+            created_at: SpaceTimestamp { micros: 0 },
+        }
+    }
+
+    #[test]
+    fn negotiation_deadline_before_tca_is_valid() {
+        assert!(matches!(
+            validate_session(&negotiation_session(1_500_000, 2_000_000)).expect("validator"),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn negotiation_deadline_equal_to_or_after_tca_is_invalid() {
+        for deadline in [2_000_000, 2_000_001] {
+            assert!(matches!(
+                validate_session(&negotiation_session(deadline, 2_000_000)).expect("validator"),
+                ValidateCallbackResult::Invalid(_)
+            ));
+        }
+    }
 
     #[test]
     fn test_proposal_status_valid_transitions() {
