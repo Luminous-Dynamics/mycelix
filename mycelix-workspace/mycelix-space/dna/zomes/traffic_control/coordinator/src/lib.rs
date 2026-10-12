@@ -106,6 +106,14 @@ fn session_matches_participant(
         && (session.primary_operator == *agent || session.secondary_operator == *agent)
 }
 
+fn maneuvering_object_belongs_to_session(
+    maneuvering_object: u32,
+    session: &NegotiationSession,
+) -> bool {
+    maneuvering_object == session.primary_norad_id
+        || maneuvering_object == session.secondary_norad_id
+}
+
 /// Verify that the given agent is a participant (primary or secondary operator)
 /// in the named session. Returns the session entry on success.
 fn verify_session_participant(
@@ -451,10 +459,10 @@ pub fn submit_proposal(input: SubmitProposalInput) -> ExternResult<ActionHash> {
     // --- Input validation ---
     validate_string_field(&input.session_id, "session_id", 256).map_err(|e| e.into_wasm_error())?;
 
-    if input.delta_v_ms < 0.0 || input.delta_v_ms.is_nan() {
+    if !input.delta_v_ms.is_finite() || input.delta_v_ms <= 0.0 {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidProposal,
-            "delta_v_ms must be non-negative",
+            "delta_v_ms must be positive and finite",
         )
         .into_wasm_error());
     }
@@ -481,6 +489,17 @@ pub fn submit_proposal(input: SubmitProposalInput) -> ExternResult<ActionHash> {
 
     // --- Authorization: only session participants can submit proposals ---
     let session = verify_session_participant(&input.session_id, &agent)?;
+    if !maneuvering_object_belongs_to_session(input.maneuvering_object, &session) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Maneuvering object must be one of the two objects in this session",
+        )
+        .with_context(format!(
+            "requested object: {}, session objects: {} / {}",
+            input.maneuvering_object, session.primary_norad_id, session.secondary_norad_id
+        ))
+        .into_wasm_error());
+    }
 
     // A pre-maneuver baseline is not comparable to a claimed post-maneuver
     // probability. Persist the caller's number only as an unverified claim;
@@ -552,7 +571,7 @@ pub fn accept_proposal(input: AcceptProposalInput) -> ExternResult<ActionHash> {
     let agent = agent_info()?.agent_initial_pubkey;
 
     // --- Authorization: only session participants can accept proposals ---
-    verify_session_participant(&input.session_id, &agent)?;
+    let session = verify_session_participant(&input.session_id, &agent)?;
 
     // Resolve the exact proposed entry before writing an agreement. An arbitrary
     // ActionHash must not be accepted merely because the caller belongs to this
@@ -597,6 +616,24 @@ pub fn accept_proposal(input: AcceptProposalInput) -> ExternResult<ActionHash> {
             "Only a pending maneuver proposal can be accepted",
         )
         .with_context(format!("status: {:?}", proposal.status))
+        .into_wasm_error());
+    }
+    if !maneuvering_object_belongs_to_session(proposal.maneuvering_object, &session) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Proposal targets an object outside the negotiation session",
+        )
+        .with_context(format!(
+            "proposal object: {}, session objects: {} / {}",
+            proposal.maneuvering_object, session.primary_norad_id, session.secondary_norad_id
+        ))
+        .into_wasm_error());
+    }
+    if !session_matches_participant(&session, &proposal.session_id, &proposal.proposer) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Proposal's recorded proposer is not a participant in this session",
+        )
         .into_wasm_error());
     }
 
@@ -2414,9 +2451,18 @@ mod session_participant_tests {
         let primary = key(1);
         let secondary = key(2);
         let foreign = key(3);
-        let session = session(primary, secondary);
+        let session = session(primary.clone(), secondary);
 
         assert!(!session_matches_participant(&session, "session:1", &foreign));
-        assert!(!session_matches_participant(&session, "session:other", &foreign));
+        assert!(!session_matches_participant(&session, "session:other", &primary));
+    }
+
+    #[test]
+    fn proposals_must_target_one_of_the_session_objects() {
+        let session = session(key(1), key(2));
+
+        assert!(maneuvering_object_belongs_to_session(42, &session));
+        assert!(maneuvering_object_belongs_to_session(77, &session));
+        assert!(!maneuvering_object_belongs_to_session(99, &session));
     }
 }
