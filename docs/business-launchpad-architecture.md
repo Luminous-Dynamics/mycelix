@@ -1,6 +1,6 @@
 # Business Launchpad: Cross-Ecosystem Architecture RFC
 
-**Status:** Draft RFC; a deterministic calculator, synthetic test fixtures, CLI, and static browser worksheet now exist. There is still no persistent business record system, payment/accounting adapter, integrated Mycelix/Symthaea workflow, or verified jurisdiction pack. Not a compliance or production-readiness claim.  
+**Status:** Draft RFC; a deterministic one-month economics calculator, bounded 12-month owner-supplied cash scenario, synthetic test fixtures, CLI, and static browser worksheet now exist. There is still no persistent business record system, payment/accounting adapter, integrated Mycelix/Symthaea workflow, or verified jurisdiction pack. The cash scenario assumes same-month sales collection and variable-cost payment; it is not demand forecasting or a full receivables/payables model. No production-readiness or legal-compliance claim is implied.  
 **Date:** 2026-10-12  
 **Scope:** Mycelix + Symthaea + Luminous Platform  
 **Working name:** Business Launchpad  
@@ -297,7 +297,7 @@ Use this evidence sequence: (1) automated deterministic simulation and fault inj
 
 ### Phase 0 — Evidence and fit
 
-**Progress:** an initial read-only source/capability audit has been performed. A deterministic calculator, CLI, static browser worksheet, and synthetic fixtures live under `mycelix-workspace/business-launchpad/`. This is still a thin local prototype. The audit is incomplete: no clean-checkout Marketplace Rust/WASM/conductor run, external ERP compatibility spike, legal review, persistent backend, or business workflow integration has been demonstrated. See [the Phase 0 audit](business-launchpad-phase0-audit.md).
+**Progress:** an initial read-only source/capability audit has been performed. A deterministic one-month economics calculator, bounded 12-month cash scenario, CLI, static browser worksheet, and synthetic fixtures live under `mycelix-workspace/business-launchpad/`. The cash scenario exposes post-setup liquidity, lowest projected cash, reserve breaches and the additional reserve buffer required, using owner-entered monthly sales and non-sales cash movements. It assumes full same-month collection of sales and same-month payment of per-unit variable costs; it does not model demand, receivables, supplier-credit timing, advance inventory purchases, seasonality or capacity. This is still a thin local prototype and exact-head qualification is pending. The audit is incomplete: no clean-checkout Marketplace Rust/WASM/conductor run, external ERP compatibility spike, legal review, persistent backend, or business workflow integration has been demonstrated. See [the Phase 0 audit](business-launchpad-phase0-audit.md).
 
 - Map exact APIs, zome manifests, frontend contracts, current maturity evidence, license obligations, and live-test status for Marketplace, Commons/food, Finance, Identity, and workspace integration.
 - Reconcile the checked-in Marketplace vertical-slice/lifecycle contracts with current source; run the named static checkers, then the documented Rust/WASM and conductor tests from a clean, exact-head checkout. Capture command, toolchain, exact commit, outputs, and artifact digests. Confirm the canonical path and ownership of any supply-chain code instead of assuming a top-level module exists.
