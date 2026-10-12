@@ -341,7 +341,11 @@ impl ConjunctionAnalyzer {
             relative_velocity_vector,
             combined_position_covariance,
         );
+        let encounter_determinant = encounter_covariance.determinant();
         if !encounter_covariance.iter().all(|value| value.is_finite())
+            || !encounter_determinant.is_finite()
+            || encounter_determinant <= 0.0
+            || encounter_covariance.try_inverse().is_none()
             || encounter_covariance.cholesky().is_none()
         {
             return Err(ConjunctionAssessmentError::InvalidCovariance {
