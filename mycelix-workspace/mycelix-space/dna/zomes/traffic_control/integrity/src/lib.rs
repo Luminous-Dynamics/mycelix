@@ -221,8 +221,11 @@ pub struct ManeuverProposal {
     /// Direction (unit vector)
     pub direction: [f64; 3],
 
-    /// Resulting miss distance (km)
-    pub resulting_miss_km: f64,
+    /// Caller-reported post-maneuver miss-distance claim, if supplied.
+    ///
+    /// This is not independently verified trajectory output.
+    #[serde(default, alias = "resulting_miss_km")]
+    pub claimed_resulting_miss_km: Option<f64>,
 
     /// Caller-reported post-maneuver collision-probability claim.
     ///
@@ -600,6 +603,18 @@ fn validate_position(pos: &NegotiationPosition) -> ExternResult<ValidateCallback
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_claimed_resulting_miss_km(distance: Option<f64>) -> Result<(), String> {
+    if let Some(value) = distance {
+        if !value.is_finite() || value < 0.0 {
+            return Err(format!(
+                "Claimed resulting miss distance must be finite and non-negative when present, got {}",
+                value
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn validate_claimed_resulting_pc(pc: Option<f64>) -> Result<(), String> {
     if let Some(value) = pc {
         if !value.is_finite() || !(0.0..=1.0).contains(&value) {
@@ -652,12 +667,9 @@ fn validate_proposal(prop: &ManeuverProposal) -> ExternResult<ValidateCallbackRe
         )));
     }
 
-    // Resulting miss distance must be non-negative and finite
-    if !prop.resulting_miss_km.is_finite() || prop.resulting_miss_km < 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "Resulting miss distance must be non-negative and finite, got {}",
-            prop.resulting_miss_km
-        )));
+    // Validate any caller-reported miss-distance claim. Absence remains unknown.
+    if let Err(message) = validate_claimed_resulting_miss_km(prop.claimed_resulting_miss_km) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
 
     // Validate any caller-reported Pc claim. Absence stays unknown, not zero.
@@ -1171,6 +1183,16 @@ mod avoidance_option_pc_tests {
         assert!(validate_claimed_resulting_pc(Some(1.0)).is_ok());
         for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.01, 1.01] {
             assert!(validate_claimed_resulting_pc(Some(value)).is_err());
+        }
+    }
+
+    #[test]
+    fn maneuver_claimed_miss_distance_distinguishes_absent_from_zero() {
+        assert!(validate_claimed_resulting_miss_km(None).is_ok());
+        assert!(validate_claimed_resulting_miss_km(Some(0.0)).is_ok());
+        assert!(validate_claimed_resulting_miss_km(Some(5.0)).is_ok());
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.01] {
+            assert!(validate_claimed_resulting_miss_km(Some(value)).is_err());
         }
     }
 }
