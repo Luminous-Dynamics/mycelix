@@ -87,7 +87,26 @@
           "mean or median concentration depending on variable",
           "90th percentile",
           "number of valid pixels"
-        ]
+        ],
+        "preview_only_inspection": {
+          "method": "web text preview only; not a retained or locally hashed source artifact",
+          "sample_asset": "CHL_timeseries_2015_2025_CW.csv",
+          "source_url": "https://zenodo.org/records/18670504/files/CHL_timeseries_2015_2025_CW.csv?download=1",
+          "displayed_total_lines_in_preview": 433,
+          "header": [
+            "Lake_name",
+            "DateTime_UTC",
+            "Date",
+            "CHL_10P",
+            "CHL_mean",
+            "CHL_median",
+            "CHL_90P",
+            "N_valid"
+          ],
+          "first_displayed_data_date": "2015-08-10",
+          "last_displayed_data_date": "2025-11-07",
+          "note": "Preview dates are discovery observations only. Do not treat this as an ingested dataset or a verified complete time range."
+        }
       },
       "license_assessment": {
         "license_status": "unverified",
@@ -110,7 +129,8 @@
         "reason_codes": [
           "license_not_verified",
           "spatial_identity_not_verified",
-          "source_files_not_inspected"
+          "source_artifact_not_retained_or_hashed",
+          "metadata_date_range_conflict_unresolved"
         ],
         "required_evidence": [
           "Record-level file license confirmed from authoritative metadata or written rights-holder permission",
@@ -119,14 +139,30 @@
           "Original file downloaded in an approved workspace and SHA-256 calculated",
           "CSV schema, row counts, date range, missingness, duplicate timestamps and non-finite values inspected",
           "Water-body coordinates/polygons and site identity checked against the record",
-          "Algorithm, atmospheric correction, valid-pixel threshold and remote-sensing uncertainty recorded"
+          "Algorithm, atmospheric correction, valid-pixel threshold and remote-sensing uncertainty recorded",
+          "Reconcile the record description's stated search end date (2025-08-30) with the CHL CSV preview's last displayed date (2025-11-07) and document the authoritative data/version window",
+          "Verify the exact Rietvlei water-body coordinates and confirm the target site identity before any Johannesburg-area association"
         ]
       },
       "suitability": {
         "best_initial_use": "A narrow, clearly labeled remote-sensing water-quality evidence pilot after rights and location checks.",
         "not_suitable_for": "Treating satellite-derived concentrations as laboratory samples, direct drinking-water safety certification, or causal proof that an intervention improved water quality.",
         "next_action": "Resolve file-level license using record metadata/API or authors' written confirmation. If rights are suitable, inspect one CSV time series before considering the larger NetCDF cube."
-      }
+      },
+      "known_findings": [
+        {
+          "finding_id": "SWAM-PREVIEW-DATE-WINDOW-001",
+          "severity": "medium",
+          "observation": "Zenodo record description states the Sentinel-2 search period was 2015-08-01 through 2025-08-30, while the publicly rendered CHL_timeseries_2015_2025_CW.csv preview contains a row dated 2025-11-07. The discrepancy may reflect stale narrative metadata, later processing, or a different range; the page alone does not establish which explanation is correct.",
+          "required_resolution": "Confirm the exact file/version and inclusive data window against the authoritative deposited metadata or the dataset authors before any trend/window analysis. Preserve the response or immutable metadata snapshot."
+        },
+        {
+          "finding_id": "SWAM-RIETVLEI-SITE-IDENTITY-001",
+          "severity": "low",
+          "observation": "The catalog maps code RV to the name Rietvlei, but the discovery catalog alone does not establish that this water body is the specific Rietvlei site intended for a Johannesburg-area study.",
+          "required_resolution": "Inspect the dataset's geographic coordinates or water-body polygon and match it to an authoritative site identity before assigning a city/region label."
+        }
+      ]
     },
     {
       "candidate_id": "south-africa.national-water-chemistry.1972-2011.v1",
@@ -198,7 +234,8 @@
         "best_initial_use": "Potential historical baseline after license and method reconciliation.",
         "not_suitable_for": "Treating it as raw unprocessed monitoring data without auditing its reported exclusion and derived-variable processing.",
         "next_action": "Resolve record-level license conflict and download terms; then compare data dictionary and published paper before selecting any series."
-      }
+      },
+      "known_findings": []
     },
     {
       "candidate_id": "south-africa.dws-water-quality-monitoring-portal.v1",
@@ -267,7 +304,8 @@
         "best_initial_use": "Potential academic, research or personal analysis within the portal's current terms.",
         "not_suitable_for": "Default source for a public or commercial Mycelix product without written permission.",
         "next_action": "Use only if the intended use fits current restrictions; otherwise prioritize a dataset with an unambiguous file-level license."
-      }
+      },
+      "known_findings": []
     }
   ]
 }
