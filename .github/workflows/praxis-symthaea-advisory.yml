@@ -63,14 +63,41 @@ jobs:
       - name: Verify schema and source contracts
         run: python3 mycelix-praxis/scripts/verify_symthaea_advisory_schema.py
 
+      # Resolve once for this exact source head, then require every subsequent
+      # Cargo operation to consume that exact graph without refreshing it.
+      - name: Resolve exact-head dependency lock
+        run: cargo generate-lockfile --manifest-path mycelix-praxis/Cargo.toml
+
+      - name: Record resolved dependency graph
+        run: |
+          cargo metadata --manifest-path mycelix-praxis/Cargo.toml --locked --format-version 1 > advisory-cargo-metadata.json
+          {
+            echo "source_sha=${QUALIFIED_SHA}"
+            echo "rust=$(rustc --version)"
+            echo "cargo=$(cargo --version)"
+            echo "cargo_lock_sha256=$(sha256sum mycelix-praxis/Cargo.lock | cut -d' ' -f1)"
+          } | tee advisory-qualification-lock.txt
+
       - name: Check advisory crates formatting
         run: cargo fmt --manifest-path mycelix-praxis/Cargo.toml -p praxis-core -p praxis-symthaea-adapter -- --check
 
       - name: Test praxis-core
-        run: cargo test --manifest-path mycelix-praxis/Cargo.toml -p praxis-core
+        run: cargo test --manifest-path mycelix-praxis/Cargo.toml --locked -p praxis-core
 
       - name: Test bounded host adapter
-        run: cargo test --manifest-path mycelix-praxis/Cargo.toml -p praxis-symthaea-adapter
+        run: cargo test --manifest-path mycelix-praxis/Cargo.toml --locked -p praxis-symthaea-adapter
 
       - name: Lint advisory crates
-        run: cargo clippy --manifest-path mycelix-praxis/Cargo.toml -p praxis-core -p praxis-symthaea-adapter --all-targets -- -D warnings
+        run: cargo clippy --manifest-path mycelix-praxis/Cargo.toml --locked -p praxis-core -p praxis-symthaea-adapter --all-targets -- -D warnings
+
+      - name: Upload exact-head dependency qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: praxis-symthaea-dependencies-${{ env.QUALIFIED_SHA }}
+          path: |
+            mycelix-praxis/Cargo.lock
+            advisory-cargo-metadata.json
+            advisory-qualification-lock.txt
+          if-no-files-found: warn
+
