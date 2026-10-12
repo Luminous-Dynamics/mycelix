@@ -514,6 +514,40 @@ mod tests {
             !body.contains("input_digest"),
             "digest metadata must not make the body self-referential"
         );
+        let value: serde_json::Value =
+            serde_json::from_slice(first.body_bytes()).expect("prepared body is valid JSON");
+        let keys = value
+            .as_object()
+            .expect("request body is an object")
+            .keys()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            keys,
+            [
+                "allowed_actions",
+                "allowed_content_ids",
+                "allowed_reasons",
+                "curriculum_revision",
+                "model_id",
+                "model_version",
+                "schema_version",
+                "skill_id",
+            ]
+            .into_iter()
+            .collect()
+        );
+        assert_eq!(
+            value["allowed_actions"],
+            serde_json::json!(["offer_hint", "no_suggestion"])
+        );
+        assert_eq!(
+            value["allowed_reasons"],
+            serde_json::json!([
+                "repeated_incorrect_attempts",
+                "insufficient_evidence"
+            ])
+        );
         assert!(body.find("a.content").unwrap() < body.find("z.content").unwrap());
     }
 
