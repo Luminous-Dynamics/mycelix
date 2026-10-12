@@ -46,6 +46,27 @@ This is a deployment recommendation derived from source inspection, not an
 implemented transport or proof that the current Symthaea facade can yet satisfy
 the Praxis tutoring contract.
 
+### Compatibility check against the inspected Symthaea API
+
+The inspected [Symthaea API router at the pinned source revision](https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/src/api/mod.rs)
+is a benchmark API: its route set covers benchmark submission, result retrieval,
+leaderboards, datasets, comparison, dimensional sweeps, metrics, audit events,
+and health. It does **not** expose the finite, request-digest-bound learning
+advice contract defined here. In particular, Praxis must not call
+`POST /v1/submit` and treat a benchmark submission as a tutoring-advice request.
+
+The inspected [API binary entrypoint at the same revision](https://github.com/Luminous-Dynamics/symthaea/blob/b9af191f380d635f0459b24284c1d1fd6a5516aa/src/bin/symthaea-api.rs)
+defaults to loopback, but an absent bearer token permits requests in its
+development-mode configuration. That is another reason not to attach learner
+data to this general-purpose API by convenience or assume loopback implies
+authentication. This review did not establish a contract-compatible advice
+endpoint. A future integration needs a purpose-built endpoint or local sidecar
+that explicitly accepts this request schema and returns the response schema,
+with authenticated process/transport, streaming body caps, bounded timeouts,
+explicit consent/privacy handling, and deterministic failure fallback. Pin and
+review that service revision and its exact enabled features before connecting
+it to Praxis.
+
 ## Host-only bounded reader
 
 The workspace now includes `crates/praxis-symthaea-adapter`, a native-only
