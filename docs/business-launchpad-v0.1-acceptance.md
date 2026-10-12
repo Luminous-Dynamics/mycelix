@@ -146,7 +146,7 @@ The release remains **not releasable** until all are true:
 
 - [ ] The owning repository/application boundary and license obligations are resolved.
 - [ ] The selected pilot jurisdiction and activity have a source-reviewed prerequisite pack with effective dates and explicit unsupported cases.
-- [ ] BL-SET-001 through BL-SET-008, BL-ECO-001 through BL-ECO-006, BL-COM-001 through BL-COM-008, BL-FIN-001 through BL-FIN-009, and BL-SEC-001 through BL-SEC-009 pass at their required evidence levels for the implemented scope.
+- [ ] BL-SET-001 through BL-SET-008, BL-ECO-001 through BL-ECO-006, BL-COM-001 through BL-COM-008, BL-FIN-001 through BL-FIN-010, and BL-SEC-001 through BL-SEC-009 pass at their required evidence levels for the implemented scope. BL-FIN-010 can pass v0.1 by proving the unapproved settlement path remains disabled.
 - [ ] Marketplace contracts are preserved or a reviewed migration documents every changed invariant.
 - [ ] Every consequential effect is capability-bound, payload-bound, idempotent where possible, and recoverable through an explicit failure/indeterminate path.
 - [ ] No real-money movement, lending, stored value, or automated filing is present in v0.1.
