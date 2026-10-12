@@ -661,11 +661,18 @@ function normalizeCashTimingSchedule(value) {
     ) };
   }
 
+  const schedulesMatch = normalizedCategories.every(category =>
+    category.paymentPercentages.every((value, index) => value === normalizedCategories[0].paymentPercentages[index])
+  );
   return {
     schedule: {
       salesReceiptsPercent: [...sales],
       variableCostCategories: normalizedCategories
-    }
+    },
+    // Equal category schedules are exactly equivalent to the former aggregate
+    // curve. Preserve its minor-unit allocation across time, even after schema-v5
+    // assumptions have been migrated into the visible three-category shape.
+    aggregatePaymentTiming: source.variableCostCategories === undefined || schedulesMatch
   };
 }
 
@@ -714,6 +721,7 @@ export function projectCashRunwayWithTimingSchedule(input) {
   const horizon = base.report.periods.length;
   const schedule = normalized.schedule;
   const categories = schedule.variableCostCategories;
+  const aggregatePaymentTiming = normalized.aggregatePaymentTiming;
   const monthlyPlan = base.report.periods.map(period => ({
     salesUnits: period.salesUnitsScenario,
     salesCashReceiptsMinor: 0,
@@ -755,25 +763,52 @@ export function projectCashRunwayWithTimingSchedule(input) {
         }
       }
 
-      for (let categoryIndex = 0; categoryIndex < categories.length; categoryIndex += 1) {
-        const category = categories[categoryIndex];
-        const categoryCohortCost = BigInt(unitCostByCategory[categoryIndex]) * BigInt(activity);
-        if (categoryCohortCost > MAX_SAFE) {
-          return fail('calculation_overflow', 'A variable-cost category exceeds the supported exact integer range.', 'monthlyPlan[' + cohort + '].salesUnits');
+      if (aggregatePaymentTiming) {
+        // Legacy/equal curves are allocated once at aggregate level so rounding
+        // is byte-for-byte equivalent to the former single-cohort schedule.
+        const totalVariableCost = BigInt(input.model.variableCostPerUnitMinor) * BigInt(activity);
+        if (totalVariableCost > MAX_SAFE) {
+          return fail('calculation_overflow', 'Variable supplier costs exceed the supported exact integer range.', 'monthlyPlan[' + cohort + ']');
         }
-        const supplierPayments = distributeMinorUnits(Number(categoryCohortCost), category.paymentPercentages);
+        const supplierPayments = distributeMinorUnits(Number(totalVariableCost), categories[0].paymentPercentages);
         for (let offset = 0; offset < 3; offset += 1) {
           const paymentMonth = cohort + offset;
           if (paymentMonth >= horizon) {
-            const amount = BigInt(supplierPayments[offset]);
-            deferredSupplierPayments += amount;
-            deferredByCategory[categoryIndex] += amount;
+            const amount = supplierPayments[offset];
+            deferredSupplierPayments += BigInt(amount);
+            const categoryAmounts = distributeMinorUnits(amount, categories.map(category => category.costSharePercent));
+            for (let categoryIndex = 0; categoryIndex < categoryAmounts.length; categoryIndex += 1) {
+              deferredByCategory[categoryIndex] += BigInt(categoryAmounts[categoryIndex]);
+            }
           } else {
             const sum = BigInt(monthlyPlan[paymentMonth].operatingCashOutflowsMinor) + BigInt(supplierPayments[offset]);
             if (sum > MAX_SAFE) {
               return fail('calculation_overflow', 'Scheduled operating payments exceed the supported exact integer range.', 'monthlyPlan[' + paymentMonth + '].operatingCashOutflowsMinor');
             }
             monthlyPlan[paymentMonth].operatingCashOutflowsMinor = Number(sum);
+          }
+        }
+      } else {
+        for (let categoryIndex = 0; categoryIndex < categories.length; categoryIndex += 1) {
+          const category = categories[categoryIndex];
+          const categoryCohortCost = BigInt(unitCostByCategory[categoryIndex]) * BigInt(activity);
+          if (categoryCohortCost > MAX_SAFE) {
+            return fail('calculation_overflow', 'A variable-cost category exceeds the supported exact integer range.', 'monthlyPlan[' + cohort + '].salesUnits');
+          }
+          const supplierPayments = distributeMinorUnits(Number(categoryCohortCost), category.paymentPercentages);
+          for (let offset = 0; offset < 3; offset += 1) {
+            const paymentMonth = cohort + offset;
+            if (paymentMonth >= horizon) {
+              const amount = BigInt(supplierPayments[offset]);
+              deferredSupplierPayments += amount;
+              deferredByCategory[categoryIndex] += amount;
+            } else {
+              const sum = BigInt(monthlyPlan[paymentMonth].operatingCashOutflowsMinor) + BigInt(supplierPayments[offset]);
+              if (sum > MAX_SAFE) {
+                return fail('calculation_overflow', 'Scheduled operating payments exceed the supported exact integer range.', 'monthlyPlan[' + paymentMonth + '].operatingCashOutflowsMinor');
+              }
+              monthlyPlan[paymentMonth].operatingCashOutflowsMinor = Number(sum);
+            }
           }
         }
       }

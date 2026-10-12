@@ -228,7 +228,7 @@ try {
     '#download-report',
     'business-launchpad-report-v6.json'
   );
-  assert.equal(report.schemaVersion, 5);
+  assert.equal(report.schemaVersion, 6);
   assert.equal(report.kind, 'business-launchpad-report');
   assert.equal(report.input.sellingPricePerUnitMinor, 20_000);
   assert.equal(report.report.monthlyScenario.operatingResultBeforeExcludedItemsMinor, 470_000);

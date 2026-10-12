@@ -281,7 +281,11 @@ test('assumptions export produces versioned portable JSON without uploading inpu
   });
   assert.deepEqual(payload.cashTimingSchedule, {
     salesReceiptsPercent: [70, 25, 5],
-    variableSupplierPaymentsPercent: [80, 15, 5]
+    variableCostCategories: [
+      { id: 'category-1', label: 'Materials / components', costSharePercent: 60, paymentPercentages: [80, 15, 5] },
+      { id: 'category-2', label: 'Direct labor / subcontractors', costSharePercent: 25, paymentPercentages: [100, 0, 0] },
+      { id: 'category-3', label: 'Fulfillment / other variable costs', costSharePercent: 15, paymentPercentages: [70, 25, 5] }
+    ]
   });
   assert.equal(payload.cashRunwayPlan[1].salesUnits, 38);
 
