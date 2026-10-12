@@ -6,7 +6,7 @@
 
 The current `GaussianSmallDiskApprox2D` implementation evaluates the local Gaussian density at the projected miss vector and multiplies by the hard-body disk area. It is not the full Simpson-integrated Alfano 2005 algorithm, and it is not a Foster implementation.
 
-Orekit's published `Alfano2005Test` provides scalar encounter-plane inputs and expected outputs for named Chan/CSM test cases. The local-density approximation is tested against six of those independent reference values so its observed difference is reproducible. The test is deliberately scoped to those inputs; it must not be represented as proof of accuracy over all encounter geometries.
+Orekit's published `Alfano2005Test` provides scalar encounter-plane inputs and expected outputs for named Chan/CSM test cases. The local-density approximation is tested against 13 of those independent scalar reference cases so its observed difference is reproducible. The test is deliberately scoped to those inputs; it must not be represented as proof of accuracy over all encounter geometries.
 
 Reference source:
 - Orekit 13.1.5, `Alfano2005Test`: https://www.orekit.org/site-orekit-13.1.5/xref-test/org/orekit/ssa/collision/shorttermencounter/probability/twod/Alfano2005Test.html
