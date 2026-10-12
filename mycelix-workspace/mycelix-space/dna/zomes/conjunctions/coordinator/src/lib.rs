@@ -12,7 +12,7 @@ use mycelix_space_shared::{
     AlertPriority, AlertType, ConjunctionAlert, ConjunctionAssessment, ConjunctionDataMessage,
     ManeuverAlert, ManeuverType as SharedManeuverType, PaginatedResponse, PaginationParams,
     QualityScore, ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp,
-    StalenessAwareAssessment, StalenessConfig, TleWithMetadata, compute_staleness,
+    StalenessAwareAssessment, StalenessConfig, TleWithMetadata,
     gate_space_operation, requirement_for_conjunction_creation, requirement_for_negotiation,
     requirement_for_risk_update,
 };
