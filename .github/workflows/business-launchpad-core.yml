@@ -47,8 +47,8 @@ jobs:
         run: |
           set -euo pipefail
           test "$(node --version)" = "v24.21.0"
-          node --check src/index.js
-          node --test | tee test-output.tap
+          npm run check
+          npm test | tee test-output.tap
 
       - name: Emit exact-head qualification record
         working-directory: mycelix-workspace/business-launchpad/core
