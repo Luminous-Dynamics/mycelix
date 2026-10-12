@@ -114,15 +114,49 @@ fn maneuvering_object_belongs_to_session(
         || maneuvering_object == session.secondary_norad_id
 }
 
+fn is_primary_operator(session: &NegotiationSession, agent: &AgentPubKey) -> bool {
+    session.primary_operator == *agent
+}
+
+fn is_secondary_operator(session: &NegotiationSession, agent: &AgentPubKey) -> bool {
+    session.secondary_operator == *agent
+}
+
+fn get_maneuver_proposal(proposal_hash: &ActionHash) -> ExternResult<ManeuverProposal> {
+    let proposal_record = get(proposal_hash.clone(), GetOptions::default())?.ok_or(
+        SpaceError::new(SpaceErrorCode::NotFound, "Maneuver proposal not found")
+            .with_context(format!("hash: {}", proposal_hash))
+            .into_wasm_error(),
+    )?;
+    proposal_record
+        .entry()
+        .to_app_option::<ManeuverProposal>()
+        .map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Failed to decode maneuver proposal: {:?}", error),
+            )
+            .into_wasm_error()
+        })?
+        .ok_or(
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Accepted ActionHash is not a maneuver proposal",
+            )
+            .into_wasm_error(),
+        )
+}
+
 /// Verify that the given agent is a participant (primary or secondary operator)
 /// in the named session. Returns the session entry on success.
 fn verify_session_participant(
     session_id: &str,
     agent: &AgentPubKey,
 ) -> ExternResult<NegotiationSession> {
-    let conj_anchor_fallback = anchor_for_conjunction_sessions(session_id)?;
-    // Search for the session by iterating all sessions linked from the session_id anchor
-    // We use the operator_sessions anchor for the calling agent instead (more efficient)
+    // Discover candidates through the caller's operator index, then verify
+    // the session ID and both recorded operator identities against each record.
+    // If the index is missing or incomplete, fail closed rather than querying an
+    // unrelated conjunction-ID anchor with a session ID.
     let op_anchor = anchor_for_operator_sessions(agent)?;
     let links = get_links(
         LinkQuery::try_new(op_anchor, LinkTypes::OperatorSessions)?,
@@ -130,31 +164,6 @@ fn verify_session_participant(
     )?;
 
     for link in links {
-        let Some(target) = link.target.into_action_hash() else {
-            continue;
-        };
-        let Some(record) = get(target, GetOptions::default())? else {
-            continue;
-        };
-        if let Some(session) = record
-            .entry()
-            .to_app_option::<NegotiationSession>()
-            .ok()
-            .flatten()
-        {
-            if session_matches_participant(&session, session_id, agent) {
-                return Ok(session);
-            }
-        }
-    }
-
-    // Fallback: also check conjunction sessions anchor (in case operator_sessions link is missing)
-    let conj_links = get_links(
-        LinkQuery::try_new(conj_anchor_fallback, LinkTypes::ConjunctionSessions)?,
-        GetStrategy::Network,
-    )?;
-
-    for link in conj_links {
         let Some(target) = link.target.into_action_hash() else {
             continue;
         };
@@ -570,34 +579,20 @@ pub fn accept_proposal(input: AcceptProposalInput) -> ExternResult<ActionHash> {
 
     let agent = agent_info()?.agent_initial_pubkey;
 
-    // --- Authorization: only session participants can accept proposals ---
+    // --- Authorization: only the recorded primary operator creates the first signature ---
     let session = verify_session_participant(&input.session_id, &agent)?;
+    if !is_primary_operator(&session, &agent) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::Unauthorized,
+            "Only the recorded primary operator may create the first agreement signature",
+        )
+        .into_wasm_error());
+    }
 
     // Resolve the exact proposed entry before writing an agreement. An arbitrary
     // ActionHash must not be accepted merely because the caller belongs to this
     // session.
-    let proposal_record = get(input.proposal_hash.clone(), GetOptions::default())?.ok_or(
-        SpaceError::new(SpaceErrorCode::NotFound, "Maneuver proposal not found")
-            .with_context(format!("hash: {}", input.proposal_hash))
-            .into_wasm_error(),
-    )?;
-    let proposal: ManeuverProposal = proposal_record
-        .entry()
-        .to_app_option()
-        .map_err(|e| {
-            SpaceError::new(
-                SpaceErrorCode::InvalidInput,
-                format!("Failed to decode maneuver proposal: {:?}", e),
-            )
-            .into_wasm_error()
-        })?
-        .ok_or(
-            SpaceError::new(
-                SpaceErrorCode::InvalidInput,
-                "Accepted ActionHash is not a maneuver proposal",
-            )
-            .into_wasm_error(),
-        )?;
+    let proposal = get_maneuver_proposal(&input.proposal_hash)?;
 
     if proposal.session_id != input.session_id {
         return Err(SpaceError::new(
@@ -752,17 +747,39 @@ pub fn cosign_agreement(input: CosignAgreementInput) -> ExternResult<ActionHash>
         .into_wasm_error());
     }
 
-    // Verify the cosigner is not the same as the primary signer
-    if agreement.primary_signature.as_ref() == Some(&agent) {
+    // Resolve the referenced session and bind the second signature to the
+    // recorded secondary operator, not merely to any different agent key.
+    let session = verify_session_participant(&agreement.session_id, &agent)?;
+    if !is_secondary_operator(&session, &agent) {
         return Err(SpaceError::new(
-            SpaceErrorCode::SameSignerError,
-            "Cannot cosign your own agreement — the other party must sign",
+            SpaceErrorCode::Unauthorized,
+            "Only the recorded secondary operator may cosign this agreement",
+        )
+        .into_wasm_error());
+    }
+    if agreement.primary_signature.as_ref() != Some(&session.primary_operator) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Agreement's first signature does not match the recorded primary operator",
         )
         .into_wasm_error());
     }
 
-    // Set secondary signature and update
-    agreement.secondary_signature = Some(agent);
+    let proposal = get_maneuver_proposal(&agreement.accepted_proposal)?;
+    if proposal.session_id != agreement.session_id
+        || proposal.status != ProposalStatus::Pending
+        || !maneuvering_object_belongs_to_session(proposal.maneuvering_object, &session)
+        || !session_matches_participant(&session, &proposal.session_id, &proposal.proposer)
+    {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Agreement's proposal is not a pending, session-bound proposal from a session participant",
+        )
+        .into_wasm_error());
+    }
+
+    // Set the recorded secondary operator signature and update
+    agreement.secondary_signature = Some(session.secondary_operator);
     let action_hash = update_entry(input.agreement_hash.clone(), &agreement)?;
 
     // Emit signal
@@ -2464,5 +2481,27 @@ mod session_participant_tests {
         assert!(maneuvering_object_belongs_to_session(42, &session));
         assert!(maneuvering_object_belongs_to_session(77, &session));
         assert!(!maneuvering_object_belongs_to_session(99, &session));
+    }
+
+    #[test]
+    fn first_signature_role_is_bound_to_recorded_primary_operator() {
+        let primary = key(1);
+        let secondary = key(2);
+        let session = session(primary.clone(), secondary.clone());
+
+        assert!(is_primary_operator(&session, &primary));
+        assert!(!is_primary_operator(&session, &secondary));
+    }
+
+    #[test]
+    fn cosignature_role_is_bound_to_recorded_secondary_operator() {
+        let primary = key(1);
+        let secondary = key(2);
+        let outsider = key(3);
+        let session = session(primary.clone(), secondary.clone());
+
+        assert!(is_secondary_operator(&session, &secondary));
+        assert!(!is_secondary_operator(&session, &primary));
+        assert!(!is_secondary_operator(&session, &outsider));
     }
 }
