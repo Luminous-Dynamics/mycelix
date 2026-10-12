@@ -310,18 +310,21 @@ function validatedScenarioPayload(payload) {
   if (
     payload === null ||
     typeof payload !== 'object' ||
-    payload.schemaVersion !== 1 ||
+    ![1, 2].includes(payload.schemaVersion) ||
     payload.kind !== 'business-launchpad-scenario' ||
     payload.input === null ||
     typeof payload.input !== 'object' ||
     Array.isArray(payload.input)
   ) {
-    throw new Error('This file is not a supported Business Launchpad scenario JSON file (schemaVersion 1 required).');
+    throw new Error('This file is not a supported Business Launchpad scenario JSON file (schemaVersion 1 or 2 required).');
   }
 
   const result = analyzeBusinessModel(payload.input);
   if (!result.ok) {
     throw new Error('Scenario validation failed: ' + result.error.message);
+  }
+  if (payload.schemaVersion === 2 && payload.cashRunwayPlan === undefined) {
+    throw new Error('Version 2 scenarios must include the 12-month cash plan.');
   }
   const plan = payload.cashRunwayPlan === undefined
     ? defaultCashRunwayPlan(payload.input)
@@ -535,8 +538,8 @@ downloadScenarioButton.addEventListener('click', () => {
     const cashRunwayPlan = readCashRunwayPlan(model.currency);
     const cashRunwayResult = projectCashRunway({ model, monthlyPlan: cashRunwayPlan });
     if (!cashRunwayResult.ok) throw new Error(cashRunwayResult.error.message);
-    downloadJson('business-launchpad-scenario-v1.json', {
-      schemaVersion: 1,
+    downloadJson('business-launchpad-scenario-v2.json', {
+      schemaVersion: 2,
       kind: 'business-launchpad-scenario',
       input: model,
       cashRunwayPlan
@@ -553,8 +556,8 @@ downloadReportButton.addEventListener('click', () => {
   }
   hideError();
   try {
-    downloadJson('business-launchpad-report-v1.json', {
-      schemaVersion: 1,
+    downloadJson('business-launchpad-report-v2.json', {
+      schemaVersion: 2,
       kind: 'business-launchpad-report',
       input: latestModel,
       report: latestReport,
