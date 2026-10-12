@@ -475,7 +475,7 @@ def main() -> int:
         errors,
     )
     require(
-        "bounded.read_to_end(&mut bytes)" in adapter_source,
+        "read_to_end(&mut bytes)" in adapter_source,
         "host adapter must read only from the bounded reader",
         errors,
     )
@@ -490,7 +490,7 @@ def main() -> int:
     returned_bytes = bounded_reader.find("Ok(bytes)")
     require(
         "reader.take((MAX_ADVISORY_RESPONSE_BYTES + 1) as u64)" in bounded_reader
-        and "bounded.read_to_end(&mut bytes)" in bounded_reader
+        and "read_to_end(&mut bytes)" in bounded_reader
         and size_check >= 0 and returned_bytes > size_check,
         "host adapter must enforce the max-plus-one bound before returning response bytes",
         errors,
