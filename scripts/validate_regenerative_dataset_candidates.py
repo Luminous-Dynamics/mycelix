@@ -13,6 +13,15 @@ import math
 from pathlib import Path
 from urllib.parse import urlparse
 
+def finite_coordinate(value: object) -> bool:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value)
+    except (OverflowError, TypeError):
+        return False
+
+
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "docs" / "economy-atlas" / "regenerative-dataset-candidates.v1.json"
 INDICATOR_CATALOG_PATH = ROOT / "docs" / "economy-atlas" / "regenerative-indicators.v1.json"
@@ -197,10 +206,10 @@ def validate_manifest(manifest: object, indicator_catalog: object) -> list[str]:
                     continue
                 latitude = normalized.get("latitude")
                 longitude = normalized.get("longitude")
-                if not isinstance(latitude, (int, float)) or isinstance(latitude, bool) or not math.isfinite(latitude):
+                if not finite_coordinate(latitude):
                     errors.append(f"{site_location}.coordinates_decimal_degrees.latitude must be finite")
                     continue
-                if not isinstance(longitude, (int, float)) or isinstance(longitude, bool) or not math.isfinite(longitude):
+                if not finite_coordinate(longitude):
                     errors.append(f"{site_location}.coordinates_decimal_degrees.longitude must be finite")
                     continue
                 expected_latitude, expected_longitude = expected_coordinates[site_id]

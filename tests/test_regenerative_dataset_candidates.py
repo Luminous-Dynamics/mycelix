@@ -99,6 +99,13 @@ class RegenerativeDatasetCandidateTests(unittest.TestCase):
         errors = validate_manifest(self.manifest, self.indicator_catalog)
         self.assertTrue(any("source-pinned decimal conversion" in error for error in errors), errors)
 
+    def test_2025_asm_jukskei_rejects_overflowing_coordinate_without_crashing(self) -> None:
+        candidate = next(c for c in self.manifest["candidates"] if c["candidate_id"] == "south-africa.jukskei-river-microbial-data.2025.v1")
+        site_a = next(site for site in candidate["spatial_coverage"]["entities"] if site["site"] == "A")
+        site_a["coordinates_decimal_degrees"]["longitude"] = 10**1000
+        errors = validate_manifest(self.manifest, self.indicator_catalog)
+        self.assertTrue(any("coordinates_decimal_degrees.longitude must be finite" in error for error in errors), errors)
+
     def test_2025_asm_jukskei_rejects_duplicate_site_id(self) -> None:
         candidate = next(c for c in self.manifest["candidates"] if c["candidate_id"] == "south-africa.jukskei-river-microbial-data.2025.v1")
         candidate["spatial_coverage"]["entities"][1]["site"] = "A"
