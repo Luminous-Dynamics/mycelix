@@ -150,8 +150,8 @@
           </fieldset>
 
           <fieldset class="stress-assumptions timing-schedule-assumptions">
-            <legend>Terms-based collection and supplier-payment schedule</legend>
-            <p class="form-footnote">This creates a separate comparison case; it does not overwrite your base cash plan. Sales receipts are derived from sales units × selling price. Variable supplier payments are derived from units × variable cost and allocated across the same three timing buckets. Fixed monthly costs and setup costs remain due in their current months. Each row must total exactly 100%. These are timing assumptions, not invoice-level records.</p>
+            <legend>Terms-based collection and variable-cost payment schedule</legend>
+            <p class="form-footnote">This creates a separate comparison case; it does not overwrite your base cash plan. Sales receipts are derived from sales units × selling price. Per-unit variable costs are treated as supplier/payable costs, derived from units × variable cost, and allocated across the same three timing buckets. This simplified assumption may not fit every variable-cost type; different terms need separate categories. Fixed monthly costs and setup costs remain due in their current months. Each row must total exactly 100%. These are timing assumptions, not invoice-level records.</p>
             <h4>Customer collections</h4>
             <div class="field-grid">
               <label for="timing-sales-receipts-month-0">Collected in sale month (%)
@@ -164,9 +164,9 @@
                 <input id="timing-sales-receipts-month-2" name="timing-sales-receipts-month-2" type="number" min="0" max="100" step="1" value="5" required>
               </label>
             </div>
-            <h4>Variable supplier payments</h4>
+            <h4>Variable-cost payments (supplier terms)</h4>
             <div class="field-grid">
-              <label for="timing-supplier-payments-month-0">Paid in sale/purchase month (%)
+              <label for="timing-supplier-payments-month-0">Paid in originating month (%)
                 <input id="timing-supplier-payments-month-0" name="timing-supplier-payments-month-0" type="number" min="0" max="100" step="1" value="80" required>
               </label>
               <label for="timing-supplier-payments-month-1">Paid next month (%)
