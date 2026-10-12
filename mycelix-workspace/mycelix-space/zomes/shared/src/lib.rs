@@ -41,35 +41,67 @@ impl NoradId {
 }
 
 /// Epoch timestamp with microsecond precision
-/// Wrapper around chrono DateTime for Holochain serialization
+/// Wrapper around chrono DateTime for Holochain serialization.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SpaceTimestamp {
-    /// Microseconds since Unix epoch
+    /// Microseconds since Unix epoch.
     pub micros: i64,
 }
+
+/// A timestamp cannot be interpreted safely when conversion or age arithmetic fails.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SpaceTimestampError {
+    /// Microseconds are outside chrono's representable datetime range.
+    OutOfRange,
+    /// Subtracting the timestamp from the reference clock would overflow.
+    AgeOverflow,
+    /// The timestamp is later than the reference time.
+    FutureTimestamp,
+}
+
+impl std::fmt::Display for SpaceTimestampError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::OutOfRange => write!(f, "timestamp is outside the representable datetime range"),
+            Self::AgeOverflow => write!(f, "timestamp age subtraction overflowed"),
+            Self::FutureTimestamp => write!(f, "timestamp is later than the reference time"),
+        }
+    }
+}
+
+impl std::error::Error for SpaceTimestampError {}
 
 impl SpaceTimestamp {
     pub fn now() -> Self {
         let now = Utc::now();
-        Self {
-            micros: now.timestamp_micros(),
-        }
+        Self { micros: now.timestamp_micros() }
     }
 
     pub fn from_datetime(dt: DateTime<Utc>) -> Self {
-        Self {
-            micros: dt.timestamp_micros(),
+        Self { micros: dt.timestamp_micros() }
+    }
+
+    /// Convert to a datetime without substituting the current time on invalid input.
+    pub fn try_to_datetime(&self) -> Result<DateTime<Utc>, SpaceTimestampError> {
+        DateTime::from_timestamp_micros(self.micros).ok_or(SpaceTimestampError::OutOfRange)
+    }
+
+    /// Return whole seconds elapsed from this timestamp to an explicit reference clock.
+    ///
+    /// The explicit clock makes calculations deterministic in tests and callers.
+    /// Invalid timestamps, arithmetic overflow, and future epochs are rejected.
+    pub fn checked_age_seconds_at(
+        &self,
+        now_micros: i64,
+    ) -> Result<i64, SpaceTimestampError> {
+        let elapsed_micros = now_micros
+            .checked_sub(self.micros)
+            .ok_or(SpaceTimestampError::AgeOverflow)?;
+        self.try_to_datetime()?;
+        if elapsed_micros < 0 {
+            return Err(SpaceTimestampError::FutureTimestamp);
         }
-    }
-
-    pub fn to_datetime(&self) -> DateTime<Utc> {
-        DateTime::from_timestamp_micros(self.micros).unwrap_or_else(Utc::now)
-    }
-
-    /// Age in seconds from now
-    pub fn age_seconds(&self) -> i64 {
-        let now = Self::now();
-        (now.micros - self.micros) / 1_000_000
+        Ok(elapsed_micros / 1_000_000)
     }
 }
 
@@ -150,16 +182,16 @@ pub fn compute_staleness(
     epoch: &SpaceTimestamp,
     quality: &QualityScore,
     config: &StalenessConfig,
-) -> TleStaleness {
-    let age_secs = epoch.age_seconds();
+) -> Result<TleStaleness, SpaceTimestampError> {
+    let age_secs = epoch.checked_age_seconds_at(SpaceTimestamp::now().micros)?;
 
-    // Quality degrades: ~1 point per day after 7 days of age
+    // Quality degrades: ~1 point per day after 7 days of age.
     let grace_period_secs: i64 = 7 * 24 * 3600;
     let days_past_grace = ((age_secs - grace_period_secs).max(0) as f64) / 86400.0;
     let degraded = (quality.value() as f64 - days_past_grace).max(0.0) as u8;
     let effective_quality = QualityScore::new(degraded);
 
-    // Confidence: 1.0 for fresh TLEs, decays towards 0.1 for very old ones
+    // Confidence: 1.0 for fresh TLEs, decays towards 0.1 for very old ones.
     let threshold = config.stale_threshold_secs as f64;
     let age_f = age_secs.max(0) as f64;
     let confidence = if threshold <= 0.0 {
@@ -170,13 +202,13 @@ pub fn compute_staleness(
 
     let is_stale = age_secs > config.stale_threshold_secs;
 
-    TleStaleness {
+    Ok(TleStaleness {
         age_secs,
         is_stale,
         original_quality: *quality,
         effective_quality,
         confidence,
-    }
+    })
 }
 
 /// TLE data with full metadata (epoch, quality, staleness).
@@ -1850,5 +1882,46 @@ mod trust_fabric_tests {
                 assert!(val >= 0.0 && val <= 1.0, "{:?} out of bounds: {}", dim, val);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod space_timestamp_validation_tests {
+    use super::{SpaceTimestamp, SpaceTimestampError};
+
+    #[test]
+    fn timestamp_conversion_rejects_unrepresentable_values() {
+        assert_eq!(
+            SpaceTimestamp { micros: i64::MAX }.try_to_datetime(),
+            Err(SpaceTimestampError::OutOfRange)
+        );
+        assert_eq!(
+            SpaceTimestamp { micros: i64::MIN }.try_to_datetime(),
+            Err(SpaceTimestampError::OutOfRange)
+        );
+    }
+
+    #[test]
+    fn checked_age_seconds_uses_explicit_clock() {
+        assert_eq!(
+            SpaceTimestamp { micros: 1_000_000 }.checked_age_seconds_at(3_000_000),
+            Ok(2)
+        );
+    }
+
+    #[test]
+    fn checked_age_seconds_rejects_future_epochs() {
+        assert_eq!(
+            SpaceTimestamp { micros: 3_000_000 }.checked_age_seconds_at(1_000_000),
+            Err(SpaceTimestampError::FutureTimestamp)
+        );
+    }
+
+    #[test]
+    fn checked_age_seconds_rejects_subtraction_overflow() {
+        assert_eq!(
+            SpaceTimestamp { micros: i64::MIN }.checked_age_seconds_at(i64::MAX),
+            Err(SpaceTimestampError::AgeOverflow)
+        );
     }
 }
