@@ -1,0 +1,76 @@
+name: Business Launchpad Core
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/business-launchpad/core/**'
+      - '.github/workflows/business-launchpad-core.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/business-launchpad/core/**'
+      - '.github/workflows/business-launchpad-core.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: business-launchpad-core-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deterministic-core:
+    name: Deterministic business viability core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact qualification subject
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+
+      - name: Assert runtime and run deterministic tests
+        working-directory: mycelix-workspace/business-launchpad/core
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = "v24.21.0"
+          node --check src/index.js
+          node --test | tee test-output.tap
+
+      - name: Emit exact-head qualification record
+        working-directory: mycelix-workspace/business-launchpad/core
+        run: |
+          {
+            echo "BUSINESS LAUNCHPAD CORE GATE"
+            echo "status=unit-gate-passed"
+            echo "commit=${QUALIFIED_SHA}"
+            echo "workflow_sha=$(git -C "$GITHUB_WORKSPACE" hash-object .github/workflows/business-launchpad-core.yml)"
+            echo "runner_image=${ImageOS:-unknown}"
+            echo "node=$(node --version)"
+            echo "npm=$(npm --version)"
+            echo "source_sha256=$(sha256sum src/index.js | cut -d' ' -f1)"
+            echo "tests_sha256=$(sha256sum test/index.test.js | cut -d' ' -f1)"
+            echo "test_output_sha256=$(sha256sum test-output.tap | cut -d' ' -f1)"
+            echo "claim_ceiling=DeterministicUnitTestsOnly"
+            echo "integration_status=NotExecuted"
+            echo "market_fit_status=NotEvaluated"
+          } | tee business-launchpad-core-qualification.txt
+
+      - name: Upload qualification record
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: business-launchpad-core-${{ env.QUALIFIED_SHA }}
+          path: mycelix-workspace/business-launchpad/core/business-launchpad-core-qualification.txt
