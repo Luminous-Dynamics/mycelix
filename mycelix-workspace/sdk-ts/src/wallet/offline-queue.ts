@@ -82,12 +82,35 @@ export interface QueuedOperation<T = unknown> {
   idempotencyKey?: string;
 }
 
+/** Result of atomically claiming a key in the durable queue store. */
+export interface QueueStorageIdempotencyClaim {
+  kind: 'inserted' | 'existing';
+  item: QueuedOperation;
+}
+
+/** Atomic transition result before an operation is dispatched. */
+export interface QueueStorageExecutionClaim {
+  claimed: boolean;
+  item: QueuedOperation;
+}
+
+export type QueueStorageStatusPatch = Partial<
+  Pick<QueuedOperation, 'status' | 'attempts' | 'error'>
+>;
+
+export interface QueueStorageStatusTransition {
+  updated: boolean;
+  item?: QueuedOperation;
+}
+
 /** Send operation payload */
 export interface SendPayload {
   to: string;
   amount: number;
   currency: string;
   memo?: string;
+  /** Same stable key is reused by every executor retry. Optional only for legacy persisted items. */
+  idempotencyKey?: string;
 }
 
 /** Request payment payload */
@@ -141,6 +164,23 @@ export interface QueueConfig {
 export interface QueueStorage {
   getAll(): Promise<QueuedOperation[]>;
   save(item: QueuedOperation): Promise<void>;
+  /**
+   * Atomically claim a previously unused idempotency key, or return its existing
+   * record. Implementations must serialize this read/check/write across callers
+   * sharing the same durable store (including separate browser tabs).
+   */
+  claimIdempotencyKey(item: QueuedOperation): Promise<QueueStorageIdempotencyClaim>;
+  /**
+   * Atomically claim an item only while its persisted status is pending.
+   * This prevents stale queue instances from executing the same stored row.
+   */
+  claimForExecution(id: QueueItemId, startedAt: number): Promise<QueueStorageExecutionClaim | null>;
+  /** Atomically update status only if the durable row still has expectedStatus. */
+  compareAndSetStatus(
+    id: QueueItemId,
+    expectedStatus: QueueItemStatus,
+    patch: QueueStorageStatusPatch
+  ): Promise<QueueStorageStatusTransition>;
   delete(id: QueueItemId): Promise<void>;
   clear(): Promise<void>;
 }
@@ -181,6 +221,55 @@ class InMemoryQueueStorage implements QueueStorage {
     return Array.from(this.items.values());
   }
 
+  async claimIdempotencyKey(item: QueuedOperation): Promise<QueueStorageIdempotencyClaim> {
+    const key = item.idempotencyKey;
+    if (!key) throw new Error('Cannot claim an empty idempotency key');
+
+    const matches = Array.from(this.items.values()).filter(
+      (stored) => stored.idempotencyKey === key
+    );
+    if (matches.length > 1) {
+      throw new Error('Ambiguous queue state: multiple records already use this idempotency key');
+    }
+    if (matches.length === 1) return { kind: 'existing', item: matches[0] };
+
+    // No await occurs between lookup and insertion, so this default store's claim
+    // is atomic within the JavaScript agent.
+    this.items.set(item.id, item);
+    return { kind: 'inserted', item };
+  }
+
+  async claimForExecution(
+    id: QueueItemId,
+    startedAt: number
+  ): Promise<QueueStorageExecutionClaim | null> {
+    const stored = this.items.get(id);
+    if (!stored) return null;
+    if (stored.status !== 'pending') return { claimed: false, item: stored };
+
+    const claimed: QueuedOperation = {
+      ...stored,
+      status: 'syncing',
+      lastAttemptAt: startedAt,
+      attempts: stored.attempts + 1,
+    };
+    this.items.set(id, claimed);
+    return { claimed: true, item: claimed };
+  }
+
+  async compareAndSetStatus(
+    id: QueueItemId,
+    expectedStatus: QueueItemStatus,
+    patch: QueueStorageStatusPatch
+  ): Promise<QueueStorageStatusTransition> {
+    const stored = this.items.get(id);
+    if (!stored) return { updated: false };
+    if (stored.status !== expectedStatus) return { updated: false, item: stored };
+    const updated: QueuedOperation = { ...stored, ...patch, id: stored.id };
+    this.items.set(id, updated);
+    return { updated: true, item: updated };
+  }
+
   async save(item: QueuedOperation): Promise<void> {
     this.items.set(item.id, item);
   }
@@ -214,21 +303,51 @@ export class IndexedDBQueueStorage implements QueueStorage {
     if (this.db) return this.db;
 
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, 1);
+      const request = indexedDB.open(this.dbName, 2);
+      let settled = false;
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => {
+        if (settled) return;
+        settled = true;
+        reject(request.error ?? new Error('Unable to open IndexedDB queue storage'));
+      };
+      request.onblocked = () => {
+        if (settled) return;
+        settled = true;
+        reject(new Error('IndexedDB queue upgrade is blocked by another open tab; close older Mycelix tabs and retry'));
+      };
       request.onsuccess = () => {
-        this.db = request.result;
-        resolve(request.result);
+        const db = request.result;
+        // A blocked open may complete later after the original caller failed closed.
+        if (settled) {
+          db.close();
+          return;
+        }
+        this.db = db;
+        db.onversionchange = () => {
+          db.close();
+          if (this.db === db) this.db = null;
+        };
+        settled = true;
+        resolve(db);
       };
 
       request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
+        const openRequest = event.target as IDBOpenDBRequest;
+        const db = openRequest.result;
+        let store: IDBObjectStore;
         if (!db.objectStoreNames.contains(this.storeName)) {
-          const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
+          store = db.createObjectStore(this.storeName, { keyPath: 'id' });
           store.createIndex('status', 'status', { unique: false });
           store.createIndex('createdAt', 'createdAt', { unique: false });
           store.createIndex('priority', 'priority', { unique: false });
+        } else {
+          store = openRequest.transaction!.objectStore(this.storeName);
+        }
+        // Non-unique so legacy duplicate data does not make the schema upgrade
+        // fail. claimIdempotencyKey detects duplicates and quarantines ambiguity.
+        if (!store.indexNames.contains('idempotencyKey')) {
+          store.createIndex('idempotencyKey', 'idempotencyKey', { unique: false });
         }
       };
     });
@@ -246,15 +365,172 @@ export class IndexedDBQueueStorage implements QueueStorage {
     });
   }
 
+  async claimIdempotencyKey(item: QueuedOperation): Promise<QueueStorageIdempotencyClaim> {
+    const key = item.idempotencyKey;
+    if (!key) throw new Error('Cannot claim an empty idempotency key');
+
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      // A read/write transaction on the same object store serializes this
+      // lookup/check/insert across storage instances and browser tabs.
+      const tx = db.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      const lookup = store.index('idempotencyKey').getAll(key);
+      let outcome: QueueStorageIdempotencyClaim | undefined;
+      let failure: Error | undefined;
+
+      lookup.onerror = () => {
+        failure = lookup.error ?? new Error('Unable to read queue idempotency index');
+      };
+      lookup.onsuccess = () => {
+        const matches = lookup.result as QueuedOperation[];
+        if (matches.length > 1) {
+          failure = new Error(
+            'Ambiguous queue state: multiple records already use this idempotency key'
+          );
+          return;
+        }
+        if (matches.length === 1) {
+          outcome = { kind: 'existing', item: matches[0] };
+          return;
+        }
+
+        const insert = store.add(item);
+        insert.onsuccess = () => {
+          outcome = { kind: 'inserted', item };
+        };
+        insert.onerror = () => {
+          failure = insert.error ?? new Error('Unable to persist queue idempotency claim');
+        };
+      };
+
+      tx.oncomplete = () => {
+        if (failure) {
+          reject(failure);
+        } else if (outcome) {
+          resolve(outcome);
+        } else {
+          reject(new Error('IndexedDB idempotency transaction completed without a result'));
+        }
+      };
+      tx.onabort = () => {
+        reject(failure ?? tx.error ?? new Error('IndexedDB idempotency transaction aborted'));
+      };
+      tx.onerror = () => {
+        failure ??= tx.error ?? new Error('IndexedDB idempotency transaction failed');
+      };
+    });
+  }
+
+  async claimForExecution(
+    id: QueueItemId,
+    startedAt: number
+  ): Promise<QueueStorageExecutionClaim | null> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      const lookup = store.get(id);
+      let outcome: QueueStorageExecutionClaim | null = null;
+      let failure: Error | undefined;
+
+      lookup.onerror = () => {
+        failure = lookup.error ?? new Error('Unable to read queue item before execution');
+      };
+      lookup.onsuccess = () => {
+        const stored = lookup.result as QueuedOperation | undefined;
+        if (!stored) {
+          outcome = null;
+          return;
+        }
+        if (stored.status !== 'pending') {
+          outcome = { claimed: false, item: stored };
+          return;
+        }
+
+        const claimed: QueuedOperation = {
+          ...stored,
+          status: 'syncing',
+          lastAttemptAt: startedAt,
+          attempts: stored.attempts + 1,
+        };
+        const write = store.put(claimed);
+        write.onsuccess = () => {
+          outcome = { claimed: true, item: claimed };
+        };
+        write.onerror = () => {
+          failure = write.error ?? new Error('Unable to persist execution claim');
+        };
+      };
+
+      tx.oncomplete = () => {
+        if (failure) reject(failure);
+        else resolve(outcome);
+      };
+      tx.onabort = () => reject(failure ?? tx.error ?? new Error('Execution claim transaction aborted'));
+      tx.onerror = () => {
+        failure ??= tx.error ?? new Error('Execution claim transaction failed');
+      };
+    });
+  }
+
   async save(item: QueuedOperation): Promise<void> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readwrite');
       const store = tx.objectStore(this.storeName);
-      const request = store.put(item);
+      store.put(item);
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error ?? new Error('Queue save transaction aborted'));
+      tx.onerror = () => reject(tx.error ?? new Error('Queue save transaction failed'));
+    });
+  }
+
+  async compareAndSetStatus(
+    id: QueueItemId,
+    expectedStatus: QueueItemStatus,
+    patch: QueueStorageStatusPatch
+  ): Promise<QueueStorageStatusTransition> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      const lookup = store.get(id);
+      let outcome: QueueStorageStatusTransition = { updated: false };
+      let failure: Error | undefined;
+
+      lookup.onerror = () => {
+        failure = lookup.error ?? new Error('Unable to read queue status for conditional update');
+      };
+      lookup.onsuccess = () => {
+        const stored = lookup.result as QueuedOperation | undefined;
+        if (!stored) {
+          outcome = { updated: false };
+          return;
+        }
+        if (stored.status !== expectedStatus) {
+          outcome = { updated: false, item: stored };
+          return;
+        }
+        const updated: QueuedOperation = { ...stored, ...patch, id: stored.id };
+        const write = store.put(updated);
+        write.onsuccess = () => {
+          outcome = { updated: true, item: updated };
+        };
+        write.onerror = () => {
+          failure = write.error ?? new Error('Unable to persist conditional queue status update');
+        };
+      };
+
+      tx.oncomplete = () => {
+        if (failure) reject(failure);
+        else resolve(outcome);
+      };
+      tx.onabort = () => reject(failure ?? tx.error ?? new Error('Conditional queue status transaction aborted'));
+      tx.onerror = () => {
+        failure ??= tx.error ?? new Error('Conditional queue status transaction failed');
+      };
     });
   }
 
@@ -262,11 +538,11 @@ export class IndexedDBQueueStorage implements QueueStorage {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readwrite');
-      const store = tx.objectStore(this.storeName);
-      const request = store.delete(id);
+      tx.objectStore(this.storeName).delete(id);
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error ?? new Error('Queue delete transaction aborted'));
+      tx.onerror = () => reject(tx.error ?? new Error('Queue delete transaction failed'));
     });
   }
 
@@ -274,11 +550,11 @@ export class IndexedDBQueueStorage implements QueueStorage {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readwrite');
-      const store = tx.objectStore(this.storeName);
-      const request = store.clear();
+      tx.objectStore(this.storeName).clear();
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error ?? new Error('Queue clear transaction aborted'));
+      tx.onerror = () => reject(tx.error ?? new Error('Queue clear transaction failed'));
     });
   }
 
@@ -311,6 +587,8 @@ export class OfflineQueue {
   private executor: QueueExecutor;
   private config: Required<QueueConfig>;
   private _state$: BehaviorSubject<QueueState>;
+  /** Serializes enqueue lookup + persistence so concurrent identical keys cannot both win locally. */
+  private enqueueTail: Promise<void> = Promise.resolve();
   private syncInterval?: ReturnType<typeof setInterval>;
   private cleanupInterval?: ReturnType<typeof setInterval>;
   private onlineListener?: () => void;
@@ -487,7 +765,7 @@ export class OfflineQueue {
   /**
    * Enqueue an operation
    */
-  async enqueue<T>(
+  enqueue<T>(
     type: QueuedOperationType,
     payload: T,
     options?: {
@@ -497,42 +775,129 @@ export class OfflineQueue {
       idempotencyKey?: string;
     }
   ): Promise<QueuedOperation<T>> {
-    // Check for duplicate by idempotency key
-    if (options?.idempotencyKey) {
-      const existing = this._state$.value.items.find(
-        (i) => i.idempotencyKey === options.idempotencyKey && i.status !== 'failed' && i.status !== 'cancelled'
-      );
-      if (existing) {
-        return existing as QueuedOperation<T>;
+    // Deduplication must cover the whole lookup -> durable write -> state update.
+    // Without this local mutex, simultaneous calls can both observe a missing key
+    // and persist two queue entries before either updates reactive state.
+    const scheduled = this.enqueueTail.then(() => this.enqueueUnlocked(type, payload, options));
+    this.enqueueTail = scheduled.then(
+      () => undefined,
+      () => undefined
+    );
+    return scheduled;
+  }
+
+  private async enqueueUnlocked<T>(
+    type: QueuedOperationType,
+    payload: T,
+    options?: {
+      priority?: number;
+      maxAttempts?: number;
+      dependsOn?: QueueItemId[];
+      idempotencyKey?: string;
+    }
+  ): Promise<QueuedOperation<T>> {
+    if (options?.idempotencyKey === '') {
+      throw new Error('Idempotency key must not be empty');
+    }
+
+    let operationPayload = payload;
+    let operationIdempotencyKey = options?.idempotencyKey;
+    if (type === 'send') {
+      const isObjectPayload =
+        operationPayload !== null &&
+        typeof operationPayload === 'object' &&
+        !Array.isArray(operationPayload);
+
+      if (isObjectPayload) {
+        const payloadKey = (operationPayload as { idempotencyKey?: unknown }).idempotencyKey;
+        if (payloadKey !== undefined && (typeof payloadKey !== 'string' || payloadKey.length === 0)) {
+          throw new Error('Send payload idempotency key must be a non-empty string');
+        }
+        if (
+          operationIdempotencyKey !== undefined &&
+          payloadKey !== undefined &&
+          payloadKey !== operationIdempotencyKey
+        ) {
+          throw new Error('Send payload idempotency key does not match queue idempotency key');
+        }
+        if (operationIdempotencyKey === undefined && typeof payloadKey === 'string') {
+          operationIdempotencyKey = payloadKey;
+        }
+      }
+
+      // Every new send has a queue identity, and the persisted payload and
+      // metadata carry exactly the same value for every retry path.
+      operationIdempotencyKey ??= `send:${generateQueueItemId()}`;
+      if (isObjectPayload) {
+        operationPayload = {
+          ...(operationPayload as Record<string, unknown>),
+          idempotencyKey: operationIdempotencyKey,
+        } as T;
       }
     }
 
     const item: QueuedOperation<T> = {
       id: generateQueueItemId(),
       type,
-      payload,
+      payload: operationPayload,
       createdAt: Date.now(),
       attempts: 0,
       maxAttempts: options?.maxAttempts ?? this.config.maxAttempts,
       status: 'pending',
       priority: options?.priority ?? 0,
       dependsOn: options?.dependsOn,
-      idempotencyKey: options?.idempotencyKey,
+      idempotencyKey: operationIdempotencyKey,
     };
 
-    await this.storage.save(item as QueuedOperation);
-    const items = [...this._state$.value.items, item as QueuedOperation];
+    let persistedItem = item as QueuedOperation;
+    if (persistedItem.idempotencyKey) {
+      // The storage transaction, not this instance's cache, is the authority.
+      // That is what makes key claims safe across separate tabs/instances.
+      const claim = await this.storage.claimIdempotencyKey(persistedItem);
+      persistedItem = claim.item;
+
+      if (claim.kind === 'existing') {
+        const samePayload =
+          persistedItem.type === type &&
+          JSON.stringify(persistedItem.payload) === JSON.stringify(item.payload);
+        if (!samePayload) {
+          throw new Error('Idempotency key reused with a different queued operation payload');
+        }
+        if (persistedItem.status === 'failed' || persistedItem.status === 'cancelled') {
+          throw new Error(
+            'Idempotency key already belongs to a failed or cancelled queue item; retry that item explicitly or use a fresh key for a new logical payment'
+          );
+        }
+      }
+    } else {
+      await this.storage.save(persistedItem);
+    }
+
+    // Replace a stale local copy of this key with the storage-authoritative record.
+    const items = [
+      ...this._state$.value.items.filter(
+        (stored) =>
+          stored.id !== persistedItem.id &&
+          (!persistedItem.idempotencyKey || stored.idempotencyKey !== persistedItem.idempotencyKey)
+      ),
+      persistedItem,
+    ];
     this.updateState({
       items,
       pendingCount: items.filter((i) => i.status === 'pending' || i.status === 'syncing').length,
     });
 
     // Try immediate sync if online and autoSync is enabled
-    if (this.config.autoSync && this._state$.value.isOnline && !this._state$.value.isSyncing) {
+    if (
+      persistedItem.status === 'pending' &&
+      this.config.autoSync &&
+      this._state$.value.isOnline &&
+      !this._state$.value.isSyncing
+    ) {
       void this.sync();
     }
 
-    return item;
+    return persistedItem as QueuedOperation<T>;
   }
 
   /**
@@ -543,14 +908,15 @@ export class OfflineQueue {
     amount: number,
     currency: string,
     memo?: string,
-    options?: { priority?: number }
+    options?: { priority?: number; idempotencyKey?: string }
   ): Promise<QueuedOperation<SendPayload>> {
+    const idempotencyKey = options?.idempotencyKey ?? `send:${generateQueueItemId()}`;
     return this.enqueue<SendPayload>(
       'send',
-      { to, amount, currency, memo },
+      { to, amount, currency, memo, idempotencyKey },
       {
         ...options,
-        idempotencyKey: `send:${to}:${amount}:${currency}:${Date.now()}`,
+        idempotencyKey,
       }
     );
   }
@@ -586,18 +952,20 @@ export class OfflineQueue {
       return false;
     }
 
-    const updated: QueuedOperation = {
-      ...item,
+    const transition = await this.storage.compareAndSetStatus(id, 'pending', {
       status: 'cancelled',
-    };
-
-    await this.storage.save(updated);
+    });
+    const items = this._state$.value.items
+      .filter((stored) => stored.id !== id)
+      .concat(transition.item ? [transition.item] : []);
     this.updateState({
-      items: this._state$.value.items.map((i) => (i.id === id ? updated : i)),
-      pendingCount: this._state$.value.pendingCount - 1,
+      items,
+      pendingCount: items.filter(
+        (stored) => stored.status === 'pending' || stored.status === 'syncing'
+      ).length,
     });
 
-    return true;
+    return transition.updated;
   }
 
   /**
@@ -612,25 +980,31 @@ export class OfflineQueue {
       return false;
     }
 
-    const updated: QueuedOperation = {
-      ...item,
+    const transition = await this.storage.compareAndSetStatus(id, 'failed', {
       status: 'pending',
       attempts: 0,
       error: undefined,
-    };
-
-    await this.storage.save(updated);
+    });
+    const items = this._state$.value.items
+      .filter((stored) => stored.id !== id)
+      .concat(transition.item ? [transition.item] : []);
     this.updateState({
-      items: this._state$.value.items.map((i) => (i.id === id ? updated : i)),
-      pendingCount: this._state$.value.pendingCount + 1,
+      items,
+      pendingCount: items.filter(
+        (stored) => stored.status === 'pending' || stored.status === 'syncing'
+      ).length,
     });
 
-    // Try immediate sync if autoSync is enabled
-    if (this.config.autoSync && this._state$.value.isOnline && !this._state$.value.isSyncing) {
+    if (
+      transition.updated &&
+      this.config.autoSync &&
+      this._state$.value.isOnline &&
+      !this._state$.value.isSyncing
+    ) {
       void this.sync();
     }
 
-    return true;
+    return transition.updated;
   }
 
   /**
@@ -670,6 +1044,16 @@ export class OfflineQueue {
     let failed = 0;
 
     try {
+      // Refresh from shared storage before selecting work: another tab may have
+      // claimed or completed an item after this instance's last state update.
+      const latestItems = await this.storage.getAll();
+      this.updateState({
+        items: latestItems,
+        pendingCount: latestItems.filter(
+          (stored) => stored.status === 'pending' || stored.status === 'syncing'
+        ).length,
+      });
+
       // Get pending items, sorted by priority and creation time
       const pending = this._state$.value.items
         .filter((i) => i.status === 'pending')
@@ -693,6 +1077,7 @@ export class OfflineQueue {
 
         // Process the item
         const result = await this.processItem(item);
+        if (result.skipped) continue;
         if (result.success) {
           processed++;
         } else {
@@ -735,18 +1120,35 @@ export class OfflineQueue {
   /**
    * Process a single item
    */
-  private async processItem(item: QueuedOperation): Promise<{ success: boolean }> {
-    // Mark as syncing
-    const syncing: QueuedOperation = {
-      ...item,
-      status: 'syncing',
-      lastAttemptAt: Date.now(),
-      attempts: item.attempts + 1,
-    };
-    await this.storage.save(syncing);
+  private async processItem(
+    item: QueuedOperation
+  ): Promise<{ success: boolean; skipped?: boolean }> {
+    // The persisted row is authoritative. A second tab with a stale "pending"
+    // snapshot must not invoke the executor if another tab already claimed it.
+    const claim = await this.storage.claimForExecution(item.id, Date.now());
+    if (!claim) {
+      const items = this._state$.value.items.filter((stored) => stored.id !== item.id);
+      this.updateState({
+        items,
+        pendingCount: items.filter(
+          (stored) => stored.status === 'pending' || stored.status === 'syncing'
+        ).length,
+      });
+      return { success: false, skipped: true };
+    }
+
+    const persisted = claim.item;
     this.updateState({
-      items: this._state$.value.items.map((i) => (i.id === item.id ? syncing : i)),
+      items: this._state$.value.items.map((stored) => (stored.id === item.id ? persisted : stored)),
+      pendingCount: this._state$.value.items.filter(
+        (stored) =>
+          (stored.id === item.id ? persisted.status : stored.status) === 'pending' ||
+          (stored.id === item.id ? persisted.status : stored.status) === 'syncing'
+      ).length,
     });
+    if (!claim.claimed) return { success: false, skipped: true };
+
+    const syncing = persisted;
 
     try {
       const result = await this.executor.execute(syncing);
@@ -930,14 +1332,34 @@ function createNoOpExecutor(): QueueExecutor {
  * Create an executor that delegates to the wallet
  */
 export function createWalletExecutor(wallet: {
-  send(to: string, amount: number, currency: string, memo?: string): Promise<unknown>;
+  send(
+    to: string,
+    amount: number,
+    currency: string,
+    memo?: string,
+    idempotencyKey?: string
+  ): Promise<unknown>;
 }): QueueExecutor {
   return {
     execute: async (operation) => {
       if (operation.type === 'send') {
         const payload = operation.payload as SendPayload;
         try {
-          await wallet.send(payload.to, payload.amount, payload.currency, payload.memo);
+          const idempotencyKey = payload.idempotencyKey ?? operation.idempotencyKey;
+          if (!idempotencyKey) {
+            return {
+              success: false,
+              error: 'Queued payment has no stable idempotency key; refusing automatic dispatch',
+              retryable: false,
+            };
+          }
+          await wallet.send(
+            payload.to,
+            payload.amount,
+            payload.currency,
+            payload.memo,
+            idempotencyKey
+          );
           return { success: true };
         } catch (error) {
           return {

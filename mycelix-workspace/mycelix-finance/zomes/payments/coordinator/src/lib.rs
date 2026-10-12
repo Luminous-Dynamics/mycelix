@@ -183,6 +183,9 @@ pub fn revoke_amber_exemption(member_did: String) -> ExternResult<Record> {
 /// Returns the amount deducted. If 0, no update is persisted.
 #[hdk_extern]
 pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResult> {
+    // A member may trigger demurrage only for their own source-chain balance.
+    verify_caller_is_did(&input.member_did)?;
+
     // Opportunistically drain pending compost queue
     let _ = drain_pending_compost_inner();
 
@@ -222,41 +225,57 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
     let regional_amount = deduction * COMPOST_REGIONAL_PCT / 100;
     let global_amount = deduction - local_amount - regional_amount; // remainder to global
 
-    // Redistribute via treasury zome cross-zome calls with retry + queue
+    // Never deduct demurrage unless every non-zero share has an explicit sink.
+    // An absent pool is not silently interpreted as waived/discarded compost.
+    if local_amount > 0 && input.local_commons_pool_id.is_none()
+        || regional_amount > 0 && input.regional_commons_pool_id.is_none()
+        || global_amount > 0 && input.global_commons_pool_id.is_none()
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Demurrage compost destination missing for a non-zero allocation".into()
+        )));
+    }
+
+    // Write durable outbox records into this transaction. Treasury effects are
+    // delivered only after these balance writes commit, from post_commit/drain.
     let mut fully_redistributed = true;
 
-    if let Some(ref pool_id) = input.local_commons_pool_id {
-        if !try_deliver_compost(pool_id, local_amount, &input.member_did) {
-            fully_redistributed = false;
+    if local_amount > 0 {
+        if let Some(ref pool_id) = input.local_commons_pool_id {
             queue_pending_compost(
                 pool_id,
                 local_amount,
                 &input.member_did,
                 CompostPoolTier::Local,
+                None,
             )?;
         }
+        // Outbox dispatch is asynchronous relative to this balance update.
+        fully_redistributed = false;
     }
-    if let Some(ref pool_id) = input.regional_commons_pool_id {
-        if !try_deliver_compost(pool_id, regional_amount, &input.member_did) {
-            fully_redistributed = false;
+    if regional_amount > 0 {
+        if let Some(ref pool_id) = input.regional_commons_pool_id {
             queue_pending_compost(
                 pool_id,
                 regional_amount,
                 &input.member_did,
                 CompostPoolTier::Regional,
+                None,
             )?;
         }
+        fully_redistributed = false;
     }
-    if let Some(ref pool_id) = input.global_commons_pool_id {
-        if !try_deliver_compost(pool_id, global_amount, &input.member_did) {
-            fully_redistributed = false;
+    if global_amount > 0 {
+        if let Some(ref pool_id) = input.global_commons_pool_id {
             queue_pending_compost(
                 pool_id,
                 global_amount,
                 &input.member_did,
                 CompostPoolTier::Global,
+                None,
             )?;
         }
+        fully_redistributed = false;
     }
 
     Ok(DemurrageResult {
@@ -270,6 +289,16 @@ struct ReceiveCompostPayload {
     pub commons_pool_id: String,
     pub amount: u64,
     pub source_member_did: String,
+    #[serde(default)]
+    pub effect_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct VerifyPendingCompostEffectInput {
+    pub commons_pool_id: String,
+    pub amount: u64,
+    pub source_member_did: String,
+    pub effect_id: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -281,7 +310,7 @@ const PENDING_COMPOST_ANCHOR: &str = "pending_compost_queue";
 
 /// Attempt to deliver compost to treasury with retries.
 /// Returns `true` if delivery succeeded, `false` if all retries exhausted.
-fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str) -> bool {
+fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str, effect_id: &str) -> bool {
     if amount == 0 {
         return true;
     }
@@ -295,6 +324,7 @@ fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str) -> bool {
                 commons_pool_id: pool_id.to_string(),
                 amount,
                 source_member_did: source_did.to_string(),
+                effect_id: Some(effect_id.to_string()),
             },
         ) {
             Ok(ZomeCallResponse::Ok(_)) => return true,
@@ -321,22 +351,105 @@ fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str) -> bool {
     false
 }
 
-/// Enqueue a failed compost delivery for later processing.
-/// Stores a serialized `PendingCompost` in the link tag from the pending compost anchor.
+/// Count the bounded attempts made during a failed compost-delivery cycle.
+/// Saturation prevents metadata overflow from making the queue unwriteable.
+const COMPOST_RETRY_BASE_BACKOFF_SECONDS: u64 = 5;
+const COMPOST_RETRY_MAX_BACKOFF_SECONDS: u64 = 3_600;
+
+fn retry_count_after_failed_delivery(current: u32, attempts: u32) -> u32 {
+    current.saturating_add(attempts)
+}
+
+/// Deterministic exponential backoff with bounded per-effect jitter. Stable
+/// effect IDs spread retries without introducing a non-reproducible RNG in tests.
+fn compost_retry_delay_seconds(retry_count: u32, effect_id: &str) -> u64 {
+    let failed_cycles = retry_count
+        .saturating_add(COMPOST_MAX_RETRIES.saturating_sub(1))
+        / COMPOST_MAX_RETRIES;
+    let exponent = failed_cycles.saturating_sub(1).min(10);
+    let base = COMPOST_RETRY_BASE_BACKOFF_SECONDS
+        .saturating_mul(1u64 << exponent)
+        .min(COMPOST_RETRY_MAX_BACKOFF_SECONDS);
+    let jitter_seed = effect_id.as_bytes().iter().fold(0u64, |state, byte| {
+        state.wrapping_mul(33).wrapping_add(u64::from(*byte))
+    });
+    let jitter_span = (base / 4).max(1);
+    base.saturating_add(jitter_seed % (jitter_span + 1))
+        .min(COMPOST_RETRY_MAX_BACKOFF_SECONDS)
+}
+
+fn record_pending_compost_delivery_failure(
+    pending: &PendingCompost,
+    attempted_count: u32,
+    attempted_at_micros: i64,
+) -> PendingCompost {
+    let retry_count = retry_count_after_failed_delivery(pending.retry_count, attempted_count);
+    let delay_seconds = compost_retry_delay_seconds(retry_count, &pending.effect_id);
+    let delay_micros = delay_seconds
+        .saturating_mul(1_000_000)
+        .min(i64::MAX as u64) as i64;
+    let next_attempt_at_micros = attempted_at_micros
+        .checked_add(delay_micros)
+        .unwrap_or(i64::MAX);
+
+    PendingCompost {
+        retry_count,
+        last_attempt_at_micros: Some(attempted_at_micros),
+        next_attempt_at_micros: Some(next_attempt_at_micros),
+        ..pending.clone()
+    }
+}
+
+/// Enqueue a durable compost outbox effect in the current source-chain transaction.
+/// Treasury delivery is performed after commit and retries use the same effect ID.
 fn queue_pending_compost(
     pool_id: &str,
     amount: u64,
     source_did: &str,
     tier: CompostPoolTier,
+    requested_effect_id: Option<String>,
 ) -> ExternResult<()> {
     let now = sys_time()?;
+    let effect_id = match requested_effect_id {
+        Some(effect_id)
+            if !effect_id.is_empty()
+                && effect_id.len() <= 256
+                && !effect_id.chars().any(char::is_control) =>
+        {
+            effect_id
+        },
+        Some(_) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Pending compost effect ID cannot be empty".into()
+            )));
+        }
+        None => {
+            // Stable for retries of this queued event. The queue entry is written
+            // in the same transaction as the source balance change that created it.
+            let identity = serde_json::to_string(&(
+                "pending-compost-effect-v1",
+                pool_id,
+                source_did,
+                amount,
+                now.as_micros(),
+                &tier,
+            ))
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                "Pending compost identity serialization failed: {e}"
+            ))))?;
+            format!("compost-effect:v1:{}", anchor_hash(&identity)?)
+        }
+    };
     let pending = PendingCompost {
+        effect_id,
         commons_pool_id: pool_id.to_string(),
         amount,
         source_member_did: source_did.to_string(),
         pool_tier: tier,
         created_at_micros: now.as_micros(),
-        retry_count: COMPOST_MAX_RETRIES,
+        retry_count: 0,
+        last_attempt_at_micros: None,
+        next_attempt_at_micros: None,
     };
     let tag_bytes = serde_json::to_vec(&pending).map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -357,6 +470,170 @@ fn queue_pending_compost(
         amount, pool_id, pending.pool_tier, source_did
     );
     Ok(())
+}
+
+fn payment_fee_outbox_matches(
+    payment: &Payment,
+    payment_id: &str,
+    input: &VerifyPendingCompostEffectInput,
+) -> bool {
+    payment.id == payment_id
+        && payment.currency == "SAP"
+        && payment.fee == input.amount
+        && payment.from_did == input.source_member_did
+        && payment.fee > 0
+        && matches!(&payment.status, TransferStatus::Pending | TransferStatus::Processing)
+        && payment.completed.is_none()
+}
+
+fn initial_payment_lifecycle(
+    fee_amount: u64,
+    now: &Timestamp,
+) -> (TransferStatus, Option<Timestamp>) {
+    if fee_amount > 0 {
+        // Principal transfer is local, but the full payment lifecycle includes
+        // the fee effect. Do not claim Completed until Treasury confirms it.
+        (TransferStatus::Pending, None)
+    } else {
+        (TransferStatus::Completed, Some(now.clone()))
+    }
+}
+
+/// Advance a fee-bearing payment only after Treasury acknowledged the stable
+/// receipt. This function runs in the Payments outbox-drain transaction; if it
+/// fails, the queue item remains and the existing Treasury receipt makes retry safe.
+fn mark_payment_fee_settled(effect_id: &str) -> ExternResult<()> {
+    let Some(payment_id) = effect_id.strip_prefix("payment-fee:v1:") else {
+        return Ok(());
+    };
+    if payment_id.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Payment fee effect ID has an empty payment identity".into()
+        )));
+    }
+
+    let links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(payment_id)?,
+            LinkTypes::PaymentIdToPayment,
+        )?,
+        GetStrategy::default(),
+    )?;
+    if links.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Payment fee receipt cannot resolve exactly one Payment record".into()
+        )));
+    }
+    let action_hash = ActionHash::try_from(links[0].target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Payment fee receipt index target is not an ActionHash".into()
+        )))?;
+    let record = follow_update_chain(action_hash)?;
+    let mut payment = record
+        .entry()
+        .to_app_option::<Payment>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Payment fee receipt target decode failed: {e}"
+        ))))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Payment fee receipt index resolved to the wrong entry type".into()
+        )))?;
+
+    if payment.id != payment_id || payment.fee == 0 || payment.currency != "SAP" {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Payment fee receipt does not match the committed Payment".into()
+        )));
+    }
+    if payment.status == TransferStatus::Completed && payment.completed.is_some() {
+        // Recovery after Treasury committed and a previous queue-removal/update
+        // attempt failed. This is an already-completed retry, not a new effect.
+        return Ok(());
+    }
+    if !payment.status.can_transition_to(&TransferStatus::Completed) || payment.completed.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Payment cannot be marked completed from its current fee lifecycle state".into()
+        )));
+    }
+
+    payment.status = TransferStatus::Completed;
+    payment.completed = Some(sys_time()?);
+    update_entry(record.action_address().clone(), &EntryTypes::Payment(payment))?;
+    Ok(())
+}
+
+/// Verify that a requested compost credit corresponds to exactly one durable,
+/// committed outbox item with the exact destination, amount, source and effect ID.
+/// Treasury calls this before creating a new receipt; the read-only result is not
+/// itself an authorization to create an outbox item.
+#[hdk_extern]
+pub fn verify_pending_compost_effect(input: VerifyPendingCompostEffectInput) -> ExternResult<bool> {
+    if input.effect_id.is_empty() || input.amount == 0 {
+        return Ok(false);
+    }
+    let anchor = anchor_hash(PENDING_COMPOST_ANCHOR)?;
+    let links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::PendingCompostQueue)?,
+        GetStrategy::default(),
+    )?;
+    let mut matching = 0usize;
+
+    for link in links {
+        let pending: PendingCompost = match serde_json::from_slice(link.tag.as_ref()) {
+            Ok(pending) => pending,
+            Err(_) => continue,
+        };
+        if pending.effect_id != input.effect_id {
+            continue;
+        }
+        if pending.commons_pool_id != input.commons_pool_id
+            || pending.amount != input.amount
+            || pending.source_member_did != input.source_member_did
+        {
+            return Ok(false);
+        }
+        matching += 1;
+    }
+
+    if matching != 1 {
+        return Ok(false);
+    }
+
+    // A payment-fee effect must be linked to the committed Payment record itself;
+    // a queue tag alone must not be sufficient evidence for Treasury to credit it.
+    if let Some(payment_id) = input.effect_id.strip_prefix("payment-fee:v1:") {
+        if payment_id.is_empty() {
+            return Ok(false);
+        }
+        let payment_links = get_links(
+            LinkQuery::try_new(
+                anchor_hash(payment_id)?,
+                LinkTypes::PaymentIdToPayment,
+            )?,
+            GetStrategy::default(),
+        )?;
+        if payment_links.len() != 1 {
+            return Ok(false);
+        }
+        let payment_action = ActionHash::try_from(payment_links[0].target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "Payment fee outbox index target is not an ActionHash".into()
+            )))?;
+        let payment_record = follow_update_chain(payment_action)?;
+        let payment = payment_record
+            .entry()
+            .to_app_option::<Payment>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                "Payment fee outbox target decode failed: {e}"
+            ))))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Payment fee outbox index resolved to the wrong entry type".into()
+            )))?;
+        if !payment_fee_outbox_matches(&payment, payment_id, &input) {
+            return Ok(false);
+        }
+    }
+
+    Ok(true)
 }
 
 /// Drain the pending compost queue by retrying all queued deliveries.
@@ -381,6 +658,7 @@ fn drain_pending_compost_inner() -> ExternResult<u32> {
     }
 
     let mut drained = 0u32;
+    let drain_now_micros = sys_time()?.as_micros();
     for link in &links {
         let tag_bytes = link.tag.as_ref();
         let pending: PendingCompost = match serde_json::from_slice(tag_bytes) {
@@ -393,11 +671,35 @@ fn drain_pending_compost_inner() -> ExternResult<u32> {
             }
         };
 
+        if pending.effect_id.is_empty() {
+            // Legacy queue items were created without a stable receipt identity.
+            // A prior attempt may have committed in Treasury despite a lost error
+            // response. Do not risk double-crediting them automatically.
+            debug!(
+                "Legacy pending compost lacks effect_id; leaving queued for reconciliation (pool {}, queued at {})",
+                pending.commons_pool_id,
+                pending.created_at_micros
+            );
+            continue;
+        }
+
+        // Respect the persisted retry schedule even if another local operation
+        // happens to trigger a queue drain before the next-attempt time.
+        if let Some(next_attempt_at_micros) = pending.next_attempt_at_micros {
+            if drain_now_micros < next_attempt_at_micros {
+                continue;
+            }
+        }
+
         if try_deliver_compost(
             &pending.commons_pool_id,
             pending.amount,
             &pending.source_member_did,
+            &pending.effect_id,
         ) {
+            // Treasury receipt is confirmed. For fee outbox items, advance the
+            // Payment lifecycle before deleting the durable retry record.
+            mark_payment_fee_settled(&pending.effect_id)?;
             // Success — remove from queue
             delete_link(link.create_link_hash.clone(), GetOptions::default())?;
             drained += 1;
@@ -406,11 +708,37 @@ fn drain_pending_compost_inner() -> ExternResult<u32> {
                 pending.amount, pending.commons_pool_id, pending.source_member_did
             );
         } else {
+            // Persist attempts from this failed delivery cycle. The link tag is the
+            // durable queue record, so replace it atomically rather than mutating
+            // only an in-memory copy that will be lost on return.
+            let updated_pending = record_pending_compost_delivery_failure(
+                &pending,
+                COMPOST_MAX_RETRIES,
+                sys_time()?.as_micros(),
+            );
+            let retry_tag = serde_json::to_vec(&updated_pending).map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to serialize retried PendingCompost: {:?}",
+                    e
+                )))
+            })?;
+            if updated_pending != pending {
+                let queue_anchor = anchor_hash(PENDING_COMPOST_ANCHOR)?;
+                create_link(
+                    queue_anchor.clone(),
+                    queue_anchor,
+                    LinkTypes::PendingCompostQueue,
+                    retry_tag,
+                )?;
+                delete_link(link.create_link_hash.clone(), GetOptions::default())?;
+            }
             debug!(
-                "Pending compost still undeliverable: {} micro-SAP to pool {} from {} (queued at {})",
+                "Pending compost still undeliverable after {} delivery attempts: {} micro-SAP to pool {} from {} (total attempts {}, queued at {})",
+                COMPOST_MAX_RETRIES,
                 pending.amount,
                 pending.commons_pool_id,
                 pending.source_member_did,
+                updated_pending.retry_count,
                 pending.created_at_micros
             );
         }
@@ -1166,6 +1494,198 @@ fn elapsed_seconds(from: Timestamp, to: Timestamp) -> u64 {
     }
 }
 
+#[derive(Serialize)]
+struct PaymentRequestFingerprint<'a> {
+    schema: &'static str,
+    from_did: &'a str,
+    to_did: &'a str,
+    amount: u64,
+    currency: &'a str,
+    payment_type: &'a PaymentType,
+    memo: &'a Option<String>,
+}
+
+fn payment_operation_id(from_did: &str, idempotency_key: &str) -> ExternResult<String> {
+    if idempotency_key.is_empty()
+        || idempotency_key.len() > 128
+        || idempotency_key.trim() != idempotency_key
+        || idempotency_key.chars().any(char::is_control)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Idempotency key must be 1-128 non-control characters with no surrounding whitespace".into()
+        )));
+    }
+    // Hash a serialized tuple rather than delimiter-concatenated fields so
+    // arbitrary client-key contents cannot create an ambiguous preimage.
+    let scoped_key = serde_json::to_string(&(
+        "mycelix-payment-operation-v1",
+        from_did,
+        idempotency_key,
+    ))
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+        "Payment operation key serialization failed: {e}"
+    ))))?;
+    let digest = anchor_hash(&scoped_key)?;
+    Ok(format!("payment-op:v1:{digest}"))
+}
+
+fn checked_total_debit(amount: u64, fee: u64) -> ExternResult<u64> {
+    amount.checked_add(fee).ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Payment amount plus fee overflows u64".into()
+    )))
+}
+
+fn payment_request_fingerprint(input: &SendPaymentInput) -> ExternResult<String> {
+    let canonical = serde_json::to_string(&PaymentRequestFingerprint {
+        schema: "mycelix-payment-request-v1",
+        from_did: &input.from_did,
+        to_did: &input.to_did,
+        amount: input.amount,
+        currency: &input.currency,
+        payment_type: &input.payment_type,
+        memo: &input.memo,
+    })
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+        "Payment request fingerprint serialization failed: {e}"
+    ))))?;
+    let digest = anchor_hash(&canonical)?;
+    Ok(format!("fingerprint:v1:{digest}"))
+}
+
+/// Resolve a previously-claimed logical operation. Link count is used only to
+/// reject ambiguous evidence; a single mutable index link is not a uniqueness
+/// proof. Sender-bound creation claims are the durable operation record, and
+/// conflicting/partial visibility fails closed rather than replaying effects.
+fn resolve_existing_payment_operation(
+    input: &SendPaymentInput,
+    operation_id: &str,
+    request_fingerprint: &str,
+) -> ExternResult<Option<Record>> {
+    let claim_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(operation_id)?,
+            LinkTypes::PaymentCreationClaimIdToClaim,
+        )?,
+        GetStrategy::default(),
+    )?;
+    let payment_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(operation_id)?,
+            LinkTypes::PaymentIdToPayment,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    if claim_links.is_empty() {
+        if !payment_links.is_empty() {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Payment exists for this operation ID without a creation claim; refusing replay".into()
+            )));
+        }
+        return Ok(None);
+    }
+
+    // A link index is a discovery mechanism, not uniqueness authority. More
+    // than one candidate means the state is ambiguous and must be investigated.
+    if claim_links.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Multiple creation-claim candidates for one operation ID; refusing replay".into()
+        )));
+    }
+    let claim_action = ActionHash::try_from(claim_links[0].target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Creation-claim index target is not an ActionHash".into()
+        )))?;
+    let claim_record = get(claim_action, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "Creation claim is indexed but not readable; operation is indeterminate".into()
+        )
+    ))?;
+    let claim = claim_record
+        .entry()
+        .to_app_option::<PaymentCreationClaim>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Creation claim decode failed: {e}"
+        ))))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Creation-claim index resolved to the wrong entry type".into()
+        )))?;
+
+    if claim.operation_id != operation_id
+        || claim.request_fingerprint != request_fingerprint
+        || claim.from_did != input.from_did
+        || claim.to_did != input.to_did
+        || claim.amount != input.amount
+        || claim.currency != input.currency
+        || claim.payment_type != input.payment_type
+        || claim.memo != input.memo
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Idempotency key is already claimed by a different payment payload".into()
+        )));
+    }
+
+    if payment_links.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Creation claim exists but payment evidence is missing or ambiguous; refusing to repeat possible effects".into()
+        )));
+    }
+    let payment_action = ActionHash::try_from(payment_links[0].target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Payment index target is not an ActionHash".into()
+        )))?;
+    let payment_record = follow_update_chain(payment_action)?;
+    let payment = payment_record
+        .entry()
+        .to_app_option::<Payment>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Payment record decode failed during idempotent replay: {e}"
+        ))))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Payment index resolved to the wrong entry type".into()
+        )))?;
+
+    if payment.id != operation_id
+        || payment.from_did != claim.from_did
+        || payment.to_did != claim.to_did
+        || payment.amount != claim.amount
+        || payment.currency != claim.currency
+        || payment.payment_type != claim.payment_type
+        || payment.memo != claim.memo
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Stored payment does not match its immutable creation claim; refusing replay".into()
+        )));
+    }
+
+    Ok(Some(payment_record))
+}
+
+fn create_payment_creation_claim(
+    input: &SendPaymentInput,
+    operation_id: &str,
+    request_fingerprint: &str,
+) -> ExternResult<()> {
+    let claim = PaymentCreationClaim {
+        operation_id: operation_id.to_string(),
+        from_did: input.from_did.clone(),
+        to_did: input.to_did.clone(),
+        amount: input.amount,
+        currency: input.currency.clone(),
+        payment_type: input.payment_type.clone(),
+        memo: input.memo.clone(),
+        request_fingerprint: request_fingerprint.to_string(),
+    };
+    let claim_action = create_entry(&EntryTypes::PaymentCreationClaim(claim))?;
+    create_link(
+        anchor_hash(operation_id)?,
+        claim_action,
+        LinkTypes::PaymentCreationClaimIdToClaim,
+        (),
+    )?;
+    Ok(())
+}
+
 #[hdk_extern]
 pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
     verify_participant_tier()?;
@@ -1177,6 +1697,14 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Currency must be \"SAP\" or \"TEND\"".into()
         )));
+    }
+
+    let operation_id = payment_operation_id(&input.from_did, &input.idempotency_key)?;
+    let request_fingerprint = payment_request_fingerprint(&input)?;
+    if let Some(existing) =
+        resolve_existing_payment_operation(&input, &operation_id, &request_fingerprint)?
+    {
+        return Ok(existing);
     }
 
     let now = sys_time()?;
@@ -1206,12 +1734,17 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         )?;
     }
 
+    // Claim the logical operation before any value-moving work. All local
+    // chain writes must commit with this successful zome call; retries resolve
+    // the same claim and Payment ID instead of creating a timestamp-based ID.
+    create_payment_creation_claim(&input, &operation_id, &request_fingerprint)?;
+
     // If sending SAP, enforce on-chain balance with demurrage + progressive fee
     let (memo, fee_amount) = if input.currency == "SAP" {
         // input.amount is already in micro-SAP (u64)
         // Compute progressive fee based on sender's MYCEL score
         let fee = compute_sap_fee(&input.from_did, input.amount)?;
-        let total_debit = input.amount + fee;
+        let total_debit = checked_total_debit(input.amount, fee)?;
 
         // Debit sender's SAP balance (amount + fee, applies demurrage)
         debit_sap(DebitSapInput {
@@ -1227,21 +1760,17 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
             reason: format!("Payment from {}", input.from_did),
         })?;
 
-        // Route fee to commons via treasury (if fee > 0)
+        // Persist the fee obligation in this same transaction as the debit and
+        // Payment record. Post-commit delivery is retriable and Treasury is
+        // idempotent by effect ID, so a lost response cannot duplicate the fee.
         if fee > 0 {
-            if let Err(e) = call(
-                CallTargetCell::Local,
-                ZomeName::from("treasury"),
-                FunctionName::from("receive_compost"),
-                None,
-                ReceiveCompostPayload {
-                    commons_pool_id: "global-fee-pool".to_string(),
-                    amount: fee,
-                    source_member_did: input.from_did.clone(),
-                },
-            ) {
-                debug!("Fee routing to global-fee-pool failed: {:?}", e);
-            }
+            queue_pending_compost(
+                "global-fee-pool",
+                fee,
+                &input.from_did,
+                CompostPoolTier::Global,
+                Some(format!("payment-fee:v1:{}", operation_id)),
+            )?;
         }
 
         (input.memo.clone(), fee)
@@ -1249,18 +1778,19 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         (input.memo.clone(), 0)
     };
 
+    let (initial_status, completed) = initial_payment_lifecycle(fee_amount, &now);
     let payment = Payment {
-        id: format!("payment:{}:{}", input.from_did, now.as_micros()),
+        id: operation_id.clone(),
         from_did: input.from_did.clone(),
         to_did: input.to_did.clone(),
         amount: input.amount,
         fee: fee_amount,
         currency: input.currency.clone(),
         payment_type: input.payment_type,
-        status: TransferStatus::Completed, // Simplified: immediate completion
+        status: initial_status,
         memo,
         created: now,
-        completed: Some(now),
+        completed,
     };
 
     let action_hash = create_entry(&EntryTypes::Payment(payment.clone()))?;
@@ -1332,6 +1862,11 @@ pub struct SendPaymentInput {
     pub currency: String,
     pub payment_type: PaymentType,
     pub memo: Option<String>,
+    /// Stable per-logical-operation client key. This must be reused for retries,
+    /// must not contain secrets, and may not be reused for a different payload.
+    /// Missing legacy input deserializes empty and is rejected before any effects.
+    #[serde(default)]
+    pub idempotency_key: String,
 }
 
 #[hdk_extern]
@@ -1859,6 +2394,7 @@ pub fn initiate_exit(input: InitiateExitInput) -> ExternResult<Record> {
                     currency: "SAP".to_string(),
                     payment_type: PaymentType::CommonsContribution("exit-succession".to_string()),
                     memo: Some("Exit succession: SAP to local commons pool".to_string()),
+                    idempotency_key: "exit-succession-v1:member-exit".to_string(),
                 })?;
             }
             SuccessionPreference::Designee(designee_did) => {
@@ -1869,6 +2405,7 @@ pub fn initiate_exit(input: InitiateExitInput) -> ExternResult<Record> {
                     currency: "SAP".to_string(),
                     payment_type: PaymentType::Direct,
                     memo: Some("Exit succession to designated heir".to_string()),
+                    idempotency_key: "exit-succession-v1:member-exit".to_string(),
                 })?;
             }
             SuccessionPreference::Redemption => {
@@ -1881,6 +2418,7 @@ pub fn initiate_exit(input: InitiateExitInput) -> ExternResult<Record> {
                     currency: "SAP".to_string(),
                     payment_type: PaymentType::Direct,
                     memo: Some("Exit succession: SAP queued for collateral redemption".to_string()),
+                    idempotency_key: "exit-succession-v1:member-exit".to_string(),
                 })?;
             }
         }
@@ -2166,6 +2704,10 @@ pub fn withdraw_from_hearth_pool(input: WithdrawFromHearthInput) -> ExternResult
 /// Returns the amount deducted. If 0, no update is persisted.
 #[hdk_extern]
 pub fn apply_hearth_demurrage(input: ApplyHearthDemurrageInput) -> ExternResult<DemurrageResult> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    let caller_did = format!("did:mycelix:{}", caller);
+    verify_hearth_membership_strict(&caller_did, &input.hearth_did)?;
+
     let mut pool = get_or_create_hearth_pool(&input.hearth_did)?;
     let now = sys_time()?;
     let elapsed = elapsed_seconds(pool.last_demurrage_at, now);
@@ -2192,66 +2734,50 @@ pub fn apply_hearth_demurrage(input: ApplyHearthDemurrageInput) -> ExternResult<
     let regional_amount = deduction * COMPOST_REGIONAL_PCT / 100;
     let global_amount = deduction - local_amount - regional_amount;
 
-    let source_did = format!("hearth:{}", input.hearth_did);
+    if local_amount > 0 && input.local_commons_pool_id.is_none()
+        || regional_amount > 0 && input.regional_commons_pool_id.is_none()
+        || global_amount > 0 && input.global_commons_pool_id.is_none()
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Hearth demurrage compost destination missing for a non-zero allocation".into()
+        )));
+    }
+    if !input.hearth_did.starts_with("did:") {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Hearth source must be a valid DID".into()
+        )));
+    }
+    let source_did = input.hearth_did.clone();
+    let mut fully_redistributed = true;
 
-    if let Some(ref pool_id) = input.local_commons_pool_id {
-        if let Err(e) = call(
-            CallTargetCell::Local,
-            ZomeName::from("treasury"),
-            FunctionName::from("receive_compost"),
-            None,
-            ReceiveCompostPayload {
-                commons_pool_id: pool_id.clone(),
-                amount: local_amount,
-                source_member_did: source_did.clone(),
-            },
-        ) {
-            debug!(
-                "Hearth compost redistribution to local pool {} failed: {:?}",
-                pool_id, e
-            );
+    if local_amount > 0 {
+        if let Some(ref pool_id) = input.local_commons_pool_id {
+            queue_pending_compost(
+                pool_id, local_amount, &source_did, CompostPoolTier::Local, None
+            )?;
         }
+        fully_redistributed = false;
     }
-    if let Some(ref pool_id) = input.regional_commons_pool_id {
-        if let Err(e) = call(
-            CallTargetCell::Local,
-            ZomeName::from("treasury"),
-            FunctionName::from("receive_compost"),
-            None,
-            ReceiveCompostPayload {
-                commons_pool_id: pool_id.clone(),
-                amount: regional_amount,
-                source_member_did: source_did.clone(),
-            },
-        ) {
-            debug!(
-                "Hearth compost redistribution to regional pool {} failed: {:?}",
-                pool_id, e
-            );
+    if regional_amount > 0 {
+        if let Some(ref pool_id) = input.regional_commons_pool_id {
+            queue_pending_compost(
+                pool_id, regional_amount, &source_did, CompostPoolTier::Regional, None
+            )?;
         }
+        fully_redistributed = false;
     }
-    if let Some(ref pool_id) = input.global_commons_pool_id {
-        if let Err(e) = call(
-            CallTargetCell::Local,
-            ZomeName::from("treasury"),
-            FunctionName::from("receive_compost"),
-            None,
-            ReceiveCompostPayload {
-                commons_pool_id: pool_id.clone(),
-                amount: global_amount,
-                source_member_did: source_did,
-            },
-        ) {
-            debug!(
-                "Hearth compost redistribution to global pool {} failed: {:?}",
-                pool_id, e
-            );
+    if global_amount > 0 {
+        if let Some(ref pool_id) = input.global_commons_pool_id {
+            queue_pending_compost(
+                pool_id, global_amount, &source_did, CompostPoolTier::Global, None
+            )?;
         }
+        fully_redistributed = false;
     }
 
     Ok(DemurrageResult {
         deducted: deduction,
-        redistributed: true,
+        redistributed: fully_redistributed,
     })
 }
 
@@ -2427,6 +2953,46 @@ fn verify_hearth_membership(caller_did: &str, hearth_did: &str) -> ExternResult<
     }
 }
 
+/// Unlike the legacy convenience helper, this version fails closed when the
+/// Hearth role or membership proof is unavailable. Use it before any effect-bearing
+/// operation whose authority depends on Hearth membership.
+fn verify_hearth_membership_strict(caller_did: &str, hearth_did: &str) -> ExternResult<()> {
+    #[derive(Serialize, Deserialize, Debug)]
+    struct MembershipQuery {
+        member_did: String,
+        hearth_did: String,
+    }
+
+    match call(
+        CallTargetCell::OtherRole("hearth".into()),
+        ZomeName::from("hearth_bridge"),
+        FunctionName::from("is_hearth_member"),
+        None,
+        MembershipQuery {
+            member_did: caller_did.to_string(),
+            hearth_did: hearth_did.to_string(),
+        },
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => match result.decode::<bool>() {
+            Ok(true) => Ok(()),
+            Ok(false) => Err(wasm_error!(WasmErrorInner::Guest(
+                "Not a member of this hearth".into()
+            ))),
+            Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Hearth membership result could not be decoded: {e}"
+            )))),
+        },
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Hearth membership check returned an unsupported response: {:?}",
+            other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Hearth membership check unavailable; refusing compost effect: {:?}",
+            e
+        )))),
+    }
+}
+
 // ============================================================================
 // ZKP-VERIFIED TRANSACTIONS (DASTARK)
 // ============================================================================
@@ -2519,3 +3085,267 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
         domain_tag: domain_tag.as_str().to_string(),
     })
 }
+
+/// Dispatch queued compost only after the source-chain transaction commits.
+///
+/// Treasury writes are a separate zome-call transaction, so doing this inside
+/// `send_payment` or `apply_demurrage` could credit Treasury before the local
+/// debit/outbox has committed. The durable queue is the recovery source of truth;
+/// failures are logged and left queued for a later drain attempt.
+/// Return true only for a freshly committed queue item. Replacing a failed item's
+/// tag increments retry_count and must not recursively trigger another immediate
+/// drain from the resulting post_commit callback.
+fn is_fresh_pending_compost_tag(tag: &[u8]) -> bool {
+    serde_json::from_slice::<PendingCompost>(tag)
+        .map(|pending| !pending.effect_id.is_empty() && pending.retry_count == 0)
+        .unwrap_or(false)
+}
+
+fn has_new_pending_compost_outbox(actions: &[SignedActionHashed]) -> bool {
+    actions.iter().any(|signed| match &signed.action().data {
+        ActionData::CreateLink(create_link) => {
+            is_fresh_pending_compost_tag(create_link.tag.as_ref())
+        }
+        _ => false,
+    })
+}
+
+#[hdk_extern(infallible)]
+pub fn post_commit(actions: Vec<SignedActionHashed>) {
+    if !has_new_pending_compost_outbox(&actions) {
+        return;
+    }
+
+    match call(
+        CallTargetCell::Local,
+        ZomeName::from("payments"),
+        FunctionName::from("drain_pending_compost"),
+        None,
+        (),
+    ) {
+        Ok(ZomeCallResponse::Ok(_)) => {}
+        Ok(other) => debug!("post_commit compost drain returned unexpected response: {:?}", other),
+        Err(e) => debug!("post_commit compost drain failed; durable outbox retained: {:?}", e),
+    }
+}
+
+#[cfg(test)]
+mod payment_idempotency_tests {
+    use super::*;
+
+    fn sample_input() -> SendPaymentInput {
+        SendPaymentInput {
+            from_did: "did:mycelix:uhCAksender".to_string(),
+            to_did: "did:mycelix:uhCAkrecipient".to_string(),
+            amount: 1_250_000,
+            currency: "SAP".to_string(),
+            payment_type: PaymentType::Direct,
+            memo: Some("invoice-42".to_string()),
+            idempotency_key: "client-op-42".to_string(),
+        }
+    }
+
+    #[test]
+    fn operation_id_is_stable_and_sender_scoped() {
+        let a = payment_operation_id("did:mycelix:uhCAksender", "client-op-42").unwrap();
+        let b = payment_operation_id("did:mycelix:uhCAksender", "client-op-42").unwrap();
+        let other_sender =
+            payment_operation_id("did:mycelix:uhCAkother", "client-op-42").unwrap();
+        let other_key =
+            payment_operation_id("did:mycelix:uhCAksender", "client-op-43").unwrap();
+
+        assert_eq!(a, b);
+        assert_ne!(a, other_sender);
+        assert_ne!(a, other_key);
+        assert!(a.starts_with("payment-op:v1:"));
+        assert!(!a.contains("client-op-42"), "raw key must not leak into the public operation ID");
+    }
+
+    #[test]
+    fn invalid_idempotency_keys_fail_closed() {
+        for key in ["", " key", "key ", "line\nbreak"] {
+            assert!(
+                payment_operation_id("did:mycelix:uhCAksender", key).is_err(),
+                "invalid key should fail: {key:?}"
+            );
+        }
+        assert!(
+            payment_operation_id("did:mycelix:uhCAksender", &"x".repeat(129)).is_err(),
+            "overlong key should fail"
+        );
+    }
+
+    #[test]
+    fn request_fingerprint_binds_money_and_payee_fields() {
+        let base = sample_input();
+        let base_fingerprint = payment_request_fingerprint(&base).unwrap();
+
+        let mut changed_amount = sample_input();
+        changed_amount.amount += 1;
+        assert_ne!(base_fingerprint, payment_request_fingerprint(&changed_amount).unwrap());
+
+        let mut changed_payee = sample_input();
+        changed_payee.to_did = "did:mycelix:uhCAkother".to_string();
+        assert_ne!(base_fingerprint, payment_request_fingerprint(&changed_payee).unwrap());
+
+        let mut changed_currency = sample_input();
+        changed_currency.currency = "TEND".to_string();
+        assert_ne!(base_fingerprint, payment_request_fingerprint(&changed_currency).unwrap());
+
+        let mut changed_memo = sample_input();
+        changed_memo.memo = Some("different invoice".to_string());
+        assert_ne!(base_fingerprint, payment_request_fingerprint(&changed_memo).unwrap());
+
+        let mut changed_kind = sample_input();
+        changed_kind.payment_type = PaymentType::CommonsContribution("pool-b".to_string());
+        assert_ne!(base_fingerprint, payment_request_fingerprint(&changed_kind).unwrap());
+    }
+
+
+    #[test]
+    fn payment_fee_outbox_requires_matching_committed_payment_fields() {
+        let input = VerifyPendingCompostEffectInput {
+            commons_pool_id: "global-fee-pool".into(),
+            amount: 75,
+            source_member_did: "did:mycelix:uhCAksender".into(),
+            effect_id: "payment-fee:v1:payment-op:v1:abc".into(),
+        };
+        let payment = Payment {
+            id: "payment-op:v1:abc".into(),
+            from_did: "did:mycelix:uhCAksender".into(),
+            to_did: "did:mycelix:uhCAkrecipient".into(),
+            amount: 1_000,
+            fee: 75,
+            currency: "SAP".into(),
+            payment_type: PaymentType::Direct,
+            status: TransferStatus::Pending,
+            memo: None,
+            created: Timestamp::from_micros(1_000),
+            completed: None,
+        };
+        assert!(payment_fee_outbox_matches(&payment, "payment-op:v1:abc", &input));
+
+        let mut wrong_amount = input.clone();
+        wrong_amount.amount += 1;
+        assert!(!payment_fee_outbox_matches(&payment, "payment-op:v1:abc", &wrong_amount));
+
+        let mut wrong_source = input.clone();
+        wrong_source.source_member_did = "did:mycelix:other".into();
+        assert!(!payment_fee_outbox_matches(&payment, "payment-op:v1:abc", &wrong_source));
+
+        let mut wrong_payment = payment.clone();
+        wrong_payment.currency = "TEND".into();
+        assert!(!payment_fee_outbox_matches(&wrong_payment, "payment-op:v1:abc", &input));
+
+        let mut zero_fee = payment.clone();
+        zero_fee.fee = 0;
+        assert!(!payment_fee_outbox_matches(&zero_fee, "payment-op:v1:abc", &input));
+
+        let mut prematurely_completed = payment.clone();
+        prematurely_completed.status = TransferStatus::Completed;
+        prematurely_completed.completed = Some(Timestamp::from_micros(2_000));
+        assert!(!payment_fee_outbox_matches(
+            &prematurely_completed,
+            "payment-op:v1:abc",
+            &input
+        ));
+    }
+
+
+    #[test]
+    fn fee_bearing_payment_stays_pending_until_fee_receipt() {
+        let now = Timestamp::from_micros(1_000);
+        let (status_with_fee, completed_with_fee) = initial_payment_lifecycle(1, &now);
+        assert_eq!(status_with_fee, TransferStatus::Pending);
+        assert!(completed_with_fee.is_none());
+
+        let (status_without_fee, completed_without_fee) = initial_payment_lifecycle(0, &now);
+        assert_eq!(status_without_fee, TransferStatus::Completed);
+        assert_eq!(completed_without_fee, Some(now));
+    }
+
+    #[test]
+    fn amount_plus_fee_overflow_is_rejected() {
+        assert_eq!(checked_total_debit(100, 5).unwrap(), 105);
+        assert!(checked_total_debit(u64::MAX, 1).is_err());
+        assert!(checked_total_debit(u64::MAX - 5, 5).is_ok());
+    }
+
+    fn sample_pending_compost(retry_count: u32) -> PendingCompost {
+        PendingCompost {
+            effect_id: "effect:v1:sample".into(),
+            commons_pool_id: "global-fee-pool".into(),
+            amount: 75,
+            source_member_did: "did:mycelix:uhCAksender".into(),
+            pool_tier: CompostPoolTier::Global,
+            created_at_micros: 1_000,
+            retry_count,
+            last_attempt_at_micros: None,
+            next_attempt_at_micros: None,
+        }
+    }
+
+    #[test]
+    fn post_commit_only_drains_fresh_outbox_items() {
+        let fresh = serde_json::to_vec(&sample_pending_compost(0)).unwrap();
+        let retried = serde_json::to_vec(&sample_pending_compost(COMPOST_MAX_RETRIES)).unwrap();
+        assert!(is_fresh_pending_compost_tag(&fresh));
+        assert!(!is_fresh_pending_compost_tag(&retried));
+        assert!(!is_fresh_pending_compost_tag(b"not-a-pending-compost-record"));
+    }
+
+    #[test]
+    fn compost_retry_backoff_is_exponential_jittered_and_capped() {
+        let first = compost_retry_delay_seconds(COMPOST_MAX_RETRIES, "effect:a");
+        let second = compost_retry_delay_seconds(COMPOST_MAX_RETRIES * 2, "effect:a");
+        assert!((5..=6).contains(&first));
+        assert!((10..=12).contains(&second));
+        assert!(second > first);
+        assert_eq!(
+            compost_retry_delay_seconds(u32::MAX, "effect:a"),
+            COMPOST_RETRY_MAX_BACKOFF_SECONDS
+        );
+    }
+
+    #[test]
+    fn failed_compost_delivery_persists_attempt_times_and_due_time() {
+        let pending = sample_pending_compost(0);
+        let failed = record_pending_compost_delivery_failure(
+            &pending,
+            COMPOST_MAX_RETRIES,
+            1_000_000,
+        );
+        assert_eq!(failed.retry_count, COMPOST_MAX_RETRIES);
+        assert_eq!(failed.last_attempt_at_micros, Some(1_000_000));
+        assert!(failed.next_attempt_at_micros.unwrap() > 1_000_000);
+        assert_eq!(failed.effect_id, pending.effect_id);
+        assert!(pending.next_attempt_at_micros.is_none());
+    }
+
+    #[test]
+    fn pending_compost_retry_count_is_monotonic_and_saturating() {
+        assert_eq!(retry_count_after_failed_delivery(0, COMPOST_MAX_RETRIES), 3);
+        assert_eq!(retry_count_after_failed_delivery(3, COMPOST_MAX_RETRIES), 6);
+        assert_eq!(
+            retry_count_after_failed_delivery(u32::MAX - 1, COMPOST_MAX_RETRIES),
+            u32::MAX
+        );
+    }
+
+    #[test]
+    fn same_key_can_name_retry_but_payload_fingerprint_changes() {
+        let first = sample_input();
+        let mut conflicting = sample_input();
+        conflicting.amount += 100;
+
+        assert_eq!(
+            payment_operation_id(&first.from_did, &first.idempotency_key).unwrap(),
+            payment_operation_id(&conflicting.from_did, &conflicting.idempotency_key).unwrap()
+        );
+        assert_ne!(
+            payment_request_fingerprint(&first).unwrap(),
+            payment_request_fingerprint(&conflicting).unwrap()
+        );
+    }
+}
+

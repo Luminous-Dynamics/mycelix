@@ -33,6 +33,8 @@ import {
   filter,
   distinctUntilChanged,
 } from '../src/reactive/index.js';
+import { HolochainFinanceProvider, PaymentSubmissionError } from '../src/wallet/finance-provider.js';
+import type { ConductorManager } from '../src/wallet/conductor.js';
 import {
   IdentityCache,
   formatIdentity,
@@ -926,9 +928,123 @@ describe('Contact Utilities', () => {
 import {
   OfflineQueue,
   createOfflineQueue,
+  createWalletExecutor,
   type QueueItemId,
+  type QueueStorage,
+  type QueueStorageIdempotencyClaim,
+  type QueueStorageExecutionClaim,
+  type QueueStorageStatusPatch,
+  type QueueStorageStatusTransition,
+  type QueueItemStatus,
+  type QueuedOperation,
   type SendPayload,
 } from '../src/wallet/offline-queue.js';
+
+/**
+ * Shared contract-test store: separate OfflineQueue instances can race through
+ * stale local snapshots, so the storage's claim operation must be authoritative.
+ * IndexedDBQueueStorage implements the same contract in one read/write transaction.
+ */
+class SharedAtomicQueueStorage implements QueueStorage {
+  private readonly items = new Map<QueueItemId, QueuedOperation>();
+
+  async getAll(): Promise<QueuedOperation[]> {
+    return [...this.items.values()];
+  }
+
+  async save(item: QueuedOperation): Promise<void> {
+    this.items.set(item.id, item);
+  }
+
+  async claimForExecution(
+    id: QueueItemId,
+    startedAt: number
+  ): Promise<QueueStorageExecutionClaim | null> {
+    const stored = this.items.get(id);
+    if (!stored) return null;
+    if (stored.status !== 'pending') return { claimed: false, item: stored };
+    const claimed: QueuedOperation = {
+      ...stored,
+      status: 'syncing',
+      lastAttemptAt: startedAt,
+      attempts: stored.attempts + 1,
+    };
+    this.items.set(id, claimed);
+    return { claimed: true, item: claimed };
+  }
+
+  async claimIdempotencyKey(item: QueuedOperation): Promise<QueueStorageIdempotencyClaim> {
+    const key = item.idempotencyKey;
+    if (!key) throw new Error('Cannot claim an empty idempotency key');
+    const matches = [...this.items.values()].filter((stored) => stored.idempotencyKey === key);
+    if (matches.length > 1) {
+      throw new Error('Ambiguous queue state: multiple records already use this idempotency key');
+    }
+    if (matches.length === 1) return { kind: 'existing', item: matches[0] };
+    this.items.set(item.id, item);
+    return { kind: 'inserted', item };
+  }
+
+  async compareAndSetStatus(
+    id: QueueItemId,
+    expectedStatus: QueueItemStatus,
+    patch: QueueStorageStatusPatch
+  ): Promise<QueueStorageStatusTransition> {
+    const stored = this.items.get(id);
+    if (!stored || stored.status !== expectedStatus) return { updated: false, item: stored };
+    const updated: QueuedOperation = { ...stored, ...patch, id: stored.id };
+    this.items.set(id, updated);
+    return { updated: true, item: updated };
+  }
+
+  async delete(id: QueueItemId): Promise<void> {
+    this.items.delete(id);
+  }
+
+  async clear(): Promise<void> {
+    this.items.clear();
+  }
+}
+
+describe('HolochainFinanceProvider payment idempotency', () => {
+  it('preserves the operation key after an ambiguous direct-send failure', async () => {
+    const transportError = new Error('response lost after possible commit');
+    const callZome = vi.fn().mockRejectedValue(transportError);
+    const conductor = {
+      isOnline: true,
+      isConnected: true,
+      callZome,
+    } as unknown as ConductorManager;
+    const provider = new HolochainFinanceProvider(conductor, {
+      myDid: 'did:mycelix:alice',
+    });
+
+    let caught: unknown;
+    try {
+      await provider.send(
+        'did:mycelix:alice',
+        'did:mycelix:bob',
+        100,
+        'TEND',
+        'invoice',
+        undefined,
+        'stable-payment-key'
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(PaymentSubmissionError);
+    expect((caught as PaymentSubmissionError).idempotencyKey).toBe('stable-payment-key');
+    expect((caught as PaymentSubmissionError).originalError).toBe(transportError);
+    expect(callZome).toHaveBeenCalledWith(expect.objectContaining({
+      zome_name: 'payments',
+      fn_name: 'send_payment',
+      payload: expect.objectContaining({ idempotency_key: 'stable-payment-key' }),
+    }));
+    provider.destroy();
+  });
+});
 
 describe('OfflineQueue', () => {
   let queue: OfflineQueue;
@@ -952,6 +1068,8 @@ describe('OfflineQueue', () => {
       expect(item.status).toBe('pending');
       expect((item.payload as SendPayload).to).toBe('@alice');
       expect((item.payload as SendPayload).amount).toBe(100);
+      expect((item.payload as SendPayload).idempotencyKey).toBe(item.idempotencyKey);
+      expect(item.idempotencyKey).toBeDefined();
     });
 
     it('should track pending count', async () => {
@@ -964,7 +1082,7 @@ describe('OfflineQueue', () => {
       expect(queue.pendingCount).toBe(2);
     });
 
-    it('should dedupe by idempotency key', async () => {
+    it('should dedupe exact payloads by idempotency key', async () => {
       const item1 = await queue.enqueue('send', { to: '@alice', amount: 100 }, {
         idempotencyKey: 'unique-key',
       });
@@ -973,7 +1091,227 @@ describe('OfflineQueue', () => {
       });
 
       expect(item1.id).toBe(item2.id);
+      expect((item1.payload as SendPayload).idempotencyKey).toBe('unique-key');
+      expect(item1.idempotencyKey).toBe((item1.payload as SendPayload).idempotencyKey);
       expect(queue.pendingCount).toBe(1);
+    });
+
+    it('should assign one key to an unkeyed generic send', async () => {
+      const item = await queue.enqueue('send', { to: '@alice', amount: 100 });
+
+      expect(item.idempotencyKey).toBeDefined();
+      expect((item.payload as SendPayload).idempotencyKey).toBe(item.idempotencyKey);
+    });
+
+    it('should reject conflicting payload and metadata keys before persistence', async () => {
+      await expect(
+        queue.enqueue('send', {
+          to: '@alice',
+          amount: 100,
+          idempotencyKey: 'payload-key',
+        }, {
+          idempotencyKey: 'metadata-key',
+        })
+      ).rejects.toThrow('Send payload idempotency key does not match queue idempotency key');
+      expect(queue.pendingCount).toBe(0);
+      expect(queue.state.items).toHaveLength(0);
+    });
+
+    it('should serialize concurrent enqueues with the same key', async () => {
+      const [first, second] = await Promise.all([
+        queue.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'concurrent-queue-key',
+        }),
+        queue.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'concurrent-queue-key',
+        }),
+      ]);
+
+      expect(first.id).toBe(second.id);
+      expect(queue.state.items.filter((item) => item.idempotencyKey === 'concurrent-queue-key')).toHaveLength(1);
+      expect(queue.pendingCount).toBe(1);
+    });
+
+    it('should resolve the same key across separate queue instances', async () => {
+      const storage = new SharedAtomicQueueStorage();
+      const queueA = createOfflineQueue(storage, undefined, { autoSync: false });
+      const queueB = createOfflineQueue(storage, undefined, { autoSync: false });
+
+      try {
+        // Both instances load an empty snapshot before either enqueue starts.
+        await Promise.all([queueA.initialize(), queueB.initialize()]);
+        const [first, second] = await Promise.all([
+          queueA.enqueue('send', { to: '@alice', amount: 100 }, {
+            idempotencyKey: 'cross-instance-key',
+          }),
+          queueB.enqueue('send', { to: '@alice', amount: 100 }, {
+            idempotencyKey: 'cross-instance-key',
+          }),
+        ]);
+
+        expect(first.id).toBe(second.id);
+        expect((await storage.getAll()).filter(
+          (item) => item.idempotencyKey === 'cross-instance-key'
+        )).toHaveLength(1);
+        expect(queueA.state.items.filter(
+          (item) => item.idempotencyKey === 'cross-instance-key'
+        )).toHaveLength(1);
+        expect(queueB.state.items.filter(
+          (item) => item.idempotencyKey === 'cross-instance-key'
+        )).toHaveLength(1);
+
+        await expect(
+          queueB.enqueue('send', { to: '@mallory', amount: 100 }, {
+            idempotencyKey: 'cross-instance-key',
+          })
+        ).rejects.toThrow('Idempotency key reused with a different queued operation payload');
+        expect((await storage.getAll()).filter(
+          (item) => item.idempotencyKey === 'cross-instance-key'
+        )).toHaveLength(1);
+      } finally {
+        queueA.destroy();
+        queueB.destroy();
+      }
+    });
+
+    it('should dispatch a shared pending item through only one queue instance', async () => {
+      const storage = new SharedAtomicQueueStorage();
+      const executeA = vi.fn(async () => ({ success: true }));
+      const executeB = vi.fn(async () => ({ success: true }));
+      const executorA = { canExecute: () => true, execute: executeA };
+      const executorB = { canExecute: () => true, execute: executeB };
+      const queueA = createOfflineQueue(storage, executorA, { autoSync: false });
+      const queueB = createOfflineQueue(storage, executorB, { autoSync: false });
+
+      try {
+        await Promise.all([queueA.initialize(), queueB.initialize()]);
+        const item = await queueA.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'cross-tab-dispatch-key',
+        });
+        await queueB.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'cross-tab-dispatch-key',
+        });
+
+        const [resultA, resultB] = await Promise.all([queueA.sync(), queueB.sync()]);
+
+        expect(executeA.mock.calls.length + executeB.mock.calls.length).toBe(1);
+        expect((await storage.getAll()).find((stored) => stored.id === item.id)?.status).toBe('completed');
+        expect(resultA.failed + resultB.failed).toBe(0);
+
+        // A later sync refreshes this instance's stale snapshot from shared storage.
+        await queueB.sync();
+        expect(queueB.get(item.id)?.status).toBe('completed');
+        expect(executeA.mock.calls.length + executeB.mock.calls.length).toBe(1);
+      } finally {
+        queueA.destroy();
+        queueB.destroy();
+      }
+    });
+
+    it('should not cancel a row another queue instance has already claimed', async () => {
+      const storage = new SharedAtomicQueueStorage();
+      let finishExecution!: (value: { success: boolean }) => void;
+      let signalStarted!: () => void;
+      const executionStarted = new Promise<void>((resolve) => { signalStarted = resolve; });
+      const executionResult = new Promise<{ success: boolean }>((resolve) => { finishExecution = resolve; });
+      const executeA = vi.fn(async () => {
+        signalStarted();
+        return await executionResult;
+      });
+      const queueA = createOfflineQueue(
+        storage,
+        { canExecute: () => true, execute: executeA },
+        { autoSync: false }
+      );
+      const queueB = createOfflineQueue(
+        storage,
+        { canExecute: () => true, execute: vi.fn(async () => ({ success: true })) },
+        { autoSync: false }
+      );
+
+      try {
+        await Promise.all([queueA.initialize(), queueB.initialize()]);
+        const item = await queueA.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'cancel-after-claim-key',
+        });
+        await queueB.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'cancel-after-claim-key',
+        });
+
+        const syncing = queueA.sync();
+        await executionStarted;
+        expect((await storage.getAll()).find((stored) => stored.id === item.id)?.status).toBe('syncing');
+
+        expect(await queueB.cancel(item.id)).toBe(false);
+        expect((await storage.getAll()).find((stored) => stored.id === item.id)?.status).toBe('syncing');
+
+        finishExecution({ success: true });
+        await syncing;
+        expect((await storage.getAll()).find((stored) => stored.id === item.id)?.status).toBe('completed');
+      } finally {
+        queueA.destroy();
+        queueB.destroy();
+      }
+    });
+
+    it('should reject changed payload under an existing idempotency key', async () => {
+      await queue.enqueue('send', { to: '@alice', amount: 100 }, {
+        idempotencyKey: 'conflicting-key',
+      });
+
+      await expect(
+        queue.enqueue('send', { to: '@bob', amount: 100 }, {
+          idempotencyKey: 'conflicting-key',
+        })
+      ).rejects.toThrow('Idempotency key reused with a different queued operation payload');
+      expect(queue.pendingCount).toBe(1);
+    });
+
+    it('should preserve key binding after a queue item is cancelled', async () => {
+      const item = await queue.enqueue('send', { to: '@alice', amount: 100 }, {
+        idempotencyKey: 'cancelled-binding-key',
+      });
+      expect(await queue.cancel(item.id)).toBe(true);
+
+      await expect(
+        queue.enqueue('send', { to: '@bob', amount: 100 }, {
+          idempotencyKey: 'cancelled-binding-key',
+        })
+      ).rejects.toThrow('Idempotency key reused with a different queued operation payload');
+
+      await expect(
+        queue.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'cancelled-binding-key',
+        })
+      ).rejects.toThrow('failed or cancelled queue item');
+      expect(queue.pendingCount).toBe(0);
+    });
+
+    it('should preserve an explicit payment key in the persisted payload', async () => {
+      const item = await queue.enqueueSend('@alice', 100, 'TEND', 'invoice', {
+        idempotencyKey: 'logical-payment-123',
+      });
+      expect(item.idempotencyKey).toBe('logical-payment-123');
+      expect((item.payload as SendPayload).idempotencyKey).toBe('logical-payment-123');
+    });
+
+    it('should forward the persisted payment key to the executor', async () => {
+      const item = await queue.enqueueSend('@alice', 100, 'TEND', 'invoice', {
+        idempotencyKey: 'logical-payment-456',
+      });
+      const send = vi.fn().mockResolvedValue({ id: 'payment-op:v1:receipt' });
+      const executor = createWalletExecutor({ send });
+
+      const result = await executor.execute(item);
+
+      expect(result.success).toBe(true);
+      expect(send).toHaveBeenCalledWith(
+        '@alice',
+        100,
+        'TEND',
+        'invoice',
+        'logical-payment-456'
+      );
     });
   });
 

@@ -32,13 +32,14 @@ const ZOME_NAME = 'payments';
  * ```typescript
  * const payments = new PaymentsClient(client);
  *
- * // Send a direct payment
+ * // Create the key once per logical payment and reuse it for exact retries.
  * const payment = await payments.sendPayment({
  *   from_did: 'did:mycelix:alice',
  *   to_did: 'did:mycelix:bob',
  *   amount: 100,
- *   currency: 'MYC',
+ *   currency: 'TEND',
  *   payment_type: 'Direct',
+ *   idempotency_key: 'rent-invoice-2026-10-001',
  * });
  *
  * // Open a payment channel

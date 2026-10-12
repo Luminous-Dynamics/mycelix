@@ -54,6 +54,10 @@ jobs:
               - 'crates/mycelix-bridge-*/**'
             finance:
               - 'mycelix-finance/**'
+              - 'mycelix-workspace/mycelix-finance/**'
+              - 'scripts/security/finance_compost_callsite_audit.py'
+              - 'scripts/security/test_finance_compost_callsite_audit.py'
+              - '.github/workflows/ci.yml'
               - 'crates/mycelix-bridge-*/**'
             governance:
               - 'mycelix-governance/**'
@@ -202,6 +206,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-finance
+      - name: Verify finance outbox callback ABI and repository call sites
+        run: |
+          python3 -m unittest discover -s scripts/security -p 'test_finance_compost_callsite_audit.py' -v
+          python3 scripts/security/finance_compost_callsite_audit.py
       - name: Test finance
         run: cd mycelix-finance && cargo test --workspace
 
@@ -377,9 +385,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Test TypeScript SDK
+      - name: Install TypeScript SDK dependencies
+        run: cd mycelix-workspace/sdk-ts && npm ci
+      - name: Typecheck TypeScript SDK (gating)
+        run: cd mycelix-workspace/sdk-ts && npm run typecheck
+      - name: Run payment idempotency SDK regression tests (gating)
+        run: |
+          cd mycelix-workspace/sdk-ts
+          npx vitest run src/clients/finance/__tests__/finance.test.ts tests/wallet.test.ts -t "sendPayment extracts entry from record|HolochainFinanceProvider payment idempotency|should dedupe exact payloads by idempotency key|should reject changed payload under an existing idempotency key|should preserve an explicit payment key in the persisted payload|should forward the persisted payment key to the executor"
+      - name: Test TypeScript SDK (informational)
         continue-on-error: true
-        run: cd mycelix-workspace/sdk-ts && npm ci && npm test
+        run: cd mycelix-workspace/sdk-ts && npm test
 
   test-prism:
     needs: changes

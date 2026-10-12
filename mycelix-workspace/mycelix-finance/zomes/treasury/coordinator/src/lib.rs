@@ -12,6 +12,7 @@ use treasury_integrity::*;
 
 use mycelix_zome_helpers as _;
 const DEFAULT_LIST_LIMIT: usize = 100;
+const MAX_COMPOST_EFFECT_ID_LEN: usize = 256;
 
 /// Verify the caller is a registered governance agent, or allow any agent during
 /// bootstrap (before the first governance agent is registered) — the same pattern
@@ -1182,17 +1183,169 @@ pub struct ContributeToCommonsInput {
     pub amount: u64,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct VerifyCompostEffectPayload {
+    commons_pool_id: String,
+    amount: u64,
+    source_member_did: String,
+    effect_id: String,
+}
+
+/// Stable receipt identity for one compost effect scoped to its destination pool.
+fn compost_receival_id(pool_id: &str, effect_id: &str) -> ExternResult<String> {
+    // Encode the tuple rather than concatenating fields with a delimiter; pool
+    // identifiers and caller-provided effect IDs must not create ambiguous keys.
+    let material = serde_json::to_string(&(
+        "treasury-compost-effect-v1",
+        pool_id,
+        effect_id,
+    ))
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+        "Compost receipt identity serialization failed: {e}"
+    ))))?;
+    Ok(format!("compost-effect:v1:{}", anchor_hash(&material)?))
+}
+
+fn compost_receipt_matches(
+    receival: &CompostReceival,
+    input: &ReceiveCompostInput,
+    receipt_id: &str,
+) -> bool {
+    receival.id == receipt_id
+        && receival.commons_pool_id == input.commons_pool_id
+        && receival.amount == input.amount
+        && receival.source_member_did == input.source_member_did
+}
+
+fn existing_compost_effect(
+    input: &ReceiveCompostInput,
+    receipt_id: &str,
+) -> ExternResult<Option<Record>> {
+    let links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(&input.commons_pool_id)?,
+            LinkTypes::CommonsPoolToCompost,
+        )?,
+        GetStrategy::default(),
+    )?;
+    let mut matches = 0usize;
+
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target.clone()).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Compost index target is not an ActionHash".into()
+            ))
+        })?;
+        let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
+            WasmErrorInner::Guest(
+                "Compost index target is unavailable; refusing idempotent retry".into()
+            )
+        ))?;
+        let receival = record
+            .entry()
+            .to_app_option::<CompostReceival>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                "Compost receipt decode failed: {e}"
+            ))))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "CommonsPoolToCompost index targets a non-receipt entry".into()
+            )))?;
+
+        if receival.id != receipt_id {
+            continue;
+        }
+        if !compost_receipt_matches(&receival, input, receipt_id) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Compost effect ID was reused with a conflicting pool, amount, or source".into()
+            )));
+        }
+        matches += 1;
+    }
+
+    if matches > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Multiple compost receipts exist for one effect ID; refusing to credit again".into()
+        )));
+    }
+    if matches == 1 {
+        // Receipt and pool update commit atomically inside this Treasury zome call.
+        // Finding the immutable receipt therefore proves that this effect already
+        // committed; return current pool state without applying the amount again.
+        let (pool_record, _) = get_commons_pool_record(&input.commons_pool_id)?;
+        return Ok(Some(pool_record));
+    }
+    Ok(None)
+}
+
 /// Receive demurrage redistribution (compost) into the commons pool available balance.
+/// When effect_id is supplied, retries are idempotent within the destination pool.
 #[hdk_extern]
 pub fn receive_compost(input: ReceiveCompostInput) -> ExternResult<Record> {
-    // Record the compost receival once (idempotent side-effect outside retry loop)
+    if input.amount == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Compost amount must be positive".into()
+        )));
+    }
+    if input.source_member_did.is_empty() || !input.source_member_did.starts_with("did:") {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Compost source must be a valid DID".into()
+        )));
+    }
+
+    let effect_id = input.effect_id.as_deref().ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "A stable compost effect ID is required; legacy unkeyed credits are rejected".into()
+        )
+    ))?;
+    if effect_id.is_empty()
+        || effect_id.len() > MAX_COMPOST_EFFECT_ID_LEN
+        || effect_id.chars().any(char::is_control)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Compost effect ID must be 1-256 non-control characters".into()
+        )));
+    }
+    let receipt_id = compost_receival_id(&input.commons_pool_id, effect_id)?;
+    if let Some(existing) = existing_compost_effect(&input, &receipt_id)? {
+        return Ok(existing);
+    }
+
+    // A key is idempotency metadata, not authority. Before a new balance effect,
+    // prove that the payments zome has exactly one durable matching outbox record.
+    let verification = call(
+        CallTargetCell::Local,
+        ZomeName::from("payments"),
+        FunctionName::from("verify_pending_compost_effect"),
+        None,
+        VerifyCompostEffectPayload {
+            commons_pool_id: input.commons_pool_id.clone(),
+            amount: input.amount,
+            source_member_did: input.source_member_did.clone(),
+            effect_id: effect_id.to_string(),
+        },
+    )?;
+    let authorized_outbox = match verification {
+        ZomeCallResponse::Ok(result) => result.decode::<bool>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Compost outbox verification response could not be decoded: {e}"
+            )))
+        })?,
+        other => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Compost outbox verification returned an unsupported response: {:?}",
+                other
+            ))));
+        }
+    };
+    if !authorized_outbox {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "No unique committed payments outbox matches this compost effect".into()
+        )));
+    }
+
     let now_receipt = sys_time()?;
     let receival = CompostReceival {
-        id: format!(
-            "compost:{}:{}",
-            input.commons_pool_id,
-            now_receipt.as_micros()
-        ),
+        id: receipt_id,
         commons_pool_id: input.commons_pool_id.clone(),
         amount: input.amount,
         source_member_did: input.source_member_did.clone(),
@@ -1210,7 +1363,6 @@ pub fn receive_compost(input: ReceiveCompostInput) -> ExternResult<Record> {
         let (record, pool) = get_commons_pool_record(&input.commons_pool_id)?;
         let now = sys_time()?;
 
-        // Add to available balance (compost goes to available, not reserve)
         let new_available = pool
             .available_balance
             .checked_add(input.amount)
@@ -1228,7 +1380,6 @@ pub fn receive_compost(input: ReceiveCompostInput) -> ExternResult<Record> {
             &EntryTypes::CommonsPool(updated),
         )?;
 
-        // Verify: re-read and check if our update won
         let (_, verify) = get_commons_pool_record(&input.commons_pool_id)?;
         if verify.available_balance == new_available {
             return get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
@@ -1247,11 +1398,14 @@ pub fn receive_compost(input: ReceiveCompostInput) -> ExternResult<Record> {
     unreachable!()
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ReceiveCompostInput {
     pub commons_pool_id: String,
     pub amount: u64,
     pub source_member_did: String,
+    /// Stable source effect identity; retries with the same key cannot credit twice.
+    #[serde(default)]
+    pub effect_id: Option<String>,
 }
 
 /// Request allocation from commons pool available balance only.
@@ -1503,3 +1657,64 @@ pub struct DkgAllocationInput {
     /// Threshold signature bytes from the DKG committee
     pub threshold_signature: Vec<u8>,
 }
+
+#[cfg(test)]
+mod compost_effect_identity_tests {
+    use super::*;
+
+    fn input() -> ReceiveCompostInput {
+        ReceiveCompostInput {
+            commons_pool_id: "global-fee-pool".into(),
+            amount: 125,
+            source_member_did: "did:mycelix:sender".into(),
+            effect_id: Some("payment-fee:v1:operation-1".into()),
+        }
+    }
+
+    fn receival(input: &ReceiveCompostInput, id: String) -> CompostReceival {
+        CompostReceival {
+            id,
+            commons_pool_id: input.commons_pool_id.clone(),
+            amount: input.amount,
+            source_member_did: input.source_member_did.clone(),
+            timestamp: Timestamp::from_micros(1_000_000),
+        }
+    }
+
+    #[test]
+    fn effect_receipt_id_is_stable_and_pool_scoped() {
+        let a = compost_receival_id("global-fee-pool", "payment-fee:op-1").unwrap();
+        let b = compost_receival_id("global-fee-pool", "payment-fee:op-1").unwrap();
+        let other_pool = compost_receival_id("other-pool", "payment-fee:op-1").unwrap();
+
+        assert_eq!(a, b);
+        assert_ne!(a, other_pool);
+        assert!(a.starts_with("compost-effect:v1:"));
+    }
+
+    #[test]
+    fn exact_effect_retry_matches_existing_receipt() {
+        let input = input();
+        let id = compost_receival_id(
+            &input.commons_pool_id,
+            input.effect_id.as_deref().unwrap(),
+        )
+        .unwrap();
+        let receipt = receival(&input, id.clone());
+
+        assert!(compost_receipt_matches(&receipt, &input, &id));
+
+        let mut changed_amount = input.clone();
+        changed_amount.amount += 1;
+        assert!(!compost_receipt_matches(&receipt, &changed_amount, &id));
+
+        let mut changed_source = input.clone();
+        changed_source.source_member_did = "did:mycelix:other".into();
+        assert!(!compost_receipt_matches(&receipt, &changed_source, &id));
+
+        let mut changed_pool = input.clone();
+        changed_pool.commons_pool_id = "other-pool".into();
+        assert!(!compost_receipt_matches(&receipt, &changed_pool, &id));
+    }
+}
+

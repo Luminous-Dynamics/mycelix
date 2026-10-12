@@ -140,6 +140,11 @@ export interface WalletState {
 export interface SendOptions {
   /** Optional memo */
   memo?: string;
+  /**
+   * Stable identity for one logical payment. Reuse the same key after an ambiguous
+   * result; do not reuse it for a changed recipient, amount, currency, or memo.
+   */
+  idempotencyKey?: string;
   /** Callback when optimistically applied */
   onOptimistic?: () => void;
   /** Callback when confirmed */
@@ -187,7 +192,8 @@ export interface FinanceProvider {
     amount: number,
     currency: Currency,
     memo?: string,
-    signature?: Uint8Array
+    signature?: Uint8Array,
+    idempotencyKey?: string
   ): Promise<string>; // Returns transaction ID
   /** Get transaction by ID */
   getTransaction(id: string): Promise<Transaction | null>;
@@ -280,7 +286,8 @@ class MockFinanceProvider implements FinanceProvider {
     amount: number,
     currency: Currency,
     memo?: string,
-    _signature?: Uint8Array
+    _signature?: Uint8Array,
+    _idempotencyKey?: string
   ): Promise<string> {
     const id = `tx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -584,8 +591,11 @@ export class Wallet {
    * // Send to nickname
    * await wallet.send('@alice', 50);
    *
-   * // Send with memo
-   * await wallet.send('@bob', 100, 'MYC', { memo: 'Thanks!' });
+   * // Supply a stable key when you may need to retry an ambiguous result.
+   * await wallet.send('@bob', 100, 'TEND', {
+   *   memo: 'Thanks!',
+   *   idempotencyKey: 'invoice-2026-10-001',
+   * });
    *
    * // Send with callbacks
    * await wallet.send('@alice', 50, 'MYC', {
@@ -666,7 +676,8 @@ export class Wallet {
         amount,
         currency,
         options?.memo,
-        signature
+        signature,
+        options?.idempotencyKey
       );
 
       // Update with real transaction

@@ -294,6 +294,10 @@ pub const COMPOST_MAX_RETRIES: u32 = 3;
 /// Processed by `drain_pending_compost()` on next balance mutation.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PendingCompost {
+    /// Stable idempotency identity for this one delivery effect.
+    /// Old queue records deserialize empty and must be reconciled before retry.
+    #[serde(default)]
+    pub effect_id: String,
     /// Target commons pool ID
     pub commons_pool_id: String,
     /// Amount of compost to deliver (micro-SAP)
@@ -304,8 +308,14 @@ pub struct PendingCompost {
     pub pool_tier: CompostPoolTier,
     /// When this pending delivery was created
     pub created_at_micros: i64,
-    /// Number of retry attempts so far
+    /// Number of delivery attempts recorded across failed drain cycles.
     pub retry_count: u32,
+    /// Last bounded delivery-cycle time. None means not attempted yet.
+    #[serde(default)]
+    pub last_attempt_at_micros: Option<i64>,
+    /// Earliest time at which a later drain may retry. None means immediately eligible.
+    #[serde(default)]
+    pub next_attempt_at_micros: Option<i64>,
 }
 
 /// Which commons pool tier a compost delivery targets.
@@ -2719,12 +2729,15 @@ mod tests {
     #[test]
     fn test_pending_compost_construction() {
         let pc = PendingCompost {
+            effect_id: "demurrage-compost:v1:test-effect".into(),
             commons_pool_id: "pool-local-001".into(),
             amount: 5000,
             source_member_did: "did:mycelix:alice".into(),
             pool_tier: CompostPoolTier::Local,
             created_at_micros: 1_700_000_000_000_000,
             retry_count: 0,
+            last_attempt_at_micros: None,
+            next_attempt_at_micros: None,
         };
         assert_eq!(pc.commons_pool_id, "pool-local-001");
         assert_eq!(pc.amount, 5000);
@@ -2735,6 +2748,14 @@ mod tests {
         let json = serde_json::to_string(&pc).unwrap();
         let parsed: PendingCompost = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, pc);
+
+        // Legacy outbox records predate effect_id. Deserialization must keep them
+        // readable, while the drain path separately refuses unsafe automatic retry.
+        let legacy = r#"{"commons_pool_id":"pool-local-001","amount":5000,"source_member_did":"did:mycelix:alice","pool_tier":"Local","created_at_micros":1700000000000000,"retry_count":3}"#;
+        let parsed_legacy: PendingCompost = serde_json::from_str(legacy).unwrap();
+        assert!(parsed_legacy.effect_id.is_empty());
+        assert!(parsed_legacy.last_attempt_at_micros.is_none());
+        assert!(parsed_legacy.next_attempt_at_micros.is_none());
     }
 
     // =========================================================================

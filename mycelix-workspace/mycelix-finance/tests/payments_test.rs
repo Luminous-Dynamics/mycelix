@@ -35,7 +35,7 @@ use holochain::sweettest::*;
 use holochain_types::prelude::*;
 use std::time::Duration;
 
-use finance_wire_types::SapBalanceResponse;
+use finance_wire_types::{GetPaymentHistoryInput, SapBalanceResponse};
 // Import zome types
 use mycelix_finance_types::compute_demurrage_deduction;
 use payments::*;
@@ -55,6 +55,16 @@ mod test_helpers {
     pub fn unique_test_did(prefix: &str) -> String {
         let timestamp = chrono::Utc::now().timestamp_micros();
         format!("{}{}:{}", TEST_DID_PREFIX, prefix, timestamp)
+    }
+
+    pub fn unique_test_idempotency_key() -> String {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT_KEY: AtomicU64 = AtomicU64::new(0);
+        format!(
+            "payments-test-{}-{}",
+            chrono::Utc::now().timestamp_micros(),
+            NEXT_KEY.fetch_add(1, Ordering::Relaxed)
+        )
     }
 }
 
@@ -106,6 +116,7 @@ mod payment_creation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Test payment from Alice to Bob".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         // Send payment
@@ -123,7 +134,7 @@ mod payment_creation {
             .expect("No entry found");
 
         assert!(
-            payment.id.starts_with("payment:"),
+            payment.id.starts_with("payment-op:v1:"),
             "Payment ID should have correct prefix"
         );
         assert_eq!(payment.from_did, alice_did, "From DID mismatch");
@@ -187,6 +198,7 @@ mod payment_creation {
                 currency: TEST_CURRENCY.to_string(),
                 payment_type: payment_type.clone(),
                 memo: Some(format!("Test {} payment", type_name)),
+                idempotency_key: unique_test_idempotency_key(),
             };
 
             let result: Record = conductor
@@ -247,6 +259,7 @@ mod payment_creation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Recurring(recurring_config.clone()),
             memo: Some("Monthly subscription".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Record = conductor
@@ -311,6 +324,7 @@ mod payment_validation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Result<Record, _> = conductor
@@ -343,6 +357,7 @@ mod payment_validation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Result<Record, _> = conductor
@@ -400,6 +415,7 @@ mod payment_validation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Result<Record, _> = conductor
@@ -458,6 +474,7 @@ mod payment_validation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Self payment attempt".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Result<Record, _> = conductor
@@ -517,6 +534,7 @@ mod payment_validation {
                 currency: currency.to_string(),
                 payment_type: PaymentType::Direct,
                 memo: None,
+                idempotency_key: unique_test_idempotency_key(),
             };
 
             let result: Result<Record, _> = conductor
@@ -586,6 +604,7 @@ mod double_spend_prevention {
                 currency: TEST_CURRENCY.to_string(),
                 payment_type: PaymentType::Direct,
                 memo: Some(format!("Payment {}", i)),
+                idempotency_key: unique_test_idempotency_key(),
             };
 
             let result: Record = conductor
@@ -650,6 +669,7 @@ mod double_spend_prevention {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Payment with receipt".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let payment_record: Record = conductor
@@ -907,6 +927,7 @@ mod transaction_confirmation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Record = conductor
@@ -977,6 +998,7 @@ mod transaction_confirmation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Alice to Bob".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let _: Record = conductor
@@ -992,6 +1014,7 @@ mod transaction_confirmation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Charlie to Alice".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let _: Record = conductor
@@ -1007,6 +1030,7 @@ mod transaction_confirmation {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Alice to Charlie".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let _: Record = conductor
@@ -1094,6 +1118,7 @@ mod currency_tests {
             currency: "SAP".to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("SAP payment".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Record = conductor
@@ -1145,6 +1170,7 @@ mod currency_tests {
             currency: "TEND".to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("TEND payment".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Record = conductor
@@ -1193,6 +1219,7 @@ mod currency_tests {
             currency: "SAP".to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let _: Record = conductor
@@ -1208,6 +1235,7 @@ mod currency_tests {
             currency: "TEND".to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let _: Record = conductor
@@ -1223,6 +1251,7 @@ mod currency_tests {
             currency: "MYC".to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let result: Result<Record, _> = conductor
@@ -1835,6 +1864,7 @@ mod performance_benchmarks {
                 currency: TEST_CURRENCY.to_string(),
                 payment_type: PaymentType::Direct,
                 memo: Some(format!("Benchmark payment {}", i)),
+                idempotency_key: unique_test_idempotency_key(),
             };
 
             let start = std::time::Instant::now();
@@ -2431,6 +2461,7 @@ mod escrow_tests {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Payment to refund".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let payment_record: Record = conductor
@@ -2498,6 +2529,7 @@ mod escrow_tests {
             currency: TEST_CURRENCY.to_string(),
             payment_type: PaymentType::Direct,
             memo: None,
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let payment_record: Record = conductor
@@ -2911,6 +2943,7 @@ mod fee_tier_tests {
             currency: "SAP".to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("Fee tier test payment".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let payment_record: Record = conductor
@@ -3009,6 +3042,7 @@ mod fee_tier_tests {
             currency: "TEND".to_string(),
             payment_type: PaymentType::Direct,
             memo: Some("TEND fee test".to_string()),
+            idempotency_key: unique_test_idempotency_key(),
         };
 
         let payment_record: Record = conductor
@@ -3034,5 +3068,258 @@ mod fee_tier_tests {
         println!("  - No SAP balance deduction for TEND payments");
 
         println!("Test 13.2 PASSED: TEND payments are fee-free");
+    }
+}
+
+
+// ============================================================================
+// Payment idempotency integration tests (AC-172)
+// ============================================================================
+
+#[cfg(test)]
+mod payment_idempotency_holochain_tests {
+    use super::*;
+
+    async fn setup_two_agents() -> (SweetConductor, Vec<AgentPubKey>, Vec<SweetApp>) {
+        let dna_path = std::path::PathBuf::from("../dna/mycelix_finance.dna");
+        let dna = SweetDnaFile::from_bundle(&dna_path)
+            .await
+            .expect("Failed to load Finance DNA");
+        let mut conductor = SweetConductor::from_standard_config().await;
+        let agents = SweetAgents::get(conductor.keystore(), 2).await;
+        let apps = conductor
+            .setup_app_for_agents("mycelix-finance", &agents, &[dna])
+            .await
+            .expect("Install Finance app for two agents");
+        (conductor, agents, apps.into())
+    }
+
+    fn input(from_did: String, to_did: String, amount: u64, key: &str) -> SendPaymentInput {
+        SendPaymentInput {
+            from_did,
+            to_did,
+            amount,
+            currency: "TEND".to_string(),
+            payment_type: PaymentType::Direct,
+            memo: Some("AC-172 idempotency test".to_string()),
+            idempotency_key: key.to_string(),
+        }
+    }
+
+    fn decode_payment(record: &Record) -> Payment {
+        record
+            .entry()
+            .to_app_option()
+            .expect("Decode Payment entry")
+            .expect("Payment entry must exist")
+    }
+
+    async fn count_payment_in_sender_history(
+        conductor: &SweetConductor,
+        zome: &SweetZome,
+        sender_did: String,
+        payment_id: String,
+    ) -> usize {
+        let history: Vec<Record> = conductor
+            .call(
+                zome,
+                "get_payment_history",
+                GetPaymentHistoryInput {
+                    did: sender_did,
+                    limit: Some(100),
+                },
+            )
+            .await;
+        history
+            .iter()
+            .filter_map(|record| record.entry().to_app_option::<Payment>().ok().flatten())
+            .filter(|payment| payment.id == payment_id)
+            .count()
+    }
+
+    /// One stable sender/key/payload must return the same payment and one history entry.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore] // Requires built DNA and a real SweetConductor.
+    async fn exact_retry_returns_original_payment_without_duplicate_record() {
+        let (conductor, agents, apps) = setup_two_agents().await;
+        let sender_did = format!("did:mycelix:{}", agents[0]);
+        let recipient_did = format!("did:mycelix:{}", agents[1]);
+        let zome = apps[0].cells()[0].zome("payments");
+        let recipient_did_for_retry = recipient_did.clone();
+        let key = unique_test_idempotency_key();
+
+        let first: Record = conductor
+            .call(
+                &zome,
+                "send_payment",
+                input(sender_did.clone(), recipient_did, 100, &key),
+            )
+            .await;
+        let retry: Record = conductor
+            .call(
+                &zome,
+                "send_payment",
+                input(sender_did.clone(), recipient_did_for_retry, 100, &key),
+            )
+            .await;
+        let first_payment = decode_payment(&first);
+        let retry_payment = decode_payment(&retry);
+
+        assert_eq!(first_payment.id, retry_payment.id);
+        assert!(first_payment.id.starts_with("payment-op:v1:"));
+        assert_eq!(
+            count_payment_in_sender_history(
+                &conductor,
+                &zome,
+                sender_did,
+                first_payment.id.clone()
+            )
+            .await,
+            1,
+            "an exact retry must resolve the original history entry"
+        );
+    }
+
+    /// Reusing the same key for a changed amount must fail without adding another payment.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore] // Requires built DNA and a real SweetConductor.
+    async fn conflicting_payload_under_same_key_fails_closed() {
+        let (conductor, agents, apps) = setup_two_agents().await;
+        let sender_did = format!("did:mycelix:{}", agents[0]);
+        let recipient_did = format!("did:mycelix:{}", agents[1]);
+        let zome = apps[0].cells()[0].zome("payments");
+        let key = unique_test_idempotency_key();
+        let original = input(sender_did.clone(), recipient_did.clone(), 100, &key);
+        let conflicting = input(sender_did.clone(), recipient_did, 101, &key);
+
+        let first: Record = conductor.call(&zome, "send_payment", original).await;
+        let first_payment = decode_payment(&first);
+        let conflict: Result<Record, _> = conductor
+            .call_fallible(&zome, "send_payment", conflicting)
+            .await;
+        assert!(conflict.is_err(), "a changed payload under one key must be rejected");
+        assert_eq!(
+            count_payment_in_sender_history(
+                &conductor,
+                &zome,
+                sender_did,
+                first_payment.id.clone()
+            )
+            .await,
+            1,
+            "a conflicting retry must not create a second history entry"
+        );
+    }
+
+    /// Concurrent same-key calls may race at the source-chain head, but recovery reuses the key.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore] // Requires built DNA and a real SweetConductor.
+    async fn concurrent_exact_calls_converge_after_source_chain_race() {
+        let (conductor, agents, apps) = setup_two_agents().await;
+        let sender_did = format!("did:mycelix:{}", agents[0]);
+        let recipient_did = format!("did:mycelix:{}", agents[1]);
+        let zome = apps[0].cells()[0].zome("payments");
+        let key = unique_test_idempotency_key();
+
+        let first_call = async {
+            let result: Result<Record, _> = conductor
+                .call_fallible(
+                    &zome,
+                    "send_payment",
+                    input(sender_did.clone(), recipient_did.clone(), 100, &key),
+                )
+                .await;
+            result
+        };
+        let second_call = async {
+            let result: Result<Record, _> = conductor
+                .call_fallible(
+                    &zome,
+                    "send_payment",
+                    input(sender_did.clone(), recipient_did.clone(), 100, &key),
+                )
+                .await;
+            result
+        };
+        let (first_result, second_result) = tokio::join!(first_call, second_call);
+
+        let winner_record = match (first_result, second_result) {
+            (Ok(first), Ok(second)) => {
+                assert_eq!(
+                    decode_payment(&first).id,
+                    decode_payment(&second).id,
+                    "both successful concurrent calls must return the same logical operation"
+                );
+                first
+            }
+            (Ok(record), Err(_)) | (Err(_), Ok(record)) => record,
+            (Err(first_error), Err(second_error)) => {
+                eprintln!("Concurrent attempt 1 failed: {first_error:?}");
+                eprintln!("Concurrent attempt 2 failed: {second_error:?}");
+                // A nonce/head race may reject both attempts before a winner is observable
+                // to this caller. The next same-key call must either resolve the winner or
+                // create the one operation if neither transaction committed.
+                conductor
+                    .call(
+                        &zome,
+                        "send_payment",
+                        input(sender_did.clone(), recipient_did.clone(), 100, &key),
+                    )
+                    .await
+            }
+        };
+
+        let winning_payment = decode_payment(&winner_record);
+        let retry: Record = conductor
+            .call(
+                &zome,
+                "send_payment",
+                input(sender_did.clone(), recipient_did, 100, &key),
+            )
+            .await;
+        let retry_payment = decode_payment(&retry);
+        assert_eq!(winning_payment.id, retry_payment.id);
+        assert_eq!(
+            count_payment_in_sender_history(
+                &conductor,
+                &zome,
+                sender_did,
+                winning_payment.id.clone()
+            )
+            .await,
+            1,
+            "concurrent retries must converge on one sender-history entry"
+        );
+    }
+
+    /// The same raw client key from different authenticated senders must stay isolated.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore] // Requires built DNA and a real SweetConductor.
+    async fn same_client_key_isolated_between_senders() {
+        let (conductor, agents, apps) = setup_two_agents().await;
+        let sender_a = format!("did:mycelix:{}", agents[0]);
+        let sender_b = format!("did:mycelix:{}", agents[1]);
+        let shared_key = unique_test_idempotency_key();
+        let zome_a = apps[0].cells()[0].zome("payments");
+        let zome_b = apps[1].cells()[0].zome("payments");
+
+        let request_a = input(sender_a.clone(), sender_b.clone(), 100, &shared_key);
+        let request_b = input(sender_b.clone(), sender_a.clone(), 100, &shared_key);
+        let payment_a = decode_payment(
+            &conductor.call(&zome_a, "send_payment", request_a).await
+        );
+        let payment_b = decode_payment(
+            &conductor.call(&zome_b, "send_payment", request_b).await
+        );
+
+        assert_ne!(payment_a.id, payment_b.id, "operation IDs must include sender scope");
+        assert_eq!(
+            count_payment_in_sender_history(&conductor, &zome_a, sender_a, payment_a.id.clone()).await,
+            1
+        );
+        assert_eq!(
+            count_payment_in_sender_history(&conductor, &zome_b, sender_b, payment_b.id.clone()).await,
+            1
+        );
     }
 }

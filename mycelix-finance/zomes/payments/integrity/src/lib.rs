@@ -41,6 +41,25 @@ pub struct Payment {
     pub completed: Option<Timestamp>,
 }
 
+/// Immutable sender-owned claim binding one client idempotency key to one
+/// exact payment request. The coordinator stores only a digest-derived
+/// operation ID, never the raw client key.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct PaymentCreationClaim {
+    /// Deterministic operation ID derived from (sender DID, client idempotency key).
+    /// This is also the externally addressable Payment.id for retries.
+    pub operation_id: String,
+    pub from_did: String,
+    pub to_did: String,
+    pub amount: u64,
+    pub currency: String,
+    pub payment_type: PaymentType,
+    pub memo: Option<String>,
+    /// Digest of the canonical request payload excluding the idempotency key.
+    pub request_fingerprint: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum PaymentType {
     Direct,
@@ -257,6 +276,8 @@ pub enum EntryTypes {
     SapMintRecord(SapMintRecord),
     HearthSapPool(HearthSapPool),
     SapMintCapCounterEntry(SapMintCapCounterEntry),
+    // Append-only: preserve existing entry-type indices.
+    PaymentCreationClaim(PaymentCreationClaim),
 }
 
 #[hdk_link_types]
@@ -276,6 +297,8 @@ pub enum LinkTypes {
     PendingCompostQueue,
     MintCapCounterAnchor,
     RateLimitBucketToAgent,
+    // Append-only: preserve existing link-type indices.
+    PaymentCreationClaimIdToClaim,
 }
 
 /// Genesis self-check
@@ -308,6 +331,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::SapMintCapCounterEntry(counter) => {
                     validate_sap_mint_cap_counter(&counter)
                 }
+                EntryTypes::PaymentCreationClaim(claim) => {
+                    validate_create_payment_creation_claim(EntryCreationAction::Create(action), claim)
+                }
             },
             OpEntry::UpdateEntry {
                 app_entry, action, ..
@@ -334,6 +360,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     EntryTypes::SapMintCapCounterEntry(counter) => {
                         validate_sap_mint_cap_counter(&counter)
                     }
+                    EntryTypes::PaymentCreationClaim(_) => Ok(ValidateCallbackResult::Invalid(
+                        "Payment creation claims are immutable".into(),
+                    )),
                 }
             }
             _ => Ok(ValidateCallbackResult::Valid),
@@ -396,13 +425,22 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     &target_address,
                 )
             }
+            LinkTypes::PaymentCreationClaimIdToClaim => {
+                validate_payment_creation_claim_index_link(
+                    &action.author,
+                    &base_address,
+                    &target_address,
+                )
+            }
         },
         FlatOp::RegisterDeleteLink { link_type, .. } => {
             // Prevent deletion of critical links
             match link_type {
-                LinkTypes::PaymentToReceipt => Ok(ValidateCallbackResult::Invalid(
-                    "PaymentToReceipt links cannot be deleted - receipts are immutable".into(),
-                )),
+                LinkTypes::PaymentToReceipt | LinkTypes::PaymentCreationClaimIdToClaim => {
+                    Ok(ValidateCallbackResult::Invalid(
+                        "Payment receipts and creation-claim index links cannot be deleted".into(),
+                    ))
+                },
                 _ => Ok(ValidateCallbackResult::Valid),
             }
         }
@@ -434,6 +472,104 @@ fn validate_rate_limit_bucket_link(
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_payment_creation_claim(
+    action: EntryCreationAction,
+    claim: PaymentCreationClaim,
+) -> ExternResult<ValidateCallbackResult> {
+    if claim.operation_id.len() > MAX_ID_LEN
+        || !claim.operation_id.starts_with("payment-op:v1:")
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment creation claim operation ID is invalid".into(),
+        ));
+    }
+    if claim.request_fingerprint.is_empty() || claim.request_fingerprint.len() > MAX_ID_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment creation claim fingerprint is invalid".into(),
+        ));
+    }
+    if claim.from_did.len() > MAX_DID_LEN || claim.to_did.len() > MAX_DID_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment creation claim DID exceeds maximum length".into(),
+        ));
+    }
+    if !claim.from_did.starts_with("did:") || !claim.to_did.starts_with("did:") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment creation claim parties must be valid DIDs".into(),
+        ));
+    }
+    if claim.from_did == claim.to_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Cannot send payment to self".into(),
+        ));
+    }
+    if claim.amount == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment creation claim amount must be positive".into(),
+        ));
+    }
+    if claim.currency != "SAP" && claim.currency != "TEND" {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment creation claim currency must be SAP or TEND".into(),
+        ));
+    }
+    if let Some(memo) = &claim.memo {
+        if memo.len() > MAX_MEMO_LEN {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Payment creation claim memo exceeds maximum length".into(),
+            ));
+        }
+    }
+
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "PaymentCreationClaim",
+        "from_did",
+        &claim.from_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_payment_creation_claim_index_link(
+    link_author: &AgentPubKey,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash = match require_action_target(
+        target_address,
+        "PaymentCreationClaimIdToClaim",
+    ) {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(claim) = record
+        .entry()
+        .to_app_option::<PaymentCreationClaim>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "PaymentCreationClaim index target decode failed: {e:?}"
+        ))))?
+    else {
+        return Ok(invalid_link(
+            "PaymentCreationClaimIdToClaim target must resolve to PaymentCreationClaim",
+        ));
+    };
+    if record.action().author() != link_author {
+        return Ok(invalid_link(
+            "Payment creation-claim index link author must match the claim author",
+        ));
+    }
+    require_anchor(
+        base_address,
+        &claim.operation_id,
+        "PaymentCreationClaimIdToClaim",
+    )
+    .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
 }
 
 fn validate_create_payment(
@@ -830,6 +966,18 @@ fn validate_mint_cap_counter_link(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn payment_immutable_fields_match(original: &Payment, updated: &Payment) -> bool {
+    original.id == updated.id
+        && original.from_did == updated.from_did
+        && original.to_did == updated.to_did
+        && original.amount == updated.amount
+        && original.fee == updated.fee
+        && original.currency == updated.currency
+        && original.payment_type == updated.payment_type
+        && original.memo == updated.memo
+        && original.created == updated.created
+}
+
 fn validate_update_payment(
     action: Update,
     payment: Payment,
@@ -852,14 +1000,11 @@ fn validate_update_payment(
                     original.status, payment.status
                 )));
             }
-            // Core fields are immutable
-            if original.from_did != payment.from_did
-                || original.to_did != payment.to_did
-                || original.amount != payment.amount
-                || original.currency != payment.currency
-            {
+            // The deterministic operation identity and request payload must
+            // survive every status update; only lifecycle state may advance.
+            if !payment_immutable_fields_match(&original, &payment) {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Cannot change sender, receiver, amount, or currency on an existing payment"
+                    "Cannot change payment ID, parties, amount, fee, currency, type, memo, or creation time"
                         .into(),
                 ));
             }
@@ -1707,6 +1852,33 @@ mod tests {
         }
     }
 
+
+    #[test]
+    fn test_payment_update_preserves_idempotent_identity_and_request() {
+        let original = valid_payment();
+        assert!(payment_immutable_fields_match(&original, &original));
+
+        let mut changed_id = original.clone();
+        changed_id.id = "payment-op:v1:other".into();
+        assert!(!payment_immutable_fields_match(&original, &changed_id));
+
+        let mut changed_fee = original.clone();
+        changed_fee.fee += 1;
+        assert!(!payment_immutable_fields_match(&original, &changed_fee));
+
+        let mut changed_type = original.clone();
+        changed_type.payment_type = PaymentType::CommonsContribution("other-pool".into());
+        assert!(!payment_immutable_fields_match(&original, &changed_type));
+
+        let mut changed_memo = original.clone();
+        changed_memo.memo = Some("rewritten".into());
+        assert!(!payment_immutable_fields_match(&original, &changed_memo));
+
+        let mut changed_created = original.clone();
+        changed_created.created = Timestamp::from_micros(99);
+        assert!(!payment_immutable_fields_match(&original, &changed_created));
+    }
+
     #[test]
     fn test_rate_limit_bucket_target_must_be_link_author() {
         let author = AgentPubKey::from_raw_36(vec![1; 36]);
@@ -1776,6 +1948,89 @@ mod tests {
             action.into_agent_pub_key().is_none(),
             "a payment ActionHash must never satisfy the rate-limit AgentPubKey target"
         );
+    }
+
+    fn valid_payment_creation_claim() -> PaymentCreationClaim {
+        PaymentCreationClaim {
+            operation_id: "payment-op:v1:test-operation".into(),
+            from_did: test_author_did(),
+            to_did: "did:mycelix:uhCAkrecipient".into(),
+            amount: 1_000,
+            currency: "TEND".into(),
+            payment_type: PaymentType::Direct,
+            memo: Some("claim test".into()),
+            request_fingerprint: "fingerprint:v1:test".into(),
+        }
+    }
+
+    #[test]
+    fn test_payment_creation_claim_from_committing_sender_is_valid() {
+        let result = validate_create_payment_creation_claim(
+            EntryCreationAction::Create(make_create()),
+            valid_payment_creation_claim(),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_payment_creation_claim_forged_sender_is_rejected() {
+        let mut claim = valid_payment_creation_claim();
+        claim.from_did = "did:mycelix:uhCAksomeone-else".into();
+        let result = validate_create_payment_creation_claim(
+            EntryCreationAction::Create(make_create()),
+            claim,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("forgery")));
+    }
+
+    #[test]
+    fn test_payment_creation_claim_rejects_empty_fingerprint() {
+        let mut claim = valid_payment_creation_claim();
+        claim.request_fingerprint.clear();
+        let result = validate_create_payment_creation_claim(
+            EntryCreationAction::Create(make_create()),
+            claim,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("fingerprint")));
+    }
+
+    #[test]
+    fn test_payment_creation_claim_rejects_zero_amount() {
+        let mut claim = valid_payment_creation_claim();
+        claim.amount = 0;
+        let result = validate_create_payment_creation_claim(
+            EntryCreationAction::Create(make_create()),
+            claim,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("positive")));
+    }
+
+    #[test]
+    fn test_payment_creation_claim_rejects_invalid_currency() {
+        let mut claim = valid_payment_creation_claim();
+        claim.currency = "USD".into();
+        let result = validate_create_payment_creation_claim(
+            EntryCreationAction::Create(make_create()),
+            claim,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("currency")));
+    }
+
+    #[test]
+    fn test_payment_creation_claim_rejects_noncanonical_operation_id() {
+        let mut claim = valid_payment_creation_claim();
+        claim.operation_id = "payment:timestamp".into();
+        let result = validate_create_payment_creation_claim(
+            EntryCreationAction::Create(make_create()),
+            claim,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("operation ID")));
     }
 
 }

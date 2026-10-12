@@ -143,6 +143,11 @@ pub struct SendPaymentInput {
     pub currency: String,
     pub payment_type: PaymentType,
     pub memo: Option<String>,
+    /// Stable key for one logical payment operation; reuse only for exact retries.
+    /// This is an identifier, not a secret or authorization token.
+    /// Missing legacy input is empty and must be rejected by the payment coordinator.
+    #[serde(default)]
+    pub idempotency_key: String,
 }
 
 /// Input for querying payment history.
