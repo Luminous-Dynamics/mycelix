@@ -78,7 +78,8 @@
         "reported_data_shape",
         "license_assessment",
         "ingestion_gate",
-        "suitability"
+        "suitability",
+        "known_findings"
       ],
       "properties": {
         "candidate_id": {
@@ -342,6 +343,13 @@
         "reported_availability": {
           "type": "string",
           "minLength": 5
+        },
+        "known_findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "uniqueItems": false
         }
       },
       "allOf": [
@@ -415,6 +423,38 @@
           }
         }
       ],
+      "additionalProperties": false
+    },
+    "finding": {
+      "type": "object",
+      "required": [
+        "finding_id",
+        "severity",
+        "observation",
+        "required_resolution"
+      ],
+      "properties": {
+        "finding_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9][A-Z0-9.-]*$"
+        },
+        "severity": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "observation": {
+          "type": "string",
+          "minLength": 20
+        },
+        "required_resolution": {
+          "type": "string",
+          "minLength": 10
+        }
+      },
       "additionalProperties": false
     }
   },
