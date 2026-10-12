@@ -19,7 +19,6 @@ CANDIDATE_STATUSES = {
     "license_not_verified",
     "license_metadata_conflict",
     "restricted_noncommercial_use",
-    "eligible_for_manual_review",
 }
 LICENSE_STATUSES = {"unverified", "conflicting", "restricted", "verified"}
 COMMERCIAL_STATES = {"unknown", "permitted", "prohibited", "permission_required"}
@@ -105,16 +104,13 @@ def validate_manifest(manifest: object, indicator_catalog: object) -> list[str]:
         status = candidate.get("discovery_status")
         if not isinstance(status, str) or status not in CANDIDATE_STATUSES:
             errors.append(f"{location}.discovery_status is invalid or missing")
-        if status == "eligible_for_manual_review":
-            errors.append(f"{location}: no current candidate may be marked eligible without a separate reviewed catalog revision")
-
         links = candidate.get("related_indicator_ids")
         if not isinstance(links, list) or not links:
             errors.append(f"{location}.related_indicator_ids must be a non-empty list")
         else:
             for link in links:
-                if link not in indicator_ids:
-                    errors.append(f"{location} refers to an unknown indicator_id: {link}")
+                if not isinstance(link, str) or link not in indicator_ids:
+                    errors.append(f"{location} refers to an unknown or malformed indicator_id: {link}")
 
         coverage = candidate.get("temporal_coverage")
         if not isinstance(coverage, dict):
@@ -192,8 +188,10 @@ def validate_manifest(manifest: object, indicator_catalog: object) -> list[str]:
             values = gate.get(key)
             if not isinstance(values, list) or not values or any(not isinstance(value, str) or not value.strip() for value in values):
                 errors.append(f"{location}.ingestion_gate.{key} must be a non-empty string list")
-        if isinstance(gate.get("reason_codes"), list) and len(gate["reason_codes"]) != len(set(gate["reason_codes"])):
-            errors.append(f"{location}.ingestion_gate.reason_codes must be unique")
+        reason_codes = gate.get("reason_codes")
+        if isinstance(reason_codes, list) and all(isinstance(value, str) for value in reason_codes):
+            if len(reason_codes) != len(set(reason_codes)):
+                errors.append(f"{location}.ingestion_gate.reason_codes must be unique")
 
         suitability = candidate.get("suitability")
         if not isinstance(suitability, dict) or not all(
