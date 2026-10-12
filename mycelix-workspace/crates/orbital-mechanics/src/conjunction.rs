@@ -25,8 +25,9 @@ use chrono::{DateTime, Utc};
 use nalgebra::{Matrix2, Vector3};
 use serde::{Deserialize, Serialize};
 
-use crate::covariance::CovarianceMatrix;
-use crate::state::{OrbitalState, StateVector};
+use crate::covariance::{CovarianceFrame, CovarianceMatrix};
+use crate::state::{OrbitalState, ReferenceFrame, StateVector};
+use thiserror::Error;
 
 /// Result of conjunction screening
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -138,6 +139,32 @@ impl RiskLevel {
     }
 }
 
+/// Input validation failures from the checked conjunction-assessment path.
+#[derive(Clone, Debug, Error, PartialEq)]
+pub enum ConjunctionAssessmentError {
+    #[error("the two states have different epochs")]
+    EpochMismatch,
+    #[error("the two states use different reference frames: {primary:?} vs {secondary:?}")]
+    StateFrameMismatch {
+        primary: ReferenceFrame,
+        secondary: ReferenceFrame,
+    },
+    #[error("{object} state contains a non-finite position or velocity component")]
+    NonFiniteState { object: &'static str },
+    #[error("{object} state has no covariance; checked assessment will not synthesize one")]
+    MissingCovariance { object: &'static str },
+    #[error("{object} covariance frame {covariance:?} does not match state frame {state:?}")]
+    CovarianceFrameMismatch {
+        object: &'static str,
+        state: ReferenceFrame,
+        covariance: CovarianceFrame,
+    },
+    #[error("{object} covariance is non-finite or not positive semidefinite")]
+    InvalidCovariance { object: &'static str },
+    #[error("hard-body radius must be finite and greater than zero")]
+    InvalidHardBodyRadius,
+}
+
 /// Conjunction analyzer for computing collision probabilities
 pub struct ConjunctionAnalyzer {
     /// Default hard-body radius (meters)
@@ -177,7 +204,15 @@ impl ConjunctionAnalyzer {
         self
     }
 
-    /// Assess conjunction between two states at same epoch
+    /// Legacy unchecked assessment retained for compatibility.
+    ///
+    /// This method assumes caller-provided states have matching epochs and frames
+    /// and appropriately valid covariances. It may use a miss-distance-only estimate
+    /// or synthesize a default covariance when the inputs are incomplete.
+    ///
+    /// Do not use this method in consequential screening or traffic-control paths.
+    /// New code should call try_assess, which rejects missing or invalid uncertainty
+    /// data rather than treating an invented value as observed evidence.
     pub fn assess(
         &self,
         primary: &OrbitalState,
@@ -186,13 +221,10 @@ impl ConjunctionAnalyzer {
         let miss_distance = primary.state.distance_to(&secondary.state);
         let relative_velocity = primary.state.relative_velocity(&secondary.state);
 
-        // Calculate Pc
         let collision_probability =
             self.calculate_pc(primary, secondary, miss_distance, self.default_hbr_m);
-
         let risk_level = RiskLevel::from_pc(collision_probability.pc);
 
-        // Combine covariances if both available
         let combined_covariance = match (&primary.covariance, &secondary.covariance) {
             (Some(c1), Some(c2)) => c1.fuse(c2),
             (Some(c), None) | (None, Some(c)) => Some(c.clone()),
@@ -212,6 +244,103 @@ impl ConjunctionAnalyzer {
             secondary_state: secondary.state.clone(),
             combined_covariance,
         }
+    }
+
+    /// Assess a conjunction only when temporal, coordinate-frame, and covariance
+    /// invariants hold.
+    ///
+    /// Missing covariance is a fail-closed error for this API. Callers may separately
+    /// report an inconclusive pair, but must not convert absent uncertainty into a
+    /// numeric collision-risk estimate or imply calibrated probability.
+    pub fn try_assess(
+        &self,
+        primary: &OrbitalState,
+        secondary: &OrbitalState,
+    ) -> Result<ConjunctionAssessment, ConjunctionAssessmentError> {
+        if primary.epoch != secondary.epoch {
+            return Err(ConjunctionAssessmentError::EpochMismatch);
+        }
+
+        if primary.frame != secondary.frame {
+            return Err(ConjunctionAssessmentError::StateFrameMismatch {
+                primary: primary.frame,
+                secondary: secondary.frame,
+            });
+        }
+
+        if !primary.state.to_array().iter().all(|value| value.is_finite()) {
+            return Err(ConjunctionAssessmentError::NonFiniteState { object: "primary" });
+        }
+        if !secondary.state.to_array().iter().all(|value| value.is_finite()) {
+            return Err(ConjunctionAssessmentError::NonFiniteState { object: "secondary" });
+        }
+
+        if !self.default_hbr_m.is_finite() || self.default_hbr_m <= 0.0 {
+            return Err(ConjunctionAssessmentError::InvalidHardBodyRadius);
+        }
+
+        Self::validate_covariance(primary, "primary")?;
+        Self::validate_covariance(secondary, "secondary")?;
+
+        let miss_distance = primary.state.distance_to(&secondary.state);
+        let relative_velocity = primary.state.relative_velocity(&secondary.state);
+        if !miss_distance.is_finite() || !relative_velocity.is_finite() {
+            return Err(ConjunctionAssessmentError::NonFiniteState { object: "pair" });
+        }
+
+        let collision_probability =
+            self.calculate_pc(primary, secondary, miss_distance, self.default_hbr_m);
+        if !collision_probability.pc.is_finite()
+            || !collision_probability.pc_lower.is_finite()
+            || !collision_probability.pc_upper.is_finite()
+        {
+            return Err(ConjunctionAssessmentError::InvalidCovariance { object: "combined" });
+        }
+        let risk_level = RiskLevel::from_pc(collision_probability.pc);
+        let combined_covariance = match (&primary.covariance, &secondary.covariance) {
+            (Some(c1), Some(c2)) => c1.fuse(c2),
+            _ => unreachable!("try_assess validates that both covariances are present"),
+        };
+
+        Ok(ConjunctionAssessment {
+            tca: primary.epoch,
+            primary_norad_id: primary.norad_id,
+            secondary_norad_id: secondary.norad_id,
+            miss_distance_km: miss_distance,
+            relative_velocity_kms: relative_velocity,
+            collision_probability,
+            hard_body_radius_m: self.default_hbr_m,
+            risk_level,
+            primary_state: primary.state.clone(),
+            secondary_state: secondary.state.clone(),
+            combined_covariance,
+        })
+    }
+
+    fn validate_covariance(
+        state: &OrbitalState,
+        object: &'static str,
+    ) -> Result<(), ConjunctionAssessmentError> {
+        let covariance = state
+            .covariance
+            .as_ref()
+            .ok_or(ConjunctionAssessmentError::MissingCovariance { object })?;
+        if !covariance.is_valid() {
+            return Err(ConjunctionAssessmentError::InvalidCovariance { object });
+        }
+        let frame_matches = matches!(
+            (state.frame, covariance.frame),
+            (ReferenceFrame::TEME, CovarianceFrame::TEME)
+                | (ReferenceFrame::ECI, CovarianceFrame::ECI)
+        );
+        if !frame_matches {
+            return Err(ConjunctionAssessmentError::CovarianceFrameMismatch {
+                object,
+                state: state.frame,
+                covariance: covariance.frame,
+            });
+        }
+        Ok(())
     }
 
     /// Calculate probability of collision
@@ -267,7 +396,9 @@ impl ConjunctionAnalyzer {
         }
     }
 
-    /// Fallback Pc estimation from miss distance only
+    /// Legacy miss-distance-only fallback used solely by unchecked assess.
+    /// This is a crude screening heuristic, not a validated collision-probability
+    /// model. The checked try_assess API refuses missing covariance instead.
     fn pc_from_miss_distance(&self, miss_km: f64, hbr_km: f64) -> CollisionProbability {
         // Very rough approximation assuming typical LEO uncertainties
         // This should be used only as a screening metric
