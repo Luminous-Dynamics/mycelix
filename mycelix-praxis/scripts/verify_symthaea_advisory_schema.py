@@ -74,6 +74,7 @@ ADAPTER_REQUIRED_TESTS = {
     "prepared_request_rejects_a_second_response",
     "prior_turn_response_is_rejected_for_new_prepared_request",
     "oversized_response_consumes_prepared_request",
+    "malformed_response_consumes_prepared_request",
 }
 
 REQUIRED_TESTS = {
@@ -730,6 +731,23 @@ def main() -> int:
         "AdviceRejection::StaleInput" in prior_turn_test
         and "BoundedAdviceReadError::ResponseAlreadyConsumed" in prior_turn_test,
         "cross-turn replay regression must reject stale digest and consume the one-response request",
+        errors,
+    )
+    malformed_consumption_start = adapter_source.find(
+        "fn malformed_response_consumes_prepared_request()"
+    )
+    malformed_consumption_end = adapter_source.find(
+        "\\n    #[test]", malformed_consumption_start + 1
+    )
+    malformed_consumption_test = (
+        adapter_source[malformed_consumption_start:malformed_consumption_end]
+        if malformed_consumption_start >= 0 and malformed_consumption_end > malformed_consumption_start
+        else ""
+    )
+    require(
+        "BoundedAdviceReadError::MalformedJson" in malformed_consumption_test
+        and "BoundedAdviceReadError::ResponseAlreadyConsumed" in malformed_consumption_test,
+        "adapter must prove a complete malformed response consumes the prepared request",
         errors,
     )
     require(
