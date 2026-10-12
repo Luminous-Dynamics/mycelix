@@ -94,6 +94,10 @@ The propagator attaches a TLE-age-based covariance heuristic in the same TEME fr
 as its SGP4 output. This is an estimated, uncalibrated uncertainty model. The current
 2D collision-probability code uses a Gaussian local-density/small-disk approximation;
 it does not implement the published Alfano/Foster collision-probability integral.
+The checked path rejects encounters outside a preliminary empirical eligibility
+envelope and reports those cases as inconclusive, not low risk. Selected comparisons
+against 13 scalar reference cases and an out-of-envelope failure case are recorded in
+[PC_REFERENCE_BENCHMARKS.md](../crates/orbital-mechanics/PC_REFERENCE_BENCHMARKS.md).
 Its one-order-of-magnitude spread values are heuristics, not statistically calibrated
 confidence bounds or guaranteed conservative limits.
 
