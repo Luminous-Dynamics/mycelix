@@ -199,6 +199,9 @@ pub enum ConjunctionAssessmentError {
     InvalidCollisionProbability,
 }
 
+const MAX_NORMALIZED_HBR_FOR_SMALL_DISK: f64 = 0.25;
+const MAX_LOG_DENSITY_VARIATION_FOR_SMALL_DISK: f64 = 0.5;
+
 /// Conjunction analyzer for computing collision probabilities
 pub struct ConjunctionAnalyzer {
     /// Default hard-body radius (meters)
@@ -599,7 +602,8 @@ impl ConjunctionAnalyzer {
         let sigma_min_km = min_eigenvalue.sqrt();
         let normalized_radius = hbr_km / sigma_min_km;
         let log_density_variation = hbr_km * (inverse * miss_2d).norm();
-        normalized_radius <= 0.25 && log_density_variation <= 0.5
+        normalized_radius <= MAX_NORMALIZED_HBR_FOR_SMALL_DISK
+            && log_density_variation <= MAX_LOG_DENSITY_VARIATION_FOR_SMALL_DISK
     }
 
     /// Gaussian local-density/small-disk approximation projected into a 2D encounter plane.
@@ -725,7 +729,7 @@ mod tests {
             ("Chan 12", 5000.0, 0.0, 1000.0, 3000.0, 50.0, 1.564e-9),
         ];
         let analyzer = ConjunctionAnalyzer::new();
-        for (name, xm, ym, sigma_x, sigma_y, radius, reference_pc) in cases {
+        for &(name, xm, ym, sigma_x, sigma_y, radius, reference_pc) in cases {
             let covariance = Matrix2::new(
                 sigma_x.powi(2) / 1_000_000.0,
                 0.0,
