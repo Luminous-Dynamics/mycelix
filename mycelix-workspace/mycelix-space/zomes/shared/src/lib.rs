@@ -1087,6 +1087,7 @@ mod tests {
         assert_eq!(parsed.primary_norad_id, 25544);
         assert_eq!(parsed.secondary_norad_id, 49863);
         assert_eq!(parsed.risk_level, RiskLevel::Medium);
+        assert_eq!(parsed.pc_method, PcMethod::GaussianSmallDiskApprox2D);
     }
 
     #[test]
