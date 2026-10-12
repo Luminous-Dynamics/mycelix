@@ -355,6 +355,8 @@ test('custom file picker has an associated label and a high-contrast keyboard fo
   assert.ok(css.includes('.file-picker:focus-within { outline: 3px solid #176c52; outline-offset: 3px; }'));
   assert.ok(html.includes('<label class="secondary-button file-picker" for="load-scenario-file">'));
   assert.ok(html.includes('<input id="load-scenario-file" type="file"'));
+  assert.ok(html.includes('id="result-status" class="status-pill status-muted" role="status" aria-live="polite" aria-atomic="true"'));
+  assert.ok(html.includes('<div id="result">'), 'long result tables should not be one atomic live announcement');
 
   const luminance = hex => {
     const channel = offset => {
