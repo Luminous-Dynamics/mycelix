@@ -227,8 +227,8 @@ try {
   await page.getByRole('button', { name: /Calculate scenario/ }).click();
   const monthThreeCells = page.locator('.cash-projection-table tbody tr').nth(2).locator('td');
   const monthFourCells = page.locator('.cash-projection-table tbody tr').nth(3).locator('td');
-  assert.equal(await monthThreeCells.nth(6).innerText(), 'ZAR -1250.00', 'an equipment purchase appears as investing outflow');
-  assert.equal(await monthFourCells.nth(7).innerText(), 'ZAR 5000.00', 'loan or capital receipts appear as financing inflow');
+  assert.equal(await monthThreeCells.nth(7).innerText(), 'ZAR -1250.00', 'an equipment purchase appears as investing outflow');
+  assert.equal(await monthFourCells.nth(8).innerText(), 'ZAR 5000.00', 'loan or capital receipts appear as financing inflow');
   const classifiedReport = await readDownloadJson(page, '#download-report', 'business-launchpad-report-v3.json');
   assert.equal(classifiedReport.schemaVersion, 3);
   assert.equal(classifiedReport.cashRunwayPlan[2].investingCashOutflowsMinor, 125_000);
