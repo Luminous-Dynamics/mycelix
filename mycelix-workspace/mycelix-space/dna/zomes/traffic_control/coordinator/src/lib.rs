@@ -894,18 +894,30 @@ pub fn cosign_agreement(input: CosignAgreementInput) -> ExternResult<ActionHash>
     // Resolve the referenced session and bind the second signature to the
     // recorded secondary operator, not merely to any different agent key.
     let session = verify_session_participant(&agreement.session_id, &agent)?;
+    let proposal = get_maneuver_proposal(&agreement.accepted_proposal)?;
+    validate_proposal_burn_window(
+        proposal.burn_time.micros,
+        session.deadline.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidProposal, message)
+            .into_wasm_error()
+    })?;
     validate_agreement_deadline(
         agreement.execution_deadline.micros,
         session.deadline.micros,
-        get_maneuver_proposal(&agreement.accepted_proposal)?.burn_time.micros,
+        proposal.burn_time.micros,
         session.tca.micros,
         now.micros,
     )
     .map_err(|message| {
         SpaceError::new(SpaceErrorCode::InvalidInput, message)
             .with_context(format!(
-                "execution deadline: {}, session deadline: {}, TCA: {}",
+                "execution deadline: {}, burn time: {}, session deadline: {}, TCA: {}",
                 agreement.execution_deadline.micros,
+                proposal.burn_time.micros,
                 session.deadline.micros,
                 session.tca.micros
             ))
@@ -926,7 +938,6 @@ pub fn cosign_agreement(input: CosignAgreementInput) -> ExternResult<ActionHash>
         .into_wasm_error());
     }
 
-    let proposal = get_maneuver_proposal(&agreement.accepted_proposal)?;
     if proposal.session_id != agreement.session_id
         || proposal.status != ProposalStatus::Pending
         || !maneuvering_object_belongs_to_session(proposal.maneuvering_object, &session)
