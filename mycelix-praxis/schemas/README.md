@@ -67,7 +67,21 @@ avoid buffering an oversized stream in full, then delegates to that strict
 parser. Prefer `read_bounded_and_validate_symthaea_advice(reader, context)`,
 which also invokes the trusted semantic validator and returns a
 `ValidatedAdvisorySuggestion`; the lower-level decoder alone is not trusted
-advice. If a persistent connection returns an oversized body, its owner should
+advice.
+
+The same crate provides `prepare_advisory_request(policy)` for a minimized,
+deterministically serialized request. It sorts allowed actions/reasons in
+protocol order and content IDs lexically, rejects duplicate/invalid policy
+inputs, caps the body at 16 KiB, and derives `input_digest()` from the exact
+immutable bytes exposed by `body_bytes()`. Keep this prepared request alive
+for the response's entire lifecycle and create validation context from
+`validation_context(advisor_enabled, sandbox_active)`; this ties expected model,
+version, skill, curriculum revision, allowed action/reason lists, content IDs,
+and digest to the same prepared turn. Send the body unchanged and carry the
+digest separately in authenticated transport metadata rather than a
+self-referential body field. The digest is not process authentication.
+
+If a persistent connection returns an oversized body, its owner should
 discard/close the connection rather than reuse a stream with unread body bytes.
 Transport timeouts, process authentication, learner consent, and production
 call-site wiring remain responsibilities of the host adapter/integration.
