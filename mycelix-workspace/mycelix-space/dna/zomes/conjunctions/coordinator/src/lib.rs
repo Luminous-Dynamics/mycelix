@@ -127,6 +127,24 @@ pub fn create_conjunction_event(input: CreateEventInput) -> ExternResult<ActionH
         .with_context(format!("value: {}", input.max_pc))
         .into_wasm_error());
     }
+    if !input.compute_details {
+        let expected_risk = mycelix_space_shared::RiskLevel::try_from_pc(input.max_pc).ok_or_else(|| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidProbability,
+                "Cannot derive a screening band from an invalid Pc value",
+            )
+            .into_wasm_error()
+        })?;
+        if convert_risk_level(input.risk_level) != expected_risk {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Provided risk_level does not match the Pc-only screening band derived from max_pc",
+            )
+            .with_context(format!("pc: {}, supplied band: {:?}", input.max_pc, input.risk_level))
+            .into_wasm_error());
+        }
+    }
+
     let (miss_distance_km, max_pc, risk_level) = if input.compute_details {
         // Compute values from TLEs using orbital-mechanics library
         let (primary_lines, secondary_lines) = match (&input.primary_tle, &input.secondary_tle) {
@@ -284,6 +302,39 @@ pub struct CreateEventInput {
 #[hdk_extern]
 pub fn update_conjunction_risk(input: UpdateRiskInput) -> ExternResult<ActionHash> {
     gate_space_operation(&requirement_for_risk_update(), "update_conjunction_risk")?;
+
+    if !input.new_pc.is_finite() || !(0.0..=1.0).contains(&input.new_pc) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProbability,
+            "New Pc must be finite and between 0.0 and 1.0",
+        )
+        .with_context(format!("value: {}", input.new_pc))
+        .into_wasm_error());
+    }
+    if !input.new_miss_distance_km.is_finite() || input.new_miss_distance_km < 0.0 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidMissDistance,
+            "New miss distance must be finite and non-negative",
+        )
+        .with_context(format!("value: {}", input.new_miss_distance_km))
+        .into_wasm_error());
+    }
+    let expected_risk = mycelix_space_shared::RiskLevel::try_from_pc(input.new_pc).ok_or_else(|| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidProbability,
+            "Cannot derive a screening band from an invalid Pc value",
+        )
+        .into_wasm_error()
+    })?;
+    if convert_risk_level(input.new_risk_level) != expected_risk {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Provided new_risk_level does not match the Pc-only screening band derived from new_pc",
+        )
+        .with_context(format!("pc: {}, supplied band: {:?}", input.new_pc, input.new_risk_level))
+        .into_wasm_error());
+    }
+
     // Get the current event
     let record = get(input.event_hash.clone(), GetOptions::default())?.ok_or(
         SpaceError::new(SpaceErrorCode::EventNotFound, "Conjunction event not found")
