@@ -57,9 +57,9 @@ jobs:
         working-directory: mycelix-workspace/business-launchpad/core
         run: |
           set -euo pipefail
-          npm install --no-save --package-lock=false --ignore-scripts playwright@1.64.0 2>&1 | tee playwright-install.log
-          test "$(node -p "require('./node_modules/playwright/package.json').version")" = "1.64.0"
-          test "$(node -p "require('./node_modules/playwright-core/package.json').version")" = "1.64.0"
+          npm ci --prefix test --ignore-scripts --no-audit --no-fund 2>&1 | tee playwright-install.log
+          test "$(node -p "require('./test/node_modules/playwright/package.json').version")" = "1.64.0-alpha-2026-09-28"
+          test "$(node -p "require('./test/node_modules/playwright-core/package.json').version")" = "1.64.0-alpha-2026-09-28"
 
       - name: Install Chromium and Linux browser dependencies
         id: chromium
@@ -68,7 +68,7 @@ jobs:
         working-directory: mycelix-workspace/business-launchpad/core
         run: |
           set -euo pipefail
-          ./node_modules/.bin/playwright install --with-deps chromium 2>&1 | tee browser-install.log
+          ./test/node_modules/.bin/playwright install --with-deps chromium 2>&1 | tee browser-install.log
 
       - name: Run real-browser interaction journey
         id: browser-test
@@ -131,7 +131,9 @@ jobs:
             echo "runner_image_version=${ImageVersion:-unknown}"
             echo "node=$(node --version 2>/dev/null || printf 'unavailable')"
             echo "npm=$(npm --version 2>/dev/null || printf 'unavailable')"
-            echo "playwright_version=$(node -p "require('./node_modules/playwright/package.json').version" 2>/dev/null || printf 'unavailable')"
+            echo "playwright_version=$(node -p "require('./test/node_modules/playwright/package.json').version" 2>/dev/null || printf 'unavailable')"
+            echo "browser_test_package_json_sha256=$(hash_file test/package.json)"
+            echo "browser_test_package_lock_sha256=$(hash_file test/package-lock.json)"
             echo "browser_test_sha256=$(hash_file test/browser-journey.mjs)"
             echo "source_sha256=$(hash_file src/index.js)"
             echo "browser_module_sha256=$(hash_file ../web/app.mjs)"
