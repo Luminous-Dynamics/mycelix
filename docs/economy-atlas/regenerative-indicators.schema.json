@@ -114,11 +114,11 @@
         },
         "retrieved_on": {
           "type": "string",
-          "pattern": "^\\\\d{4}-\\\\d{2}-\\\\d{2}$"
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
         "url": {
           "type": "string",
-          "pattern": "^https://[^\\\\s]+$"
+          "pattern": "^https://[^\\s]+$"
         }
       },
       "additionalProperties": false
