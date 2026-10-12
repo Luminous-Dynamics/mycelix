@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RUST_PATH = ROOT / "crates/praxis-core/src/symthaea_advisory.rs"
 SCHEMA_PATH = ROOT / "schemas/symthaea-advisory-v1.schema.json"
 REQUEST_SCHEMA_PATH = ROOT / "schemas/symthaea-advisory-request-v1.schema.json"
+REQUEST_EXAMPLE_PATH = ROOT / "schemas/examples/symthaea-advisory-request-v1.json"
 ADAPTER_PATH = ROOT / "crates/praxis-symthaea-adapter/src/lib.rs"
 ADAPTER_CARGO_PATH = ROOT / "crates/praxis-symthaea-adapter/Cargo.toml"
 WORKSPACE_PATH = ROOT / "Cargo.toml"
@@ -153,6 +154,9 @@ def main() -> int:
         request_schema: dict[str, Any] = json.loads(
             REQUEST_SCHEMA_PATH.read_text(encoding="utf-8")
         )
+        request_example: dict[str, Any] = json.loads(
+            REQUEST_EXAMPLE_PATH.read_text(encoding="utf-8")
+        )
     except (OSError, json.JSONDecodeError) as error:
         print(f"Symthaea advisory static conformance FAILED: {error}", file=sys.stderr)
         return 1
@@ -242,6 +246,52 @@ def main() -> int:
         and request_content.get("uniqueItems") is True
         and request_content.get("items", {}).get("maxLength") == max_identifier_chars,
         "request schema content references must be unique and bounded to the Rust limits",
+        errors,
+    )
+    require(
+        set(request_example) == EXPECTED_REQUEST_FIELDS
+        and list(request_example) == list(request_schema.get("properties", {})),
+        "request example must use exactly the request wire fields in declaration order",
+        errors,
+    )
+    require(
+        request_example.get("schema_version") == schema_version
+        and "input_digest" not in request_example,
+        "request example must be v1 and keep the digest outside the body",
+        errors,
+    )
+    example_actions = request_example.get("allowed_actions", [])
+    require(
+        isinstance(example_actions, list)
+        and 1 <= len(example_actions) <= max_allowed_actions
+        and len(example_actions) == len(set(example_actions))
+        and all(action in action_variants for action in example_actions),
+        "request example actions must be nonempty, unique, bounded, and valid",
+        errors,
+    )
+    example_reasons = request_example.get("allowed_reasons", [])
+    require(
+        isinstance(example_reasons, list)
+        and 1 <= len(example_reasons) <= max_allowed_reasons
+        and len(example_reasons) == len(set(example_reasons))
+        and all(reason in reason_variants for reason in example_reasons),
+        "request example reasons must be nonempty, unique, bounded, and valid",
+        errors,
+    )
+    example_content_ids = request_example.get("allowed_content_ids", [])
+    require(
+        isinstance(example_content_ids, list)
+        and len(example_content_ids) <= max_refs
+        and len(example_content_ids) == len(set(example_content_ids))
+        and all(
+            isinstance(value, str)
+            and value
+            and value.strip() == value
+            and len(value) <= max_identifier_chars
+            and not any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in value)
+            for value in example_content_ids
+        ),
+        "request example content references must be unique and bounded",
         errors,
     )
     for field in ("model_id", "model_version", "skill_id", "curriculum_revision"):
