@@ -27,6 +27,15 @@ class RegenerativeIndicatorCatalogTests(unittest.TestCase):
     def test_checked_in_catalog_passes(self) -> None:
         self.assertEqual(validate_catalog(self.catalog, self.model_registry), [])
 
+    def test_non_object_catalog_root_fails_closed(self) -> None:
+        errors = validate_catalog([], self.model_registry)
+        self.assertEqual(errors, ["catalog root must be an object"])
+
+    def test_malformed_missingness_vocabulary_fails_closed(self) -> None:
+        self.catalog["missingness_vocabulary"] = [{"unknown": True}]
+        errors = validate_catalog(self.catalog, self.model_registry)
+        self.assertTrue(any("missingness_vocabulary must be a non-empty string list" in error for error in errors), errors)
+
     def test_required_indicator_set_is_present(self) -> None:
         ids = {indicator["indicator_id"] for indicator in self.catalog["indicators"]}
         self.assertEqual(len(ids), 18)
