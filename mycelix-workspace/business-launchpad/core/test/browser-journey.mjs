@@ -165,9 +165,9 @@ try {
   const exportedScenario = await readDownloadJson(
     page,
     '#download-scenario',
-    'business-launchpad-scenario-v4.json'
+    'business-launchpad-scenario-v5.json'
   );
-  assert.equal(exportedScenario.schemaVersion, 4);
+  assert.equal(exportedScenario.schemaVersion, 5);
   assert.equal(exportedScenario.kind, 'business-launchpad-scenario');
   assert.equal(exportedScenario.input.currency.code, 'ZAR');
   assert.equal(exportedScenario.cashRunwayPlan.length, 12);
@@ -180,13 +180,18 @@ try {
     downside: { salesReceiptReductionPercent: 20, salesReceiptDelayMonths: 1, operatingCashOutflowIncreasePercent: 15 },
     upside: { salesReceiptIncreasePercent: 10, salesReceiptAdvanceMonths: 1, operatingCashOutflowReductionPercent: 5 }
   });
-  completedChecks.push('schema-v4 export includes explicitly editable downside/upside stress assumptions');
+  assert.deepEqual(exportedScenario.cashTimingSchedule, {
+    salesReceiptsPercent: [70, 25, 5],
+    variableSupplierPaymentsPercent: [80, 15, 5]
+  });
+  completedChecks.push('schema-v5 export includes editable stress assumptions and explicit collection/payment timing buckets');
 
   exportedScenario.input.sellingPricePerUnitMinor = 20_000;
   exportedScenario.input.plannedUnitsPerMonth = 40;
   exportedScenario.cashScenarioAssumptions.downside.salesReceiptDelayMonths = 2;
+  exportedScenario.cashTimingSchedule.salesReceiptsPercent = [60, 30, 10];
   await page.locator('#load-scenario-file').setInputFiles({
-    name: 'business-launchpad-scenario-v4.json',
+    name: 'business-launchpad-scenario-v5.json',
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify(exportedScenario))
   });
@@ -196,6 +201,8 @@ try {
   assert.equal(await page.locator('#selling-price').inputValue(), '200.00');
   assert.equal(await page.locator('#planned-units').inputValue(), '40');
   assert.equal(await page.locator('#downside-receipt-delay-months').inputValue(), '2');
+  assert.equal(await page.locator('#timing-sales-receipts-month-0').inputValue(), '60');
+  assert.equal(await page.locator('#timing-sales-receipts-month-1').inputValue(), '30');
   assert.equal(await page.locator('#download-report').isDisabled(), true);
   await page.getByRole('button', { name: /Calculate scenario/ }).click();
   await page.locator('#result').getByText('ZAR 4700.00', { exact: true }).waitFor({ state: 'visible' });
@@ -205,9 +212,9 @@ try {
   const report = await readDownloadJson(
     page,
     '#download-report',
-    'business-launchpad-report-v4.json'
+    'business-launchpad-report-v5.json'
   );
-  assert.equal(report.schemaVersion, 4);
+  assert.equal(report.schemaVersion, 5);
   assert.equal(report.kind, 'business-launchpad-report');
   assert.equal(report.input.sellingPricePerUnitMinor, 20_000);
   assert.equal(report.report.monthlyScenario.operatingResultBeforeExcludedItemsMinor, 470_000);
@@ -215,8 +222,11 @@ try {
   assert.equal(report.cashRunwayProjection.horizonMonths, 12);
   assert.equal(report.cashRunwayProjection.kind, 'business-launchpad-cash-runway-report');
   assert.equal(report.cashScenarioAssumptions.downside.salesReceiptDelayMonths, 2);
-  assert.deepEqual(report.cashScenarioComparison.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside']);
+  assert.deepEqual(report.cashTimingSchedule.salesReceiptsPercent, [60, 30, 10]);
+  assert.deepEqual(report.cashScenarioComparison.scenarios.map(scenario => scenario.id), ['downside', 'base', 'upside', 'terms-based']);
   assert.equal(report.cashScenarioComparison.scenarios[1].summary.endingCashMinor, report.cashRunwayProjection.summary.endingCashMinor);
+  assert.equal(report.cashScenarioComparison.scenarios[3].assumptions.salesReceiptsPercent[0], 60);
+  assert.equal(report.cashScenarioComparison.scenarios[3].deferredVariableSupplierPaymentsAfterHorizonMinor > 0, true);
   completedChecks.push('report export contains the evaluated inputs, base projection and auditable stress comparison');
 
   await page.locator('#cash-runway-details > summary').click();
@@ -240,7 +250,7 @@ try {
   const monthFourCells = page.locator('.cash-projection-table tbody tr').nth(3).locator('td');
   assert.equal(await monthThreeCells.nth(7).innerText(), 'ZAR -1250.00', 'an equipment purchase appears as investing outflow');
   assert.equal(await monthFourCells.nth(8).innerText(), 'ZAR 5000.00', 'loan or capital receipts appear as financing inflow');
-  const classifiedReport = await readDownloadJson(page, '#download-report', 'business-launchpad-report-v4.json');
+  const classifiedReport = await readDownloadJson(page, '#download-report', 'business-launchpad-report-v5.json');
   assert.equal(classifiedReport.schemaVersion, 3);
   assert.equal(classifiedReport.cashRunwayPlan[2].investingCashOutflowsMinor, 125_000);
   assert.equal(classifiedReport.cashRunwayPlan[3].financingCashInflowsMinor, 500_000);
@@ -276,7 +286,7 @@ try {
     buffer: Buffer.from(JSON.stringify({ schemaVersion: 99, kind: 'business-launchpad-scenario', input: {} }))
   });
   await errorBox.waitFor({ state: 'visible' });
-  assert.match(await errorBox.innerText(), /schemaVersion 1, 2, 3 or 4 required/);
+  assert.match(await errorBox.innerText(), /schemaVersion 1, 2, 3, 4 or 5 required/);
   assert.equal(await page.locator('#selling-price').inputValue(), priceBeforeInvalidImport);
   completedChecks.push('unsupported scenario version fails visibly without overwriting entered values');
 
@@ -311,7 +321,7 @@ try {
     qualifiedSha: process.env.QUALIFIED_SHA || 'not-provided',
     browser: 'Chromium',
     browserVersion: browser.version(),
-    cashScenarioSchemaVersion: 4,
+    cashScenarioSchemaVersion: 5,
     checks: completedChecks,
     pageErrors,
     mobileLayout,
