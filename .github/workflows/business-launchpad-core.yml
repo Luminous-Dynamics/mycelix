@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(node --version)" = "v24.21.0"
-          npm run check
+          npm run check | tee check-output.txt
           npm test | tee test-output.tap
 
       - name: Emit exact-head qualification record
@@ -59,8 +59,10 @@ jobs:
             echo "BUSINESS LAUNCHPAD CORE GATE"
             echo "status=deterministic-test-gate-passed"
             echo "commit=${QUALIFIED_SHA}"
-            echo "workflow_sha=$(git -C "$GITHUB_WORKSPACE" hash-object .github/workflows/business-launchpad-core.yml)"
-            echo "runner_image=${ImageOS:-unknown}"
+            echo "workflow_git_blob_sha1=$(git -C "$GITHUB_WORKSPACE" hash-object .github/workflows/business-launchpad-core.yml)"
+            echo "workflow_sha256=$(sha256sum "$GITHUB_WORKSPACE/.github/workflows/business-launchpad-core.yml" | cut -d' ' -f1)"
+            echo "runner_image_os=${ImageOS:-unknown}"
+            echo "runner_image_version=${ImageVersion:-unknown}"
             echo "node=$(node --version)"
             echo "npm=$(npm --version)"
             echo "source_sha256=$(sha256sum src/index.js | cut -d' ' -f1)"
@@ -71,6 +73,7 @@ jobs:
             echo "browser_module_sha256=$(sha256sum ../web/app.mjs | cut -d' ' -f1)"
             echo "browser_html_sha256=$(sha256sum ../web/index.html | cut -d' ' -f1)"
             echo "browser_css_sha256=$(sha256sum ../web/styles.css | cut -d' ' -f1)"
+            echo "check_output_sha256=$(sha256sum check-output.txt | cut -d' ' -f1)"
             echo "test_output_sha256=$(sha256sum test-output.tap | cut -d' ' -f1)"
             echo "claim_ceiling=DeterministicCoreAndMockDomInteractionTestsOnly"
             echo "integration_status=NotExecuted"
@@ -81,4 +84,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: business-launchpad-core-${{ env.QUALIFIED_SHA }}
-          path: mycelix-workspace/business-launchpad/core/business-launchpad-core-qualification.txt
+          path: |
+            mycelix-workspace/business-launchpad/core/business-launchpad-core-qualification.txt
+            mycelix-workspace/business-launchpad/core/check-output.txt
+            mycelix-workspace/business-launchpad/core/test-output.tap
