@@ -1137,6 +1137,41 @@ mod tests {
     }
 
     #[test]
+    fn conjunction_alert_recommendations_do_not_authorize_maneuvers() {
+        let levels = [
+            RiskLevel::Negligible,
+            RiskLevel::Low,
+            RiskLevel::Medium,
+            RiskLevel::High,
+            RiskLevel::Emergency,
+        ];
+
+        for level in levels {
+            let assessment = ConjunctionAssessment {
+                primary_norad_id: 25544,
+                secondary_norad_id: 49863,
+                tca: Utc::now(),
+                miss_distance_km: 0.5,
+                relative_velocity_kms: 14.5,
+                collision_probability: 1e-3,
+                pc_method: PcMethod::GaussianSmallDiskApprox2D,
+                risk_level: level,
+                hard_body_radius_m: 20.0,
+                screening_volume_km: 5.0,
+            };
+            let alert = ConjunctionAlert::new_conjunction(&assessment);
+            let recommendation = alert.recommendation.expect("every Pc band carries review guidance");
+            let lower = recommendation.to_ascii_lowercase();
+            assert!(!lower.contains("initiate collision avoidance maneuver"));
+            assert!(!lower.contains("immediate action required"));
+            if level == RiskLevel::Emergency {
+                assert!(lower.contains("not a maneuver command"));
+                assert!(lower.contains("qualified independent conjunction assessment"));
+            }
+        }
+    }
+
+    #[test]
     fn test_bounty_entry_serialization() {
         let bounty = BountyEntry {
             debris_norad_id: 49863,
