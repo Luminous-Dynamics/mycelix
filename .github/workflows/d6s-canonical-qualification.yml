@@ -38,11 +38,15 @@ jobs:
       - name: Assert exact qualification subject
         run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
 
+      # The production detector and its regression suite share one classifier.
+      - name: Test D6S changed-path classifier
+        id: scope_self_test
+        run: python3 scripts/integral/d6s_qualification_scope.py --self-test
+
       # Keep the workflow/check present on every PR so unrelated PRs never leave
       # a required check pending because a workflow-level paths filter skipped it.
-      # Only run the expensive qualification suite when the exact PR diff changes
-      # one of its contract inputs or conformance sources. Pushes to the dedicated
-      # canonical branch and workflow_dispatch remain unconditional.
+      # Pushes to the dedicated canonical branch and workflow_dispatch remain
+      # unconditional; PR qualification is based on the exact base...head diff.
       - name: Determine whether D6S qualification applies
         id: scope
         shell: bash
@@ -58,11 +62,8 @@ jobs:
           git diff --name-only "${BASE_SHA}...${QUALIFIED_SHA}" > "$changed_file_list"
           cp "$changed_file_list" d6s-changed-files.txt
           cat "$changed_file_list"
-          if grep -Eq '^(docs/integral/d6s-canon-1-.*|docs/integral/d6s-canon-2-.*|scripts/integral/verify_d6s_canon_[^/]*\.py|mycelix-manufacturing/Cargo\.(toml|lock)|mycelix-manufacturing/crates/(cos_conformance|manufacturing_common)/)' "$changed_file_list"; then
-            echo "relevant=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "relevant=false" >> "$GITHUB_OUTPUT"
-          fi
+          relevant="$(python3 scripts/integral/d6s_qualification_scope.py < "$changed_file_list")"
+          echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
 
       - name: Install pinned Rust
         id: install_rust
