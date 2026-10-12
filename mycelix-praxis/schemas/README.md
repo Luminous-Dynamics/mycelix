@@ -8,6 +8,8 @@ This directory contains schema definitions for Mycelix Praxis.
 schemas/
 ├── symthaea-advisory-v1.schema.json # Strict Symthaea response structure
 ├── symthaea-advisory-request-v1.schema.json # Minimized, digest-bound request body
+├── examples/
+│   └── symthaea-advisory-request-v1.json # Sanitized request-body example
 ├── vc/                           # Verifiable Credentials schemas
 │   ├── EduAchievementCredential.schema.json
 │   └── contexts/
@@ -84,7 +86,11 @@ for the response's entire lifecycle and create validation context from
 version, skill, curriculum revision, allowed action/reason lists, content IDs,
 and digest to the same prepared turn. Send the body unchanged and carry the
 digest separately in authenticated transport metadata rather than a
-self-referential body field. The digest is not process authentication.
+self-referential body field. The sanitized
+`examples/symthaea-advisory-request-v1.json` shows the exact request-body
+shape, with illustrative identifiers and no digest or learner history. The
+static checker validates its field set/order, action/reason enum membership,
+reference bounds, and digest exclusion.
 
 If a persistent connection returns an oversized body, its owner should
 discard/close the connection rather than reuse a stream with unread body bytes.
