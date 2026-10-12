@@ -201,4 +201,4 @@ Not yet implemented or qualified:
 - local inference/remote-provider privacy enforcement;
 - Rust build/tests, formatter, clippy, workflow execution, runtime, or learning-outcome qualification.
 
-The claim ceiling for this branch is **contract plus bounded wire-parser prototype only**. No live integration, educational-effectiveness result, validated cognitive-state inference, credential authority, or production readiness is claimed.
+The claim ceiling for this branch is **contract plus host-side request/response boundary prototype only**. No live integration, educational-effectiveness result, validated cognitive-state inference, credential authority, or production readiness is claimed.
