@@ -471,12 +471,16 @@ mod tests {
             LearningSuggestion::OfferHint,
             LearningSuggestion::NoSuggestion,
         ];
-        let reasons = [
+        let reasons_a = [
+            AdviceReason::InsufficientEvidence,
+            AdviceReason::RepeatedIncorrectAttempts,
+        ];
+        let reasons_b = [
             AdviceReason::RepeatedIncorrectAttempts,
             AdviceReason::InsufficientEvidence,
         ];
-        let first = prepare_test_request(&ids_a, &actions_a, &reasons);
-        let second = prepare_test_request(&ids_b, &actions_b, &reasons);
+        let first = prepare_test_request(&ids_a, &actions_a, &reasons_a);
+        let second = prepare_test_request(&ids_b, &actions_b, &reasons_b);
 
         assert_eq!(first.body_bytes(), second.body_bytes());
         assert_eq!(first.input_digest(), second.input_digest());
@@ -485,6 +489,7 @@ mod tests {
             digest_advisory_request_bytes(first.body_bytes())
         );
         let body = std::str::from_utf8(first.body_bytes()).expect("JSON is UTF-8");
+        assert!(!body.contains("input_digest"), "digest metadata must not make the body self-referential");
         assert!(body.find("a.content").unwrap() < body.find("z.content").unwrap());
     }
 
