@@ -539,33 +539,77 @@ mod tests {
     #[test]
     fn trusted_validation_path_returns_only_a_validated_suggestion() {
         let ids = ["lesson.fractions.01".to_string()];
-        let request = prepare_test_request(
+        let mut request = prepare_test_request(
             &ids,
             &[LearningSuggestion::OfferHint],
             &[AdviceReason::RepeatedIncorrectAttempts],
         );
-        let context = request.validation_context(true, false);
         let encoded = valid_advice_json().replace(
             &format!("blake3:{}", "0".repeat(64)),
             request.input_digest(),
         );
 
-        let suggestion =
-            read_bounded_and_validate_symthaea_advice(Cursor::new(encoded.as_bytes()), &context)
-                .expect("in-scope advice passes both wire and semantic validation");
+        let suggestion = request
+            .read_and_validate_response_once(Cursor::new(encoded.as_bytes()), true, false)
+            .expect("in-scope advice passes both wire and semantic validation");
         assert_eq!(suggestion.input_digest, request.input_digest());
         assert_eq!(suggestion.action, LearningSuggestion::OfferHint);
     }
 
     #[test]
-    fn trusted_validation_path_rejects_an_unallowed_action() {
+    fn retry_after_reader_failure_reuses_same_prepared_request() {
         let ids = ["lesson.fractions.01".to_string()];
-        let request = prepare_test_request(
+        let mut request = prepare_test_request(
             &ids,
             &[LearningSuggestion::OfferHint],
             &[AdviceReason::RepeatedIncorrectAttempts],
         );
-        let context = request.validation_context(true, false);
+        let digest_before_retry = request.input_digest().to_string();
+        assert_eq!(
+            request.read_and_validate_response_once(FailingReader, true, false),
+            Err(BoundedAdviceReadError::ReaderFailed(io::ErrorKind::BrokenPipe))
+        );
+        assert_eq!(request.input_digest(), digest_before_retry);
+
+        let encoded = valid_advice_json().replace(
+            &format!("blake3:{}", "0".repeat(64)),
+            request.input_digest(),
+        );
+        let suggestion = request
+            .read_and_validate_response_once(Cursor::new(encoded.as_bytes()), true, false)
+            .expect("retry of same exchange can accept its single valid response");
+        assert_eq!(suggestion.input_digest, digest_before_retry);
+    }
+
+    #[test]
+    fn prepared_request_rejects_a_second_response() {
+        let ids = ["lesson.fractions.01".to_string()];
+        let mut request = prepare_test_request(
+            &ids,
+            &[LearningSuggestion::OfferHint],
+            &[AdviceReason::RepeatedIncorrectAttempts],
+        );
+        let encoded = valid_advice_json().replace(
+            &format!("blake3:{}", "0".repeat(64)),
+            request.input_digest(),
+        );
+        assert!(request
+            .read_and_validate_response_once(Cursor::new(encoded.as_bytes()), true, false)
+            .is_ok());
+        assert_eq!(
+            request.read_and_validate_response_once(Cursor::new(encoded.as_bytes()), true, false),
+            Err(BoundedAdviceReadError::ResponseAlreadyConsumed)
+        );
+    }
+
+    #[test]
+    fn trusted_validation_path_rejects_an_unallowed_action() {
+        let ids = ["lesson.fractions.01".to_string()];
+        let mut request = prepare_test_request(
+            &ids,
+            &[LearningSuggestion::OfferHint],
+            &[AdviceReason::RepeatedIncorrectAttempts],
+        );
         let encoded = valid_advice_json()
             .replace("\"offer_hint\"", "\"offer_break\"")
             .replace(
@@ -574,10 +618,7 @@ mod tests {
             );
 
         assert_eq!(
-            read_bounded_and_validate_symthaea_advice(
-                Cursor::new(encoded.as_bytes()),
-                &context
-            ),
+            request.read_and_validate_response_once(Cursor::new(encoded.as_bytes()), true, false),
             Err(BoundedAdviceReadError::Rejected(AdviceRejection::ActionNotAllowed))
         );
     }
