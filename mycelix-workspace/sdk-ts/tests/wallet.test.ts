@@ -933,6 +933,9 @@ import {
   type QueueStorage,
   type QueueStorageIdempotencyClaim,
   type QueueStorageExecutionClaim,
+  type QueueStorageStatusPatch,
+  type QueueStorageStatusTransition,
+  type QueueItemStatus,
   type QueuedOperation,
   type SendPayload,
 } from '../src/wallet/offline-queue.js';
@@ -980,6 +983,18 @@ class SharedAtomicQueueStorage implements QueueStorage {
     if (matches.length === 1) return { kind: 'existing', item: matches[0] };
     this.items.set(item.id, item);
     return { kind: 'inserted', item };
+  }
+
+  async compareAndSetStatus(
+    id: QueueItemId,
+    expectedStatus: QueueItemStatus,
+    patch: QueueStorageStatusPatch
+  ): Promise<QueueStorageStatusTransition> {
+    const stored = this.items.get(id);
+    if (!stored || stored.status !== expectedStatus) return { updated: false, item: stored };
+    const updated: QueuedOperation = { ...stored, ...patch, id: stored.id };
+    this.items.set(id, updated);
+    return { updated: true, item: updated };
   }
 
   async delete(id: QueueItemId): Promise<void> {
@@ -1187,6 +1202,52 @@ describe('OfflineQueue', () => {
         await queueB.sync();
         expect(queueB.get(item.id)?.status).toBe('completed');
         expect(executeA.mock.calls.length + executeB.mock.calls.length).toBe(1);
+      } finally {
+        queueA.destroy();
+        queueB.destroy();
+      }
+    });
+
+    it('should not cancel a row another queue instance has already claimed', async () => {
+      const storage = new SharedAtomicQueueStorage();
+      let finishExecution!: (value: { success: boolean }) => void;
+      let signalStarted!: () => void;
+      const executionStarted = new Promise<void>((resolve) => { signalStarted = resolve; });
+      const executionResult = new Promise<{ success: boolean }>((resolve) => { finishExecution = resolve; });
+      const executeA = vi.fn(async () => {
+        signalStarted();
+        return await executionResult;
+      });
+      const queueA = createOfflineQueue(
+        storage,
+        { canExecute: () => true, execute: executeA },
+        { autoSync: false }
+      );
+      const queueB = createOfflineQueue(
+        storage,
+        { canExecute: () => true, execute: vi.fn(async () => ({ success: true })) },
+        { autoSync: false }
+      );
+
+      try {
+        await Promise.all([queueA.initialize(), queueB.initialize()]);
+        const item = await queueA.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'cancel-after-claim-key',
+        });
+        await queueB.enqueue('send', { to: '@alice', amount: 100 }, {
+          idempotencyKey: 'cancel-after-claim-key',
+        });
+
+        const syncing = queueA.sync();
+        await executionStarted;
+        expect((await storage.getAll()).find((stored) => stored.id === item.id)?.status).toBe('syncing');
+
+        expect(await queueB.cancel(item.id)).toBe(false);
+        expect((await storage.getAll()).find((stored) => stored.id === item.id)?.status).toBe('syncing');
+
+        finishExecution({ success: true });
+        await syncing;
+        expect((await storage.getAll()).find((stored) => stored.id === item.id)?.status).toBe('completed');
       } finally {
         queueA.destroy();
         queueB.destroy();
