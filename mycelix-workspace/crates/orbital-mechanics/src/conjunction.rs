@@ -25,7 +25,7 @@ use chrono::{DateTime, Utc};
 use nalgebra::{Matrix2, Vector3};
 use serde::{Deserialize, Serialize};
 
-use crate::covariance::{CovarianceFrame, CovarianceMatrix};
+use crate::covariance::{CovarianceFrame, CovarianceMatrix, CovarianceSource};
 use crate::state::{OrbitalState, ReferenceFrame, StateVector};
 use thiserror::Error;
 
@@ -161,6 +161,10 @@ pub enum ConjunctionAssessmentError {
     },
     #[error("{object} covariance is non-finite, invalid, or singular for the collision calculation")]
     InvalidCovariance { object: &'static str },
+    #[error("{object} covariance source is unknown")]
+    UnknownCovarianceProvenance { object: &'static str },
+    #[error("{object} covariance source metadata is invalid")]
+    InvalidCovarianceProvenance { object: &'static str },
     #[error("relative speed is too small to define a stable 2D encounter plane")]
     DegenerateEncounterGeometry,
     #[error("hard-body radius must be finite and greater than zero")]
@@ -346,6 +350,18 @@ impl ConjunctionAnalyzer {
                 state: state.frame,
                 covariance: covariance.frame,
             });
+        }
+        match covariance.source {
+            CovarianceSource::Official => {}
+            CovarianceSource::Estimated { tle_age_hours }
+                if tle_age_hours.is_finite() && tle_age_hours >= 0.0 => {}
+            CovarianceSource::Observed { sensor_accuracy_km }
+                if sensor_accuracy_km.is_finite() && sensor_accuracy_km > 0.0 => {}
+            CovarianceSource::Fused { source_count } if source_count >= 2 => {}
+            CovarianceSource::Unknown => {
+                return Err(ConjunctionAssessmentError::UnknownCovarianceProvenance { object });
+            }
+            _ => return Err(ConjunctionAssessmentError::InvalidCovarianceProvenance { object }),
         }
         Ok(())
     }
@@ -541,6 +557,7 @@ mod tests {
         let mut covariance =
             CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.01, 0.01, 0.01]);
         covariance.frame = CovarianceFrame::TEME;
+        covariance.source = CovarianceSource::Estimated { tle_age_hours: 0.0 };
         OrbitalState::new(
             norad_id,
             epoch,
@@ -605,6 +622,31 @@ mod tests {
             ConjunctionAnalyzer::new().try_assess(&primary, &secondary),
             Err(ConjunctionAssessmentError::CovarianceFrameMismatch { object: "primary", .. })
         ));
+    }
+
+    #[test]
+    fn checked_assessment_rejects_unknown_covariance_provenance() {
+        let epoch = Utc::now();
+        let mut primary = checked_test_state(25544, epoch);
+        primary.covariance.as_mut().unwrap().source = CovarianceSource::Unknown;
+        let secondary = checked_test_state(12345, epoch);
+        assert_eq!(
+            ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
+            ConjunctionAssessmentError::UnknownCovarianceProvenance { object: "primary" }
+        );
+    }
+
+    #[test]
+    fn checked_assessment_rejects_invalid_covariance_source_metadata() {
+        let epoch = Utc::now();
+        let mut primary = checked_test_state(25544, epoch);
+        primary.covariance.as_mut().unwrap().source =
+            CovarianceSource::Estimated { tle_age_hours: f64::NAN };
+        let secondary = checked_test_state(12345, epoch);
+        assert_eq!(
+            ConjunctionAnalyzer::new().try_assess(&primary, &secondary).unwrap_err(),
+            ConjunctionAssessmentError::InvalidCovarianceProvenance { object: "primary" }
+        );
     }
 
     #[test]
