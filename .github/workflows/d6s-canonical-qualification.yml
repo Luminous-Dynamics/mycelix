@@ -49,6 +49,7 @@ jobs:
         run: |
           changed_file_list="$RUNNER_TEMP/d6s-changed-files.txt"
           : > "$changed_file_list"
+          cp "$changed_file_list" d6s-changed-files.txt
           if [[ "$GITHUB_EVENT_NAME" != "pull_request" ]]; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
             exit 0
