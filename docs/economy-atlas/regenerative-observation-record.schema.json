@@ -14,6 +14,9 @@
     "source",
     "geography",
     "period",
+    "indicator_native_unit_contract",
+    "unit_mapping_note",
+    "denominator_contract_note",
     "native_unit",
     "denominator_definition",
     "observation_status",
@@ -212,6 +215,7 @@
         "version",
         "description",
         "parameters",
+        "output_unit",
         "input_sha256"
       ],
       "properties": {
@@ -242,6 +246,10 @@
         "input_sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
+        },
+        "output_unit": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "additionalProperties": false
@@ -332,6 +340,18 @@
         "not_computable",
         "unknown"
       ]
+    },
+    "indicator_native_unit_contract": {
+      "type": "string",
+      "minLength": 3
+    },
+    "unit_mapping_note": {
+      "type": "string",
+      "minLength": 5
+    },
+    "denominator_contract_note": {
+      "type": "string",
+      "minLength": 5
     }
   },
   "allOf": [
@@ -574,5 +594,6 @@
       }
     }
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {}
 }
