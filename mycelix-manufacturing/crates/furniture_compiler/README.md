@@ -4,7 +4,7 @@ A small Rust-first reference compiler for a bounded modular-desk parameter schem
 
 ## Status and claim boundary
 
-See [QUALIFICATION_PLAN.md](QUALIFICATION_PLAN.md) for the proposed physical-test/evidence gates and current standards references. It is a plan, not a certification or release approval.
+See [QUALIFICATION_PLAN.md](QUALIFICATION_PLAN.md) for the proposed physical-test/evidence gates and current standards references, and [CANONICAL_ENCODING.md](CANONICAL_ENCODING.md) for the exact v2 field order, enum discriminants, binary hash-input encoding, and verifier contract. Both are specifications, not certification or release approval.
 
 This is a prototype reference implementation, not a released furniture design, CAD exporter, nesting engine, structural solver, price calculator, safety certification, or production release authority. The output's release gate is always blocked until the listed engineering, supplier, process, qualification, inspection, and fulfillment evidence is bound to the exact revision.
 
