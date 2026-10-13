@@ -568,13 +568,13 @@ where
     }
 
     for (page, raw_payload) in manifest.pages.iter().zip(raw_page_payloads) {
-        if sha256_raw_bytes(raw_payload) != page.payload_digest {
+        if sha256_raw_bytes(*raw_payload) != page.payload_digest {
             return Err(ExportCompletenessError::RawPagePayloadDigestMismatch {
                 page_ordinal: page.ordinal,
             });
         }
 
-        let decoded = decode_page(raw_payload).ok_or(
+        let decoded = decode_page(*raw_payload).ok_or(
             ExportCompletenessError::RawPagePayloadDecodeFailed {
                 page_ordinal: page.ordinal,
             },
