@@ -32,6 +32,14 @@ Official source: [DHA Annual Performance Plan 2026/27, Digital Identity section,
 
 This makes the safest interpretation more precise: the minister's October 2026 prototype announcement is evidence of prototype progress, but it is not evidence that the production wallet/verifier ecosystem or third-party access contract is ready. Programme targets are plans, not proof of completion. Continue to track official releases and written DHA partner guidance; do not infer interoperability from the existence of PKI or verifiable-credential terminology.
 
+### Historical implementation risk: hosting and PKI governance
+
+A useful historical qualification appears in Parliament's *Announcements, Tablings and Committee Reports*, published 8 May 2026. Its Home Affairs committee assessment of the 2025/26 third-quarter reporting period says the Digital Identity and PKI programme target was not achieved in that period: procurement had been paused while the Department clarified the revised hosting/governance model, including the proposed SARS-based hosting approach and Certificate Authority responsibilities. The assessment says PKI procurement was intended to resume and be recovered in 2026/27.
+
+Source: [Parliament committee report, printed p. 121](https://www.parliament.gov.za/storage/app/media/Docs/atc/01ls62wghipk7yjq7tmng272dk6bqkozmm.pdf).
+
+This is a **historical delivery-risk signal for the 2025/26 reporting period**, not evidence that the October 2026 working prototype did not exist and not proof of the present completion status. It reinforces why Mycelix must not guess at the trust anchor, hosting authority, certificate authority, issuer metadata source, or status endpoints. An eventual partner specification must make the operational owner and trust governance explicit, in addition to describing the credential format.
+
 ## Executable synthetic policy oracle
 
 The machine-readable profile now includes **20** explicit synthetic policy scenarios, including invalid proof, stale credential status, unknown validity time, and unsupported algorithm/profile downgrade, in addition to issuer spoofing, replay, wrong audience, holder binding, expiry/revocation, privacy leakage, and identity-to-authority escalation. `mycelix-identity/sa_did_policy_engine.py` evaluates the inputs with deterministic ordering across consent, alternate access, source availability, profile support, issuer trust, proof, schema, audience, nonce, holder binding, validity, status, receipt privacy and authorization scope.
