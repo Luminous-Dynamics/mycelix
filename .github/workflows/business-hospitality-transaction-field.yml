@@ -17,6 +17,12 @@ on:
 permissions:
   contents: read
 
+# Superseded revisions of one PR/ref must not keep occupying validation slots.
+# Keep groups isolated per PR so one branch cannot cancel another PR's checks.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   business-qualification-stack:
     runs-on: ubuntu-latest
