@@ -119,7 +119,7 @@ impl Song {
         self.audio_url_at(0).unwrap_or_default()
     }
 
-    /// Construct the first supported IPFS gateway URL for the cover art.
+    /// Construct the first explicitly configured gateway URL for the cover art.
     pub fn cover_url(&self) -> Option<String> {
         let cid = self.cover_cid.as_ref()?;
         let manifest = MediaAssetManifestV1::for_ipfs(
