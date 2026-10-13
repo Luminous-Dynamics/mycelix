@@ -229,6 +229,16 @@ grep -Fq 'highWaterMark cannot move backwards' packages/database/prisma/accounti
   || fail "PostgreSQL must reject checkpoint source-cursor rollback"
 grep -Fq 'settlement allocation checkpoint cursor cannot be deleted' packages/database/prisma/accounting-append-only.sql \
   || fail "durable checkpoint cursor must not be deletable"
+grep -Fq 'reject_music_accounting_authority_truncate' packages/database/prisma/accounting-append-only.sql \
+  || fail "checkpoint ledger and cursor must reject TRUNCATE as well as row mutations"
+grep -Fq 'settlement_allocation_checkpoint_cursor_truncate_guard' packages/database/prisma/accounting-append-only.sql \
+  || fail "checkpoint cursor truncate guard missing"
+grep -Fq 'settlement_allocation_checkpoint_evidence_truncate_guard' packages/database/prisma/accounting-append-only.sql \
+  || fail "checkpoint evidence truncate guard missing"
+grep -Fq 'TRUNCATE TABLE "SettlementAllocationLineageCheckpointCursor"' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject cursor truncation"
+grep -Fq 'TRUNCATE TABLE "SettlementAllocationLineageCheckpointRecord"' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject checkpoint evidence truncation"
 grep -Fq 'accounting-checkpoint-cursor.test.ts' packages/database/package.json \
   || fail "checkpoint store replay/rollback tests must run in qualification"
 grep -Fq 'accounting-checkpoint-cursor.integration.ts' packages/database/package.json \
