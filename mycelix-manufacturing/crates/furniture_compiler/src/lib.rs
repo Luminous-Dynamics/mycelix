@@ -227,11 +227,6 @@ pub fn compile(config: DeskConfiguration) -> Result<CompiledPacket, CompileError
         },
     ];
 
-    let design_identity = DesignIdentity {
-        family_id: FAMILY_ID,
-        family_revision: FAMILY_REVISION,
-        configuration: &config,
-    };
     let design_digest = digest_design_identity(FAMILY_ID, FAMILY_REVISION, &config);
     let cut_list_digest = digest_cut_list(&cut_parts);
 
