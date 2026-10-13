@@ -47,6 +47,7 @@ EXPECTED_MATRIX = [
     ("evidence_and_attachment_custody", "civic_evidence_types", "EvidenceOwner"),
     ("rights_affecting_administrative_procedure", "administrative_procedure_owner", "Missing"),
     ("external_city_reference_and_source_currentness", "city_provider_adapter", "Missing"),
+    ("water_specific_channel_interoperability", "city_provider_adapter", "Missing"),
     ("completion_claim_and_independent_verification", "municipal_completion_verifier", "Missing"),
     ("service_level_contract_and_clock", "service_level_registry", "Missing"),
     ("offline_retry_and_idempotency", "external_idempotency_adapter", "Missing"),
@@ -76,6 +77,7 @@ REQUIRED_FLAGS = [
     "support_status_index_currentness_qualified",
     "support_transition_algebra_qualified",
     "support_autonomy_boundary_qualified",
+    "utility_channel_contract_pinned",
 ]
 UNSAFE_FLAGS = [
     "city_reference_used_as_internal_identity",
@@ -95,6 +97,9 @@ UNSAFE_FLAGS = [
     "status_index_assumed_current_after_update",
     "untyped_support_transition_accepted",
     "support_autonomy_boolean_treated_as_civic_authority",
+    "utility_email_treated_as_api_authority",
+    "systemwide_water_bulletin_treated_as_case_resolution",
+    "same_external_reference_across_issuers_treated_as_same_identity",
 ]
 EXPECTED_PROBE_IDS = [
     "city-reference-overpromotion",
@@ -125,6 +130,10 @@ EXPECTED_PROBE_IDS = [
     "support-index-currentness-not-qualified",
     "support-transitions-not-qualified",
     "support-autonomy-boundary-not-qualified",
+    "utility-email-is-not-api-authority",
+    "systemwide-water-status-is-not-case-resolution",
+    "external-reference-is-issuer-channel-scoped",
+    "utility-channel-contract-is-required",
     "all-shadow-preconditions-explicit",
 ]
 
@@ -177,7 +186,7 @@ def validate() -> None:
         "classification_vocabulary", "candidates", "owner_matrix",
         "branch_only_proposals", "source_anchors", "municipal_sla_source_posture",
         "channel_first_pilot_contract", "current_year_budget_book_metrics",
-        "support_civic_adoption_boundary", "decision", "invariants",
+        "support_civic_adoption_boundary", "external_utility_channel_contract", "decision", "invariants",
         "required_gate_flags", "unsafe_flags", "probe_cases", "nonclaims",
     }, "manifest")
     if data["schema"] != "mycelix.civic-resilience.service-request-owner-census.v1":
@@ -261,7 +270,8 @@ def validate() -> None:
         "official_source_index_observed", "adopted_2026_27_water_sla_verified",
         "reporting_clock_status", "2026_27_water_standards_in_budget_book_indexed",
         "current_target_claim_ceiling", "direct_pdf_visual_review_complete",
-        "planned_interruption_metric_semantics",
+        "planned_interruption_metric_semantics", "2026_27_sdbip_listed",
+        "2026_27_sdbip_document_retrieval_status", "current_sdbip_water_metrics_reconciled_to_budget_book",
     }, "municipal SLA source posture")
     if posture["adopted_2026_27_water_sla_bound_into_this_census"] is not False:
         fail("must not assert an adopted 2026/27 SLA without source qualification")
@@ -273,21 +283,31 @@ def validate() -> None:
         fail("the indexed current-year budget source must remain recorded")
     if posture["direct_pdf_visual_review_complete"] is not False:
         fail("the direct PDF review ceiling must remain explicit")
-    if posture["current_target_claim_ceiling"] != "IndexedTargetReferencePendingDirectPdfReviewAndClockSemantics":
+    if posture["current_target_claim_ceiling"] != "OfficialBudgetBookTextObservedPendingVisualReviewAdoptionAndClockSemantics":
         fail("current-target claim ceiling drift")
+    if posture["2026_27_sdbip_listed"] is not True:
+        fail("the officially indexed 2026/27 SDBIP link must remain recorded")
+    if posture["2026_27_sdbip_document_retrieval_status"] != "OfficialIndexLinkObserved;PdfTextExtractionTimedOut":
+        fail("do not claim the SDBIP PDF was inspected when extraction timed out")
+    if posture["current_sdbip_water_metrics_reconciled_to_budget_book"] is not False:
+        fail("do not claim SDBIP/budget metrics are reconciled without source review")
     if posture["reporting_clock_status"] != "NotEvaluableUntilCurrentAdoptedTargetAndClockSemanticsArePinned":
         fail("SLA reporting must remain not-evaluable until source and clock semantics are qualified")
 
     book = data["current_year_budget_book_metrics"]
     exact_keys(book, {
         "source_id", "source_url", "source_section", "source_page", "effective_period",
-        "extraction_status", "direct_pdf_visual_review_complete",
-        "production_threshold_use_authorized", "metrics", "historical_comparison",
+        "extraction_status", "direct_pdf_text_review_complete", "direct_pdf_visual_review_complete",
+        "visual_review_attempt", "production_threshold_use_authorized", "metrics", "historical_comparison",
     }, "current-year budget-book metrics")
     if book["source_id"] != "COJ_FINAL_MEDIUM_TERM_BUDGET_2026_27_2028_29" or book["source_url"] != "https://joburg.org.za/documents_/Documents/2026-27-Final-Medium-Budget-Reports/2026-27-FINAL-BUDGET-BOOK.pdf":
         fail("budget book source identity mismatch")
     if book["source_page"] != 125 or book["direct_pdf_visual_review_complete"] is not False:
         fail("budget book page/review status drift")
+    if book["extraction_status"] != "OfficialPdfTextLayerFromDocumentViewer" or book["direct_pdf_text_review_complete"] is not True:
+        fail("direct text-layer source review must be recorded accurately")
+    if not isinstance(book["visual_review_attempt"], str) or "TimeoutError" not in book["visual_review_attempt"]:
+        fail("visual-review timeout and limitation must remain explicit")
     if book["production_threshold_use_authorized"] is not False:
         fail("indexed thresholds must not be used as qualified production gates")
     expected_metrics = [
@@ -320,6 +340,85 @@ def validate() -> None:
     source_anchors = {item.get("id"): item.get("url") for item in data["source_anchors"] if isinstance(item, dict)}
     if source_anchors.get("COJ_FINAL_MEDIUM_TERM_BUDGET_2026_27_2028_29") != book["source_url"]:
         fail("current-year budget-book source anchor missing or mismatched")
+    if source_anchors.get("COJ_SDBIP_2026_27") != "https://joburg.org.za/documents_/Documents/2026-27_SDBIP.pdf":
+        fail("official-index-listed 2026/27 SDBIP source anchor missing")
+    if source_anchors.get("JOHANNESBURG_WATER_PUBLIC_CHANNELS") != "https://www.johannesburgwater.co.za/":
+        fail("Johannesburg Water public channel source anchor missing")
+
+    utility_channels = data["external_utility_channel_contract"]
+    exact_keys(utility_channels, {
+        "schema", "source_id", "source_url", "source_observation_status",
+        "documented_claims", "channel_records", "reference_key_components",
+        "reference_namespace_collision_policy", "system_status_update_policy",
+        "utility_fault_email_address", "utility_fault_email_scope",
+        "resident_companion_mode_only", "automatic_submission_authorized",
+        "provider_api_contract_identified", "provider_acceptance_proof",
+        "per_case_currentness_qualified", "completion_verification_qualified",
+        "production_side_effects_authorized", "status",
+    }, "external utility channel contract")
+    if (utility_channels["schema"], utility_channels["source_id"], utility_channels["source_url"]) != (
+        "mycelix.civic-resilience.utility-channel-boundary.v1",
+        "JOHANNESBURG_WATER_PUBLIC_CUSTOMER_CHANNELS",
+        "https://www.johannesburgwater.co.za/",
+    ):
+        fail("Johannesburg Water public channel source identity mismatch")
+    if utility_channels["source_observation_status"] != "OfficialWebsiteObserved":
+        fail("public utility channel observation status drift")
+    if utility_channels["reference_key_components"] != ["issuer_id", "channel_id", "external_reference"]:
+        fail("external references must be issuer- and channel-namespaced")
+    if utility_channels["utility_fault_email_address"] != "fault@jwater.co.za" or utility_channels["utility_fault_email_scope"] != "Water-related incidents only, as stated by the published site":
+        fail("water incident channel scope drift")
+    for key in (
+        "resident_companion_mode_only", "provider_api_contract_identified",
+        "automatic_submission_authorized", "provider_acceptance_proof",
+        "per_case_currentness_qualified", "completion_verification_qualified",
+        "production_side_effects_authorized",
+    ):
+        expected = key == "resident_companion_mode_only"
+        if utility_channels[key] is not expected:
+            fail(f"unsafe utility channel authority value: {key}")
+    if utility_channels["status"] != "PubliclyDocumentedChannelsOnly;NoAPIOrPerIssueReadbackQualified":
+        fail("utility channel claim ceiling drift")
+    expected_claims = [
+        ("water_fault_email", "ResidentFacingChannelInstruction"),
+        ("daily_water_status_bulletin", "UtilityWideStatusBulletin"),
+        ("water_call_centre", "ResidentFacingContactChannel"),
+    ]
+    claims = []
+    for claim in utility_channels["documented_claims"]:
+        exact_keys(claim, {"claim_id", "published_fact", "fact_kind"}, "utility source claim")
+        claims.append((claim["claim_id"], claim["fact_kind"]))
+    if claims != expected_claims:
+        fail("documented water channel claim census drift")
+    expected_channel_ids = [
+        ("CityOfJohannesburg", "JoburgConnect"),
+        ("JohannesburgWaterSOC", "water_fault_email"),
+        ("JohannesburgWaterSOC", "daily_water_status_bulletin"),
+    ]
+    channel_ids = []
+    for channel in utility_channels["channel_records"]:
+        exact_keys(channel, {
+            "issuer_id", "channel_id", "reference_semantics",
+            "resident_facing_channel_published", "automated_mycelix_access_authorized",
+            "per_case_status_readback_qualified", "physical_repair_evidence_qualified",
+        }, "utility channel record")
+        channel_ids.append((channel["issuer_id"], channel["channel_id"]))
+        if channel["resident_facing_channel_published"] is not True:
+            fail("listed resident channel must remain source-backed")
+        for key in (
+            "automated_mycelix_access_authorized", "per_case_status_readback_qualified",
+            "physical_repair_evidence_qualified",
+        ):
+            if channel[key] is not False:
+                fail(f"{channel['channel_id']}: unsafe authority/currentness assertion")
+    if channel_ids != expected_channel_ids:
+        fail("utility channel issuer/namespace census drift")
+    if "not an individual ticket status" not in utility_channels["channel_records"][2]["reference_semantics"]:
+        fail("system-wide bulletin must not masquerade as a per-issue reference")
+    if "must not be auto-merged" not in utility_channels["reference_namespace_collision_policy"]:
+        fail("cross-issuer/channel reference collision policy drift")
+    if "cannot set an individual issue to resolved" not in utility_channels["system_status_update_policy"]:
+        fail("system-wide status update must not resolve an individual issue")
 
     pilot = data["channel_first_pilot_contract"]
     exact_keys(pilot, {

@@ -207,6 +207,12 @@
       "decision": "Preserve the City/utility reference as a typed external source reference; do not mint it locally or treat a mirror as current."
     },
     {
+      "concern_id": "water_specific_channel_interoperability",
+      "candidate_id": "city_provider_adapter",
+      "classification": "Missing",
+      "decision": "Johannesburg Water's public incident email/call-centre and system-wide bulletin are distinct resident-facing channels; no machine API or per-case status/repair proof is established."
+    },
+    {
       "concern_id": "completion_claim_and_independent_verification",
       "candidate_id": "municipal_completion_verifier",
       "classification": "Missing",
@@ -363,23 +369,36 @@
     {
       "id": "COJ_FINAL_MEDIUM_TERM_BUDGET_2026_27_2028_29",
       "url": "https://joburg.org.za/documents_/Documents/2026-27-Final-Medium-Budget-Reports/2026-27-FINAL-BUDGET-BOOK.pdf",
-      "purpose": "Final current-period budget book; indexed text of section 2.3.4, page 125, lists Joburg Water service standards. Direct PDF retrieval timed out during this research pass; values are provisional pending direct document review."
+      "purpose": "Official final budget PDF opened through the document viewer; extracted text exposes section 2.3.4 and Joburg Water service standards on printed page 125. The page screenshot timed out, and this does not establish an adopted institutional charter or live case status."
+    },
+    {
+      "id": "COJ_SDBIP_2026_27",
+      "url": "https://joburg.org.za/documents_/Documents/2026-27_SDBIP.pdf",
+      "purpose": "The official City index links a 2026/27 SDBIP PDF. Opening the linked PDF timed out in this pass; its metrics have not been reconciled against the budget-book table."
+    },
+    {
+      "id": "JOHANNESBURG_WATER_PUBLIC_CHANNELS",
+      "url": "https://www.johannesburgwater.co.za/",
+      "purpose": "Official Johannesburg Water website lists water-incident fault email/contact channels and a daily water-supply system status update; these are public channel/bulletin references, not an API grant, per-case readback, or repair proof."
     }
   ],
   "municipal_sla_source_posture": {
     "latest_city_service_level_charter_listed_by_official_index": "2025/26 Institutional Service Level Standards Charter",
     "current_planning_documents_listed": "2026/27 IDP, SDBIP, final IDP, final Medium-Term Budget 2026/27–2028/29 and business plans",
     "adopted_2026_27_water_sla_bound_into_this_census": false,
-    "rule": "Use the 2026/27 final budget book as a current-year service-standard source candidate. Keep the 2025/26 charter metrics separate; verify exact source text, scope, clock semantics and effective period before qualifying compliance reporting.",
+    "rule": "The official budget-book PDF text layer has been directly observed, but visual review, reconciliation against the separately listed 2026/27 SDBIP, confirmation of the currently adopted institutional target, and exact clock semantics remain open. Preserve 2025/26 charter targets separately; do not infer production SLA compliance.",
     "service_level_standards_unit": "https://joburg.org.za/departments_/Pages/City%20directorates%20including%20departmental%20sub-directorates/Service-Level-Standards-Unit-.aspx",
     "2026_27_service_level_standards_charter_listed": false,
     "official_source_index_observed": "2026/27 SDBIP and final IDP listed; 2025/2026 Institutional Service Level Standards Charter is the latest charter shown in the inspected index.",
     "adopted_2026_27_water_sla_verified": false,
     "reporting_clock_status": "NotEvaluableUntilCurrentAdoptedTargetAndClockSemanticsArePinned",
     "2026_27_water_standards_in_budget_book_indexed": true,
-    "current_target_claim_ceiling": "IndexedTargetReferencePendingDirectPdfReviewAndClockSemantics",
+    "current_target_claim_ceiling": "OfficialBudgetBookTextObservedPendingVisualReviewAdoptionAndClockSemantics",
     "direct_pdf_visual_review_complete": false,
-    "planned_interruption_metric_semantics": "Planned water supply interruptions; prescribed timeline is mentioned but duration is not stated in indexed row."
+    "planned_interruption_metric_semantics": "Planned water supply interruptions; prescribed timeline is mentioned but duration is not stated in indexed row.",
+    "2026_27_sdbip_listed": true,
+    "2026_27_sdbip_document_retrieval_status": "OfficialIndexLinkObserved;PdfTextExtractionTimedOut",
+    "current_sdbip_water_metrics_reconciled_to_budget_book": false
   },
   "decision": {
     "direction": "NoNewServiceIssueOwner;ExternalSourceAdapterOnlyAfterGates",
@@ -447,7 +466,8 @@
     "support_immutable_field_rules_qualified",
     "support_status_index_currentness_qualified",
     "support_transition_algebra_qualified",
-    "support_autonomy_boundary_qualified"
+    "support_autonomy_boundary_qualified",
+    "utility_channel_contract_pinned"
   ],
   "unsafe_flags": [
     "city_reference_used_as_internal_identity",
@@ -466,7 +486,10 @@
     "whole_ticket_replacement_treated_as_civic_safe",
     "status_index_assumed_current_after_update",
     "untyped_support_transition_accepted",
-    "support_autonomy_boolean_treated_as_civic_authority"
+    "support_autonomy_boolean_treated_as_civic_authority",
+    "utility_email_treated_as_api_authority",
+    "systemwide_water_bulletin_treated_as_case_resolution",
+    "same_external_reference_across_issuers_treated_as_same_identity"
   ],
   "probe_cases": [
     {
@@ -511,7 +534,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -557,7 +584,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -603,7 +634,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -649,7 +684,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -695,7 +734,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -741,7 +784,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -787,7 +834,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -833,7 +884,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -879,7 +934,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -925,7 +984,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -971,7 +1034,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1017,7 +1084,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1063,7 +1134,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1109,7 +1184,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1155,7 +1234,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1201,7 +1284,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1247,7 +1334,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1293,7 +1384,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1339,7 +1434,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1385,7 +1484,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1431,7 +1534,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": true,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1477,7 +1584,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": true,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1523,7 +1634,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": true,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1569,7 +1684,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": true
+        "support_autonomy_boolean_treated_as_civic_authority": true,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1615,7 +1734,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1661,7 +1784,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1707,7 +1834,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1753,7 +1884,211 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
+      },
+      "expected_disposition": "UNRESOLVED"
+    },
+    {
+      "case_id": "utility-email-is-not-api-authority",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": true,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "systemwide-water-status-is-not-case-resolution",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": true,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "external-reference-is-issuer-channel-scoped",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": true
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "utility-channel-contract-is-required",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": false,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1799,7 +2134,11 @@
         "whole_ticket_replacement_treated_as_civic_safe": false,
         "status_index_assumed_current_after_update": false,
         "untyped_support_transition_accepted": false,
-        "support_autonomy_boolean_treated_as_civic_authority": false
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false
       },
       "expected_disposition": "ADVISORY_SHADOW_ELIGIBLE"
     }
@@ -1839,7 +2178,7 @@
     "source_section": "2.3.4 Service Standards",
     "source_page": 125,
     "effective_period": "2026/27 within Medium-Term Budget 2026/27–2028/29",
-    "extraction_status": "OfficialSearchIndexText; directPDFFetchTimedOut",
+    "extraction_status": "OfficialPdfTextLayerFromDocumentViewer",
     "direct_pdf_visual_review_complete": false,
     "production_threshold_use_authorized": false,
     "metrics": [
@@ -1925,7 +2264,9 @@
       "window_hours": 12,
       "comparability": "NotEquivalentTo2026_27PlannedInterruptionMetric",
       "direct_pdf_visual_review_complete": false
-    }
+    },
+    "direct_pdf_text_review_complete": true,
+    "visual_review_attempt": "Screenshot of printed page 125 / viewer page index 124 returned TimeoutError; no visual table inspection is claimed."
   },
   "support_civic_adoption_boundary": {
     "status": "BlockedPendingExactHeadQualifiedRepair",
@@ -1977,5 +2318,74 @@
     "typed_transition_algebra_qualified": false,
     "autonomy_authority_boundary_qualified": false,
     "permitted_use": "Read-only investigation of Support records only; no Civic mutation and no designation as canonical municipal service state."
+  },
+  "external_utility_channel_contract": {
+    "schema": "mycelix.civic-resilience.utility-channel-boundary.v1",
+    "source_id": "JOHANNESBURG_WATER_PUBLIC_CUSTOMER_CHANNELS",
+    "source_url": "https://www.johannesburgwater.co.za/",
+    "source_observation_status": "OfficialWebsiteObserved",
+    "documented_claims": [
+      {
+        "claim_id": "water_fault_email",
+        "published_fact": "The website lists fault@jwater.co.za for logging water-related incidents only.",
+        "fact_kind": "ResidentFacingChannelInstruction"
+      },
+      {
+        "claim_id": "daily_water_status_bulletin",
+        "published_fact": "The website links to a Daily water supply system status update.",
+        "fact_kind": "UtilityWideStatusBulletin"
+      },
+      {
+        "claim_id": "water_call_centre",
+        "published_fact": "The website lists call-centre numbers +27 (0) 10 061 4470 and +27 (0) 86 056 2874.",
+        "fact_kind": "ResidentFacingContactChannel"
+      }
+    ],
+    "channel_records": [
+      {
+        "issuer_id": "CityOfJohannesburg",
+        "channel_id": "JoburgConnect",
+        "reference_semantics": "City query logging and follow-up reference",
+        "resident_facing_channel_published": true,
+        "automated_mycelix_access_authorized": false,
+        "per_case_status_readback_qualified": false,
+        "physical_repair_evidence_qualified": false
+      },
+      {
+        "issuer_id": "JohannesburgWaterSOC",
+        "channel_id": "water_fault_email",
+        "reference_semantics": "Water-related incident email only; any returned provider reference must be observed from the actual exchange, not invented",
+        "resident_facing_channel_published": true,
+        "automated_mycelix_access_authorized": false,
+        "per_case_status_readback_qualified": false,
+        "physical_repair_evidence_qualified": false
+      },
+      {
+        "issuer_id": "JohannesburgWaterSOC",
+        "channel_id": "daily_water_status_bulletin",
+        "reference_semantics": "Utility-wide status bulletin; not an individual ticket status or reference",
+        "resident_facing_channel_published": true,
+        "automated_mycelix_access_authorized": false,
+        "per_case_status_readback_qualified": false,
+        "physical_repair_evidence_qualified": false
+      }
+    ],
+    "reference_key_components": [
+      "issuer_id",
+      "channel_id",
+      "external_reference"
+    ],
+    "reference_namespace_collision_policy": "A different issuer or channel defines a distinct namespace; equal opaque reference strings must not be auto-merged.",
+    "system_status_update_policy": "Capture as a source-tagged, time-stamped utility-wide observation only; it cannot set an individual issue to resolved without explicit case linkage and a separate verification predicate.",
+    "utility_fault_email_address": "fault@jwater.co.za",
+    "utility_fault_email_scope": "Water-related incidents only, as stated by the published site",
+    "resident_companion_mode_only": true,
+    "automatic_submission_authorized": false,
+    "provider_api_contract_identified": false,
+    "provider_acceptance_proof": false,
+    "per_case_currentness_qualified": false,
+    "completion_verification_qualified": false,
+    "production_side_effects_authorized": false,
+    "status": "PubliclyDocumentedChannelsOnly;NoAPIOrPerIssueReadbackQualified"
   }
 }

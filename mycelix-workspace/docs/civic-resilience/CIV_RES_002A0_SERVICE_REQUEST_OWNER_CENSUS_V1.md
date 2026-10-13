@@ -80,9 +80,9 @@ A referenced branch, successful local check, queued workflow or synthetic fixtur
 
 ## Johannesburg source and SLA posture
 
-The official index lists the separately named Institutional Service Level Standards Charter for 2025/26. Separately, the indexed text for the City's **final Medium-Term Budget 2026/27–2028/29**, section 2.3.4 (page 125), contains a Joburg Water service-standards table. This is a relevant current-year source candidate, not a reason to carry forward a prior-year metric unchanged.
+The official index lists the separately named Institutional Service Level Standards Charter for 2025/26 and also lists a 2026/27 SDBIP PDF. Opening the City's **final Medium-Term Budget 2026/27–2028/29** PDF in the document viewer exposed a text layer for section 2.3.4 (printed page 125), including a Joburg Water service-standards table. The screenshot request for that page timed out, and the linked SDBIP PDF also timed out when opened in this pass. The current-year budget text is therefore directly observed, but the table has not been visually reviewed or reconciled against the SDBIP/charter.
 
-The indexed text lists these Joburg Water service standards for 2026/27:
+The extracted text layer of the opened official budget-book PDF lists these Joburg Water service standards for 2026/27:
 | Metric | Target shown in indexed text | Clock / scope shown |
 |---|---:|---|
 | Planned water supply interruptions concluded within prescribed timeline of notification | 50% | Duration of the prescribed timeline is not stated in the extracted row; do not convert to 12 hours |
@@ -96,11 +96,13 @@ The indexed text lists these Joburg Water service standards for 2026/27:
 
 The 2025/26 charter separately states that 90% of water-supply interruptions should be concluded within 12 hours. That is **not the same metric text** as the 2026/27 planned-interruption measure. Preserve both with their source year and exact definitions; do not silently reinterpret one as the other.
 
-**Evidence limitation:** the official budget-book search index exposes the table text, but direct PDF retrieval timed out in this research pass, so the current-year row values are source-backed provisional references pending direct-document review. The table does not establish live status for any particular service issue. Before calculating compliance, bind the source/version, metric definition, effective dates, clock start/stop/pause rules, denominator, exclusions and reopen treatment. For the planned-interruption metric, the exact prescribed duration remains unresolved.
+**Evidence limitation:** the official budget-book PDF opened and its extracted text layer exposed section 2.3.4 and the Joburg Water rows on printed page 125. The screenshot/visual-review operation timed out, so no visual-table inspection is claimed. The current-year rows remain provisional for operational use pending visual review, reconciliation against the separately listed 2026/27 SDBIP, confirmation of the currently adopted target, and exact clock semantics. The table is not live data for any individual service issue. Before calculating compliance, bind the source/version, metric definition, effective dates, clock start/stop/pause rules, denominator, exclusions and reopen treatment. For the planned-interruption metric, the exact prescribed duration remains unresolved.
 
 Official source anchors:
 - City SDBIP / IDP / service standards index: https://joburg.org.za/documents_/Pages/Key%20Documents/SDBIP%20IDP%20and%20Budget/SDBIP-IDP-And-Budget.aspx
-- Final Medium-Term Budget 2026/27–2028/29, indexed service standards table: https://joburg.org.za/documents_/Documents/2026-27-Final-Medium-Budget-Reports/2026-27-FINAL-BUDGET-BOOK.pdf
+- Final Medium-Term Budget 2026/27–2028/29, section 2.3.4 text layer (printed page 125; screenshot review timed out): https://joburg.org.za/documents_/Documents/2026-27-Final-Medium-Budget-Reports/2026-27-FINAL-BUDGET-BOOK.pdf
+- Official-index-listed 2026/27 SDBIP PDF (opening timed out; not reconciled in this pass): https://joburg.org.za/documents_/Documents/2026-27_SDBIP.pdf
+- Johannesburg Water customer-facing channel page (water incident email and daily system-status update): https://www.johannesburgwater.co.za/
 - 2025/26 Institutional Service Level Standards Charter: https://joburg.org.za/documents_/Documents/2025-2026-Institutional-Service-Level-Standards-Charter/Institutional-Service-Standards-Charter-2025-26.pdf
 - Joburg Connect channel information: https://joburg.org.za/services_/JoburgCares/Pages/call-centre.aspx
 - City eServices "Report a city problem": https://edit.eservices.joburg.org.za/Pages/Reportacityproblem.aspx
@@ -109,6 +111,22 @@ Official source anchors:
 - POPIA Act 4 of 2013: https://www.justice.gov.za/legislation/acts/2013-004.pdf
 
 These sources provide context only; none grants Mycelix API access, procurement approval, institutional authority or a lawful basis for a specific processing operation. The legal/privacy fields are review triggers, not legal conclusions.
+
+## Joburg Water channels are not a unified provider API
+
+The official [Johannesburg Water website](https://www.johannesburgwater.co.za/) lists a customer fault-logging email, `fault@jwater.co.za`, expressly for water-related incidents only; it also lists a call centre and a “Daily water supply system status update”. This is useful evidence of published resident-facing channels. It is **not** an API contract, proof that Mycelix may submit automatically, per-case status readback, or evidence that any repair occurred.
+
+Treat these as different source identities:
+
+| Issuer | Channel | What it can safely mean in the companion |
+|---|---|---|
+| City of Johannesburg | Joburg Connect / City eServices | A City query/reference and its follow-up history |
+| Johannesburg Water SOC | Water-incident email or utility call centre | A separate water-provider interaction; record a reference only if the provider actually returns one |
+| Johannesburg Water SOC | Daily water-supply status bulletin | A time-stamped, source-tagged system-wide observation, not an individual ticket status |
+
+The external reference key must include `issuer_id + channel_id + provider_reference`. Equal reference strings from different issuers/channels must not be auto-merged. If an email interaction returns no provider reference, do not invent one; retain an explicitly unreferenced interaction and require manual matching for a later follow-up. A system-wide bulletin may inform context only; it cannot close a resident's case, prove a specific property's supply was restored, or satisfy completion verification without case linkage and an independent predicate.
+
+The companion may explain published channels and let residents initiate contact themselves. This census authorizes no automated email, API call, or City/utility write. Provider currentness, per-case acceptance, and physical repair remain unqualified.
 
 ## Channel-first pilot shape (new finding)
 
@@ -121,7 +139,7 @@ The safe first user journey is a **resident-controlled companion**, not an auton
 3. Record each follow-up as an append-only local timeline event. Reusing the same issuer + source reference follows up the existing external issue; it must not silently submit a new issue. A new source reference is a separate source record; possible relations to other reports are explicit links, not automatic merges.
 4. Keep the raw reference and resident notes in private local/protected storage, never a public DHT or public receipt. Do not collect national ID, account numbers, exact addresses or photos by default.
 5. Label status supplied by a resident as resident-reported, with an observation time. Without authorised source readback it is not authoritative currentness.
-6. Do not calculate an SLA breach until the effective target, exact metric definition and start/stop/pause rules are pinned. The indexed 2026/27 budget-book table is a candidate current-year source, but its planned-interruption metric must not be relabelled as a 12-hour general-interruption target; direct PDF review remains pending.
+6. Do not calculate an SLA breach until the effective target, exact metric definition and start/stop/pause rules are pinned. The 2026/27 budget-book PDF text layer is observed, but visual review, reconciliation against the listed SDBIP/charter and clock semantics remain pending; its planned-interruption metric must not be relabelled as a 12-hour general-interruption target.
 
 This creates useful value without assuming a City API, writing to City systems, or duplicating official intake. Because the City also documents offline/manual references, external reference identity must include issuer and channel; a bare reference string is not a safe global identifier.
 
@@ -149,6 +167,7 @@ The next implementation tranche must remain blocked until:
 - Public/distributed receipts must not contain raw resident identifiers or precise protected locations.
 - Symthaea is advisory only; no AI-only denial, disconnection, benefit, licensing or other rights-affecting decision.
 - An attestation proves a bounded statement about provenance; it is not a truth oracle.
+- A utility-wide water-status bulletin is not per-case status readback or physical-repair evidence.
 - Existing municipal channels remain available; no new app is required for the census to be useful.
 
 ## Evidence ceiling
