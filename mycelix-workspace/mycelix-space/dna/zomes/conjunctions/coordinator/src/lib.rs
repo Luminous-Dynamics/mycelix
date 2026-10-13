@@ -12,7 +12,7 @@ use mycelix_space_shared::{
     AlertPriority, AlertType, ConjunctionAlert, ConjunctionAssessment, ConjunctionDataMessage,
     ManeuverAlert, ManeuverType as SharedManeuverType, PaginatedResponse, PaginationParams,
     QualityScore, ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp,
-    StalenessAwareAssessment, StalenessConfig, TleWithMetadata, compute_staleness,
+    StalenessAwareAssessment, StalenessConfig, TleWithMetadata,
     gate_space_operation, requirement_for_conjunction_creation, requirement_for_negotiation,
     requirement_for_risk_update, validate_staleness_config,
 };
@@ -915,33 +915,36 @@ pub fn screen_conjunction_with_staleness(
     // Enrich with staleness metadata
     let primary_staleness = primary_meta.staleness.clone();
 
-    Ok(assessments
+    assessments
         .into_iter()
         .map(|assessment| {
             let secondary_staleness = meta_map
                 .get(&assessment.secondary_norad_id)
-                .map(|m| m.staleness.clone())
-                .unwrap_or_else(|| {
-                    // Fallback: unknown staleness (shouldn't happen)
-                    compute_staleness(
-                        &SpaceTimestamp { micros: 0 },
-                        &QualityScore::new(0),
-                        &input.staleness_config,
+                .map(|metadata| metadata.staleness.clone())
+                .ok_or_else(|| {
+                    SpaceError::new(
+                        SpaceErrorCode::NotFound,
+                        format!(
+                            "Screening result references secondary object {} without matching TLE metadata; screening batch incomplete",
+                            assessment.secondary_norad_id
+                        ),
                     )
-                });
+                    .with_context(format!("norad_id: {}", assessment.secondary_norad_id))
+                    .into_wasm_error()
+                })?;
 
             let combined_confidence = primary_staleness.confidence * secondary_staleness.confidence;
             let has_stale_data = primary_staleness.is_stale || secondary_staleness.is_stale;
 
-            StalenessAwareAssessment {
+            Ok(StalenessAwareAssessment {
                 assessment,
                 primary_staleness: primary_staleness.clone(),
                 secondary_staleness,
                 combined_confidence,
                 has_stale_data,
-            }
+            })
         })
-        .collect())
+        .collect()
 }
 
 /// Mirror of orbital_objects GetTlesWithMetadataInput for cross-zome serialization
