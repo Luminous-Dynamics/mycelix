@@ -75,7 +75,7 @@ CREATE OR REPLACE FUNCTION unique_sha256_json_array(value jsonb)
 RETURNS boolean
 LANGUAGE plpgsql
 IMMUTABLE
-AS $
+AS $$
 DECLARE
   element jsonb;
   current_value text;
@@ -298,7 +298,7 @@ FOR EACH ROW EXECUTE FUNCTION reject_music_accounting_authority_mutation();
   END LOOP;
   RETURN true;
 END;
-$;
+$$;
 
 ALTER TABLE "SettlementAllocationLineageCheckpointRecord"
   DROP CONSTRAINT IF EXISTS settlement_allocation_checkpoint_canonical_shape;
@@ -1341,7 +1341,7 @@ FOR EACH ROW EXECUTE FUNCTION reject_music_accounting_authority_mutation();
 CREATE OR REPLACE FUNCTION guard_settlement_allocation_checkpoint_cursor()
 RETURNS trigger
 LANGUAGE plpgsql
-AS $
+AS $$
 DECLARE
   evidence "SettlementAllocationLineageCheckpointRecord"%ROWTYPE;
 BEGIN
@@ -1610,7 +1610,7 @@ FOR EACH ROW EXECUTE FUNCTION reject_music_accounting_authority_mutation();
 
   RETURN NEW;
 END;
-$;
+$$;
 
 DROP TRIGGER IF EXISTS settlement_allocation_checkpoint_cursor_guard
   ON "SettlementAllocationLineageCheckpointCursor";
