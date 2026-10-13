@@ -253,16 +253,30 @@ pub fn next_candidate_index(current_index: usize, candidate_count: usize) -> Opt
         .filter(|next_index| *next_index < candidate_count)
 }
 
-/// Conservative path-component validation, not a substitute for decoding a
-/// CID using a canonical IPFS library. It prevents a catalog string from
-/// escaping the single path component used in the generated gateway URL.
+/// Validate the text envelope of common IPFS CID encodings before using it
+/// as a single URL path component. This accepts CIDv0 Base58BTC text and
+/// CIDv1 lowercase Base32 text. It deliberately does not decode the CID
+/// structure or verify the multihash; a canonical CID library and verified
+/// block/CAR retrieval are required for cryptographic content verification.
 fn validate_cid_path_component(cid: &str) -> Result<(), DeliveryPlanError> {
-    if cid.is_empty()
-        || cid.len() > 256
-        || !cid.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_'
-        })
-    {
+    const BASE58_BTC: &[u8] =
+        b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+    let cid_v0_base58btc = cid.len() == 46
+        && cid.starts_with("Qm")
+        && cid.bytes().all(|byte| BASE58_BTC.contains(&byte));
+
+    // CIDv1's lowercase base32 multibase prefix is 'b'. The smallest common
+    // well-known CID text form, bafkqaaa, is eight characters.
+    let cid_v1_base32 = cid.len() >= 8
+        && cid.len() <= 256
+        && cid.starts_with('b')
+        && cid
+            .bytes()
+            .skip(1)
+            .all(|byte| byte.is_ascii_lowercase() || (b'2'..=b'7').contains(&byte));
+
+    if !cid_v0_base58btc && !cid_v1_base32 {
         return Err(DeliveryPlanError::InvalidContentAddress);
     }
 
@@ -356,13 +370,40 @@ mod tests {
     }
 
     #[test]
-    fn accepts_legacy_style_cid_as_a_safe_path_component() {
+    fn accepts_cidv0_base58btc_text_form() {
         let candidates = delivery_candidates(&manifest(
             "QmYwAPJzv5CZsnAzt8auVTLk5c5k8m7E2d8kqv7s8W9Z2x",
         ))
         .unwrap();
 
         assert_eq!(candidates.len(), 2);
+    }
+
+    #[test]
+    fn accepts_short_well_known_cidv1_base32_text_form() {
+        let candidates = delivery_candidates(&manifest("bafkqaaa")).unwrap();
+
+        assert_eq!(candidates.len(), 2);
+    }
+
+    #[test]
+    fn rejects_non_cid_words_and_invalid_text_encodings() {
+        for cid in [
+            "hello",
+            "not-a-cid",
+            "bafy",             // too short to be a CID text form
+            "bafyabc0",         // base32 excludes 0 and 1
+            "bafyabc1",
+            "Qmshort",
+            "Qm00000000000000000000000000000000000000000000", // Base58BTC excludes 0
+            "zQmYwAPJzv5CZsnAzt8auVTLk5c5k8m7E2d8kqv7s8W9Z2x", // unsupported multibase here
+        ] {
+            assert_eq!(
+                delivery_candidates(&manifest(cid)).unwrap_err(),
+                DeliveryPlanError::InvalidContentAddress,
+                "expected rejection for {cid:?}"
+            );
+        }
     }
 
     #[test]
