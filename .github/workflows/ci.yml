@@ -192,7 +192,7 @@ jobs:
             echo "checked_out_sha=$(git rev-parse HEAD)"
             echo "rust=$(rustc --version 2>&1 || true)"
             echo "cargo=$(cargo --version 2>&1 || true)"
-            echo "test_status_from_step=see test-output.txt and workflow result"
+            echo "test_status_from_step=see furniture-test-output.txt and workflow result"
           } > /tmp/furniture-evidence/qualification-record.txt
           for file in /tmp/furniture-test-output.txt /tmp/furniture-packet-a.json /tmp/furniture-packet-b.json /tmp/furniture-verification.json /tmp/furniture-packet-tampered.json; do
             if [ -f "$file" ]; then cp "$file" /tmp/furniture-evidence/; fi
