@@ -64,7 +64,7 @@ pub struct SettlementBatch {
     pub total_amount: u64,
     /// Play record hashes included
     pub play_hashes: Vec<ActionHash>,
-    /// Merkle root of play hashes (for efficient verification)
+    /// Merkle root of play hashes in canonical raw-action-hash order (for efficient verification)
     pub merkle_root: Vec<u8>,
     /// When this batch was created
     pub created_at: Timestamp,
@@ -528,7 +528,7 @@ mod tests {
     use hdi::prelude::ActionHash;
 
     fn test_action_hash(seed: u8) -> ActionHash {
-        ActionHash::from_raw_36(vec![seed; 36])
+        ActionHash::from_raw_32(vec![seed; 32])
     }
 
     #[test]
