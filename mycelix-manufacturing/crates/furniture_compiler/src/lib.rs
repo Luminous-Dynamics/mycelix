@@ -1,0 +1,498 @@
+//! Deterministic, prototype-only compiler for a bounded modular desk family.
+//!
+//! This crate turns explicitly bounded dimensions/material/finish parameters into a
+//! stable BOM-like cut-part list and candidate process steps. It is NOT CAD, a
+//! nesting optimizer, structural analysis, product qualification, or a production
+//! release authority. Every emitted packet is marked release-ineligible.
+
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::io::Read;
+
+pub const INPUT_SCHEMA_VERSION: &str = "furniture-desk-input-v1";
+pub const PACKET_SCHEMA_VERSION: &str = "furniture-compiler-packet-v1";
+pub const SERIALIZATION_PROFILE: &str = "serde-json-struct-order-v1";
+pub const MAX_INPUT_BYTES: usize = 64 * 1024;
+
+const FAMILY_ID: &str = "modular_desk_prototype";
+const FAMILY_REVISION: u32 = 1;
+const PANEL_THICKNESS_MM: u32 = 18;
+const REAR_APRON_HEIGHT_MM: u32 = 100;
+
+/// Restrict input to known fields and enums. Dimensions use integer millimetres.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeskConfiguration {
+    pub schema_version: String,
+    pub width_mm: u32,
+    pub depth_mm: u32,
+    pub height_mm: u32,
+    pub panel_thickness_mm: u32,
+    pub material_id: MaterialId,
+    pub finish_id: FinishId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MaterialId {
+    BirchPlywood,
+    MelamineMdf,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FinishId {
+    ClearCoat,
+    WhiteMelamine,
+    BlackMelamine,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CutPart {
+    /// Stable semantic identifier, not a supplier SKU.
+    pub part_id: String,
+    pub quantity: u32,
+    /// Local part axes in millimetres; length is the intended grain direction.
+    pub length_mm: u32,
+    pub width_mm: u32,
+    pub thickness_mm: u32,
+    pub material_id: MaterialId,
+    pub finish_id: FinishId,
+    pub grain_axis: GrainAxis,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GrainAxis {
+    Length,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CandidateProcessStep {
+    pub sequence: u32,
+    pub operation_code: String,
+    /// This is a proposed process step, not a partner-approved routing.
+    pub requires_partner_mapping: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReleaseGate {
+    pub configuration_bounds_passed: bool,
+    pub release_eligible: bool,
+    pub blockers: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PacketCore {
+    pub packet_schema_version: String,
+    pub serialization_profile: String,
+    pub family_id: String,
+    pub family_revision: u32,
+    pub configuration: DeskConfiguration,
+    pub cut_parts: Vec<CutPart>,
+    pub candidate_process_steps: Vec<CandidateProcessStep>,
+    pub release_gate: ReleaseGate,
+    pub design_digest: String,
+    pub cut_list_digest: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CompiledPacket {
+    pub core: PacketCore,
+    pub packet_digest: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IssueCode {
+    WrongSchemaVersion,
+    WidthOutOfRange,
+    DepthOutOfRange,
+    HeightOutOfRange,
+    UnsupportedThickness,
+    IncompatibleFinish,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValidationIssue {
+    pub code: IssueCode,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CompileError {
+    InputTooLarge,
+    InvalidJson(String),
+    InvalidConfiguration(Vec<ValidationIssue>),
+    Serialization(String),
+}
+
+impl fmt::Display for CompileError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InputTooLarge => write!(f, "input exceeds {MAX_INPUT_BYTES} bytes"),
+            Self::InvalidJson(message) => write!(f, "invalid input JSON: {message}"),
+            Self::InvalidConfiguration(issues) => {
+                write!(f, "configuration rejected ({} issue(s))", issues.len())?;
+                for issue in issues {
+                    write!(f, "; {:?}: {}", issue.code, issue.message)?;
+                }
+                Ok(())
+            }
+            Self::Serialization(message) => write!(f, "serialization failed: {message}"),
+        }
+    }
+}
+
+impl std::error::Error for CompileError {}
+
+#[derive(Serialize)]
+struct DesignIdentity<'a> {
+    family_id: &'static str,
+    family_revision: u32,
+    configuration: &'a DeskConfiguration,
+}
+
+pub fn compile_json(input: &str) -> Result<CompiledPacket, CompileError> {
+    if input.len() > MAX_INPUT_BYTES {
+        return Err(CompileError::InputTooLarge);
+    }
+    let config: DeskConfiguration = serde_json::from_str(input)
+        .map_err(|error| CompileError::InvalidJson(error.to_string()))?;
+    compile(config)
+}
+
+pub fn compile(config: DeskConfiguration) -> Result<CompiledPacket, CompileError> {
+    let issues = validate(&config);
+    if !issues.is_empty() {
+        return Err(CompileError::InvalidConfiguration(issues));
+    }
+
+    // This output describes panel envelopes only. It intentionally does not invent
+    // joints, drilling coordinates, tolerances, a hardware bill, or load ratings.
+    let side_height_mm = config.height_mm - config.panel_thickness_mm;
+    let apron_length_mm = config.width_mm - (2 * config.panel_thickness_mm);
+    let mut cut_parts = vec![
+        CutPart {
+            part_id: "desk_top".to_owned(),
+            quantity: 1,
+            length_mm: config.width_mm,
+            width_mm: config.depth_mm,
+            thickness_mm: config.panel_thickness_mm,
+            material_id: config.material_id,
+            finish_id: config.finish_id,
+            grain_axis: GrainAxis::Length,
+        },
+        CutPart {
+            part_id: "side_panel".to_owned(),
+            quantity: 2,
+            length_mm: side_height_mm,
+            width_mm: config.depth_mm,
+            thickness_mm: config.panel_thickness_mm,
+            material_id: config.material_id,
+            finish_id: config.finish_id,
+            grain_axis: GrainAxis::Length,
+        },
+        CutPart {
+            part_id: "rear_apron".to_owned(),
+            quantity: 1,
+            length_mm: apron_length_mm,
+            width_mm: REAR_APRON_HEIGHT_MM,
+            thickness_mm: config.panel_thickness_mm,
+            material_id: config.material_id,
+            finish_id: config.finish_id,
+            grain_axis: GrainAxis::Length,
+        },
+    ];
+    cut_parts.sort_by(|left, right| left.part_id.cmp(&right.part_id));
+
+    let candidate_process_steps = vec![
+        CandidateProcessStep {
+            sequence: 1,
+            operation_code: "panel_cutting".to_owned(),
+            requires_partner_mapping: true,
+        },
+        CandidateProcessStep {
+            sequence: 2,
+            operation_code: "edge_finishing".to_owned(),
+            requires_partner_mapping: true,
+        },
+        CandidateProcessStep {
+            sequence: 3,
+            operation_code: "joinery_and_hardware_definition".to_owned(),
+            requires_partner_mapping: true,
+        },
+        CandidateProcessStep {
+            sequence: 4,
+            operation_code: "inspection_and_packaging".to_owned(),
+            requires_partner_mapping: true,
+        },
+    ];
+
+    let design_identity = DesignIdentity {
+        family_id: FAMILY_ID,
+        family_revision: FAMILY_REVISION,
+        configuration: &config,
+    };
+    let design_digest = digest("design-spec-v1", &design_identity)?;
+    let cut_list_digest = digest("cut-list-v1", &cut_parts)?;
+
+    let core = PacketCore {
+        packet_schema_version: PACKET_SCHEMA_VERSION.to_owned(),
+        serialization_profile: SERIALIZATION_PROFILE.to_owned(),
+        family_id: FAMILY_ID.to_owned(),
+        family_revision: FAMILY_REVISION,
+        configuration: config,
+        cut_parts,
+        candidate_process_steps,
+        release_gate: ReleaseGate {
+            configuration_bounds_passed: true,
+            release_eligible: false,
+            blockers: vec![
+                "joinery_and_fastener_schedule_not_defined".to_owned(),
+                "structural_stability_and_load_qualification_not_provided".to_owned(),
+                "material_finish_and_edge_process_not_partner_qualified".to_owned(),
+                "supplier_and_machine_profile_not_bound".to_owned(),
+                "qualified_nesting_output_not_generated".to_owned(),
+                "inspection_and_acceptance_criteria_not_defined".to_owned(),
+                "packaging_and_delivery_plan_not_bound".to_owned(),
+            ],
+        },
+        design_digest,
+        cut_list_digest,
+    };
+    let packet_digest = digest("manufacturing-packet-v1", &core)?;
+
+    Ok(CompiledPacket { core, packet_digest })
+}
+
+/// Verify all packet digest bindings. This verifies byte-level integrity only;
+/// it does not validate physical safety, geometry semantics, or manufactureability.
+pub fn verify_integrity(packet: &CompiledPacket) -> Result<bool, CompileError> {
+    // Recompile from the bound configuration and compare every generated field.
+    // Recomputing only the digests would let a caller change the release gate and
+    // recompute the outer digest. This check therefore also enforces the prototype's
+    // permanently blocked gate and canonical candidate parts/process list.
+    let expected = match compile(packet.core.configuration.clone()) {
+        Ok(expected) => expected,
+        Err(CompileError::InvalidConfiguration(_)) => return Ok(false),
+        Err(error) => return Err(error),
+    };
+    Ok(packet == &expected)
+}
+
+/// Stable domain-separated BLAKE3 digest over this crate's explicitly versioned
+/// serde struct-order serialization profile. This is not a claim of RFC 8785
+/// canonical JSON or cross-language byte equivalence.
+fn digest<T: Serialize>(domain: &str, value: &T) -> Result<String, CompileError> {
+    let bytes = serde_json::to_vec(value)
+        .map_err(|error| CompileError::Serialization(error.to_string()))?;
+    let mut hasher = blake3::Hasher::new_derive_key("Luminous Dynamics Furniture Compiler v1");
+    hasher.update(domain.as_bytes());
+    hasher.update(&[0]);
+    hasher.update(&(bytes.len() as u64).to_be_bytes());
+    hasher.update(&bytes);
+    Ok(hasher.finalize().to_hex().to_string())
+}
+
+pub fn validate(config: &DeskConfiguration) -> Vec<ValidationIssue> {
+    let mut issues = Vec::new();
+
+    if config.schema_version != INPUT_SCHEMA_VERSION {
+        issues.push(ValidationIssue {
+            code: IssueCode::WrongSchemaVersion,
+            message: format!("schema_version must be {INPUT_SCHEMA_VERSION}"),
+        });
+    }
+    if !(600..=1600).contains(&config.width_mm) {
+        issues.push(ValidationIssue {
+            code: IssueCode::WidthOutOfRange,
+            message: "width_mm must be between 600 and 1600 inclusive".to_owned(),
+        });
+    }
+    if !(400..=900).contains(&config.depth_mm) {
+        issues.push(ValidationIssue {
+            code: IssueCode::DepthOutOfRange,
+            message: "depth_mm must be between 400 and 900 inclusive".to_owned(),
+        });
+    }
+    if !(650..=850).contains(&config.height_mm) {
+        issues.push(ValidationIssue {
+            code: IssueCode::HeightOutOfRange,
+            message: "height_mm must be between 650 and 850 inclusive".to_owned(),
+        });
+    }
+    if config.panel_thickness_mm != PANEL_THICKNESS_MM {
+        issues.push(ValidationIssue {
+            code: IssueCode::UnsupportedThickness,
+            message: format!(
+                "panel_thickness_mm must be exactly {PANEL_THICKNESS_MM} for prototype family revision {FAMILY_REVISION}"
+            ),
+        });
+    }
+    let finish_valid = matches!(
+        (config.material_id, config.finish_id),
+        (MaterialId::BirchPlywood, FinishId::ClearCoat)
+            | (MaterialId::MelamineMdf, FinishId::WhiteMelamine)
+            | (MaterialId::MelamineMdf, FinishId::BlackMelamine)
+    );
+    if !finish_valid {
+        issues.push(ValidationIssue {
+            code: IssueCode::IncompatibleFinish,
+            message: "finish_id is not in the approved prototype material/finish matrix".to_owned(),
+        });
+    }
+
+    issues
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn valid_config() -> DeskConfiguration {
+        DeskConfiguration {
+            schema_version: INPUT_SCHEMA_VERSION.to_owned(),
+            width_mm: 1200,
+            depth_mm: 600,
+            height_mm: 750,
+            panel_thickness_mm: 18,
+            material_id: MaterialId::BirchPlywood,
+            finish_id: FinishId::ClearCoat,
+        }
+    }
+
+    #[test]
+    fn same_frozen_input_produces_same_packet_and_digests() {
+        let first = compile(valid_config()).expect("valid bounded configuration");
+        let second = compile(valid_config()).expect("same valid configuration");
+        assert_eq!(first, second);
+        assert!(verify_integrity(&first).expect("verify packet"));
+    }
+
+    #[test]
+    fn dimensions_change_design_cut_list_and_packet_digests() {
+        let first = compile(valid_config()).expect("valid bounded configuration");
+        let mut altered = valid_config();
+        altered.width_mm += 1;
+        let second = compile(altered).expect("still in bounds");
+        assert_ne!(first.core.design_digest, second.core.design_digest);
+        assert_ne!(first.core.cut_list_digest, second.core.cut_list_digest);
+        assert_ne!(first.packet_digest, second.packet_digest);
+    }
+
+    #[test]
+    fn compiler_emits_expected_panel_envelopes_and_stable_order() {
+        let packet = compile(valid_config()).expect("valid bounded configuration");
+        let parts = &packet.core.cut_parts;
+        assert_eq!(
+            parts.iter().map(|part| part.part_id.as_str()).collect::<Vec<_>>(),
+            vec!["desk_top", "rear_apron", "side_panel"]
+        );
+        let side = parts.iter().find(|part| part.part_id == "side_panel").unwrap();
+        assert_eq!(side.quantity, 2);
+        assert_eq!(side.length_mm, 732);
+        assert_eq!(side.width_mm, 600);
+        let apron = parts.iter().find(|part| part.part_id == "rear_apron").unwrap();
+        assert_eq!(apron.length_mm, 1164);
+        assert_eq!(apron.width_mm, REAR_APRON_HEIGHT_MM);
+    }
+
+    #[test]
+    fn all_packets_are_explicitly_not_release_eligible() {
+        let packet = compile(valid_config()).expect("valid bounded configuration");
+        assert!(packet.core.release_gate.configuration_bounds_passed);
+        assert!(!packet.core.release_gate.release_eligible);
+        assert!(!packet.core.release_gate.blockers.is_empty());
+        assert!(packet.core.candidate_process_steps.iter().all(|step| step.requires_partner_mapping));
+    }
+
+    #[test]
+    fn invalid_dimensions_and_material_finish_mismatches_fail_closed() {
+        let mut bad_dimensions = valid_config();
+        bad_dimensions.width_mm = 599;
+        let errors = compile(bad_dimensions).expect_err("too narrow");
+        assert!(matches!(errors, CompileError::InvalidConfiguration(ref issues)
+            if issues.iter().any(|issue| issue.code == IssueCode::WidthOutOfRange)));
+
+        let mut bad_finish = valid_config();
+        bad_finish.finish_id = FinishId::WhiteMelamine;
+        let errors = compile(bad_finish).expect_err("incompatible material/finish");
+        assert!(matches!(errors, CompileError::InvalidConfiguration(ref issues)
+            if issues.iter().any(|issue| issue.code == IssueCode::IncompatibleFinish)));
+
+        let mut bad_thickness = valid_config();
+        bad_thickness.panel_thickness_mm = 24;
+        assert!(matches!(
+            compile(bad_thickness),
+            Err(CompileError::InvalidConfiguration(_))
+        ));
+    }
+
+    #[test]
+    fn inclusive_dimension_boundaries_are_accepted() {
+        for (width_mm, depth_mm, height_mm) in [
+            (600, 400, 650),
+            (1600, 900, 850),
+        ] {
+            let mut config = valid_config();
+            config.width_mm = width_mm;
+            config.depth_mm = depth_mm;
+            config.height_mm = height_mm;
+            assert!(compile(config).is_ok(), "bounds should be inclusive");
+        }
+    }
+
+    #[test]
+    fn melamine_material_accepts_only_melamine_finishes() {
+        let mut white = valid_config();
+        white.material_id = MaterialId::MelamineMdf;
+        white.finish_id = FinishId::WhiteMelamine;
+        assert!(compile(white).is_ok());
+
+        let mut black = valid_config();
+        black.material_id = MaterialId::MelamineMdf;
+        black.finish_id = FinishId::BlackMelamine;
+        assert!(compile(black).is_ok());
+    }
+
+    #[test]
+    fn tampered_packet_is_detected() {
+        let mut packet = compile(valid_config()).expect("valid bounded configuration");
+        packet.core.cut_parts[0].length_mm += 1;
+        assert!(!verify_integrity(&packet).expect("recompute digests"));
+    }
+
+    #[test]
+    fn recomputed_outer_digest_cannot_remove_release_block() {
+        let mut packet = compile(valid_config()).expect("valid bounded configuration");
+        packet.core.release_gate.release_eligible = true;
+        packet.packet_digest =
+            digest("manufacturing-packet-v1", &packet.core).expect("digest modified packet");
+        assert!(!verify_integrity(&packet).expect("verify altered packet"));
+    }
+
+    #[test]
+    fn unknown_json_fields_are_rejected() {
+        let input = r#"{
+            "schema_version":"furniture-desk-input-v1",
+            "width_mm":1200,"depth_mm":600,"height_mm":750,
+            "panel_thickness_mm":18,
+            "material_id":"birch_plywood",
+            "finish_id":"clear_coat",
+            "approve_for_production":true
+        }"#;
+        assert!(matches!(compile_json(input), Err(CompileError::InvalidJson(_))));
+    }
+
+    #[test]
+    fn oversized_input_is_rejected_before_json_parsing() {
+        let input = " ".repeat(MAX_INPUT_BYTES + 1);
+        assert_eq!(compile_json(&input).expect_err("must be bounded"), CompileError::InputTooLarge);
+    }
+}
