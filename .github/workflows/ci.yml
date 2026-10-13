@@ -161,9 +161,6 @@ jobs:
           components: rustfmt
       - name: Assert Rust toolchain identity
         run: test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: mycelix-manufacturing
       - name: Test bounded compiler and adversarial cases
         run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler
       - name: Compile the example twice and compare exact output
