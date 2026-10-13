@@ -235,7 +235,7 @@ pub fn create_settlement_batch(artist: AgentPubKey) -> ExternResult<ActionHash> 
     }
 
     // DHT link retrieval order is not a canonical consensus order. Sort by complete
-    // raw action-hash bytes so independent agents derive identical batch payloads and roots.
+    // raw action-hash bytes so a given set always has the same payload order and Merkle root.
     canonicalize_play_hashes(&mut play_hashes);
     let play_count = u64::try_from(play_hashes.len()).map_err(|_| {
         wasm_error!(WasmErrorInner::Guest(
