@@ -30,6 +30,42 @@ Research checked on 13 October 2026. These are vendor-published capability claim
 
 **Competitive implication:** forecasting, stock visibility, inventory/recipes, reports, digital ordering and kitchen displays are not credible standalone differentiation claims for Luminous. The plausible differentiator is cross-vendor, evidence-first qualification and measurement: proving what the source did and did not provide, keeping missing data visible, separately scoring prediction quality and physical measurement quality, and evaluating operational outcomes without overstated causal claims.
 
+## 2A. Industry benchmark: where to compete, and what would prove it
+
+The goal is not to recreate every incumbent feature. Winnow reports deployment at thousands of sites and markets automated food identification; Leanpath combines weighing hardware, computer vision, analytics and prevention workflows. These are substantial advantages in physical capture, deployment experience and kitchen workflow. Treat their outcome and scale figures as vendor-reported until independently verified; Luminous has no evidence today that it is better at those tasks.
+
+Toast's official developer contract illustrates another incumbent-strength baseline: event webhooks carry event identifiers, signed messages, retry metadata and full order updates; the platform explicitly recommends idempotent processing. Pagination behavior differs by endpoint, and one bulk-order endpoint lacks a total-result-count header. A serious cross-vendor platform must handle these details rather than assuming all integrations expose one idealized cursor/count model.
+
+| Dimension | Industry baseline to respect | Luminous/Mycelix hypothesis | Proof required before claiming superiority |
+|---|---|---|---|
+| **Capture convenience** | Purpose-built systems can automatically weigh and classify waste with little staff input | Support low-friction connectors and manual workflows without concealing lower evidence quality | Time per task, missed-capture rate, operator burden, misclassification and corrected mass against an independently observed sample |
+| **Source reliability** | POS APIs use webhooks, signatures, event identifiers, retries and endpoint-specific pagination | A vendor-neutral evidence layer can normalize these into reproducible, replay-safe records without erasing source-specific semantics | Duplicate/replay tests, correction/revision tests, gap detection, source-control reconciliation and exact raw-artifact retention |
+| **Measurement honesty** | A tracking interface can generate precise-looking data while actual coverage is incomplete | Make missingness, protocol adherence, measurement method, calibration lineage and independent audit coverage visible first-class outputs | Preregistered denominator, all slots dispositioned after closure, observed audit coverage, and side-by-side comparison with a controlled weighing sample |
+| **Forecast quality** | Restaurant forecasting products already offer demand prediction, inventory and labor-related workflows | Symthaea may add a portable, evidence-aware forecast layer across providers and sites | Rolling-origin evaluation against seasonal-naive and simple operational baselines, using the same targets; report MAE/WAPE, bias and cost-weighted error by site, item and horizon |
+| **Operational decisions** | Incumbents combine dashboards with workflow guidance, consulting or operator action | Connect demand, recipe usage, stock variance, waste and constraints into explanations with evidence and uncertainty | Every recommendation traces to inputs, freshness, constraints and estimated downside; withhold or downgrade it when evidence gates fail |
+| **Real-world impact** | Vendors publish savings claims; independent field studies show effects can vary by setting | Mycelix can separate product claims from measured net outcomes and help operators choose interventions | Prospective comparison or credible control design; report baseline, uncertainty, adoption/labor costs, stockouts and net savings—not forecast accuracy alone |
+| **Portability and sovereignty** | Many systems are strongest inside their own hardware/software ecosystem | Keep the intelligence and evidence contract provider-neutral, permissioned and read-only by default | Demonstrate the same contract across at least two independently implemented sources without provider-specific branches leaking into the core domain model |
+
+### Evidence behind the design
+
+- A 2026 *Resources, Conservation & Recycling* study reported roughly 30% average under-reporting by staff-operated food-waste tracking in the sampled healthcare/hotel kitchens; under-reporting reached 80% during lunch in one kitchen. Coverage and weighing frequency were strongly associated with bias. This is not a universal restaurant correction factor; it is evidence that measurement coverage must be tested rather than assumed. [Study and abstract](https://www.sciencedirect.com/science/article/pii/S092134492500566X).
+- A 2025 multi-site study of automated AI-based waste tracking in five HORECA settings reported reductions of 23–51% in four settings, while one Swiss hotel recorded a 13% increase. That heterogeneity is exactly why a vendor-independent evaluation should retain site-level results and avoid universal savings promises. [Peer-reviewed study](https://pubmed.ncbi.nlm.nih.gov/40024032/).
+- Toast documents webhook event GUIDs, signed messages, possible redelivery, idempotency expectations and endpoint-specific pagination. These are useful integration requirements, not guarantees that any other POS provides the same fields. [Webhook basics](https://doc.toasttab.com/doc/devguide/apiWebhookBasics.html), [webhook usage checklist](https://doc.toasttab.com/doc/cookbook/apiWebhookUsageChecklist.html), [pagination](https://doc.toasttab.com/doc/devguide/apiResponseDataPagination.html).
+
+### Initial acceptance gates for a first pilot
+
+These are proposed engineering gates, not results already achieved:
+
+1. **Ingestion integrity:** duplicate deliveries of the same provider event identity are idempotent; updates, reversals and corrections remain distinguishable; raw payload digests and adapter versions are retained.
+2. **Source qualification:** D2 source-query qualification is allowed only when the declared scope, query semantics, snapshot/session, time window, pagination/exhaustion evidence and counts agree. If the provider cannot show this, preserve an explicit unknown/limited status.
+3. **Forecast qualification:** use rolling-origin holdouts and at least a seasonal-naive baseline on identical targets; publish all slices and signed bias as well as aggregate error. No “beats the industry” claim without comparable multi-site data.
+4. **Waste qualification:** preregister the full measurement denominator and thresholds; distinguish directly weighed, count-derived, visual, imputed and unobserved slots; use independent observation to estimate missingness and bias.
+5. **Decision safety:** source or measurement gates below the preregistered thresholds must suppress or visibly downgrade consequential recommendations. No automatic write to a POS, purchase order or accounting ledger in the first pilot.
+6. **Impact qualification:** report net economic outcomes only after accounting for implementation cost, extra labor, spoilage, stockouts and intervention effects; make causal claims only when the study design supports them.
+
+**What “better than the best” should mean initially:** superior auditability and cross-vendor reproducibility, plus prediction/decision quality that is demonstrated on the same data, targets, costs and evaluation windows used for comparison. We cannot currently substantiate superiority in camera-based waste recognition, deployment scale, source access, or forecast performance. Those remain explicit competitive gaps—not marketing claims.
+
+
 ## 3. Key discovery gap: data rights and source semantics
 
 The official public pages reviewed do not establish whether an independent developer can obtain the full source records needed for the proposed qualification flow. Do not infer API availability from an API release-notes page, nor infer export completeness from CSV import support.
