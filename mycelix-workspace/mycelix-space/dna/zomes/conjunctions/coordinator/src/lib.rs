@@ -741,6 +741,8 @@ pub fn screen_conjunction(input: ScreenInput) -> ExternResult<Vec<ConjunctionAss
         .into_wasm_error());
     }
 
+    validate_requested_secondary_ids(input.primary_norad_id, &input.secondary_norad_ids)?;
+
     // Collect all NORAD IDs we need
     let mut all_ids: Vec<u32> = vec![input.primary_norad_id];
     for id in &input.secondary_norad_ids {
@@ -797,11 +799,10 @@ pub fn screen_conjunction(input: ScreenInput) -> ExternResult<Vec<ConjunctionAss
     })?;
 
     // Delegate to the TLE-based screening function
-    let secondary_tles: Vec<(String, String)> = input
-        .secondary_norad_ids
-        .iter()
-        .filter_map(|id| tle_map.get(id).map(|t| (t.line1.clone(), t.line2.clone())))
-        .collect();
+    let secondary_tles: Vec<(String, String)> = require_secondary_items(
+        &input.secondary_norad_ids,
+        |id| tle_map.get(&id).map(|t| (t.line1.clone(), t.line2.clone())),
+    )?;
 
     let from_tles_input = ScreenFromTlesInput {
         primary_tle: (
@@ -844,6 +845,8 @@ pub fn screen_conjunction_with_staleness(
         .with_context(format!("count: {}", input.secondary_norad_ids.len()))
         .into_wasm_error());
     }
+
+    validate_requested_secondary_ids(input.primary_norad_id, &input.secondary_norad_ids)?;
 
     // Collect all NORAD IDs
     let mut all_ids: Vec<u32> = vec![input.primary_norad_id];
@@ -894,11 +897,10 @@ pub fn screen_conjunction_with_staleness(
     })?;
 
     // Build TLE pairs for screening
-    let secondary_tles: Vec<(String, String)> = input
-        .secondary_norad_ids
-        .iter()
-        .filter_map(|id| meta_map.get(id).map(|t| (t.line1.clone(), t.line2.clone())))
-        .collect();
+    let secondary_tles: Vec<(String, String)> = require_secondary_items(
+        &input.secondary_norad_ids,
+        |id| meta_map.get(&id).map(|t| (t.line1.clone(), t.line2.clone())),
+    )?;
 
     let from_tles_input = ScreenFromTlesInput {
         primary_tle: (primary_meta.line1.clone(), primary_meta.line2.clone()),
@@ -991,6 +993,7 @@ pub fn screen_conjunction_from_tles(
     // secondary object. A shorter result vector has no completeness marker, so
     // skipping an input here could masquerade as a complete screening.
     let mut secondary_props: Vec<(u32, Propagator)> = Vec::new();
+    let mut seen_secondary_ids = std::collections::HashSet::with_capacity(input.secondary_tles.len());
     for (index, (line1, line2)) in input.secondary_tles.iter().enumerate() {
         let tle = TwoLineElement::parse_lines(None, line1, line2).map_err(|error| {
             SpaceError::new(
@@ -1003,6 +1006,22 @@ pub fn screen_conjunction_from_tles(
             .into_wasm_error()
         })?;
         let norad_id = tle.norad_id;
+        if norad_id == primary_tle.norad_id {
+            return Err(SpaceError::new(
+                SpaceErrorCode::SelfConjunction,
+                "Primary NORAD ID must not also appear as a secondary object",
+            )
+            .with_context(format!("secondary_index: {index}, norad_id: {norad_id}"))
+            .into_wasm_error());
+        }
+        if !seen_secondary_ids.insert(norad_id) {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Secondary NORAD IDs must be unique within a screening batch",
+            )
+            .with_context(format!("secondary_index: {index}, norad_id: {norad_id}"))
+            .into_wasm_error());
+        }
         let prop = Propagator::from_tle(&tle).map_err(|error| {
             SpaceError::new(
                 SpaceErrorCode::InvalidInput,
@@ -1218,6 +1237,84 @@ mod screening_parameter_tests {
                 "invalid pc_threshold should fail closed: {threshold}"
             );
         }
+    }
+}
+
+/// Reject self-conjunctions and repeated target IDs before performing cross-zome I/O.
+fn validate_requested_secondary_ids(primary_norad_id: u32, secondary_norad_ids: &[u32]) -> ExternResult<()> {
+    let mut seen = std::collections::HashSet::with_capacity(secondary_norad_ids.len());
+    for norad_id in secondary_norad_ids {
+        if *norad_id == primary_norad_id {
+            return Err(SpaceError::new(
+                SpaceErrorCode::SelfConjunction,
+                "Primary NORAD ID must not also appear as a secondary object",
+            )
+            .with_context(format!("norad_id: {norad_id}"))
+            .into_wasm_error());
+        }
+        if !seen.insert(*norad_id) {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Secondary NORAD IDs must be unique within a screening batch",
+            )
+            .with_context(format!("norad_id: {norad_id}"))
+            .into_wasm_error());
+        }
+    }
+    Ok(())
+}
+
+/// Resolve every requested target; do not let an incomplete lookup masquerade as a complete screen.
+fn require_secondary_items<T>(
+    secondary_norad_ids: &[u32],
+    mut lookup: impl FnMut(u32) -> Option<T>,
+) -> ExternResult<Vec<T>> {
+    secondary_norad_ids
+        .iter()
+        .map(|norad_id| {
+            lookup(*norad_id).ok_or_else(|| {
+                SpaceError::new(
+                    SpaceErrorCode::NotFound,
+                    format!(
+                        "No TLE found for requested secondary object {norad_id}; screening batch incomplete"
+                    ),
+                )
+                .with_context(format!("norad_id: {norad_id}"))
+                .into_wasm_error()
+            })
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod screening_target_tests {
+    use super::*;
+
+    #[test]
+    fn requested_secondary_ids_reject_primary_and_duplicates() {
+        assert!(validate_requested_secondary_ids(25544, &[25544]).is_err());
+        assert!(validate_requested_secondary_ids(25544, &[40001, 40001]).is_err());
+        assert!(validate_requested_secondary_ids(25544, &[40001, 40002]).is_ok());
+    }
+
+    #[test]
+    fn missing_requested_secondary_makes_lookup_fail_closed() {
+        let available = std::collections::HashMap::from([
+            (40001_u32, "tle-40001"),
+            (40002_u32, "tle-40002"),
+        ]);
+        assert!(require_secondary_items(&[40001, 40003], |id| available.get(&id).copied()).is_err());
+    }
+
+    #[test]
+    fn lookup_preserves_requested_order_and_count() {
+        let available = std::collections::HashMap::from([
+            (40001_u32, "tle-40001"),
+            (40002_u32, "tle-40002"),
+        ]);
+        let resolved = require_secondary_items(&[40002, 40001], |id| available.get(&id).copied())
+            .expect("all requested targets should resolve");
+        assert_eq!(resolved, vec!["tle-40002", "tle-40001"]);
     }
 }
 
