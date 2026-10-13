@@ -100,7 +100,13 @@ pub struct RecordPlayInput {
     pub duration_listened: u32,
 }
 
-fn has_settlement(play_hash: &ActionHash) -> ExternResult<bool> {
+/// Advisory lookup only; this is not a global uniqueness check or concurrency lock.
+///
+/// DHT link metadata can be incomplete or change as operations arrive. Two overlapping
+/// callers may both observe no settlement link before either creates its batch. Final
+/// payout safety must therefore come from an idempotent authoritative accounting/rail
+/// boundary, not from this read.
+fn has_settlement_link(play_hash: &ActionHash) -> ExternResult<bool> {
     let filter = LinkTypeFilter::try_from(LinkTypes::PlayToSettlement)?;
     let links = get_links(
         LinkQuery::new(play_hash.clone(), filter),
@@ -132,7 +138,7 @@ pub fn get_my_unsettled_plays(_: ()) -> ExternResult<Vec<PlayRecord>> {
                 {
                     if record.action().author() == &my_agent
                         && !play.settled
-                        && !has_settlement(&action_hash)?
+                        && !has_settlement_link(&action_hash)?
                     {
                         unsettled.push(play);
                     }
@@ -213,7 +219,7 @@ pub fn create_settlement_batch(artist: AgentPubKey) -> ExternResult<ActionHash> 
                     if record.action().author() == &my_agent
                         && !play.settled
                         && play.artist == artist
-                        && !has_settlement(&action_hash)?
+                        && !has_settlement_link(&action_hash)?
                     {
                         total_amount =
                             total_amount.checked_add(play.amount_owed).ok_or_else(|| {
