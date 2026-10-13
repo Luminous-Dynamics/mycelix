@@ -62,3 +62,8 @@ Only `Confirmed` shares are marked payable. `Pending`, `Disputed`, `Unverified`,
 `RightsRevisionChain` accepts an initial revision and then sequential corrections linked to the exact previous revision ID. It rejects a skipped revision, wrong parent, pool/class changes, missing evidence/reason references, and malformed share totals. Corrections append new definitions; previously generated allocation reports are immutable values and are not recomputed or overwritten.
 
 The revision chain is **in-memory only**. Evidence and reason references are caller-supplied strings, not verified signatures or durable receipts. Production use would still need authenticated rights evidence, authorization, durable append-only persistence, replay/idempotency controls, dispute-resolution policy, and audited settlement behavior. The U.S. Copyright Office's [Music Modernization FAQ](https://www.copyright.gov/music-modernization/faq.html) describes claim and dispute processes for the U.S. blanket mechanical-licensing context; it is an example of why claim status must be explicit, not a universal rule for all rights classes or jurisdictions.
+
+
+## Integration contract
+
+See [INTEGRATION_CONTRACT.md](./INTEGRATION_CONTRACT.md) for the boundary between this research evaluator and the repository's draft creator-accounting / settlement architecture. The short version: this crate may compare allocation policies over already-qualified inputs; it must not become a second ledger, certify playback, create royalty debt, or execute settlement.
