@@ -9,13 +9,7 @@
   "subjects": [
     {
       "productProfileRef": "urn:mycelix:product-profile:pasteurized-milk-v1",
-      "lotRef": "urn:mycelix:food-lot:milk-20261012-a",
-      "quantity": {
-        "status": "unknown",
-        "unitCode": "LTR",
-        "unitCodeSystem": "UNECE_REC20",
-        "unitCodeListVersion": "REC20-REV17-2021"
-      }
+      "lotRef": "urn:mycelix:food-lot:milk-20261012-a"
     }
   ],
   "handlingObservations": [
