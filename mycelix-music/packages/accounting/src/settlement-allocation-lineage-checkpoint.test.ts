@@ -243,6 +243,29 @@ describe('authenticated settlement allocation lineage checkpoint', () => {
       .toThrow(/high-water mark cannot move backwards/);
   });
 
+  it('rejects a cursor advance that changes the source batch identity', () => {
+    const previous = signedCheckpoint();
+    const otherBatch = 'batch:other';
+    const alternateAllocation = {
+      ...initial,
+      batchId: otherBatch,
+    };
+    const unsigned = createSettlementAllocationLineageCheckpoint({
+      checkpointId: 'checkpoint:other-batch',
+      sourceRef: trust.sourceRef,
+      sourceInstanceId: trust.sourceInstanceId,
+      batchId: otherBatch,
+      asOf: '2026-10-03T00:00:00Z',
+      observedThrough: '2026-10-03T00:00:05Z',
+      highWaterMark: '43',
+      allocations: [alternateAllocation],
+      links: [],
+    });
+    const candidate = signSettlementAllocationLineageCheckpoint(unsigned, trust.signerKeyId, privateKeyPem);
+    expect(() => assertSettlementAllocationLineageCheckpointAdvances(previous, candidate, trust))
+      .toThrow(/source and batch identity cannot change/);
+  });
+
   it('rejects a signed checkpoint whose as-of time rolls back even when its cursor grows', () => {
     const previous = signedCheckpoint();
     const candidate = signedCheckpointState({
