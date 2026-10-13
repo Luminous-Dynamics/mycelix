@@ -987,19 +987,33 @@ pub fn screen_conjunction_from_tles(
         .into_wasm_error()
     })?;
 
-    // Parse secondary TLEs
+    // Fail the batch rather than silently omitting a malformed/uninitializable
+    // secondary object. A shorter result vector has no completeness marker, so
+    // skipping an input here could masquerade as a complete screening.
     let mut secondary_props: Vec<(u32, Propagator)> = Vec::new();
-    for (line1, line2) in &input.secondary_tles {
-        match TwoLineElement::parse_lines(None, line1, line2) {
-            Ok(tle) => {
-                let norad_id = tle.norad_id;
-                match Propagator::from_tle(&tle) {
-                    Ok(prop) => secondary_props.push((norad_id, prop)),
-                    Err(_) => continue, // Skip objects that fail to initialize
-                }
-            }
-            Err(_) => continue, // Skip malformed TLEs
-        }
+    for (index, (line1, line2)) in input.secondary_tles.iter().enumerate() {
+        let tle = TwoLineElement::parse_lines(None, line1, line2).map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::TleParseError,
+                format!(
+                    "Invalid secondary TLE at index {index}; screening batch incomplete: {error}"
+                ),
+            )
+            .with_context(format!("secondary_index: {index}"))
+            .into_wasm_error()
+        })?;
+        let norad_id = tle.norad_id;
+        let prop = Propagator::from_tle(&tle).map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!(
+                    "Secondary propagation initialization failed; screening batch incomplete: {error}"
+                ),
+            )
+            .with_context(format!("secondary_index: {index}, norad_id: {norad_id}"))
+            .into_wasm_error()
+        })?;
+        secondary_props.push((norad_id, prop));
     }
 
     // Sweep the time window to find TCA (time of closest approach) for each pair.
@@ -1014,22 +1028,33 @@ pub fn screen_conjunction_from_tles(
     let analyzer = ConjunctionAnalyzer::new();
     let mut results: Vec<ConjunctionAssessment> = Vec::new();
 
-    for (_norad_id, sec_prop) in &secondary_props {
-        // Coarse scan: find the time step with minimum miss distance
+    for (secondary_norad_id, sec_prop) in &secondary_props {
+        // Coarse scan: find the time step with minimum miss distance. Any failed
+        // sample makes the screening window incomplete; do not silently skip it.
         let mut best_distance = f64::MAX;
         let mut best_step: i64 = 0;
 
         for i in 0..=num_coarse_steps {
             let coarse_offset = (i * coarse_step_secs).min(total_seconds);
             let t = primary_tle.epoch + chrono::Duration::seconds(coarse_offset);
-            let p_state = match primary_prop.propagate_to(t) {
-                Ok(s) => s,
-                Err(_) => continue,
-            };
-            let s_state = match sec_prop.propagate_to(t) {
-                Ok(s) => s,
-                Err(_) => continue,
-            };
+            let p_state = primary_prop.propagate_to(t).map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!(
+                        "Primary propagation failed during coarse scan at +{coarse_offset}s; screening batch incomplete: {error}"
+                    ),
+                )
+                .into_wasm_error()
+            })?;
+            let s_state = sec_prop.propagate_to(t).map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!(
+                        "Secondary {secondary_norad_id} propagation failed during coarse scan at +{coarse_offset}s; screening batch incomplete: {error}"
+                    ),
+                )
+                .into_wasm_error()
+            })?;
             let dist = distance_between(&p_state, &s_state);
             if dist < best_distance {
                 best_distance = dist;
@@ -1037,7 +1062,8 @@ pub fn screen_conjunction_from_tles(
             }
         }
 
-        // Fine scan: refine around the best coarse step
+        // Fine scan: refine around the best coarse step. Propagation failure is
+        // an incomplete result, not a sample that may be silently discarded.
         let fine_start = (best_step - coarse_step_secs).max(0);
         let fine_end = (best_step + coarse_step_secs).min(total_seconds);
         let mut tca_offset = best_step;
@@ -1046,20 +1072,24 @@ pub fn screen_conjunction_from_tles(
         let mut t_secs = fine_start;
         while t_secs <= fine_end {
             let t = primary_tle.epoch + chrono::Duration::seconds(t_secs);
-            let p_state = match primary_prop.propagate_to(t) {
-                Ok(s) => s,
-                Err(_) => {
-                    t_secs += fine_step_secs;
-                    continue;
-                }
-            };
-            let s_state = match sec_prop.propagate_to(t) {
-                Ok(s) => s,
-                Err(_) => {
-                    t_secs += fine_step_secs;
-                    continue;
-                }
-            };
+            let p_state = primary_prop.propagate_to(t).map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!(
+                        "Primary propagation failed during fine scan at +{t_secs}s; screening batch incomplete: {error}"
+                    ),
+                )
+                .into_wasm_error()
+            })?;
+            let s_state = sec_prop.propagate_to(t).map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!(
+                        "Secondary {secondary_norad_id} propagation failed during fine scan at +{t_secs}s; screening batch incomplete: {error}"
+                    ),
+                )
+                .into_wasm_error()
+            })?;
             let dist = distance_between(&p_state, &s_state);
             if dist < tca_distance {
                 tca_distance = dist;
@@ -1070,14 +1100,24 @@ pub fn screen_conjunction_from_tles(
 
         // Assess at TCA
         let tca_time = primary_tle.epoch + chrono::Duration::seconds(tca_offset);
-        let p_state = match primary_prop.propagate_to(tca_time) {
-            Ok(s) => s,
-            Err(_) => continue,
-        };
-        let s_state = match sec_prop.propagate_to(tca_time) {
-            Ok(s) => s,
-            Err(_) => continue,
-        };
+        let p_state = primary_prop.propagate_to(tca_time).map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!(
+                    "Primary propagation failed at selected TCA offset +{tca_offset}s; screening batch incomplete: {error}"
+                ),
+            )
+            .into_wasm_error()
+        })?;
+        let s_state = sec_prop.propagate_to(tca_time).map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!(
+                    "Secondary {secondary_norad_id} propagation failed at selected TCA offset +{tca_offset}s; screening batch incomplete: {error}"
+                ),
+            )
+            .into_wasm_error()
+        })?;
 
         let assessment = analyzer.try_assess(&p_state, &s_state).map_err(|e| {
             SpaceError::new(
