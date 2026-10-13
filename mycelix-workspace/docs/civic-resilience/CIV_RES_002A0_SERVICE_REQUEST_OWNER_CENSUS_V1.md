@@ -64,9 +64,27 @@ The official City document index lists 2026/27 planning documents, including the
 Official source anchors:
 - City SDBIP / IDP / service standards index: https://joburg.org.za/documents_/Pages/Key%20Documents/SDBIP%20IDP%20and%20Budget/SDBIP-IDP-And-Budget.aspx
 - Joburg Connect channel information: https://joburg.org.za/services_/JoburgCares/Pages/call-centre.aspx
+- City eServices "Report a city problem": https://edit.eservices.joburg.org.za/Pages/Reportacityproblem.aspx
+- Service Level Standards Unit mandate: https://joburg.org.za/departments_/Pages/City%20directorates%20including%20departmental%20sub-directorates/Service-Level-Standards-Unit-.aspx
+- Joburg Connect FAQ: https://joburg.org.za/services_/Documents/Customer%20Interface/Joburg%20Connect%20FAQ.pdf
 - POPIA Act 4 of 2013: https://www.justice.gov.za/legislation/acts/2013-004.pdf
 
 These sources provide context only; none grants Mycelix API access, procurement approval, institutional authority or a lawful basis for a specific processing operation. The legal/privacy fields are review triggers, not legal conclusions.
+
+## Channel-first pilot shape (new finding)
+
+The City documents an established intake/follow-up path. Joburg Connect issues a reference number for logged queries, and the City's eServices problem page instructs residents to use that reference on follow-up to prevent duplicate queries. It also documents resident-facing online tracking; this is not a grant of API access or evidence of a machine-to-machine contract.
+
+The safe first user journey is a **resident-controlled companion**, not an autonomous submission bot:
+
+1. Explain official intake and follow-up channels and preserve the existing City intake route.
+2. Let a resident privately record an issuer-namespaced, user-reported reference (for example: City of Johannesburg / Joburg Connect / phone). Initial integrity state is `UserReportedUnverified`, not "City accepted" or "verified".
+3. Record each follow-up as an append-only local timeline event. Reusing the same issuer + source reference follows up the existing external issue; it must not silently submit a new issue. A new source reference is a separate source record; possible relations to other reports are explicit links, not automatic merges.
+4. Keep the raw reference and resident notes in private local/protected storage, never a public DHT or public receipt. Do not collect national ID, account numbers, exact addresses or photos by default.
+5. Label status supplied by a resident as resident-reported, with an observation time. Without authorised source readback it is not authoritative currentness.
+6. Do not calculate an SLA breach until an adopted, effective target and exact start/stop/pause rules are pinned. The listed 2025/26 charter is historical context, not a verified 2026/27 target.
+
+This creates useful value without assuming a City API, writing to City systems, or duplicating official intake. Because the City also documents offline/manual references, external reference identity must include issuer and channel; a bare reference string is not a safe global identifier.
 
 ## Decision
 

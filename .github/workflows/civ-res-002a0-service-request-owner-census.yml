@@ -31,7 +31,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_PARENT='f16c41b5264c632ca3efa32c78b37bfc21bcfe68'
+          EXPECTED_PARENT='6ad322ea3c42ccb4d9de7ba5b53ce74ec88a0d8c'
           OBSERVED_HEAD="$(git rev-parse HEAD)"
           OBSERVED_PARENT="$(git rev-parse HEAD^)"
           OBSERVED_TREE="$(git rev-parse HEAD^{tree})"
@@ -43,7 +43,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_PARENT='f16c41b5264c632ca3efa32c78b37bfc21bcfe68'
+          EXPECTED_PARENT='6ad322ea3c42ccb4d9de7ba5b53ce74ec88a0d8c'
           test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = "1"
           git diff --check "$EXPECTED_PARENT" HEAD
           mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
