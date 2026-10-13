@@ -143,6 +143,9 @@ pub enum ExportCompletenessError {
     AttestationIssuedBeforeWindowEnd,
     AttestationRowCountMismatch,
     RowCountOverflow,
+    RawPagePayloadCountMismatch,
+    RawPagePayloadDigestMismatch { page_ordinal: u32 },
+    RawCoverageStatementDigestMismatch,
 }
 
 /// Structural result only. The intentionally narrow type name avoids claiming that
@@ -477,6 +480,46 @@ pub fn assess_export_completeness(
     })
 }
 
+/// Assess the export and verify that supplied raw page payloads and the raw
+/// coverage-statement bytes match the SHA-256 digests recorded in the evidence.
+///
+/// This binds declared digests to exact byte slices. It does not authenticate the
+/// provider, prove that the parser produced the supplied semantic projection from
+/// those bytes, validate query semantics, or establish real-world completeness.
+pub fn assess_export_completeness_with_raw_payloads(
+    manifest: &SourceExportManifest,
+    attestation: &ProviderCoverageAttestation,
+    raw_page_payloads: &[&[u8]],
+    raw_coverage_statement: &[u8],
+) -> Result<StructurallyConsistentExport, ExportCompletenessError> {
+    // Preserve the existing structural validator's error precedence.
+    let assessment = assess_export_completeness(manifest, attestation)?;
+
+    if raw_page_payloads.len() != manifest.pages.len() {
+        return Err(ExportCompletenessError::RawPagePayloadCountMismatch);
+    }
+
+    for (page, payload) in manifest.pages.iter().zip(raw_page_payloads) {
+        if sha256_raw_bytes(*payload) != page.payload_digest {
+            return Err(ExportCompletenessError::RawPagePayloadDigestMismatch {
+                page_ordinal: page.ordinal,
+            });
+        }
+    }
+
+    if sha256_raw_bytes(raw_coverage_statement) != attestation.statement_digest {
+        return Err(ExportCompletenessError::RawCoverageStatementDigestMismatch);
+    }
+
+    Ok(assessment)
+}
+
+fn sha256_raw_bytes(bytes: &[u8]) -> Digest32 {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    finish_digest(hasher)
+}
+
 fn is_zero(digest: &Digest32) -> bool {
     digest == &Digest32([0; 32])
 }
@@ -568,6 +611,88 @@ mod tests {
         };
 
         (manifest, attestation)
+    }
+
+    fn raw_payload_fixture() -> (
+        SourceExportManifest,
+        ProviderCoverageAttestation,
+        [&'static [u8]; 2],
+        &'static [u8],
+    ) {
+        let (mut manifest, mut attestation) = fixture();
+        let page_payloads: [&[u8]; 2] = [
+            &b"page-zero-payload"[..],
+            &b"page-one-payload"[..],
+        ];
+        let statement: &[u8] = b"provider-coverage-statement-v1";
+
+        for (page, payload) in manifest.pages.iter_mut().zip(page_payloads.iter()) {
+            page.payload_digest = sha256_raw_bytes(*payload);
+        }
+        attestation.statement_digest = sha256_raw_bytes(statement);
+
+        (manifest, attestation, page_payloads, statement)
+    }
+
+    #[test]
+    fn raw_payload_assessment_accepts_exact_page_and_statement_bytes() {
+        let (manifest, attestation, pages, statement) = raw_payload_fixture();
+        let result = assess_export_completeness_with_raw_payloads(
+            &manifest,
+            &attestation,
+            &pages,
+            statement,
+        )
+        .unwrap();
+
+        assert_eq!(result.page_count, 2);
+        assert_eq!(result.observed_row_count, 5);
+    }
+
+    #[test]
+    fn raw_payload_assessment_rejects_page_bytes_that_do_not_match_manifest() {
+        let (manifest, attestation, mut pages, statement) = raw_payload_fixture();
+        pages[0] = &b"tampered-page-zero"[..];
+
+        assert_eq!(
+            assess_export_completeness_with_raw_payloads(
+                &manifest,
+                &attestation,
+                &pages,
+                statement,
+            ),
+            Err(ExportCompletenessError::RawPagePayloadDigestMismatch { page_ordinal: 0 })
+        );
+    }
+
+    #[test]
+    fn raw_payload_assessment_rejects_wrong_statement_bytes() {
+        let (manifest, attestation, pages, _) = raw_payload_fixture();
+
+        assert_eq!(
+            assess_export_completeness_with_raw_payloads(
+                &manifest,
+                &attestation,
+                &pages,
+                b"different-statement",
+            ),
+            Err(ExportCompletenessError::RawCoverageStatementDigestMismatch)
+        );
+    }
+
+    #[test]
+    fn raw_payload_assessment_rejects_missing_page_bytes() {
+        let (manifest, attestation, pages, statement) = raw_payload_fixture();
+
+        assert_eq!(
+            assess_export_completeness_with_raw_payloads(
+                &manifest,
+                &attestation,
+                &pages[..1],
+                statement,
+            ),
+            Err(ExportCompletenessError::RawPagePayloadCountMismatch)
+        );
     }
 
     #[test]
