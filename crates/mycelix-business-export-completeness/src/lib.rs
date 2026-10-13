@@ -174,6 +174,19 @@ pub struct StructurallyConsistentExport {
     pub provider_statement_digest: Digest32,
 }
 
+/// Provider-derived fields that should be decoded from each raw page response.
+///
+/// Request metadata such as the request cursor, query identity, and local measurement
+/// window belongs to the extraction context, not necessarily to the response body. This
+/// projection therefore captures the response-bound snapshot identity, returned cursor
+/// state, and row count without asking a decoder to reconstruct caller-supplied context.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecodedExportPagePayload {
+    pub snapshot_id: ReferenceId,
+    pub next_cursor: PageNextCursor,
+    pub returned_rows: u64,
+}
+
 /// Evidence that every supplied raw page and coverage-statement byte slice hashes to
 /// its declared digest. This adds byte-identity evidence but does not authenticate the
 /// provider or prove that the semantic projection was derived from these bytes.
@@ -575,7 +588,7 @@ pub fn assess_export_completeness_from_raw_artifacts<DecodePage, DecodeCoverage>
     decode_coverage_statement: DecodeCoverage,
 ) -> Result<DecodedRawArtifactExport, ExportCompletenessError>
 where
-    DecodePage: FnMut(&[u8]) -> Option<ExportPageReceipt>,
+    DecodePage: FnMut(&[u8]) -> Option<DecodedExportPagePayload>,
     DecodeCoverage: FnOnce(&[u8]) -> Option<ProviderCoverageAttestation>,
 {
     if raw_page_payloads.len() != manifest.pages.len() {
@@ -594,7 +607,10 @@ where
                 page_ordinal: page.ordinal,
             },
         )?;
-        if &decoded != page {
+        if decoded.snapshot_id != page.snapshot_id
+            || decoded.next_cursor != page.next_cursor
+            || decoded.returned_rows != page.returned_rows
+        {
             return Err(ExportCompletenessError::RawPageProjectionMismatch {
                 page_ordinal: page.ordinal,
             });
@@ -765,6 +781,24 @@ mod tests {
         (manifest, attestation, page_payloads, statement)
     }
 
+    // Test decoder parses only provider-returned fields. Query, scope, request cursor,
+    // contract identity, and the local window remain extraction context.
+    fn decode_test_page(raw: &[u8]) -> Option<DecodedExportPagePayload> {
+        match raw {
+            b"page-zero-payload" => Some(DecodedExportPagePayload {
+                snapshot_id: ref_id("snapshot:2026-09"),
+                next_cursor: PageNextCursor::More(digest(4)),
+                returned_rows: 3,
+            }),
+            b"page-one-payload" => Some(DecodedExportPagePayload {
+                snapshot_id: ref_id("snapshot:2026-09"),
+                next_cursor: PageNextCursor::Terminal,
+                returned_rows: 2,
+            }),
+            _ => None,
+        }
+    }
+
     #[test]
     fn raw_payload_assessment_accepts_exact_page_and_statement_bytes() {
         let (manifest, attestation, pages, statement) = raw_payload_fixture();
@@ -847,15 +881,7 @@ mod tests {
             &manifest,
             &pages,
             statement,
-            |raw| {
-                if raw == b"page-zero-payload" {
-                    Some(manifest.pages[0].clone())
-                } else if raw == b"page-one-payload" {
-                    Some(manifest.pages[1].clone())
-                } else {
-                    None
-                }
-            },
+            decode_test_page,
             |raw| {
                 if raw == statement {
                     Some(attestation.clone())
@@ -878,15 +904,7 @@ mod tests {
             &manifest,
             &pages,
             statement,
-            |raw| {
-                if raw == b"page-zero-payload" {
-                    Some(manifest.pages[0].clone())
-                } else if raw == b"page-one-payload" {
-                    Some(manifest.pages[1].clone())
-                } else {
-                    None
-                }
-            },
+            decode_test_page,
             |raw| {
                 if raw == statement {
                     Some(attestation.clone())
@@ -900,15 +918,7 @@ mod tests {
             &manifest,
             &pages,
             statement,
-            |raw| {
-                if raw == b"page-zero-payload" {
-                    Some(manifest.pages[0].clone())
-                } else if raw == b"page-one-payload" {
-                    Some(manifest.pages[1].clone())
-                } else {
-                    None
-                }
-            },
+            decode_test_page,
             |raw| {
                 if raw == statement {
                     Some(attestation.clone())
@@ -935,11 +945,13 @@ mod tests {
                 statement,
                 |raw| {
                     if raw == b"page-zero-payload" {
-                        Some(manifest.pages[0].clone())
+                        decode_test_page(raw)
                     } else if raw == b"page-one-payload" {
-                        let mut changed = manifest.pages[1].clone();
-                        changed.returned_rows += 1;
-                        Some(changed)
+                        Some(DecodedExportPagePayload {
+                            snapshot_id: ref_id("snapshot:2026-09"),
+                            next_cursor: PageNextCursor::Terminal,
+                            returned_rows: 3,
+                        })
                     } else {
                         None
                     }
