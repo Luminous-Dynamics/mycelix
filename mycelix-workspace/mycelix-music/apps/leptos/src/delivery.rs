@@ -116,29 +116,6 @@ impl TrustedHttpsGatewayOrigin {
     }
 }
 
-/// Candidate HTTPS gateways supported by the initial resolver.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum IpfsGateway {
-    IpfsIo,
-    DwebLink,
-}
-
-impl IpfsGateway {
-    pub const fn base_url(self) -> &'static str {
-        match self {
-            Self::IpfsIo => "https://ipfs.io/ipfs",
-            Self::DwebLink => "https://dweb.link/ipfs",
-        }
-    }
-
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::IpfsIo => "ipfs.io",
-            Self::DwebLink => "dweb.link",
-        }
-    }
-}
-
 /// What the route itself guarantees. This deliberately does not claim that
 /// the client verified the returned media against its content address.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -146,12 +123,11 @@ pub enum VerificationLevel {
     HttpsTransportOnly,
 }
 
-/// Provider kind helps telemetry distinguish the configured platform gateway
-/// from public IPFS gateway fallbacks without treating either as trusted bytes.
+/// The trust domain of the selected route. Configured origins are operator
+/// supplied; their bytes are still not independently verified against the CID.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DeliveryProvider {
     ConfiguredHttpsOrigin,
-    PublicIpfsGateway(IpfsGateway),
 }
 
 /// A retrieval option in deterministic preference order.
@@ -169,6 +145,7 @@ pub enum DeliveryPlanError {
     InvalidAssetId,
     InvalidContentAddress,
     InvalidGatewayOrigin,
+    TooManyGatewayOrigins,
     EmptyAsset,
 }
 
@@ -179,31 +156,57 @@ impl std::fmt::Display for DeliveryPlanError {
             Self::InvalidAssetId => "invalid media asset identifier",
             Self::InvalidContentAddress => "invalid IPFS content identifier path component",
             Self::InvalidGatewayOrigin => "configured media gateway must be a valid HTTPS origin",
+            Self::TooManyGatewayOrigins => "configured media gateway pool exceeds the maximum size",
             Self::EmptyAsset => "media asset cannot declare a zero-byte payload",
         };
         f.write_str(message)
     }
 }
 
-/// Derive ordered gateway candidates from the validated manifest.
+/// Maximum number of explicitly configured HTTPS origins. A bounded pool
+/// keeps browser retry and connection fan-out predictable.
+pub const MAX_CONFIGURED_GATEWAY_ORIGINS: usize = 8;
+
+/// Parse an explicit, ordered list of HTTPS origins supplied by the operator.
 ///
-/// The URLs are constructed only from fixed HTTPS origins and a validated
-/// single path component. Arbitrary schemes, hosts, query strings, fragments,
-/// encoded separators, and path traversal are rejected before URL creation.
+/// Example: `https://media.example.org,https://media-backup.example.org`.
+/// Public gateways are supported only when the operator deliberately lists them;
+/// they are never added as an implicit fallback. Duplicate origins are removed
+/// while preserving the first occurrence.
+pub fn parse_gateway_origins(
+    configured_origins: &str,
+) -> Result<Vec<TrustedHttpsGatewayOrigin>, DeliveryPlanError> {
+    let values: Vec<&str> = configured_origins.split(',').map(str::trim).collect();
+    if values.is_empty() || values.iter().any(|value| value.is_empty()) {
+        return Err(DeliveryPlanError::InvalidGatewayOrigin);
+    }
+    if values.len() > MAX_CONFIGURED_GATEWAY_ORIGINS {
+        return Err(DeliveryPlanError::TooManyGatewayOrigins);
+    }
+
+    let mut origins: Vec<TrustedHttpsGatewayOrigin> = Vec::with_capacity(values.len());
+    for value in values {
+        let origin = TrustedHttpsGatewayOrigin::parse(value)?;
+        if !origins.contains(&origin) {
+            origins.push(origin);
+        }
+    }
+    Ok(origins)
+}
+
+/// Derive ordered candidates only from an explicit gateway pool. An empty pool
+/// returns no candidates, rather than silently disclosing requests to a public
+/// gateway. URLs are built only from validated HTTPS origins and CID path
+/// components; catalog metadata cannot choose the gateway origin.
 pub fn delivery_candidates(
     manifest: &MediaAssetManifestV1,
 ) -> Result<Vec<DeliveryCandidate>, DeliveryPlanError> {
-    delivery_candidates_with_origin(manifest, None)
+    delivery_candidates_with_origins(manifest, &[])
 }
 
-/// Build the candidate plan with an optional operator-configured gateway first.
-///
-/// The configured origin is intentionally separate from immutable asset metadata;
-/// deployments can set `MYCELIX_MEDIA_GATEWAY_ORIGIN=https://media.example.org`.
-/// The current release does not assume such a service is deployed.
-pub fn delivery_candidates_with_origin(
+pub fn delivery_candidates_with_origins(
     manifest: &MediaAssetManifestV1,
-    configured_origin: Option<&TrustedHttpsGatewayOrigin>,
+    configured_origins: &[TrustedHttpsGatewayOrigin],
 ) -> Result<Vec<DeliveryCandidate>, DeliveryPlanError> {
     manifest.validate()?;
 
@@ -211,21 +214,12 @@ pub fn delivery_candidates_with_origin(
         ContentAddress::IpfsCid(cid) => cid,
     };
 
-    let mut candidates = Vec::with_capacity(3);
-    if let Some(origin) = configured_origin {
+    let mut candidates = Vec::with_capacity(configured_origins.len());
+    for (index, origin) in configured_origins.iter().enumerate() {
         candidates.push(DeliveryCandidate {
             provider: DeliveryProvider::ConfiguredHttpsOrigin,
             url: origin.url_for_cid(cid),
-            priority: 0,
-            verification: VerificationLevel::HttpsTransportOnly,
-        });
-    }
-
-    for gateway in [IpfsGateway::IpfsIo, IpfsGateway::DwebLink] {
-        candidates.push(DeliveryCandidate {
-            provider: DeliveryProvider::PublicIpfsGateway(gateway),
-            url: format!("{}/{}", gateway.base_url(), cid),
-            priority: candidates.len() as u8,
+            priority: index as u8,
             verification: VerificationLevel::HttpsTransportOnly,
         });
     }
@@ -233,16 +227,18 @@ pub fn delivery_candidates_with_origin(
     Ok(candidates)
 }
 
-/// Resolve using the optional HTTPS origin supplied at compile time by the
-/// deployer. Invalid non-empty configuration fails closed instead of being
-/// interpolated into a URL or silently bypassed.
+/// Resolve using an explicit compile-time gateway pool. Invalid non-empty
+/// configuration fails closed. With no configured pool, no third-party
+/// gateway is contacted; deployment documentation should explain how to select
+/// an approved gateway and the privacy trade-offs of public gateways.
 pub fn delivery_candidates_from_build_config(
     manifest: &MediaAssetManifestV1,
 ) -> Result<Vec<DeliveryCandidate>, DeliveryPlanError> {
-    let configured_origin = option_env!("MYCELIX_MEDIA_GATEWAY_ORIGIN")
-        .map(TrustedHttpsGatewayOrigin::parse)
-        .transpose()?;
-    delivery_candidates_with_origin(manifest, configured_origin.as_ref())
+    let configured_origins = match option_env!("MYCELIX_MEDIA_GATEWAY_ORIGINS") {
+        Some(value) => parse_gateway_origins(value)?,
+        None => Vec::new(),
+    };
+    delivery_candidates_with_origins(manifest, &configured_origins)
 }
 
 /// Select the next candidate after a failed request without exceeding the
@@ -295,44 +291,64 @@ mod tests {
     }
 
     #[test]
-    fn provides_two_distinct_https_gateways_in_stable_order() {
+    fn does_not_silently_fall_back_to_hard_coded_public_gateways() {
         let candidates = delivery_candidates(&manifest(SAMPLE_CID)).unwrap();
-
-        assert_eq!(candidates.len(), 2);
-        assert_eq!(
-            candidates[0].provider,
-            DeliveryProvider::PublicIpfsGateway(IpfsGateway::IpfsIo)
-        );
-        assert_eq!(
-            candidates[0].url,
-            format!("https://ipfs.io/ipfs/{SAMPLE_CID}")
-        );
-        assert_eq!(
-            candidates[1].provider,
-            DeliveryProvider::PublicIpfsGateway(IpfsGateway::DwebLink)
-        );
-        assert_eq!(
-            candidates[1].url,
-            format!("https://dweb.link/ipfs/{SAMPLE_CID}")
-        );
-        assert!(candidates[0].priority < candidates[1].priority);
+        assert!(candidates.is_empty());
     }
 
     #[test]
-    fn configured_gateway_is_first_but_public_fallbacks_remain() {
-        let configured = TrustedHttpsGatewayOrigin::parse("https://media.example.org").unwrap();
+    fn configured_gateway_pool_preserves_order_and_uses_only_explicit_origins() {
+        let configured =
+            parse_gateway_origins("https://media.example.org, https://dweb.link").unwrap();
         let candidates =
-            delivery_candidates_with_origin(&manifest(SAMPLE_CID), Some(&configured)).unwrap();
+            delivery_candidates_with_origins(&manifest(SAMPLE_CID), &configured).unwrap();
 
-        assert_eq!(candidates.len(), 3);
+        assert_eq!(candidates.len(), 2);
         assert_eq!(candidates[0].provider, DeliveryProvider::ConfiguredHttpsOrigin);
         assert_eq!(
             candidates[0].url,
             format!("https://media.example.org/ipfs/{SAMPLE_CID}")
         );
+        assert_eq!(
+            candidates[1].url,
+            format!("https://dweb.link/ipfs/{SAMPLE_CID}")
+        );
         assert_eq!(candidates[0].priority, 0);
         assert_eq!(candidates[1].priority, 1);
-        assert_eq!(candidates[2].priority, 2);
+        assert!(candidates
+            .iter()
+            .all(|candidate| candidate.verification == VerificationLevel::HttpsTransportOnly));
+    }
+
+    #[test]
+    fn gateway_pool_deduplicates_without_reordering() {
+        let configured = parse_gateway_origins(
+            "https://media.example.org,https://dweb.link,https://media.example.org",
+        )
+        .unwrap();
+        assert_eq!(configured.len(), 2);
+        assert_eq!(configured[0].0, "https://media.example.org");
+        assert_eq!(configured[1].0, "https://dweb.link");
+    }
+
+    #[test]
+    fn gateway_pool_rejects_empty_entries_and_excessive_size() {
+        assert_eq!(
+            parse_gateway_origins("").unwrap_err(),
+            DeliveryPlanError::InvalidGatewayOrigin
+        );
+        assert_eq!(
+            parse_gateway_origins("https://media.example.org,").unwrap_err(),
+            DeliveryPlanError::InvalidGatewayOrigin
+        );
+        let too_many = (0..=MAX_CONFIGURED_GATEWAY_ORIGINS)
+            .map(|index| format!("https://gateway{index}.example.org"))
+            .collect::<Vec<_>>()
+            .join(",");
+        assert_eq!(
+            parse_gateway_origins(&too_many).unwrap_err(),
+            DeliveryPlanError::TooManyGatewayOrigins
+        );
     }
 
     #[test]
@@ -362,8 +378,11 @@ mod tests {
 
     #[test]
     fn explicitly_does_not_claim_client_side_content_verification() {
-        let candidates = delivery_candidates(&manifest(SAMPLE_CID)).unwrap();
+        let configured = parse_gateway_origins("https://media.example.org").unwrap();
+        let candidates =
+            delivery_candidates_with_origins(&manifest(SAMPLE_CID), &configured).unwrap();
 
+        assert_eq!(candidates.len(), 1);
         assert!(candidates
             .iter()
             .all(|candidate| candidate.verification == VerificationLevel::HttpsTransportOnly));
@@ -371,19 +390,14 @@ mod tests {
 
     #[test]
     fn accepts_cidv0_base58btc_text_form() {
-        let candidates = delivery_candidates(&manifest(
-            "QmYwAPJzv5CZsnAzt8auVTLk5c5k8m7E2d8kqv7s8W9Z2x",
-        ))
-        .unwrap();
-
-        assert_eq!(candidates.len(), 2);
+        manifest("QmYwAPJzv5CZsnAzt8auVTLk5c5k8m7E2d8kqv7s8W9Z2x")
+            .validate()
+            .unwrap();
     }
 
     #[test]
     fn accepts_short_well_known_cidv1_base32_text_form() {
-        let candidates = delivery_candidates(&manifest("bafkqaaa")).unwrap();
-
-        assert_eq!(candidates.len(), 2);
+        manifest("bafkqaaa").validate().unwrap();
     }
 
     #[test]
