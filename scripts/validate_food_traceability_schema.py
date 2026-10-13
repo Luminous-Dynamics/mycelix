@@ -167,7 +167,15 @@ def main() -> int:
         # the same shipment route. Multi-leg semantics need an explicit leg identity
         # before stronger assumptions can safely be made.
         shipments: dict[str, list[dict]] = {}
+        seen_shipment_event_ids: set[str] = set()
         for event in events:
+            event_id = event.get("eventId")
+            if isinstance(event_id, str) and event_id in seen_shipment_event_ids:
+                # An identical replay is one logical event for route checks. A
+                # conflicting reuse is already reported above and still fails closed.
+                continue
+            if isinstance(event_id, str):
+                seen_shipment_event_ids.add(event_id)
             shipment_ref = event.get("shipmentRef")
             if event.get("eventType") in {"DISPATCHED", "RECEIVED"} and isinstance(shipment_ref, str):
                 shipments.setdefault(shipment_ref, []).append(event)
