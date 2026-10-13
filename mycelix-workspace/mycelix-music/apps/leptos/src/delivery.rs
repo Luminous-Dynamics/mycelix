@@ -184,7 +184,7 @@ pub enum VerificationLevel {
 /// supplied; their bytes are still not independently verified against the CID.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DeliveryProvider {
-    ConfiguredHttpsOrigin,
+    ConfiguredGatewayOrigin,
 }
 
 /// A retrieval option in deterministic preference order.
@@ -281,7 +281,7 @@ pub fn delivery_candidates_with_origins(
             continue;
         }
         candidates.push(DeliveryCandidate {
-            provider: DeliveryProvider::ConfiguredHttpsOrigin,
+            provider: DeliveryProvider::ConfiguredGatewayOrigin,
             url,
             priority: candidates.len() as u8,
             verification: VerificationLevel::TransportOnly,
@@ -400,7 +400,7 @@ mod tests {
             delivery_candidates_with_origins(&manifest(SAMPLE_CID), &configured).unwrap();
 
         assert_eq!(candidates.len(), 2);
-        assert_eq!(candidates[0].provider, DeliveryProvider::ConfiguredHttpsOrigin);
+        assert_eq!(candidates[0].provider, DeliveryProvider::ConfiguredGatewayOrigin);
         assert_eq!(
             candidates[0].url,
             format!("https://media.example.org/ipfs/{SAMPLE_CID}")
