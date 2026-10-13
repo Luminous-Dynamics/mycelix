@@ -293,6 +293,11 @@ def validate_profile(data: Any) -> list[str]:
             errors.append(f"{prefix} must be explicitly marked synthetic_fixture=true")
         if vector.get("production_eligible") is not False:
             errors.append(f"{prefix} must have production_eligible=false")
+        anchor_ref = vector.get("trust_anchor_ref")
+        if not isinstance(anchor_ref, str) or not (
+            anchor_ref == "none" or anchor_ref.startswith("test-only:")
+        ):
+            errors.append(f"{prefix}.trust_anchor_ref must be none or an explicit test-only reference")
 
         disposition = vector.get("expected_disposition")
         reason = vector.get("expected_reason")
