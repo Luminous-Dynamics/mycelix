@@ -10,9 +10,10 @@
     "does_not_prove": [
       "Mycelix reproduces Foster 2-D probability of collision.",
       "The values represent calibrated operational collision risk.",
-      "Covariance realism, orbit-determination quality, or mitigation authority."
+      "Covariance realism, orbit-determination quality, or mitigation authority.",
+      "The new independent Rust numerical comparison has compiled and passed on the exact pull-request head; the CI run is still the execution gate."
     ],
-    "mycelix_comparison_status": "not_yet_run"
+    "mycelix_comparison_status": "implemented_not_yet_ci_verified"
   },
   "source": {
     "repository": "https://github.com/nasa/CARA_Analysis_Tools",
@@ -49,21 +50,61 @@
     "upstream_assertion_relative_tolerance": 0.001
   },
   "encounter_input": {
-    "r1_km": [378.39559, 4305.721887, 5752.767554],
-    "v1_km_per_s": [2.360800244, 5.580331936, -4.322349039],
+    "r1_km": [
+      378.39559,
+      4305.721887,
+      5752.767554
+    ],
+    "v1_km_per_s": [
+      2.360800244,
+      5.580331936,
+      -4.322349039
+    ],
     "cov1_km2": [
-      [44.5757544811362, 81.6751751052616, -67.8687662707124],
-      [81.6751751052616, 158.453402956163, -128.616921644857],
-      [-67.8687662707124, -128.616921644858, 105.490542562701]
+      [
+        44.5757544811362,
+        81.6751751052616,
+        -67.8687662707124
+      ],
+      [
+        81.6751751052616,
+        158.453402956163,
+        -128.616921644857
+      ],
+      [
+        -67.8687662707124,
+        -128.616921644858,
+        105.490542562701
+      ]
     ],
-    "r2_km": [374.5180598, 4307.560983, 5751.130418],
-    "v2_km_per_s": [-5.388125081, -3.946827739, 3.322820358],
+    "r2_km": [
+      374.5180598,
+      4307.560983,
+      5751.130418
+    ],
+    "v2_km_per_s": [
+      -5.388125081,
+      -3.946827739,
+      3.322820358
+    ],
     "cov2_km2": [
-      [2.31067077720423, 1.69905293875632, -1.4170164577661],
-      [1.69905293875632, 1.24957388457206, -1.04174164279599],
-      [-1.4170164577661, -1.04174164279599, 0.869260558223714]
+      [
+        2.31067077720423,
+        1.69905293875632,
+        -1.4170164577661
+      ],
+      [
+        1.69905293875632,
+        1.24957388457206,
+        -1.04174164279599
+      ],
+      [
+        -1.4170164577661,
+        -1.04174164279599,
+        0.869260558223714
+      ]
     ],
-    "hbr_km": 0.020
+    "hbr_km": 0.02
   },
   "cases": [
     {
