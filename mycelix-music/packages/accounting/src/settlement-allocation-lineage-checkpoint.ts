@@ -255,6 +255,58 @@ export function verifySettlementAllocationLineageCheckpoint(
   return verified;
 }
 
+/**
+ * Verify a candidate checkpoint advances beyond the last durably accepted checkpoint.
+ *
+ * IMPORTANT: this comparison is not itself durable replay protection. Callers must
+ * load the previous checkpoint and persist the candidate/high-water mark in one
+ * serializable transaction or compare-and-swap operation. Otherwise concurrent
+ * consumers can still accept stale candidates against the same old cursor.
+ */
+export function assertSettlementAllocationLineageCheckpointAdvances(
+  previousInput: SignedSettlementAllocationLineageCheckpoint,
+  candidateInput: SignedSettlementAllocationLineageCheckpoint,
+  policy: SettlementAllocationLineageCheckpointTrustPolicy,
+): Readonly<SignedSettlementAllocationLineageCheckpoint> {
+  const previous = verifySettlementAllocationLineageCheckpoint(previousInput, policy);
+  const candidate = verifySettlementAllocationLineageCheckpoint(candidateInput, policy);
+
+  const previousHighWaterMark = BigInt(canonicalHighWaterMark(previous.highWaterMark));
+  const candidateHighWaterMark = BigInt(canonicalHighWaterMark(candidate.highWaterMark));
+  if (candidateHighWaterMark < previousHighWaterMark) {
+    throw new Error('settlement allocation checkpoint high-water mark cannot move backwards');
+  }
+
+  const previousAsOf = Date.parse(timestamp('previous checkpoint asOf', previous.asOf));
+  const candidateAsOf = Date.parse(timestamp('candidate checkpoint asOf', candidate.asOf));
+  if (candidateAsOf < previousAsOf) {
+    throw new Error('settlement allocation checkpoint asOf cannot move backwards');
+  }
+
+  const previousObservedThrough = Date.parse(
+    timestamp('previous checkpoint observedThrough', previous.observedThrough),
+  );
+  const candidateObservedThrough = Date.parse(
+    timestamp('candidate checkpoint observedThrough', candidate.observedThrough),
+  );
+  if (candidateObservedThrough < previousObservedThrough) {
+    throw new Error('settlement allocation checkpoint observedThrough cannot move backwards');
+  }
+
+  const advances =
+    candidateHighWaterMark > previousHighWaterMark
+    || candidateAsOf > previousAsOf
+    || candidateObservedThrough > previousObservedThrough;
+  if (!advances) {
+    throw new Error('settlement allocation checkpoint does not advance the accepted source cursor');
+  }
+  if (candidate.checkpointRoot === previous.checkpointRoot) {
+    throw new Error('settlement allocation checkpoint replayed the previous checkpoint root');
+  }
+
+  return candidate;
+}
+
 export function resolveCheckpointBackedSettlementAllocationLineage(
   allocations: readonly SettlementAllocationAuthority[],
   links: readonly SettlementAllocationSuccessorLink[],
