@@ -263,6 +263,32 @@
       </div>
       <button class="secondary-button report-download" id="download-report" type="button" disabled>Download calculated report JSON</button>
 
+      <section class="actuals-panel" aria-labelledby="actuals-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">03 / EVIDENCE</p>
+            <h3 id="actuals-heading">Actuals versus plan</h3>
+          </div>
+          <span id="actuals-status" class="status-pill status-muted" role="status" aria-live="polite">Calculate the current plan before importing actuals</span>
+        </div>
+        <p class="form-footnote">Import a complete, full-calendar-month bank-statement export or reconciled cash-ledger export using the schema-v1 template. Every transaction must have a unique ID, date, category, amount in minor currency units, matching currency, and source-row reference. Source opening-to-closing cash movement must reconcile exactly. Set the date that forecast Month 1 represents. Files stay in this browser until you explicitly export a variance bundle.</p>
+        <div class="actuals-controls">
+          <label for="actuals-forecast-start-month">Forecast Month 1 starts in
+            <input id="actuals-forecast-start-month" name="actuals-forecast-start-month" type="month" required>
+          </label>
+          <label class="secondary-button file-picker" for="load-actuals-file">Import actuals source JSON
+            <input id="load-actuals-file" type="file" accept="application/json,.json">
+          </label>
+          <button class="secondary-button" id="download-actuals-template" type="button">Download actuals template</button>
+          <button class="secondary-button" id="download-variance-report" type="button" disabled>Download variance evidence bundle</button>
+        </div>
+        <div id="actuals-error" class="notice notice-error" role="alert" hidden></div>
+        <div id="actuals-result"></div>
+        <p class="form-footnote">Important: SHA-256 fingerprints the imported bytes but does not prove the file came from a bank or is complete. Keep original statements, receipts and ledger records securely. Do not include bank credentials or full account numbers. Intermediate month-end cash balances are derived from transactions; only the overall source closing balance is supplied independently.</p>
+      </section>
+
+
+
       <div class="notice notice-warning result-warning">
         <strong>Not net profit or a go/no-go decision.</strong>
         The worksheet does not calculate taxes, debt service, owner draw, depreciation, demand, seasonality or costs you have not entered. It does not verify licenses or tell you whether you can legally operate at a specific location.

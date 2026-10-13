@@ -119,3 +119,13 @@ a { color: var(--green-dark); }
   .metric-list { grid-template-columns: 1fr 1fr; }
   .site-footer { flex-direction: column; gap: 0; }
 }
+
+
+.actuals-panel { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.actuals-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: end; margin: 12px 0; }
+.actuals-controls label:not(.secondary-button) { display: grid; gap: 6px; font-size: 0.82rem; font-weight: 730; }
+.actuals-controls input[type="month"] { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 9px; padding: 8px; color: var(--ink); background: #fff; font: inherit; }
+.actuals-variance-table { min-width: 620px; }
+.actuals-variance-table tbody tr:nth-child(2n) { background: #f8faf8; }
+.actuals-panel .notice { margin-top: 10px; }
+@media (max-width: 540px) { .actuals-controls { grid-template-columns: 1fr; } }

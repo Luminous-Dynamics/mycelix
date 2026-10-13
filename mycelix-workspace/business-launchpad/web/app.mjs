@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { analyzeBusinessModel, compareCashRunwayScenarios, DEFAULT_CASH_SCENARIO_ASSUMPTIONS, DEFAULT_CASH_TIMING_SCHEDULE, formatMinorUnits, parseMajorToMinorUnits, projectCashRunway } from '../core/src/index.js';
+import { analyzeBusinessModel, compareCashPlanToActuals, compareCashRunwayScenarios, DEFAULT_CASH_SCENARIO_ASSUMPTIONS, DEFAULT_CASH_TIMING_SCHEDULE, formatMinorUnits, parseMajorToMinorUnits, projectCashRunway } from '../core/src/index.js';
 
 const form = document.querySelector('#model-form');
 const errorBox = document.querySelector('#input-error');
@@ -14,6 +14,13 @@ const loadScenarioInput = document.querySelector('#load-scenario-file');
 const downloadReportButton = document.querySelector('#download-report');
 const cashRunwayPeriodsRoot = document.querySelector('#cash-runway-periods');
 const resetCashRunwayButton = document.querySelector('#reset-cash-runway');
+const actualsForecastStartMonth = document.querySelector('#actuals-forecast-start-month');
+const loadActualsInput = document.querySelector('#load-actuals-file');
+const downloadActualsTemplateButton = document.querySelector('#download-actuals-template');
+const downloadVarianceReportButton = document.querySelector('#download-variance-report');
+const actualsStatus = document.querySelector('#actuals-status');
+const actualsError = document.querySelector('#actuals-error');
+const actualsResultRoot = document.querySelector('#actuals-result');
 const CASH_RUNWAY_MONTHS = 12;
 
 let latestModel = null;
@@ -23,6 +30,11 @@ let latestCashRunway = null;
 let latestCashScenarioAssumptions = null;
 let latestCashScenarioComparison = null;
 let latestCashTimingSchedule = null;
+let latestActualsComparison = null;
+let latestActualsSourcePayload = null;
+let latestActualsSourceRawText = null;
+let latestActualsSourceSha256 = null;
+let latestActualsForecastStartMonth = null;
 
 const moneyFields = [
   ['selling-price', 'sellingPricePerUnitMinor', 'Price per sale'],
@@ -51,6 +63,17 @@ function clearResult() {
   latestCashScenarioAssumptions = null;
   latestCashScenarioComparison = null;
   latestCashTimingSchedule = null;
+  latestActualsComparison = null;
+  latestActualsSourcePayload = null;
+  latestActualsSourceRawText = null;
+  latestActualsSourceSha256 = null;
+  latestActualsForecastStartMonth = null;
+  actualsResultRoot.replaceChildren();
+  actualsStatus.textContent = 'Calculate the current plan before importing actuals.';
+  actualsStatus.className = 'status-pill status-muted';
+  actualsError.textContent = '';
+  actualsError.hidden = true;
+  downloadVarianceReportButton.disabled = true;
   downloadReportButton.disabled = true;
 }
 
@@ -691,6 +714,85 @@ function renderCashRunwayReport(runway) {
   return section;
 }
 
+
+function renderActualsVariance(report) {
+  actualsResultRoot.replaceChildren();
+  const overview = element('p', 'detail',
+    'Source: ' + report.source.label + ' (' + report.source.type + '), covered ' +
+    report.source.coverageStartDate + ' to ' + report.source.coverageEndDate + '. ' +
+    report.source.transactionCount + ' transaction rows; SHA-256 ' + report.source.sha256 +
+    '. Opening-to-closing cash arithmetic reconciles. The fingerprint is not independent source authentication.'
+  );
+  actualsResultRoot.append(overview);
+
+  const metrics = element('dl', 'metric-list');
+  addMetric(metrics, 'Imported records', String(report.source.transactionCount));
+  addMetric(metrics, 'Range opening cash', formatMinorUnits(report.source.openingCashBalanceMinor, report.currency));
+  addMetric(metrics, 'Range ending cash', formatMinorUnits(report.source.closingCashBalanceMinor, report.currency));
+  addMetric(metrics, 'Transaction net movement', formatMinorUnits(report.reconciliation.transactionNetMovementMinor, report.currency));
+  actualsResultRoot.append(metrics);
+
+  actualsResultRoot.append(element('h4', 'section-subheading', 'Monthly actual versus plan'));
+  const scroll = element('div', 'cash-plan-scroll');
+  scroll.setAttribute('role', 'region');
+  scroll.setAttribute('aria-label', 'Monthly actual versus plan variance');
+  scroll.setAttribute('tabindex', '0');
+  const table = element('table', 'cash-scenario-table actuals-variance-table');
+  const head = element('thead');
+  const header = element('tr');
+  for (const label of ['Month', 'Cash-flow bucket', 'Plan', 'Actual', 'Actual − plan']) {
+    const cell = element('th', '', label);
+    cell.setAttribute('scope', 'col');
+    header.append(cell);
+  }
+  head.append(header);
+  table.append(head);
+  const body = element('tbody');
+  for (const period of report.periods) {
+    const summaryRows = [
+      { label: 'Net cash movement', planned: period.plannedNetCashMovementMinor, actual: period.actualNetCashMovementMinor, variance: period.netCashMovementVarianceMinor },
+      { label: 'Closing cash balance (derived)', planned: period.plannedClosingCashMinor, actual: period.actualClosingCashMinor, variance: period.closingCashVarianceMinor }
+    ];
+    for (const summary of summaryRows) {
+      const row = element('tr');
+      const month = element('th', '', period.month);
+      month.setAttribute('scope', 'row');
+      row.append(month);
+      row.append(element('td', '', summary.label));
+      row.append(element('td', '', formatMinorUnits(summary.planned, report.currency)));
+      row.append(element('td', '', formatMinorUnits(summary.actual, report.currency)));
+      row.append(element('td', summary.variance < 0 ? 'negative' : '', formatMinorUnits(summary.variance, report.currency)));
+      body.append(row);
+    }
+    for (const category of period.categories) {
+      const row = element('tr');
+      row.append(element('td', '', period.month));
+      row.append(element('td', '', category.label));
+      row.append(element('td', '', formatMinorUnits(category.plannedMinor, report.currency)));
+      row.append(element('td', '', formatMinorUnits(category.actualMinor, report.currency)));
+      const unfavorable = category.direction === 'outflow'
+        ? category.actualMinusPlanMinor > 0
+        : category.actualMinusPlanMinor < 0;
+      row.append(element('td', unfavorable ? 'negative' : '', formatMinorUnits(category.actualMinusPlanMinor, report.currency)));
+      body.append(row);
+    }
+  }
+  table.append(body);
+  scroll.append(table);
+  actualsResultRoot.append(scroll);
+  actualsResultRoot.append(element('p', 'form-footnote',
+    'Variances are actual minus plan. Positive outflow variance means spending exceeded plan. Closing balances in intermediate months are derived from imported rows; the source separately supplies and reconciles the final balance. Actuals were imported from a user-declared source and are not independently verified.'
+  ));
+}
+
+async function sha256Hex(arrayBuffer) {
+  if (!globalThis.crypto?.subtle || typeof globalThis.crypto.subtle.digest !== 'function') {
+    throw new Error('This browser does not expose Web Crypto SHA-256; the source cannot be fingerprinted here.');
+  }
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', arrayBuffer);
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
 function renderReport(report, cashRunwayReport, cashScenarioComparison) {
   resultRoot.replaceChildren();
 
@@ -817,6 +919,127 @@ downloadScenarioButton.addEventListener('click', () => {
     });
   } catch (error) {
     showError(error instanceof Error ? error.message : 'Scenario could not be exported.');
+  }
+});
+
+
+downloadActualsTemplateButton.addEventListener('click', () => {
+  try {
+    const model = readModel();
+    downloadJson('business-launchpad-actuals-source-template-v1.json', {
+      schemaVersion: 1,
+      kind: 'business-launchpad-actuals-source',
+      currency: model.currency,
+      source: {
+        type: 'bank_statement_export',
+        label: 'REPLACE with a clear source export label',
+        evidenceReference: 'REPLACE with source statement/document reference; do not include bank credentials',
+        coverageStartDate: '',
+        coverageEndDate: '',
+        completeMonthlyCoverage: false,
+        openingCashBalanceMinor: 0,
+        closingCashBalanceMinor: 0
+      },
+      transactions: [{
+        transactionId: 'REPLACE with unique source transaction ID',
+        date: 'YYYY-MM-DD',
+        currencyCode: model.currency.code,
+        category: 'sales_receipt',
+        amountMinor: 1,
+        sourceReference: 'REPLACE with source line or receipt reference'
+      }]
+    });
+  } catch (error) {
+    showError(error instanceof Error ? error.message : 'Actuals template could not be created.');
+  }
+});
+
+loadActualsInput.addEventListener('change', async event => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  latestActualsComparison = null;
+  latestActualsSourcePayload = null;
+  latestActualsSourceRawText = null;
+  latestActualsSourceSha256 = null;
+  latestActualsForecastStartMonth = null;
+  actualsResultRoot.replaceChildren();
+  downloadVarianceReportButton.disabled = true;
+  actualsError.textContent = '';
+  actualsError.hidden = true;
+  try {
+    if (!latestModel || !latestCashRunwayPlan || !latestCashRunway) {
+      throw new Error('Calculate the current cash plan before importing actuals.');
+    }
+    if (Number.isFinite(file.size) && file.size > 5_000_000) {
+      throw new Error('Actuals source files larger than 5 MB are not accepted.');
+    }
+    if (typeof file.arrayBuffer !== 'function') {
+      throw new Error('The selected file cannot expose its original bytes for source hashing.');
+    }
+    const bytes = await file.arrayBuffer();
+    if (bytes.byteLength > 5_000_000) throw new Error('Actuals source files larger than 5 MB are not accepted.');
+    const byteView = new Uint8Array(bytes);
+    if (byteView.length >= 3 && byteView[0] === 0xef && byteView[1] === 0xbb && byteView[2] === 0xbf) {
+      throw new Error('UTF-8 BOM is not supported; save actuals as plain UTF-8 JSON.');
+    }
+    const rawText = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    const payload = JSON.parse(rawText);
+    const forecastStartMonth = actualsForecastStartMonth.value;
+    const sourceSha256 = await sha256Hex(bytes);
+    const comparison = compareCashPlanToActuals({
+      model: latestModel,
+      monthlyPlan: latestCashRunwayPlan,
+      forecastStartMonth,
+      actualsSource: payload,
+      sourceSha256
+    });
+    if (!comparison.ok) {
+      throw new Error(comparison.error.field
+        ? comparison.error.message + ' (field: ' + comparison.error.field + ')'
+        : comparison.error.message);
+    }
+    latestActualsComparison = comparison.report;
+    latestActualsSourcePayload = payload;
+    latestActualsSourceRawText = rawText;
+    latestActualsSourceSha256 = sourceSha256;
+    latestActualsForecastStartMonth = forecastStartMonth;
+    renderActualsVariance(comparison.report);
+    actualsStatus.textContent = 'Actuals compared — source balances reconcile';
+    actualsStatus.className = 'status-pill';
+    downloadVarianceReportButton.disabled = false;
+  } catch (error) {
+    actualsError.textContent = error instanceof Error ? error.message : 'Actuals could not be compared.';
+    actualsError.hidden = false;
+    actualsStatus.textContent = 'Actuals comparison failed';
+    actualsStatus.className = 'status-pill status-muted';
+  } finally {
+    loadActualsInput.value = '';
+  }
+});
+
+downloadVarianceReportButton.addEventListener('click', () => {
+  if (!latestModel || !latestCashRunwayPlan || !latestCashRunway || !latestActualsComparison ||
+      latestActualsSourceRawText === null || !latestActualsSourceSha256 || !latestActualsForecastStartMonth ||
+      downloadVarianceReportButton.disabled) {
+    actualsError.textContent = 'Import and reconcile actuals against the current calculated plan before downloading the variance bundle.';
+    actualsError.hidden = false;
+    return;
+  }
+  try {
+    downloadJson('business-launchpad-actuals-variance-v1.json', {
+      schemaVersion: 1,
+      kind: 'business-launchpad-actuals-variance-report-bundle',
+      forecastStartMonth: latestActualsForecastStartMonth,
+      sourceArtifactSha256: latestActualsSourceSha256,
+      sourceArtifactRawText: latestActualsSourceRawText,
+      scenarioInput: latestModel,
+      cashRunwayPlan: latestCashRunwayPlan,
+      cashRunwayProjection: latestCashRunway,
+      comparison: latestActualsComparison
+    });
+  } catch (error) {
+    actualsError.textContent = error instanceof Error ? error.message : 'Variance evidence bundle could not be exported.';
+    actualsError.hidden = false;
   }
 });
 
