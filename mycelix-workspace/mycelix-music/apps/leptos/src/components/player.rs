@@ -88,6 +88,7 @@ pub fn Player() -> impl IntoView {
                         move |_| player_for_end.next()
                     };
                     let song_for_src = song.clone();
+                    let no_delivery_route = song.audio_source_count() == 0;
                     let on_audio_error = {
                         let current = current;
                         let source_index = source_index;
@@ -114,7 +115,7 @@ pub fn Player() -> impl IntoView {
                         <div class="player-info">
                             <span class="player-title">{song.title.clone()}</span>
                             <span class="player-duration">{song.duration_display()}</span>
-                            {move || delivery_failed.get().then(|| view! {
+                            {move || (delivery_failed.get() || no_delivery_route).then(|| view! {
                                 <span class="player-error" role="status">
                                     "This deployment has no configured media gateway, or all configured gateways failed. Please retry later or contact the site operator."
                                 </span>
