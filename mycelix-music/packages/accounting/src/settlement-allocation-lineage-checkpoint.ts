@@ -272,6 +272,14 @@ export function assertSettlementAllocationLineageCheckpointAdvances(
   const candidate = verifySettlementAllocationLineageCheckpoint(candidateInput, policy);
 
   if (
+    candidate.sourceRef !== previous.sourceRef
+    || candidate.sourceInstanceId !== previous.sourceInstanceId
+    || candidate.batchId !== previous.batchId
+  ) {
+    throw new Error('settlement allocation checkpoint source and batch identity cannot change during cursor advancement');
+  }
+
+  if (
     candidate.checkpointId === previous.checkpointId
     && candidate.checkpointRoot !== previous.checkpointRoot
   ) {
