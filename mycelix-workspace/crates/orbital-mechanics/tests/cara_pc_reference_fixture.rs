@@ -56,8 +56,8 @@ fn cara_fixture_source_and_comparison_status_are_explicit() {
     );
     assert_eq!(
         fixture["verification_boundary"]["mycelix_comparison_status"],
-        "not_yet_run",
-        "fixture metadata must not drift into claiming algorithm parity"
+        "implemented_not_yet_ci_verified",
+        "fixture metadata must not overstate exact-head CI verification"
     );
 
     assert_eq!(
