@@ -109,7 +109,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "test-only:synthetic-issuer-v1",
       "expected_disposition": "verified",
-      "expected_reason": "none"
+      "expected_reason": "none",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "valid",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T002",
@@ -118,7 +134,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "none",
       "expected_disposition": "rejected",
-      "expected_reason": "issuer_not_trusted"
+      "expected_reason": "issuer_not_trusted",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": false,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "valid",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T003",
@@ -127,7 +159,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "test-only:unknown-issuer",
       "expected_disposition": "rejected",
-      "expected_reason": "issuer_not_trusted"
+      "expected_reason": "issuer_not_trusted",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": false,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "valid",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T004",
@@ -136,7 +184,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "test-only:synthetic-issuer-v1",
       "expected_disposition": "rejected",
-      "expected_reason": "wrong_audience"
+      "expected_reason": "wrong_audience",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": false,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "valid",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T005",
@@ -145,7 +209,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "test-only:synthetic-issuer-v1",
       "expected_disposition": "rejected",
-      "expected_reason": "nonce_replay"
+      "expected_reason": "nonce_replay",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": false,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "valid",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T006",
@@ -154,7 +234,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "test-only:synthetic-issuer-v1",
       "expected_disposition": "rejected",
-      "expected_reason": "holder_binding_failed"
+      "expected_reason": "holder_binding_failed",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": false,
+        "time_state": "valid",
+        "credential_status": "valid",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T007",
@@ -163,7 +259,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "test-only:synthetic-issuer-v1",
       "expected_disposition": "rejected",
-      "expected_reason": "credential_expired"
+      "expected_reason": "credential_expired",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "expired",
+        "credential_status": "valid",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T008",
@@ -172,7 +284,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "test-only:synthetic-issuer-v1",
       "expected_disposition": "rejected",
-      "expected_reason": "credential_revoked"
+      "expected_reason": "credential_revoked",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "revoked",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T009",
@@ -181,7 +309,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "test-only:synthetic-issuer-v1",
       "expected_disposition": "rejected",
-      "expected_reason": "schema_or_profile_mismatch"
+      "expected_reason": "schema_or_profile_mismatch",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": false,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "valid",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T010",
@@ -190,7 +334,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "test-only:synthetic-issuer-v1",
       "expected_disposition": "indeterminate",
-      "expected_reason": "status_unavailable"
+      "expected_reason": "status_unavailable",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "unavailable",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T011",
@@ -199,7 +359,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "test-only:synthetic-issuer-v1",
       "expected_disposition": "indeterminate",
-      "expected_reason": "status_unknown"
+      "expected_reason": "status_unknown",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "unknown",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T012",
@@ -208,7 +384,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "none",
       "expected_disposition": "indeterminate",
-      "expected_reason": "unsupported_profile"
+      "expected_reason": "unsupported_profile",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": false,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "valid",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T013",
@@ -217,7 +409,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "test-only:synthetic-issuer-v1",
       "expected_disposition": "rejected",
-      "expected_reason": "privacy_boundary_violation"
+      "expected_reason": "privacy_boundary_violation",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "valid",
+        "privacy_safe": false,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T014",
@@ -226,7 +434,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "test-only:synthetic-issuer-v1",
       "expected_disposition": "rejected",
-      "expected_reason": "authorization_scope_violation"
+      "expected_reason": "authorization_scope_violation",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "valid",
+        "privacy_safe": true,
+        "authorization_scope_valid": false
+      }
     },
     {
       "id": "SA-DID-T015",
@@ -235,7 +459,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "none",
       "expected_disposition": "indeterminate",
-      "expected_reason": "user_declined"
+      "expected_reason": "user_declined",
+      "policy_inputs": {
+        "user_approved": false,
+        "alternative_route_required": false,
+        "source_state": "available",
+        "profile_supported": true,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "valid",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     },
     {
       "id": "SA-DID-T016",
@@ -244,7 +484,23 @@
       "production_eligible": false,
       "trust_anchor_ref": "none",
       "expected_disposition": "indeterminate",
-      "expected_reason": "alternative_route_required"
+      "expected_reason": "alternative_route_required",
+      "policy_inputs": {
+        "user_approved": true,
+        "alternative_route_required": true,
+        "source_state": "unavailable",
+        "profile_supported": true,
+        "issuer_trusted": true,
+        "proof_valid": true,
+        "schema_valid": true,
+        "audience_matches": true,
+        "nonce_fresh": true,
+        "holder_binding_valid": true,
+        "time_state": "valid",
+        "credential_status": "valid",
+        "privacy_safe": true,
+        "authorization_scope_valid": true
+      }
     }
   ],
   "notes": [
