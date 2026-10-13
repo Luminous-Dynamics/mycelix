@@ -1,0 +1,37 @@
+name: Business Export Completeness
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-export-completeness/**'
+      - 'docs/business/HOSPITALITY_SOURCE_EXPORT_COMPLETENESS_CONTRACT_V0_1.md'
+      - '.github/workflows/business-export-completeness.yml'
+  push:
+    branches:
+      - main
+      - 'feat/business-hospitality-export-completeness-*'
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-export-completeness/**'
+      - 'docs/business/HOSPITALITY_SOURCE_EXPORT_COMPLETENESS_CONTRACT_V0_1.md'
+      - '.github/workflows/business-export-completeness.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  business-export-completeness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-business-export-completeness/Cargo.toml --all --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-business-export-completeness/Cargo.toml --all-targets -- -D warnings
+      - name: Test export completeness contract
+        run: cargo test --manifest-path crates/mycelix-business-export-completeness/Cargo.toml --all-targets
