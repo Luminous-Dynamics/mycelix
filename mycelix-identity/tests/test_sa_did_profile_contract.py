@@ -185,5 +185,18 @@ class SouthAfricanDigitalIdProfileTests(unittest.TestCase):
         self.assertTrue(any("scenario does not match its required disposition and reason" in e for e in errors))
 
 
+    def test_smartphone_route_cannot_claim_a_production_ready_status(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["routes"][1]["status"] = "production_ready"
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("status must preserve the reviewed research status" in e for e in errors))
+
+    def test_ovs_route_cannot_drop_the_dha_approval_nonclaim(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["routes"][0]["evidence_nonclaims"].remove("requires_dha_approval_and_terms")
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("evidence_nonclaims must preserve the v1 nonclaims" in e for e in errors))
+
+
 if __name__ == "__main__":
     unittest.main()
