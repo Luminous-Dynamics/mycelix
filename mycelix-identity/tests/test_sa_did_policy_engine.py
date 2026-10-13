@@ -172,13 +172,19 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
-            self.assertIn("SA_DID_POLICY_ORACLE=PASS vectors=16 matched=16", completed.stdout)
+            self.assertIn("SA_DID_POLICY_ORACLE=PASS vectors=20 matched=20", completed.stdout)
             report = json.loads(report_path.read_text(encoding="utf-8"))
-            self.assertEqual(report["vectors_total"], 16)
-            self.assertEqual(report["vectors_matched"], 16)
+            self.assertEqual(report["vectors_total"], 20)
+            self.assertEqual(report["vectors_matched"], 20)
             self.assertTrue(report["passed"])
             self.assertFalse(report["cryptographic_verification_performed"])
             self.assertFalse(report["dha_endpoint_contacted"])
+
+
+
+    def test_malformed_profile_hash_argument_is_refused(self) -> None:
+        with self.assertRaisesRegex(ValueError, "profile_source_sha256 must be a lowercase SHA-256 hex digest"):
+            sa_did_policy_engine.build_report(self.profile, profile_source_sha256=["not", "a", "digest"])
 
 
     def test_report_fingerprints_input_profile_and_verifier_sources(self) -> None:
