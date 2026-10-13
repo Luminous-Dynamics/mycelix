@@ -784,18 +784,20 @@ mod tests {
     // Test decoder parses only provider-returned fields. Query, scope, request cursor,
     // contract identity, and the local window remain extraction context.
     fn decode_test_page(raw: &[u8]) -> Option<DecodedExportPagePayload> {
-        match raw {
-            b"page-zero-payload" => Some(DecodedExportPagePayload {
+        if raw == b"page-zero-payload" {
+            Some(DecodedExportPagePayload {
                 snapshot_id: ref_id("snapshot:2026-09"),
                 next_cursor: PageNextCursor::More(digest(4)),
                 returned_rows: 3,
-            }),
-            b"page-one-payload" => Some(DecodedExportPagePayload {
+            })
+        } else if raw == b"page-one-payload" {
+            Some(DecodedExportPagePayload {
                 snapshot_id: ref_id("snapshot:2026-09"),
                 next_cursor: PageNextCursor::Terminal,
                 returned_rows: 2,
-            }),
-            _ => None,
+            })
+        } else {
+            None
         }
     }
 
@@ -971,15 +973,7 @@ mod tests {
                 &manifest,
                 &pages,
                 statement,
-                |raw| {
-                    if raw == b"page-zero-payload" {
-                        Some(manifest.pages[0].clone())
-                    } else if raw == b"page-one-payload" {
-                        Some(manifest.pages[1].clone())
-                    } else {
-                        None
-                    }
-                },
+                decode_test_page,
                 |_| Some(attestation.clone()),
             ),
             Err(ExportCompletenessError::DecodedCoverageStatementDigestMismatch)
@@ -1004,15 +998,7 @@ mod tests {
                 &manifest,
                 &pages,
                 statement,
-                |raw| {
-                    if raw == b"page-zero-payload" {
-                        Some(manifest.pages[0].clone())
-                    } else if raw == b"page-one-payload" {
-                        Some(manifest.pages[1].clone())
-                    } else {
-                        None
-                    }
-                },
+                decode_test_page,
                 |_| None,
             ),
             Err(ExportCompletenessError::RawCoverageStatementDecodeFailed)
