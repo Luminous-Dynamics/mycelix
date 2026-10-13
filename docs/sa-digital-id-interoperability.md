@@ -20,6 +20,24 @@ The public materials reviewed for this profile do not disclose a third-party dev
 **Recommendation:** implement a protocol-neutral trust-evidence boundary and deterministic synthetic tests now. Add a real protocol adapter only after DHA's official profile and terms are reviewed. Do not use scraping, undocumented endpoints, reverse-engineered app internals, screen scraping, or unofficial biometric checks as substitutes.
 
 
+## Additional official roadmap evidence: prototype is not the production verifier contract
+
+The DHA's *Annual Performance Plan 2026/27* gives a useful implementation-phase distinction:
+
+- The 2026/27 annual target for “Digital identity operational” is specifically **completion of hosting infrastructure for digital identity and PKI**, with a Q4 sign-off milestone.
+- Its medium-term table separately places “Digital identity operational (verifiable credentials issued via digital wallet)” in 2027/28, followed by additional agreed credentials in 2028/29.
+- The plan describes the PKI, certificate-authority, credential, wallet and service-consumption components at a programme level. It does not publish a Mycelix-ready relying-party protocol, a verifier SDK, issuer trust metadata endpoint or a concrete credential/status wire contract in the reviewed material.
+
+Official source: [DHA Annual Performance Plan 2026/27, Digital Identity section, printed pp. 62–63 and 122](https://www.dha.gov.za/images/AnnualReports/DHA-APP-2026-27_260326.pdf).
+
+This makes the safest interpretation more precise: the minister's October 2026 prototype announcement is evidence of prototype progress, but it is not evidence that the production wallet/verifier ecosystem or third-party access contract is ready. Programme targets are plans, not proof of completion. Continue to track official releases and written DHA partner guidance; do not infer interoperability from the existence of PKI or verifiable-credential terminology.
+
+## Executable synthetic policy oracle
+
+The machine-readable vectors now include explicit synthetic policy inputs. `mycelix-identity/sa_did_policy_engine.py` evaluates those inputs with deterministic ordering for consent, alternative access, source availability, supported profile, issuer trust, proof integrity, schema, audience, nonce, holder binding, validity time, credential status, receipt privacy and authorization scope.
+
+This oracle is deliberately **not a credential verifier**. It performs no parsing, signature checks, network calls, trust-key retrieval or DHA interaction. The only positive result is a synthetic test-corpus disposition, and the engine refuses vectors not explicitly marked synthetic and ineligible for production. Its value is that CI can execute the decision logic and compare every scenario's exact expected disposition/reason pair, rather than merely checking that a JSON file contains plausible labels.
+
 ## Near-term official path: the existing Online Verification Service
 
 The smartphone-based Digital ID is not the same thing as DHA's existing Online Verification Service (OVS). OVS is a separate, existing server-to-server service that registered third parties can use to verify client identity information against the National Population Register.
