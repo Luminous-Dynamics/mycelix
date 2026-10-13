@@ -80,5 +80,30 @@ class SouthAfricanDigitalIdProfileTests(unittest.TestCase):
         self.assertTrue(any("duplicate vector id" in e for e in errors))
 
 
+    def test_boolean_schema_version_is_not_accepted_as_integer_one(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["schema_version"] = True
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("schema_version must be the integer 1" in e for e in errors))
+
+    def test_malformed_reason_disposition_type_returns_errors_not_type_error(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["reason_disposition"]["status_unknown"] = []
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("unsupported disposition for reason status_unknown" in e for e in errors))
+
+    def test_non_string_prohibited_receipt_key_is_rejected_without_crashing(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["receipt_policy"]["prohibited_output_keys"].append({"unexpected": "object"})
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("prohibited_output_keys" in e for e in errors))
+
+    def test_unhashable_vector_disposition_is_rejected_without_crashing(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["test_vectors"][1]["expected_disposition"] = []
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("expected_disposition is invalid" in e for e in errors))
+
+
 if __name__ == "__main__":
     unittest.main()
