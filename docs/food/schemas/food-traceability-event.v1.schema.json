@@ -128,7 +128,6 @@
       "additionalProperties": false,
       "required": [
         "status",
-        "value",
         "unitCode",
         "unitCodeSystem",
         "unitCodeListVersion"
@@ -161,7 +160,33 @@
           "minLength": 1,
           "description": "Exact code-list release used for validation, e.g. REC20-REV17-2021."
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "unknown"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "value"
+            ]
+          }
+        }
+      ]
     },
     "lotSubject": {
       "type": "object",
