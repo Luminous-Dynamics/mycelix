@@ -572,12 +572,13 @@ pub fn assess_export_completeness_with_raw_payloads(
 /// Decode raw source artifacts at the boundary where their exact bytes are available,
 /// then qualify the decoded projections against the manifest.
 ///
-/// The page decoder is called once per supplied page, in manifest order. Each decoded
-/// receipt must exactly equal the corresponding manifest receipt, including the digest
-/// of that raw page. The coverage decoder receives the exact statement bytes and its
-/// returned statement digest must equal SHA-256 of those bytes. This removes the need
-/// for callers to pass unrelated pre-decoded projections to this entry point, but it
-/// still trusts the supplied decoder implementations to interpret bytes correctly.
+/// The page decoder is called once per supplied page, in manifest order. Its decoded
+/// response projection must match the manifest receipt's source snapshot, returned
+/// cursor state, and returned-row count. Request context fields (request cursor, query,
+/// scope, schema, contract, and window) are not falsely treated as response-body fields.
+/// The coverage decoder receives the exact statement bytes and its returned statement
+/// digest must equal SHA-256 of those bytes. This still trusts decoder implementations
+/// to interpret the source bytes correctly.
 /// This function does not authenticate the provider or establish query semantics or
 /// real-world completeness.
 pub fn assess_export_completeness_from_raw_artifacts<DecodePage, DecodeCoverage>(
@@ -953,6 +954,60 @@ mod tests {
                             snapshot_id: ref_id("snapshot:2026-09"),
                             next_cursor: PageNextCursor::Terminal,
                             returned_rows: 3,
+                        })
+                    } else {
+                        None
+                    }
+                },
+                |_| Some(attestation.clone()),
+            ),
+            Err(ExportCompletenessError::RawPageProjectionMismatch { page_ordinal: 1 })
+        );
+    }
+
+    #[test]
+    fn raw_artifact_entry_point_rejects_decoded_snapshot_drift() {
+        let (manifest, attestation, pages, statement) = raw_payload_fixture();
+        assert_eq!(
+            assess_export_completeness_from_raw_artifacts(
+                &manifest,
+                &pages,
+                statement,
+                |raw| {
+                    if raw == b"page-zero-payload" {
+                        decode_test_page(raw)
+                    } else if raw == b"page-one-payload" {
+                        Some(DecodedExportPagePayload {
+                            snapshot_id: ref_id("snapshot:different"),
+                            next_cursor: PageNextCursor::Terminal,
+                            returned_rows: 2,
+                        })
+                    } else {
+                        None
+                    }
+                },
+                |_| Some(attestation.clone()),
+            ),
+            Err(ExportCompletenessError::RawPageProjectionMismatch { page_ordinal: 1 })
+        );
+    }
+
+    #[test]
+    fn raw_artifact_entry_point_rejects_decoded_cursor_drift() {
+        let (manifest, attestation, pages, statement) = raw_payload_fixture();
+        assert_eq!(
+            assess_export_completeness_from_raw_artifacts(
+                &manifest,
+                &pages,
+                statement,
+                |raw| {
+                    if raw == b"page-zero-payload" {
+                        decode_test_page(raw)
+                    } else if raw == b"page-one-payload" {
+                        Some(DecodedExportPagePayload {
+                            snapshot_id: ref_id("snapshot:2026-09"),
+                            next_cursor: PageNextCursor::More(digest(9)),
+                            returned_rows: 2,
                         })
                     } else {
                         None
