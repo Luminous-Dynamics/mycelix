@@ -153,6 +153,7 @@ def build_report(
     profile: Any,
     *,
     profile_source_sha256: str | None = None,
+    source_commit_sha: str | None = None,
 ) -> dict[str, Any]:
     """Validate the contract and bind results to exact input and source hashes."""
     if not isinstance(profile, dict):
@@ -208,6 +209,13 @@ def build_report(
     ):
         raise ValueError("profile_source_sha256 must be a lowercase SHA-256 hex digest")
 
+    if source_commit_sha is not None and (
+        not isinstance(source_commit_sha, str)
+        or len(source_commit_sha) != 40
+        or any(char not in "0123456789abcdef" for char in source_commit_sha)
+    ):
+        raise ValueError("source_commit_sha must be a lowercase 40-character Git commit SHA")
+
     normalized_profile = json.dumps(
         profile, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode("utf-8")
@@ -223,8 +231,9 @@ def build_report(
     matched = sum(1 for item in results if item["matched"])
     return {
         "report_schema": "mycelix.sa-did-synthetic-policy-report",
-        "schema_version": 2,
+        "schema_version": 3,
         "profile_id": profile.get("profile_id"),
+        "source_commit_sha": source_commit_sha,
         "profile_maturity": profile.get("maturity"),
         "production_enabled": profile.get("production_enabled"),
         "purpose": "synthetic_policy_oracle_only",
@@ -246,6 +255,10 @@ def main() -> int:
         default=Path(__file__).with_name("SA_DID_PROFILE_V1.json"),
     )
     parser.add_argument("--report", type=Path, help="write a machine-readable JSON report")
+    parser.add_argument(
+        "--source-commit",
+        help="exact 40-character source commit SHA supplied by the CI workflow",
+    )
     args = parser.parse_args()
     try:
         profile_bytes = args.profile.read_bytes()
@@ -254,7 +267,11 @@ def main() -> int:
             profile_bytes.decode("utf-8"),
             object_pairs_hook=_reject_duplicate_object_keys,
         )
-        report = build_report(profile, profile_source_sha256=profile_source_sha256)
+        report = build_report(
+            profile,
+            profile_source_sha256=profile_source_sha256,
+            source_commit_sha=args.source_commit,
+        )
     except (OSError, ValueError) as exc:
         print(f"ERROR: could not evaluate synthetic profile: {exc}", file=sys.stderr)
         return 2
