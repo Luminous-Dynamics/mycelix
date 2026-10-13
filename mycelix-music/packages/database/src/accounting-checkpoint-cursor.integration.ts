@@ -144,6 +144,14 @@ test('PostgreSQL keeps checkpoint evidence append-only and rejects cursor rollba
       /cannot be deleted/,
     );
     await assert.rejects(
+      prisma.$executeRawUnsafe('TRUNCATE TABLE "SettlementAllocationLineageCheckpointCursor"'),
+      /TRUNCATE is forbidden/,
+    );
+    await assert.rejects(
+      prisma.$executeRawUnsafe('TRUNCATE TABLE "SettlementAllocationLineageCheckpointRecord"'),
+      /TRUNCATE is forbidden/,
+    );
+    await assert.rejects(
       prisma.$executeRawUnsafe(
         'UPDATE "SettlementAllocationLineageCheckpointRecord" SET "highWaterMark" = $1 WHERE "checkpointRoot" = $2',
         '12',
