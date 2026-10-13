@@ -204,11 +204,22 @@ pub struct RawPayloadBoundExport {
 /// decoder correctness or provider authenticity.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecodedRawArtifactExport {
-    pub raw_payload_assessment: RawPayloadBoundExport,
-    /// Domain-separated digest of the structural projection and raw-payload evidence.
-    pub decoded_projection_binding_digest: Digest32,
-    // Prevent construction outside this module without the decoder-backed entry point.
+    raw_payload_assessment: RawPayloadBoundExport,
+    decoded_projection_binding_digest: Digest32,
+    // Prevent construction or mutation outside this module in safe Rust.
     _sealed: (),
+}
+
+impl DecodedRawArtifactExport {
+    /// Return the byte-bound and structurally assessed evidence as read-only data.
+    pub fn raw_payload_assessment(&self) -> &RawPayloadBoundExport {
+        &self.raw_payload_assessment
+    }
+
+    /// Return the domain-separated digest committing to the decoder-backed path.
+    pub fn decoded_projection_binding_digest(&self) -> Digest32 {
+        self.decoded_projection_binding_digest
+    }
 }
 
 fn hash_text(hasher: &mut Sha256, value: &str) {
