@@ -20,6 +20,22 @@ REQUIRED_ROUTE_METHOD_BY_ID = {
     "dha_ovs": "server_side_register_verification",
     "dha_smartphone_digital_id": "holder_presented_digital_credential",
 }
+REQUIRED_ROUTE_STATUS_BY_ID = {
+    "dha_ovs": "registration_and_contract_required",
+    "dha_smartphone_digital_id": "official_relying_party_profile_not_established_in_reviewed_public_materials",
+}
+REQUIRED_ROUTE_NONCLAIMS_BY_ID = {
+    "dha_ovs": [
+        "not_a_user_held_wallet_credential",
+        "does_not_establish_mycelix_membership",
+        "requires_dha_approval_and_terms",
+    ],
+    "dha_smartphone_digital_id": [
+        "not_implemented",
+        "not_dha_certified",
+        "candidate_standards_are_not_evidence_of_dha_protocol_support",
+    ],
+}
 REQUIRED_TOP_LEVEL_FIELDS = {
     "schema_id", "schema_version", "profile_id", "title", "snapshot_date",
     "maturity", "production_enabled", "authority", "routes",
@@ -217,6 +233,16 @@ def validate_profile(data: Any) -> list[str]:
         )
         if expected_method is not None and route.get("method_kind") != expected_method:
             errors.append(f"{prefix}.method_kind must preserve the distinct route semantics")
+        if isinstance(route_id, str) and route_id in REQUIRED_ROUTE_STATUS_BY_ID:
+            if route.get("status") != REQUIRED_ROUTE_STATUS_BY_ID[route_id]:
+                errors.append(f"{prefix}.status must preserve the reviewed research status")
+            if route.get("evidence_nonclaims") != REQUIRED_ROUTE_NONCLAIMS_BY_ID[route_id]:
+                errors.append(f"{prefix}.evidence_nonclaims must preserve the v1 nonclaims")
+        if route_id == "dha_ovs":
+            if route.get("public_protocol_spec_in_this_repository") is not False:
+                errors.append(f"{prefix}.public_protocol_spec_in_this_repository must remain false")
+            if route.get("public_onboarding_contact") != "Verifications@dha.gov.za":
+                errors.append(f"{prefix}.public_onboarding_contact must match the documented DHA channel")
         if route_id == "dha_smartphone_digital_id":
             if route.get("protocol_profile_id") is not None:
                 errors.append(f"{prefix}.protocol_profile_id must remain null until DHA profile review")
