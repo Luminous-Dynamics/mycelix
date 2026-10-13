@@ -21,6 +21,8 @@ pub struct MeasurementWindow {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlannedWasteSlot {
+    /// The measurement window for this slot, bounded by the protocol window.
+    pub observation_window: MeasurementWindow,
     /// The target/event time must match any later measurement record exactly.
     pub target_at_unix_ms: u64,
     /// The waste category is fixed before collecting outcomes.
@@ -63,8 +65,12 @@ impl WasteMeasurementProtocol {
             return Err(WasteMeasurementError::InvalidPlannedSlotCount);
         }
         if self.planned_slots.values().any(|slot| {
-            slot.target_at_unix_ms < self.window.start_unix_ms
-                || slot.target_at_unix_ms >= self.window.end_unix_ms
+            slot.observation_window.start_unix_ms < self.window.start_unix_ms
+                || slot.observation_window.start_unix_ms
+                    >= slot.observation_window.end_unix_ms
+                || slot.observation_window.end_unix_ms > self.window.end_unix_ms
+                || slot.target_at_unix_ms < slot.observation_window.start_unix_ms
+                || slot.target_at_unix_ms >= slot.observation_window.end_unix_ms
         }) {
             return Err(WasteMeasurementError::InvalidPlannedSlot);
         }
@@ -304,7 +310,7 @@ pub fn assess_waste_measurement_coverage(
                         calibration_valid_from_unix_ms,
                         calibration_valid_until_unix_ms,
                     } => {
-                        let observed_at = physical_observation_time(record, protocol)?;
+                        let observed_at = physical_observation_time(record, planned_slot)?;
                         if gross_grams < tare_grams {
                             return Err(WasteMeasurementError::GrossBelowTare);
                         }
@@ -330,7 +336,7 @@ pub fn assess_waste_measurement_coverage(
                         grams_per_unit,
                         conversion_digest,
                     } => {
-                        physical_observation_time(record, protocol)?;
+                        physical_observation_time(record, planned_slot)?;
                         if is_zero(conversion_digest) {
                             return Err(WasteMeasurementError::ZeroDigest);
                         }
@@ -383,7 +389,7 @@ pub fn assess_waste_measurement_coverage(
                     .planned_slots
                     .get(&record.slot_id)
                     .ok_or(WasteMeasurementError::UnplannedSlot)?;
-                if record.recorded_at_unix_ms < planned_slot.target_at_unix_ms {
+                if record.recorded_at_unix_ms < planned_slot.observation_window.end_unix_ms {
                     return Err(WasteMeasurementError::InvalidEvidenceTimestamp);
                 }
                 if record.recorded_at_unix_ms > assessed_at_unix_ms {
@@ -481,13 +487,13 @@ pub fn assess_waste_measurement_coverage(
 
 fn physical_observation_time(
     record: &WasteMeasurementRecord,
-    protocol: &WasteMeasurementProtocol,
+    planned_slot: &PlannedWasteSlot,
 ) -> Result<u64, WasteMeasurementError> {
     let observed_at = record
         .observed_at_unix_ms
         .ok_or(WasteMeasurementError::MissingObservedTimestamp)?;
-    if observed_at < protocol.window.start_unix_ms
-        || observed_at >= protocol.window.end_unix_ms
+    if observed_at < planned_slot.observation_window.start_unix_ms
+        || observed_at >= planned_slot.observation_window.end_unix_ms
     {
         return Err(WasteMeasurementError::ObservationOutsideWindow);
     }
@@ -562,6 +568,8 @@ fn measurement_evidence_digest(
     hash_u64(&mut hasher, protocol.planned_slots.len() as u64);
     for (slot_id, definition) in &protocol.planned_slots {
         hash_ref(&mut hasher, slot_id);
+        hash_u64(&mut hasher, definition.observation_window.start_unix_ms);
+        hash_u64(&mut hasher, definition.observation_window.end_unix_ms);
         hash_u64(&mut hasher, definition.target_at_unix_ms);
         hash_ref(&mut hasher, &definition.category);
     }
