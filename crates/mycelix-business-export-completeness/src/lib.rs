@@ -194,6 +194,8 @@ pub struct DecodedRawArtifactExport {
     pub raw_payload_assessment: RawPayloadBoundExport,
     /// Domain-separated digest of the structural projection and raw-payload evidence.
     pub decoded_projection_binding_digest: Digest32,
+    // Prevent construction outside this module without the decoder-backed entry point.
+    _sealed: (),
 }
 
 fn hash_text(hasher: &mut Sha256, value: &str) {
@@ -639,6 +641,7 @@ where
     Ok(DecodedRawArtifactExport {
         raw_payload_assessment,
         decoded_projection_binding_digest: finish_digest(binding_hasher),
+        _sealed: (),
     })
 }
 
