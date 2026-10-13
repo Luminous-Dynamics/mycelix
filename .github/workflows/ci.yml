@@ -303,7 +303,7 @@ jobs:
           python3 --version
           cd mycelix-identity
           python3 validate_sa_did_profile.py
-          python3 -m unittest discover -s tests -p 'test_sa_did_profile_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_sa_did_*.py' -v
       - name: Test identity
         run: cd mycelix-identity && cargo test --workspace
 
