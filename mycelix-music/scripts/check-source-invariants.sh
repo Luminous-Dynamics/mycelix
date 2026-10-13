@@ -263,6 +263,10 @@ grep -Fq 'checkpoint:sql:allocation-prefix-rewrite' packages/database/src/accoun
   || fail "live database regression must reject allocation-root history rewrite"
 grep -Fq 'checkpoint:sql:link-prefix-rewrite' packages/database/src/accounting-checkpoint-cursor.integration.ts \
   || fail "live database regression must reject successor-link history rewrite"
+grep -Fq 'checkpoint:sql:allocation-prefix-shrink' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject allocation history shrinkage"
+grep -Fq 'COLLATE "C"' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL decimal HWM ordering must not depend on database locale collation"
 grep -Fq '9007199254740993' packages/database/src/accounting-checkpoint-cursor.integration.ts \
   || fail "live database regression must retain high-water marks beyond JavaScript safe integers"
 grep -Fq '9007199254740992' packages/database/src/accounting-checkpoint-cursor.integration.ts \
