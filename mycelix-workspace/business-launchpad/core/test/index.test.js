@@ -1003,6 +1003,16 @@ test('actuals comparison rejects currency mismatch, out-of-horizon months, and m
   mismatch.transactions[0].currencyCode = 'USD';
   assert.equal(compareCashPlanToActuals({ ...input, actualsSource: mismatch }).error.code, 'actuals_currency_mismatch');
   assert.equal(compareCashPlanToActuals({ ...input, forecastStartMonth: '2025-12' }).error.code, 'actuals_coverage_outside_plan');
+  assert.equal(compareCashPlanToActuals({ ...input, forecastStartMonth: '2026-13' }).error.code, 'invalid_forecast_start_month');
+
+  const invalidCoverageDate = actualsFixture();
+  invalidCoverageDate.source.coverageStartDate = '2026-02-30';
+  assert.equal(compareCashPlanToActuals({ ...input, actualsSource: invalidCoverageDate }).error.code, 'invalid_actuals_coverage_dates');
+
+  const invalidTransactionDate = actualsFixture();
+  invalidTransactionDate.transactions[0].date = '2026-02-30';
+  assert.equal(compareCashPlanToActuals({ ...input, actualsSource: invalidTransactionDate }).error.code, 'actuals_transaction_outside_coverage');
+
   const noReference = actualsFixture();
   noReference.transactions[0].sourceReference = '';
   assert.equal(compareCashPlanToActuals({ ...input, actualsSource: noReference }).error.code, 'missing_actuals_row_reference');
