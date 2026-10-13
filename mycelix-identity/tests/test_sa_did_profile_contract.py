@@ -105,5 +105,24 @@ class SouthAfricanDigitalIdProfileTests(unittest.TestCase):
         self.assertTrue(any("expected_disposition is invalid" in e for e in errors))
 
 
+    def test_ovs_and_wallet_routes_cannot_exchange_method_semantics(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["routes"][0]["method_kind"] = "holder_presented_digital_credential"
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("method_kind must preserve the distinct route semantics" in e for e in errors))
+
+    def test_wallet_profile_cannot_be_populated_before_official_review(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["routes"][1]["protocol_profile_id"] = "openid4vp-assumed"
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("protocol_profile_id must remain null" in e for e in errors))
+
+    def test_unrecognized_receipt_policy_fields_require_schema_version_change(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["receipt_policy"]["store_face_template"] = True
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("closed v1 policy schema" in e for e in errors))
+
+
 if __name__ == "__main__":
     unittest.main()
