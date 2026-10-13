@@ -64,7 +64,24 @@ REQUIRED_ROUTE_FIELDS = {
 }
 REQUIRED_VECTOR_FIELDS = {
     "id", "scenario", "synthetic_fixture", "production_eligible",
-    "trust_anchor_ref", "expected_disposition", "expected_reason",
+    "trust_anchor_ref", "expected_disposition", "expected_reason", "policy_inputs",
+}
+REQUIRED_POLICY_INPUT_FIELDS = {
+    "user_approved", "alternative_route_required", "source_state",
+    "profile_supported", "issuer_trusted", "proof_valid", "schema_valid",
+    "audience_matches", "nonce_fresh", "holder_binding_valid", "time_state",
+    "credential_status", "privacy_safe", "authorization_scope_valid",
+}
+POLICY_INPUT_BOOLEAN_FIELDS = {
+    "user_approved", "alternative_route_required", "profile_supported",
+    "issuer_trusted", "proof_valid", "schema_valid", "audience_matches",
+    "nonce_fresh", "holder_binding_valid", "privacy_safe",
+    "authorization_scope_valid",
+}
+POLICY_INPUT_ENUM_FIELDS = {
+    "source_state": {"available", "unavailable"},
+    "time_state": {"valid", "expired", "unknown"},
+    "credential_status": {"valid", "revoked", "unknown", "unavailable", "stale"},
 }
 REQUIRED_RECEIPT_POLICY_FIELDS = {
     "short_lived",
@@ -342,6 +359,24 @@ def validate_profile(data: Any) -> list[str]:
             anchor_ref == "none" or anchor_ref.startswith("test-only:")
         ):
             errors.append(f"{prefix}.trust_anchor_ref must be none or an explicit test-only reference")
+
+        policy_inputs = vector.get("policy_inputs")
+        if not isinstance(policy_inputs, dict):
+            errors.append(f"{prefix}.policy_inputs must be an object")
+        else:
+            if set(policy_inputs) != REQUIRED_POLICY_INPUT_FIELDS:
+                errors.append(f"{prefix}.policy_inputs must match the closed synthetic input schema")
+            for field in POLICY_INPUT_BOOLEAN_FIELDS:
+                if type(policy_inputs.get(field)) is not bool:
+                    errors.append(f"{prefix}.policy_inputs.{field} must be a Boolean")
+            for field, allowed_values in POLICY_INPUT_ENUM_FIELDS.items():
+                value = policy_inputs.get(field)
+                if not isinstance(value, str) or value not in allowed_values:
+                    errors.append(f"{prefix}.policy_inputs.{field} has an invalid value")
+            if policy_inputs.get("issuer_trusted") is True and not (
+                isinstance(anchor_ref, str) and anchor_ref.startswith("test-only:")
+            ):
+                errors.append(f"{prefix}: trusted synthetic issuer requires a test-only anchor")
 
         disposition = vector.get("expected_disposition")
         reason = vector.get("expected_reason")
