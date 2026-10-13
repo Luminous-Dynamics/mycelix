@@ -19,6 +19,28 @@ The public materials reviewed for this profile do not disclose a third-party dev
 
 **Recommendation:** implement a protocol-neutral trust-evidence boundary and deterministic synthetic tests now. Add a real protocol adapter only after DHA's official profile and terms are reviewed. Do not use scraping, undocumented endpoints, reverse-engineered app internals, screen scraping, or unofficial biometric checks as substitutes.
 
+
+## Near-term official path: the existing Online Verification Service
+
+The smartphone-based Digital ID is not the same thing as DHA's existing Online Verification Service (OVS). OVS is a separate, existing server-to-server service that registered third parties can use to verify client identity information against the National Population Register.
+
+The Department's public notice of 23 June 2025 says organisations wishing to connect should email **Verifications@dha.gov.za**. The 14 April 2026 government statement says the fee correction took effect on 1 July 2025: R10 per real-time private-sector verification and R1 per verification field request for off-peak batch verification. The same statement reports improved uptime and response time after system upgrades. These are official published figures and access instructions, not a guarantee that Mycelix is eligible or will be approved.
+
+Sources:
+- DHA / South African Government, 23 June 2025, OVS access process and fees: https://www.gov.za/news/media-statements/home-affairs-corrects-unsustainable-under-pricing-national-population
+- DHA / South African Government, 14 April 2026, OVS operating update: https://www.gov.za/news/media-statements/minister-leon-schreiber-welcomes-withdrawal-act-court-application-against
+
+### Recommended two-path strategy
+
+1. **Pursue OVS onboarding now, conditionally.** Contact DHA through the published channel to establish whether the legal entity/operator, intended use, and proposed data processing are eligible. Request the official integration specification, supported fields and result codes, authentication and network security requirements, test environment, rate limits, fee/billing rules, terms, audit requirements, allowed purposes and retention constraints. Do not assume access just because the public notice invites organisations to enquire.
+2. **Prepare the smartphone Digital ID adapter independently.** The wallet-based flow should be user-mediated and claim-minimising; it must be selected according to the official profile that DHA ultimately publishes or authorizes.
+3. **Normalize outcomes without erasing assurance differences.** A server-side OVS result and a user-presented wallet credential must carry different method/profile identifiers and assurance semantics. They may enter a common higher-level policy interface, but they are not interchangeable evidence.
+4. **Never cache more than the approved contract allows.** For OVS, minimise request fields, restrict operator access, avoid logging raw identifiers, and retain only the smallest receipt allowed by the DHA agreement and lawful purpose. For wallet presentations, avoid storing the full credential or reusable presentation token.
+5. **Keep optionality and alternatives.** Do not make official identity verification mandatory for low-risk community participation or for reporting outages. Never make digital proof the only path to essential service access.
+
+OVS is an immediate potential path for approved institutional verification. It is not a public drop-in API, not a credential held by the user, not a substitute for the Digital ID wallet, and not evidence that Mycelix has been authorized by DHA.
+
+
 ## The right identity boundaries
 
 Three entities must remain distinct:
