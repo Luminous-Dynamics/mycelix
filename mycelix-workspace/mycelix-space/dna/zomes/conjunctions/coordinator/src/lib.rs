@@ -1071,6 +1071,7 @@ pub fn screen_conjunction_from_tles(
                 .into_wasm_error()
             })?;
             let dist = distance_between(&p_state, &s_state);
+            ensure_screening_distance(dist, *secondary_norad_id, "coarse scan", coarse_offset)?;
             if dist < best_distance {
                 best_distance = dist;
                 best_step = coarse_offset;
@@ -1106,6 +1107,7 @@ pub fn screen_conjunction_from_tles(
                 .into_wasm_error()
             })?;
             let dist = distance_between(&p_state, &s_state);
+            ensure_screening_distance(dist, *secondary_norad_id, "fine scan", t_secs)?;
             if dist < tca_distance {
                 tca_distance = dist;
                 tca_offset = t_secs;
@@ -1236,6 +1238,29 @@ mod screening_parameter_tests {
     }
 }
 
+/// Reject non-finite or negative propagated separation values before they can
+/// influence closest-approach selection. NaN comparisons otherwise silently fail.
+fn ensure_screening_distance(
+    distance_km: f64,
+    secondary_norad_id: u32,
+    phase: &str,
+    offset_seconds: i64,
+) -> ExternResult<()> {
+    if !distance_km.is_finite() || distance_km < 0.0 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!(
+                "Invalid propagated separation during {phase} at +{offset_seconds}s; screening batch incomplete"
+            ),
+        )
+        .with_context(format!(
+            "secondary_norad_id: {secondary_norad_id}, distance_km: {distance_km}"
+        ))
+        .into_wasm_error());
+    }
+    Ok(())
+}
+
 /// Reject self-conjunctions and repeated target IDs before performing cross-zome I/O.
 fn validate_requested_secondary_ids(
     primary_norad_id: u32,
@@ -1296,6 +1321,18 @@ fn require_secondary_items<T>(
 #[cfg(test)]
 mod screening_target_tests {
     use super::*;
+
+    #[test]
+    fn closest_approach_samples_reject_invalid_separation_values() {
+        assert!(ensure_screening_distance(0.0, 40001, "coarse scan", 0).is_ok());
+        assert!(ensure_screening_distance(1.0, 40001, "fine scan", 10).is_ok());
+        for distance in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0] {
+            assert!(
+                ensure_screening_distance(distance, 40001, "coarse scan", 600).is_err(),
+                "invalid separation must fail closed: {distance}"
+            );
+        }
+    }
 
     #[test]
     fn requested_secondary_ids_reject_primary_and_duplicates() {
