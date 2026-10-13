@@ -174,5 +174,16 @@ class SouthAfricanDigitalIdProfileTests(unittest.TestCase):
         self.assertTrue(any("trust_anchor_ref must be none or an explicit test-only reference" in e for e in errors))
 
 
+    def test_adversarial_scenario_requires_its_exact_reason_not_just_same_disposition(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        nonce_replay = next(
+            vector for vector in mutated["test_vectors"]
+            if vector["scenario"] == "nonce_replay"
+        )
+        nonce_replay["expected_reason"] = "issuer_not_trusted"
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("scenario does not match its required disposition and reason" in e for e in errors))
+
+
 if __name__ == "__main__":
     unittest.main()
