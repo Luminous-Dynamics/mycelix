@@ -234,7 +234,19 @@ export function signSettlementAllocationLineageCheckpoint(
     checkpointSigningMessage(checkpoint.checkpointRoot),
     privateKey,
   ).toString('base64');
-  return Object.freeze({ ...checkpoint, signerKeyId: keyId, signatureBase64 });
+  return Object.freeze({
+    ...checkpoint,
+    allocationRoots: validateRootSequence(
+      'settlement allocation checkpoint allocation',
+      checkpoint.allocationRoots,
+    ),
+    linkRoots: validateRootSequence(
+      'settlement allocation checkpoint link',
+      checkpoint.linkRoots,
+    ),
+    signerKeyId: keyId,
+    signatureBase64,
+  });
 }
 
 export function verifySettlementAllocationLineageCheckpoint(
