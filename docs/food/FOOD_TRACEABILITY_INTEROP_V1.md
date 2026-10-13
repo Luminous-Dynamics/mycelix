@@ -82,7 +82,7 @@ Unknown must not become zero or a nominal value. Planned/forecast amounts must n
 | Event | Semantics | Required invariant |
 |---|---|---|
 | PLANNED | Intention or planting/production plan | Does not create current supply |
-| FORECASTED | Model estimate or projected output | Forecast provenance, horizon and model version stay identifiable; not inventory |
+| FORECASTED | Model estimate or projected output | Forecast metadata must bind model identity/version and horizon; never inventory |
 | PRODUCED / HARVESTED | Reported production or crop harvest | Keep source evidence and measurement method; event does not prove edible or marketable status |
 | TRANSFORMED | One or more lots transformed into one or more lots | Record input/output lots and quantities; preserve lineage and any loss/by-product |
 | PACKED | Product packed or repacked | Preserve source lots, packaging/aggregation relations and quantities |
@@ -125,16 +125,17 @@ Before physical integration, test these event sequences using a frozen fixture m
 2. Milk lot stored and shipped with in-range observed segments.
 3. Temperature measurement marked missing during a sensor outage.
 4. Stale sensor calibration followed by a reading; status is not silently upgraded.
-5. Cheese production with a transformation event linking consumed milk to output lot and recorded loss/by-product.
-6. Planned harvest and model forecast are ingested; neither increases available inventory.
-7. Duplicate delivery of an event with the same ID and same canonical content digest.
-8. Same event ID delivered with different content; verifier quarantines conflict.
-9. Dispatch with no receiving event; it remains in transit/unknown, not fulfilled.
-10. Recall of an input lot; transformation descendants and affected offers become discoverable.
-11. Correction supersedes a previously wrong quantity without deleting the original assertion.
-12. Invalid unit-code syntax, unpinned code-list version, disallowed product-unit pair, negative amount, NaN, exponent, excess decimal precision, and unit-list membership mismatch.
-13. Private producer/household references remain absent from public map projection.
-14. Model estimate conflicts with current inventory observation; preserve both and route for resolution.
+5. Forecast event without model identity/version or a bounded horizon is rejected.
+6. Cheese production with a transformation event linking observed milk inputs to observed cheese outputs and recorded loss/by-product. A transformation whose inputs or outputs are merely forecast is rejected.
+7. Planned harvest and model forecast are ingested; neither increases available inventory.
+8. Duplicate delivery of an event with the same ID and same canonical content digest.
+9. Same event ID delivered with different content; verifier quarantines conflict.
+10. Dispatch with no receiving event; it remains in transit/unknown, not fulfilled.
+11. Recall of an input lot; transformation descendants and affected offers become discoverable.
+12. Correction supersedes a previously wrong quantity without deleting the original assertion.
+13. Invalid unit-code syntax, unpinned code-list version, disallowed product-unit pair, negative amount, NaN, exponent, excess decimal precision, and unit-list membership mismatch.
+14. Private producer/household references remain absent from public map projection.
+15. Model estimate conflicts with current inventory observation; preserve both and route for resolution.
 
 Each fixture should carry an immutable ID, schema/version, seed where generated, source class (synthetic vs observed), and a content digest. Synthetic fixture success is evidence of protocol behavior only, not agronomic validation, food-safety validation or operational readiness.
 
