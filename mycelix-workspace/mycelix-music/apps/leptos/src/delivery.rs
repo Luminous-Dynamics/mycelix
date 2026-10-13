@@ -172,10 +172,12 @@ impl TrustedGatewayOrigin {
 }
 
 /// What the route itself guarantees. This deliberately does not claim that
-/// the client verified the returned media against its content address.
+/// the client verified returned media against its content address. Transport
+/// security varies by origin: public origins use HTTPS; HTTP is restricted to
+/// browser-trustworthy loopback origins.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VerificationLevel {
-    HttpsTransportOnly,
+    TransportOnly,
 }
 
 /// The trust domain of the selected route. Configured origins are operator
@@ -282,7 +284,7 @@ pub fn delivery_candidates_with_origins(
             provider: DeliveryProvider::ConfiguredHttpsOrigin,
             url,
             priority: candidates.len() as u8,
-            verification: VerificationLevel::HttpsTransportOnly,
+            verification: VerificationLevel::TransportOnly,
         });
     }
 
@@ -411,7 +413,7 @@ mod tests {
         assert_eq!(candidates[1].priority, 1);
         assert!(candidates
             .iter()
-            .all(|candidate| candidate.verification == VerificationLevel::HttpsTransportOnly));
+            .all(|candidate| candidate.verification == VerificationLevel::TransportOnly));
     }
 
     #[test]
@@ -480,7 +482,7 @@ mod tests {
         assert_eq!(candidates.len(), 1);
         assert!(candidates
             .iter()
-            .all(|candidate| candidate.verification == VerificationLevel::HttpsTransportOnly));
+            .all(|candidate| candidate.verification == VerificationLevel::TransportOnly));
     }
 
     #[test]
