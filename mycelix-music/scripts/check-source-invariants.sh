@@ -192,6 +192,7 @@ for model in \
   RoyaltyEligibilityObservation \
   RoyaltyDeductionRecord \
   SettlementAttemptObservationRecord \
+  SettlementAllocationLineageCheckpointRecord \
   RoyaltyStatementSnapshotRecord
 do
   block=$(sed -n "/^model ${model} {/,/^}/p" packages/database/prisma/schema.prisma)
@@ -205,6 +206,25 @@ done
 
 grep -Fq 'BEFORE UPDATE OR DELETE' packages/database/prisma/accounting-append-only.sql \
   || fail "accounting append-only database trigger must reject UPDATE and DELETE"
+
+# Signed allocation-lineage checkpoints are append-only evidence. Their mutable
+# source cursor is a single guarded head pointer, advanced with SERIALIZABLE CAS.
+grep -Fq 'acceptSettlementAllocationLineageCheckpoint' packages/database/src/accounting-authority.ts \
+  || fail "durable checkpoint acceptance boundary missing"
+grep -Fq 'assertSettlementAllocationLineageCheckpointAdvances' packages/database/src/accounting-authority.ts \
+  || fail "durable checkpoint store must reject replay and rollback"
+grep -Fq "isolationLevel: 'Serializable'" packages/database/src/accounting-authority.ts \
+  || fail "checkpoint cursor and immutable evidence must share a serializable transaction"
+grep -Fq 'settlement_allocation_checkpoint_cursor_guard' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL checkpoint cursor monotonicity trigger missing"
+grep -Fq 'highWaterMark cannot move backwards' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must reject checkpoint source-cursor rollback"
+grep -Fq 'settlement allocation checkpoint cursor cannot be deleted' packages/database/prisma/accounting-append-only.sql \
+  || fail "durable checkpoint cursor must not be deletable"
+grep -Fq 'accounting-checkpoint-cursor.test.ts' packages/database/package.json \
+  || fail "checkpoint store replay/rollback tests must run in qualification"
+grep -Fq 'accounting-checkpoint-cursor.integration.ts' packages/database/package.json \
+  || fail "checkpoint cursor database guards must run against PostgreSQL"
 grep -Fq 'test:accounting-guards' packages/database/package.json \
   || fail "database package must expose the live append-only guard regression"
 grep -Fq 'postgres:16' ../.github/workflows/music-accounting-persistence.yml \
