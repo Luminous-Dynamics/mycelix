@@ -156,7 +156,14 @@ class FakeCheckpointCursor {
 function storeFixture() {
   const evidence = new FakeCheckpointEvidence();
   const cursor = new FakeCheckpointCursor();
-  const prisma = {
+  const prisma: {
+    readonly settlementAllocationLineageCheckpointRecord: FakeCheckpointEvidence;
+    readonly settlementAllocationLineageCheckpointCursor: FakeCheckpointCursor;
+    readonly $transaction: (
+      callback: (transaction: unknown) => Promise<unknown>,
+      options: { isolationLevel: 'Serializable'; maxWait: number; timeout: number },
+    ) => Promise<unknown>;
+  } = {
     settlementAllocationLineageCheckpointRecord: evidence,
     settlementAllocationLineageCheckpointCursor: cursor,
     $transaction: async (
