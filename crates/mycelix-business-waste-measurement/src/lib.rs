@@ -108,9 +108,13 @@ pub struct WasteMeasurementRecord {
     pub scope: ScopeRef,
     pub category: ReferenceId,
     pub reason: ReferenceId,
-    pub observed_at_unix_ms: u64,
+    /// Target/event time in the preregistered evaluation window.
+    pub target_at_unix_ms: u64,
+    /// Present only for physical observations; model-imputed values must use None.
+    pub observed_at_unix_ms: Option<u64>,
     pub recorded_at_unix_ms: u64,
-    pub capture_digest: Digest32,
+    /// Digest of the measurement record or model-output evidence.
+    pub record_evidence_digest: Digest32,
     pub mass: MassEvidence,
 }
 
@@ -152,8 +156,11 @@ pub enum WasteMeasurementError {
     WrongSourceSystem,
     WrongScope,
     ObservationOutsideWindow,
+    MissingObservedTimestamp,
+    UnexpectedObservedTimestamp,
     RecordedBeforeObservation,
     EvidenceAfterAssessment,
+    InvalidEvidenceTimestamp,
     MissingCaptureDigest,
     GrossBelowTare,
     InvalidCalibrationWindow,
@@ -247,18 +254,15 @@ pub fn assess_waste_measurement_coverage(
                 if record.scope != protocol.scope {
                     return Err(WasteMeasurementError::WrongScope);
                 }
-                if record.observed_at_unix_ms < protocol.window.start_unix_ms
-                    || record.observed_at_unix_ms >= protocol.window.end_unix_ms
+                if record.target_at_unix_ms < protocol.window.start_unix_ms
+                    || record.target_at_unix_ms >= protocol.window.end_unix_ms
                 {
                     return Err(WasteMeasurementError::ObservationOutsideWindow);
-                }
-                if record.recorded_at_unix_ms < record.observed_at_unix_ms {
-                    return Err(WasteMeasurementError::RecordedBeforeObservation);
                 }
                 if record.recorded_at_unix_ms > assessed_at_unix_ms {
                     return Err(WasteMeasurementError::EvidenceAfterAssessment);
                 }
-                if is_zero(&record.capture_digest) {
+                if is_zero(&record.record_evidence_digest) {
                     return Err(WasteMeasurementError::MissingCaptureDigest);
                 }
                 if !measurement_ids.insert(record.measurement_id.clone()) {
@@ -274,6 +278,7 @@ pub fn assess_waste_measurement_coverage(
                         calibration_valid_from_unix_ms,
                         calibration_valid_until_unix_ms,
                     } => {
+                        let observed_at = physical_observation_time(record, protocol)?;
                         if gross_grams < tare_grams {
                             return Err(WasteMeasurementError::GrossBelowTare);
                         }
@@ -283,8 +288,8 @@ pub fn assess_waste_measurement_coverage(
                         if calibration_valid_from_unix_ms >= calibration_valid_until_unix_ms {
                             return Err(WasteMeasurementError::InvalidCalibrationWindow);
                         }
-                        if record.observed_at_unix_ms < *calibration_valid_from_unix_ms
-                            || record.observed_at_unix_ms >= *calibration_valid_until_unix_ms
+                        if observed_at < *calibration_valid_from_unix_ms
+                            || observed_at >= *calibration_valid_until_unix_ms
                         {
                             return Err(WasteMeasurementError::CalibrationNotValidAtObservation);
                         }
@@ -299,6 +304,7 @@ pub fn assess_waste_measurement_coverage(
                         grams_per_unit,
                         conversion_digest,
                     } => {
+                        physical_observation_time(record, protocol)?;
                         if is_zero(conversion_digest) {
                             return Err(WasteMeasurementError::ZeroDigest);
                         }
@@ -314,6 +320,7 @@ pub fn assess_waste_measurement_coverage(
                         estimated_grams,
                         method_digest,
                     } => {
+                        physical_observation_time(record, protocol)?;
                         if is_zero(method_digest) {
                             return Err(WasteMeasurementError::ZeroDigest);
                         }
@@ -326,6 +333,9 @@ pub fn assess_waste_measurement_coverage(
                         estimated_grams,
                         model_lineage: _,
                     } => {
+                        if record.observed_at_unix_ms.is_some() {
+                            return Err(WasteMeasurementError::UnexpectedObservedTimestamp);
+                        }
                         imputed_mass = imputed_mass
                             .checked_add(*estimated_grams)
                             .ok_or(WasteMeasurementError::MassOverflow)?;
@@ -340,8 +350,8 @@ pub fn assess_waste_measurement_coverage(
                 if record.scope != protocol.scope {
                     return Err(WasteMeasurementError::WrongScope);
                 }
-                if record.recorded_at_unix_ms == 0 {
-                    return Err(WasteMeasurementError::InvalidWindow);
+                if record.recorded_at_unix_ms < protocol.window.start_unix_ms {
+                    return Err(WasteMeasurementError::InvalidEvidenceTimestamp);
                 }
                 if record.recorded_at_unix_ms > assessed_at_unix_ms {
                     return Err(WasteMeasurementError::EvidenceAfterAssessment);
@@ -433,13 +443,31 @@ pub fn assess_waste_measurement_coverage(
     })
 }
 
+fn physical_observation_time(
+    record: &WasteMeasurementRecord,
+    protocol: &WasteMeasurementProtocol,
+) -> Result<u64, WasteMeasurementError> {
+    let observed_at = record
+        .observed_at_unix_ms
+        .ok_or(WasteMeasurementError::MissingObservedTimestamp)?;
+    if observed_at < protocol.window.start_unix_ms
+        || observed_at >= protocol.window.end_unix_ms
+    {
+        return Err(WasteMeasurementError::ObservationOutsideWindow);
+    }
+    if record.recorded_at_unix_ms < observed_at {
+        return Err(WasteMeasurementError::RecordedBeforeObservation);
+    }
+    Ok(observed_at)
+}
+
 fn rate_bps_ceil(numerator: u64, denominator: u64) -> Result<u16, WasteMeasurementError> {
     if denominator == 0 || numerator > denominator {
         return Err(WasteMeasurementError::RateArithmeticOverflow);
     }
     let numerator = u128::from(numerator) * u128::from(MAX_RATE_BASIS_POINTS);
     let denominator = u128::from(denominator);
-    let rate = (numerator + denominator - 1) / denominator;
+    let rate = numerator.div_ceil(denominator);
     u16::try_from(rate).map_err(|_| WasteMeasurementError::RateArithmeticOverflow)
 }
 
@@ -519,9 +547,18 @@ fn measurement_evidence_digest(
                 hash_scope(&mut hasher, &record.scope);
                 hash_ref(&mut hasher, &record.category);
                 hash_ref(&mut hasher, &record.reason);
-                hash_u64(&mut hasher, record.observed_at_unix_ms);
+                hash_u64(&mut hasher, record.target_at_unix_ms);
+                match record.observed_at_unix_ms {
+                    Some(observed_at) => {
+                        hasher.update([1]);
+                        hash_u64(&mut hasher, observed_at);
+                    }
+                    None => {
+                        hasher.update([0]);
+                    }
+                }
                 hash_u64(&mut hasher, record.recorded_at_unix_ms);
-                hash_digest(&mut hasher, &record.capture_digest);
+                hash_digest(&mut hasher, &record.record_evidence_digest);
                 match &record.mass {
                     MassEvidence::DirectWeighing {
                         gross_grams,
@@ -623,9 +660,10 @@ mod tests {
             scope: scope("scope:restaurant:one"),
             category: ref_id("waste:prep"),
             reason: ref_id("reason:trim"),
-            observed_at_unix_ms: 3_000,
+            target_at_unix_ms: 3_000,
+            observed_at_unix_ms: Some(3_000),
             recorded_at_unix_ms: 3_100,
-            capture_digest: digest(2),
+            record_evidence_digest: digest(2),
             mass: MassEvidence::DirectWeighing {
                 gross_grams: gross,
                 tare_grams: tare,
@@ -648,9 +686,10 @@ mod tests {
                 scope: scope("scope:restaurant:one"),
                 category: ref_id("waste:unsold"),
                 reason: ref_id("reason:expired"),
-                observed_at_unix_ms: 4_000,
+                target_at_unix_ms: 4_000,
+                observed_at_unix_ms: None,
                 recorded_at_unix_ms: 4_100,
-                capture_digest: digest(4),
+                record_evidence_digest: digest(4),
                 mass: MassEvidence::ModelImputed {
                     estimated_grams: 900,
                     model_lineage: ref_id("model:waste:v1"),
@@ -809,7 +848,7 @@ mod tests {
     fn rejects_observation_outside_window() {
         let mut values = outcomes();
         if let WasteSlotOutcome::Measured(record) = &mut values[0] {
-            record.observed_at_unix_ms = protocol().window.end_unix_ms;
+            record.observed_at_unix_ms = Some(protocol().window.end_unix_ms);
         }
         assert_eq!(
             assess_waste_measurement_coverage(&protocol(), &values, 7_000),
