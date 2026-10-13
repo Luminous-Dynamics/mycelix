@@ -20,6 +20,36 @@ REQUIRED_ROUTE_METHOD_BY_ID = {
     "dha_ovs": "server_side_register_verification",
     "dha_smartphone_digital_id": "holder_presented_digital_credential",
 }
+REQUIRED_TOP_LEVEL_FIELDS = {
+    "schema_id", "schema_version", "profile_id", "title", "snapshot_date",
+    "maturity", "production_enabled", "authority", "routes",
+    "allowed_dispositions", "reason_disposition", "receipt_policy",
+    "test_vectors", "notes",
+}
+REQUIRED_AUTHORITY_FIELDS = {
+    "government_issuer",
+    "official_issuer_trust_anchor_configured",
+    "published_wallet_relying_party_profile_reviewed",
+    "dha_relying_party_authorization_confirmed",
+    "notes",
+}
+REQUIRED_ROUTE_FIELDS = {
+    "dha_ovs": {
+        "route_id", "method_kind", "status", "production_enabled",
+        "public_protocol_spec_in_this_repository", "source_urls",
+        "public_onboarding_contact", "evidence_nonclaims",
+    },
+    "dha_smartphone_digital_id": {
+        "route_id", "method_kind", "status", "production_enabled",
+        "protocol_profile_id", "official_issuer_trust_anchor_configured",
+        "status_or_revocation_profile_configured", "source_urls",
+        "evidence_nonclaims",
+    },
+}
+REQUIRED_VECTOR_FIELDS = {
+    "id", "scenario", "synthetic_fixture", "production_eligible",
+    "trust_anchor_ref", "expected_disposition", "expected_reason",
+}
 REQUIRED_RECEIPT_POLICY_FIELDS = {
     "short_lived",
     "purpose_scoped",
@@ -115,6 +145,8 @@ def validate_profile(data: Any) -> list[str]:
     errors: list[str] = []
     if not isinstance(data, dict):
         return ["profile must be a JSON object"]
+    if set(data) != REQUIRED_TOP_LEVEL_FIELDS:
+        errors.append("top-level fields must match the closed v1 schema")
 
     if data.get("schema_id") != "mycelix.sa-digital-id-interoperability-profile":
         errors.append("unexpected schema_id")
@@ -135,6 +167,8 @@ def validate_profile(data: Any) -> list[str]:
     authority = data.get("authority")
     if not isinstance(authority, dict):
         errors.append("authority must be an object")
+    elif set(authority) != REQUIRED_AUTHORITY_FIELDS:
+        errors.append("authority fields must match the closed v1 schema")
 
     routes = data.get("routes")
     route_ids: set[str] = set()
@@ -147,6 +181,9 @@ def validate_profile(data: Any) -> list[str]:
             errors.append(f"{prefix} must be an object")
             continue
         route_id = route.get("route_id")
+        if isinstance(route_id, str) and route_id in REQUIRED_ROUTE_FIELDS:
+            if set(route) != REQUIRED_ROUTE_FIELDS[route_id]:
+                errors.append(f"{prefix} fields must match the closed v1 route schema")
         if not isinstance(route_id, str) or not route_id:
             errors.append(f"{prefix}.route_id must be a non-empty string")
         elif route_id in route_ids:
@@ -179,6 +216,15 @@ def validate_profile(data: Any) -> list[str]:
             "routes must distinguish exactly dha_ovs and dha_smartphone_digital_id"
         )
 
+    allowed = data.get("allowed_dispositions")
+    if (
+        not isinstance(allowed, list)
+        or any(not isinstance(item, str) for item in allowed)
+        or len(allowed) != len(ALLOWED_DISPOSITIONS)
+        or set(allowed) != ALLOWED_DISPOSITIONS
+    ):
+        errors.append("allowed_dispositions must enumerate exactly verified, rejected, and indeterminate")
+
     receipt = data.get("receipt_policy")
     if not isinstance(receipt, dict):
         errors.append("receipt_policy must be an object")
@@ -206,6 +252,8 @@ def validate_profile(data: Any) -> list[str]:
     if not isinstance(mappings, dict):
         errors.append("reason_disposition must be an object")
         mappings = {}
+    elif set(mappings) != set(ALLOWED_EXPECTED_DISPOSITION_BY_REASON):
+        errors.append("reason_disposition keys must match the closed v1 reason enum")
     for reason, expected in ALLOWED_EXPECTED_DISPOSITION_BY_REASON.items():
         if mappings.get(reason) != expected:
             errors.append(f"wrong or missing disposition mapping for reason: {reason}")
@@ -225,6 +273,8 @@ def validate_profile(data: Any) -> list[str]:
         if not isinstance(vector, dict):
             errors.append(f"{prefix} must be an object")
             continue
+        if set(vector) != REQUIRED_VECTOR_FIELDS:
+            errors.append(f"{prefix} fields must match the closed v1 vector schema")
         vector_id = vector.get("id")
         scenario = vector.get("scenario")
         if not isinstance(vector_id, str) or not vector_id:
@@ -280,13 +330,26 @@ def validate_profile(data: Any) -> list[str]:
     return errors
 
 
+def _reject_duplicate_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject duplicate JSON keys instead of silently accepting the last value."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON object key: {key}")
+        result[key] = value
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile", type=Path, default=PROFILE_PATH)
     args = parser.parse_args()
     try:
-        data = json.loads(args.profile.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        data = json.loads(
+            args.profile.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_object_keys,
+        )
+    except (OSError, ValueError) as exc:
         print(f"ERROR: could not load profile: {exc}", file=sys.stderr)
         return 2
 
