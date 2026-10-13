@@ -274,21 +274,16 @@ pub fn compile(config: DeskConfiguration) -> Result<CompiledPacket, CompileError
 /// Verify all packet digest bindings. This verifies byte-level integrity only;
 /// it does not validate physical safety, geometry semantics, or manufactureability.
 pub fn verify_integrity(packet: &CompiledPacket) -> Result<bool, CompileError> {
-    let identity = DesignIdentity {
-        family_id: FAMILY_ID,
-        family_revision: FAMILY_REVISION,
-        configuration: &packet.core.configuration,
+    // Recompile from the bound configuration and compare every generated field.
+    // Recomputing only the digests would let a caller change the release gate and
+    // recompute the outer digest. This check therefore also enforces the prototype's
+    // permanently blocked gate and canonical candidate parts/process list.
+    let expected = match compile(packet.core.configuration.clone()) {
+        Ok(expected) => expected,
+        Err(CompileError::InvalidConfiguration(_)) => return Ok(false),
+        Err(error) => return Err(error),
     };
-    let design_digest = digest("design-spec-v1", &identity)?;
-    let cut_list_digest = digest("cut-list-v1", &packet.core.cut_parts)?;
-    let packet_digest = digest("manufacturing-packet-v1", &packet.core)?;
-    Ok(packet.core.family_id == FAMILY_ID
-        && packet.core.family_revision == FAMILY_REVISION
-        && packet.core.packet_schema_version == PACKET_SCHEMA_VERSION
-        && packet.core.serialization_profile == SERIALIZATION_PROFILE
-        && packet.core.design_digest == design_digest
-        && packet.core.cut_list_digest == cut_list_digest
-        && packet.packet_digest == packet_digest)
+    Ok(packet == &expected)
 }
 
 /// Stable domain-separated BLAKE3 digest over this crate's explicitly versioned
@@ -471,6 +466,15 @@ mod tests {
         let mut packet = compile(valid_config()).expect("valid bounded configuration");
         packet.core.cut_parts[0].length_mm += 1;
         assert!(!verify_integrity(&packet).expect("recompute digests"));
+    }
+
+    #[test]
+    fn recomputed_outer_digest_cannot_remove_release_block() {
+        let mut packet = compile(valid_config()).expect("valid bounded configuration");
+        packet.core.release_gate.release_eligible = true;
+        packet.packet_digest =
+            digest("manufacturing-packet-v1", &packet.core).expect("digest modified packet");
+        assert!(!verify_integrity(&packet).expect("verify altered packet"));
     }
 
     #[test]
