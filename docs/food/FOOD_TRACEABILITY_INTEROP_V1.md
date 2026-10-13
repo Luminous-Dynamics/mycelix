@@ -49,7 +49,7 @@ References:
 
 ## 4. Envelope contract
 
-The machine-readable JSON Schema is at docs/food/schemas/food-traceability-event.v1.schema.json; a valid example is at docs/food/examples/eggs-produced.v1.json.
+The machine-readable JSON Schema is at docs/food/schemas/food-traceability-event.v1.schema.json; a valid example is at docs/food/examples/eggs-produced.v1.json. V1 pins unit-code versions to REC20-REV17-2021 so a vague value such as latest cannot silently change interpretation.
 
 Every event carries:
 
@@ -86,7 +86,7 @@ Unknown must not become zero or a nominal value. Planned/forecast amounts must n
 | PRODUCED / HARVESTED | Reported production or crop harvest | Keep source evidence and measurement method; event does not prove edible or marketable status |
 | TRANSFORMED | One or more lots transformed into one or more lots | Record input/output lots and quantities; preserve lineage and any loss/by-product |
 | PACKED | Product packed or repacked | Preserve source lots, packaging/aggregation relations and quantities |
-| DISPATCHED / RECEIVED | Shipment dispatch/receipt | Dispatch is not proof of arrival; receipt is a distinct event |
+| DISPATCHED / RECEIVED | Shipment dispatch/receipt | Both events bind the same shipmentRef and explicit origin/destination; dispatch is not proof of arrival and receipt is distinct |
 | STORED | Placement/status event for a lot at a site | Location/capability claims are separate from measured handling observations |
 | HANDOFF | Physical handover to an authorized recipient/channel | Order intention is not fulfillment; keep receipt separate |
 | HANDLING_OBSERVED | Sensor observation or explicit sensor gap/invalid reading | Preserve units, sensor identity, event/receive times and calibration status |
@@ -100,13 +100,13 @@ Additional invariants:
 - Sensor reading != safety determination; calibration, sampling gaps, limits and operator procedures matter.
 - Missing != safe; stale != current; conflict != average-as-truth.
 - Ordered != reserved != dispatched != received != handed off.
-- Same event replay is idempotent only when stable event identity and content digest match. Same ID with different content must be quarantined as equivocation/conflict.
+- Same event replay is idempotent only when stable event identity and content digest match. Same ID with different content must be quarantined as equivocation/conflict. A correction must not supersede itself or introduce a cycle in the supersession graph.
 - Physical quantities in an event remain attributable to source evidence. Derived and estimated quantities must be labeled as such.
 - Do not publish household purchase history or exact private producer locations in public views by default.
 
 ## 6. Cold-chain / handling evidence
 
-Use EPCIS 2.0 sensor-element concepts through an adapter where appropriate. A handling observation should bind the specific lot/shipment context, sensor identity, measured parameter and unit, observedAt, receivedAt, calibration/currentness status and explicit missing/invalid intervals. Thresholds belong to a versioned product/handling rule profile for the relevant jurisdiction and product category—not to a universal Mycelix temperature constant.
+Use EPCIS 2.0 sensor-element concepts through an adapter where appropriate. A handling observation should bind the specific lot/shipment context, sensor identity, measured parameter and unit, observedAt, receivedAt, calibration/currentness status, calibration evidence reference when applicable, and explicit missing/invalid intervals. Thresholds belong to a versioned product/handling rule profile for the relevant jurisdiction and product category—not to a universal Mycelix temperature constant.
 
 The event schema intentionally does not attempt to encode all legal rules or infer safety. An out-of-range observation can trigger a finding or quarantine recommendation, but:
 - the finding is not itself a confirmed pathogen or safety verdict;
@@ -132,7 +132,7 @@ Before physical integration, test these event sequences using a frozen fixture m
 9. Dispatch with no receiving event; it remains in transit/unknown, not fulfilled.
 10. Recall of an input lot; transformation descendants and affected offers become discoverable.
 11. Correction supersedes a previously wrong quantity without deleting the original assertion.
-12. Invalid unit code, unpinned code-list version, disallowed product-unit pair, negative amount, NaN, exponent, and excess decimal precision.
+12. Invalid unit-code syntax, unpinned code-list version, disallowed product-unit pair, negative amount, NaN, exponent, excess decimal precision, and unit-list membership mismatch.
 13. Private producer/household references remain absent from public map projection.
 14. Model estimate conflicts with current inventory observation; preserve both and route for resolution.
 
