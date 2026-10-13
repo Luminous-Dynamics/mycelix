@@ -440,6 +440,50 @@ fn checked_burn_time(
     Ok((burn_time, whole_seconds as f64))
 }
 
+/// Construct the radial, prograde, and orbit-normal unit vectors from a
+/// valid position/velocity pair. Degenerate or non-finite geometry is rejected
+/// instead of silently inventing an arbitrary orbital plane.
+fn orbital_basis(
+    position: &nalgebra::Vector3<f64>,
+    velocity: &nalgebra::Vector3<f64>,
+) -> Result<
+    (
+        nalgebra::Vector3<f64>,
+        nalgebra::Vector3<f64>,
+        nalgebra::Vector3<f64>,
+    ),
+    &'static str,
+> {
+    if !position
+        .iter()
+        .chain(velocity.iter())
+        .all(|component| component.is_finite())
+    {
+        return Err("Position and velocity must be finite");
+    }
+
+    let radius = position.norm();
+    if !radius.is_finite() || radius <= f64::EPSILON {
+        return Err("Position magnitude is degenerate");
+    }
+    let speed = velocity.norm();
+    if !speed.is_finite() || speed <= 1e-10 {
+        return Err("Velocity magnitude is degenerate");
+    }
+
+    let angular_momentum = position.cross(velocity);
+    let angular_momentum_norm = angular_momentum.norm();
+    if !angular_momentum_norm.is_finite() || angular_momentum_norm <= 1e-10 {
+        return Err("Position and velocity do not define a stable orbital plane");
+    }
+
+    Ok((
+        position / radius,
+        velocity / speed,
+        angular_momentum / angular_momentum_norm,
+    ))
+}
+
 /// Ensure an agreement's execution deadline remains within the negotiation
 /// window and precedes both the maneuver burn time and conjunction TCA.
 fn validate_agreement_deadline(
@@ -1346,34 +1390,26 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
 
     let mu = orbital_mechanics::coordinates::wgs84::MU;
 
-    // Generate displacement targets at TCA: ±5 km in each direction
-    let displacement_km = 5.0;
-    let r_tca_mag = r_tca.norm();
-    if !r_tca_mag.is_finite() || r_tca_mag <= f64::EPSILON {
+    if !r_burn
+        .iter()
+        .chain(v_burn.iter())
+        .chain(r_sec_tca.iter())
+        .all(|component| component.is_finite())
+    {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidInput,
-            "Propagated primary TCA position is non-finite or degenerate",
+            "Propagated burn/secondary TCA state contains non-finite components",
         )
         .into_wasm_error());
     }
 
-    // Compute orbital frame unit vectors at TCA
-    let r_hat = r_tca / r_tca_mag;
+    // Generate displacement targets at TCA: ±5 km in each direction.
+    // Reject degenerate geometry rather than substituting an arbitrary axis.
+    let displacement_km = 5.0;
     let v_hat_tca = nalgebra::Vector3::new(p_tca.state.vx, p_tca.state.vy, p_tca.state.vz);
-    let v_norm = v_hat_tca.norm();
-    let prograde = if v_norm > 1e-10 {
-        v_hat_tca / v_norm
-    } else {
-        r_hat
-    };
-    let normal = r_tca.cross(&v_hat_tca);
-    let n_mag = normal.norm();
-    let normal = if n_mag > 1e-10 {
-        normal / n_mag
-    } else {
-        nalgebra::Vector3::new(0.0, 0.0, 1.0)
-    };
-    let radial = r_hat;
+    let (radial, prograde, normal) = orbital_basis(&r_tca, &v_hat_tca).map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidInput, message).into_wasm_error()
+    })?;
 
     let directions = [
         ("prograde", prograde * displacement_km),
@@ -2977,6 +3013,46 @@ mod conjunction_reference_tests {
         let mut expired = event("cdm:42", 42, 77);
         expired.tca.micros = NOW_MICROS;
         assert!(validate(&[expired], "cdm:42", 42, 77).is_err());
+    }
+}
+
+#[cfg(test)]
+mod orbital_basis_tests {
+    use super::*;
+
+    #[test]
+    fn valid_position_velocity_produce_orthonormal_orbital_basis() {
+        let position = nalgebra::Vector3::new(7_000.0, 0.0, 0.0);
+        let velocity = nalgebra::Vector3::new(0.0, 7.5, 0.0);
+        let (radial, prograde, normal) = orbital_basis(&position, &velocity).expect("valid basis");
+
+        assert!((radial.norm() - 1.0).abs() < 1e-12);
+        assert!((prograde.norm() - 1.0).abs() < 1e-12);
+        assert!((normal.norm() - 1.0).abs() < 1e-12);
+        assert!(radial.dot(&prograde).abs() < 1e-12);
+        assert!(radial.dot(&normal).abs() < 1e-12);
+        assert!(prograde.dot(&normal).abs() < 1e-12);
+    }
+
+    #[test]
+    fn degenerate_or_nonfinite_geometry_is_rejected() {
+        let position = nalgebra::Vector3::new(7_000.0, 0.0, 0.0);
+        assert!(orbital_basis(&position, &nalgebra::Vector3::zeros()).is_err());
+        assert!(orbital_basis(&position, &nalgebra::Vector3::new(1.0, 0.0, 0.0)).is_err());
+        assert!(
+            orbital_basis(
+                &nalgebra::Vector3::zeros(),
+                &nalgebra::Vector3::new(0.0, 7.5, 0.0),
+            )
+            .is_err()
+        );
+        assert!(
+            orbital_basis(
+                &position,
+                &nalgebra::Vector3::new(f64::NAN, 1.0, 0.0),
+            )
+            .is_err()
+        );
     }
 }
 
