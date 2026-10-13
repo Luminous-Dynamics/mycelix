@@ -26,11 +26,11 @@ The public Mycelix tree already includes:
 - manufacturing conformance and Sweettest-related tests.
 
 References:
-- [Manufacturing BOM coordinator](../zomes/bom/coordinator/src/lib.rs)
-- [Manufacturing BOM integrity](../zomes/bom/integrity/src/lib.rs)
-- [Planning coordinator](../zomes/planning/coordinator/src/lib.rs)
-- [Shared manufacturing types](../crates/manufacturing_common/src/lib.rs)
-- [Conformance harness and claim ceiling](../crates/cos_conformance/README.md)
+- [Manufacturing BOM coordinator](zomes/bom/coordinator/src/lib.rs)
+- [Manufacturing BOM integrity](zomes/bom/integrity/src/lib.rs)
+- [Planning coordinator](zomes/planning/coordinator/src/lib.rs)
+- [Shared manufacturing types](crates/manufacturing_common/src/lib.rs)
+- [Conformance harness and claim ceiling](crates/cos_conformance/README.md)
 
 This is a useful substrate, not evidence that furniture products can already be generated, safety-qualified, produced, or sold profitably. The existing conformance harness explicitly excludes physical productivity, safety, qualification, and economic/ecological outcome claims. Keep that boundary intact.
 
