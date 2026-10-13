@@ -142,11 +142,11 @@ Each fixture should carry an immutable ID, schema/version, seed where generated,
 ## 8. Minimal acceptance gates
 
 - [ ] JSON Schema parses under a draft-2020-12 validator; valid and invalid examples are tested.
-- [ ] Cross-field validator checks event-type/quantity-state rules, forecast horizon ordering, shipment endpoint consistency, transformation subject/output alignment, and correction self-reference.
+- [ ] Cross-field validator checks event-type/quantity-state rules, forecast horizon ordering, shipment endpoint consistency, transformation subject/output alignment, correction/retraction field exclusivity, and correction self-reference. Synthetic batch regressions cover reused event IDs and supersession cycles; hosted execution is still required.
 - [ ] H0 rejects units outside the small pinned fixture subset or incompatible with fixture product profiles; it covers `C62`/`DZN` for eggs, `LTR` for milk, `KGM` for cheese/produce, and `CEL` for temperature observations. Production integration must validate full Recommendation 20 list membership and the authoritative product-profile unit policy.
 - [ ] EPCIS adapter mapping has round-trip tests for supported fields and explicit loss reports for non-representable fields.
-- [ ] Idempotency key/content-digest conflict behavior is tested.
-- [ ] Transformation, dispatch/receipt, handoff and recall lineage tests pass.
+- [ ] Synthetic batch regressions cover same-ID/same-content replay, same-ID/different-content conflict, and supersession-cycle rejection. Durable runtime persistence, cryptographic digesting, concurrency races, and quarantine transactionality remain open.
+- [ ] Schema/semantic cases cover dispatch and receipt endpoint consistency. Cross-event shipment lineage, handoff and recall-descendant propagation still require runtime tests.
 - [ ] Missing/stale/calibration-invalid handling observations fail closed for any configured control that requires valid current evidence.
 - [ ] No forecast or plan can create stock or trigger payment.
 - [ ] Mycelix multi-agent/Holochain integrity validation and offline reconnect behavior are tested before field use.
