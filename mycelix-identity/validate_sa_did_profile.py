@@ -16,6 +16,26 @@ from typing import Any
 PROFILE_PATH = Path(__file__).with_name("SA_DID_PROFILE_V1.json")
 
 REQUIRED_ROUTES = {"dha_ovs", "dha_smartphone_digital_id"}
+REQUIRED_ROUTE_METHOD_BY_ID = {
+    "dha_ovs": "server_side_register_verification",
+    "dha_smartphone_digital_id": "holder_presented_digital_credential",
+}
+REQUIRED_RECEIPT_POLICY_FIELDS = {
+    "short_lived",
+    "purpose_scoped",
+    "exact_verifier_bound",
+    "nonce_or_transaction_bound",
+    "store_raw_credential",
+    "store_national_identity_number",
+    "store_biometric_template",
+    "store_document_image",
+    "store_replayable_presentation",
+    "publish_government_identity_link_to_dht",
+    "identity_implies_membership",
+    "identity_implies_authority",
+    "non_digital_alternative_required",
+    "prohibited_output_keys",
+}
 REQUIRED_SCENARIOS = {
     "synthetic_valid_reference",
     "issuer_display_name_spoof",
@@ -135,6 +155,15 @@ def validate_profile(data: Any) -> list[str]:
             route_ids.add(route_id)
         if route.get("production_enabled") is not False:
             errors.append(f"{prefix}.production_enabled must be false")
+        expected_method = REQUIRED_ROUTE_METHOD_BY_ID.get(route_id)
+        if expected_method is not None and route.get("method_kind") != expected_method:
+            errors.append(f"{prefix}.method_kind must preserve the distinct route semantics")
+        if route_id == "dha_smartphone_digital_id":
+            if route.get("protocol_profile_id") is not None:
+                errors.append(f"{prefix}.protocol_profile_id must remain null until DHA profile review")
+            for key in ("official_issuer_trust_anchor_configured", "status_or_revocation_profile_configured"):
+                if route.get(key) is not False:
+                    errors.append(f"{prefix}.{key} must remain false until official profile review")
         urls = route.get("source_urls")
         if not isinstance(urls, list) or not urls or any(
             not isinstance(url, str) or not url.startswith("https://www.gov.za/")
@@ -150,6 +179,8 @@ def validate_profile(data: Any) -> list[str]:
     if not isinstance(receipt, dict):
         errors.append("receipt_policy must be an object")
     else:
+        if set(receipt) != REQUIRED_RECEIPT_POLICY_FIELDS:
+            errors.append("receipt_policy fields must match the closed v1 policy schema")
         for key in (
             "short_lived",
             "purpose_scoped",
