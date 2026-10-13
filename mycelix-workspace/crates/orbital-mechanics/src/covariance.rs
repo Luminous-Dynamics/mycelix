@@ -357,23 +357,37 @@ impl CovarianceMatrix {
     /// Combine two covariances (e.g., from multiple observations)
     /// Uses inverse-variance weighting (optimal for Gaussian)
     pub fn fuse(&self, other: &CovarianceMatrix) -> Option<Self> {
-        // Both must be in same frame
-        if self.frame != other.frame {
+        // Fusion is only meaningful when both inputs are structurally valid and
+        // expressed in the same coordinate frame. Inversion alone is not a
+        // validity test: an indefinite matrix can still be invertible.
+        if !self.is_valid() || !other.is_valid() || self.frame != other.frame {
             return None;
         }
 
         // Inverse variance weighting
         let inv_self = self.data.try_inverse()?;
         let inv_other = other.data.try_inverse()?;
+        if !inv_self.iter().all(|value| value.is_finite())
+            || !inv_other.iter().all(|value| value.is_finite())
+        {
+            return None;
+        }
 
         let combined_inv = inv_self + inv_other;
+        if !combined_inv.iter().all(|value| value.is_finite()) {
+            return None;
+        }
         let combined = combined_inv.try_inverse()?;
-
-        Some(Self {
+        let fused = Self {
             data: combined,
             frame: self.frame,
             source: CovarianceSource::Fused { source_count: 2 },
-        })
+        };
+        if !fused.is_valid() {
+            return None;
+        }
+
+        Some(fused)
     }
 }
 
@@ -469,6 +483,17 @@ mod tests {
         let valid = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
 
         assert!(mahalanobis_distance(&Vector6::zeros(), &invalid, &valid).is_none());
+    }
+
+    #[test]
+    fn covariance_fusion_rejects_invalid_inputs() {
+        let mut matrix = Matrix6::identity();
+        matrix[(5, 5)] = -1e-11;
+        let invalid = CovarianceMatrix::from_matrix(matrix);
+        let valid = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+
+        assert!(invalid.fuse(&valid).is_none());
+        assert!(valid.fuse(&invalid).is_none());
     }
 
     #[test]
