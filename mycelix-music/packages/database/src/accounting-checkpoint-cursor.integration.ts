@@ -12,6 +12,26 @@ async function insertCheckpoint(
   prisma: PrismaClient,
   input: { id: string; root: string; asOf: string; observedThrough: string; highWaterMark: string },
 ): Promise<void> {
+  await prisma.$executeRawUnsafe(
+    'INSERT INTO "SettlementAllocationLineageCheckpointRecord" ' +
+    '("checkpointId", "sourceRef", "sourceInstanceId", "batchId", "asOf", "observedThrough", ' +
+    '"highWaterMark", "allocationRoots", "linkRoots", "checkpointRoot", "signerKeyId", "signatureBase64") ' +
+    'VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12)',
+    input.id,
+    sourceRef,
+    sourceInstanceId,
+    batchId,
+    input.asOf,
+    input.observedThrough,
+    input.highWaterMark,
+    JSON.stringify([root('2')]),
+    JSON.stringify([]),
+    input.root,
+    'checkpoint-key:integration',
+    signatureShapeOnly,
+  );
+}
+
 async function insertCursor(
   prisma: PrismaClient,
   input: {
@@ -37,26 +57,6 @@ async function insertCursor(
     input.observedThrough,
     input.highWaterMark,
     input.revision,
-  );
-}
-
-  await prisma.$executeRawUnsafe(
-    'INSERT INTO "SettlementAllocationLineageCheckpointRecord" ' +
-    '("checkpointId", "sourceRef", "sourceInstanceId", "batchId", "asOf", "observedThrough", ' +
-    '"highWaterMark", "allocationRoots", "linkRoots", "checkpointRoot", "signerKeyId", "signatureBase64") ' +
-    'VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12)',
-    input.id,
-    sourceRef,
-    sourceInstanceId,
-    batchId,
-    input.asOf,
-    input.observedThrough,
-    input.highWaterMark,
-    JSON.stringify([root('2')]),
-    JSON.stringify([]),
-    input.root,
-    'checkpoint-key:integration',
-    signatureShapeOnly,
   );
 }
 
