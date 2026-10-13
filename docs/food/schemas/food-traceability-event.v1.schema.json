@@ -120,6 +120,19 @@
     "notes": {
       "type": "string",
       "maxLength": 2000
+    },
+    "shipmentRef": {
+      "type": "string",
+      "format": "uri",
+      "description": "Stable reference shared by dispatch/receipt events for one shipment or transport batch."
+    },
+    "originSiteRef": {
+      "type": "string",
+      "format": "uri"
+    },
+    "destinationSiteRef": {
+      "type": "string",
+      "format": "uri"
     }
   },
   "$defs": {
@@ -156,9 +169,8 @@
           "const": "UNECE_REC20"
         },
         "unitCodeListVersion": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Exact code-list release used for validation, e.g. REC20-REV17-2021."
+          "const": "REC20-REV17-2021",
+          "description": "V1 pins the unit-code vocabulary to UN/CEFACT Recommendation 20 Revision 17 (2021); a vocabulary change requires a versioned profile update."
         }
       },
       "allOf": [
@@ -298,8 +310,12 @@
           "const": "UNECE_REC20"
         },
         "unitCodeListVersion": {
+          "const": "REC20-REV17-2021"
+        },
+        "calibrationRef": {
           "type": "string",
-          "minLength": 1
+          "format": "uri",
+          "description": "Reference to calibration evidence when calibrationStatus is current or expired."
         }
       },
       "allOf": [
@@ -325,6 +341,26 @@
                 "value"
               ]
             }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "calibrationStatus": {
+                "enum": [
+                  "current",
+                  "expired"
+                ]
+              }
+            },
+            "required": [
+              "calibrationStatus"
+            ]
+          },
+          "then": {
+            "required": [
+              "calibrationRef"
+            ]
           }
         }
       ]
@@ -552,6 +588,28 @@
         "required": [
           "supersedesEventId",
           "correctionReason"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "enum": [
+              "DISPATCHED",
+              "RECEIVED"
+            ]
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "required": [
+          "shipmentRef",
+          "originSiteRef",
+          "destinationSiteRef"
         ]
       }
     }
