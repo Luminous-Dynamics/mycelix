@@ -14,10 +14,11 @@ From the manufacturing workspace:
 
 ```bash
 cargo test -p furniture_compiler
-cargo run -p furniture_compiler --bin furniture-compile < desk-input.json
+cargo run -p furniture_compiler --bin furniture-compile < crates/furniture_compiler/examples/desk-input.json > packet.json
+cargo run -p furniture_compiler --bin furniture-compile -- --verify < packet.json
 ```
 
-The CLI accepts one JSON document on standard input (maximum 64 KiB) and emits a JSON packet to standard output. Errors go to standard error and exit status 2.
+The CLI accepts one JSON document on standard input (maximum 64 KiB) and emits a JSON packet to standard output. Passing `--verify` switches to packet-verification mode: it regenerates the expected packet from the bound configuration and rejects any mismatch, including altered digests, part lists, blockers, or release-gate state. Verification output only attests to conformance with this prototype's deterministic reference model; it does not establish physical safety or qualification. Errors go to standard error and exit status 2.
 
 ## Input example
 
