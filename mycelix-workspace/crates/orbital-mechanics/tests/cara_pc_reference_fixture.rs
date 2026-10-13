@@ -95,7 +95,7 @@ fn cara_fixture_inputs_and_expected_results_are_well_formed() {
 
     let hbr = input["hbr_km"].as_f64().expect("hbr_km must be numeric");
     assert!(hbr.is_finite() && hbr > 0.0);
-    assert_eq!(input["epoch"], Value::Null, "do not invent an epoch");
+    assert_eq!(fixture["conventions"]["epoch"], Value::Null, "do not invent an epoch");
 
     let cases = fixture["cases"].as_array().expect("cases must be an array");
     assert_eq!(cases.len(), 3);
