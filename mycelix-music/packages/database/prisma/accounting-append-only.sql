@@ -217,30 +217,34 @@ BEGIN
     RAISE EXCEPTION 'settlement allocation checkpoint cursor allocation root history cannot shrink after acceptance'
       USING ERRCODE = '23514';
   END IF;
-  FOR root_index IN 0..jsonb_array_length(previous_evidence."allocationRoots") - 1 LOOP
-    IF (previous_evidence."allocationRoots" -> root_index)
-       IS DISTINCT FROM (evidence."allocationRoots" -> root_index) THEN
-      RAISE EXCEPTION 'settlement allocation checkpoint cursor allocation root history prefix mismatch'
-        USING ERRCODE = '23514';
-    END IF;
-  END LOOP;
+  IF jsonb_array_length(previous_evidence."allocationRoots") > 0 THEN
+    FOR root_index IN 0..jsonb_array_length(previous_evidence."allocationRoots") - 1 LOOP
+      IF (previous_evidence."allocationRoots" -> root_index)
+         IS DISTINCT FROM (evidence."allocationRoots" -> root_index) THEN
+        RAISE EXCEPTION 'settlement allocation checkpoint cursor allocation root history prefix mismatch'
+          USING ERRCODE = '23514';
+      END IF;
+    END LOOP;
+  END IF;
 
   IF jsonb_array_length(evidence."linkRoots")
        < jsonb_array_length(previous_evidence."linkRoots") THEN
     RAISE EXCEPTION 'settlement allocation checkpoint cursor successor-link root history cannot shrink after acceptance'
       USING ERRCODE = '23514';
   END IF;
-  FOR root_index IN 0..jsonb_array_length(previous_evidence."linkRoots") - 1 LOOP
-    IF (previous_evidence."linkRoots" -> root_index)
-       IS DISTINCT FROM (evidence."linkRoots" -> root_index) THEN
-      RAISE EXCEPTION 'settlement allocation checkpoint cursor successor-link root history prefix mismatch'
-        USING ERRCODE = '23514';
-    END IF;
-  END LOOP;
+  IF jsonb_array_length(previous_evidence."linkRoots") > 0 THEN
+    FOR root_index IN 0..jsonb_array_length(previous_evidence."linkRoots") - 1 LOOP
+      IF (previous_evidence."linkRoots" -> root_index)
+         IS DISTINCT FROM (evidence."linkRoots" -> root_index) THEN
+        RAISE EXCEPTION 'settlement allocation checkpoint cursor successor-link root history prefix mismatch'
+          USING ERRCODE = '23514';
+      END IF;
+    END LOOP;
+  END IF;
 
   IF length(NEW."highWaterMark") < length(OLD."highWaterMark")
      OR (length(NEW."highWaterMark") = length(OLD."highWaterMark")
-         AND NEW."highWaterMark" < OLD."highWaterMark") THEN
+         AND (NEW."highWaterMark" COLLATE "C") < (OLD."highWaterMark" COLLATE "C")) THEN
     RAISE EXCEPTION 'settlement allocation checkpoint cursor highWaterMark cannot move backwards'
       USING ERRCODE = '23514';
   END IF;
