@@ -28,7 +28,7 @@
       "path": "mycelix-commons/zomes/support-tickets/integrity/src/lib.rs",
       "blob_sha": "c66ff344f6f3c0a43533d9370c887f2f200619fd",
       "scope_limit": "Generic Mycelix support tickets; not a Johannesburg Water or City CRM record.",
-      "finding": "Fields include title, description, generic category/priority/status, requester, optional assignee and timestamps; no municipal source reference, utility work-order identity, or independently verified physical-repair state."
+      "finding": "SupportTicket stores generic operational fields but no separate stable logical municipal issue ID. The inspected integrity update callback revalidates ticket shape; it does not compare original content to establish immutable-field rules or Civic-specific transition constraints. No municipal reference or verified repair state is present."
     },
     {
       "candidate_id": "commons_support_coordinator",
@@ -37,7 +37,7 @@
       "path": "mycelix-commons/zomes/support-tickets/coordinator/src/lib.rs",
       "blob_sha": "e04fdd61227aa485a801a9e2dfe39087d3953e7d",
       "scope_limit": "Internal Holochain support-ticket lifecycle only.",
-      "finding": "Creates/updates entries, links requester/status/category, emits an internal bridge signal and exposes close_ticket; closing a ticket is not evidence of physical service restoration."
+      "finding": "create_ticket creates requester/status/category links. update_ticket accepts a whole replacement SupportTicket and updates the entry; close_ticket updates status to Closed. The inspected update/close paths do not visibly reindex status/category links. The separate integrity RegisterUpdate author-match check is not proof of immutable fields, transition algebra, current status index, or civic authority."
     },
     {
       "candidate_id": "commons_support_types",
@@ -253,6 +253,30 @@
       "candidate_id": "municipal_service_issue_owner",
       "classification": "Missing",
       "decision": "Symthaea may propose grouping, urgency and routing only; it must not create municipal authority or trigger state-changing actions."
+    },
+    {
+      "concern_id": "support_ticket_field_mutability",
+      "candidate_id": "commons_support_coordinator",
+      "classification": "OperationalOwner",
+      "decision": "Whole-ticket replacement plus field-shape checks does not prove immutable-field restrictions. No Civic writes until an exact-head adversarial contract qualifies."
+    },
+    {
+      "concern_id": "support_status_index_currentness",
+      "candidate_id": "commons_support_coordinator",
+      "classification": "OperationalOwner",
+      "decision": "Status/category link maintenance is not visibly performed by ordinary update/close paths; status-index currentness remains unqualified."
+    },
+    {
+      "concern_id": "support_typed_transition_algebra",
+      "candidate_id": "commons_support_ticket",
+      "classification": "OperationalOwner",
+      "decision": "Support update path does not itself establish a Civic-specific typed transition algebra; require explicit allowed transitions and rejection tests."
+    },
+    {
+      "concern_id": "support_autonomous_action_authority",
+      "candidate_id": "commons_support_coordinator",
+      "classification": "OperationalOwner",
+      "decision": "Support autonomy/approved/executed/success fields are Support-domain state and must not confer civic or municipal action authority."
     }
   ],
   "branch_only_proposals": [
@@ -359,7 +383,7 @@
   },
   "decision": {
     "direction": "NoNewServiceIssueOwner;ExternalSourceAdapterOnlyAfterGates",
-    "internal_candidate": "Commons Support ticket creation/status/assignment may be evaluated as an internal coordination substrate only; it is not designated the canonical municipal service issue.",
+    "internal_candidate": "Commons Support is a read-only operational-owner candidate until stable identity, immutable-field rules, typed transitions, status/category index currentness and the autonomy boundary are qualified; not a canonical municipal service issue owner.",
     "authoritative_source": "The City or utility remains the external authority for its own reference number and current operational status, once the relevant source system and authorised interface are identified.",
     "new_generic_service_issue_runtime_authorized": false,
     "provider_integration_authorized": false,
@@ -419,7 +443,11 @@
     "current_adopted_sla_source_verified",
     "2026_27_budget_book_source_pinned",
     "metric_definition_and_period_preserved",
-    "source_pdf_review_and_clock_semantics_qualified"
+    "source_pdf_review_and_clock_semantics_qualified",
+    "support_immutable_field_rules_qualified",
+    "support_status_index_currentness_qualified",
+    "support_transition_algebra_qualified",
+    "support_autonomy_boundary_qualified"
   ],
   "unsafe_flags": [
     "city_reference_used_as_internal_identity",
@@ -434,7 +462,11 @@
     "unverified_city_status_claimed_authoritative",
     "prior_year_target_substituted_for_current",
     "planned_metric_reinterpreted_as_unplanned_12h_target",
-    "indexed_budget_target_claimed_as_live_status"
+    "indexed_budget_target_claimed_as_live_status",
+    "whole_ticket_replacement_treated_as_civic_safe",
+    "status_index_assumed_current_after_update",
+    "untyped_support_transition_accepted",
+    "support_autonomy_boolean_treated_as_civic_authority"
   ],
   "probe_cases": [
     {
@@ -471,7 +503,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "REJECT"
     },
@@ -509,7 +549,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "REJECT"
     },
@@ -547,7 +595,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "REJECT"
     },
@@ -585,7 +641,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "REJECT"
     },
@@ -623,7 +687,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "REJECT"
     },
@@ -661,7 +733,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "REJECT"
     },
@@ -699,7 +779,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "REJECT"
     },
@@ -737,7 +825,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "REJECT"
     },
@@ -775,7 +871,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "REJECT"
     },
@@ -813,7 +917,15 @@
         "unverified_city_status_claimed_authoritative": true,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "REJECT"
     },
@@ -851,7 +963,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": true,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "REJECT"
     },
@@ -889,7 +1009,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": true,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "REJECT"
     },
@@ -927,7 +1055,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": true
+        "indexed_budget_target_claimed_as_live_status": true,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "REJECT"
     },
@@ -965,7 +1101,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1003,7 +1147,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1041,7 +1193,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1079,7 +1239,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1117,7 +1285,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1155,7 +1331,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1193,7 +1377,383 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
+      },
+      "expected_disposition": "UNRESOLVED"
+    },
+    {
+      "case_id": "whole-ticket-replacement-is-not-civic-safe",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "whole_ticket_replacement_treated_as_civic_safe": true,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "status-index-is-not-current-by-assumption",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": true,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "support-transition-needs-algebra",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": true,
+        "support_autonomy_boolean_treated_as_civic_authority": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "support-autonomy-is-not-civic-authority",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": true
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "support-immutable-fields-not-qualified",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "support_immutable_field_rules_qualified": false,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
+      },
+      "expected_disposition": "UNRESOLVED"
+    },
+    {
+      "case_id": "support-index-currentness-not-qualified",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": false,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
+      },
+      "expected_disposition": "UNRESOLVED"
+    },
+    {
+      "case_id": "support-transitions-not-qualified",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": false,
+        "support_autonomy_boundary_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
+      },
+      "expected_disposition": "UNRESOLVED"
+    },
+    {
+      "case_id": "support-autonomy-boundary-not-qualified",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": false,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1231,7 +1791,15 @@
         "unverified_city_status_claimed_authoritative": false,
         "prior_year_target_substituted_for_current": false,
         "planned_metric_reinterpreted_as_unplanned_12h_target": false,
-        "indexed_budget_target_claimed_as_live_status": false
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false
       },
       "expected_disposition": "ADVISORY_SHADOW_ELIGIBLE"
     }
@@ -1358,5 +1926,56 @@
       "comparability": "NotEquivalentTo2026_27PlannedInterruptionMetric",
       "direct_pdf_visual_review_complete": false
     }
+  },
+  "support_civic_adoption_boundary": {
+    "status": "BlockedPendingExactHeadQualifiedRepair",
+    "source_pins": [
+      {
+        "path": "mycelix-commons/zomes/support-tickets/integrity/src/lib.rs",
+        "blob_sha": "c66ff344f6f3c0a43533d9370c887f2f200619fd"
+      },
+      {
+        "path": "mycelix-commons/zomes/support-tickets/coordinator/src/lib.rs",
+        "blob_sha": "e04fdd61227aa485a801a9e2dfe39087d3953e7d"
+      },
+      {
+        "path": "mycelix-commons/crates/support-types/src/lib.rs",
+        "blob_sha": "bfb405e6d8f9f0afbc30cf33fabbfbe1f2197654"
+      }
+    ],
+    "author_binding_note": "The inspected integrity RegisterUpdate path uses check_author_match against the original action author. This is a useful author-binding property; it does not by itself prove immutable-field restrictions, valid status transitions, current indexes or Civic authority.",
+    "blockers": [
+      {
+        "blocker_id": "stable_logical_identity",
+        "observation": "SupportTicket has no separate stable logical municipal issue ID in the inspected current-main schema. SUP-CIV-001A is open/unmerged at the frozen snapshot.",
+        "required_evidence": "Exact-head identity contract plus migration, duplicate genesis, legacy linkage and revision tests."
+      },
+      {
+        "blocker_id": "whole_entry_mutation",
+        "observation": "update_ticket accepts a full replacement SupportTicket. UpdateEntry integrity validation reruns validate_support_ticket field-shape checks without comparing original content to establish immutable-field rules.",
+        "required_evidence": "Adversarial old/new comparisons for requester, genesis identity, assignee, category, priority, autonomy, status and timestamps; unauthorized semantic changes must reject."
+      },
+      {
+        "blocker_id": "status_and_category_index_currentness",
+        "observation": "create_ticket adds status/category links. The inspected update_ticket and close_ticket paths update the entry without visibly updating/removing/recreating those links; list_tickets_by_status queries the link index.",
+        "required_evidence": "Multi-revision tests covering stale links, reindexing, close/reopen, concurrent updates and delete behavior at an exact qualified head."
+      },
+      {
+        "blocker_id": "typed_transition_algebra",
+        "observation": "The inspected whole-entry ticket update path does not establish Civic-specific allowed transitions or restrict transition direction.",
+        "required_evidence": "Explicit transition table with valid/invalid transition corpus, old/new status binding, reopen semantics and exact-head qualification."
+      },
+      {
+        "blocker_id": "support_autonomy_not_civic_authority",
+        "observation": "AutonomyLevel and AutonomousAction approved/executed/success booleans are Support-domain fields and do not establish municipal or Civic authority.",
+        "required_evidence": "Negative controls proving Support autonomy/action records cannot authorize civic dispatch, external municipal mutation, rights-affecting decisions or completion verification."
+      }
+    ],
+    "civic_support_mutations_authorized": false,
+    "support_status_index_currentness_qualified": false,
+    "immutable_field_rules_qualified": false,
+    "typed_transition_algebra_qualified": false,
+    "autonomy_authority_boundary_qualified": false,
+    "permitted_use": "Read-only investigation of Support records only; no Civic mutation and no designation as canonical municipal service state."
   }
 }
