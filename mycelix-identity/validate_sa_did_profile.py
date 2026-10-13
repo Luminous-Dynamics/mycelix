@@ -84,6 +84,24 @@ REQUIRED_SCENARIOS = {
     "user_declines_presentation",
     "no_smartphone_or_verifier_offline",
 }
+EXPECTED_OUTCOME_BY_SCENARIO = {
+    "synthetic_valid_reference": ("verified", "none"),
+    "issuer_display_name_spoof": ("rejected", "issuer_not_trusted"),
+    "unknown_issuer_key": ("rejected", "issuer_not_trusted"),
+    "wrong_audience": ("rejected", "wrong_audience"),
+    "nonce_replay": ("rejected", "nonce_replay"),
+    "holder_binding_mismatch": ("rejected", "holder_binding_failed"),
+    "expired_credential": ("rejected", "credential_expired"),
+    "revoked_credential": ("rejected", "credential_revoked"),
+    "tampered_claim_or_schema": ("rejected", "schema_or_profile_mismatch"),
+    "status_service_unavailable": ("indeterminate", "status_unavailable"),
+    "status_unknown_or_malformed": ("indeterminate", "status_unknown"),
+    "unsupported_unpublished_profile": ("indeterminate", "unsupported_profile"),
+    "credential_or_identifier_leak_to_receipt": ("rejected", "privacy_boundary_violation"),
+    "identity_upgraded_to_membership_or_authority": ("rejected", "authorization_scope_violation"),
+    "user_declines_presentation": ("indeterminate", "user_declined"),
+    "no_smartphone_or_verifier_offline": ("indeterminate", "alternative_route_required"),
+}
 FORBIDDEN_RECEIPT_KEYS = {
     "national_identity_number",
     "sa_id_number",
@@ -307,6 +325,10 @@ def validate_profile(data: Any) -> list[str]:
             errors.append(f"{prefix}.expected_reason must be a non-empty string")
         elif mappings.get(reason) != disposition:
             errors.append(f"{prefix}: expected disposition disagrees with reason mapping")
+        if isinstance(scenario, str):
+            expected_outcome = EXPECTED_OUTCOME_BY_SCENARIO.get(scenario)
+            if expected_outcome is not None and (disposition, reason) != expected_outcome:
+                errors.append(f"{prefix}: scenario does not match its required disposition and reason")
 
         if disposition == "verified":
             verified_vectors.append(vector)
