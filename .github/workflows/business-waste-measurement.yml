@@ -20,6 +20,12 @@ on:
 permissions:
   contents: read
 
+# Keep only the newest validation for a given PR/ref; stale commits must not
+# occupy scarce runners while the latest exact head waits.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   business-waste-measurement:
     runs-on: ubuntu-latest
