@@ -162,7 +162,7 @@ jobs:
       - name: Assert Rust toolchain identity
         run: test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
       - name: Test bounded compiler and adversarial cases
-        run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler
+        run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler 2>&1 | tee /tmp/furniture-test-output.txt
       - name: Compile the example twice and compare exact output
         run: |
           cargo run --quiet --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler --bin furniture-compile < mycelix-manufacturing/crates/furniture_compiler/examples/desk-input.json > /tmp/furniture-packet-a.json
@@ -181,6 +181,33 @@ jobs:
             echo "verifier accepted a tampered release gate" >&2
             exit 1
           fi
+
+      - name: Capture exact-head software evidence
+        if: always()
+        run: |
+          mkdir -p /tmp/furniture-evidence
+          {
+            echo "evidence_kind=furniture-compiler-software-reference"
+            echo "qualified_sha=$QUALIFIED_SHA"
+            echo "checked_out_sha=$(git rev-parse HEAD)"
+            echo "rust=$(rustc --version 2>&1 || true)"
+            echo "cargo=$(cargo --version 2>&1 || true)"
+            echo "test_status_from_step=see test-output.txt and workflow result"
+          } > /tmp/furniture-evidence/qualification-record.txt
+          for file in /tmp/furniture-test-output.txt /tmp/furniture-packet-a.json /tmp/furniture-packet-b.json /tmp/furniture-verification.json /tmp/furniture-packet-tampered.json; do
+            if [ -f "$file" ]; then cp "$file" /tmp/furniture-evidence/; fi
+          done
+          if [ -f /tmp/furniture-packet-a.json ]; then
+            sha256sum /tmp/furniture-packet-a.json >> /tmp/furniture-evidence/qualification-record.txt
+          fi
+      - name: Upload exact-head software evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: furniture-compiler-evidence-${{ env.QUALIFIED_SHA }}
+          path: /tmp/furniture-evidence/
+          if-no-files-found: error
+          retention-days: 30
 
   test-commons:
     needs: changes
