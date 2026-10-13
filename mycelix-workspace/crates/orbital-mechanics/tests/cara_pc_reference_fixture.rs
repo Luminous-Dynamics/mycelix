@@ -225,12 +225,7 @@ fn foster_density(x: f64, z: f64, covariance: [f64; 4]) -> f64 {
     exponent.exp() / (2.0 * std::f64::consts::PI * determinant.sqrt())
 }
 
-fn integrate_foster_case(
-    region: &str,
-    x0: f64,
-    hbr: f64,
-    covariance: [f64; 4],
-) -> f64 {
+fn integrate_foster_case(region: &str, x0: f64, hbr: f64, covariance: [f64; 4]) -> f64 {
     const OUTER_INTERVALS: usize = 1024;
     const INNER_INTERVALS: usize = 256;
 
