@@ -86,6 +86,18 @@ test('PostgreSQL keeps checkpoint evidence append-only and rejects cursor rollba
     );
     assert.equal(cursorTrigger[0]?.count, 1);
 
+    const checkpointForeignKey = await prisma.$queryRawUnsafe<Array<{
+      deleteAction: string; updateAction: string;
+    }>>(
+      'SELECT confdeltype::text AS "deleteAction", confupdtype::text AS "updateAction" ' +
+      'FROM pg_constraint WHERE contype = \'f\' ' +
+      'AND conrelid = \'"SettlementAllocationLineageCheckpointCursor"\'::regclass ' +
+      'AND confrelid = \'"SettlementAllocationLineageCheckpointRecord"\'::regclass',
+    );
+    assert.equal(checkpointForeignKey.length, 1);
+    assert.equal(checkpointForeignKey[0]?.deleteAction, 'r');
+    assert.equal(checkpointForeignKey[0]?.updateAction, 'r');
+
     const first = {
       id: 'checkpoint:sql:1',
       root: root('1'),
