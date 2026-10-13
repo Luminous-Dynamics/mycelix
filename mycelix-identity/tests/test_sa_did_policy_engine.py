@@ -114,7 +114,7 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
     def test_missing_time_evidence_is_indeterminate(self) -> None:
         self.assertEqual(
             self._evaluate_with("time_state", "unknown"),
-            ("indeterminate", "status_unknown"),
+            ("indeterminate", "credential_time_unknown"),
         )
 
     def test_alternative_route_takes_precedence_over_unavailable_source(self) -> None:
@@ -145,6 +145,13 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
         for field, value, reason in cases:
             with self.subTest(field=field):
                 self.assertEqual(self._evaluate_with(field, value), ("rejected", reason))
+
+
+    def test_unknown_validity_time_has_distinct_reason_from_unknown_status(self) -> None:
+        self.assertEqual(
+            self._evaluate_with("time_state", "unknown"),
+            ("indeterminate", "credential_time_unknown"),
+        )
 
 
 if __name__ == "__main__":
