@@ -21,6 +21,14 @@ pub struct MeasurementWindow {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlannedWasteSlot {
+    /// The target/event time must match any later measurement record exactly.
+    pub target_at_unix_ms: u64,
+    /// The waste category is fixed before collecting outcomes.
+    pub category: ReferenceId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WasteMeasurementProtocol {
     pub protocol_id: ReferenceId,
     pub source_system: ReferenceId,
@@ -28,8 +36,9 @@ pub struct WasteMeasurementProtocol {
     pub window: MeasurementWindow,
     /// Registration must precede the registered measurement window.
     pub registered_at_unix_ms: u64,
+    /// Each key binds one preregistered slot to its target time and category.
     /// Every planned slot must be represented by exactly one outcome.
-    pub planned_slot_ids: BTreeSet<ReferenceId>,
+    pub planned_slots: BTreeMap<ReferenceId, PlannedWasteSlot>,
     pub minimum_planned_slots: u32,
     pub maximum_missing_bps: u16,
     pub maximum_imputed_bps: u16,
@@ -49,10 +58,16 @@ impl WasteMeasurementProtocol {
             return Err(WasteMeasurementError::ProtocolNotPreregistered);
         }
         if self.minimum_planned_slots == 0
-            || self.planned_slot_ids.len() < self.minimum_planned_slots as usize
-            || self.planned_slot_ids.len() > u32::MAX as usize
+            || self.planned_slots.len() < self.minimum_planned_slots as usize
+            || self.planned_slots.len() > u32::MAX as usize
         {
             return Err(WasteMeasurementError::InvalidPlannedSlotCount);
+        }
+        if self.planned_slots.values().any(|slot| {
+            slot.target_at_unix_ms < self.window.start_unix_ms
+                || slot.target_at_unix_ms >= self.window.end_unix_ms
+        }) {
+            return Err(WasteMeasurementError::InvalidPlannedSlot);
         }
         if [
             self.maximum_missing_bps,
@@ -147,6 +162,9 @@ pub enum WasteMeasurementError {
     InvalidWindow,
     ProtocolNotPreregistered,
     InvalidPlannedSlotCount,
+    InvalidPlannedSlot,
+    WrongSlotTarget,
+    WrongWasteCategory,
     InvalidThreshold,
     ZeroDigest,
     EvaluationBeforeWindowCloses,
@@ -238,7 +256,7 @@ pub fn assess_waste_measurement_coverage(
 
     for outcome in outcomes {
         let slot_id = outcome.slot_id().clone();
-        if !protocol.planned_slot_ids.contains(&slot_id) {
+        if !protocol.planned_slots.contains_key(&slot_id) {
             return Err(WasteMeasurementError::UnplannedSlot);
         }
         if !outcome_slots.insert(slot_id.clone()) {
@@ -254,10 +272,15 @@ pub fn assess_waste_measurement_coverage(
                 if record.scope != protocol.scope {
                     return Err(WasteMeasurementError::WrongScope);
                 }
-                if record.target_at_unix_ms < protocol.window.start_unix_ms
-                    || record.target_at_unix_ms >= protocol.window.end_unix_ms
-                {
-                    return Err(WasteMeasurementError::ObservationOutsideWindow);
+                let planned_slot = protocol
+                    .planned_slots
+                    .get(&record.slot_id)
+                    .ok_or(WasteMeasurementError::UnplannedSlot)?;
+                if record.target_at_unix_ms != planned_slot.target_at_unix_ms {
+                    return Err(WasteMeasurementError::WrongSlotTarget);
+                }
+                if record.category != planned_slot.category {
+                    return Err(WasteMeasurementError::WrongWasteCategory);
                 }
                 if record.recorded_at_unix_ms > assessed_at_unix_ms {
                     return Err(WasteMeasurementError::EvidenceAfterAssessment);
@@ -361,16 +384,17 @@ pub fn assess_waste_measurement_coverage(
         }
     }
 
-    if outcome_slots != protocol.planned_slot_ids {
+    if outcome_slots.len() != protocol.planned_slots.len() {
         let unaccounted = protocol
-            .planned_slot_ids
-            .difference(&outcome_slots)
+            .planned_slots
+            .keys()
+            .filter(|slot_id| !outcome_slots.contains(*slot_id))
             .cloned()
             .collect::<Vec<_>>();
         return Err(WasteMeasurementError::UnaccountedSlots(unaccounted));
     }
 
-    let planned = u64::try_from(protocol.planned_slot_ids.len())
+    let planned = u64::try_from(protocol.planned_slots.len())
         .map_err(|_| WasteMeasurementError::RateArithmeticOverflow)?;
     let directly_observed = direct_count
         .checked_add(count_derived_count)
@@ -523,9 +547,11 @@ fn measurement_evidence_digest(
     hash_u64(&mut hasher, u64::from(protocol.maximum_unobserved_bps));
     hash_u64(&mut hasher, u64::from(protocol.minimum_direct_weighing_bps));
     hash_digest(&mut hasher, &protocol.policy_digest);
-    hash_u64(&mut hasher, protocol.planned_slot_ids.len() as u64);
-    for slot in &protocol.planned_slot_ids {
-        hash_ref(&mut hasher, slot);
+    hash_u64(&mut hasher, protocol.planned_slots.len() as u64);
+    for (slot_id, definition) in &protocol.planned_slots {
+        hash_ref(&mut hasher, slot_id);
+        hash_u64(&mut hasher, definition.target_at_unix_ms);
+        hash_ref(&mut hasher, &definition.category);
     }
     hash_u64(&mut hasher, assessed_at_unix_ms);
     hash_u64(&mut hasher, outcomes.len() as u64);
