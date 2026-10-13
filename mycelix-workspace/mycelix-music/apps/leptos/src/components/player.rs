@@ -116,7 +116,7 @@ pub fn Player() -> impl IntoView {
                             <span class="player-duration">{song.duration_display()}</span>
                             {move || delivery_failed.get().then(|| view! {
                                 <span class="player-error" role="status">
-                                    "Unable to load this track from the available HTTPS gateways. Please retry later."
+                                    "This deployment has no configured media gateway, or all configured gateways failed. Please retry later or contact the site operator."
                                 </span>
                             })}
                         </div>
