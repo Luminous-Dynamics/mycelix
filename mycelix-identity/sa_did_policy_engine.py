@@ -152,7 +152,7 @@ def _reject_duplicate_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any
 def build_report(
     profile: Any,
     *,
-    profile_source_sha256: str | None = None,
+    profile_source_bytes: bytes | None = None,
     source_commit_sha: str | None = None,
 ) -> dict[str, Any]:
     """Validate the contract and bind results to exact input and source hashes."""
@@ -202,12 +202,20 @@ def build_report(
             ),
         })
 
-    if profile_source_sha256 is not None and (
-        not isinstance(profile_source_sha256, str)
-        or len(profile_source_sha256) != 64
-        or any(char not in "0123456789abcdef" for char in profile_source_sha256)
-    ):
-        raise ValueError("profile_source_sha256 must be a lowercase SHA-256 hex digest")
+    profile_source_sha256: str | None = None
+    if profile_source_bytes is not None:
+        if not isinstance(profile_source_bytes, bytes):
+            raise ValueError("profile_source_bytes must be bytes")
+        try:
+            parsed_source = json.loads(
+                profile_source_bytes.decode("utf-8"),
+                object_pairs_hook=_reject_duplicate_object_keys,
+            )
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise ValueError("profile_source_bytes must contain valid UTF-8 JSON") from exc
+        if parsed_source != profile:
+            raise ValueError("profile_source_bytes do not match the supplied profile object")
+        profile_source_sha256 = hashlib.sha256(profile_source_bytes).hexdigest()
 
     if source_commit_sha is not None and (
         not isinstance(source_commit_sha, str)
@@ -262,14 +270,13 @@ def main() -> int:
     args = parser.parse_args()
     try:
         profile_bytes = args.profile.read_bytes()
-        profile_source_sha256 = hashlib.sha256(profile_bytes).hexdigest()
         profile = json.loads(
             profile_bytes.decode("utf-8"),
             object_pairs_hook=_reject_duplicate_object_keys,
         )
         report = build_report(
             profile,
-            profile_source_sha256=profile_source_sha256,
+            profile_source_bytes=profile_bytes,
             source_commit_sha=args.source_commit,
         )
     except (OSError, ValueError) as exc:
