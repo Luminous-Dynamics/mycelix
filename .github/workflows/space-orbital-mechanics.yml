@@ -65,5 +65,8 @@ jobs:
       - name: Test shared Space contract
         run: cargo test --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p mycelix-space-shared
 
+      - name: Run conjunction coordinator screening parameter tests
+        run: cargo test --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p conjunctions_coordinator
+
       - name: Compile conjunction coordinator for Holochain WASM
         run: cargo check --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p conjunctions_coordinator --target wasm32-unknown-unknown
