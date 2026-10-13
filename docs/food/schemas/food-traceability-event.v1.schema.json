@@ -133,6 +133,10 @@
     "destinationSiteRef": {
       "type": "string",
       "format": "uri"
+    },
+    "forecastMetadata": {
+      "$ref": "#/$defs/forecastMetadata",
+      "description": "Mandatory metadata for FORECASTED events; never a substitute for measured output."
     }
   },
   "$defs": {
@@ -428,6 +432,40 @@
           }
         }
       ]
+    },
+    "forecastMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "modelRef",
+        "modelVersion",
+        "issuedAt",
+        "horizonStart",
+        "horizonEnd"
+      ],
+      "properties": {
+        "modelRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "modelVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "issuedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "horizonStart": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "horizonEnd": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
     }
   },
   "allOf": [
@@ -486,6 +524,16 @@
               }
             }
           }
+        },
+        "required": [
+          "forecastMetadata"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "forecastMetadata"
+          ]
         }
       }
     },
@@ -550,7 +598,57 @@
         "required": [
           "inputs",
           "outputs"
-        ]
+        ],
+        "properties": {
+          "inputs": {
+            "items": {
+              "properties": {
+                "quantity": {
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "observed",
+                        "unknown"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "outputs": {
+            "items": {
+              "properties": {
+                "quantity": {
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "observed",
+                        "unknown"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "inputs"
+              ]
+            },
+            {
+              "required": [
+                "outputs"
+              ]
+            }
+          ]
+        }
       }
     },
     {
