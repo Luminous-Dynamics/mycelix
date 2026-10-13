@@ -51,3 +51,14 @@ cargo fmt --manifest-path mycelix-workspace/mycelix-music/research/economic-lab/
 ```
 
 The dedicated workflow runs these commands on pull requests touching this lab. Passing unit tests proves the tested deterministic code paths only; it does not make any economic or security efficacy claim.
+
+
+## Rights-holder allocation and correction provenance
+
+The `rights` module models one **separately denominated rights pool** at a time. Composition and master-recording pools are kept distinct. Claims must be pre-aggregated per claimant and sum to exactly 10,000 basis points. Largest-remainder rounding is deterministic by claim ID.
+
+Only `Confirmed` shares are marked payable. `Pending`, `Disputed`, `Unverified`, and `Unmatched` shares are enumerated as escrow lines; the report must reconcile confirmed payments plus escrow to the gross pool. This is a simulation/accounting result, not permission to make a payout.
+
+`RightsRevisionChain` accepts an initial revision and then sequential corrections linked to the exact previous revision ID. It rejects a skipped revision, wrong parent, pool/class changes, missing evidence/reason references, and malformed share totals. Corrections append new definitions; previously generated allocation reports are immutable values and are not recomputed or overwritten.
+
+The revision chain is **in-memory only**. Evidence and reason references are caller-supplied strings, not verified signatures or durable receipts. Production use would still need authenticated rights evidence, authorization, durable append-only persistence, replay/idempotency controls, dispute-resolution policy, and audited settlement behavior. The U.S. Copyright Office's [Music Modernization FAQ](https://www.copyright.gov/music-modernization/faq.html) describes claim and dispute processes for the U.S. blanket mechanical-licensing context; it is an example of why claim status must be explicit, not a universal rule for all rights classes or jurisdictions.

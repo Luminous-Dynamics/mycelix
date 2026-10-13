@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #![forbid(unsafe_code)]
 
+pub mod rights;
+
 //! Deterministic, simulation-only music creator revenue allocation policies.
 //!
 //! This crate compares payout rules over pre-aggregated inputs. It does not
