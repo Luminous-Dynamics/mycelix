@@ -332,6 +332,28 @@ describe('authenticated settlement allocation lineage checkpoint', () => {
       .toThrow(/cryptographically verified/);
   });
 
+  it('snapshots verified root arrays against post-verification transport mutation', () => {
+    const transported = JSON.parse(JSON.stringify(signedCheckpoint())) as ReturnType<typeof signedCheckpoint>;
+    const verified = verifySettlementAllocationLineageCheckpoint(transported, trust);
+    const mutableTransport = transported as unknown as {
+      allocationRoots: string[];
+      linkRoots: string[];
+    };
+
+    // A caller retaining the deserialized object must not be able to mutate the
+    // already-authenticated object through shared array references.
+    mutableTransport.allocationRoots[0] = 'f'.repeat(64);
+    mutableTransport.linkRoots[0] = 'e'.repeat(64);
+
+    expect(Object.isFrozen(verified.allocationRoots)).toBe(true);
+    expect(Object.isFrozen(verified.linkRoots)).toBe(true);
+    expect(verified.allocationRoots[0]).toBe(initial.allocationRoot);
+    expect(verified.linkRoots[0]).toBe(link.linkRoot);
+    const resolution = resolveCheckpointBackedSettlementAllocationLineage([initial, successor], [link], verified);
+    expect(requireCheckpointBackedSettlementAllocationLineage(resolution).headAllocation.allocationRoot)
+      .toBe(successor.allocationRoot);
+  });
+
   it('allows serialized signed evidence only after cryptographic reverification', () => {
     const transported = JSON.parse(JSON.stringify(signedCheckpoint())) as ReturnType<typeof signedCheckpoint>;
     expect(() => resolveCheckpointBackedSettlementAllocationLineage([initial, successor], [link], transported))
