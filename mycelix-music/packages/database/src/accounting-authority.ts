@@ -325,6 +325,140 @@ async function appendStatement(
   }
 }
 
+interface CheckpointKey {
+  readonly sourceRef: string;
+  readonly sourceInstanceId: string;
+  readonly batchId: string;
+}
+interface CheckpointEvidenceDelegate {
+  findUnique(args: { where: Record<string, unknown> }): Promise<Record<string, unknown> | null>;
+  create(args: { data: Record<string, unknown> }): Promise<Record<string, unknown>>;
+}
+interface CheckpointCursorDelegate {
+  findUnique(args: { where: { sourceRef_sourceInstanceId_batchId: CheckpointKey } }): Promise<Record<string, unknown> | null>;
+  create(args: { data: Record<string, unknown> }): Promise<Record<string, unknown>>;
+  updateMany(args: {
+    where: CheckpointKey & { revision: number; checkpointRoot: string };
+    data: Record<string, unknown>;
+  }): Promise<{ count: number }>;
+}
+interface CheckpointTransactionClient {
+  readonly settlementAllocationLineageCheckpointRecord: unknown;
+  readonly settlementAllocationLineageCheckpointCursor: unknown;
+}
+interface SerializableTransactionRunner {
+  <T>(
+    callback: (transaction: unknown) => Promise<T>,
+    options: { isolationLevel: 'Serializable'; maxWait: number; timeout: number },
+  ): Promise<T>;
+}
+class CheckpointCursorRaceError extends Error {
+  constructor() {
+    super('settlement allocation checkpoint cursor compare-and-swap lost race');
+    this.name = 'CheckpointCursorRaceError';
+  }
+}
+export interface AcceptSettlementAllocationLineageCheckpointInput {
+  readonly checkpoint: SignedSettlementAllocationLineageCheckpoint;
+  readonly trustPolicy: SettlementAllocationLineageCheckpointTrustPolicy;
+}
+export interface AcceptSettlementAllocationLineageCheckpointResult {
+  readonly disposition: 'accepted' | 'replayed';
+  readonly checkpointRoot: string;
+  readonly revision: number;
+}
+function stringValue(label: string, value: unknown): string {
+  if (typeof value !== 'string') throw new Error(label + ' must be a string');
+  return required(label, value);
+}
+function stringArrayValue(label: string, value: unknown): readonly string[] {
+  if (!Array.isArray(value) || !value.every((item) => typeof item === 'string')) {
+    throw new Error(label + ' must be an array of strings');
+  }
+  return Object.freeze(value.map((item, index) => stringValue(label + '[' + index + ']', item)));
+}
+function normalizeSignedCheckpoint(
+  input: SignedSettlementAllocationLineageCheckpoint,
+  policy: SettlementAllocationLineageCheckpointTrustPolicy,
+): Readonly<SignedSettlementAllocationLineageCheckpoint> {
+  const verified = verifySettlementAllocationLineageCheckpoint(input, policy);
+  return Object.freeze({
+    checkpointId: required('checkpointId', verified.checkpointId),
+    sourceRef: required('sourceRef', verified.sourceRef),
+    sourceInstanceId: required('sourceInstanceId', verified.sourceInstanceId),
+    batchId: required('batchId', verified.batchId),
+    asOf: timestamp('checkpoint asOf', verified.asOf).toISOString(),
+    observedThrough: timestamp('checkpoint observedThrough', verified.observedThrough).toISOString(),
+    highWaterMark: required('checkpoint highWaterMark', verified.highWaterMark),
+    allocationRoots: stringArrayValue('checkpoint allocationRoots', verified.allocationRoots),
+    linkRoots: stringArrayValue('checkpoint linkRoots', verified.linkRoots),
+    checkpointRoot: digest('checkpointRoot', verified.checkpointRoot),
+    signerKeyId: required('checkpoint signerKeyId', verified.signerKeyId),
+    signatureBase64: required('checkpoint signatureBase64', verified.signatureBase64),
+  });
+}
+function checkpointFromStoredRow(row: Record<string, unknown>): Readonly<SignedSettlementAllocationLineageCheckpoint> {
+  return Object.freeze({
+    checkpointId: stringValue('stored checkpointId', row.checkpointId),
+    sourceRef: stringValue('stored sourceRef', row.sourceRef),
+    sourceInstanceId: stringValue('stored sourceInstanceId', row.sourceInstanceId),
+    batchId: stringValue('stored batchId', row.batchId),
+    asOf: timestamp('stored checkpoint asOf', row.asOf as Date | string).toISOString(),
+    observedThrough: timestamp('stored checkpoint observedThrough', row.observedThrough as Date | string).toISOString(),
+    highWaterMark: stringValue('stored checkpoint highWaterMark', row.highWaterMark),
+    allocationRoots: stringArrayValue('stored allocationRoots', row.allocationRoots),
+    linkRoots: stringArrayValue('stored linkRoots', row.linkRoots),
+    checkpointRoot: stringValue('stored checkpointRoot', row.checkpointRoot),
+    signerKeyId: stringValue('stored signerKeyId', row.signerKeyId),
+    signatureBase64: stringValue('stored signatureBase64', row.signatureBase64),
+  });
+}
+function checkpointEvidenceData(checkpoint: SignedSettlementAllocationLineageCheckpoint): Record<string, unknown> {
+  return {
+    checkpointId: checkpoint.checkpointId,
+    sourceRef: checkpoint.sourceRef,
+    sourceInstanceId: checkpoint.sourceInstanceId,
+    batchId: checkpoint.batchId,
+    asOf: timestamp('checkpoint asOf', checkpoint.asOf),
+    observedThrough: timestamp('checkpoint observedThrough', checkpoint.observedThrough),
+    highWaterMark: checkpoint.highWaterMark,
+    allocationRoots: [...checkpoint.allocationRoots],
+    linkRoots: [...checkpoint.linkRoots],
+    checkpointRoot: checkpoint.checkpointRoot,
+    signerKeyId: checkpoint.signerKeyId,
+    signatureBase64: checkpoint.signatureBase64,
+  };
+}
+function assertStoredCheckpointExact(
+  stored: Record<string, unknown>,
+  expected: SignedSettlementAllocationLineageCheckpoint,
+): void {
+  if (canonical(checkpointFromStoredRow(stored)) !== canonical(expected)) {
+    throw new Error('stored settlement allocation checkpoint root has conflicting immutable content');
+  }
+}
+function checkpointTransactionClient(value: unknown): {
+  evidence: CheckpointEvidenceDelegate;
+  cursor: CheckpointCursorDelegate;
+} {
+  const client = value as Partial<CheckpointTransactionClient> | null;
+  const evidence = client?.settlementAllocationLineageCheckpointRecord as Partial<CheckpointEvidenceDelegate> | undefined;
+  const cursor = client?.settlementAllocationLineageCheckpointCursor as Partial<CheckpointCursorDelegate> | undefined;
+  if (!evidence || typeof evidence.findUnique !== 'function' || typeof evidence.create !== 'function') {
+    throw new Error('settlementAllocationLineageCheckpointRecord Prisma delegate is unavailable; run prisma generate');
+  }
+  if (!cursor || typeof cursor.findUnique !== 'function' || typeof cursor.create !== 'function' || typeof cursor.updateMany !== 'function') {
+    throw new Error('settlementAllocationLineageCheckpointCursor Prisma delegate is unavailable; run prisma generate');
+  }
+  return { evidence: evidence as CheckpointEvidenceDelegate, cursor: cursor as CheckpointCursorDelegate };
+}
+function retryableCheckpointTransactionError(error: unknown): boolean {
+  if (error instanceof CheckpointCursorRaceError) return true;
+  if (typeof error !== 'object' || error === null || !('code' in error)) return false;
+  const code = String((error as { code: unknown }).code);
+  return code === 'P2034' || code === 'P2002' || code === '40001' || code === '23505';
+}
+
 export class AccountingAuthorityStore {
   constructor(private readonly client: AccountingAuthorityPrismaClient) {}
 
