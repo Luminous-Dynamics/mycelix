@@ -151,6 +151,14 @@ pub fn delivery_candidates(
         .collect())
 }
 
+/// Select the next candidate after a failed request without exceeding the
+/// bounded candidate list. Returning `None` means the plan is exhausted.
+pub fn next_candidate_index(current_index: usize, candidate_count: usize) -> Option<usize> {
+    current_index
+        .checked_add(1)
+        .filter(|next_index| *next_index < candidate_count)
+}
+
 /// Conservative path-component validation, not a substitute for decoding a
 /// CID using a canonical IPFS library. It prevents a catalog string from
 /// escaping the single path component used in the generated gateway URL.
@@ -206,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn accepts_cid_v0_style_path_component() {
+    fn accepts_legacy_style_cid_as_a_safe_path_component() {
         let candidates = delivery_candidates(&manifest(
             "QmYwAPJzv5CZsnAzt8auVTLk5c5k8m7E2d8kqv7s8W9Z2x",
         ))
@@ -240,6 +248,14 @@ mod tests {
                 "expected rejection for {cid:?}"
             );
         }
+    }
+
+    #[test]
+    fn candidate_advancement_is_bounded_and_overflow_safe() {
+        assert_eq!(next_candidate_index(0, 2), Some(1));
+        assert_eq!(next_candidate_index(1, 2), None);
+        assert_eq!(next_candidate_index(0, 0), None);
+        assert_eq!(next_candidate_index(usize::MAX, usize::MAX), None);
     }
 
     #[test]
