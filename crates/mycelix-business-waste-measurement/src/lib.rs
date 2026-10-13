@@ -64,15 +64,30 @@ impl WasteMeasurementProtocol {
         {
             return Err(WasteMeasurementError::InvalidPlannedSlotCount);
         }
-        if self.planned_slots.values().any(|slot| {
-            slot.observation_window.start_unix_ms < self.window.start_unix_ms
-                || slot.observation_window.start_unix_ms
-                    >= slot.observation_window.end_unix_ms
+        let mut slots_by_category: BTreeMap<ReferenceId, Vec<&PlannedWasteSlot>> =
+            BTreeMap::new();
+        for slot in self.planned_slots.values() {
+            if slot.observation_window.start_unix_ms < self.window.start_unix_ms
+                || slot.observation_window.start_unix_ms >= slot.observation_window.end_unix_ms
                 || slot.observation_window.end_unix_ms > self.window.end_unix_ms
                 || slot.target_at_unix_ms < slot.observation_window.start_unix_ms
                 || slot.target_at_unix_ms >= slot.observation_window.end_unix_ms
-        }) {
-            return Err(WasteMeasurementError::InvalidPlannedSlot);
+            {
+                return Err(WasteMeasurementError::InvalidPlannedSlot);
+            }
+            slots_by_category
+                .entry(slot.category.clone())
+                .or_default()
+                .push(slot);
+        }
+        for slots in slots_by_category.values_mut() {
+            slots.sort_by_key(|slot| slot.observation_window.start_unix_ms);
+            if slots.windows(2).any(|pair| {
+                pair[0].observation_window.end_unix_ms
+                    > pair[1].observation_window.start_unix_ms
+            }) {
+                return Err(WasteMeasurementError::InvalidPlannedSlot);
+            }
         }
         if [
             self.maximum_missing_bps,
@@ -452,7 +467,8 @@ pub fn assess_waste_measurement_coverage(
         });
     }
 
-    let evidence_digest = measurement_evidence_digest(protocol, &canonical_outcomes, assessed_at_unix_ms);
+    let evidence_digest =
+        measurement_evidence_digest(protocol, &canonical_outcomes, assessed_at_unix_ms);
 
     Ok(WasteMeasurementCoverageAssessment {
         protocol_id: protocol.protocol_id.clone(),
@@ -795,6 +811,26 @@ mod tests {
                 reason: ref_id("reason:operator-unavailable"),
             }),
         ]
+    }
+
+    #[test]
+    fn rejects_overlapping_slots_for_the_same_waste_category() {
+        let mut value = protocol();
+        value.planned_slots.insert(
+            ref_id("slot:overlap"),
+            PlannedWasteSlot {
+                observation_window: MeasurementWindow {
+                    start_unix_ms: 3_000,
+                    end_unix_ms: 3_200,
+                },
+                target_at_unix_ms: 3_100,
+                category: ref_id("waste:prep"),
+            },
+        );
+        assert_eq!(
+            value.validate(),
+            Err(WasteMeasurementError::InvalidPlannedSlot)
+        );
     }
 
     #[test]
