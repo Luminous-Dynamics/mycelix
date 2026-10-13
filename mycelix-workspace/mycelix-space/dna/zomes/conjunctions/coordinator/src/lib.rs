@@ -14,7 +14,7 @@ use mycelix_space_shared::{
     QualityScore, ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp,
     StalenessAwareAssessment, StalenessConfig, TleWithMetadata, compute_staleness,
     gate_space_operation, requirement_for_conjunction_creation, requirement_for_negotiation,
-    requirement_for_risk_update,
+    requirement_for_risk_update, validate_staleness_config,
 };
 use orbital_mechanics::conjunction::ConjunctionAnalyzer;
 use orbital_mechanics::propagator::Propagator;
@@ -840,6 +840,8 @@ pub fn screen_conjunction_with_staleness(
     }
 
     // Reject invalid horizons/thresholds before performing network/DHT work.
+    validate_staleness_config(&input.staleness_config)
+        .map_err(|error| error.into_wasm_error())?;
     validate_screening_parameters(input.hours_ahead, input.pc_threshold)?;
     validate_requested_secondary_ids(input.primary_norad_id, &input.secondary_norad_ids)?;
 
@@ -886,7 +888,10 @@ pub fn screen_conjunction_with_staleness(
     let primary_meta = meta_map.get(&input.primary_norad_id).ok_or_else(|| {
         SpaceError::new(
             SpaceErrorCode::NotFound,
-            format!("No TLE found for primary object {}", input.primary_norad_id),
+            format!(
+                "No usable TLE found for primary object {}",
+                input.primary_norad_id
+            ),
         )
         .into_wasm_error()
     })?;
@@ -1322,7 +1327,7 @@ fn require_secondary_items<T>(
                 SpaceError::new(
                     SpaceErrorCode::NotFound,
                     format!(
-                        "No TLE found for requested secondary object {norad_id}; screening batch incomplete"
+                        "No usable TLE found for requested secondary object {norad_id}; screening batch incomplete"
                     ),
                 )
                 .with_context(format!("norad_id: {norad_id}"))
