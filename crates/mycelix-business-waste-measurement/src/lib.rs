@@ -11,7 +11,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use mycelix_business_core::{Digest32, ReferenceId, ScopeRef};
 use sha2::{Digest, Sha256};
 
-pub const WASTE_MEASUREMENT_IS_NON_AUTHORIZING: bool = true;
 pub const MAX_RATE_BASIS_POINTS: u16 = 10_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -179,7 +178,7 @@ pub enum WasteMeasurementError {
     RecordedBeforeObservation,
     EvidenceAfterAssessment,
     InvalidEvidenceTimestamp,
-    MissingCaptureDigest,
+    MissingRecordEvidenceDigest,
     GrossBelowTare,
     InvalidCalibrationWindow,
     CalibrationNotValidAtObservation,
@@ -289,7 +288,7 @@ pub fn assess_waste_measurement_coverage(
                     return Err(WasteMeasurementError::EvidenceAfterAssessment);
                 }
                 if is_zero(&record.record_evidence_digest) {
-                    return Err(WasteMeasurementError::MissingCaptureDigest);
+                    return Err(WasteMeasurementError::MissingRecordEvidenceDigest);
                 }
                 if !measurement_ids.insert(record.measurement_id.clone()) {
                     return Err(WasteMeasurementError::DuplicateMeasurementId);
@@ -379,7 +378,11 @@ pub fn assess_waste_measurement_coverage(
                 if record.scope != protocol.scope {
                     return Err(WasteMeasurementError::WrongScope);
                 }
-                if record.recorded_at_unix_ms < protocol.window.start_unix_ms {
+                let planned_slot = protocol
+                    .planned_slots
+                    .get(&record.slot_id)
+                    .ok_or(WasteMeasurementError::UnplannedSlot)?;
+                if record.recorded_at_unix_ms < planned_slot.target_at_unix_ms {
                     return Err(WasteMeasurementError::InvalidEvidenceTimestamp);
                 }
                 if record.recorded_at_unix_ms > assessed_at_unix_ms {
