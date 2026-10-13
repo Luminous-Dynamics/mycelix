@@ -164,6 +164,7 @@ ALLOWED_EXPECTED_DISPOSITION_BY_REASON = {
     "status_unavailable": "indeterminate",
     "status_unknown": "indeterminate",
     "status_stale": "indeterminate",
+    "credential_time_unknown": "indeterminate",
     "source_unavailable": "indeterminate",
     "alternative_route_required": "indeterminate",
 }
