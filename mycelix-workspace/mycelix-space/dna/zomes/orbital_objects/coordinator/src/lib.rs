@@ -312,8 +312,8 @@ pub struct GetTlesWithMetadataInput {
 ///
 /// Unlike `get_latest_tles` which returns only line data, this preserves
 /// epoch, quality, source, and computed staleness information. Stale TLEs
-/// are still returned (with `staleness.is_stale = true`) so callers can
-/// decide how to handle them.
+/// remain visible when their age-degraded quality meets the configured minimum;
+/// records below that quality floor are omitted from the returned set.
 #[hdk_extern]
 pub fn get_tles_with_metadata(
     input: GetTlesWithMetadataInput,
