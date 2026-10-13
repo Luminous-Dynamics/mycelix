@@ -294,6 +294,8 @@ test('PostgreSQL keeps checkpoint evidence append-only and rejects cursor rollba
       asOf: next.asOf,
       observedThrough: '2026-10-03T00:00:10.000Z',
       highWaterMark: next.highWaterMark,
+      allocationRoots: next.allocationRoots,
+      linkRoots: next.linkRoots,
     };
     await insertCheckpoint(prisma, idle);
     await prisma.$executeRawUnsafe(
