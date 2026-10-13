@@ -224,6 +224,31 @@ CREATE TRIGGER settlement_allocation_checkpoint_cursor_guard
 BEFORE INSERT OR UPDATE OR DELETE ON "SettlementAllocationLineageCheckpointCursor"
 FOR EACH ROW EXECUTE FUNCTION guard_settlement_allocation_checkpoint_cursor();
 
+-- TRUNCATE is a separate PostgreSQL operation and does not fire row-level
+-- UPDATE/DELETE guards. Prevent it from resetting either checkpoint evidence or
+-- the accepted cursor, even for a role that has TRUNCATE privilege.
+CREATE OR REPLACE FUNCTION reject_music_accounting_authority_truncate()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION '% is append-only; TRUNCATE is forbidden', TG_TABLE_NAME
+    USING ERRCODE = '55000';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS settlement_allocation_checkpoint_evidence_truncate_guard
+  ON "SettlementAllocationLineageCheckpointRecord";
+CREATE TRIGGER settlement_allocation_checkpoint_evidence_truncate_guard
+BEFORE TRUNCATE ON "SettlementAllocationLineageCheckpointRecord"
+FOR EACH STATEMENT EXECUTE FUNCTION reject_music_accounting_authority_truncate();
+
+DROP TRIGGER IF EXISTS settlement_allocation_checkpoint_cursor_truncate_guard
+  ON "SettlementAllocationLineageCheckpointCursor";
+CREATE TRIGGER settlement_allocation_checkpoint_cursor_truncate_guard
+BEFORE TRUNCATE ON "SettlementAllocationLineageCheckpointCursor"
+FOR EACH STATEMENT EXECUTE FUNCTION reject_music_accounting_authority_truncate();
+
 -- Source eligibility observations may only assert externally observable facts.
 -- Compiler outcomes such as below_threshold and awaiting_eligibility_evidence
 -- are derived projection state and therefore may never enter the evidence log.
