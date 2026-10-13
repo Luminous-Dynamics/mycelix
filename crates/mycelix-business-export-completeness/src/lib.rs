@@ -170,6 +170,15 @@ pub struct StructurallyConsistentExport {
     pub provider_statement_digest: Digest32,
 }
 
+/// Evidence that every supplied raw page and coverage-statement byte slice hashes to
+/// its declared digest. This adds byte-identity evidence but does not authenticate the
+/// provider or prove that the semantic projection was derived from these bytes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RawPayloadBoundExport {
+    pub structural_assessment: StructurallyConsistentExport,
+    pub raw_payload_binding_digest: Digest32,
+}
+
 fn hash_text(hasher: &mut Sha256, value: &str) {
     hash_u64(hasher, value.len() as u64);
     hasher.update(value.as_bytes());
@@ -491,7 +500,7 @@ pub fn assess_export_completeness_with_raw_payloads(
     attestation: &ProviderCoverageAttestation,
     raw_page_payloads: &[&[u8]],
     raw_coverage_statement: &[u8],
-) -> Result<StructurallyConsistentExport, ExportCompletenessError> {
+) -> Result<RawPayloadBoundExport, ExportCompletenessError> {
     // Preserve the existing structural validator's error precedence.
     let assessment = assess_export_completeness(manifest, attestation)?;
 
@@ -499,19 +508,33 @@ pub fn assess_export_completeness_with_raw_payloads(
         return Err(ExportCompletenessError::RawPagePayloadCountMismatch);
     }
 
+    let mut binding_hasher = Sha256::new();
+    hash_text(&mut binding_hasher, "mycelix:raw-export-payload-binding:v1");
+    hash_digest(&mut binding_hasher, &assessment.manifest_digest);
+    hash_ref(&mut binding_hasher, &attestation.attestation_id);
+    hash_u64(&mut binding_hasher, raw_page_payloads.len() as u64);
+
     for (page, payload) in manifest.pages.iter().zip(raw_page_payloads) {
-        if sha256_raw_bytes(*payload) != page.payload_digest {
+        let raw_digest = sha256_raw_bytes(*payload);
+        if raw_digest != page.payload_digest {
             return Err(ExportCompletenessError::RawPagePayloadDigestMismatch {
                 page_ordinal: page.ordinal,
             });
         }
+        hash_u32(&mut binding_hasher, page.ordinal);
+        hash_digest(&mut binding_hasher, &raw_digest);
     }
 
-    if sha256_raw_bytes(raw_coverage_statement) != attestation.statement_digest {
+    let raw_statement_digest = sha256_raw_bytes(raw_coverage_statement);
+    if raw_statement_digest != attestation.statement_digest {
         return Err(ExportCompletenessError::RawCoverageStatementDigestMismatch);
     }
+    hash_digest(&mut binding_hasher, &raw_statement_digest);
 
-    Ok(assessment)
+    Ok(RawPayloadBoundExport {
+        structural_assessment: assessment,
+        raw_payload_binding_digest: finish_digest(binding_hasher),
+    })
 }
 
 fn sha256_raw_bytes(bytes: &[u8]) -> Digest32 {
@@ -645,8 +668,22 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result.page_count, 2);
-        assert_eq!(result.observed_row_count, 5);
+        assert_eq!(result.structural_assessment.page_count, 2);
+        assert_eq!(result.structural_assessment.observed_row_count, 5);
+        assert_ne!(result.raw_payload_binding_digest, digest(0));
+    }
+
+    #[test]
+    fn raw_payload_binding_digest_is_deterministic() {
+        let (manifest, attestation, pages, statement) = raw_payload_fixture();
+        let first =
+            assess_export_completeness_with_raw_payloads(&manifest, &attestation, &pages, statement)
+                .unwrap();
+        let second =
+            assess_export_completeness_with_raw_payloads(&manifest, &attestation, &pages, statement)
+                .unwrap();
+
+        assert_eq!(first.raw_payload_binding_digest, second.raw_payload_binding_digest);
     }
 
     #[test]
