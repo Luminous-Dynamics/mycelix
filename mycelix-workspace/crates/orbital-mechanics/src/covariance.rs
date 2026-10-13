@@ -196,30 +196,94 @@ impl CovarianceMatrix {
 
     /// Check whether the matrix is finite, symmetric and positive semidefinite.
     ///
-    /// This is a mathematical structure check only; it does not authenticate the
-    /// source, establish covariance realism, or calibrate orbital uncertainty.
+    /// The PSD check is performed on a dimensionless correlation-normalized
+    /// matrix so position and velocity covariance scales do not mask a defective
+    /// low-variance axis. This is a structural check only; it does not authenticate
+    /// the source, establish covariance realism, or calibrate orbital uncertainty.
     pub fn is_valid(&self) -> bool {
         if !self.data.iter().all(|value| value.is_finite()) {
             return false;
         }
 
         // Deserialization can bypass constructors that symmetrize their input.
-        // Reject materially asymmetric matrices before passing them to a symmetric
-        // eigensolver, and reject norm overflow even when individual entries are finite.
-        let scale = self.data.norm();
-        let asymmetry = (self.data - self.data.transpose()).norm();
-        if !scale.is_finite() || !asymmetry.is_finite() {
-            return false;
-        }
-        if asymmetry > 1e-12 * scale.max(1.0) {
-            return false;
+        // Negative diagonal entries are invalid variances and are never excused
+        // by a numerical tolerance.
+        let mut standard_deviations = [0.0_f64; 6];
+        for (index, sigma) in standard_deviations.iter_mut().enumerate() {
+            let variance = self.data[(index, index)];
+            if variance < 0.0 {
+                return false;
+            }
+            *sigma = variance.sqrt();
         }
 
-        let eigen = SymmetricEigen::new(self.data);
+        // Check symmetry relative to each pair's own covariance scale. A single
+        // matrix-wide absolute floor can hide asymmetry in the smaller-valued
+        // velocity block when position variances dominate the numeric norm.
+        for i in 0..6 {
+            for j in (i + 1)..6 {
+                let upper = self.data[(i, j)];
+                let lower = self.data[(j, i)];
+                let pair_scale = upper
+                    .abs()
+                    .max(lower.abs())
+                    .max(standard_deviations[i] * standard_deviations[j]);
+                let difference = (upper - lower).abs();
+                if !difference.is_finite() || difference > 1e-12 * pair_scale {
+                    return false;
+                }
+            }
+        }
+
+        // A zero-variance axis in a PSD covariance must have zero covariance
+        // with every other axis. Reject any contradictory cross term explicitly.
+        for i in 0..6 {
+            if standard_deviations[i] == 0.0
+                && (0..6).any(|j| self.data[(i, j)] != 0.0 || self.data[(j, i)] != 0.0)
+            {
+                return false;
+            }
+        }
+
+        // Normalize by per-axis standard deviations before checking eigenvalues.
+        // This produces a dimensionless correlation matrix whose scale is not
+        // determined by the arbitrary numeric units of position vs velocity.
+        let mut correlation = Matrix6::zeros();
+        for i in 0..6 {
+            if standard_deviations[i] > 0.0 {
+                correlation[(i, i)] = 1.0;
+            }
+            for j in (i + 1)..6 {
+                if standard_deviations[i] == 0.0 || standard_deviations[j] == 0.0 {
+                    continue;
+                }
+                let upper = (self.data[(i, j)] / standard_deviations[i])
+                    / standard_deviations[j];
+                let lower = (self.data[(j, i)] / standard_deviations[j])
+                    / standard_deviations[i];
+                if !upper.is_finite() || !lower.is_finite() {
+                    return false;
+                }
+                let normalized = upper * 0.5 + lower * 0.5;
+                correlation[(i, j)] = normalized;
+                correlation[(j, i)] = normalized;
+            }
+        }
+
+        let eigen = SymmetricEigen::new(correlation);
+        let eigen_scale = eigen
+            .eigenvalues
+            .iter()
+            .map(|value| value.abs())
+            .fold(0.0_f64, f64::max);
+        if !eigen_scale.is_finite() {
+            return false;
+        }
+        let eigenvalue_tolerance = 64.0 * f64::EPSILON * eigen_scale;
         eigen
             .eigenvalues
             .iter()
-            .all(|&value| value.is_finite() && value >= -1e-10)
+            .all(|&value| value.is_finite() && value >= -eigenvalue_tolerance)
     }
 
     /// Scale covariance (e.g., for k-sigma calculations)
@@ -293,23 +357,37 @@ impl CovarianceMatrix {
     /// Combine two covariances (e.g., from multiple observations)
     /// Uses inverse-variance weighting (optimal for Gaussian)
     pub fn fuse(&self, other: &CovarianceMatrix) -> Option<Self> {
-        // Both must be in same frame
-        if self.frame != other.frame {
+        // Fusion is only meaningful when both inputs are structurally valid and
+        // expressed in the same coordinate frame. Inversion alone is not a
+        // validity test: an indefinite matrix can still be invertible.
+        if !self.is_valid() || !other.is_valid() || self.frame != other.frame {
             return None;
         }
 
         // Inverse variance weighting
         let inv_self = self.data.try_inverse()?;
         let inv_other = other.data.try_inverse()?;
+        if !inv_self.iter().all(|value| value.is_finite())
+            || !inv_other.iter().all(|value| value.is_finite())
+        {
+            return None;
+        }
 
         let combined_inv = inv_self + inv_other;
+        if !combined_inv.iter().all(|value| value.is_finite()) {
+            return None;
+        }
         let combined = combined_inv.try_inverse()?;
-
-        Some(Self {
+        let fused = Self {
             data: combined,
             frame: self.frame,
             source: CovarianceSource::Fused { source_count: 2 },
-        })
+        };
+        if !fused.is_valid() {
+            return None;
+        }
+
+        Some(fused)
     }
 }
 
@@ -327,16 +405,34 @@ pub fn mahalanobis_distance(
     cov1: &CovarianceMatrix,
     cov2: &CovarianceMatrix,
 ) -> Option<f64> {
-    // Delta and both covariances must use the same coordinate frame. The
-    // vector frame cannot be checked from this API, but mixed covariance frames
-    // must not be silently combined.
-    if cov1.frame != cov2.frame {
+    // Fail closed before attempting inversion: callers of this public helper
+    // must not get a distance from a malformed covariance or non-finite state.
+    // The vector frame cannot be checked from this API, but mixed covariance
+    // frames must not be silently combined.
+    if !delta.iter().all(|value| value.is_finite())
+        || !cov1.is_valid()
+        || !cov2.is_valid()
+        || cov1.frame != cov2.frame
+    {
         return None;
     }
+
     let combined_cov = cov1.matrix() + cov2.matrix();
+    if !combined_cov.iter().all(|value| value.is_finite()) {
+        return None;
+    }
     let inv = combined_cov.try_inverse()?;
-    let d_squared = delta.transpose() * inv * delta;
-    Some(d_squared[(0, 0)].sqrt())
+    if !inv.iter().all(|value| value.is_finite()) {
+        return None;
+    }
+
+    let d_squared = (delta.transpose() * inv * delta)[(0, 0)];
+    // Avoid returning Some(NaN), Some(infinity), or a plausible-looking
+    // distance derived from a negative quadratic form due to invalid numerics.
+    if !d_squared.is_finite() || d_squared < 0.0 {
+        return None;
+    }
+    Some(d_squared.sqrt())
 }
 
 #[cfg(test)]
@@ -377,6 +473,45 @@ mod tests {
         teme.frame = CovarianceFrame::TEME;
 
         assert!(mahalanobis_distance(&delta, &eci, &teme).is_none());
+    }
+
+    #[test]
+    fn mahalanobis_distance_rejects_invalid_covariance() {
+        let mut matrix = Matrix6::identity();
+        matrix[(5, 5)] = -1e-11;
+        let invalid = CovarianceMatrix::from_matrix(matrix);
+        let valid = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+
+        assert!(mahalanobis_distance(&Vector6::zeros(), &invalid, &valid).is_none());
+    }
+
+    #[test]
+    fn covariance_fusion_rejects_invalid_inputs() {
+        let mut matrix = Matrix6::identity();
+        matrix[(5, 5)] = -1e-11;
+        let invalid = CovarianceMatrix::from_matrix(matrix);
+        let valid = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+
+        assert!(invalid.fuse(&valid).is_none());
+        assert!(valid.fuse(&invalid).is_none());
+    }
+
+    #[test]
+    fn mahalanobis_distance_rejects_non_finite_delta() {
+        let mut delta = Vector6::zeros();
+        delta[0] = f64::NAN;
+        let covariance = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+
+        assert!(mahalanobis_distance(&delta, &covariance, &covariance).is_none());
+    }
+
+    #[test]
+    fn mahalanobis_distance_rejects_non_finite_quadratic_form() {
+        let mut delta = Vector6::zeros();
+        delta[0] = f64::MAX;
+        let covariance = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+
+        assert!(mahalanobis_distance(&delta, &covariance, &covariance).is_none());
     }
 
     fn make_serialized_matrix_asymmetric(value: &mut serde_json::Value) -> bool {
@@ -431,6 +566,26 @@ mod tests {
     fn non_finite_covariance_is_invalid() {
         let mut matrix = Matrix6::identity();
         matrix[(0, 0)] = f64::NAN;
+        let covariance = CovarianceMatrix::from_matrix(matrix);
+        assert!(!covariance.is_valid());
+    }
+
+    #[test]
+    fn negative_diagonal_variance_is_invalid_even_below_legacy_tolerance() {
+        let mut matrix = Matrix6::identity();
+        matrix[(5, 5)] = -1e-11;
+        let covariance = CovarianceMatrix::from_matrix(matrix);
+        assert!(!covariance.is_valid());
+    }
+
+    #[test]
+    fn indefinite_covariance_is_rejected_even_below_legacy_absolute_tolerance() {
+        let mut matrix = Matrix6::identity();
+        // The diagonal remains positive, but this 2x2 principal block has a
+        // negative eigenvalue of roughly -1e-11. The old absolute -1e-10
+        // tolerance incorrectly accepted it.
+        matrix[(0, 1)] = 1.0 + 1e-11;
+        matrix[(1, 0)] = 1.0 + 1e-11;
         let covariance = CovarianceMatrix::from_matrix(matrix);
         assert!(!covariance.is_valid());
     }
