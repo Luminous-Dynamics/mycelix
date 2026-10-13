@@ -217,6 +217,8 @@ grep -Fq 'statementCommitmentRoot must be a lowercase SHA-256 digest' packages/a
   || fail "external reports must bind a canonical statement commitment root"
 grep -Fq 'projectionRoot: computeProjectionRoot(payload)' packages/accounting/src/interop.ts \
   || fail "external report mappings must carry a deterministic content commitment"
+grep -Fq 'source_accounting_unit_preserved_no_fx_conversion' packages/accounting/src/interop.ts \
+  || fail "external report mappings must not imply an unsupported currency conversion"
 grep -Fq 'assertDdexRoyaltyReportingProjection' packages/accounting/src/interop.ts \
   || fail "DDEX mapping output must expose a tamper-detection verifier"
 grep -Fq 'assertCisacCrdReportingProjection' packages/accounting/src/interop.ts \
