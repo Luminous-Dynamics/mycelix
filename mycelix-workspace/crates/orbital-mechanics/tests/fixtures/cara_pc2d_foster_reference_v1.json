@@ -1,0 +1,94 @@
+{
+  "schema_version": "1.0.0",
+  "record_type": "orbital-pc-reference-fixtures",
+  "status": "source-pinned-upstream-regression-expectations",
+  "verification_boundary": {
+    "proves": [
+      "The fixture records input values and outputs asserted by the pinned NASA CARA upstream unit tests.",
+      "The upstream source revision, implementation blob, and test blob are identified exactly."
+    ],
+    "does_not_prove": [
+      "Mycelix reproduces Foster 2-D probability of collision.",
+      "The values represent calibrated operational collision risk.",
+      "Covariance realism, orbit-determination quality, or mitigation authority."
+    ],
+    "mycelix_comparison_status": "not_yet_run"
+  },
+  "source": {
+    "repository": "https://github.com/nasa/CARA_Analysis_Tools",
+    "commit": "ce0f00722c56808755ee0adbe47a4e3d56439484",
+    "commit_date": "2026-10-05",
+    "algorithm": {
+      "name": "Foster 2-D probability of collision",
+      "path": "DistributedMatlab/ProbabilityOfCollision/Pc2D_Foster.m",
+      "blob": "84dbc44bf6276c1cf66343a680ac7e3b87a5f528",
+      "url": "https://github.com/nasa/CARA_Analysis_Tools/blob/ce0f00722c56808755ee0adbe47a4e3d56439484/DistributedMatlab/ProbabilityOfCollision/Pc2D_Foster.m"
+    },
+    "upstream_test": {
+      "path": "DistributedMatlab/ProbabilityOfCollision/UnitTests/Pc2D_Foster_UnitTest.m",
+      "blob": "dea6063ce5abdd7ad112f1ed55a15b4a24acc81b",
+      "url": "https://github.com/nasa/CARA_Analysis_Tools/blob/ce0f00722c56808755ee0adbe47a4e3d56439484/DistributedMatlab/ProbabilityOfCollision/UnitTests/Pc2D_Foster_UnitTest.m",
+      "test_names": [
+        "testCircularHBR",
+        "testSquareHBR",
+        "testEqAreaSquareHBR"
+      ],
+      "context": "The upstream test calls these original Omitron test cases; the state and covariance arrays below are copied as numeric test data, with the expected outputs transcribed from the upstream assertions."
+    },
+    "license_note": "This fixture records numeric test inputs, expected values, and source identifiers; it does not redistribute NASA implementation source. Review the upstream NASA Open Source Software Agreements before vendoring or adapting implementation code."
+  },
+  "conventions": {
+    "state_position_unit": "km",
+    "state_velocity_unit": "km/s",
+    "position_covariance_unit": "km^2",
+    "reference_frame_label": "ECI as named in upstream function documentation; exact realization is not further specified by this fixture",
+    "epoch": null,
+    "epoch_note": "The upstream shared-parameter unit test does not supply an epoch; do not invent one or treat this as a fully identified operational conjunction record.",
+    "hbr_unit": "km, inferred from the upstream function's state length units and numeric call; confirm at adapter boundary rather than silently converting",
+    "internal_integration_relative_tolerance": 1e-9,
+    "upstream_assertion_relative_tolerance": 0.001
+  },
+  "encounter_input": {
+    "r1_km": [378.39559, 4305.721887, 5752.767554],
+    "v1_km_per_s": [2.360800244, 5.580331936, -4.322349039],
+    "cov1_km2": [
+      [44.5757544811362, 81.6751751052616, -67.8687662707124],
+      [81.6751751052616, 158.453402956163, -128.616921644857],
+      [-67.8687662707124, -128.616921644858, 105.490542562701]
+    ],
+    "r2_km": [374.5180598, 4307.560983, 5751.130418],
+    "v2_km_per_s": [-5.388125081, -3.946827739, 3.322820358],
+    "cov2_km2": [
+      [2.31067077720423, 1.69905293875632, -1.4170164577661],
+      [1.69905293875632, 1.24957388457206, -1.04174164279599],
+      [-1.4170164577661, -1.04174164279599, 0.869260558223714]
+    ],
+    "hbr_km": 0.020
+  },
+  "cases": [
+    {
+      "case_id": "cara-foster-omitron-circle-hbr-020m",
+      "upstream_test_name": "testCircularHBR",
+      "hard_body_region": "circle",
+      "expected_pc": 0.0000270601573490125,
+      "expected_source": "upstream_test_assertion",
+      "upstream_relative_tolerance": 0.001
+    },
+    {
+      "case_id": "cara-foster-omitron-square-hbr-020m",
+      "upstream_test_name": "testSquareHBR",
+      "hard_body_region": "square",
+      "expected_pc": 0.0000344534649703584,
+      "expected_source": "upstream_test_assertion",
+      "upstream_relative_tolerance": 0.001
+    },
+    {
+      "case_id": "cara-foster-omitron-square-equal-area-hbr-020m",
+      "upstream_test_name": "testEqAreaSquareHBR",
+      "hard_body_region": "squareEquArea",
+      "expected_pc": 0.0000270601573490111,
+      "expected_source": "upstream_test_assertion",
+      "upstream_relative_tolerance": 0.001
+    }
+  ]
+}
