@@ -282,6 +282,9 @@ pub fn assess_waste_measurement_coverage(
                 if record.category != planned_slot.category {
                     return Err(WasteMeasurementError::WrongWasteCategory);
                 }
+                if record.recorded_at_unix_ms < protocol.registered_at_unix_ms {
+                    return Err(WasteMeasurementError::InvalidEvidenceTimestamp);
+                }
                 if record.recorded_at_unix_ms > assessed_at_unix_ms {
                     return Err(WasteMeasurementError::EvidenceAfterAssessment);
                 }
@@ -330,6 +333,9 @@ pub fn assess_waste_measurement_coverage(
                         physical_observation_time(record, protocol)?;
                         if is_zero(conversion_digest) {
                             return Err(WasteMeasurementError::ZeroDigest);
+                        }
+                        if *count > 0 && *grams_per_unit == 0 {
+                            return Err(WasteMeasurementError::InvalidDerivedMassEvidence);
                         }
                         let mass = count
                             .checked_mul(*grams_per_unit)
@@ -860,6 +866,39 @@ mod tests {
         assert_eq!(result.visual_estimate_slots, 1);
         assert_eq!(result.visually_estimated_mass_grams, 700);
         assert_eq!(result.directly_weighed_slots, 2);
+    }
+
+    #[test]
+    fn conservative_basis_point_rounding_is_directional() {
+        assert_eq!(rate_bps_ceil(1, 3), Ok(3_334));
+        assert_eq!(rate_bps_floor(1, 3), Ok(3_333));
+    }
+
+    #[test]
+    fn rejects_mass_aggregation_overflow() {
+        let mut values = outcomes();
+        values[0] = weighed("slot:one", "measurement:one", u64::MAX, 0, 3_000);
+        assert_eq!(
+            assess_waste_measurement_coverage(&protocol(), &values, 7_000),
+            Err(WasteMeasurementError::MassOverflow)
+        );
+    }
+
+    #[test]
+    fn rejects_zero_unit_mass_for_positive_count() {
+        let mut values = outcomes();
+        if let WasteSlotOutcome::Measured(record) = &mut values[2] {
+            record.observed_at_unix_ms = Some(4_000);
+            record.mass = MassEvidence::CountDerived {
+                count: 1,
+                grams_per_unit: 0,
+                conversion_digest: digest(8),
+            };
+        }
+        assert_eq!(
+            assess_waste_measurement_coverage(&protocol(), &values, 7_000),
+            Err(WasteMeasurementError::InvalidDerivedMassEvidence)
+        );
     }
 
     #[test]
