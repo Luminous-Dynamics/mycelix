@@ -6,7 +6,7 @@ use crate::app::PlayerState;
 use leptos::prelude::*;
 
 /// Persistent audio player bar at the bottom of the screen.
-/// Plays audio from IPFS gateway URLs and records plays via zome calls.
+/// Uses the delivery resolver and falls back when an HTTPS gateway fails.
 #[component]
 pub fn Player() -> impl IntoView {
     let player = expect_context::<PlayerState>();
@@ -14,6 +14,16 @@ pub fn Player() -> impl IntoView {
     let is_playing = player.is_playing;
     let volume = player.volume;
     let audio_ref = NodeRef::<leptos::html::Audio>::new();
+    let source_index = RwSignal::new(0usize);
+    let delivery_failed = RwSignal::new(false);
+
+    // Reset per-track route selection; a previous track's failed gateway must
+    // not become the first choice for the next track.
+    Effect::new(move |_| {
+        let _current_asset = current.get().map(|song| song.song_hash);
+        source_index.set(0);
+        delivery_failed.set(false);
+    });
 
     let toggle_play = move |_| {
         is_playing.update(|p| *p = !*p);
@@ -76,10 +86,36 @@ pub fn Player() -> impl IntoView {
                         let player_for_end = player_for_end.clone();
                         move |_| player_for_end.next()
                     };
+                    let song_for_src = song.clone();
+                    let on_audio_error = {
+                        let current = current;
+                        let source_index = source_index;
+                        let delivery_failed = delivery_failed;
+                        let is_playing = is_playing;
+                        move |_| {
+                            let next_index = source_index.get_untracked().saturating_add(1);
+                            if let Some(current_song) = current.get_untracked() {
+                                if next_index < current_song.audio_source_count() {
+                                    source_index.set(next_index);
+                                } else {
+                                    delivery_failed.set(true);
+                                    is_playing.set(false);
+                                }
+                            } else {
+                                delivery_failed.set(true);
+                                is_playing.set(false);
+                            }
+                        }
+                    };
                     view! {
                         <div class="player-info">
                             <span class="player-title">{song.title.clone()}</span>
                             <span class="player-duration">{song.duration_display()}</span>
+                            {move || delivery_failed.get().then(|| view! {
+                                <span class="player-error" role="status">
+                                    "Unable to load this track from the available HTTPS gateways. Please retry later."
+                                </span>
+                            })}
                         </div>
                         <div class="player-controls">
                             <button
@@ -92,13 +128,14 @@ pub fn Player() -> impl IntoView {
                         </div>
                         <audio
                             node_ref=audio_ref
-                            prop:src=song.audio_url()
+                            prop:src=move || song_for_src.audio_url_at(source_index.get()).unwrap_or_default()
                             prop:volume=move || volume.get()
                             preload="metadata"
                             on:canplay=start_when_ready
                             on:timeupdate=update_time
                             on:loadedmetadata=update_metadata
                             on:ended=on_ended
+                            on:error=on_audio_error
                         />
                     }.into_any()
                 } else {
