@@ -265,7 +265,20 @@ export function verifySettlementAllocationLineageCheckpoint(
   );
   if (!valid) throw new Error('settlement allocation checkpoint signature verification failed');
 
-  const verified = Object.freeze({ ...checkpoint });
+  // JSON transports supply mutable arrays. Snapshot and freeze both ordered
+  // root sequences so the object authenticated above cannot be changed after
+  // the WeakSet provenance marker is minted.
+  const verified = Object.freeze({
+    ...checkpoint,
+    allocationRoots: validateRootSequence(
+      'settlement allocation checkpoint allocation',
+      checkpoint.allocationRoots,
+    ),
+    linkRoots: validateRootSequence(
+      'settlement allocation checkpoint link',
+      checkpoint.linkRoots,
+    ),
+  });
   VERIFIED_CHECKPOINTS.add(verified);
   return verified;
 }
