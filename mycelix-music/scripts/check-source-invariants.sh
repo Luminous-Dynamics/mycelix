@@ -243,6 +243,17 @@ grep -Fq 'initial settlement allocation checkpoint cursor revision must equal 1'
   || fail "PostgreSQL must require revision one for a new checkpoint cursor"
 grep -Fq 'checkpoint cursor must reference exact immutable evidence' packages/database/prisma/accounting-append-only.sql \
   || fail "PostgreSQL cursor must point to an exact immutable checkpoint row"
+checkpoint_cursor_model=$(sed -n '/^model SettlementAllocationLineageCheckpointCursor {/,/^}/p' packages/database/prisma/schema.prisma)
+grep -Fq 'references: [checkpointRoot], onDelete: Restrict, onUpdate: Restrict' <<<"$checkpoint_cursor_model" \
+  || fail "cursor head must have a restrictive foreign key to immutable checkpoint evidence"
+grep -Fq 'checkpointEvidence SettlementAllocationLineageCheckpointRecord' <<<"$checkpoint_cursor_model" \
+  || fail "checkpoint cursor must declare its evidence relation"
+grep -Fq 'FROM pg_constraint WHERE contype' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live PostgreSQL regression must verify the checkpoint evidence foreign key"
+grep -Fq 'checkpointForeignKey[0]?.deleteAction, '\''r'\''' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "checkpoint evidence FK must restrict deletion"
+grep -Fq 'checkpointForeignKey[0]?.updateAction, '\''r'\''' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "checkpoint evidence FK must restrict updates"
 grep -Fq 'requires a new root and revision + 1' packages/database/prisma/accounting-append-only.sql \
   || fail "PostgreSQL must reject root replay without a cursor advance"
 grep -Fq '/requires a new root and revision \+ 1/' packages/database/src/accounting-checkpoint-cursor.integration.ts \
