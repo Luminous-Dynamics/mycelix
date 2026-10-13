@@ -34,9 +34,13 @@ This makes the safest interpretation more precise: the minister's October 2026 p
 
 ## Executable synthetic policy oracle
 
-The machine-readable vectors now include explicit synthetic policy inputs. `mycelix-identity/sa_did_policy_engine.py` evaluates those inputs with deterministic ordering for consent, alternative access, source availability, supported profile, issuer trust, proof integrity, schema, audience, nonce, holder binding, validity time, credential status, receipt privacy and authorization scope.
+The machine-readable profile now includes **20** explicit synthetic policy scenarios, including invalid proof, stale credential status, unknown validity time, and unsupported algorithm/profile downgrade, in addition to issuer spoofing, replay, wrong audience, holder binding, expiry/revocation, privacy leakage, and identity-to-authority escalation. `mycelix-identity/sa_did_policy_engine.py` evaluates the inputs with deterministic ordering across consent, alternate access, source availability, profile support, issuer trust, proof, schema, audience, nonce, holder binding, validity, status, receipt privacy and authorization scope.
 
-This oracle is deliberately **not a credential verifier**. It performs no parsing, signature checks, network calls, trust-key retrieval or DHA interaction. The only positive result is a synthetic test-corpus disposition, and the engine refuses vectors not explicitly marked synthetic and ineligible for production. Its value is that CI can execute the decision logic and compare every scenario's exact expected disposition/reason pair, rather than merely checking that a JSON file contains plausible labels.
+This oracle is deliberately **not a credential verifier**. It performs no parsing, signature checks, network calls, trust-key retrieval or DHA interaction. The only positive result is a synthetic test-corpus disposition, and the engine refuses vectors not explicitly marked synthetic and ineligible for production. Its value is that CI executes the policy logic and compares exact expected disposition/reason pairs, rather than merely checking that a JSON file contains plausible labels.
+
+### Evidence fingerprints and report limitations
+
+Report schema v2 records SHA-256 fingerprints for the exact profile bytes read by the CLI, the normalized profile representation, and the source files of both the policy engine and contract validator. Repeated runs over the same files should produce byte-identical JSON reports. The fingerprints let a reviewer compare the report to the input and code artifacts, but they are **not** a digital signature and do not independently prove that a trusted CI runner generated the report. CI retention is time-limited; preserve the report together with the exact commit and workflow run when it is needed as evidence.
 
 ## Near-term official path: the existing Online Verification Service
 
