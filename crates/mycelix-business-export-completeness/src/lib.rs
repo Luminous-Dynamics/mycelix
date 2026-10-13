@@ -500,7 +500,7 @@ pub fn assess_export_completeness_with_raw_payloads(
     }
 
     for (page, payload) in manifest.pages.iter().zip(raw_page_payloads) {
-        if sha256_raw_bytes(payload) != page.payload_digest {
+        if sha256_raw_bytes(*payload) != page.payload_digest {
             return Err(ExportCompletenessError::RawPagePayloadDigestMismatch {
                 page_ordinal: page.ordinal,
             });
@@ -620,11 +620,14 @@ mod tests {
         &'static [u8],
     ) {
         let (mut manifest, mut attestation) = fixture();
-        let page_payloads: [&[u8]; 2] = [&b"page-zero-payload"[..], &b"page-one-payload"[..]];
+        let page_payloads: [&[u8]; 2] = [
+            &b"page-zero-payload"[..],
+            &b"page-one-payload"[..],
+        ];
         let statement: &[u8] = b"provider-coverage-statement-v1";
 
         for (page, payload) in manifest.pages.iter_mut().zip(page_payloads.iter()) {
-            page.payload_digest = sha256_raw_bytes(payload);
+            page.payload_digest = sha256_raw_bytes(*payload);
         }
         attestation.statement_digest = sha256_raw_bytes(statement);
 
@@ -634,9 +637,13 @@ mod tests {
     #[test]
     fn raw_payload_assessment_accepts_exact_page_and_statement_bytes() {
         let (manifest, attestation, pages, statement) = raw_payload_fixture();
-        let result =
-            assess_export_completeness_with_raw_payloads(&manifest, &attestation, &pages, statement)
-                .unwrap();
+        let result = assess_export_completeness_with_raw_payloads(
+            &manifest,
+            &attestation,
+            &pages,
+            statement,
+        )
+        .unwrap();
 
         assert_eq!(result.page_count, 2);
         assert_eq!(result.observed_row_count, 5);
@@ -648,7 +655,12 @@ mod tests {
         pages[0] = &b"tampered-page-zero"[..];
 
         assert_eq!(
-            assess_export_completeness_with_raw_payloads(&manifest, &attestation, &pages, statement),
+            assess_export_completeness_with_raw_payloads(
+                &manifest,
+                &attestation,
+                &pages,
+                statement,
+            ),
             Err(ExportCompletenessError::RawPagePayloadDigestMismatch { page_ordinal: 0 })
         );
     }
