@@ -1,0 +1,63 @@
+name: SA-DID Contract Evidence
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/sa-did-contract.yml"
+      - "mycelix-identity/SA_DID_PROFILE_V1.json"
+      - "mycelix-identity/validate_sa_did_profile.py"
+      - "mycelix-identity/sa_did_policy_engine.py"
+      - "mycelix-identity/tests/test_sa_did_*.py"
+      - "docs/sa-digital-id-interoperability.md"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sa-did-contract.yml"
+      - "mycelix-identity/SA_DID_PROFILE_V1.json"
+      - "mycelix-identity/validate_sa_did_profile.py"
+      - "mycelix-identity/sa_did_policy_engine.py"
+      - "mycelix-identity/tests/test_sa_did_*.py"
+      - "docs/sa-digital-id-interoperability.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sa-did-synthetic-contract:
+    name: SA-DID synthetic contract and evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Report the same commit we actually test, not the default PR merge ref.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate closed SA-DID research contract
+        run: |
+          cd mycelix-identity
+          python validate_sa_did_profile.py
+      - name: Execute synthetic policy vectors and write evidence
+        run: |
+          cd mycelix-identity
+          python sa_did_policy_engine.py \
+            --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --report sa-did-policy-report.json
+      - name: Run SA-DID regression suite
+        run: |
+          cd mycelix-identity
+          python -m unittest discover -s tests -p 'test_sa_did_*.py' -v
+      - name: Upload synthetic policy evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sa-did-synthetic-policy-report-${{ github.event.pull_request.head.sha || github.sha }}
+          path: mycelix-identity/sa-did-policy-report.json
+          if-no-files-found: warn
+          retention-days: 14
