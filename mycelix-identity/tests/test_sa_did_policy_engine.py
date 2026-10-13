@@ -164,6 +164,8 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
                 [
                     sys.executable,
                     str(IDENTITY_DIR / "sa_did_policy_engine.py"),
+                    "--source-commit",
+                    "abcdef0123456789abcdef0123456789abcdef01",
                     "--report",
                     str(report_path),
                 ],
@@ -179,6 +181,7 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
             self.assertTrue(report["passed"])
             self.assertFalse(report["cryptographic_verification_performed"])
             self.assertFalse(report["dha_endpoint_contacted"])
+            self.assertEqual(report["source_commit_sha"], "abcdef0123456789abcdef0123456789abcdef01")
 
 
 
@@ -186,6 +189,10 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "profile_source_sha256 must be a lowercase SHA-256 hex digest"):
             sa_did_policy_engine.build_report(self.profile, profile_source_sha256=["not", "a", "digest"])
 
+
+    def test_malformed_source_commit_is_refused(self) -> None:
+        with self.assertRaisesRegex(ValueError, "source_commit_sha must be a lowercase 40-character Git commit SHA"):
+            sa_did_policy_engine.build_report(self.profile, source_commit_sha="not-a-commit")
 
     def test_report_fingerprints_input_profile_and_verifier_sources(self) -> None:
         report = sa_did_policy_engine.build_report(self.profile)
@@ -210,7 +217,7 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
             fingerprints["contract_validator_source_sha256"],
             hashlib.sha256((IDENTITY_DIR / "validate_sa_did_profile.py").read_bytes()).hexdigest(),
         )
-        self.assertEqual(report["schema_version"], 2)
+        self.assertEqual(report["schema_version"], 3)
 
     def test_cli_binds_report_to_exact_profile_bytes_and_is_deterministic(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:
@@ -223,6 +230,8 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
                     [
                         sys.executable,
                         str(IDENTITY_DIR / "sa_did_policy_engine.py"),
+                        "--source-commit",
+                        "abcdef0123456789abcdef0123456789abcdef01",
                         "--profile",
                         str(profile_path),
                         "--report",
@@ -240,6 +249,7 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
                 fingerprints["profile_file_sha256"],
                 hashlib.sha256(original_bytes).hexdigest(),
             )
+            self.assertEqual(report["source_commit_sha"], "abcdef0123456789abcdef0123456789abcdef01")
 
 
     def test_report_refuses_contract_drift_even_when_inputs_are_changed_to_match(self) -> None:
