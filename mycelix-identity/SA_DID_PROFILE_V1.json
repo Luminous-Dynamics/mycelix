@@ -42,7 +42,8 @@
       "source_urls": [
         "https://www.gov.za/news/speeches/minister-leon-schreiber-home-affairs-quantum-leap-vision-future-government-01-oct",
         "https://www.gov.za/news/media-statements/minister-leon-schreiber-invites-public-comment-draft-digital-identity",
-        "https://www.dha.gov.za/images/AnnualReports/DHA-APP-2026-27_260326.pdf"
+        "https://www.dha.gov.za/images/AnnualReports/DHA-APP-2026-27_260326.pdf",
+        "https://www.parliament.gov.za/storage/app/media/Docs/atc/01ls62wghipk7yjq7tmng272dk6bqkozmm.pdf"
       ],
       "evidence_nonclaims": [
         "not_implemented",
@@ -611,6 +612,7 @@
     "OVS and smartphone Digital ID are different evidence methods. Never promote one method's status or assurance into the other.",
     "Identity evidence does not by itself establish a service entitlement, residency, citizenship, Mycelix membership, reputation, vote, or execution authority.",
     "The executable synthetic policy oracle exercises disposition ordering from synthetic inputs only; its verified outcome does not prove cryptographic validity or government identity.",
-    "The DHA 2026/27 Annual Performance Plan sets hosting/PKI infrastructure completion as a 2026/27 target and separately plans wallet-issued verifiable credentials for 2027/28; these are targets, not evidence of completed production integration."
+    "The DHA 2026/27 Annual Performance Plan sets hosting/PKI infrastructure completion as a 2026/27 target and separately plans wallet-issued verifiable credentials for 2027/28; these are targets, not evidence of completed production integration.",
+    "A Parliament committee oversight report published 8 May 2026, assessing 2025/26 Q3, recorded that the Digital Identity/PKI programme target was not achieved in that reporting period: procurement was paused pending clarification of the revised hosting/governance model, including a proposed SARS-based hosting approach and Certificate Authority responsibilities. This is historical programme evidence, not a claim about the later October 2026 prototype or the current completion state."
   ]
 }
