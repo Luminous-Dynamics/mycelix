@@ -469,14 +469,19 @@ def main() -> int:
     correction = copy.deepcopy(example)
     correction["eventId"] = "urn:mycelix:food-event:producer-01:eggs-lot-20261012:correction-001"
     correction["eventType"] = "CORRECTION"
+    correction["eventTime"] = "2026-10-13T11:00:00+02:00"
+    correction["recordedAt"] = "2026-10-13T11:00:05+02:00"
+    correction["subjects"][0]["quantity"]["value"] = "7"
     correction["supersedesEventId"] = example["eventId"]
-    correction["correctionReason"] = "Corrected against the producer's source ledger."
+    correction["correctionReason"] = "Corrected the reported eight dozen to seven dozen against the producer's source ledger."
     valid("correction appends a reasoned reference to the prior event", correction)
     valid_batch("original event followed by a valid correction", [example, correction])
 
     retraction = copy.deepcopy(example)
     retraction["eventId"] = "urn:mycelix:food-event:producer-01:eggs-lot-20261012:retraction-001"
     retraction["eventType"] = "RETRACTION"
+    retraction["eventTime"] = "2026-10-13T11:30:00+02:00"
+    retraction["recordedAt"] = "2026-10-13T11:30:05+02:00"
     retraction["supersedesEventId"] = example["eventId"]
     retraction["correctionReason"] = "Source record withdrawn by its issuer."
     valid("retraction carries a supersession link and reason", retraction)
