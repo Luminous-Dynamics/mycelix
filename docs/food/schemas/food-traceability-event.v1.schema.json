@@ -693,6 +693,22 @@
           "supersedesEventId",
           "correctionReason"
         ]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "supersedesEventId"
+              ]
+            },
+            {
+              "required": [
+                "correctionReason"
+              ]
+            }
+          ]
+        }
       }
     },
     {
