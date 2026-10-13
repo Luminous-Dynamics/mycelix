@@ -39,6 +39,6 @@ jobs:
       - name: Install pinned JSON Schema validator (no cache)
         run: |
           python3 -m venv /tmp/mycelix-food-schema-venv
-          /tmp/mycelix-food-schema-venv/bin/pip install --disable-pip-version-check --no-cache-dir jsonschema==4.26.0
+          /tmp/mycelix-food-schema-venv/bin/pip install --disable-pip-version-check --no-cache-dir 'jsonschema[format]==4.26.0'
       - name: Validate schema and adversarial cases
         run: /tmp/mycelix-food-schema-venv/bin/python scripts/validate_food_traceability_schema.py
