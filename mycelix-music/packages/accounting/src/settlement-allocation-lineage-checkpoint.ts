@@ -94,6 +94,21 @@ function exactRoots(left: readonly Digest[], right: readonly Digest[]): boolean 
   return left.length === right.length && left.every((root, index) => root === right[index]);
 }
 
+function assertCheckpointRootPrefix(
+  label: string,
+  previousRoots: readonly Digest[],
+  candidateRoots: readonly Digest[],
+): void {
+  if (candidateRoots.length < previousRoots.length) {
+    throw new Error(`settlement allocation checkpoint ${label} cannot shrink after acceptance`);
+  }
+  for (let index = 0; index < previousRoots.length; index += 1) {
+    if (candidateRoots[index] !== previousRoots[index]) {
+      throw new Error(`settlement allocation checkpoint ${label} cannot rewrite its accepted prefix`);
+    }
+  }
+}
+
 function validateRootSequence(label: string, roots: readonly Digest[]): readonly Digest[] {
   const seen = new Set<string>();
   const result: Digest[] = [];
@@ -285,6 +300,12 @@ export function assertSettlementAllocationLineageCheckpointAdvances(
   ) {
     throw new Error('settlement allocation checkpointId cannot be reused for different checkpoint contents');
   }
+
+  // The source checkpoint is an append-only view of this batch's allocation chain.
+  // A later cursor may extend the chain or advance observation time, but may not
+  // forget or rewrite an allocation/link already present in an accepted checkpoint.
+  assertCheckpointRootPrefix('allocation roots', previous.allocationRoots, candidate.allocationRoots);
+  assertCheckpointRootPrefix('link roots', previous.linkRoots, candidate.linkRoots);
 
   const previousHighWaterMark = BigInt(canonicalHighWaterMark(previous.highWaterMark));
   const candidateHighWaterMark = BigInt(canonicalHighWaterMark(candidate.highWaterMark));
