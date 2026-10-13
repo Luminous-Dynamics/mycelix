@@ -185,9 +185,16 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
 
 
 
-    def test_malformed_profile_hash_argument_is_refused(self) -> None:
-        with self.assertRaisesRegex(ValueError, "profile_source_sha256 must be a lowercase SHA-256 hex digest"):
-            sa_did_policy_engine.build_report(self.profile, profile_source_sha256=["not", "a", "digest"])
+    def test_non_bytes_profile_source_is_refused(self) -> None:
+        with self.assertRaisesRegex(ValueError, "profile_source_bytes must be bytes"):
+            sa_did_policy_engine.build_report(self.profile, profile_source_bytes=["not", "bytes"])
+
+    def test_profile_bytes_must_match_the_object_that_is_reported(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["title"] = "tampered after file hash"
+        raw_source = json.dumps(self.profile, sort_keys=True).encode("utf-8")
+        with self.assertRaisesRegex(ValueError, "profile_source_bytes do not match the supplied profile object"):
+            sa_did_policy_engine.build_report(mutated, profile_source_bytes=raw_source)
 
 
     def test_malformed_source_commit_is_refused(self) -> None:
