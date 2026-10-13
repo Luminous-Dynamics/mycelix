@@ -41,7 +41,8 @@
       "status_or_revocation_profile_configured": false,
       "source_urls": [
         "https://www.gov.za/news/speeches/minister-leon-schreiber-home-affairs-quantum-leap-vision-future-government-01-oct",
-        "https://www.gov.za/news/media-statements/minister-leon-schreiber-invites-public-comment-draft-digital-identity"
+        "https://www.gov.za/news/media-statements/minister-leon-schreiber-invites-public-comment-draft-digital-identity",
+        "https://www.dha.gov.za/images/AnnualReports/DHA-APP-2026-27_260326.pdf"
       ],
       "evidence_nonclaims": [
         "not_implemented",
@@ -509,6 +510,7 @@
     "All vectors are synthetic policy scenarios, not South African government credentials.",
     "OVS and smartphone Digital ID are different evidence methods. Never promote one method's status or assurance into the other.",
     "Identity evidence does not by itself establish a service entitlement, residency, citizenship, Mycelix membership, reputation, vote, or execution authority.",
-    "The executable synthetic policy oracle exercises disposition ordering from synthetic inputs only; its verified outcome does not prove cryptographic validity or government identity."
+    "The executable synthetic policy oracle exercises disposition ordering from synthetic inputs only; its verified outcome does not prove cryptographic validity or government identity.",
+    "The DHA 2026/27 Annual Performance Plan sets hosting/PKI infrastructure completion as a 2026/27 target and separately plans wallet-issued verifiable credentials for 2027/28; these are targets, not evidence of completed production integration."
   ]
 }
