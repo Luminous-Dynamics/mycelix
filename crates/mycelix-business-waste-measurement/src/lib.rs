@@ -779,6 +779,90 @@ mod tests {
     }
 
     #[test]
+    fn rejects_target_time_changed_after_preregistration() {
+        let mut values = outcomes();
+        if let WasteSlotOutcome::Measured(record) = &mut values[0] {
+            record.target_at_unix_ms = 3_001;
+        }
+        assert_eq!(
+            assess_waste_measurement_coverage(&protocol(), &values, 7_000),
+            Err(WasteMeasurementError::WrongSlotTarget)
+        );
+    }
+
+    #[test]
+    fn rejects_waste_category_changed_after_preregistration() {
+        let mut values = outcomes();
+        if let WasteSlotOutcome::Measured(record) = &mut values[0] {
+            record.category = ref_id("waste:other");
+        }
+        assert_eq!(
+            assess_waste_measurement_coverage(&protocol(), &values, 7_000),
+            Err(WasteMeasurementError::WrongWasteCategory)
+        );
+    }
+
+    #[test]
+    fn model_imputation_cannot_claim_a_physical_observation_time() {
+        let mut values = outcomes();
+        if let WasteSlotOutcome::Measured(record) = &mut values[2] {
+            record.observed_at_unix_ms = Some(4_000);
+        }
+        assert_eq!(
+            assess_waste_measurement_coverage(&protocol(), &values, 7_000),
+            Err(WasteMeasurementError::UnexpectedObservedTimestamp)
+        );
+    }
+
+    #[test]
+    fn direct_weighing_requires_an_observation_timestamp() {
+        let mut values = outcomes();
+        if let WasteSlotOutcome::Measured(record) = &mut values[0] {
+            record.observed_at_unix_ms = None;
+        }
+        assert_eq!(
+            assess_waste_measurement_coverage(&protocol(), &values, 7_000),
+            Err(WasteMeasurementError::MissingObservedTimestamp)
+        );
+    }
+
+    #[test]
+    fn count_derived_values_remain_separate_from_imputed_mass() {
+        let mut values = outcomes();
+        if let WasteSlotOutcome::Measured(record) = &mut values[2] {
+            record.observed_at_unix_ms = Some(4_000);
+            record.record_evidence_digest = digest(9);
+            record.mass = MassEvidence::CountDerived {
+                count: 3,
+                grams_per_unit: 100,
+                conversion_digest: digest(8),
+            };
+        }
+        let result = assess_waste_measurement_coverage(&protocol(), &values, 7_000).unwrap();
+        assert_eq!(result.count_derived_slots, 1);
+        assert_eq!(result.count_derived_mass_grams, 300);
+        assert_eq!(result.model_imputed_slots, 0);
+        assert_eq!(result.model_imputed_mass_grams, 0);
+    }
+
+    #[test]
+    fn visual_estimates_remain_separate_from_direct_weighing() {
+        let mut values = outcomes();
+        if let WasteSlotOutcome::Measured(record) = &mut values[2] {
+            record.observed_at_unix_ms = Some(4_000);
+            record.record_evidence_digest = digest(9);
+            record.mass = MassEvidence::VisualEstimate {
+                estimated_grams: 700,
+                method_digest: digest(8),
+            };
+        }
+        let result = assess_waste_measurement_coverage(&protocol(), &values, 7_000).unwrap();
+        assert_eq!(result.visual_estimate_slots, 1);
+        assert_eq!(result.visually_estimated_mass_grams, 700);
+        assert_eq!(result.directly_weighed_slots, 2);
+    }
+
+    #[test]
     fn digest_is_deterministic_and_binds_measurement_changes() {
         let protocol = protocol();
         let first = assess_waste_measurement_coverage(&protocol, &outcomes(), 7_000).unwrap();
