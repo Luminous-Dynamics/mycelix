@@ -146,7 +146,10 @@ describe('royalty reporting projections', () => {
     expect(() => exportDdexRoyaltyReportingProjection({
       profileVersion: 'configured-ddex-profile',
       source,
-      lines: [{ ...lines[0]!, amount: money(1n, '   ') }],
+      lines: [{
+        ...lines[0]!,
+        amount: { amountMinor: 1n, currency: '   ' } as RoyaltyReportingLine['amount'],
+      }],
     })).toThrow(/reporting currency must be non-empty/);
   });
 });
