@@ -18,6 +18,17 @@ This dependency-free Node.js module computes a transparent single-offer scenario
 
 All amounts use integer minor units for the chosen currency. The implementation uses BigInt intermediates and fails closed when any returned result would not fit exactly in JavaScript's safe-integer range. Stable amount formatting is provided for tests and evidence; localized formatting belongs in the UI.
 
+
+## Auditable actuals-versus-plan comparison
+
+`compareCashPlanToActuals` compares the existing cash plan with a separate schema-v1 actuals-source JSON file. The source object includes a supported `type` (`bank_statement_export` or `reconciled_cash_ledger_export`), a descriptive label/reference, full-month coverage dates, an explicit completeness declaration, and source opening/closing cash balances. Each transaction needs a unique ID, date, matching currency code, one supported cash-flow category, a positive integer `amountMinor`, and a source row/statement reference.
+
+Set `forecastStartMonth` to the calendar month represented by forecast Month 1. Coverage must consist of complete calendar months within the forecast horizon. The engine fails closed on invalid/duplicate IDs, missing references, currency mismatch, out-of-coverage dates, unsupported categories, overflow, incomplete coverage or a difference between imported net transactions and the source opening-to-closing cash movement. Variances are reported as actual minus plan per cash bucket and for net cash movement; closing-balance variance also reflects any opening-balance difference.
+
+The static client hashes the exact imported UTF-8 JSON bytes with SHA-256 and exports the original decoded source text, digest, scenario inputs, cash plan, projection and comparison in a separate evidence bundle. An independent verifier can re-hash the embedded source text and rerun the deterministic comparison. The fingerprint proves byte identity relative to the bundle, **not** bank/ledger authenticity or completeness. Intermediate monthly closing actuals are derived from transactions; only the ending cash balance for the full imported range is separately declared and reconciled. This is cash-basis sensitivity analysis, not accrual accounting, tax reporting, profit recognition, an invoice ledger or proof of compliance.
+
+The imported schema is intentionally normalized around cash records. Keep original statements, receipts and ledger exports in the user's secure record system; `evidenceReference` fields identify supporting records but do not embed or independently validate them.
+
 ## Run
 
 Requires Node.js 24.21.0. No dependency installation is required.

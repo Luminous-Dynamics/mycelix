@@ -15,6 +15,13 @@ No package install is required. The page imports the dependency-free calculator 
 
 The exact-head Chromium journey is maintained at `../core/test/browser-journey.mjs` and run by `.github/workflows/business-launchpad-browser.yml`. It covers a narrow single-browser path and captured evidence; passing it would not certify screen-reader compatibility or full WCAG conformance.
 
+
+## Actuals-versus-plan evidence
+
+After calculating the current plan, the **Actuals versus plan** panel accepts a normalized schema-v1 JSON source file. Choose the month represented by forecast Month 1. Accepted source declarations are bank-statement exports or reconciled cash-ledger exports. A complete full-calendar-month range, unique transaction IDs, dates/categories/references, matching currency, and exact reconciliation from source opening balance through imported cash movements to source closing balance are required. Rows use positive integer minor units and map to sales receipts, operating outflows, other/unclassified inflows/outflows, investing inflows/outflows, or financing inflows/outflows.
+
+Use the actuals template button to obtain the shape. Replace placeholders with values and references from your real statement/ledger records. The browser hashes the exact import bytes and the variance bundle includes that hash plus the imported source text, forecast inputs, monthly plan, projection and variance report. The bytes can be re-hashed and the deterministic variance recomputed. This does **not** authenticate a source or ensure the file is complete: source type and coverage are user declarations, not external attestations. The range-end cash balance is declared in the normalized file and must reconcile; intermediate month-end balances are derived. This is a local evidence aid, not an accounting ledger or integration. Do not put bank credentials or full account numbers in metadata or references.
+
 ## Important boundaries
 
 - Initial numbers are fictional examples; replace them with verified quotes and realistic assumptions.
