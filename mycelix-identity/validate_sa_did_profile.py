@@ -128,6 +128,10 @@ REQUIRED_SCENARIOS = {
     "identity_upgraded_to_membership_or_authority",
     "user_declines_presentation",
     "no_smartphone_or_verifier_offline",
+    "invalid_cryptographic_proof",
+    "stale_credential_status",
+    "credential_validity_time_unknown",
+    "unsupported_algorithm_or_profile_downgrade",
 }
 EXPECTED_OUTCOME_BY_SCENARIO = {
     "synthetic_valid_reference": ("verified", "none"),
@@ -146,6 +150,10 @@ EXPECTED_OUTCOME_BY_SCENARIO = {
     "identity_upgraded_to_membership_or_authority": ("rejected", "authorization_scope_violation"),
     "user_declines_presentation": ("indeterminate", "user_declined"),
     "no_smartphone_or_verifier_offline": ("indeterminate", "alternative_route_required"),
+    "invalid_cryptographic_proof": ("rejected", "invalid_proof"),
+    "stale_credential_status": ("indeterminate", "status_stale"),
+    "credential_validity_time_unknown": ("indeterminate", "credential_time_unknown"),
+    "unsupported_algorithm_or_profile_downgrade": ("indeterminate", "unsupported_profile"),
 }
 FORBIDDEN_RECEIPT_KEYS = {
     "national_identity_number",
