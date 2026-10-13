@@ -1403,7 +1403,7 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
         .into_wasm_error());
     }
 
-    // Generate displacement targets at TCA: ±5 km in each direction.
+    // Generate four 5 km displacement targets at TCA.
     // Reject degenerate geometry rather than substituting an arbitrary axis.
     let displacement_km = 5.0;
     let v_hat_tca = nalgebra::Vector3::new(p_tca.state.vx, p_tca.state.vy, p_tca.state.vz);
@@ -3096,16 +3096,33 @@ mod avoidance_session_binding_tests {
 
     #[test]
     fn checked_burn_time_and_lambert_interval_use_identical_seconds() {
-        let tca = Utc.with_ymd_and_hms(2026, 10, 13, 12, 0, 0).single().expect("valid TCA");
+        let tca = Utc
+            .with_ymd_and_hms(2026, 10, 13, 12, 0, 0)
+            .single()
+            .expect("valid TCA");
         let (burn, tof) = checked_burn_time(tca, 1.5).expect("valid burn");
         assert_eq!(tof, 5_400.0);
-        assert_eq!(tca.signed_duration_since(burn), chrono::Duration::seconds(5_400));
+        assert_eq!(
+            tca.signed_duration_since(burn),
+            chrono::Duration::seconds(5_400)
+        );
     }
 
     #[test]
     fn checked_burn_time_rejects_invalid_and_unrepresentable_lead_times() {
-        let tca = Utc.with_ymd_and_hms(2026, 10, 13, 12, 0, 0).single().expect("valid TCA");
-        for hours in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 0.0001, f64::MAX] {
+        let tca = Utc
+            .with_ymd_and_hms(2026, 10, 13, 12, 0, 0)
+            .single()
+            .expect("valid TCA");
+        for hours in [
+            0.0,
+            -1.0,
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            0.0001,
+            f64::MAX,
+        ] {
             assert!(checked_burn_time(tca, hours).is_err(), "hours: {}", hours);
         }
         assert_eq!(
