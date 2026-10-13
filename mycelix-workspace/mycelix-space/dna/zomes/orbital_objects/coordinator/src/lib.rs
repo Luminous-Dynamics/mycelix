@@ -361,11 +361,22 @@ pub fn get_tles_with_metadata(
         }
     }
 
-    Ok(latest
+    latest
         .into_values()
         .map(|tle| {
-            let staleness = compute_staleness(&tle.epoch, &tle.quality, &input.staleness_config);
-            TleWithMetadata {
+            let staleness = compute_staleness(
+                &tle.epoch,
+                &tle.quality,
+                &input.staleness_config,
+            )
+            .map_err(|e| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Invalid TLE epoch for NORAD {}: {}", tle.norad_id, e),
+                )
+                .into_wasm_error()
+            })?;
+            Ok(TleWithMetadata {
                 norad_id: tle.norad_id,
                 line1: tle.line1,
                 line2: tle.line2,
@@ -374,7 +385,7 @@ pub fn get_tles_with_metadata(
                 source: tle.source,
                 submitted_at: tle.submitted_at,
                 staleness,
-            }
+            })
         })
-        .collect())
+        .collect()
 }

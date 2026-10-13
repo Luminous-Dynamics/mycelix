@@ -12,7 +12,7 @@ use mycelix_space_shared::{
     AlertPriority, AlertType, ConjunctionAlert, ConjunctionAssessment, ConjunctionDataMessage,
     ManeuverAlert, ManeuverType as SharedManeuverType, PaginatedResponse, PaginationParams,
     QualityScore, ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp,
-    StalenessAwareAssessment, StalenessConfig, TleWithMetadata, compute_staleness,
+    StalenessAwareAssessment, StalenessConfig, TleWithMetadata,
     gate_space_operation, requirement_for_conjunction_creation, requirement_for_negotiation,
     requirement_for_risk_update,
 };
@@ -192,7 +192,13 @@ pub fn create_conjunction_event(input: CreateEventInput) -> ExternResult<ActionH
             .into_wasm_error()
         })?;
 
-        let tca_dt = input.tca.to_datetime();
+        let tca_dt = input.tca.try_to_datetime().map_err(|e| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Invalid TCA timestamp: {}", e),
+            )
+            .into_wasm_error()
+        })?;
         let primary_state = primary_prop.propagate_to(tca_dt).map_err(|e| {
             SpaceError::new(
                 SpaceErrorCode::InvalidInput,
@@ -469,6 +475,15 @@ pub fn announce_maneuver(input: AnnounceManeuverInput) -> ExternResult<ActionHas
             .into_wasm_error());
         }
     }
+
+    // Validate timestamp representability before creating entries or links.
+    let execution_time = input.burn_time.try_to_datetime().map_err(|e| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Invalid maneuver burn timestamp: {}", e),
+        )
+        .into_wasm_error()
+    })?;
     let agent = agent_info()?.agent_initial_pubkey;
 
     let maneuver = AvoidanceManeuver {
@@ -502,7 +517,7 @@ pub fn announce_maneuver(input: AnnounceManeuverInput) -> ExternResult<ActionHas
         conjunction_secondary: None,
         maneuver_type: SharedManeuverType::Combined, // Determine from direction
         delta_v_ms: input.delta_v_ms,
-        execution_time: input.burn_time.to_datetime(),
+        execution_time,
         generated_at: chrono::Utc::now(),
         message: Some(format!(
             "Avoidance maneuver announced for event {}",
@@ -557,7 +572,18 @@ pub fn mark_maneuver_executed(input: ManeuverExecutedInput) -> ExternResult<Acti
             .into_wasm_error(),
         )?;
 
-    // Update status
+    // Validate every fallible field needed by the signal before mutating the
+    // source-chain record. Otherwise an invalid stored timestamp could leave an
+    // Executed status committed without its corresponding event signal.
+    let execution_time = maneuver.burn_time.try_to_datetime().map_err(|e| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Invalid stored maneuver burn timestamp: {}", e),
+        )
+        .into_wasm_error()
+    })?;
+
+    // Update status only after the event payload is known to be representable.
     maneuver.status = ManeuverStatus::Executed;
 
     let action_hash = update_entry(input.maneuver_hash, &maneuver)?;
@@ -571,7 +597,7 @@ pub fn mark_maneuver_executed(input: ManeuverExecutedInput) -> ExternResult<Acti
         conjunction_secondary: None,
         maneuver_type: SharedManeuverType::Combined,
         delta_v_ms: maneuver.delta_v_ms,
-        execution_time: maneuver.burn_time.to_datetime(),
+        execution_time,
         generated_at: chrono::Utc::now(),
         message: Some(format!("Maneuver executed for event {}", maneuver.event_id)),
     };
@@ -910,33 +936,35 @@ pub fn screen_conjunction_with_staleness(
     // Enrich with staleness metadata
     let primary_staleness = primary_meta.staleness.clone();
 
-    Ok(assessments
+    assessments
         .into_iter()
-        .map(|assessment| {
+        .map(|assessment| -> ExternResult<StalenessAwareAssessment> {
             let secondary_staleness = meta_map
                 .get(&assessment.secondary_norad_id)
                 .map(|m| m.staleness.clone())
-                .unwrap_or_else(|| {
-                    // Fallback: unknown staleness (shouldn't happen)
-                    compute_staleness(
-                        &SpaceTimestamp { micros: 0 },
-                        &QualityScore::new(0),
-                        &input.staleness_config,
+                .ok_or_else(|| {
+                    SpaceError::new(
+                        SpaceErrorCode::InvalidInput,
+                        format!(
+                            "Missing staleness metadata for secondary NORAD {}",
+                            assessment.secondary_norad_id
+                        ),
                     )
-                });
+                    .into_wasm_error()
+                })?;
 
             let combined_confidence = primary_staleness.confidence * secondary_staleness.confidence;
             let has_stale_data = primary_staleness.is_stale || secondary_staleness.is_stale;
 
-            StalenessAwareAssessment {
+            Ok(StalenessAwareAssessment {
                 assessment,
                 primary_staleness: primary_staleness.clone(),
                 secondary_staleness,
                 combined_confidence,
                 has_stale_data,
-            }
+            })
         })
-        .collect())
+        .collect()
 }
 
 /// Mirror of orbital_objects GetTlesWithMetadataInput for cross-zome serialization
@@ -1534,7 +1562,13 @@ pub fn rescreen_conjunction(event_hash: ActionHash) -> ExternResult<ConjunctionE
     })?;
 
     // Propagate to original TCA
-    let tca_dt = event.tca.to_datetime();
+    let tca_dt = event.tca.try_to_datetime().map_err(|e| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Invalid stored conjunction TCA timestamp: {}", e),
+        )
+        .into_wasm_error()
+    })?;
     let primary_state = primary_prop.propagate_to(tca_dt).map_err(|e| {
         SpaceError::new(
             SpaceErrorCode::InvalidInput,
@@ -1612,7 +1646,13 @@ fn emit_conjunction_alert(event: &ConjunctionEvent) -> ExternResult<()> {
     let assessment = ConjunctionAssessment {
         primary_norad_id: event.primary_norad_id,
         secondary_norad_id: event.secondary_norad_id,
-        tca: event.tca.to_datetime(),
+        tca: event.tca.try_to_datetime().map_err(|e| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Invalid stored conjunction TCA timestamp: {}", e),
+            )
+            .into_wasm_error()
+        })?,
         miss_distance_km: event.miss_distance_km,
         relative_velocity_kms: 10.0, // Would come from actual data
         collision_probability: event.max_pc,
@@ -1637,7 +1677,13 @@ fn emit_risk_escalation_alert(
     let assessment = ConjunctionAssessment {
         primary_norad_id: event.primary_norad_id,
         secondary_norad_id: event.secondary_norad_id,
-        tca: event.tca.to_datetime(),
+        tca: event.tca.try_to_datetime().map_err(|e| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Invalid stored conjunction TCA timestamp: {}", e),
+            )
+            .into_wasm_error()
+        })?,
         miss_distance_km: event.miss_distance_km,
         relative_velocity_kms: 10.0,
         collision_probability: event.max_pc,

@@ -259,7 +259,7 @@ fn test_staleness_fresh_tle_not_stale() {
     let quality = QualityScore::new(80);
     let config = StalenessConfig::default();
 
-    let staleness = compute_staleness(&epoch, &quality, &config);
+    let staleness = compute_staleness(&epoch, &quality, &config).expect("valid test epoch");
     assert!(!staleness.is_stale);
     assert!(
         staleness.confidence > 0.9,
@@ -277,7 +277,7 @@ fn test_staleness_old_tle_is_stale() {
     let quality = QualityScore::new(80);
     let config = StalenessConfig::default(); // 30-day threshold
 
-    let staleness = compute_staleness(&epoch, &quality, &config);
+    let staleness = compute_staleness(&epoch, &quality, &config).expect("valid test epoch");
     assert!(staleness.is_stale);
     assert!(staleness.effective_quality.value() < quality.value());
     assert!(
@@ -298,7 +298,7 @@ fn test_staleness_custom_short_threshold() {
         min_quality: 50,
     };
 
-    let staleness = compute_staleness(&epoch, &quality, &config);
+    let staleness = compute_staleness(&epoch, &quality, &config).expect("valid test epoch");
     assert!(
         staleness.is_stale,
         "1-day-old TLE should be stale with 1-hour threshold"
@@ -315,7 +315,7 @@ fn test_tle_with_metadata_serde_roundtrip() {
     let epoch = SpaceTimestamp::now();
     let quality = QualityScore::new(85);
     let config = StalenessConfig::default();
-    let staleness = compute_staleness(&epoch, &quality, &config);
+    let staleness = compute_staleness(&epoch, &quality, &config).expect("valid test epoch");
 
     let meta = TleWithMetadata {
         norad_id: 25544,

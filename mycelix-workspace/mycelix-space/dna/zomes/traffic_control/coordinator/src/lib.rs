@@ -715,11 +715,13 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
         .into_wasm_error()
     })?;
 
-    // Convert SpaceTimestamp to DateTime
-    let tca_secs = input.tca.micros / 1_000_000;
-    let tca_nsecs = ((input.tca.micros % 1_000_000) * 1000) as u32;
-    let tca_dt = chrono::DateTime::from_timestamp(tca_secs, tca_nsecs).ok_or_else(|| {
-        SpaceError::new(SpaceErrorCode::InvalidInput, "Invalid TCA timestamp").into_wasm_error()
+    // Reject malformed or unrepresentable event times instead of normalizing them.
+    let tca_dt = input.tca.try_to_datetime().map_err(|e| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Invalid TCA timestamp: {}", e),
+        )
+        .into_wasm_error()
     })?;
 
     // Burn time = TCA - lead_time
@@ -1421,10 +1423,8 @@ fn verify_pc_from_tles(
     let primary_prop = Propagator::from_tle(&primary_tle).ok()?;
     let secondary_prop = Propagator::from_tle(&secondary_tle).ok()?;
 
-    // Convert SpaceTimestamp (microseconds since Unix epoch) to chrono DateTime
-    let secs = burn_time.micros / 1_000_000;
-    let nsecs = ((burn_time.micros % 1_000_000) * 1000) as u32;
-    let target_time = chrono::DateTime::from_timestamp(secs, nsecs)?;
+    // Best-effort screening returns no estimate for an invalid timestamp.
+    let target_time = burn_time.try_to_datetime().ok()?;
 
     // Propagate both objects to the burn time
     let p_state = primary_prop.propagate_to(target_time).ok()?;

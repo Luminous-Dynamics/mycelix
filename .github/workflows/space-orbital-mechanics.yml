@@ -70,3 +70,9 @@ jobs:
 
       - name: Compile conjunction coordinator for Holochain WASM
         run: cargo check --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p conjunctions_coordinator --target wasm32-unknown-unknown
+
+      - name: Compile traffic-control coordinator for Holochain WASM
+        run: cargo check --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p traffic_control --target wasm32-unknown-unknown
+
+      - name: Test traffic-control integrity contracts
+        run: cargo test --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p traffic_control_integrity
