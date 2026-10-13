@@ -51,7 +51,7 @@ Register and retain digests for:
 - the data adapter and mapping versions; and
 - the exact candidate forecast/recommendation lineages, when those outputs will later be compared.
 
-Registration must predate the measurement window. In the executable contract, every slot ID is bound to an exact target timestamp and waste category; every measured outcome must match those preregistered values, and a missing outcome cannot be declared before its target time. If a semantic input changes, start a new evidence lineage rather than reclassifying previous observations.
+Registration must predate the measurement window. In the executable contract, every slot ID is bound to an exact target timestamp, allowed observation window, and waste category. Physical observations must fall inside the slot window; same-category slot windows may not overlap; and a missing outcome cannot be declared until its slot window closes. If a semantic input changes, start a new evidence lineage rather than reclassifying previous observations.
 
 Slots should be defined at a useful operational grain (for example site × service period × waste category) with exact predicates and non-overlapping interpretation. The operator must choose this grain before seeing candidate model errors. Avoid sample plans that over-represent quiet periods while missing busy shifts.
 
@@ -60,20 +60,20 @@ Slots should be defined at a useful operational grain (for example site × servi
 - **Keep the denominator visible.** Every planned slot must be represented by a measurement record or an explicit not-observed record. Missing slots cannot disappear during CSV cleanup.
 - **Use independently selected audit slots.** Preregister a reproducible random or otherwise defensible sampling method. Retain selection inputs and digests; do not replace difficult or inconvenient selections after observing outcomes.
 - **Blind physical measurement where practical.** Staff weighing waste should not be shown Symthaea's prediction for that slot until the measurement has been recorded, where operations allow. This reduces (but does not eliminate) anchoring and expectancy effects.
-- **Log the full method.** Retain observed time, recorded time, site/category/reason, net mass or derivation, source-capture digest, and any instrument/conversion evidence.
+- **Log the full method.** Retain target time, observed time where applicable, recorded time, site/category/reason, net mass or derivation, record-evidence digest, and any instrument/conversion evidence.
 - **Check instruments.** Record the scale identity and calibration-validity interval. Authentication of calibration evidence and instrument suitability are external checks; a non-zero digest alone proves neither.
 - **Audit observer/process effects.** Repeat a preregistered subset with an independent observer or instrument where feasible. Report the disagreement distribution and missingness by daypart, waste class, and service conditions.
 - **Never confuse waste categories.** Freeze whether the measure includes prep trimmings, spoilage, unsold prepared food, returned plate waste, liquids, packaging, bones, or inedible portions. Preserve disaggregated categories rather than changing definitions after results are seen.
 
-The protocol's Rust validator is not a substitute for the physical measurement process. It can validate the consistency of submitted evidence while still being unable to know whether the submitted measurements represent all waste generated. Model-imputed outcomes have a target time but must not invent a physical observation timestamp; directly weighed, count-derived, and visual observations must record a physical observation time.
+The protocol's Rust validator is not a substitute for the physical measurement process. It can validate the consistency of submitted evidence while still being unable to know whether the submitted measurements represent all waste generated. Model-imputed outcomes have a target time but must not invent a physical observation timestamp; directly weighed, count-derived, and visual observations must record a physical observation time within the exact preregistered slot window.
 
 ## 6. Conservative metrics and gates
 
-For (N) preregistered slots, let (M) be explicitly not-observed slots, (I) be model-imputed slots, and (W) be directly weighed slots.
+For `N` preregistered slots, let `M` be explicitly not-observed slots, `I` be model-imputed slots, and `W` be directly weighed slots.
 
-- Missing-slot rate: (M/N).
-- Imputed-slot rate: (I/N).
-- Direct-weighing coverage: (W/N).
+- Missing-slot rate: `M / N`.
+- Imputed-slot rate: `I / N`.
+- Direct-weighing coverage: `W / N`.
 - Non-direct observed estimates are counted separately; they do not increase direct-weighing coverage.
 - Report mass from direct weighing, count-derived estimates, visual estimates, and model imputation separately. Do not add them into one headline “measured waste” total without a clear label.
 
