@@ -608,6 +608,7 @@ model SettlementAllocationLineageCheckpointRecord {
   signerKeyId       String
   signatureBase64   String
   acceptedAt        DateTime @default(now())
+  currentCursor     SettlementAllocationLineageCheckpointCursor? @relation("SettlementAllocationLineageCheckpointCurrentCursor")
 
   @@id([sourceRef, sourceInstanceId, batchId, checkpointId])
   @@index([sourceRef, sourceInstanceId, batchId, highWaterMark])
@@ -625,6 +626,7 @@ model SettlementAllocationLineageCheckpointCursor {
   highWaterMark     String
   revision          Int      @default(1)
   updatedAt         DateTime @updatedAt
+  checkpointEvidence SettlementAllocationLineageCheckpointRecord @relation("SettlementAllocationLineageCheckpointCurrentCursor", fields: [checkpointRoot], references: [checkpointRoot], onDelete: Restrict, onUpdate: Restrict)
 
   @@id([sourceRef, sourceInstanceId, batchId])
   @@index([checkpointRoot])
