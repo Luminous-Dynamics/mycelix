@@ -73,7 +73,8 @@
     "status_unknown": "indeterminate",
     "status_stale": "indeterminate",
     "source_unavailable": "indeterminate",
-    "alternative_route_required": "indeterminate"
+    "alternative_route_required": "indeterminate",
+    "credential_time_unknown": "indeterminate"
   },
   "receipt_policy": {
     "short_lived": true,
@@ -507,6 +508,7 @@
     "This is a structural research contract and expected-outcome corpus, not a credential parser, signature verifier, DHA API client, or proof that any cryptographic vector has passed.",
     "All vectors are synthetic policy scenarios, not South African government credentials.",
     "OVS and smartphone Digital ID are different evidence methods. Never promote one method's status or assurance into the other.",
-    "Identity evidence does not by itself establish a service entitlement, residency, citizenship, Mycelix membership, reputation, vote, or execution authority."
+    "Identity evidence does not by itself establish a service entitlement, residency, citizenship, Mycelix membership, reputation, vote, or execution authority.",
+    "The executable synthetic policy oracle exercises disposition ordering from synthetic inputs only; its verified outcome does not prove cryptographic validity or government identity."
   ]
 }
