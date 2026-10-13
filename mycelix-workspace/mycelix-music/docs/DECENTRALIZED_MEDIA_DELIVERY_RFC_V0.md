@@ -13,7 +13,8 @@ Build a **hybrid, progressively decentralized media delivery fabric**, not a rep
 Use each system for the job it is structurally suited to:
 
 - **Mycelix / Holochain:** authenticated publication and rights records, signed provider-capability/availability claims, moderation and dispute state, and auditable references to delivery evidence. Store metadata and bounded evidence records—not video/audio bytes—in the DHT.
-- **The media knowledge graph (DKG, if that is the intended meaning here):** relationships between works, versions, creators, licenses, sources, citations, captions, transcripts, and derivatives. It improves discovery and provenance; it is not itself a byte-transfer protocol or availability guarantee. Do not confuse this meaning of DKG with *distributed key generation*, which is a separate cryptographic function.
+- **Media knowledge graph:** a separate semantic index of relationships between works, versions, creators, licenses, sources, citations, captions, transcripts, and derivatives. It improves discovery and provenance; it is not itself a byte-transfer protocol or availability guarantee.
+- **Mycelix DKG (distributed key generation):** a distinct cryptographic primitive. The repository currently refers to DKG in the context of governance threshold signing. It may support jointly controlled signatures or authorization attestations for gated media if a dedicated protocol is designed and qualified; do not assume it provides threshold decryption, provider discovery, content verification, or byte delivery.
 - **IPFS/IPLD:** interoperable content addressing, block exchange, content discovery, archival replication, and HTTP gateway compatibility.
 - **Iroh:** an optional Rust-native peer transport for direct, resumable and cryptographically verified blob/range delivery, particularly for peers and managed cache nodes that can run an Iroh endpoint.
 - **HTTP caches and conventional CDN edges:** reliable, cacheable delivery to ordinary browsers and devices, including the fallback path. This is a compatibility feature and an operating tool, not a philosophical failure.
@@ -111,9 +112,10 @@ Separate the fabric into a control plane and data plane. The layers can be opera
               +---------------+----------------+
               |                                |
        Control plane                      Data plane
-  Mycelix / Holochain / DKG          Immutable media bytes
-  publication, rights, graph         HLS/CMAF segments + images
+  Mycelix / Holochain / media graph  Immutable media bytes
+  publication, rights, provenance     HLS/CMAF segments + images
   provider leases, moderation         captions, transcripts, covers
+  optional DKG authorization
               |                                |
        Candidate providers        +------------+-----------------+
        and access rules           |            |                 |
@@ -200,16 +202,20 @@ Sources: [Iroh video streaming overview](https://www.iroh.computer/solutions/vid
 - **Backpressure:** provider nodes need storage quotas, eviction policy, bandwidth ceilings, per-principal rate limits, and overload rejection.
 - **Legal/creator policy:** support takedown and dispute workflows. Content-addressing does not supersede copyright, consent, safety, or a user's control over first-party publication. Nodes must be able to stop advertising/serving a work they are not permitted to distribute.
 
-## 5. Where the DKG and Symthaea help
+## 5. Where the media knowledge graph, Mycelix DKG, and Symthaea help
 
-Treat the DKG (media knowledge graph) as a graph of **evidence-backed relationships**, not as a magical availability oracle. Candidate relationships include:
+Treat the **media knowledge graph** as a graph of evidence-backed relationships, not as a magical availability oracle. Candidate relationships include:
 - publication → asset manifest → rendition → segment;
 - work → source/citation → claim → fact-check/dispute;
 - original → edit/translation/caption/remix;
 - creator → collaborator → rights claim → license terms;
 - asset → provider lease → fresh successful retrieval observation.
 
-Graph traversal and semantic search can power “find this moment,” “show the source,” “find alternate-language versions,” “show authorized derivatives,” and “discover creators discussing this topic.” Symthaea can propose semantic matches, segment summaries, transcript indexes, and user-tunable recommendations. The UI must distinguish model-generated analysis from signed evidence and canonical facts.
+Graph traversal and semantic search can power “find this moment,” “show the source,” “find alternate-language versions,” “show authorized derivatives,” and “discover creators discussing this topic.”
+
+**Mycelix DKG is distributed key generation, not the media knowledge graph.** The current repository describes DKG in the governance/threshold-signing context ([workspace overview](https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/README.md)). It may support threshold signatures or jointly controlled authorization evidence for gated media, but that is not implemented by this delivery RFC. A future encrypted-media key-release design would need its own protocol, authorization and revocation semantics, client integration, threat model, and independent tests. Do not publish secret shares or decryption keys in public DHT records, and do not assume threshold signing automatically provides threshold decryption.
+
+Symthaea can propose semantic matches, segment summaries, transcript indexes, and user-tunable recommendations. The UI must distinguish model-generated analysis from signed evidence and canonical facts.
 
 Do not use a Symthaea embedding or recommendation result to:
 - certify file integrity or provider availability;
@@ -316,7 +322,7 @@ Proceed with a hybrid architecture:
 3. support HTTP/CDN delivery first for dependable browser playback;
 4. add IPFS as an interoperable content-addressed provider/replication path;
 5. add Iroh as an optional verified peer path after dependency/security review;
-6. use the DKG for provenance, rights, and discovery relationships, not as a delivery protocol;
+6. use the media knowledge graph for provenance, rights, and discovery; treat Mycelix DKG (distributed key generation/threshold signing) as a separate cryptographic primitive, not as the graph or delivery protocol;
 7. evaluate MoQ separately for live/low-latency media;
 8. do not advertise CDN reliability, creator earnings, or decentralized availability until the relevant exact-head tests and operational evidence exist.
 
