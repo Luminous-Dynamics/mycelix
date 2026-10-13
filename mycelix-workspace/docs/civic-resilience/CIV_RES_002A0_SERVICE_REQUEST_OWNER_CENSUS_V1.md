@@ -105,6 +105,7 @@ Official source anchors:
 - Johannesburg Water customer-facing channel page (water incident email and daily system-status update): https://www.johannesburgwater.co.za/
 - Johannesburg Water Customer Fault Logging link (third-party Forcelink login): https://customer.forcelink.net/joburg_water/login
 - Johannesburg Water Daily Water Notices (published turnaround-time list and logging/contact section): https://www.johannesburgwater.co.za/daily-water-notices/
+- Johannesburg Water Emergencies route (currently renders a Daily water Notices heading and different values): https://www.johannesburgwater.co.za/emergencies/
 - 2025/26 Institutional Service Level Standards Charter: https://joburg.org.za/documents_/Documents/2025-2026-Institutional-Service-Level-Standards-Charter/Institutional-Service-Standards-Charter-2025-26.pdf
 - Joburg Connect channel information: https://joburg.org.za/services_/JoburgCares/Pages/call-centre.aspx
 - City eServices "Report a city problem": https://edit.eservices.joburg.org.za/Pages/Reportacityproblem.aspx
@@ -130,6 +131,28 @@ The external reference key must include `issuer_id + channel_id + provider_refer
 
 The companion may explain published channels and let residents initiate contact themselves. This census authorizes no automated email, API call, or City/utility write. Provider currentness, per-case acceptance, and physical repair remain unqualified.
 
+## Official Johannesburg Water pages diverge; precedence is unknown
+
+A fresh read of the official [Daily Water Notices page](https://www.johannesburgwater.co.za/daily-water-notices/) and the official [Emergencies route](https://www.johannesburgwater.co.za/emergencies/) exposes two page variants. Both render the heading “Daily water Notices”, but their displayed values are not identical. The observed route/path alone does not establish whether the second page is emergency-specific policy, a stale duplicated content block, or another publishing variant.
+
+| Field | /daily-water-notices/ | /emergencies/ |
+|---|---|---|
+| Sewer turnaround | 48 hours | 24 hours |
+| Water outage turnaround | 24 hours | 12 hours |
+| Leaking meter | 72 hours | 3 days |
+| Burst meter | 24 hours | 24 hours |
+| Water leak | 48 hours | 48 hours |
+| Major burst pipe | 48 hours | 48 hours |
+| “Logging calls” email | fault@jwater.co.za | customerserviceemails@jwater.co.za |
+| “Logging calls” primary phone | +27 (0) 10 061 4470 | +27 (0) 11 375 5555 |
+| Footer primary call-centre number | +27 (0) 11 688 1699 | +27 (0) 0 061 4470 |
+
+Both routes show +27 (0) 86 056 2874 as another contact number. The /emergencies/ page’s footer renders an unusual +27 (0) 0 061 4470 value; it is recorded as observed page text, not endorsed as a valid number. The Daily Water Notices page also has page-local header/footer differences, so neither source has an internally unambiguous single contact value.
+
+The pages were both observed by the web crawler on 13 October 2026, but that is an observation/crawl date, **not** a target effective date or proof one page is more current. No version/effective date, explicit source precedence, or definition explaining the differing sewer/outage windows was found in the observed page text.
+
+Therefore the safest machine-readable state is OfficialPageVariantConflict;NoPrecedenceOrEffectiveDateQualified. Keep both source/page/section citations intact. Do not silently choose a turnaround or phone number, infer that the route named “Emergencies” has a formally different SLA scope, or report either page’s time as an adopted SLA. Ask the utility/source owner to clarify the current approved value before any canonical registry or compliance clock is built.
+
 ## Customer-facing turnaround listings are not adopted SLA clocks
 
 The official [Daily Water Notices page](https://www.johannesburgwater.co.za/daily-water-notices/) publishes a plain turnaround list: sewer 48 hours; water outage 24 hours; leaking meter 72 hours; burst meter 24 hours; water leak 48 hours; major burst pipe 48 hours. The official homepage's “Customer Fault Logging” link resolves to the third-party Forcelink login route `https://customer.forcelink.net/joburg_water/login`. The portal is a resident-facing path, not proof of an API or permission for automatic submissions.
@@ -145,7 +168,7 @@ Do not collapse the published turnaround list into the City's 2026/27 budget-boo
 | Water leak: 48 hours | Leaking valves repaired within 48 hours (92%) | Different asset type |
 | Major burst pipe: 48 hours | Water pipe bursts repaired within 48 hours (85%) | Potentially related category; no official crosswalk found |
 
-The page also has an internal contact-detail conflict: its “Logging calls” section lists `+27 (0) 10 061 4470` and `+27 (0) 86 056 2874`, while its footer lists `+27 (0) 11 688 1699` and `+27 (0) 86 056 2874`. Preserve the source section when citing a number; do not silently pick one as canonical from this page without independent confirmation.
+The page has an internal contact-detail conflict, and a second official route introduces additional differing values. The detailed route-by-route conflict set above preserves these without guessing a canonical number. The source-specific contract continues to require explicit channel/page lineage for each displayed contact instruction.
 
 Consequently the companion may show source-linked official contact/channel instructions, but it must label which page/section supplied each value, avoid automatic portal/API access, and keep turnaround statements separate from adopted institutional targets. No SLA breach, per-case currentness or repair-completion inference is authorized by this public content.
 
@@ -190,6 +213,7 @@ The next implementation tranche must remain blocked until:
 - An attestation proves a bounded statement about provenance; it is not a truth oracle.
 - A utility-wide water-status bulletin is not per-case status readback or physical-repair evidence.
 - Customer-facing turnaround listings do not establish an adopted SLA clock, and mismatched service categories must not be cross-walked automatically.
+- Conflicting official page variants do not establish which turnaround or contact value is authoritative; crawler observation date is not an effective date.
 - Existing municipal channels remain available; no new app is required for the census to be useful.
 
 ## Evidence ceiling

@@ -289,6 +289,12 @@
       "candidate_id": "service_level_registry",
       "classification": "Missing",
       "decision": "The public Daily Water Notices turnaround list uses operational categories/times that are not proven equivalent to budget-book percentage targets or the listed prior-year charter; no adopted crosswalk/clock registry is pinned."
+    },
+    {
+      "concern_id": "official_utility_source_conflict_precedence",
+      "candidate_id": "service_level_registry",
+      "classification": "Missing",
+      "decision": "The official /daily-water-notices/ and /emergencies/ routes render the same Daily water Notices heading with different sewer/water-outage windows, logging channels and contact numbers. No effective-date or page-precedence rule is present in the observed text; preserve both source variants and block canonical target/contact claims."
     }
   ],
   "branch_only_proposals": [
@@ -396,6 +402,11 @@
       "id": "JOHANNESBURG_WATER_DAILY_NOTICES",
       "url": "https://www.johannesburgwater.co.za/daily-water-notices/",
       "purpose": "Official Johannesburg Water daily notices page publishes operational turnaround statements and contact details; those values are kept separate from budget-book percentage targets and from individual-case completion evidence."
+    },
+    {
+      "id": "JOHANNESBURG_WATER_EMERGENCIES_PAGE",
+      "url": "https://www.johannesburgwater.co.za/emergencies/",
+      "purpose": "Official route titled Emergencies was crawled on 2026-10-13 but renders a Daily water Notices heading and a different turnaround/contact block from /daily-water-notices/. No effective-date, version or cross-page precedence rule is given; scope relationship is unresolved."
     }
   ],
   "municipal_sla_source_posture": {
@@ -484,7 +495,8 @@
     "support_transition_algebra_qualified",
     "support_autonomy_boundary_qualified",
     "utility_channel_contract_pinned",
-    "operational_turnaround_semantics_separated"
+    "operational_turnaround_semantics_separated",
+    "source_precedence_or_conflict_resolution_bound"
   ],
   "unsafe_flags": [
     "city_reference_used_as_internal_identity",
@@ -510,7 +522,11 @@
     "customer_fault_portal_access_treated_as_api_authority",
     "published_turnaround_treated_as_adopted_sla",
     "non_equivalent_service_category_crosswalked_automatically",
-    "official_contact_conflict_silently_canonicalized"
+    "official_contact_conflict_silently_canonicalized",
+    "one_official_page_silently_preferred_over_conflicting_page",
+    "page_crawl_date_treated_as_service_target_effective_date",
+    "uncorroborated_emergency_contact_treated_as_verified_contact",
+    "route_name_used_as_proof_of_service_scope"
   ],
   "probe_cases": [
     {
@@ -564,7 +580,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -619,7 +640,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -674,7 +700,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -729,7 +760,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -784,7 +820,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -839,7 +880,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -894,7 +940,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -949,7 +1000,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1004,7 +1060,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1059,7 +1120,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1114,7 +1180,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1169,7 +1240,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1224,7 +1300,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1279,7 +1360,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1334,7 +1420,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1389,7 +1480,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1444,7 +1540,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1499,7 +1600,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1554,7 +1660,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1609,7 +1720,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1664,7 +1780,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1719,7 +1840,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1774,7 +1900,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1829,7 +1960,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1884,7 +2020,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1939,7 +2080,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1994,7 +2140,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2049,7 +2200,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2104,7 +2260,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2159,7 +2320,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2214,7 +2380,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2269,7 +2440,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2324,7 +2500,12 @@
         "customer_fault_portal_access_treated_as_api_authority": true,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2379,7 +2560,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": true,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2434,7 +2620,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": true,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2489,7 +2680,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": true
+        "official_contact_conflict_silently_canonicalized": true,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2544,7 +2740,312 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
+      },
+      "expected_disposition": "UNRESOLVED"
+    },
+    {
+      "case_id": "conflicting-official-page-needs-precedence",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": true,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "crawl-date-is-not-effective-date",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": true,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "unverified-emergency-contact-is-not-authoritative",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": true,
+        "route_name_used_as_proof_of_service_scope": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "route-name-does-not-establish-scope",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": true
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "source-precedence-gate-is-required",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": false,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2599,7 +3100,12 @@
         "customer_fault_portal_access_treated_as_api_authority": false,
         "published_turnaround_treated_as_adopted_sla": false,
         "non_equivalent_service_category_crosswalked_automatically": false,
-        "official_contact_conflict_silently_canonicalized": false
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false
       },
       "expected_disposition": "ADVISORY_SHADOW_ELIGIBLE"
     }
@@ -2810,6 +3316,11 @@
         "claim_id": "published_turnaround_times",
         "published_fact": "The Daily Water Notices page lists sewer 48 hours, water outage 24 hours, leaking meter 72 hours, burst meter 24 hours, water leak 48 hours and major burst pipe 48 hours.",
         "fact_kind": "CustomerFacingTurnaroundStatement"
+      },
+      {
+        "claim_id": "emergencies_route_turnaround_and_contact_variant",
+        "published_fact": "The official /emergencies/ route currently renders the same Daily water Notices heading but lists sewer 24 hours and water outage 12 hours, plus a different logging email and contact-centre number, compared with /daily-water-notices/.",
+        "fact_kind": "OfficialPageVariantConflict"
       }
     ],
     "channel_records": [
@@ -2853,6 +3364,15 @@
         "issuer_id": "JohannesburgWaterSOC",
         "channel_id": "daily_water_status_bulletin",
         "reference_semantics": "Utility-wide status bulletin; not an individual ticket status or reference",
+        "resident_facing_channel_published": true,
+        "automated_mycelix_access_authorized": false,
+        "per_case_status_readback_qualified": false,
+        "physical_repair_evidence_qualified": false
+      },
+      {
+        "issuer_id": "JohannesburgWaterSOC",
+        "channel_id": "emergencies_page",
+        "reference_semantics": "Official /emergencies/ route rendering a Daily water Notices content block; its turnaround and contact variant has no pinned scope/effective-date/precedence rule",
         "resident_facing_channel_published": true,
         "automated_mycelix_access_authorized": false,
         "per_case_status_readback_qualified": false,
@@ -2941,6 +3461,92 @@
         "comparator_metric_id": "water_pipe_bursts_repaired_48h",
         "crosswalk_status": "PotentialCategoryRelation;NoOfficialCrosswalk"
       }
-    ]
+    ],
+    "published_page_conflicts": {
+      "conflict_set_id": "JOHANNESBURG_WATER_DAILY_NOTICES_VS_EMERGENCIES",
+      "observed_on": "2026-10-13",
+      "observation_method": "OfficialPageTextObserved",
+      "route_scope_relationship": "Unresolved; route path and heading alone do not establish whether this is an emergency-specific policy, stale duplicated content, or another variant.",
+      "effective_date_rule": "NotPublishedOnTheObservedPageText",
+      "cross_page_precedence": "NoneEstablished",
+      "source_variants": [
+        {
+          "page_id": "daily_water_notices",
+          "url": "https://www.johannesburgwater.co.za/daily-water-notices/",
+          "page_heading": "Daily water Notices",
+          "crawl_observation_date": "2026-10-13",
+          "crawl_date_is_effective_date": false,
+          "logging_email": "fault@jwater.co.za",
+          "logging_primary_contact": "+27 (0) 10 061 4470",
+          "logging_secondary_contact": "+27 (0) 86 056 2874",
+          "footer_email": "fault@jwater.co.za",
+          "footer_primary_contact": "+27 (0) 11 688 1699",
+          "footer_secondary_contact": "+27 (0) 86 056 2874",
+          "turnarounds_hours": {
+            "sewer": 48,
+            "water_outage": 24,
+            "leaking_meter": 72,
+            "burst_meter": 24,
+            "water_leak": 48,
+            "major_burst_pipe": 48
+          }
+        },
+        {
+          "page_id": "emergencies",
+          "url": "https://www.johannesburgwater.co.za/emergencies/",
+          "page_heading": "Daily water Notices",
+          "crawl_observation_date": "2026-10-13",
+          "crawl_date_is_effective_date": false,
+          "logging_email": "customerserviceemails@jwater.co.za",
+          "logging_primary_contact": "+27 (0) 11 375 5555",
+          "logging_secondary_contact": "+27 (0) 86 056 2874",
+          "footer_email": "fault@jwater.co.za",
+          "footer_primary_contact": "+27 (0) 0 061 4470",
+          "footer_secondary_contact": "+27 (0) 86 056 2874",
+          "turnarounds_hours": {
+            "sewer": 24,
+            "water_outage": 12,
+            "leaking_meter": 72,
+            "burst_meter": 24,
+            "water_leak": 48,
+            "major_burst_pipe": 48
+          }
+        }
+      ],
+      "observed_differences": [
+        {
+          "field_id": "turnarounds_hours.sewer",
+          "daily_water_notices_value": 48,
+          "emergencies_value": 24
+        },
+        {
+          "field_id": "turnarounds_hours.water_outage",
+          "daily_water_notices_value": 24,
+          "emergencies_value": 12
+        },
+        {
+          "field_id": "logging_email",
+          "daily_water_notices_value": "fault@jwater.co.za",
+          "emergencies_value": "customerserviceemails@jwater.co.za"
+        },
+        {
+          "field_id": "logging_primary_contact",
+          "daily_water_notices_value": "+27 (0) 10 061 4470",
+          "emergencies_value": "+27 (0) 11 375 5555"
+        },
+        {
+          "field_id": "footer_primary_contact",
+          "daily_water_notices_value": "+27 (0) 11 688 1699",
+          "emergencies_value": "+27 (0) 0 061 4470"
+        }
+      ],
+      "allowed_conclusion": "OfficialPageVariantConflict;NoPrecedenceOrEffectiveDateQualified",
+      "forbidden_inferences": [
+        "Do not choose one page as authoritative solely because the route name contains emergencies.",
+        "Do not treat crawler observation date as target effective date.",
+        "Do not claim any phone/email value is verified current solely from the page block.",
+        "Do not infer the 12-hour water outage figure is equivalent to the budget-book planned-interruption target."
+      ]
+    }
   }
 }
