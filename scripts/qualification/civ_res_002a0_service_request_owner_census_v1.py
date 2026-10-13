@@ -48,6 +48,7 @@ EXPECTED_MATRIX = [
     ("rights_affecting_administrative_procedure", "administrative_procedure_owner", "Missing"),
     ("external_city_reference_and_source_currentness", "city_provider_adapter", "Missing"),
     ("water_specific_channel_interoperability", "city_provider_adapter", "Missing"),
+    ("public_turnaround_semantics_vs_adopted_sla", "service_level_registry", "Missing"),
     ("completion_claim_and_independent_verification", "municipal_completion_verifier", "Missing"),
     ("service_level_contract_and_clock", "service_level_registry", "Missing"),
     ("offline_retry_and_idempotency", "external_idempotency_adapter", "Missing"),
@@ -78,6 +79,7 @@ REQUIRED_FLAGS = [
     "support_transition_algebra_qualified",
     "support_autonomy_boundary_qualified",
     "utility_channel_contract_pinned",
+    "operational_turnaround_semantics_separated",
 ]
 UNSAFE_FLAGS = [
     "city_reference_used_as_internal_identity",
@@ -100,6 +102,10 @@ UNSAFE_FLAGS = [
     "utility_email_treated_as_api_authority",
     "systemwide_water_bulletin_treated_as_case_resolution",
     "same_external_reference_across_issuers_treated_as_same_identity",
+    "customer_fault_portal_access_treated_as_api_authority",
+    "published_turnaround_treated_as_adopted_sla",
+    "non_equivalent_service_category_crosswalked_automatically",
+    "official_contact_conflict_silently_canonicalized",
 ]
 EXPECTED_PROBE_IDS = [
     "city-reference-overpromotion",
@@ -134,6 +140,11 @@ EXPECTED_PROBE_IDS = [
     "systemwide-water-status-is-not-case-resolution",
     "external-reference-is-issuer-channel-scoped",
     "utility-channel-contract-is-required",
+    "customer-fault-portal-is-not-api-authority",
+    "published-turnaround-is-not-adopted-sla",
+    "service-category-crosswalk-needs-proof",
+    "daily-notices-contact-conflict-is-not-silently-canonicalized",
+    "turnaround-semantics-gate-is-required",
     "all-shadow-preconditions-explicit",
 ]
 
@@ -344,6 +355,10 @@ def validate() -> None:
         fail("official-index-listed 2026/27 SDBIP source anchor missing")
     if source_anchors.get("JOHANNESBURG_WATER_PUBLIC_CHANNELS") != "https://www.johannesburgwater.co.za/":
         fail("Johannesburg Water public channel source anchor missing")
+    if source_anchors.get("JOHANNESBURG_WATER_CUSTOMER_FAULT_PORTAL") != "https://customer.forcelink.net/joburg_water/login":
+        fail("customer fault portal source anchor missing")
+    if source_anchors.get("JOHANNESBURG_WATER_DAILY_NOTICES") != "https://www.johannesburgwater.co.za/daily-water-notices/":
+        fail("daily notices source anchor missing")
 
     utility_channels = data["external_utility_channel_contract"]
     exact_keys(utility_channels, {
@@ -355,6 +370,9 @@ def validate() -> None:
         "provider_api_contract_identified", "provider_acceptance_proof",
         "per_case_currentness_qualified", "completion_verification_qualified",
         "production_side_effects_authorized", "status",
+        "customer_fault_portal_url", "portal_authentication_boundary", "daily_water_notices_url",
+        "published_turnaround_rows", "turnaround_semantics_policy",
+        "contact_number_source_conflict", "contact_number_values_by_section", "contact_numbers_use_policy",
     }, "external utility channel contract")
     if (utility_channels["schema"], utility_channels["source_id"], utility_channels["source_url"]) != (
         "mycelix.civic-resilience.utility-channel-boundary.v1",
@@ -388,11 +406,17 @@ def validate() -> None:
     for claim in utility_channels["documented_claims"]:
         exact_keys(claim, {"claim_id", "published_fact", "fact_kind"}, "utility source claim")
         claims.append((claim["claim_id"], claim["fact_kind"]))
+    expected_claims.extend([
+        ("fault_logging_portal", "ResidentFacingPortalLink"),
+        ("published_turnaround_times", "CustomerFacingTurnaroundStatement"),
+    ])
     if claims != expected_claims:
         fail("documented water channel claim census drift")
     expected_channel_ids = [
         ("CityOfJohannesburg", "JoburgConnect"),
         ("JohannesburgWaterSOC", "water_fault_email"),
+        ("JohannesburgWaterSOC", "customer_fault_portal"),
+        ("JohannesburgWaterSOC", "daily_water_notices"),
         ("JohannesburgWaterSOC", "daily_water_status_bulletin"),
     ]
     channel_ids = []
@@ -413,8 +437,43 @@ def validate() -> None:
                 fail(f"{channel['channel_id']}: unsafe authority/currentness assertion")
     if channel_ids != expected_channel_ids:
         fail("utility channel issuer/namespace census drift")
-    if "not an individual ticket status" not in utility_channels["channel_records"][2]["reference_semantics"]:
+    if "third-party Forcelink login" not in utility_channels["portal_authentication_boundary"]:
+        fail("the portal login/authentication boundary must remain explicit")
+    if utility_channels["customer_fault_portal_url"] != "https://customer.forcelink.net/joburg_water/login":
+        fail("customer portal route mismatch")
+    if utility_channels["daily_water_notices_url"] != "https://www.johannesburgwater.co.za/daily-water-notices/":
+        fail("daily notices source URL mismatch")
+    if "not an individual ticket status" not in utility_channels["channel_records"][4]["reference_semantics"]:
         fail("system-wide bulletin must not masquerade as a per-issue reference")
+    if utility_channels["contact_number_source_conflict"] is not True:
+        fail("published contact conflict must be retained")
+    expected_contact_sections = [
+        ("DailyWaterNoticesLoggingCalls", ["+27 (0) 10 061 4470", "+27 (0) 86 056 2874"]),
+        ("DailyWaterNoticesFooter", ["+27 (0) 11 688 1699", "+27 (0) 86 056 2874"]),
+    ]
+    observed_contact_sections = [(c["source_section"], c["numbers"]) for c in utility_channels["contact_number_values_by_section"]]
+    if observed_contact_sections != expected_contact_sections:
+        fail("page-local contact-number conflict must remain source-scoped")
+    if "do not silently canonicalize" not in utility_channels["contact_numbers_use_policy"]:
+        fail("contact-number conflict use policy drift")
+    if len(utility_channels["published_turnaround_rows"]) != 6:
+        fail("public turnaround row coverage drift")
+    expected_turnarounds = [
+        ("sewer", "Sewer: 48 hours", 48, "sewer_blockages_cleared_24h", "DifferentPublishedWindowAndScope;NotEquivalent"),
+        ("water_outage", "Water outage: 24 hours", 24, "planned_water_interruptions_prescribed_timeline", "BudgetMetricHasUnknownClockAndDifferentMetricScope;NotEquivalent"),
+        ("leaking_meter", "Leaking meter: 72 hours", 72, "defective_meters_repaired_3d", "MatchingNominalWindowDoesNotEstablishAssetOrProcessEquivalence"),
+        ("burst_meter", "Burst meter: 24 hours", 24, "stolen_meters_replaced_24h", "DifferentAssetEventAndOperation;NotEquivalent"),
+        ("water_leak", "Water leak: 48 hours", 48, "leaking_valves_repaired_48h", "DifferentAssetType;NotEquivalent"),
+        ("major_burst_pipe", "Major burst pipe: 48 hours", 48, "water_pipe_bursts_repaired_48h", "PotentialCategoryRelation;NoOfficialCrosswalk"),
+    ]
+    observed_turnarounds = []
+    for row in utility_channels["published_turnaround_rows"]:
+        exact_keys(row, {"service_id", "published_text", "published_window_hours", "comparator_metric_id", "crosswalk_status"}, "published turnaround row")
+        observed_turnarounds.append((row["service_id"], row["published_text"], row["published_window_hours"], row["comparator_metric_id"], row["crosswalk_status"]))
+    if observed_turnarounds != expected_turnarounds:
+        fail("published turnaround values/crosswalk ceiling drift")
+    if "do not prove identical scope" not in utility_channels["turnaround_semantics_policy"]:
+        fail("turnaround-versus-SLA policy drift")
     if "must not be auto-merged" not in utility_channels["reference_namespace_collision_policy"]:
         fail("cross-issuer/channel reference collision policy drift")
     if "cannot set an individual issue to resolved" not in utility_channels["system_status_update_policy"]:

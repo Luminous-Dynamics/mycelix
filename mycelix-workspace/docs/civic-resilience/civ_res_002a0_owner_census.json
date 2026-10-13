@@ -283,6 +283,12 @@
       "candidate_id": "commons_support_coordinator",
       "classification": "OperationalOwner",
       "decision": "Support autonomy/approved/executed/success fields are Support-domain state and must not confer civic or municipal action authority."
+    },
+    {
+      "concern_id": "public_turnaround_semantics_vs_adopted_sla",
+      "candidate_id": "service_level_registry",
+      "classification": "Missing",
+      "decision": "The public Daily Water Notices turnaround list uses operational categories/times that are not proven equivalent to budget-book percentage targets or the listed prior-year charter; no adopted crosswalk/clock registry is pinned."
     }
   ],
   "branch_only_proposals": [
@@ -380,6 +386,16 @@
       "id": "JOHANNESBURG_WATER_PUBLIC_CHANNELS",
       "url": "https://www.johannesburgwater.co.za/",
       "purpose": "Official Johannesburg Water website lists water-incident fault email/contact channels and a daily water-supply system status update; these are public channel/bulletin references, not an API grant, per-case readback, or repair proof."
+    },
+    {
+      "id": "JOHANNESBURG_WATER_CUSTOMER_FAULT_PORTAL",
+      "url": "https://customer.forcelink.net/joburg_water/login",
+      "purpose": "Linked as Customer Fault Logging by the official Johannesburg Water website; opens a third-party Forcelink JavaScript login page. This is a resident-facing portal route, not an API contract or authorization for automated access."
+    },
+    {
+      "id": "JOHANNESBURG_WATER_DAILY_NOTICES",
+      "url": "https://www.johannesburgwater.co.za/daily-water-notices/",
+      "purpose": "Official Johannesburg Water daily notices page publishes operational turnaround statements and contact details; those values are kept separate from budget-book percentage targets and from individual-case completion evidence."
     }
   ],
   "municipal_sla_source_posture": {
@@ -467,7 +483,8 @@
     "support_status_index_currentness_qualified",
     "support_transition_algebra_qualified",
     "support_autonomy_boundary_qualified",
-    "utility_channel_contract_pinned"
+    "utility_channel_contract_pinned",
+    "operational_turnaround_semantics_separated"
   ],
   "unsafe_flags": [
     "city_reference_used_as_internal_identity",
@@ -489,7 +506,11 @@
     "support_autonomy_boolean_treated_as_civic_authority",
     "utility_email_treated_as_api_authority",
     "systemwide_water_bulletin_treated_as_case_resolution",
-    "same_external_reference_across_issuers_treated_as_same_identity"
+    "same_external_reference_across_issuers_treated_as_same_identity",
+    "customer_fault_portal_access_treated_as_api_authority",
+    "published_turnaround_treated_as_adopted_sla",
+    "non_equivalent_service_category_crosswalked_automatically",
+    "official_contact_conflict_silently_canonicalized"
   ],
   "probe_cases": [
     {
@@ -538,7 +559,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -588,7 +614,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -638,7 +669,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -688,7 +724,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -738,7 +779,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -788,7 +834,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -838,7 +889,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -888,7 +944,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -938,7 +999,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -988,7 +1054,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1038,7 +1109,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1088,7 +1164,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1138,7 +1219,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1188,7 +1274,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1238,7 +1329,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1288,7 +1384,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1338,7 +1439,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1388,7 +1494,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1438,7 +1549,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1488,7 +1604,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1538,7 +1659,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1588,7 +1714,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1638,7 +1769,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1688,7 +1824,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1738,7 +1879,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1788,7 +1934,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1838,7 +1989,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1888,7 +2044,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1938,7 +2099,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": true,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1988,7 +2154,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": true,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2038,7 +2209,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": true
+        "same_external_reference_across_issuers_treated_as_same_identity": true,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2088,7 +2264,287 @@
         "utility_channel_contract_pinned": false,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
+      },
+      "expected_disposition": "UNRESOLVED"
+    },
+    {
+      "case_id": "customer-fault-portal-is-not-api-authority",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": true,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "published-turnaround-is-not-adopted-sla",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": true,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "service-category-crosswalk-needs-proof",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": true,
+        "official_contact_conflict_silently_canonicalized": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "daily-notices-contact-conflict-is-not-silently-canonicalized",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": true
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "turnaround-semantics-gate-is-required",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": false,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2138,7 +2594,12 @@
         "utility_channel_contract_pinned": true,
         "utility_email_treated_as_api_authority": false,
         "systemwide_water_bulletin_treated_as_case_resolution": false,
-        "same_external_reference_across_issuers_treated_as_same_identity": false
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false
       },
       "expected_disposition": "ADVISORY_SHADOW_ELIGIBLE"
     }
@@ -2339,6 +2800,16 @@
         "claim_id": "water_call_centre",
         "published_fact": "The website lists call-centre numbers +27 (0) 10 061 4470 and +27 (0) 86 056 2874.",
         "fact_kind": "ResidentFacingContactChannel"
+      },
+      {
+        "claim_id": "fault_logging_portal",
+        "published_fact": "The official homepage Customer Fault Logging link opens https://customer.forcelink.net/joburg_water/login, a third-party Forcelink JavaScript portal/login.",
+        "fact_kind": "ResidentFacingPortalLink"
+      },
+      {
+        "claim_id": "published_turnaround_times",
+        "published_fact": "The Daily Water Notices page lists sewer 48 hours, water outage 24 hours, leaking meter 72 hours, burst meter 24 hours, water leak 48 hours and major burst pipe 48 hours.",
+        "fact_kind": "CustomerFacingTurnaroundStatement"
       }
     ],
     "channel_records": [
@@ -2355,6 +2826,24 @@
         "issuer_id": "JohannesburgWaterSOC",
         "channel_id": "water_fault_email",
         "reference_semantics": "Water-related incident email only; any returned provider reference must be observed from the actual exchange, not invented",
+        "resident_facing_channel_published": true,
+        "automated_mycelix_access_authorized": false,
+        "per_case_status_readback_qualified": false,
+        "physical_repair_evidence_qualified": false
+      },
+      {
+        "issuer_id": "JohannesburgWaterSOC",
+        "channel_id": "customer_fault_portal",
+        "reference_semantics": "Third-party Forcelink login route linked as Customer Fault Logging; record provider reference only if observed through authorized resident interaction",
+        "resident_facing_channel_published": true,
+        "automated_mycelix_access_authorized": false,
+        "per_case_status_readback_qualified": false,
+        "physical_repair_evidence_qualified": false
+      },
+      {
+        "issuer_id": "JohannesburgWaterSOC",
+        "channel_id": "daily_water_notices",
+        "reference_semantics": "Public daily notices page with customer-facing turnaround statements; not an individually verified case reference",
         "resident_facing_channel_published": true,
         "automated_mycelix_access_authorized": false,
         "per_case_status_readback_qualified": false,
@@ -2386,6 +2875,72 @@
     "per_case_currentness_qualified": false,
     "completion_verification_qualified": false,
     "production_side_effects_authorized": false,
-    "status": "PubliclyDocumentedChannelsOnly;NoAPIOrPerIssueReadbackQualified"
+    "status": "PubliclyDocumentedChannelsOnly;NoAPIOrPerIssueReadbackQualified",
+    "customer_fault_portal_url": "https://customer.forcelink.net/joburg_water/login",
+    "portal_authentication_boundary": "Official Johannesburg Water site links to a third-party Forcelink login route. The page requires JavaScript; no provider API contract, automated access permission, per-case readback contract or completion proof was identified.",
+    "daily_water_notices_url": "https://www.johannesburgwater.co.za/daily-water-notices/",
+    "turnaround_semantics_policy": "Published customer-facing turnaround statements remain a separate source class from budget-book percentage performance targets and the separately listed institutional charter. Similar labels or nominal hours do not prove identical scope, denominator, clock, remedy or adopted SLA. No automatic crosswalk or SLA compliance calculation is authorized.",
+    "contact_number_source_conflict": true,
+    "contact_number_values_by_section": [
+      {
+        "source_section": "DailyWaterNoticesLoggingCalls",
+        "numbers": [
+          "+27 (0) 10 061 4470",
+          "+27 (0) 86 056 2874"
+        ]
+      },
+      {
+        "source_section": "DailyWaterNoticesFooter",
+        "numbers": [
+          "+27 (0) 11 688 1699",
+          "+27 (0) 86 056 2874"
+        ]
+      }
+    ],
+    "contact_numbers_use_policy": "The Daily Water Notices page shows different primary contact-centre numbers in its Logging calls section and footer. Preserve the source section; do not silently canonicalize this conflict without independent confirmation.",
+    "published_turnaround_rows": [
+      {
+        "service_id": "sewer",
+        "published_text": "Sewer: 48 hours",
+        "published_window_hours": 48,
+        "comparator_metric_id": "sewer_blockages_cleared_24h",
+        "crosswalk_status": "DifferentPublishedWindowAndScope;NotEquivalent"
+      },
+      {
+        "service_id": "water_outage",
+        "published_text": "Water outage: 24 hours",
+        "published_window_hours": 24,
+        "comparator_metric_id": "planned_water_interruptions_prescribed_timeline",
+        "crosswalk_status": "BudgetMetricHasUnknownClockAndDifferentMetricScope;NotEquivalent"
+      },
+      {
+        "service_id": "leaking_meter",
+        "published_text": "Leaking meter: 72 hours",
+        "published_window_hours": 72,
+        "comparator_metric_id": "defective_meters_repaired_3d",
+        "crosswalk_status": "MatchingNominalWindowDoesNotEstablishAssetOrProcessEquivalence"
+      },
+      {
+        "service_id": "burst_meter",
+        "published_text": "Burst meter: 24 hours",
+        "published_window_hours": 24,
+        "comparator_metric_id": "stolen_meters_replaced_24h",
+        "crosswalk_status": "DifferentAssetEventAndOperation;NotEquivalent"
+      },
+      {
+        "service_id": "water_leak",
+        "published_text": "Water leak: 48 hours",
+        "published_window_hours": 48,
+        "comparator_metric_id": "leaking_valves_repaired_48h",
+        "crosswalk_status": "DifferentAssetType;NotEquivalent"
+      },
+      {
+        "service_id": "major_burst_pipe",
+        "published_text": "Major burst pipe: 48 hours",
+        "published_window_hours": 48,
+        "comparator_metric_id": "water_pipe_bursts_repaired_48h",
+        "crosswalk_status": "PotentialCategoryRelation;NoOfficialCrosswalk"
+      }
+    ]
   }
 }
