@@ -318,6 +318,11 @@ pub fn has_canonical_play_hash_order(hashes: &[ActionHash]) -> bool {
         .all(|pair| pair[0].get_raw_39() < pair[1].get_raw_39())
 }
 
+/// Compare a serialized play count with a vector length without a lossy usize cast.
+fn play_count_matches_hashes(play_count: u64, hash_count: usize) -> bool {
+    u64::try_from(hash_count).ok() == Some(play_count)
+}
+
 fn validate_create_play(play: PlayRecord, _action: Create) -> ExternResult<ValidateCallbackResult> {
     if play.duration_listened == 0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -441,10 +446,8 @@ fn validate_create_settlement(
     }
 
     // Play count must match hashes
-    if batch.play_count as usize != batch.play_hashes.len() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Play count must match number of play hashes".to_string(),
-        ));
+    if !play_count_matches_hashes(batch.play_count, batch.play_hashes.len()) {
+        return invalid("Play count must match number of play hashes");
     }
 
     // New settlements must be pending
@@ -523,7 +526,7 @@ fn validate_create_settlement(
 mod tests {
     use super::{
         calculate_play_amount, canonicalize_play_hashes, compute_merkle_root,
-        has_canonical_play_hash_order,
+        has_canonical_play_hash_order, play_count_matches_hashes,
     };
     use hdi::prelude::ActionHash;
 
@@ -549,6 +552,16 @@ mod tests {
         assert_eq!(calculate_play_amount("unknown", 180, 180), 0);
         assert_eq!(calculate_play_amount("pay_per_stream", 10, 180), 0);
         assert_eq!(calculate_play_amount("pay_per_stream", 181, 180), 0);
+    }
+
+    #[test]
+    fn play_count_comparison_rejects_lossy_or_mismatched_counts() {
+        assert!(play_count_matches_hashes(0, 0));
+        assert!(play_count_matches_hashes(3, 3));
+        assert!(!play_count_matches_hashes(3, 2));
+        // On wasm32, a direct u64-to-usize cast would truncate this count to zero.
+        assert!(!play_count_matches_hashes(u64::from(u32::MAX) + 1, 0));
+        assert!(!play_count_matches_hashes(u64::MAX, 0));
     }
 
     #[test]
