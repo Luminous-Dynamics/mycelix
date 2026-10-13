@@ -254,6 +254,18 @@ describe('authenticated settlement allocation lineage checkpoint', () => {
       .toThrow(/asOf cannot move backwards/);
   });
 
+  it('rejects checkpoint identity reuse even when the new signature and cursor are valid', () => {
+    const previous = signedCheckpoint();
+    const candidate = signedCheckpointState({
+      checkpointId: previous.checkpointId,
+      asOf: '2026-10-03T00:00:00Z',
+      observedThrough: '2026-10-03T00:00:05Z',
+      highWaterMark: '43',
+    });
+    expect(() => assertSettlementAllocationLineageCheckpointAdvances(previous, candidate, trust))
+      .toThrow(/checkpointId cannot be reused/);
+  });
+
   it('rejects checkpoint-id changes that do not advance any source cursor', () => {
     const previous = signedCheckpoint();
     const replayWithNewId = signedCheckpointState({
