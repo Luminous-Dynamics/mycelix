@@ -2,20 +2,22 @@
 
 ## Vision: Become the Default Choice for the Entire Music Industry
 
-**Mission:** Create an open, fair, and community-owned music ecosystem where artists earn 10-50x more and listeners experience music without surveillance capitalism.
+**Mission:** Build an open, fair and community-governed music ecosystem that gives artists clear economic choices, portable data, and auditable royalty statements.
+
+**Evidence discipline:** This is a strategic vision and roadmap, not a claim that all listed features are shipped or commercially validated. Artist payout multiples, platform fees, settlement speed, privacy properties and resilience claims must be measured on a real pilot before they are advertised as outcomes. Streaming services do not share one universal per-stream rate; payout structures and rights-holder agreements differ. See [Industry Comparison and Evidence](docs/INDUSTRY_COMPARISON_AND_EVIDENCE.md) for the current benchmark and qualification gates.
 
 ---
 
-## Current Industry Problems We Solve
+## Industry problems we aim to address
 
-| Problem | Current Industry | Mycelix Solution |
-|---------|------------------|------------------|
-| **Artist Payout** | $0.003-0.005/stream | **$0.01+/stream (10x)** |
-| **Platform Cut** | 30-40% | **1-2%** |
-| **Payment Speed** | 60-90 days | **Instant** |
-| **Ownership** | Corporate shareholders | **Community-owned** |
-| **Data Privacy** | Surveillance capitalism | **Zero-knowledge** |
-| **Censorship** | Platform discretion | **Unstoppable** |
+| Area | Established industry baseline | Mycelix target / evidence required |
+|---|---|---|
+| **Creator economics** | Subscription/ad-supported streaming commonly allocates revenue through rights-holder pools and contractual splits; there is no universal per-stream rate. | Offer multiple economic models, and publish gross-to-net receipts. Any payout comparison must name the model, funding source, currency, sample and period. No 10x payout result is yet asserted. |
+| **Fees** | DSPs, distributors, labels, payment rails and collecting societies have different cost bases and contract terms; a generic 30–40% “platform cut” is not an apples-to-apples benchmark. | Treat low fees as a target. Measure all-in cost including processor, gas, storage/CDN, FX, fraud, refunds and operations before quoting an effective rate. |
+| **Settlement** | Timing depends on reporting cycles, agreements, thresholds, dispute/hold rules and payment rails. | Measure usage-to-statement, accrued-to-authorized and authorized-to-final-funds separately. “Instant” is not a current end-to-end claim. |
+| **Rights metadata** | DDEX and CISAC standards define established message formats for releases, recording/rights revenue, contributors, work data and distribution. | Build version-pinned adapters and schema validation; mapping objects alone are not standards conformance. |
+| **Transparency** | Reporting detail varies by participant and format. | Use evidence-linked accounting and correction history, then independently verify it against real partner reports. |
+| **Privacy and resilience** | Data practices and decentralization vary across services. Hash/Merkle commitments alone do not provide zero-knowledge privacy or make a service unstoppable. | Minimize data, define disclosure policy, threat-model the system, test failure recovery and only claim specific properties that are implemented and reviewed. |
 
 ---
 
@@ -249,27 +251,27 @@ dnas/mycelix-music/
 | **Live Performers** | Ticket platforms | NFT-gated exclusives |
 | **Sample Makers** | Splice, Loopmasters | Direct licensing, fair royalties |
 
-### Competitive Moats
+### Potential differentiators (hypotheses to validate)
 
-1. **Technical Moat:** Zero-cost streaming via Holochain (no competitor has this)
-2. **Economic Moat:** 1% fee vs 30% (unsustainable for centralized competitors)
-3. **Network Moat:** Community-owned CDN (progressively unstoppable)
-4. **Governance Moat:** Artist sovereignty (can't be co-opted)
+1. **Accounting provenance:** Explicit obligation, deduction, settlement receipt, allocation-lineage and statement commitments may make royalty decisions easier to reconstruct. This advantage exists only when exact-head qualification, source integrity and independent verification succeed.
+2. **Economic choice:** Subscription, direct support, pay-per-play and other models can serve different audiences. No model guarantees higher creator income independent of funding, engagement, rights splits and costs.
+3. **Federation and portability:** Multiple operators and community infrastructure could reduce reliance on one provider. The resilience claim requires tested multi-node operation, key recovery and incident handling.
+4. **Artist governance:** Artists can have more control if contract rights, deployment permissions and dispute processes enforce it in practice. A roadmap statement or DAO alone is not a guarantee against capture.
 
 ### Growth Strategy
 
 ```
-Year 1: Niche (Electronic, Experimental, Indie)
-        └── 10K artists who value fair economics
+Year 1: Pilot (Electronic, Experimental, Indie)
+        └── Validate retention, payout comprehension and economics with a rights-cleared cohort
 
-Year 2: Expansion (Hip-Hop, Singer-Songwriter)
-        └── 100K artists seeking alternatives
+Year 2: Expansion (additional genres and territories)
+        └── Expand only when support, rights metadata and settlement metrics remain within published bounds
 
-Year 3: Mainstream (Pop, Country, Latin)
-        └── 1M artists as default choice
+Year 3: Larger-scale distribution
+        └── Establish repeatable onboarding, dispute handling, partner interoperability and incident response
 
-Year 5: Industry Standard
-        └── 10M+ artists, legacy platforms decline
+Year 5: Interoperable creator infrastructure
+        └── Aspirational direction, not a forecast or a claim that legacy platforms will decline
 ```
 
 ---
@@ -317,17 +319,18 @@ Year 5: Industry Standard
 | **Listeners** | 50K | 500K | 5M | 50M |
 | **Artist Earnings** | $500K | $5M | $50M | $500M |
 | **CDN Nodes** | 10 | 100 | 1K | 10K |
-| **Avg Payout/Stream** | $0.01 | $0.01 | $0.012 | $0.015 |
-| **Platform Fee** | 1% | 1% | 0.5% | 0.5% |
+| **Royalty transparency** | Publish a real sample statement and gross-to-net method | Report correction/dispute rates | Add independently verified reporting partners | Publish multi-territory audit results |
+| **All-in payout cost** | Establish measured baseline by model and rail | Publish median / P95 and all included fees | Set targets from the observed baseline | Reassess against real operating costs |
 
 ---
 
 ## Call to Action
 
 **For Artists:**
-- Join the beta, get 10x payouts
-- Choose your economic model
-- Own your music, your data, your community
+- Join a pilot with plainly disclosed economic terms
+- Choose among the models actually available in the released product
+- Export your statements and verify gross-to-net calculations
+- No payout multiple or settlement time is guaranteed before pilot evidence is published
 
 **For Developers:**
 - Contribute to open source
@@ -352,4 +355,4 @@ Year 5: Industry Standard
 
 *"The music industry was built on exploitation. We're building the alternative."*
 
-**Mycelix-Music: Fair. Decentralized. Unstoppable.**
+**Mycelix-Music: Fairer economics, verifiable accounting, and artist agency—measured in practice, not just promised.**
