@@ -286,6 +286,12 @@ grep -Fq 'checkpoint:sql:missing-evidence' packages/database/src/accounting-chec
   || fail "live database regression must reject a cursor without exact evidence"
 grep -Fq 'checkpoint:sql:no-progress' packages/database/src/accounting-checkpoint-cursor.integration.ts \
   || fail "live database regression must exercise the no-progress cursor attack"
+grep -Fq 'allocationRoots: next.allocationRoots' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "idle-source cursor regression must preserve accepted allocation roots"
+grep -Fq 'linkRoots: next.linkRoots' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "idle-source cursor regression must preserve accepted successor-link roots"
+grep -Fq 'checkpoint:sql:idle-observation' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must allow an observation-only cursor advance"
 grep -Fq 'accounting-checkpoint-cursor.test.ts' packages/database/package.json \
   || fail "checkpoint store replay/rollback tests must run in qualification"
 grep -Fq 'accounting-checkpoint-cursor.integration.ts' packages/database/package.json \
