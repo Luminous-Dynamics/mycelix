@@ -250,9 +250,9 @@ grep -Fq 'checkpointEvidence SettlementAllocationLineageCheckpointRecord' <<<"$c
   || fail "checkpoint cursor must declare its evidence relation"
 grep -Fq 'FROM pg_constraint WHERE contype' packages/database/src/accounting-checkpoint-cursor.integration.ts \
   || fail "live PostgreSQL regression must verify the checkpoint evidence foreign key"
-grep -Fq 'checkpointForeignKey[0]?.deleteAction, '\''r'\''' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+grep -Fq "checkpointForeignKey[0]?.deleteAction, 'r'" packages/database/src/accounting-checkpoint-cursor.integration.ts \
   || fail "checkpoint evidence FK must restrict deletion"
-grep -Fq 'checkpointForeignKey[0]?.updateAction, '\''r'\''' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+grep -Fq "checkpointForeignKey[0]?.updateAction, 'r'" packages/database/src/accounting-checkpoint-cursor.integration.ts \
   || fail "checkpoint evidence FK must restrict updates"
 grep -Fq 'requires a new root and revision + 1' packages/database/prisma/accounting-append-only.sql \
   || fail "PostgreSQL must reject root replay without a cursor advance"
