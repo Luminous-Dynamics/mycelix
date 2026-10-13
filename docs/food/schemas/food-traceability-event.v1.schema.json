@@ -546,7 +546,6 @@
             "enum": [
               "PRODUCED",
               "HARVESTED",
-              "TRANSFORMED",
               "PACKED",
               "DISPATCHED",
               "RECEIVED",
