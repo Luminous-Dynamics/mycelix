@@ -251,6 +251,22 @@ grep -Fq 'timestamps cannot move backwards' packages/database/src/accounting-che
   || fail "live database regression must reject timestamp rollback"
 grep -Fq 'must advance a source cursor or observation coverage' packages/database/src/accounting-checkpoint-cursor.integration.ts \
   || fail "live database regression must reject no-progress cursor updates"
+grep -Fq 'allocation root history cannot shrink after acceptance' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must reject allocation-root history shrinkage"
+grep -Fq 'allocation root history prefix mismatch' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must preserve exact allocation-root prefixes"
+grep -Fq 'successor-link root history cannot shrink after acceptance' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must reject successor-link history shrinkage"
+grep -Fq 'successor-link root history prefix mismatch' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must preserve exact successor-link root prefixes"
+grep -Fq 'checkpoint:sql:allocation-prefix-rewrite' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject allocation-root history rewrite"
+grep -Fq 'checkpoint:sql:link-prefix-rewrite' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject successor-link history rewrite"
+grep -Fq '9007199254740993' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must retain high-water marks beyond JavaScript safe integers"
+grep -Fq '9007199254740992' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must distinguish adjacent large decimal high-water marks"
 grep -Fq 'checkpoint:sql:missing-evidence' packages/database/src/accounting-checkpoint-cursor.integration.ts \
   || fail "live database regression must reject a cursor without exact evidence"
 grep -Fq 'checkpoint:sql:no-progress' packages/database/src/accounting-checkpoint-cursor.integration.ts \
