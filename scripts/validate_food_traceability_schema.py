@@ -7,6 +7,7 @@ import copy
 import hashlib
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -21,9 +22,9 @@ MISSING_HANDLING_PATH = ROOT / "docs/food/examples/cold-chain-missing-sample.v1.
 
 # H0 fixture subset from pinned Recommendation 20. This is not a complete copy
 # of the code list.
-REC20_FIXTURE_CODES = {"DZN", "KGM", "LTR", "CEL"}
+REC20_FIXTURE_CODES = {"C62", "DZN", "KGM", "LTR", "CEL"}
 PRODUCT_UNIT_POLICY = {
-    "urn:mycelix:product-profile:free-range-eggs-v1": {"DZN"},
+    "urn:mycelix:product-profile:free-range-eggs-v1": {"C62", "DZN"},
     "urn:mycelix:product-profile:pasteurized-milk-v1": {"LTR"},
     "urn:mycelix:product-profile:cheese-v1": {"KGM"},
     "urn:mycelix:product-profile:strawberries-v1": {"KGM"},
@@ -161,7 +162,12 @@ def main() -> int:
             raise AssertionError(f"{name} should be invalid but validated successfully")
         print(f"PASS rejects: {name}")
 
-    valid("canonical synthetic egg lot", example)
+    valid("canonical synthetic egg lot by dozen", example)
+
+    eggs_by_count = copy.deepcopy(example)
+    eggs_by_count["subjects"][0]["quantity"]["value"] = "96"
+    eggs_by_count["subjects"][0]["quantity"]["unitCode"] = "C62"
+    valid("eggs may also be recorded by individual count", eggs_by_count)
     valid("forecast binds model identity, version, and horizon", forecast_example)
     valid("dairy transformation binds observed input and output lots", transformation_example)
     valid("missing cold-chain sample remains explicitly unknown", missing_handling_example)
