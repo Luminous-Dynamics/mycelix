@@ -156,5 +156,23 @@ class SouthAfricanDigitalIdProfileTests(unittest.TestCase):
             )
 
 
+    def test_every_never_enable_field_is_fail_closed(self) -> None:
+        for path in validate_sa_did_profile.NEVER_ENABLE_FIELDS:
+            with self.subTest(path=path):
+                mutated = copy.deepcopy(self.profile)
+                target = mutated
+                for part in path[:-1]:
+                    target = target[part]
+                target[path[-1]] = True
+                errors = validate_sa_did_profile.validate_profile(mutated)
+                self.assertTrue(any(".".join(path) in error for error in errors))
+
+    def test_rejected_vector_cannot_reference_a_production_trust_anchor(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["test_vectors"][1]["trust_anchor_ref"] = "dha-production"
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("trust_anchor_ref must be none or an explicit test-only reference" in e for e in errors))
+
+
 if __name__ == "__main__":
     unittest.main()
