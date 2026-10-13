@@ -28,15 +28,12 @@ PRODUCT_UNIT_POLICY = {
     "urn:mycelix:product-profile:cheese-v1": {"KGM"},
     "urn:mycelix:product-profile:strawberries-v1": {"KGM"},
 }
-FORECAST_PATH = ROOT / "docs/food/examples/forecasted-harvest.v1.json"
-TRANSFORMATION_PATH = ROOT / "docs/food/examples/milk-to-cheese-transformed.v1.json"
-MISSING_HANDLING_PATH = ROOT / "docs/food/examples/cold-chain-missing-sample.v1.json"
 
 
 def git_blob_sha1(path: Path) -> str:
     """Return Git's SHA-1 blob identifier for exact file bytes."""
     content = path.read_bytes()
-    header = f"blob {len(content)}".encode("ascii") + b"\\0"
+    header = f"blob {len(content)}".encode("ascii") + bytes([0])
     return hashlib.sha1(header + content).hexdigest()
 
 
