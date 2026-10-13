@@ -147,6 +147,8 @@ function signedCheckpointState(options: {
   readonly asOf?: string;
   readonly observedThrough?: string;
   readonly highWaterMark?: string;
+  readonly allocations?: readonly SettlementAllocationAuthority[];
+  readonly links?: readonly SettlementAllocationSuccessorLink[];
 } = {}) {
   const unsigned = createSettlementAllocationLineageCheckpoint({
     checkpointId: options.checkpointId ?? 'checkpoint:allocation-lineage:next',
@@ -156,8 +158,8 @@ function signedCheckpointState(options: {
     asOf: options.asOf ?? '2026-10-03T00:00:00Z',
     observedThrough: options.observedThrough ?? '2026-10-03T00:00:05Z',
     highWaterMark: options.highWaterMark ?? '43',
-    allocations: [initial, successor],
-    links: [link],
+    allocations: options.allocations ?? [initial, successor],
+    links: options.links ?? [link],
   });
   return signSettlementAllocationLineageCheckpoint(unsigned, trust.signerKeyId, privateKeyPem);
 }
@@ -241,6 +243,16 @@ describe('authenticated settlement allocation lineage checkpoint', () => {
     const candidate = signedCheckpointState({ highWaterMark: '41' });
     expect(() => assertSettlementAllocationLineageCheckpointAdvances(previous, candidate, trust))
       .toThrow(/high-water mark cannot move backwards/);
+  });
+
+  it('rejects a newer checkpoint that omits accepted allocation history', () => {
+    const previous = signedCheckpoint();
+    const candidate = signedCheckpointState({
+      allocations: [initial],
+      links: [],
+    });
+    expect(() => assertSettlementAllocationLineageCheckpointAdvances(previous, candidate, trust))
+      .toThrow(/allocation roots cannot shrink after acceptance/);
   });
 
   it('rejects a cursor advance that changes the source batch identity', () => {
