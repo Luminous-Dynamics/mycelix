@@ -20,6 +20,23 @@ The scope is a focused source census of the current-main service-ticket, civic e
 4. The community water page is presentation for Mycelix resource data. The Mycelix Water capture/stewardship models cover resources and harvesting; manufacturing work orders encode product/BOM/routing semantics. None should be repurposed into a municipal utility CRM solely because the field names look similar.
 5. Commons Bridge supports internal cross-domain dispatch/query/event patterns. That is not an external Johannesburg Water or City of Johannesburg adapter, and does not prove provider authentication, acceptance, currentness, retry semantics or API availability.
 6. No deployed municipal provider adapter, municipal service-level clock/registry, or independent physical-repair verification path was identified in the inspected current-main surfaces. Rights-affecting administration also needs its actual procedure and authority owner identified before any automation is designed.
+7. The inspected current-main Commons Support update path is author-bound, but its integrity update validation reruns field-shape checks rather than proving immutable-field restrictions or a Civic-specific status transition algebra.
+8. Support creates status/category links at ticket creation; the ordinary ticket-update and close paths inspected do not visibly reindex those links. Status-query currentness therefore remains unqualified.
+9. Support's `AutonomyLevel` and `AutonomousAction.approved/executed/success` fields are Support-domain state, not municipal or Civic approval/effect authority.
+
+## Civic Support adoption blockers
+
+Commons Support is an operational-owner candidate, **not currently a Civic-safe write target**. This source review is pinned to the exact current-main blob SHAs in the manifest.
+
+| Blocker | Current-main observation | Required evidence before Civic writes |
+|---|---|---|
+| Stable logical identity | `SupportTicket` has no separate stable logical municipal issue ID; SUP-CIV-001A remains an open/unmerged proposal. | Exact-head stable identity contract qualified; migration, duplicate genesis, legacy linkage and revision tests pass. |
+| Whole-entry mutation | `update_ticket` accepts a complete replacement `SupportTicket`. Integrity update validation reruns field-shape checks; the separate author-binding rule does not prove immutable fields. | Adversarial old/new comparisons prove requester/genesis identity and other protected fields cannot change without authorization. |
+| Status/category index currentness | Creation adds status/category links. The inspected update/close paths do not visibly reindex them, while `list_tickets_by_status` queries those links. | Exact multi-revision tests for stale links, reindexing, close/reopen, concurrent updates and delete behavior. |
+| Typed lifecycle | The inspected whole-entry update path does not establish a Civic-specific status-transition algebra. | Explicit allowed transition table, invalid-transition rejection corpus and exact-head qualification. |
+| Autonomy/effect boundary | Support autonomy levels and action booleans are Support-domain state, not Civic or municipal authority. | Negative controls prove those fields cannot authorize civic dispatch, provider mutation, a rights-affecting decision or completion verification. |
+
+Until these blockers are qualified, the Civic adapter must not mutate Support tickets, rely on its status index as current, treat `Closed/Resolved` as verified service restoration, or map Support autonomy fields into Civic authority. Author binding is useful, but is not a substitute for stable identity, immutable-field rules, transition validation or index correctness.
 
 ## Owner/adaptor matrix
 
@@ -41,6 +58,10 @@ The scope is a focused source census of the current-main service-ticket, civic e
 | Formal justice-case model | NotApplicable to routine service intake | Preserve the boundary between service operations and formal dispute adjudication. |
 | Internal Commons bridge | NotApplicable to external provider transport | Internal dispatch is not a municipal connector. |
 | Symthaea action authority | Missing / not granted | Recommendations may inform an authorised human; the model cannot grant itself execution or civic authority. |
+| Support-ticket field mutability | OperationalOwner (Commons Support; Civic safety gate open) | Whole-ticket replacement plus shape validation do not prove immutable-field restrictions; no Civic writes until qualified. |
+| Support status-index currentness | OperationalOwner (Commons Support; currentness unqualified) | Status/category links are not visibly maintained on ordinary updates; do not assume the index is current. |
+| Support transition algebra | OperationalOwner (generic Support lifecycle; Civic contract missing) | Require typed transitions and exact-head adversarial qualification. |
+| Support autonomy authority | OperationalOwner (Support-domain semantics only) | Support autonomy/approval/execution fields must not become civic or municipal execution authority. |
 
 The machine-readable manifest records exact paths/blob SHAs for inspected current-main candidates and includes fail-closed synthetic probes for common semantic collapses.
 

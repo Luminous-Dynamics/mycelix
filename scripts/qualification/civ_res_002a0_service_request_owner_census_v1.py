@@ -55,6 +55,10 @@ EXPECTED_MATRIX = [
     ("formal_dispute_procedure", "justice_case_model", "NotApplicable"),
     ("external_provider_transport", "commons_bridge", "NotApplicable"),
     ("symthaea_action_authority", "municipal_service_issue_owner", "Missing"),
+    ("support_ticket_field_mutability", "commons_support_coordinator", "OperationalOwner"),
+    ("support_status_index_currentness", "commons_support_coordinator", "OperationalOwner"),
+    ("support_typed_transition_algebra", "commons_support_ticket", "OperationalOwner"),
+    ("support_autonomous_action_authority", "commons_support_coordinator", "OperationalOwner"),
 ]
 EXPECTED_PR_STATES = {2009, 2014, 2026, 2045, 2146, 1082}
 REQUIRED_FLAGS = [
@@ -68,6 +72,10 @@ REQUIRED_FLAGS = [
     "official_channel_instructions_present", "current_adopted_sla_source_verified",
     "2026_27_budget_book_source_pinned", "metric_definition_and_period_preserved",
     "source_pdf_review_and_clock_semantics_qualified",
+    "support_immutable_field_rules_qualified",
+    "support_status_index_currentness_qualified",
+    "support_transition_algebra_qualified",
+    "support_autonomy_boundary_qualified",
 ]
 UNSAFE_FLAGS = [
     "city_reference_used_as_internal_identity",
@@ -83,6 +91,10 @@ UNSAFE_FLAGS = [
     "prior_year_target_substituted_for_current",
     "planned_metric_reinterpreted_as_unplanned_12h_target",
     "indexed_budget_target_claimed_as_live_status",
+    "whole_ticket_replacement_treated_as_civic_safe",
+    "status_index_assumed_current_after_update",
+    "untyped_support_transition_accepted",
+    "support_autonomy_boolean_treated_as_civic_authority",
 ]
 EXPECTED_PROBE_IDS = [
     "city-reference-overpromotion",
@@ -105,6 +117,14 @@ EXPECTED_PROBE_IDS = [
     "missing-source-reference-origin",
     "no-current-adopted-sla",
     "source-pdf-not-reviewed",
+    "whole-ticket-replacement-is-not-civic-safe",
+    "status-index-is-not-current-by-assumption",
+    "support-transition-needs-algebra",
+    "support-autonomy-is-not-civic-authority",
+    "support-immutable-fields-not-qualified",
+    "support-index-currentness-not-qualified",
+    "support-transitions-not-qualified",
+    "support-autonomy-boundary-not-qualified",
     "all-shadow-preconditions-explicit",
 ]
 
@@ -157,8 +177,8 @@ def validate() -> None:
         "classification_vocabulary", "candidates", "owner_matrix",
         "branch_only_proposals", "source_anchors", "municipal_sla_source_posture",
         "channel_first_pilot_contract", "current_year_budget_book_metrics",
-        "decision", "invariants", "required_gate_flags", "unsafe_flags",
-        "probe_cases", "nonclaims",
+        "support_civic_adoption_boundary", "decision", "invariants",
+        "required_gate_flags", "unsafe_flags", "probe_cases", "nonclaims",
     }, "manifest")
     if data["schema"] != "mycelix.civic-resilience.service-request-owner-census.v1":
         fail("unexpected schema")
@@ -327,6 +347,31 @@ def validate() -> None:
         fail("resident-reported status must not be labelled authoritative")
     if pilot["current_sla_without_adopted_effective_source"] != "NotEvaluable":
         fail("SLA cannot be evaluated without a qualified current target")
+
+    support = data["support_civic_adoption_boundary"]
+    exact_keys(support, {
+        "status", "source_pins", "author_binding_note", "blockers",
+        "civic_support_mutations_authorized", "support_status_index_currentness_qualified",
+        "immutable_field_rules_qualified", "typed_transition_algebra_qualified",
+        "autonomy_authority_boundary_qualified", "permitted_use",
+    }, "support civic adoption boundary")
+    if support["status"] != "BlockedPendingExactHeadQualifiedRepair":
+        fail("Support civic adoption must remain blocked")
+    for key in ("civic_support_mutations_authorized", "support_status_index_currentness_qualified",
+                "immutable_field_rules_qualified", "typed_transition_algebra_qualified",
+                "autonomy_authority_boundary_qualified"):
+        if support[key] is not False:
+            fail(f"{key} must remain false")
+    source_pins = {item.get("path"): item.get("blob_sha") for item in support["source_pins"] if isinstance(item, dict)}
+    if source_pins != {
+        "mycelix-commons/zomes/support-tickets/integrity/src/lib.rs": "c66ff344f6f3c0a43533d9370c887f2f200619fd",
+        "mycelix-commons/zomes/support-tickets/coordinator/src/lib.rs": "e04fdd61227aa485a801a9e2dfe39087d3953e7d",
+        "mycelix-commons/crates/support-types/src/lib.rs": "bfb405e6d8f9f0afbc30cf33fabbfbe1f2197654",
+    }:
+        fail("Support source paths/blob pins drift")
+    blocker_ids = [b.get("blocker_id") for b in support["blockers"] if isinstance(b, dict)]
+    if blocker_ids != ["stable_logical_identity", "whole_entry_mutation", "status_and_category_index_currentness", "typed_transition_algebra", "support_autonomy_not_civic_authority"]:
+        fail("Support adoption blocker census drift")
 
     decision = data["decision"]
     exact_keys(decision, {
