@@ -10,14 +10,22 @@ use std::fmt;
 use std::io::Read;
 
 pub const INPUT_SCHEMA_VERSION: &str = "furniture-desk-input-v1";
-pub const PACKET_SCHEMA_VERSION: &str = "furniture-compiler-packet-v1";
-pub const SERIALIZATION_PROFILE: &str = "canonical-binary-v1";
+pub const PACKET_SCHEMA_VERSION: &str = "furniture-compiler-packet-v2";
+pub const SERIALIZATION_PROFILE: &str = "canonical-binary-v2";
 pub const MAX_INPUT_BYTES: usize = 64 * 1024;
 
 const FAMILY_ID: &str = "modular_desk_prototype";
 const FAMILY_REVISION: u32 = 1;
+const FAMILY_RULESET_VERSION: &str = "modular-desk-rules-v1";
+const GEOMETRY_RULESET_ID: &str = "rectangular-panel-envelopes-v1";
 const PANEL_THICKNESS_MM: u32 = 18;
 const REAR_APRON_HEIGHT_MM: u32 = 100;
+const MIN_WIDTH_MM: u32 = 600;
+const MAX_WIDTH_MM: u32 = 1600;
+const MIN_DEPTH_MM: u32 = 400;
+const MAX_DEPTH_MM: u32 = 900;
+const MIN_HEIGHT_MM: u32 = 650;
+const MAX_HEIGHT_MM: u32 = 850;
 
 /// Restrict input to known fields and enums. Dimensions use integer millimetres.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,6 +100,8 @@ pub struct PacketCore {
     pub serialization_profile: String,
     pub family_id: String,
     pub family_revision: u32,
+    pub family_ruleset_version: String,
+    pub geometry_ruleset_id: String,
     pub configuration: DeskConfiguration,
     pub cut_parts: Vec<CutPart>,
     pub candidate_process_steps: Vec<CandidateProcessStep>,
@@ -225,7 +235,13 @@ pub fn compile(config: DeskConfiguration) -> Result<CompiledPacket, CompileError
         },
     ];
 
-    let design_digest = digest_design_identity(FAMILY_ID, FAMILY_REVISION, &config);
+    let design_digest = digest_design_identity(
+        FAMILY_ID,
+        FAMILY_REVISION,
+        FAMILY_RULESET_VERSION,
+        GEOMETRY_RULESET_ID,
+        &config,
+    );
     let cut_list_digest = digest_cut_list(&cut_parts);
 
     let core = PacketCore {
@@ -233,6 +249,8 @@ pub fn compile(config: DeskConfiguration) -> Result<CompiledPacket, CompileError
         serialization_profile: SERIALIZATION_PROFILE.to_owned(),
         family_id: FAMILY_ID.to_owned(),
         family_revision: FAMILY_REVISION,
+        family_ruleset_version: FAMILY_RULESET_VERSION.to_owned(),
+        geometry_ruleset_id: GEOMETRY_RULESET_ID.to_owned(),
         configuration: config,
         cut_parts,
         candidate_process_steps,
@@ -319,6 +337,30 @@ fn encode_configuration(out: &mut Vec<u8>, value: &DeskConfiguration) {
     encode_finish(out, value.finish_id);
 }
 
+/// Bind the fixed constraints and allowed finish matrix into the design identity.
+/// If generation semantics change beyond these explicit fields, increment
+/// FAMILY_RULESET_VERSION and/or GEOMETRY_RULESET_ID before releasing the change.
+fn encode_family_rules(out: &mut Vec<u8>) {
+    put_u32(out, MIN_WIDTH_MM);
+    put_u32(out, MAX_WIDTH_MM);
+    put_u32(out, MIN_DEPTH_MM);
+    put_u32(out, MAX_DEPTH_MM);
+    put_u32(out, MIN_HEIGHT_MM);
+    put_u32(out, MAX_HEIGHT_MM);
+    put_u32(out, PANEL_THICKNESS_MM);
+    put_u32(out, REAR_APRON_HEIGHT_MM);
+
+    // Matrix entries are serialized in a fixed order. The enum encoders above
+    // define stable discriminants for this protocol version.
+    put_len(out, 3);
+    encode_material(out, MaterialId::BirchPlywood);
+    encode_finish(out, FinishId::ClearCoat);
+    encode_material(out, MaterialId::MelamineMdf);
+    encode_finish(out, FinishId::WhiteMelamine);
+    encode_material(out, MaterialId::MelamineMdf);
+    encode_finish(out, FinishId::BlackMelamine);
+}
+
 fn encode_cut_parts(out: &mut Vec<u8>, parts: &[CutPart]) {
     put_len(out, parts.len());
     for part in parts {
@@ -365,13 +407,18 @@ fn hash_canonical(domain: &str, bytes: &[u8]) -> String {
 fn digest_design_identity(
     family_id: &str,
     family_revision: u32,
+    ruleset_version: &str,
+    geometry_ruleset_id: &str,
     config: &DeskConfiguration,
 ) -> String {
     let mut bytes = Vec::new();
     put_str(&mut bytes, family_id);
     put_u32(&mut bytes, family_revision);
+    put_str(&mut bytes, ruleset_version);
+    put_str(&mut bytes, geometry_ruleset_id);
+    encode_family_rules(&mut bytes);
     encode_configuration(&mut bytes, config);
-    hash_canonical("design-spec-v1", &bytes)
+    hash_canonical("design-spec-v2", &bytes)
 }
 
 fn digest_cut_list(parts: &[CutPart]) -> String {
@@ -386,6 +433,8 @@ fn digest_packet_core(core: &PacketCore) -> String {
     put_str(&mut bytes, &core.serialization_profile);
     put_str(&mut bytes, &core.family_id);
     put_u32(&mut bytes, core.family_revision);
+    put_str(&mut bytes, &core.family_ruleset_version);
+    put_str(&mut bytes, &core.geometry_ruleset_id);
     encode_configuration(&mut bytes, &core.configuration);
     encode_cut_parts(&mut bytes, &core.cut_parts);
     encode_process_steps(&mut bytes, &core.candidate_process_steps);
@@ -404,22 +453,22 @@ pub fn validate(config: &DeskConfiguration) -> Vec<ValidationIssue> {
             message: format!("schema_version must be {INPUT_SCHEMA_VERSION}"),
         });
     }
-    if !(600..=1600).contains(&config.width_mm) {
+    if !(MIN_WIDTH_MM..=MAX_WIDTH_MM).contains(&config.width_mm) {
         issues.push(ValidationIssue {
             code: IssueCode::WidthOutOfRange,
-            message: "width_mm must be between 600 and 1600 inclusive".to_owned(),
+            message: format!("width_mm must be between {MIN_WIDTH_MM} and {MAX_WIDTH_MM} inclusive"),
         });
     }
-    if !(400..=900).contains(&config.depth_mm) {
+    if !(MIN_DEPTH_MM..=MAX_DEPTH_MM).contains(&config.depth_mm) {
         issues.push(ValidationIssue {
             code: IssueCode::DepthOutOfRange,
-            message: "depth_mm must be between 400 and 900 inclusive".to_owned(),
+            message: format!("depth_mm must be between {MIN_DEPTH_MM} and {MAX_DEPTH_MM} inclusive"),
         });
     }
-    if !(650..=850).contains(&config.height_mm) {
+    if !(MIN_HEIGHT_MM..=MAX_HEIGHT_MM).contains(&config.height_mm) {
         issues.push(ValidationIssue {
             code: IssueCode::HeightOutOfRange,
-            message: "height_mm must be between 650 and 850 inclusive".to_owned(),
+            message: format!("height_mm must be between {MIN_HEIGHT_MM} and {MAX_HEIGHT_MM} inclusive"),
         });
     }
     if config.panel_thickness_mm != PANEL_THICKNESS_MM {
@@ -483,6 +532,34 @@ mod tests {
         expected.extend_from_slice(&18_u32.to_be_bytes());
         expected.extend_from_slice(&[1, 1]); // BirchPlywood, ClearCoat
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn design_identity_changes_when_ruleset_identity_changes() {
+        let config = valid_config();
+        let baseline = digest_design_identity(
+            FAMILY_ID,
+            FAMILY_REVISION,
+            FAMILY_RULESET_VERSION,
+            GEOMETRY_RULESET_ID,
+            &config,
+        );
+        let changed_ruleset = digest_design_identity(
+            FAMILY_ID,
+            FAMILY_REVISION,
+            "modular-desk-rules-next",
+            GEOMETRY_RULESET_ID,
+            &config,
+        );
+        let changed_geometry = digest_design_identity(
+            FAMILY_ID,
+            FAMILY_REVISION,
+            FAMILY_RULESET_VERSION,
+            "jointed-panel-geometry-next",
+            &config,
+        );
+        assert_ne!(baseline, changed_ruleset);
+        assert_ne!(baseline, changed_geometry);
     }
 
     #[test]
