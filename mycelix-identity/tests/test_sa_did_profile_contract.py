@@ -131,5 +131,30 @@ class SouthAfricanDigitalIdProfileTests(unittest.TestCase):
         self.assertTrue(any("route_id must be a non-empty string" in e for e in errors))
 
 
+    def test_unknown_top_level_field_requires_schema_version_change(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["allow_real_credentials"] = True
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("top-level fields must match the closed v1 schema" in e for e in errors))
+
+    def test_reason_enum_cannot_gain_an_unreviewed_verified_reason(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["reason_disposition"]["unreviewed_reason"] = "verified"
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("reason_disposition keys must match the closed v1 reason enum" in e for e in errors))
+
+    def test_allowed_disposition_enum_is_closed(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["allowed_dispositions"].append("soft_verified")
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("allowed_dispositions must enumerate exactly" in e for e in errors))
+
+    def test_duplicate_json_object_keys_are_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "duplicate JSON object key"):
+            validate_sa_did_profile._reject_duplicate_object_keys(
+                [("production_enabled", False), ("production_enabled", True)]
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
