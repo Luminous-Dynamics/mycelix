@@ -271,6 +271,13 @@ export function assertSettlementAllocationLineageCheckpointAdvances(
   const previous = verifySettlementAllocationLineageCheckpoint(previousInput, policy);
   const candidate = verifySettlementAllocationLineageCheckpoint(candidateInput, policy);
 
+  if (
+    candidate.checkpointId === previous.checkpointId
+    && candidate.checkpointRoot !== previous.checkpointRoot
+  ) {
+    throw new Error('settlement allocation checkpointId cannot be reused for different checkpoint contents');
+  }
+
   const previousHighWaterMark = BigInt(canonicalHighWaterMark(previous.highWaterMark));
   const candidateHighWaterMark = BigInt(canonicalHighWaterMark(candidate.highWaterMark));
   if (candidateHighWaterMark < previousHighWaterMark) {
