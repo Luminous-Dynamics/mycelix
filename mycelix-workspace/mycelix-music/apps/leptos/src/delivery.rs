@@ -70,19 +70,63 @@ impl MediaAssetManifestV1 {
 /// Only an operator-controlled build setting should be passed to `parse`;
 /// never accept this value from publication metadata or a provider lease.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TrustedHttpsGatewayOrigin(String);
+pub struct TrustedGatewayOrigin(String);
 
-impl TrustedHttpsGatewayOrigin {
+impl TrustedGatewayOrigin {
+    /// Accept public origins only over HTTPS. Plain HTTP is permitted only for
+    /// loopback hosts, which browsers treat as potentially trustworthy secure
+    /// contexts; arbitrary LAN/public HTTP origins are rejected.
     pub fn parse(origin: &str) -> Result<Self, DeliveryPlanError> {
-        let Some(authority) = origin.strip_prefix("https://") else {
+        let (is_https, authority) = if let Some(value) = origin.strip_prefix("https://") {
+            (true, value)
+        } else if let Some(value) = origin.strip_prefix("http://") {
+            (false, value)
+        } else {
             return Err(DeliveryPlanError::InvalidGatewayOrigin);
         };
 
-        let mut authority_parts = authority.split(':');
-        let host = authority_parts.next().unwrap_or_default();
-        let port = authority_parts.next();
-        let has_extra_port_separator = authority_parts.next().is_some();
-        let valid_host = !host.is_empty()
+        if authority.is_empty()
+            || authority.chars().any(|ch| {
+                matches!(ch, '/' | '?' | '#' | '@' | '\\' | '%')
+                    || ch.is_ascii_whitespace()
+                    || ch.is_ascii_control()
+            })
+        {
+            return Err(DeliveryPlanError::InvalidGatewayOrigin);
+        }
+
+        let (host, port, bracketed_ipv6) = if let Some(after_open) = authority.strip_prefix('[') {
+            let (host, suffix) = after_open
+                .split_once(']')
+                .ok_or(DeliveryPlanError::InvalidGatewayOrigin)?;
+            let port = if suffix.is_empty() {
+                None
+            } else {
+                Some(
+                    suffix
+                        .strip_prefix(':')
+                        .ok_or(DeliveryPlanError::InvalidGatewayOrigin)?,
+                )
+            };
+            (host, port, true)
+        } else if let Some((host, port)) = authority.rsplit_once(':') {
+            if host.contains(':') || host.contains('[') || host.contains(']') {
+                return Err(DeliveryPlanError::InvalidGatewayOrigin);
+            }
+            (host, Some(port), false)
+        } else {
+            if authority.contains('[') || authority.contains(']') {
+                return Err(DeliveryPlanError::InvalidGatewayOrigin);
+            }
+            (authority, None, false)
+        };
+
+        let valid_port = port.is_none_or(|value| {
+            !value.is_empty()
+                && value.bytes().all(|byte| byte.is_ascii_digit())
+                && value.parse::<u16>().is_ok_and(|number| number > 0)
+        });
+        let valid_dns_host = !host.is_empty()
             && host.len() <= 253
             && host.split('.').all(|label| {
                 !label.is_empty()
@@ -93,18 +137,29 @@ impl TrustedHttpsGatewayOrigin {
                         .bytes()
                         .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
             });
-        let valid_port = port.is_none_or(|value| {
-            !value.is_empty()
-                && value.bytes().all(|byte| byte.is_ascii_digit())
-                && value.parse::<u16>().is_ok_and(|number| number > 0)
-        });
+        let valid_ipv4_loopback = {
+            let octets: Vec<_> = host.split('.').collect();
+            octets.len() == 4
+                && octets.iter().all(|octet| {
+                    !octet.is_empty()
+                        && octet.bytes().all(|byte| byte.is_ascii_digit())
+                        && octet.parse::<u8>().is_ok()
+                })
+                && octets[0] == "127"
+        };
+        let is_loopback = host.eq_ignore_ascii_case("localhost")
+            || host.to_ascii_lowercase().ends_with(".localhost")
+            || valid_ipv4_loopback
+            || (bracketed_ipv6 && host == "::1");
+        let valid_host = if bracketed_ipv6 {
+            host == "::1"
+        } else {
+            valid_dns_host
+        };
 
-        if authority.is_empty()
-            || authority.chars().any(|ch| matches!(ch, '/' | '?' | '#' | '@' | '\\' | '%'))
-            || has_extra_port_separator
-            || !valid_host
-            || !valid_port
-        {
+        // IPv6 literals must be bracketed; this small parser accepts only the
+        // IPv6 loopback literal to avoid broad, permissive address parsing.
+        if !valid_host || !valid_port || (!is_https && !is_loopback) {
             return Err(DeliveryPlanError::InvalidGatewayOrigin);
         }
 
@@ -155,7 +210,7 @@ impl std::fmt::Display for DeliveryPlanError {
             Self::UnsupportedManifestVersion => "unsupported media manifest version",
             Self::InvalidAssetId => "invalid media asset identifier",
             Self::InvalidContentAddress => "invalid IPFS content identifier path component",
-            Self::InvalidGatewayOrigin => "configured media gateway must be a valid HTTPS origin",
+            Self::InvalidGatewayOrigin => "gateway must use HTTPS, except HTTP is allowed for loopback hosts only",
             Self::TooManyGatewayOrigins => "configured media gateway pool exceeds the maximum size",
             Self::EmptyAsset => "media asset cannot declare a zero-byte payload",
         };
@@ -175,7 +230,7 @@ pub const MAX_CONFIGURED_GATEWAY_ORIGINS: usize = 8;
 /// while preserving the first occurrence.
 pub fn parse_gateway_origins(
     configured_origins: &str,
-) -> Result<Vec<TrustedHttpsGatewayOrigin>, DeliveryPlanError> {
+) -> Result<Vec<TrustedGatewayOrigin>, DeliveryPlanError> {
     let values: Vec<&str> = configured_origins.split(',').map(str::trim).collect();
     if values.is_empty() || values.iter().any(|value| value.is_empty()) {
         return Err(DeliveryPlanError::InvalidGatewayOrigin);
@@ -184,9 +239,9 @@ pub fn parse_gateway_origins(
         return Err(DeliveryPlanError::TooManyGatewayOrigins);
     }
 
-    let mut origins: Vec<TrustedHttpsGatewayOrigin> = Vec::with_capacity(values.len());
+    let mut origins: Vec<TrustedGatewayOrigin> = Vec::with_capacity(values.len());
     for value in values {
-        let origin = TrustedHttpsGatewayOrigin::parse(value)?;
+        let origin = TrustedGatewayOrigin::parse(value)?;
         if !origins.contains(&origin) {
             origins.push(origin);
         }
@@ -206,7 +261,7 @@ pub fn delivery_candidates(
 
 pub fn delivery_candidates_with_origins(
     manifest: &MediaAssetManifestV1,
-    configured_origins: &[TrustedHttpsGatewayOrigin],
+    configured_origins: &[TrustedGatewayOrigin],
 ) -> Result<Vec<DeliveryCandidate>, DeliveryPlanError> {
     manifest.validate()?;
     if configured_origins.len() > MAX_CONFIGURED_GATEWAY_ORIGINS {
@@ -304,6 +359,38 @@ mod tests {
     }
 
     #[test]
+    fn accepts_local_loopback_gateways_over_http() {
+        for origin in [
+            "http://localhost:8080",
+            "http://127.0.0.1:8080",
+            "http://127.2.3.4:5001",
+            "http://[::1]:8080",
+            "https://media.example.org",
+        ] {
+            assert!(
+                TrustedGatewayOrigin::parse(origin).is_ok(),
+                "expected local/secure origin to pass: {origin:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_non_loopback_http_and_unbracketed_ipv6() {
+        for origin in [
+            "http://example.org",
+            "http://192.168.1.5:8080",
+            "http://[2001:db8::1]:8080",
+            "https://::1:8080",
+        ] {
+            assert_eq!(
+                TrustedGatewayOrigin::parse(origin).unwrap_err(),
+                DeliveryPlanError::InvalidGatewayOrigin,
+                "expected rejection for {origin:?}"
+            );
+        }
+    }
+
+    #[test]
     fn configured_gateway_pool_preserves_order_and_uses_only_explicit_origins() {
         let configured =
             parse_gateway_origins("https://media.example.org, https://dweb.link").unwrap();
@@ -362,6 +449,7 @@ mod tests {
     fn rejects_non_https_or_non_origin_gateway_configuration() {
         for origin in [
             "http://media.example.org",
+            "http://192.168.1.10:8080",
             "https://user@media.example.org",
             "https://media.example.org/path",
             "https://media.example.org?token=x",
@@ -376,7 +464,7 @@ mod tests {
             "",
         ] {
             assert_eq!(
-                TrustedHttpsGatewayOrigin::parse(origin).unwrap_err(),
+                TrustedGatewayOrigin::parse(origin).unwrap_err(),
                 DeliveryPlanError::InvalidGatewayOrigin,
                 "expected rejection for {origin:?}"
             );
