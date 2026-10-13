@@ -10,7 +10,7 @@ on:
   push:
     branches:
       - main
-      - 'feat/business-hospitality-export-completeness-*'
+      # Feature branches are validated by pull_request; avoid a duplicate push run.
     paths:
       - 'crates/mycelix-business-core/**'
       - 'crates/mycelix-business-export-completeness/**'
