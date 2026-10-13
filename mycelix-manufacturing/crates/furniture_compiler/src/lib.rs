@@ -129,7 +129,6 @@ pub enum CompileError {
     InputTooLarge,
     InvalidJson(String),
     InvalidConfiguration(Vec<ValidationIssue>),
-    Serialization(String),
 }
 
 impl fmt::Display for CompileError {
@@ -144,7 +143,6 @@ impl fmt::Display for CompileError {
                 }
                 Ok(())
             }
-            Self::Serialization(message) => write!(f, "serialization failed: {message}"),
         }
     }
 }
