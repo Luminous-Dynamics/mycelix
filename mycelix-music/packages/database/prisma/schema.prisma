@@ -592,6 +592,44 @@ model SettlementAllocationRecord {
   @@index([eligibilityEvidenceRoot, allocatedAt])
 }
 
+// Signed source checkpoints are immutable evidence; the cursor below is the sole
+// mutable head pointer and can advance only under guarded transactional semantics.
+model SettlementAllocationLineageCheckpointRecord {
+  checkpointId     String
+  sourceRef         String
+  sourceInstanceId  String
+  batchId           String
+  asOf              DateTime
+  observedThrough   DateTime
+  highWaterMark     String
+  allocationRoots   Json
+  linkRoots         Json
+  checkpointRoot    String   @unique
+  signerKeyId       String
+  signatureBase64   String
+  acceptedAt        DateTime @default(now())
+
+  @@id([sourceRef, sourceInstanceId, batchId, checkpointId])
+  @@index([sourceRef, sourceInstanceId, batchId, highWaterMark])
+  @@index([batchId, asOf])
+}
+
+model SettlementAllocationLineageCheckpointCursor {
+  sourceRef         String
+  sourceInstanceId  String
+  batchId           String
+  checkpointId      String
+  checkpointRoot    String   @unique
+  asOf              DateTime
+  observedThrough   DateTime
+  highWaterMark     String
+  revision          Int      @default(1)
+  updatedAt         DateTime @updatedAt
+
+  @@id([sourceRef, sourceInstanceId, batchId])
+  @@index([checkpointRoot])
+}
+
 model RoyaltyStatementSnapshotRecord {
   statementId            String   @id
   kind                   String
