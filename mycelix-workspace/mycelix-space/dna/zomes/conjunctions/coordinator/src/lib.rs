@@ -955,6 +955,13 @@ struct GetTlesWithMetadataCallInput {
 pub fn screen_conjunction_from_tles(
     input: ScreenFromTlesInput,
 ) -> ExternResult<Vec<ConjunctionAssessment>> {
+    if input.secondary_tles.is_empty() {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "At least one secondary TLE is required per screening call",
+        )
+        .into_wasm_error());
+    }
     if input.secondary_tles.len() > 100 {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidInput,
@@ -1266,6 +1273,13 @@ fn validate_requested_secondary_ids(
     primary_norad_id: u32,
     secondary_norad_ids: &[u32],
 ) -> ExternResult<()> {
+    if secondary_norad_ids.is_empty() {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "At least one secondary NORAD ID is required per screening call",
+        )
+        .into_wasm_error());
+    }
     if secondary_norad_ids.len() > 100 {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidInput,
@@ -1335,7 +1349,8 @@ mod screening_target_tests {
     }
 
     #[test]
-    fn requested_secondary_ids_reject_primary_and_duplicates() {
+    fn requested_secondary_ids_reject_empty_primary_and_duplicate_batches() {
+        assert!(validate_requested_secondary_ids(25544, &[]).is_err());
         assert!(validate_requested_secondary_ids(25544, &[25544]).is_err());
         assert!(validate_requested_secondary_ids(25544, &[40001, 40001]).is_err());
         assert!(validate_requested_secondary_ids(25544, &[40001, 40002]).is_ok());
