@@ -174,6 +174,19 @@ pub struct StructurallyConsistentExport {
     pub provider_statement_digest: Digest32,
 }
 
+/// Provider-derived fields that should be decoded from each raw page response.
+///
+/// Request metadata such as the request cursor, query identity, and local measurement
+/// window belongs to the extraction context, not necessarily to the response body. This
+/// projection therefore captures the response-bound snapshot identity, returned cursor
+/// state, and row count without asking a decoder to reconstruct caller-supplied context.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecodedExportPagePayload {
+    pub snapshot_id: ReferenceId,
+    pub next_cursor: PageNextCursor,
+    pub returned_rows: u64,
+}
+
 /// Evidence that every supplied raw page and coverage-statement byte slice hashes to
 /// its declared digest. This adds byte-identity evidence but does not authenticate the
 /// provider or prove that the semantic projection was derived from these bytes.
@@ -559,12 +572,13 @@ pub fn assess_export_completeness_with_raw_payloads(
 /// Decode raw source artifacts at the boundary where their exact bytes are available,
 /// then qualify the decoded projections against the manifest.
 ///
-/// The page decoder is called once per supplied page, in manifest order. Each decoded
-/// receipt must exactly equal the corresponding manifest receipt, including the digest
-/// of that raw page. The coverage decoder receives the exact statement bytes and its
-/// returned statement digest must equal SHA-256 of those bytes. This removes the need
-/// for callers to pass unrelated pre-decoded projections to this entry point, but it
-/// still trusts the supplied decoder implementations to interpret bytes correctly.
+/// The page decoder is called once per supplied page, in manifest order. Its decoded
+/// response projection must match the manifest receipt's source snapshot, returned
+/// cursor state, and returned-row count. Request context fields (request cursor, query,
+/// scope, schema, contract, and window) are not falsely treated as response-body fields.
+/// The coverage decoder receives the exact statement bytes and its returned statement
+/// digest must equal SHA-256 of those bytes. This still trusts decoder implementations
+/// to interpret the source bytes correctly.
 /// This function does not authenticate the provider or establish query semantics or
 /// real-world completeness.
 pub fn assess_export_completeness_from_raw_artifacts<DecodePage, DecodeCoverage>(
@@ -575,7 +589,7 @@ pub fn assess_export_completeness_from_raw_artifacts<DecodePage, DecodeCoverage>
     decode_coverage_statement: DecodeCoverage,
 ) -> Result<DecodedRawArtifactExport, ExportCompletenessError>
 where
-    DecodePage: FnMut(&[u8]) -> Option<ExportPageReceipt>,
+    DecodePage: FnMut(&[u8]) -> Option<DecodedExportPagePayload>,
     DecodeCoverage: FnOnce(&[u8]) -> Option<ProviderCoverageAttestation>,
 {
     if raw_page_payloads.len() != manifest.pages.len() {
@@ -594,7 +608,10 @@ where
                 page_ordinal: page.ordinal,
             },
         )?;
-        if &decoded != page {
+        if decoded.snapshot_id != page.snapshot_id
+            || decoded.next_cursor != page.next_cursor
+            || decoded.returned_rows != page.returned_rows
+        {
             return Err(ExportCompletenessError::RawPageProjectionMismatch {
                 page_ordinal: page.ordinal,
             });
@@ -765,6 +782,26 @@ mod tests {
         (manifest, attestation, page_payloads, statement)
     }
 
+    // Test decoder parses only provider-returned fields. Query, scope, request cursor,
+    // contract identity, and the local window remain extraction context.
+    fn decode_test_page(raw: &[u8]) -> Option<DecodedExportPagePayload> {
+        if raw == b"page-zero-payload" {
+            Some(DecodedExportPagePayload {
+                snapshot_id: ref_id("snapshot:2026-09"),
+                next_cursor: PageNextCursor::More(digest(4)),
+                returned_rows: 3,
+            })
+        } else if raw == b"page-one-payload" {
+            Some(DecodedExportPagePayload {
+                snapshot_id: ref_id("snapshot:2026-09"),
+                next_cursor: PageNextCursor::Terminal,
+                returned_rows: 2,
+            })
+        } else {
+            None
+        }
+    }
+
     #[test]
     fn raw_payload_assessment_accepts_exact_page_and_statement_bytes() {
         let (manifest, attestation, pages, statement) = raw_payload_fixture();
@@ -847,15 +884,7 @@ mod tests {
             &manifest,
             &pages,
             statement,
-            |raw| {
-                if raw == b"page-zero-payload" {
-                    Some(manifest.pages[0].clone())
-                } else if raw == b"page-one-payload" {
-                    Some(manifest.pages[1].clone())
-                } else {
-                    None
-                }
-            },
+            decode_test_page,
             |raw| {
                 if raw == statement {
                     Some(attestation.clone())
@@ -878,15 +907,7 @@ mod tests {
             &manifest,
             &pages,
             statement,
-            |raw| {
-                if raw == b"page-zero-payload" {
-                    Some(manifest.pages[0].clone())
-                } else if raw == b"page-one-payload" {
-                    Some(manifest.pages[1].clone())
-                } else {
-                    None
-                }
-            },
+            decode_test_page,
             |raw| {
                 if raw == statement {
                     Some(attestation.clone())
@@ -900,15 +921,7 @@ mod tests {
             &manifest,
             &pages,
             statement,
-            |raw| {
-                if raw == b"page-zero-payload" {
-                    Some(manifest.pages[0].clone())
-                } else if raw == b"page-one-payload" {
-                    Some(manifest.pages[1].clone())
-                } else {
-                    None
-                }
-            },
+            decode_test_page,
             |raw| {
                 if raw == statement {
                     Some(attestation.clone())
@@ -935,11 +948,67 @@ mod tests {
                 statement,
                 |raw| {
                     if raw == b"page-zero-payload" {
-                        Some(manifest.pages[0].clone())
+                        decode_test_page(raw)
                     } else if raw == b"page-one-payload" {
-                        let mut changed = manifest.pages[1].clone();
-                        changed.returned_rows += 1;
-                        Some(changed)
+                        Some(DecodedExportPagePayload {
+                            snapshot_id: ref_id("snapshot:2026-09"),
+                            next_cursor: PageNextCursor::Terminal,
+                            returned_rows: 3,
+                        })
+                    } else {
+                        None
+                    }
+                },
+                |_| Some(attestation.clone()),
+            ),
+            Err(ExportCompletenessError::RawPageProjectionMismatch { page_ordinal: 1 })
+        );
+    }
+
+    #[test]
+    fn raw_artifact_entry_point_rejects_decoded_snapshot_drift() {
+        let (manifest, attestation, pages, statement) = raw_payload_fixture();
+        assert_eq!(
+            assess_export_completeness_from_raw_artifacts(
+                &manifest,
+                &pages,
+                statement,
+                |raw| {
+                    if raw == b"page-zero-payload" {
+                        decode_test_page(raw)
+                    } else if raw == b"page-one-payload" {
+                        Some(DecodedExportPagePayload {
+                            snapshot_id: ref_id("snapshot:different"),
+                            next_cursor: PageNextCursor::Terminal,
+                            returned_rows: 2,
+                        })
+                    } else {
+                        None
+                    }
+                },
+                |_| Some(attestation.clone()),
+            ),
+            Err(ExportCompletenessError::RawPageProjectionMismatch { page_ordinal: 1 })
+        );
+    }
+
+    #[test]
+    fn raw_artifact_entry_point_rejects_decoded_cursor_drift() {
+        let (manifest, attestation, pages, statement) = raw_payload_fixture();
+        assert_eq!(
+            assess_export_completeness_from_raw_artifacts(
+                &manifest,
+                &pages,
+                statement,
+                |raw| {
+                    if raw == b"page-zero-payload" {
+                        decode_test_page(raw)
+                    } else if raw == b"page-one-payload" {
+                        Some(DecodedExportPagePayload {
+                            snapshot_id: ref_id("snapshot:2026-09"),
+                            next_cursor: PageNextCursor::More(digest(9)),
+                            returned_rows: 2,
+                        })
                     } else {
                         None
                     }
@@ -959,15 +1028,7 @@ mod tests {
                 &manifest,
                 &pages,
                 statement,
-                |raw| {
-                    if raw == b"page-zero-payload" {
-                        Some(manifest.pages[0].clone())
-                    } else if raw == b"page-one-payload" {
-                        Some(manifest.pages[1].clone())
-                    } else {
-                        None
-                    }
-                },
+                decode_test_page,
                 |_| Some(attestation.clone()),
             ),
             Err(ExportCompletenessError::DecodedCoverageStatementDigestMismatch)
@@ -992,15 +1053,7 @@ mod tests {
                 &manifest,
                 &pages,
                 statement,
-                |raw| {
-                    if raw == b"page-zero-payload" {
-                        Some(manifest.pages[0].clone())
-                    } else if raw == b"page-one-payload" {
-                        Some(manifest.pages[1].clone())
-                    } else {
-                        None
-                    }
-                },
+                decode_test_page,
                 |_| None,
             ),
             Err(ExportCompletenessError::RawCoverageStatementDecodeFailed)
