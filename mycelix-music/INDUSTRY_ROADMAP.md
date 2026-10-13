@@ -6,6 +6,8 @@
 
 **Evidence discipline:** This is a strategic vision and roadmap, not a claim that all listed features are shipped or commercially validated. Artist payout multiples, platform fees, settlement speed, privacy properties and resilience claims must be measured on a real pilot before they are advertised as outcomes. Streaming services do not share one universal per-stream rate; payout structures and rights-holder agreements differ. See [Industry Comparison and Evidence](docs/INDUSTRY_COMPARISON_AND_EVIDENCE.md) for the current benchmark and qualification gates.
 
+**Roadmap freshness:** As of 13 October 2026, Q1 and Q2 2026 milestones are historical. Their checkboxes are not qualification or deployment evidence. Reconfirm every completed item against a dated commit, reproducible build/test result, deployed environment or external partner receipt before carrying it forward.
+
 ---
 
 ## Industry problems we aim to address
@@ -158,7 +160,7 @@ dnas/mycelix-music/
 │   ↓                                              │
 │   Listener plays 5,000 tracks in this example   │
 │   ↓                                              │
-│   Configured example strategy allocates $0.01/play │
+│   Example: $0.01/play (illustrative only)          │
 │   ↓                                              │
 │   Artist requests cashout                       │
 │   ↓                                              │
