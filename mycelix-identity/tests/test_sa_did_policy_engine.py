@@ -180,5 +180,30 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
             self.assertFalse(report["dha_endpoint_contacted"])
 
 
+    def test_report_refuses_contract_drift_even_when_inputs_are_changed_to_match(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        vector = next(
+            item for item in mutated["test_vectors"]
+            if item["scenario"] == "synthetic_valid_reference"
+        )
+        vector["expected_disposition"] = "rejected"
+        vector["expected_reason"] = "authorization_scope_violation"
+        vector["policy_inputs"]["authorization_scope_valid"] = False
+        with self.assertRaisesRegex(ValueError, "profile contract validation failed"):
+            sa_did_policy_engine.build_report(mutated)
+
+    def test_report_refuses_profile_identity_drift(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["profile_id"] = "SA-DID-OTHER"
+        with self.assertRaisesRegex(ValueError, "profile contract validation failed"):
+            sa_did_policy_engine.build_report(mutated)
+
+    def test_report_cannot_claim_success_for_an_empty_vector_corpus(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["test_vectors"] = []
+        with self.assertRaisesRegex(ValueError, "profile contract validation failed"):
+            sa_did_policy_engine.build_report(mutated)
+
+
 if __name__ == "__main__":
     unittest.main()
