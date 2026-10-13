@@ -44,12 +44,20 @@ These are schema bounds, not safety or ergonomic acceptance criteria. The compat
 
 ## Integrity profile
 
-The compiler computes domain-separated BLAKE3 digests over typed serialized structures:
+The compiler computes domain-separated BLAKE3 digests over the explicitly specified `canonical-binary-v1` encoding:
 - `design_digest`: family/revision and configuration;
 - `cut_list_digest`: generated cut-part envelopes;
 - `packet_digest`: the complete packet core, including blockers and subordinate digests.
 
-The explicitly versioned `serde-json-struct-order-v1` profile promises deterministic serialization within the implemented schema/profile; it is not RFC 8785 canonical JSON and does not claim cross-language byte equivalence. A downstream verifier must implement this exact profile or introduce a separately versioned canonical encoding. Digests establish integrity/binding only, not truth, authorship, safety, or qualification.
+Encoding rules:
+- strings and collection counts use unsigned 64-bit big-endian lengths;
+- dimensions, quantities, and sequence numbers use unsigned 32-bit big-endian integers;
+- booleans use one byte, `0` or `1`;
+- enum values use explicit one-byte discriminants defined by the Rust encoder;
+- aggregate fields use the fixed order in each `encode_*` function;
+- each hash includes a BLAKE3 derive-key context, domain label, NUL separator, encoded byte length, and encoded bytes.
+
+This is a versioned binary protocol, not RFC 8785 canonical JSON. Cross-language verifiers must independently implement these exact rules and pass shared test vectors before relying on these digests. Any field-order, enum-discriminant, units, or encoding change requires a new protocol version. Digests establish integrity/binding only, not truth, authorship, safety, or qualification.
 
 ## Tests
 
