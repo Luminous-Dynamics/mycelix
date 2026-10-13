@@ -163,6 +163,27 @@ def main() -> int:
             if isinstance(target, str) and target:
                 supersedes_by_id[event_id] = target
 
+        # In a simple one-leg trace, a matching dispatch/receipt pair must preserve
+        # the same shipment route. Multi-leg semantics need an explicit leg identity
+        # before stronger assumptions can safely be made.
+        shipments: dict[str, list[dict]] = {}
+        for event in events:
+            shipment_ref = event.get("shipmentRef")
+            if event.get("eventType") in {"DISPATCHED", "RECEIVED"} and isinstance(shipment_ref, str):
+                shipments.setdefault(shipment_ref, []).append(event)
+        for shipment_ref, shipment_events in shipments.items():
+            dispatches = [event for event in shipment_events if event.get("eventType") == "DISPATCHED"]
+            receipts = [event for event in shipment_events if event.get("eventType") == "RECEIVED"]
+            if len(dispatches) == 1 and len(receipts) == 1:
+                dispatched = dispatches[0]
+                received = receipts[0]
+                dispatch_route = (dispatched.get("originSiteRef"), dispatched.get("destinationSiteRef"))
+                receipt_route = (received.get("originSiteRef"), received.get("destinationSiteRef"))
+                if dispatch_route != receipt_route:
+                    errors.append(
+                        f"shipmentRef {shipment_ref!r} has mismatched dispatch/receipt routes"
+                    )
+
         state: dict[str, int] = {}
 
         def visit(event_id: str) -> None:
@@ -324,6 +345,7 @@ def main() -> int:
     invalid("forecast horizon must be ordered and not predate issuance", bad)
 
     dispatch = copy.deepcopy(example)
+    dispatch["eventId"] = "urn:mycelix:food-event:producer-01:eggs-lot-20261012:dispatched-001"
     dispatch["eventType"] = "DISPATCHED"
     dispatch["shipmentRef"] = "urn:mycelix:shipment:run-20261012-01"
     dispatch["originSiteRef"] = dispatch["siteRef"]
@@ -346,6 +368,12 @@ def main() -> int:
     received["destinationSiteRef"] = "urn:mycelix:site:cooperative-hub-01"
     received["siteRef"] = received["destinationSiteRef"]
     valid("receipt binds shipment and agrees with destination site", received)
+    valid_batch("matching dispatch and receipt preserve one shipment route", [dispatch, received])
+
+    bad_receipt_route = copy.deepcopy(received)
+    bad_receipt_route["originSiteRef"] = "urn:mycelix:site:unexpected-origin"
+    invalid_batch("dispatch and receipt for one simple shipment must agree on route",
+                  [dispatch, bad_receipt_route])
 
     bad = copy.deepcopy(received)
     bad["siteRef"] = "urn:mycelix:site:unrelated-location"
