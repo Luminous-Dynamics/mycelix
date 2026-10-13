@@ -391,16 +391,34 @@ pub fn mahalanobis_distance(
     cov1: &CovarianceMatrix,
     cov2: &CovarianceMatrix,
 ) -> Option<f64> {
-    // Delta and both covariances must use the same coordinate frame. The
-    // vector frame cannot be checked from this API, but mixed covariance frames
-    // must not be silently combined.
-    if cov1.frame != cov2.frame {
+    // Fail closed before attempting inversion: callers of this public helper
+    // must not get a distance from a malformed covariance or non-finite state.
+    // The vector frame cannot be checked from this API, but mixed covariance
+    // frames must not be silently combined.
+    if !delta.iter().all(|value| value.is_finite())
+        || !cov1.is_valid()
+        || !cov2.is_valid()
+        || cov1.frame != cov2.frame
+    {
         return None;
     }
+
     let combined_cov = cov1.matrix() + cov2.matrix();
+    if !combined_cov.iter().all(|value| value.is_finite()) {
+        return None;
+    }
     let inv = combined_cov.try_inverse()?;
-    let d_squared = delta.transpose() * inv * delta;
-    Some(d_squared[(0, 0)].sqrt())
+    if !inv.iter().all(|value| value.is_finite()) {
+        return None;
+    }
+
+    let d_squared = (delta.transpose() * inv * delta)[(0, 0)];
+    // Avoid returning Some(NaN), Some(infinity), or a plausible-looking
+    // distance derived from a negative quadratic form due to invalid numerics.
+    if !d_squared.is_finite() || d_squared < 0.0 {
+        return None;
+    }
+    Some(d_squared.sqrt())
 }
 
 #[cfg(test)]
@@ -441,6 +459,34 @@ mod tests {
         teme.frame = CovarianceFrame::TEME;
 
         assert!(mahalanobis_distance(&delta, &eci, &teme).is_none());
+    }
+
+    #[test]
+    fn mahalanobis_distance_rejects_invalid_covariance() {
+        let mut matrix = Matrix6::identity();
+        matrix[(5, 5)] = -1e-11;
+        let invalid = CovarianceMatrix::from_matrix(matrix);
+        let valid = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+
+        assert!(mahalanobis_distance(&Vector6::zeros(), &invalid, &valid).is_none());
+    }
+
+    #[test]
+    fn mahalanobis_distance_rejects_non_finite_delta() {
+        let mut delta = Vector6::zeros();
+        delta[0] = f64::NAN;
+        let covariance = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+
+        assert!(mahalanobis_distance(&delta, &covariance, &covariance).is_none());
+    }
+
+    #[test]
+    fn mahalanobis_distance_rejects_non_finite_quadratic_form() {
+        let mut delta = Vector6::zeros();
+        delta[0] = f64::MAX;
+        let covariance = CovarianceMatrix::diagonal([1.0, 1.0, 1.0, 0.1, 0.1, 0.1]);
+
+        assert!(mahalanobis_distance(&delta, &covariance, &covariance).is_none());
     }
 
     fn make_serialized_matrix_asymmetric(value: &mut serde_json::Value) -> bool {
