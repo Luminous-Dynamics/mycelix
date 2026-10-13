@@ -111,7 +111,7 @@ def evaluate_synthetic_vector(vector: Any) -> tuple[str, str]:
     if evidence["time_state"] == "expired":
         return _decision("rejected", "credential_expired")
     if evidence["time_state"] == "unknown":
-        return _decision("indeterminate", "status_unknown")
+        return _decision("indeterminate", "credential_time_unknown")
 
     status_outcomes = {
         "revoked": ("rejected", "credential_revoked"),
