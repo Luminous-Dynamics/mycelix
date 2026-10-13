@@ -663,11 +663,35 @@ mod tests {
                 end_unix_ms: 6_000,
             },
             registered_at_unix_ms: 1_000,
-            planned_slot_ids: BTreeSet::from([
-                ref_id("slot:one"),
-                ref_id("slot:two"),
-                ref_id("slot:three"),
-                ref_id("slot:four"),
+            planned_slots: BTreeMap::from([
+                (
+                    ref_id("slot:one"),
+                    PlannedWasteSlot {
+                        target_at_unix_ms: 3_000,
+                        category: ref_id("waste:prep"),
+                    },
+                ),
+                (
+                    ref_id("slot:two"),
+                    PlannedWasteSlot {
+                        target_at_unix_ms: 3_500,
+                        category: ref_id("waste:prep"),
+                    },
+                ),
+                (
+                    ref_id("slot:three"),
+                    PlannedWasteSlot {
+                        target_at_unix_ms: 4_000,
+                        category: ref_id("waste:unsold"),
+                    },
+                ),
+                (
+                    ref_id("slot:four"),
+                    PlannedWasteSlot {
+                        target_at_unix_ms: 5_000,
+                        category: ref_id("waste:other"),
+                    },
+                ),
             ]),
             minimum_planned_slots: 4,
             maximum_missing_bps: 2_500,
@@ -678,7 +702,13 @@ mod tests {
         }
     }
 
-    fn weighed(slot: &str, measurement: &str, gross: u64, tare: u64) -> WasteSlotOutcome {
+    fn weighed(
+        slot: &str,
+        measurement: &str,
+        gross: u64,
+        tare: u64,
+        target_at_unix_ms: u64,
+    ) -> WasteSlotOutcome {
         WasteSlotOutcome::Measured(WasteMeasurementRecord {
             measurement_id: ref_id(measurement),
             slot_id: ref_id(slot),
@@ -686,8 +716,8 @@ mod tests {
             scope: scope("scope:restaurant:one"),
             category: ref_id("waste:prep"),
             reason: ref_id("reason:trim"),
-            target_at_unix_ms: 3_000,
-            observed_at_unix_ms: Some(3_000),
+            target_at_unix_ms,
+            observed_at_unix_ms: Some(target_at_unix_ms),
             recorded_at_unix_ms: 3_100,
             record_evidence_digest: digest(2),
             mass: MassEvidence::DirectWeighing {
@@ -703,8 +733,8 @@ mod tests {
 
     fn outcomes() -> Vec<WasteSlotOutcome> {
         vec![
-            weighed("slot:one", "measurement:one", 1_500, 500),
-            weighed("slot:two", "measurement:two", 1_800, 600),
+            weighed("slot:one", "measurement:one", 1_500, 500, 3_000),
+            weighed("slot:two", "measurement:two", 1_800, 600, 3_500),
             WasteSlotOutcome::Measured(WasteMeasurementRecord {
                 measurement_id: ref_id("measurement:three"),
                 slot_id: ref_id("slot:three"),
@@ -825,7 +855,7 @@ mod tests {
     #[test]
     fn rejects_direct_weighing_gross_below_tare() {
         let mut values = outcomes();
-        values[0] = weighed("slot:one", "measurement:one", 400, 500);
+        values[0] = weighed("slot:one", "measurement:one", 400, 500, 3_000);
         assert_eq!(
             assess_waste_measurement_coverage(&protocol(), &values, 7_000),
             Err(WasteMeasurementError::GrossBelowTare)
