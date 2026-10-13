@@ -12,8 +12,9 @@
 use hdk::prelude::*;
 use mycelix_space_shared::{
     DataSourceType, QualityScore, SpaceError, SpaceErrorCode, SpaceTimestamp, StalenessConfig,
-    TleWithMetadata, compute_staleness, gate_space_operation, requirement_for_negotiation,
-    requirement_for_tle_submission,
+    TleWithMetadata, compute_staleness, gate_space_operation,
+    requirement_for_negotiation, requirement_for_tle_submission, staleness_quality_is_acceptable,
+    validate_staleness_config,
 };
 use orbital_mechanics::tle::TwoLineElement;
 use orbital_objects_integrity::*;
@@ -317,6 +318,8 @@ pub struct GetTlesWithMetadataInput {
 pub fn get_tles_with_metadata(
     input: GetTlesWithMetadataInput,
 ) -> ExternResult<Vec<TleWithMetadata>> {
+    validate_staleness_config(&input.staleness_config).map_err(|error| error.into_wasm_error())?;
+
     if input.norad_ids.is_empty() {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidInput,
@@ -363,9 +366,12 @@ pub fn get_tles_with_metadata(
 
     Ok(latest
         .into_values()
-        .map(|tle| {
+        .filter_map(|tle| {
             let staleness = compute_staleness(&tle.epoch, &tle.quality, &input.staleness_config);
-            TleWithMetadata {
+            if !staleness_quality_is_acceptable(&staleness, &input.staleness_config) {
+                return None;
+            }
+            Some(TleWithMetadata {
                 norad_id: tle.norad_id,
                 line1: tle.line1,
                 line2: tle.line2,
@@ -374,7 +380,7 @@ pub fn get_tles_with_metadata(
                 source: tle.source,
                 submitted_at: tle.submitted_at,
                 staleness,
-            }
+            })
         })
         .collect())
 }
