@@ -3,6 +3,7 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
 use crate::app::PlayerState;
+use crate::delivery::next_candidate_index;
 use leptos::prelude::*;
 
 /// Persistent audio player bar at the bottom of the screen.
@@ -93,9 +94,11 @@ pub fn Player() -> impl IntoView {
                         let delivery_failed = delivery_failed;
                         let is_playing = is_playing;
                         move |_| {
-                            let next_index = source_index.get_untracked().saturating_add(1);
                             if let Some(current_song) = current.get_untracked() {
-                                if next_index < current_song.audio_source_count() {
+                                if let Some(next_index) = next_candidate_index(
+                                    source_index.get_untracked(),
+                                    current_song.audio_source_count(),
+                                ) {
                                     source_index.set(next_index);
                                 } else {
                                     delivery_failed.set(true);
@@ -128,7 +131,7 @@ pub fn Player() -> impl IntoView {
                         </div>
                         <audio
                             node_ref=audio_ref
-                            prop:src=move || song_for_src.audio_url_at(source_index.get()).unwrap_or_default()
+                            prop:src=move || song_for_src.audio_url_at(source_index.get()).unwrap_or_else(|| "about:blank".to_string())
                             prop:volume=move || volume.get()
                             preload="metadata"
                             on:canplay=start_when_ready
