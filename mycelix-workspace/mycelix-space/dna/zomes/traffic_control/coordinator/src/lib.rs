@@ -477,11 +477,17 @@ fn orbital_basis(
         return Err("Position and velocity do not define a stable orbital plane");
     }
 
-    Ok((
-        position / radius,
-        velocity / speed,
-        angular_momentum / angular_momentum_norm,
-    ))
+    let radial = position / radius;
+    let normal = angular_momentum / angular_momentum_norm;
+    // Prograde is the in-plane transverse direction, not the full velocity
+    // direction: eccentric orbits can have a nonzero radial velocity component.
+    let transverse = normal.cross(&radial);
+    let transverse_norm = transverse.norm();
+    if !transverse_norm.is_finite() || transverse_norm <= 1e-10 {
+        return Err("Position and velocity do not define a stable transverse direction");
+    }
+
+    Ok((radial, transverse / transverse_norm, normal))
 }
 
 /// Ensure an agreement's execution deadline remains within the negotiation
@@ -1679,23 +1685,11 @@ pub fn generate_avoidance_from_fusion(
             micros: burn_epoch_micros,
         };
 
-        // Orbital frame at primary position
-        let r_mag = r_primary.norm();
-        let r_hat = r_primary / r_mag;
-        let v_norm = v_primary.norm();
-        let prograde = if v_norm > 1e-10 {
-            v_primary / v_norm
-        } else {
-            r_hat
-        };
-        let normal = r_primary.cross(&v_primary);
-        let n_mag = normal.norm();
-        let normal = if n_mag > 1e-10 {
-            normal / n_mag
-        } else {
-            nalgebra::Vector3::new(0.0, 0.0, 1.0)
-        };
-        let radial = r_hat;
+        // Share the same checked orthonormal orbital basis used by the TLE path.
+        // Never substitute arbitrary axes for invalid fused-state geometry.
+        let (radial, prograde, normal) = orbital_basis(&r_primary, &v_primary).map_err(|message| {
+            SpaceError::new(SpaceErrorCode::InvalidInput, message).into_wasm_error()
+        })?;
 
         let directions = [
             ("prograde", prograde * displacement_km),
@@ -3032,6 +3026,25 @@ mod orbital_basis_tests {
         assert!(radial.dot(&prograde).abs() < 1e-12);
         assert!(radial.dot(&normal).abs() < 1e-12);
         assert!(prograde.dot(&normal).abs() < 1e-12);
+    }
+
+    #[test]
+    fn prograde_is_transverse_when_state_has_radial_velocity() {
+        let position = nalgebra::Vector3::new(7_000.0, 0.0, 0.0);
+        // A non-circular/elliptic state includes radial velocity. The full
+        // velocity direction is therefore not the prograde transverse axis.
+        let velocity = nalgebra::Vector3::new(1.25, 7.5, 0.0);
+        let (radial, prograde, normal) = orbital_basis(&position, &velocity).expect("valid basis");
+
+        assert!(velocity.dot(&radial).abs() > 1.0);
+        assert!(radial.dot(&prograde).abs() < 1e-12);
+        assert!(radial.dot(&normal).abs() < 1e-12);
+        assert!(prograde.dot(&normal).abs() < 1e-12);
+
+        let transverse_velocity = velocity - radial * velocity.dot(&radial);
+        let expected_prograde = transverse_velocity.normalize();
+        assert!((prograde - expected_prograde).norm() < 1e-12);
+        assert!((prograde.norm() - 1.0).abs() < 1e-12);
     }
 
     #[test]
