@@ -993,7 +993,8 @@ pub fn screen_conjunction_from_tles(
     // secondary object. A shorter result vector has no completeness marker, so
     // skipping an input here could masquerade as a complete screening.
     let mut secondary_props: Vec<(u32, Propagator)> = Vec::new();
-    let mut seen_secondary_ids = std::collections::HashSet::with_capacity(input.secondary_tles.len());
+    let mut seen_secondary_ids =
+        std::collections::HashSet::with_capacity(input.secondary_tles.len());
     for (index, (line1, line2)) in input.secondary_tles.iter().enumerate() {
         let tle = TwoLineElement::parse_lines(None, line1, line2).map_err(|error| {
             SpaceError::new(
@@ -1241,7 +1242,10 @@ mod screening_parameter_tests {
 }
 
 /// Reject self-conjunctions and repeated target IDs before performing cross-zome I/O.
-fn validate_requested_secondary_ids(primary_norad_id: u32, secondary_norad_ids: &[u32]) -> ExternResult<()> {
+fn validate_requested_secondary_ids(
+    primary_norad_id: u32,
+    secondary_norad_ids: &[u32],
+) -> ExternResult<()> {
     if secondary_norad_ids.len() > 100 {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidInput,
@@ -1317,7 +1321,9 @@ mod screening_target_tests {
             (40001_u32, "tle-40001"),
             (40002_u32, "tle-40002"),
         ]);
-        assert!(require_secondary_items(&[40001, 40003], |id| available.get(&id).copied()).is_err());
+        assert!(
+            require_secondary_items(&[40001, 40003], |id| available.get(&id).copied()).is_err()
+        );
     }
 
     #[test]
@@ -1326,8 +1332,9 @@ mod screening_target_tests {
             (40001_u32, "tle-40001"),
             (40002_u32, "tle-40002"),
         ]);
-        let resolved = require_secondary_items(&[40002, 40001], |id| available.get(&id).copied())
-            .expect("all requested targets should resolve");
+        let resolved =
+            require_secondary_items(&[40002, 40001], |id| available.get(&id).copied())
+                .expect("all requested targets should resolve");
         assert_eq!(resolved, vec!["tle-40002", "tle-40001"]);
     }
 }
