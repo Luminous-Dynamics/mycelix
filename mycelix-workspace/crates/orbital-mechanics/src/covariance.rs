@@ -196,37 +196,94 @@ impl CovarianceMatrix {
 
     /// Check whether the matrix is finite, symmetric and positive semidefinite.
     ///
-    /// This is a mathematical structure check only; it does not authenticate the
-    /// source, establish covariance realism, or calibrate orbital uncertainty.
+    /// The PSD check is performed on a dimensionless correlation-normalized
+    /// matrix so position and velocity covariance scales do not mask a defective
+    /// low-variance axis. This is a structural check only; it does not authenticate
+    /// the source, establish covariance realism, or calibrate orbital uncertainty.
     pub fn is_valid(&self) -> bool {
         if !self.data.iter().all(|value| value.is_finite()) {
             return false;
         }
 
         // Deserialization can bypass constructors that symmetrize their input.
-        // Reject materially asymmetric matrices before passing them to a symmetric
-        // eigensolver, and reject norm overflow even when individual entries are finite.
-        let scale = self.data.norm();
-        let asymmetry = (self.data - self.data.transpose()).norm();
-        if !scale.is_finite() || !asymmetry.is_finite() {
-            return false;
-        }
-        if asymmetry > 1e-12 * scale.max(1.0) {
-            return false;
-        }
-
-        // A variance is a diagonal covariance entry; it cannot be negative.
-        // Check this directly instead of allowing the absolute eigenvalue
-        // tolerance below to admit a small negative variance as "round-off".
-        if (0..6).any(|index| self.data[(index, index)] < 0.0) {
-            return false;
+        // Negative diagonal entries are invalid variances and are never excused
+        // by a numerical tolerance.
+        let mut standard_deviations = [0.0_f64; 6];
+        for (index, sigma) in standard_deviations.iter_mut().enumerate() {
+            let variance = self.data[(index, index)];
+            if variance < 0.0 {
+                return false;
+            }
+            *sigma = variance.sqrt();
         }
 
-        let eigen = SymmetricEigen::new(self.data);
+        // Check symmetry relative to each pair's own covariance scale. A single
+        // matrix-wide absolute floor can hide asymmetry in the smaller-valued
+        // velocity block when position variances dominate the numeric norm.
+        for i in 0..6 {
+            for j in (i + 1)..6 {
+                let upper = self.data[(i, j)];
+                let lower = self.data[(j, i)];
+                let pair_scale = upper
+                    .abs()
+                    .max(lower.abs())
+                    .max(standard_deviations[i] * standard_deviations[j]);
+                let difference = (upper - lower).abs();
+                if !difference.is_finite() || difference > 1e-12 * pair_scale {
+                    return false;
+                }
+            }
+        }
+
+        // A zero-variance axis in a PSD covariance must have zero covariance
+        // with every other axis. Reject any contradictory cross term explicitly.
+        for i in 0..6 {
+            if standard_deviations[i] == 0.0
+                && (0..6).any(|j| self.data[(i, j)] != 0.0 || self.data[(j, i)] != 0.0)
+            {
+                return false;
+            }
+        }
+
+        // Normalize by per-axis standard deviations before checking eigenvalues.
+        // This produces a dimensionless correlation matrix whose scale is not
+        // determined by the arbitrary numeric units of position vs velocity.
+        let mut correlation = Matrix6::zeros();
+        for i in 0..6 {
+            if standard_deviations[i] > 0.0 {
+                correlation[(i, i)] = 1.0;
+            }
+            for j in (i + 1)..6 {
+                if standard_deviations[i] == 0.0 || standard_deviations[j] == 0.0 {
+                    continue;
+                }
+                let upper = (self.data[(i, j)] / standard_deviations[i])
+                    / standard_deviations[j];
+                let lower = (self.data[(j, i)] / standard_deviations[j])
+                    / standard_deviations[i];
+                if !upper.is_finite() || !lower.is_finite() {
+                    return false;
+                }
+                let normalized = upper * 0.5 + lower * 0.5;
+                correlation[(i, j)] = normalized;
+                correlation[(j, i)] = normalized;
+            }
+        }
+
+        let eigen = SymmetricEigen::new(correlation);
+        let eigen_scale = eigen
+            .eigenvalues
+            .iter()
+            .map(|value| value.abs())
+            .fold(0.0_f64, f64::max);
+        if !eigen_scale.is_finite() {
+            return false;
+        }
+        let eigenvalue_tolerance = 64.0 * f64::EPSILON * eigen_scale;
         eigen
             .eigenvalues
             .iter()
-            .all(|&value| value.is_finite() && value >= -1e-10)
+            .all(|&value| value.is_finite() && value >= -eigenvalue_tolerance)
     }
 
     /// Scale covariance (e.g., for k-sigma calculations)
@@ -446,6 +503,18 @@ mod tests {
     fn negative_diagonal_variance_is_invalid_even_below_legacy_tolerance() {
         let mut matrix = Matrix6::identity();
         matrix[(5, 5)] = -1e-11;
+        let covariance = CovarianceMatrix::from_matrix(matrix);
+        assert!(!covariance.is_valid());
+    }
+
+    #[test]
+    fn indefinite_covariance_is_rejected_even_below_legacy_absolute_tolerance() {
+        let mut matrix = Matrix6::identity();
+        // The diagonal remains positive, but this 2x2 principal block has a
+        // negative eigenvalue of roughly -1e-11. The old absolute -1e-10
+        // tolerance incorrectly accepted it.
+        matrix[(0, 1)] = 1.0 + 1e-11;
+        matrix[(1, 0)] = 1.0 + 1e-11;
         let covariance = CovarianceMatrix::from_matrix(matrix);
         assert!(!covariance.is_valid());
     }
