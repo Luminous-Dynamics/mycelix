@@ -113,7 +113,7 @@ pub const TLE_STALE_THRESHOLD_SECS: i64 = 30 * 24 * 3600;
 pub struct StalenessConfig {
     /// Seconds after which a TLE is considered stale (default: 30 days)
     pub stale_threshold_secs: i64,
-    /// Quality score below which a TLE is rejected (default: 20)
+    /// Minimum age-degraded quality score below which metadata retrieval omits a TLE (default: 20).
     pub min_quality: u8,
 }
 
