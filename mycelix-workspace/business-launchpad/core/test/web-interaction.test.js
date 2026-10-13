@@ -7,8 +7,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { webcrypto } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+globalThis.crypto ??= webcrypto;
 
 class MockElement {
   constructor(tag = 'div', id = '') {
@@ -60,6 +62,7 @@ class MockDocument {
       'fixed-monthly', 'setup-costs', 'working-capital', 'available-cash',
       'cost-coverage', 'omitted-costs', 'download-scenario', 'load-scenario-file', 'download-report',
       'cash-runway-periods', 'reset-cash-runway',
+      'actuals-forecast-start-month', 'load-actuals-file', 'download-actuals-template', 'download-variance-report', 'actuals-status', 'actuals-error', 'actuals-result',
       'downside-receipt-reduction-percent', 'downside-receipt-delay-months',
       'downside-operating-cost-increase-percent', 'upside-receipt-increase-percent',
       'upside-receipt-advance-months', 'upside-operating-cost-reduction-percent',
@@ -147,9 +150,22 @@ class MockDocument {
       'timing-sales-receipts-month-0': '70',
       'timing-sales-receipts-month-1': '25',
       'timing-sales-receipts-month-2': '5',
-      'timing-supplier-payments-month-0': '80',
-      'timing-supplier-payments-month-1': '15',
-      'timing-supplier-payments-month-2': '5'
+      'timing-cost-category-1-label': 'Materials / components',
+      'timing-cost-category-1-share': '60',
+      'timing-cost-category-1-month-0': '80',
+      'timing-cost-category-1-month-1': '15',
+      'timing-cost-category-1-month-2': '5',
+      'timing-cost-category-2-label': 'Direct labor / subcontractors',
+      'timing-cost-category-2-share': '25',
+      'timing-cost-category-2-month-0': '100',
+      'timing-cost-category-2-month-1': '0',
+      'timing-cost-category-2-month-2': '0',
+      'timing-cost-category-3-label': 'Fulfillment / other variable costs',
+      'timing-cost-category-3-share': '15',
+      'timing-cost-category-3-month-0': '70',
+      'timing-cost-category-3-month-1': '25',
+      'timing-cost-category-3-month-2': '5',
+      'actuals-forecast-start-month': '2026-01'
     };
     for (const [id, value] of Object.entries(values)) this.nodes.get(id).value = value;
     this.nodes.get('input-error').hidden = true;
@@ -160,6 +176,13 @@ class MockDocument {
     this.nodes.get('load-scenario-file').value = '';
     this.nodes.get('load-scenario-file').files = [];
     this.nodes.get('download-report').disabled = true;
+    this.nodes.get('download-variance-report').disabled = true;
+    this.nodes.get('load-actuals-file').value = '';
+    this.nodes.get('load-actuals-file').files = [];
+    this.nodes.get('actuals-status').textContent = 'Calculate the current plan before importing actuals.';
+    this.nodes.get('actuals-error').hidden = true;
+    this.nodes.get('actuals-error').textContent = '';
+    this.nodes.get('actuals-result').replaceChildren();
     for (let month = 1; month <= 12; month += 1) {
       const units = month === 1 ? 25 : month === 2 ? 38 : 50;
       this.getElementById('cash-month-' + month + '-sales').value = String(units);
@@ -690,6 +713,80 @@ test('custom file picker has an associated label and a high-contrast keyboard fo
   };
   assert.ok(contrast(focusColor, '#ffffff') >= 3, 'focus ring should contrast with white panels at 3:1 or higher');
   assert.ok(contrast(focusColor, '#f5f7f4') >= 3, 'focus ring should contrast with the page background at 3:1 or higher');
+});
+
+
+test('reconciled actuals import produces a hash-bound portable variance evidence bundle', async () => {
+  documentMock.reset();
+  documentMock.submit();
+  const source = {
+    schemaVersion: 1,
+    kind: 'business-launchpad-actuals-source',
+    currency: { code: 'ZAR', minorUnitExponent: 2 },
+    source: {
+      type: 'bank_statement_export',
+      label: 'Synthetic two-month bank export fixture',
+      evidenceReference: 'fixture-statement-2026-01-02',
+      coverageStartDate: '2026-01-01',
+      coverageEndDate: '2026-02-28',
+      completeMonthlyCoverage: true,
+      openingCashBalanceMinor: 350000,
+      closingCashBalanceMinor: 900000
+    },
+    transactions: [
+      { transactionId: 'a-001', date: '2026-01-10', currencyCode: 'ZAR', category: 'sales_receipt', amountMinor: 400000, sourceReference: 'line 1' },
+      { transactionId: 'a-002', date: '2026-01-15', currencyCode: 'ZAR', category: 'operating_outflow', amountMinor: 250000, sourceReference: 'line 2' },
+      { transactionId: 'a-003', date: '2026-02-10', currencyCode: 'ZAR', category: 'sales_receipt', amountMinor: 700000, sourceReference: 'line 3' },
+      { transactionId: 'a-004', date: '2026-02-15', currencyCode: 'ZAR', category: 'operating_outflow', amountMinor: 300000, sourceReference: 'line 4' }
+    ]
+  };
+  const raw = JSON.stringify(source, null, 2) + '\n';
+  const buffer = new TextEncoder().encode(raw).buffer;
+  const fileInput = documentMock.getElementById('load-actuals-file');
+  fileInput.files = [{ size: buffer.byteLength, arrayBuffer: async () => buffer }];
+  fileInput.value = 'actuals-source.json';
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+
+  assert.equal(fileInput.value, '');
+  assert.equal(documentMock.getElementById('actuals-error').hidden, true);
+  assert.equal(documentMock.getElementById('actuals-status').textContent, 'Actuals compared — source balances reconcile');
+  assert.match(documentMock.getElementById('actuals-result').textContent, /2026-01/);
+  assert.match(documentMock.getElementById('actuals-result').textContent, /SHA-256/);
+  assert.equal(documentMock.getElementById('download-variance-report').disabled, false);
+
+  documentMock.getElementById('download-variance-report').dispatchEvent({ type: 'click' });
+  const bundle = JSON.parse(await capturedBlob.text());
+  assert.equal(bundle.kind, 'business-launchpad-actuals-variance-report-bundle');
+  assert.equal(bundle.comparison.reconciliation.status, 'passed');
+  assert.equal(bundle.comparison.periods[0].month, '2026-01');
+  assert.equal(bundle.comparison.source.sha256, bundle.sourceArtifactSha256);
+  assert.deepEqual(JSON.parse(bundle.sourceArtifactRawText), source);
+  const digest = await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(bundle.sourceArtifactRawText));
+  const hex = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+  assert.equal(hex, bundle.sourceArtifactSha256);
+});
+
+test('failed actuals reconciliation disables its report download and keeps the business report separate', async () => {
+  documentMock.reset();
+  documentMock.submit();
+  const source = {
+    schemaVersion: 1, kind: 'business-launchpad-actuals-source',
+    currency: { code: 'ZAR', minorUnitExponent: 2 },
+    source: {
+      type: 'bank_statement_export', label: 'Synthetic mismatch fixture', evidenceReference: 'fixture mismatch',
+      coverageStartDate: '2026-01-01', coverageEndDate: '2026-01-31', completeMonthlyCoverage: true,
+      openingCashBalanceMinor: 350000, closingCashBalanceMinor: 350001
+    },
+    transactions: []
+  };
+  const buffer = new TextEncoder().encode(JSON.stringify(source)).buffer;
+  const fileInput = documentMock.getElementById('load-actuals-file');
+  fileInput.files = [{ size: buffer.byteLength, arrayBuffer: async () => buffer }];
+  await fileInput.listeners.get('change')[0]({ target: fileInput });
+  assert.equal(documentMock.getElementById('actuals-error').hidden, false);
+  assert.match(documentMock.getElementById('actuals-error').textContent, /do not reconcile/);
+  assert.equal(documentMock.getElementById('download-variance-report').disabled, true);
+  assert.equal(documentMock.getElementById('download-report').disabled, false);
 });
 
 test('rejects oversized amount and sales-quantity text before numeric conversion', () => {
