@@ -78,16 +78,32 @@ impl TrustedHttpsGatewayOrigin {
             return Err(DeliveryPlanError::InvalidGatewayOrigin);
         };
 
+        let mut authority_parts = authority.split(':');
+        let host = authority_parts.next().unwrap_or_default();
+        let port = authority_parts.next();
+        let has_extra_port_separator = authority_parts.next().is_some();
+        let valid_host = !host.is_empty()
+            && host.len() <= 253
+            && host.split('.').all(|label| {
+                !label.is_empty()
+                    && label.len() <= 63
+                    && label.as_bytes().first().is_some_and(u8::is_ascii_alphanumeric)
+                    && label.as_bytes().last().is_some_and(u8::is_ascii_alphanumeric)
+                    && label
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+            });
+        let valid_port = port.is_none_or(|value| {
+            !value.is_empty()
+                && value.bytes().all(|byte| byte.is_ascii_digit())
+                && value.parse::<u16>().is_ok_and(|number| number > 0)
+        });
+
         if authority.is_empty()
-            || authority.len() > 253
             || authority.chars().any(|ch| matches!(ch, '/' | '?' | '#' | '@' | '\\' | '%'))
-            || authority.contains("..")
-            || authority.starts_with('.')
-            || authority.ends_with('.')
-            || !authority.bytes().all(|byte| {
-                byte.is_ascii_alphanumeric()
-                    || matches!(byte, b'.' | b'-' | b':' | b'[' | b']')
-            })
+            || has_extra_port_separator
+            || !valid_host
+            || !valid_port
         {
             return Err(DeliveryPlanError::InvalidGatewayOrigin);
         }
@@ -314,6 +330,12 @@ mod tests {
             "https://media.example.org?token=x",
             "https://media.example.org#fragment",
             "https://media.example.org/%2f",
+            "https://-invalid.example.org",
+            "https://media..example.org",
+            "https://media.example.org:abc",
+            "https://media.example.org:0",
+            "https://media.example.org:65536",
+            "https://[::1]:8080",
             "",
         ] {
             assert_eq!(
