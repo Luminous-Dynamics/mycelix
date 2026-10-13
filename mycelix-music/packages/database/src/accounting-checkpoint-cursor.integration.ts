@@ -12,6 +12,34 @@ async function insertCheckpoint(
   prisma: PrismaClient,
   input: { id: string; root: string; asOf: string; observedThrough: string; highWaterMark: string },
 ): Promise<void> {
+async function insertCursor(
+  prisma: PrismaClient,
+  input: {
+    id: string;
+    root: string;
+    asOf: string;
+    observedThrough: string;
+    highWaterMark: string;
+    revision: number;
+  },
+): Promise<void> {
+  await prisma.$executeRawUnsafe(
+    'INSERT INTO "SettlementAllocationLineageCheckpointCursor" ' +
+    '("sourceRef", "sourceInstanceId", "batchId", "checkpointId", "checkpointRoot", "asOf", ' +
+    '"observedThrough", "highWaterMark", "revision", "updatedAt") ' +
+    'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())',
+    sourceRef,
+    sourceInstanceId,
+    batchId,
+    input.id,
+    input.root,
+    input.asOf,
+    input.observedThrough,
+    input.highWaterMark,
+    input.revision,
+  );
+}
+
   await prisma.$executeRawUnsafe(
     'INSERT INTO "SettlementAllocationLineageCheckpointRecord" ' +
     '("checkpointId", "sourceRef", "sourceInstanceId", "batchId", "asOf", "observedThrough", ' +
@@ -58,19 +86,39 @@ test('PostgreSQL keeps checkpoint evidence append-only and rejects cursor rollba
       highWaterMark: '10',
     };
     await insertCheckpoint(prisma, first);
-    await prisma.$executeRawUnsafe(
-      'INSERT INTO "SettlementAllocationLineageCheckpointCursor" ' +
-      '("sourceRef", "sourceInstanceId", "batchId", "checkpointId", "checkpointRoot", "asOf", ' +
-      '"observedThrough", "highWaterMark", "revision", "updatedAt") ' +
-      'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, NOW())',
-      sourceRef,
-      sourceInstanceId,
-      batchId,
-      first.id,
-      first.root,
-      first.asOf,
-      first.observedThrough,
-      first.highWaterMark,
+
+    await assert.rejects(
+      insertCursor(prisma, { ...first, revision: 2 }),
+      /initial settlement allocation checkpoint cursor revision must equal 1/,
+    );
+    await assert.rejects(
+      insertCursor(prisma, {
+        ...first,
+        id: 'checkpoint:sql:missing-evidence',
+        root: root('9'),
+        revision: 1,
+      }),
+      /cursor must reference exact immutable evidence/,
+    );
+    await assert.rejects(
+      insertCursor(prisma, {
+        ...first,
+        id: 'checkpoint:sql:forged-identity',
+        revision: 1,
+      }),
+      /cursor must reference exact immutable evidence/,
+    );
+
+    await insertCursor(prisma, { ...first, revision: 1 });
+    await assert.rejects(
+      prisma.$executeRawUnsafe(
+        'UPDATE "SettlementAllocationLineageCheckpointCursor" SET "revision" = 2 ' +
+        'WHERE "sourceRef" = $1 AND "sourceInstanceId" = $2 AND "batchId" = $3',
+        sourceRef,
+        sourceInstanceId,
+        batchId,
+      ),
+      /requires a new root and revision \+ 1/,
     );
 
     const backwards = {
@@ -132,6 +180,58 @@ test('PostgreSQL keeps checkpoint evidence append-only and rejects cursor rollba
     assert.equal(accepted[0]?.checkpointRoot, next.root);
     assert.equal(accepted[0]?.highWaterMark, '11');
     assert.equal(accepted[0]?.revision, 2);
+
+    const timestampRollback = {
+      id: 'checkpoint:sql:timestamp-rollback',
+      root: root('5'),
+      asOf: '2026-10-01T00:00:00.000Z',
+      observedThrough: '2026-10-01T00:00:05.000Z',
+      highWaterMark: '12',
+    };
+    await insertCheckpoint(prisma, timestampRollback);
+    await assert.rejects(
+      prisma.$executeRawUnsafe(
+        'UPDATE "SettlementAllocationLineageCheckpointCursor" SET ' +
+        '"checkpointId" = $1, "checkpointRoot" = $2, "asOf" = $3, "observedThrough" = $4, ' +
+        '"highWaterMark" = $5, "revision" = 3 ' +
+        'WHERE "sourceRef" = $6 AND "sourceInstanceId" = $7 AND "batchId" = $8',
+        timestampRollback.id,
+        timestampRollback.root,
+        timestampRollback.asOf,
+        timestampRollback.observedThrough,
+        timestampRollback.highWaterMark,
+        sourceRef,
+        sourceInstanceId,
+        batchId,
+      ),
+      /timestamps cannot move backwards/,
+    );
+
+    const noProgress = {
+      id: 'checkpoint:sql:no-progress',
+      root: root('6'),
+      asOf: next.asOf,
+      observedThrough: next.observedThrough,
+      highWaterMark: next.highWaterMark,
+    };
+    await insertCheckpoint(prisma, noProgress);
+    await assert.rejects(
+      prisma.$executeRawUnsafe(
+        'UPDATE "SettlementAllocationLineageCheckpointCursor" SET ' +
+        '"checkpointId" = $1, "checkpointRoot" = $2, "asOf" = $3, "observedThrough" = $4, ' +
+        '"highWaterMark" = $5, "revision" = 3 ' +
+        'WHERE "sourceRef" = $6 AND "sourceInstanceId" = $7 AND "batchId" = $8',
+        noProgress.id,
+        noProgress.root,
+        noProgress.asOf,
+        noProgress.observedThrough,
+        noProgress.highWaterMark,
+        sourceRef,
+        sourceInstanceId,
+        batchId,
+      ),
+      /must advance a source cursor or observation coverage/,
+    );
 
     await assert.rejects(
       prisma.$executeRawUnsafe(
