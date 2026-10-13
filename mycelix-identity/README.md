@@ -107,7 +107,9 @@ A separate, fail-closed research profile tracks possible interoperability with S
 
 ### Run the synthetic contract checks
 
-From `mycelix-identity/`, run `python3 validate_sa_did_profile.py`, then `python3 sa_did_policy_engine.py --report /tmp/sa-did-synthetic-policy-report.json`, then `python3 -m unittest discover -s tests -p 'test_sa_did_*.py' -v`. The report contains the exact expected and actual dispositions for all 20 vectors and explicitly records that it is synthetic-only, not a cryptographic verification result. It records the exact source commit SHA supplied by CI and binds the result to the profile file's raw-byte SHA-256, normalized profile SHA-256, and engine/validator source SHA-256 values. These fingerprints make artifacts comparable to inputs and code; they are not a digital signature or proof that a trusted CI runner executed the code. CI uploads the report as the `sa-did-synthetic-policy-report` artifact when it is produced.
+From `mycelix-identity/`, run `python3 validate_sa_did_profile.py`, then `python3 sa_did_policy_engine.py --source-commit <40-character-commit-sha> --report /tmp/sa-did-synthetic-policy-report.json`, then `python3 -m unittest discover -s tests -p 'test_sa_did_*.py' -v`. The report contains expected and actual dispositions for all 20 vectors and explicitly records that it is synthetic-only, not a cryptographic verification result. It records the source commit SHA and hashes the profile file's raw bytes, normalized profile, and engine/validator source files. These fingerprints aid reproducibility; they are not a signature or proof that a trusted CI runner executed the code.
+
+The focused [`sa-did-contract.yml`](../.github/workflows/sa-did-contract.yml) workflow runs this Python-only contract independently of the monolithic CI change-detection job, checks out the exact commit it records, and uploads the report as a 14-day artifact. The main CI identity job also explicitly checks out the same reported head revision.
 
 ## Development
 
