@@ -98,7 +98,9 @@ A separate, fail-closed research profile tracks possible interoperability with S
 - Design and release gates: [SA-DID-001 interoperability profile](../docs/sa-digital-id-interoperability.md)
 - Machine-readable policy and synthetic expected-outcome corpus: [SA_DID_PROFILE_V1.json](SA_DID_PROFILE_V1.json)
 - Structural contract validator: [validate_sa_did_profile.py](validate_sa_did_profile.py)
-- Regression tests: [test_sa_did_profile_contract.py](tests/test_sa_did_profile_contract.py)
+- Synthetic-only policy oracle: [sa_did_policy_engine.py](sa_did_policy_engine.py)
+- Contract regression tests: [test_sa_did_profile_contract.py](tests/test_sa_did_profile_contract.py)
+- Executable policy tests: [test_sa_did_policy_engine.py](tests/test_sa_did_policy_engine.py)
 - OVS onboarding request draft (not sent): [DHA_OVS_ONBOARDING_REQUEST.md](DHA_OVS_ONBOARDING_REQUEST.md)
 
 **This is not a production integration.** The existing server-side OVS route and the future holder-presented smartphone Digital ID route are distinct evidence methods. The profile keeps production disabled, configures no official DHA trust anchor, and does not claim DHA access, approval, certification, or POPIA compliance. Tests use only synthetic policy scenarios; no real identity data or DHA endpoint is used.
