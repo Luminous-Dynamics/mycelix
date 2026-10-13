@@ -215,6 +215,13 @@ impl CovarianceMatrix {
             return false;
         }
 
+        // A variance is a diagonal covariance entry; it cannot be negative.
+        // Check this directly instead of allowing the absolute eigenvalue
+        // tolerance below to admit a small negative variance as "round-off".
+        if (0..6).any(|index| self.data[(index, index)] < 0.0) {
+            return false;
+        }
+
         let eigen = SymmetricEigen::new(self.data);
         eigen
             .eigenvalues
@@ -431,6 +438,14 @@ mod tests {
     fn non_finite_covariance_is_invalid() {
         let mut matrix = Matrix6::identity();
         matrix[(0, 0)] = f64::NAN;
+        let covariance = CovarianceMatrix::from_matrix(matrix);
+        assert!(!covariance.is_valid());
+    }
+
+    #[test]
+    fn negative_diagonal_variance_is_invalid_even_below_legacy_tolerance() {
+        let mut matrix = Matrix6::identity();
+        matrix[(5, 5)] = -1e-11;
         let covariance = CovarianceMatrix::from_matrix(matrix);
         assert!(!covariance.is_valid());
     }
