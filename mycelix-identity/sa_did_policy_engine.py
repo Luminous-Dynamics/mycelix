@@ -202,7 +202,8 @@ def build_report(
         })
 
     if profile_source_sha256 is not None and (
-        len(profile_source_sha256) != 64
+        not isinstance(profile_source_sha256, str)
+        or len(profile_source_sha256) != 64
         or any(char not in "0123456789abcdef" for char in profile_source_sha256)
     ):
         raise ValueError("profile_source_sha256 must be a lowercase SHA-256 hex digest")
