@@ -155,7 +155,11 @@ def validate_profile(data: Any) -> list[str]:
             route_ids.add(route_id)
         if route.get("production_enabled") is not False:
             errors.append(f"{prefix}.production_enabled must be false")
-        expected_method = REQUIRED_ROUTE_METHOD_BY_ID.get(route_id)
+        expected_method = (
+            REQUIRED_ROUTE_METHOD_BY_ID.get(route_id)
+            if isinstance(route_id, str)
+            else None
+        )
         if expected_method is not None and route.get("method_kind") != expected_method:
             errors.append(f"{prefix}.method_kind must preserve the distinct route semantics")
         if route_id == "dha_smartphone_digital_id":
