@@ -95,15 +95,125 @@ fn anchor_for_operator_sessions(agent: &AgentPubKey) -> ExternResult<AnyLinkable
 // Authorization helpers
 // =============================================================================
 
+/// Membership must be proven by the session record, not just by a DHT link
+/// under an agent-keyed anchor.
+fn session_matches_participant(
+    session: &NegotiationSession,
+    session_id: &str,
+    agent: &AgentPubKey,
+) -> bool {
+    session.session_id == session_id
+        && (session.primary_operator == *agent || session.secondary_operator == *agent)
+}
+
+fn maneuvering_object_belongs_to_session(
+    maneuvering_object: u32,
+    session: &NegotiationSession,
+) -> bool {
+    maneuvering_object == session.primary_norad_id
+        || maneuvering_object == session.secondary_norad_id
+}
+
+fn is_primary_operator(session: &NegotiationSession, agent: &AgentPubKey) -> bool {
+    session.primary_operator == *agent
+}
+
+fn is_secondary_operator(session: &NegotiationSession, agent: &AgentPubKey) -> bool {
+    session.secondary_operator == *agent
+}
+
+/// A session participant may only submit a position for the NORAD object
+/// assigned to their recorded operator role.
+fn operator_represents_session_object(
+    session: &NegotiationSession,
+    agent: &AgentPubKey,
+    norad_id: u32,
+) -> bool {
+    (is_primary_operator(session, agent) && session.primary_norad_id == norad_id)
+        || (is_secondary_operator(session, agent) && session.secondary_norad_id == norad_id)
+}
+
+/// An entry with a matching session_id is not sufficient: proposals must
+/// also be reachable from that session's canonical proposal index.
+fn session_has_proposal(
+    session_id: &str,
+    proposal_hash: &ActionHash,
+) -> ExternResult<bool> {
+    let anchor = anchor_for_session_proposals(session_id)?;
+    let links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::SessionProposals)?,
+        GetStrategy::Network,
+    )?;
+    Ok(links
+        .into_iter()
+        .filter_map(|link| link.target.into_action_hash())
+        .any(|target| target == *proposal_hash))
+}
+
+/// Agreements with matching fields must be anchored to the canonical session
+/// agreement index before a second signature can be added.
+fn session_has_agreement(
+    session_id: &str,
+    agreement_hash: &ActionHash,
+) -> ExternResult<bool> {
+    let anchor = anchor_for_session_agreements(session_id)?;
+    let links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::SessionAgreements)?,
+        GetStrategy::Network,
+    )?;
+    Ok(links
+        .into_iter()
+        .filter_map(|link| link.target.into_action_hash())
+        .any(|target| target == *agreement_hash))
+}
+
+fn get_maneuver_proposal(proposal_hash: &ActionHash) -> ExternResult<ManeuverProposal> {
+    let proposal_record = get(proposal_hash.clone(), GetOptions::default())?.ok_or(
+        SpaceError::new(SpaceErrorCode::NotFound, "Maneuver proposal not found")
+            .with_context(format!("hash: {}", proposal_hash))
+            .into_wasm_error(),
+    )?;
+    proposal_record
+        .entry()
+        .to_app_option::<ManeuverProposal>()
+        .map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Failed to decode maneuver proposal: {:?}", error),
+            )
+            .into_wasm_error()
+        })?
+        .ok_or(
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Accepted ActionHash is not a maneuver proposal",
+            )
+            .into_wasm_error(),
+        )
+}
+
+fn agreement_has_cosignature(
+    agreements: &[NegotiationAgreement],
+    session_id: &str,
+    accepted_proposal: &ActionHash,
+) -> bool {
+    agreements.iter().any(|agreement| {
+        agreement.session_id == session_id
+            && agreement.accepted_proposal == *accepted_proposal
+            && agreement.secondary_signature.is_some()
+    })
+}
+
 /// Verify that the given agent is a participant (primary or secondary operator)
 /// in the named session. Returns the session entry on success.
 fn verify_session_participant(
     session_id: &str,
     agent: &AgentPubKey,
 ) -> ExternResult<NegotiationSession> {
-    let conj_anchor_fallback = anchor_for_conjunction_sessions(session_id)?;
-    // Search for the session by iterating all sessions linked from the session_id anchor
-    // We use the operator_sessions anchor for the calling agent instead (more efficient)
+    // Discover candidates through the caller's operator index, then verify
+    // the session ID and both recorded operator identities against each record.
+    // If the index is missing or incomplete, fail closed rather than querying an
+    // unrelated conjunction-ID anchor with a session ID.
     let op_anchor = anchor_for_operator_sessions(agent)?;
     let links = get_links(
         LinkQuery::try_new(op_anchor, LinkTypes::OperatorSessions)?,
@@ -123,34 +233,7 @@ fn verify_session_participant(
             .ok()
             .flatten()
         {
-            if session.session_id == session_id {
-                return Ok(session);
-            }
-        }
-    }
-
-    // Fallback: also check conjunction sessions anchor (in case operator_sessions link is missing)
-    let conj_links = get_links(
-        LinkQuery::try_new(conj_anchor_fallback, LinkTypes::ConjunctionSessions)?,
-        GetStrategy::Network,
-    )?;
-
-    for link in conj_links {
-        let Some(target) = link.target.into_action_hash() else {
-            continue;
-        };
-        let Some(record) = get(target, GetOptions::default())? else {
-            continue;
-        };
-        if let Some(session) = record
-            .entry()
-            .to_app_option::<NegotiationSession>()
-            .ok()
-            .flatten()
-        {
-            if session.session_id == session_id
-                && (session.primary_operator == *agent || session.secondary_operator == *agent)
-            {
+            if session_matches_participant(&session, session_id, agent) {
                 return Ok(session);
             }
         }
@@ -168,12 +251,271 @@ fn verify_session_participant(
 // Write operations
 // =============================================================================
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+enum ConjunctionReferenceStatus {
+    Screening,
+    Monitoring,
+    Planning,
+    Mitigated,
+    Passed,
+    Collision,
+}
+
+impl ConjunctionReferenceStatus {
+    fn is_open_for_negotiation(self) -> bool {
+        matches!(self, Self::Screening | Self::Monitoring | Self::Planning)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct ConjunctionReference {
+    event_id: String,
+    primary_norad_id: u32,
+    secondary_norad_id: u32,
+    tca: SpaceTimestamp,
+    status: ConjunctionReferenceStatus,
+}
+
+/// Validate the exact event ID, unordered object pair, state, and TCA returned
+/// by the conjunction zome. Ambiguous or non-actionable event records fail closed.
+fn validate_conjunction_reference(
+    records: &[ConjunctionReference],
+    conjunction_id: &str,
+    primary_norad_id: u32,
+    secondary_norad_id: u32,
+    requested_tca_micros: i64,
+    now_micros: i64,
+) -> Result<(), String> {
+    let candidates = records
+        .iter()
+        .filter(|event| event.event_id.as_str() == conjunction_id)
+        .collect::<Vec<_>>();
+
+    match candidates.as_slice() {
+        [] => Err(format!(
+            "Conjunction {:?} was not found for object pair {} / {}",
+            conjunction_id, primary_norad_id, secondary_norad_id
+        )),
+        [event] => {
+            let direct_pair = event.primary_norad_id == primary_norad_id
+                && event.secondary_norad_id == secondary_norad_id;
+            let reversed_pair = event.primary_norad_id == secondary_norad_id
+                && event.secondary_norad_id == primary_norad_id;
+            if !direct_pair && !reversed_pair {
+                return Err(format!(
+                    "Conjunction {:?} references object pair {} / {}, not requested pair {} / {}",
+                    conjunction_id,
+                    event.primary_norad_id,
+                    event.secondary_norad_id,
+                    primary_norad_id,
+                    secondary_norad_id
+                ));
+            }
+            if !event.status.is_open_for_negotiation() {
+                return Err(format!(
+                    "Conjunction {:?} is not open for negotiation: {:?}",
+                    conjunction_id, event.status
+                ));
+            }
+            if event.tca.micros != requested_tca_micros {
+                return Err(format!(
+                    "Requested TCA {} does not match conjunction {:?} TCA {}",
+                    requested_tca_micros, conjunction_id, event.tca.micros
+                ));
+            }
+            if event.tca.micros <= now_micros {
+                return Err(format!(
+                    "Conjunction {:?} TCA has passed or is not in the future",
+                    conjunction_id
+                ));
+            }
+            Ok(())
+        }
+        _ => Err(format!(
+            "Conjunction ID {:?} resolved to {} records; refusing ambiguous match",
+            conjunction_id,
+            candidates.len()
+        )),
+    }
+}
+
+/// Negotiation must close strictly before TCA, and the deadline must still
+/// be in the future when the session is created.
+fn validate_session_deadline(
+    deadline_micros: i64,
+    tca_micros: i64,
+    now_micros: i64,
+) -> Result<(), String> {
+    if deadline_micros <= now_micros {
+        return Err("Negotiation deadline must be in the future".to_string());
+    }
+    if deadline_micros >= tca_micros {
+        return Err("Negotiation deadline must strictly precede conjunction TCA".to_string());
+    }
+    Ok(())
+}
+
+/// Validate that a proposed burn remains actionable: it must be in the future,
+/// before TCA, and after the negotiation deadline so both parties can agree in
+/// time to execute it.
+fn validate_proposal_burn_window(
+    burn_time_micros: i64,
+    session_deadline_micros: i64,
+    tca_micros: i64,
+    now_micros: i64,
+) -> Result<(), String> {
+    if burn_time_micros <= now_micros {
+        return Err("Proposed burn time must be in the future".to_string());
+    }
+    if burn_time_micros >= tca_micros {
+        return Err("Proposed burn time must precede conjunction TCA".to_string());
+    }
+    if session_deadline_micros <= now_micros {
+        return Err("Negotiation session deadline has passed".to_string());
+    }
+    if session_deadline_micros >= burn_time_micros {
+        return Err("Negotiation deadline must precede the proposed burn time".to_string());
+    }
+    Ok(())
+}
+
+/// Validate that avoidance generation is bound to the authenticated session,
+/// the exact TCA, and the exact ordered TLE object pair supplied by that session.
+fn validate_avoidance_session_binding(
+    session: &NegotiationSession,
+    primary_tle_norad_id: u32,
+    secondary_tle_norad_id: u32,
+    requested_tca_micros: i64,
+    now_micros: i64,
+) -> Result<(), String> {
+    if primary_tle_norad_id != session.primary_norad_id
+        || secondary_tle_norad_id != session.secondary_norad_id
+    {
+        return Err(format!(
+            "TLE object pair {} / {} does not match negotiation session object pair {} / {}",
+            primary_tle_norad_id,
+            secondary_tle_norad_id,
+            session.primary_norad_id,
+            session.secondary_norad_id
+        ));
+    }
+    if requested_tca_micros != session.tca.micros {
+        return Err(format!(
+            "Requested avoidance TCA {} does not match session TCA {}",
+            requested_tca_micros, session.tca.micros
+        ));
+    }
+    if session.tca.micros <= now_micros {
+        return Err("Conjunction TCA has passed or is not in the future".to_string());
+    }
+    validate_session_deadline(session.deadline.micros, session.tca.micros, now_micros)
+}
+
+/// Reusable checked time conversion for avoidance planning. The solver uses the
+/// same whole-second interval as the representable burn epoch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BurnTimeError {
+    InvalidLeadTime,
+    DurationOutOfRange,
+    BurnTimeOutOfRange,
+}
+
+fn checked_burn_time(
+    tca: chrono::DateTime<chrono::Utc>,
+    lead_time_hours: f64,
+) -> Result<(chrono::DateTime<chrono::Utc>, f64), BurnTimeError> {
+    if !lead_time_hours.is_finite() || lead_time_hours <= 0.0 {
+        return Err(BurnTimeError::InvalidLeadTime);
+    }
+    let seconds = lead_time_hours * 3600.0;
+    if !seconds.is_finite() || seconds < 1.0 || seconds >= i64::MAX as f64 {
+        return Err(BurnTimeError::DurationOutOfRange);
+    }
+    let whole_seconds = seconds.trunc() as i64;
+    let duration = chrono::Duration::try_seconds(whole_seconds)
+        .ok_or(BurnTimeError::DurationOutOfRange)?;
+    let burn_time = tca
+        .checked_sub_signed(duration)
+        .ok_or(BurnTimeError::BurnTimeOutOfRange)?;
+    Ok((burn_time, whole_seconds as f64))
+}
+
+/// Construct the radial, prograde, and orbit-normal unit vectors from a
+/// valid position/velocity pair. Degenerate or non-finite geometry is rejected
+/// instead of silently inventing an arbitrary orbital plane.
+fn orbital_basis(
+    position: &nalgebra::Vector3<f64>,
+    velocity: &nalgebra::Vector3<f64>,
+) -> Result<
+    (
+        nalgebra::Vector3<f64>,
+        nalgebra::Vector3<f64>,
+        nalgebra::Vector3<f64>,
+    ),
+    &'static str,
+> {
+    if !position
+        .iter()
+        .chain(velocity.iter())
+        .all(|component| component.is_finite())
+    {
+        return Err("Position and velocity must be finite");
+    }
+
+    let radius = position.norm();
+    if !radius.is_finite() || radius <= f64::EPSILON {
+        return Err("Position magnitude is degenerate");
+    }
+    let speed = velocity.norm();
+    if !speed.is_finite() || speed <= 1e-10 {
+        return Err("Velocity magnitude is degenerate");
+    }
+
+    let angular_momentum = position.cross(velocity);
+    let angular_momentum_norm = angular_momentum.norm();
+    if !angular_momentum_norm.is_finite() || angular_momentum_norm <= 1e-10 {
+        return Err("Position and velocity do not define a stable orbital plane");
+    }
+
+    Ok((
+        position / radius,
+        velocity / speed,
+        angular_momentum / angular_momentum_norm,
+    ))
+}
+
+/// Ensure an agreement's execution deadline remains within the negotiation
+/// window and precedes both the maneuver burn time and conjunction TCA.
+fn validate_agreement_deadline(
+    execution_deadline_micros: i64,
+    session_deadline_micros: i64,
+    burn_time_micros: i64,
+    tca_micros: i64,
+    now_micros: i64,
+) -> Result<(), String> {
+    if session_deadline_micros <= now_micros {
+        return Err("Negotiation session deadline has passed".to_string());
+    }
+    if execution_deadline_micros <= now_micros {
+        return Err("Agreement execution deadline must be in the future".to_string());
+    }
+    if execution_deadline_micros > session_deadline_micros {
+        return Err("Agreement execution deadline must not outlive the negotiation session".to_string());
+    }
+    if execution_deadline_micros > burn_time_micros {
+        return Err("Agreement execution deadline must not be later than proposed burn time".to_string());
+    }
+    if execution_deadline_micros > tca_micros {
+        return Err("Agreement execution deadline must not be later than conjunction TCA".to_string());
+    }
+    Ok(())
+}
+
 /// Initiate a negotiation session.
 ///
-/// Cross-zome verifies the conjunction ID references an active conjunction
-/// in the conjunctions zome. If the conjunction cannot be verified (e.g.,
-/// not found or cross-zome call fails), a warning is included in the signal
-/// but the session is still created.
+/// Cross-zome verifies that the requested conjunction exists and references
+/// the requested pair of objects. Any lookup failure, missing event, ambiguous
+/// event ID, or object-pair mismatch rejects the session creation.
 #[hdk_extern]
 pub fn initiate_negotiation(input: InitiateNegotiationInput) -> ExternResult<ActionHash> {
     gate_space_operation(&requirement_for_negotiation(), "initiate_negotiation")?;
@@ -198,17 +540,58 @@ pub fn initiate_negotiation(input: InitiateNegotiationInput) -> ExternResult<Act
         .into_wasm_error());
     }
 
-    // Cross-zome check: verify the referenced conjunction exists
-    let _conjunction_verified = match call(
+    // Fail closed: a successful lookup is not enough unless the exact event ID
+    // resolves to the requested pair of objects.
+    let conjunction_response = call(
         CallTargetCell::Local,
         ZomeName::new("conjunctions_coordinator"),
         FunctionName::new("get_conjunctions_for_object"),
         None,
         input.primary_norad_id,
-    ) {
-        Ok(ZomeCallResponse::Ok(bytes)) => bytes.into_vec().len() > 4,
-        _ => false,
+    );
+
+    let conjunctions: Vec<ConjunctionReference> = match conjunction_response {
+        Ok(ZomeCallResponse::Ok(bytes)) => bytes.decode().map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Could not decode the conjunction lookup response",
+            )
+            .with_context(format!("decode error: {:?}", error))
+            .into_wasm_error()
+        })?,
+        Ok(_) => {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Conjunction lookup did not return success; no negotiation session was created",
+            )
+            .into_wasm_error());
+        }
+        Err(error) => {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Conjunction lookup failed; no negotiation session was created",
+            )
+            .with_context(format!("lookup error: {:?}", error))
+            .into_wasm_error());
+        }
     };
+
+    let now_micros = SpaceTimestamp::now().micros;
+    validate_conjunction_reference(
+        &conjunctions,
+        &input.conjunction_id,
+        input.primary_norad_id,
+        input.secondary_norad_id,
+        input.tca.micros,
+        now_micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::NotFound, message).into_wasm_error()
+    })?;
+    validate_session_deadline(input.deadline.micros, input.tca.micros, now_micros)
+        .map_err(|message| {
+            SpaceError::new(SpaceErrorCode::InvalidInput, message).into_wasm_error()
+        })?;
 
     let session = NegotiationSession {
         session_id: input.session_id.clone(),
@@ -307,8 +690,33 @@ pub fn submit_position(input: SubmitPositionInput) -> ExternResult<ActionHash> {
 
     let agent = agent_info()?.agent_initial_pubkey;
 
-    // --- Authorization: only session participants can submit positions ---
-    verify_session_participant(&input.session_id, &agent)?;
+    // --- Authorization: each operator may speak only for their assigned object ---
+    let session = verify_session_participant(&input.session_id, &agent)?;
+    let now = SpaceTimestamp::now();
+    validate_session_deadline(
+        session.deadline.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidInput, message)
+            .with_context(format!(
+                "session deadline: {}, TCA: {}, now: {}",
+                session.deadline.micros, session.tca.micros, now.micros
+            ))
+            .into_wasm_error()
+    })?;
+    if !operator_represents_session_object(&session, &agent, input.norad_id) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::Unauthorized,
+            "Operator may submit a position only for the NORAD object assigned to their session role",
+        )
+        .with_context(format!(
+            "session: {}, requested object: {}, primary object: {}, secondary object: {}",
+            input.session_id, input.norad_id, session.primary_norad_id, session.secondary_norad_id
+        ))
+        .into_wasm_error());
+    }
 
     let position = NegotiationPosition {
         session_id: input.session_id.clone(),
@@ -359,64 +767,66 @@ pub fn submit_proposal(input: SubmitProposalInput) -> ExternResult<ActionHash> {
     // --- Input validation ---
     validate_string_field(&input.session_id, "session_id", 256).map_err(|e| e.into_wasm_error())?;
 
-    if input.delta_v_ms < 0.0 || input.delta_v_ms.is_nan() {
+    if !input.delta_v_ms.is_finite() || input.delta_v_ms <= 0.0 {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidProposal,
-            "delta_v_ms must be non-negative",
+            "delta_v_ms must be positive and finite",
         )
         .into_wasm_error());
     }
-    if input.resulting_miss_km < 0.0 || input.resulting_miss_km.is_nan() {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidProposal,
-            "resulting_miss_km must be non-negative",
-        )
-        .into_wasm_error());
+    if let Some(distance_km) = input.resulting_miss_km {
+        if !distance_km.is_finite() || distance_km < 0.0 {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidProposal,
+                "claimed resulting miss distance must be finite and non-negative when present",
+            )
+            .into_wasm_error());
+        }
     }
-    if input.resulting_pc < 0.0 || input.resulting_pc > 1.0 || input.resulting_pc.is_nan() {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidProbability,
-            "resulting_pc must be 0-1",
-        )
-        .into_wasm_error());
+    if let Some(pc) = input.resulting_pc {
+        if !pc.is_finite() || !(0.0..=1.0).contains(&pc) {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidProbability,
+                "claimed resulting_pc must be finite and in [0, 1] when present",
+            )
+            .into_wasm_error());
+        }
     }
 
     let agent = agent_info()?.agent_initial_pubkey;
 
     // --- Authorization: only session participants can submit proposals ---
     let session = verify_session_participant(&input.session_id, &agent)?;
-
-    // --- Server-side Pc verification via SGP4 + Alfano ---
-    // Fetch TLEs for both objects and independently compute collision probability.
-    // If the caller-provided resulting_pc differs by more than 10× from our
-    // computation, reject the proposal as implausible.
-    if let Some(server_pc) = verify_pc_from_tles(
-        session.primary_norad_id,
-        session.secondary_norad_id,
-        &input.burn_time,
-    ) {
-        // Allow a 10× tolerance band to account for different propagation epochs
-        // and covariance assumptions
-        let ratio = if server_pc > 1e-15 && input.resulting_pc > 1e-15 {
-            (input.resulting_pc / server_pc).max(server_pc / input.resulting_pc)
-        } else {
-            1.0 // If either is effectively zero, skip ratio check
-        };
-
-        if ratio > 10.0 {
-            return Err(SpaceError::new(
-                SpaceErrorCode::InvalidProbability,
-                "Claimed resulting_pc differs from server-computed Pc by more than 10×",
-            )
-            .with_context(format!(
-                "claimed: {:.2e}, server: {:.2e}, ratio: {:.1}×",
-                input.resulting_pc, server_pc, ratio
-            ))
-            .into_wasm_error());
-        }
+    if !maneuvering_object_belongs_to_session(input.maneuvering_object, &session) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Maneuvering object must be one of the two objects in this session",
+        )
+        .with_context(format!(
+            "requested object: {}, session objects: {} / {}",
+            input.maneuvering_object, session.primary_norad_id, session.secondary_norad_id
+        ))
+        .into_wasm_error());
     }
-    // If TLEs are unavailable the verification is best-effort — allow the proposal.
+    let now = SpaceTimestamp::now();
+    validate_proposal_burn_window(
+        input.burn_time.micros,
+        session.deadline.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidProposal, message)
+            .with_context(format!(
+                "burn time: {}, negotiation deadline: {}, TCA: {}, now: {}",
+                input.burn_time.micros, session.deadline.micros, session.tca.micros, now.micros
+            ))
+            .into_wasm_error()
+    })?;
 
+    // A pre-maneuver baseline is not comparable to a claimed post-maneuver
+    // probability. Persist the caller's number only as an unverified claim;
+    // no checked post-maneuver covariance propagation exists yet.
     let proposal = ManeuverProposal {
         session_id: input.session_id.clone(),
         proposer: agent,
@@ -424,8 +834,8 @@ pub fn submit_proposal(input: SubmitProposalInput) -> ExternResult<ActionHash> {
         burn_time: input.burn_time,
         delta_v_ms: input.delta_v_ms,
         direction: input.direction,
-        resulting_miss_km: input.resulting_miss_km,
-        resulting_pc: input.resulting_pc,
+        claimed_resulting_miss_km: input.resulting_miss_km,
+        claimed_resulting_pc: input.resulting_pc,
         cost_estimate: input.cost_estimate,
         status: ProposalStatus::Pending,
         created_at: SpaceTimestamp::now(),
@@ -459,8 +869,12 @@ pub struct SubmitProposalInput {
     pub burn_time: SpaceTimestamp,
     pub delta_v_ms: f64,
     pub direction: [f64; 3],
-    pub resulting_miss_km: f64,
-    pub resulting_pc: f64,
+    /// Optional caller-reported miss distance; not independently verified here.
+    #[serde(default, alias = "resulting_miss_km")]
+    pub resulting_miss_km: Option<f64>,
+    /// Optional caller-reported Pc claim; not independently verified by this endpoint.
+    #[serde(default)]
+    pub resulting_pc: Option<f64>,
     pub cost_estimate: Option<CostEstimate>,
 }
 
@@ -479,22 +893,95 @@ pub fn accept_proposal(input: AcceptProposalInput) -> ExternResult<ActionHash> {
 
     let agent = agent_info()?.agent_initial_pubkey;
 
-    // --- Authorization: only session participants can accept proposals ---
-    verify_session_participant(&input.session_id, &agent)?;
-
-    // --- Deadline check: execution_deadline must be in the future ---
-    let now = SpaceTimestamp::now();
-    if now.micros >= input.execution_deadline.micros {
+    // --- Authorization: only the recorded primary operator creates the first signature ---
+    let session = verify_session_participant(&input.session_id, &agent)?;
+    if !is_primary_operator(&session, &agent) {
         return Err(SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            "Execution deadline has already passed",
+            SpaceErrorCode::Unauthorized,
+            "Only the recorded primary operator may create the first agreement signature",
+        )
+        .into_wasm_error());
+    }
+
+    // Resolve the exact proposal and require it to be indexed by this session.
+    // This rejects orphan entries left by a partial create-entry/link failure.
+    let proposal = get_maneuver_proposal(&input.proposal_hash)?;
+    if !session_has_proposal(&input.session_id, &input.proposal_hash)? {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Proposal is not linked from this session's canonical proposal index",
+        )
+        .into_wasm_error());
+    }
+
+    if proposal.session_id != input.session_id {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Maneuver proposal belongs to a different negotiation session",
         )
         .with_context(format!(
-            "now: {}, deadline: {}",
-            now.micros, input.execution_deadline.micros
+            "requested session: {}, proposal session: {}",
+            input.session_id, proposal.session_id
         ))
         .into_wasm_error());
     }
+    if proposal.status != ProposalStatus::Pending {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Only a pending maneuver proposal can be accepted",
+        )
+        .with_context(format!("status: {:?}", proposal.status))
+        .into_wasm_error());
+    }
+    if !maneuvering_object_belongs_to_session(proposal.maneuvering_object, &session) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Proposal targets an object outside the negotiation session",
+        )
+        .with_context(format!(
+            "proposal object: {}, session objects: {} / {}",
+            proposal.maneuvering_object, session.primary_norad_id, session.secondary_norad_id
+        ))
+        .into_wasm_error());
+    }
+    if !session_matches_participant(&session, &proposal.session_id, &proposal.proposer) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Proposal's recorded proposer is not a participant in this session",
+        )
+        .into_wasm_error());
+    }
+
+    // Re-check the burn window even for legacy proposals, then bind the
+    // execution deadline to that specific burn rather than only to TCA.
+    let now = SpaceTimestamp::now();
+    validate_proposal_burn_window(
+        proposal.burn_time.micros,
+        session.deadline.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidProposal, message).into_wasm_error()
+    })?;
+    validate_agreement_deadline(
+        input.execution_deadline.micros,
+        session.deadline.micros,
+        proposal.burn_time.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidInput, message)
+            .with_context(format!(
+                "now: {}, execution deadline: {}, session deadline: {}, TCA: {}",
+                now.micros,
+                input.execution_deadline.micros,
+                session.deadline.micros,
+                session.tca.micros
+            ))
+            .into_wasm_error()
+    })?;
 
     // --- Uniqueness: only one agreement per session ---
     let agr_anchor = anchor_for_session_agreements(&input.session_id)?;
@@ -574,19 +1061,7 @@ pub fn cosign_agreement(input: CosignAgreementInput) -> ExternResult<ActionHash>
             .into_wasm_error(),
         )?;
 
-    // --- Deadline check: execution_deadline must not have passed ---
     let now = SpaceTimestamp::now();
-    if now.micros >= agreement.execution_deadline.micros {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            "Execution deadline has passed — agreement can no longer be cosigned",
-        )
-        .with_context(format!(
-            "now: {}, deadline: {}",
-            now.micros, agreement.execution_deadline.micros
-        ))
-        .into_wasm_error());
-    }
 
     // Check that secondary_signature is not already set
     if agreement.secondary_signature.is_some() {
@@ -597,23 +1072,145 @@ pub fn cosign_agreement(input: CosignAgreementInput) -> ExternResult<ActionHash>
         .into_wasm_error());
     }
 
-    // Verify the cosigner is not the same as the primary signer
-    if agreement.primary_signature.as_ref() == Some(&agent) {
+    // Resolve the referenced session and bind the second signature to the
+    // recorded secondary operator, not merely to any different agent key.
+    let session = verify_session_participant(&agreement.session_id, &agent)?;
+    if !session_has_agreement(&agreement.session_id, &input.agreement_hash)? {
         return Err(SpaceError::new(
-            SpaceErrorCode::SameSignerError,
-            "Cannot cosign your own agreement — the other party must sign",
+            SpaceErrorCode::InvalidInput,
+            "Agreement is not linked from this session's canonical agreement index",
+        )
+        .into_wasm_error());
+    }
+    let proposal = get_maneuver_proposal(&agreement.accepted_proposal)?;
+    if !session_has_proposal(&agreement.session_id, &agreement.accepted_proposal)? {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Agreement proposal is not linked from this session's canonical proposal index",
+        )
+        .into_wasm_error());
+    }
+    validate_proposal_burn_window(
+        proposal.burn_time.micros,
+        session.deadline.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidProposal, message)
+            .into_wasm_error()
+    })?;
+    validate_agreement_deadline(
+        agreement.execution_deadline.micros,
+        session.deadline.micros,
+        proposal.burn_time.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidInput, message)
+            .with_context(format!(
+                "execution deadline: {}, burn time: {}, session deadline: {}, TCA: {}",
+                agreement.execution_deadline.micros,
+                proposal.burn_time.micros,
+                session.deadline.micros,
+                session.tca.micros
+            ))
+            .into_wasm_error()
+    })?;
+    if !is_secondary_operator(&session, &agent) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::Unauthorized,
+            "Only the recorded secondary operator may cosign this agreement",
+        )
+        .into_wasm_error());
+    }
+    if agreement.primary_signature.as_ref() != Some(&session.primary_operator) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Agreement's first signature does not match the recorded primary operator",
         )
         .into_wasm_error());
     }
 
-    // Set secondary signature and update
-    agreement.secondary_signature = Some(agent);
+    if proposal.session_id != agreement.session_id
+        || proposal.status != ProposalStatus::Pending
+        || !maneuvering_object_belongs_to_session(proposal.maneuvering_object, &session)
+        || !session_matches_participant(&session, &proposal.session_id, &proposal.proposer)
+    {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Agreement proposal failed session, status, object, or proposer checks",
+        )
+        .into_wasm_error());
+    }
+
+    // Re-read the session's linked agreement snapshots before writing. Holochain
+    // updates are separate actions; checking only the original ActionHash would
+    // allow a repeated request to observe the unsigned original after a cosign.
+    let agreement_anchor = anchor_for_session_agreements(&agreement.session_id)?;
+    let agreement_links = get_links(
+        LinkQuery::try_new(agreement_anchor.clone(), LinkTypes::SessionAgreements)?,
+        GetStrategy::Network,
+    )?;
+    let mut linked_agreements = Vec::new();
+    for link in agreement_links {
+        let Some(target) = link.target.into_action_hash() else {
+            continue;
+        };
+        if target == input.agreement_hash {
+            continue;
+        }
+        let record = get(target, GetOptions::default())?.ok_or(
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Could not resolve a linked agreement snapshot; refusing to cosign",
+            )
+            .into_wasm_error(),
+        )?;
+        if let Some(candidate) = record
+            .entry()
+            .to_app_option::<NegotiationAgreement>()
+            .map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Could not decode a linked agreement snapshot: {:?}", error),
+                )
+                .into_wasm_error()
+            })?
+        {
+            linked_agreements.push(candidate);
+        }
+    }
+    if agreement_has_cosignature(
+        &linked_agreements,
+        &agreement.session_id,
+        &agreement.accepted_proposal,
+    ) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::AlreadySigned,
+            "A linked agreement snapshot already contains the secondary signature",
+        )
+        .into_wasm_error());
+    }
+
+    // Set the recorded secondary operator signature and write an updated snapshot.
+    agreement.secondary_signature = Some(session.secondary_operator);
     let action_hash = update_entry(input.agreement_hash.clone(), &agreement)?;
 
-    // Emit signal
+    // Link the update so subsequent calls that still possess the original hash
+    // can discover the cosigned snapshot before attempting another signature.
+    create_link(
+        agreement_anchor,
+        action_hash.clone(),
+        LinkTypes::SessionAgreements,
+        LinkTag::new(format!("agreement-update:{}", input.agreement_hash)),
+    )?;
+
+    // Emit the hash of the updated snapshot, not the stale original.
     emit_signal(TrafficControlSignal::AgreementCosigned {
         session_id: agreement.session_id,
-        agreement_hash: input.agreement_hash,
+        agreement_hash: action_hash.clone(),
     })?;
 
     Ok(action_hash)
@@ -662,7 +1259,11 @@ fn anchor_for_session_avoidance(session_id: &str) -> ExternResult<AnyLinkableHas
 /// Lambert for each, and returns feasible options sorted by ΔV.
 #[hdk_extern]
 pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<AvoidanceOption>> {
+    gate_space_operation(&requirement_for_negotiation(), "generate_avoidance_options")?;
     validate_string_field(&input.session_id, "session_id", 256).map_err(|e| e.into_wasm_error())?;
+
+    let agent = agent_info()?.agent_initial_pubkey;
+    let session = verify_session_participant(&input.session_id, &agent)?;
 
     if input.max_delta_v_ms <= 0.0 || !input.max_delta_v_ms.is_finite() {
         return Err(SpaceError::new(
@@ -715,17 +1316,47 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
         .into_wasm_error()
     })?;
 
-    // Convert SpaceTimestamp to DateTime
+    let now = SpaceTimestamp::now();
+    validate_avoidance_session_binding(
+        &session,
+        primary_tle.norad_id,
+        secondary_tle.norad_id,
+        input.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidInput, message)
+            .with_context(format!("session: {}", input.session_id))
+            .into_wasm_error()
+    })?;
+
+    // Convert the already-bound TCA. Checked burn-time arithmetic prevents
+    // overflow and guarantees the solver interval matches the burn timestamp.
     let tca_secs = input.tca.micros / 1_000_000;
     let tca_nsecs = ((input.tca.micros % 1_000_000) * 1000) as u32;
     let tca_dt = chrono::DateTime::from_timestamp(tca_secs, tca_nsecs).ok_or_else(|| {
         SpaceError::new(SpaceErrorCode::InvalidInput, "Invalid TCA timestamp").into_wasm_error()
     })?;
+    let (burn_dt, tof_secs) = checked_burn_time(tca_dt, input.lead_time_hours).map_err(|error| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Invalid avoidance burn time: {:?}", error),
+        )
+        .into_wasm_error()
+    })?;
+    let burn_ts = SpaceTimestamp::from_datetime(burn_dt);
 
-    // Burn time = TCA - lead_time
-    let lead_secs = (input.lead_time_hours * 3600.0) as i64;
-    let burn_dt = tca_dt - chrono::Duration::seconds(lead_secs);
-    let tof_secs = input.lead_time_hours * 3600.0;
+    validate_proposal_burn_window(
+        burn_ts.micros,
+        session.deadline.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidInput, message)
+            .with_context(format!("session: {}", input.session_id))
+            .into_wasm_error()
+    })?;
 
     // Propagate primary to burn time and TCA
     let p_burn = primary_prop.propagate_to(burn_dt).map_err(|e| {
@@ -759,27 +1390,26 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
 
     let mu = orbital_mechanics::coordinates::wgs84::MU;
 
-    // Generate displacement targets at TCA: ±5 km in each direction
-    let displacement_km = 5.0;
-    let r_tca_mag = r_tca.norm();
+    if !r_burn
+        .iter()
+        .chain(v_burn.iter())
+        .chain(r_sec_tca.iter())
+        .all(|component| component.is_finite())
+    {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Propagated burn/secondary TCA state contains non-finite components",
+        )
+        .into_wasm_error());
+    }
 
-    // Compute orbital frame unit vectors at TCA
-    let r_hat = r_tca / r_tca_mag;
+    // Generate four 5 km displacement targets at TCA.
+    // Reject degenerate geometry rather than substituting an arbitrary axis.
+    let displacement_km = 5.0;
     let v_hat_tca = nalgebra::Vector3::new(p_tca.state.vx, p_tca.state.vy, p_tca.state.vz);
-    let v_norm = v_hat_tca.norm();
-    let prograde = if v_norm > 1e-10 {
-        v_hat_tca / v_norm
-    } else {
-        r_hat
-    };
-    let normal = r_tca.cross(&v_hat_tca);
-    let n_mag = normal.norm();
-    let normal = if n_mag > 1e-10 {
-        normal / n_mag
-    } else {
-        nalgebra::Vector3::new(0.0, 0.0, 1.0)
-    };
-    let radial = r_hat;
+    let (radial, prograde, normal) = orbital_basis(&r_tca, &v_hat_tca).map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidInput, message).into_wasm_error()
+    })?;
 
     let directions = [
         ("prograde", prograde * displacement_km),
@@ -789,11 +1419,6 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
     ];
 
     let max_dv_kms = input.max_delta_v_ms / 1000.0;
-
-    let burn_epoch_micros = input.tca.micros - (lead_secs * 1_000_000);
-    let burn_ts = SpaceTimestamp {
-        micros: burn_epoch_micros,
-    };
 
     let mut options = Vec::new();
 
@@ -810,6 +1435,11 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
         let dv = sol.v1 - v_burn;
         let dv_mag = dv.norm();
 
+        // Numerical solver failures must not enter DHT records as NaN or infinity.
+        if !dv.iter().all(|component| component.is_finite()) || !dv_mag.is_finite() {
+            continue;
+        }
+
         // Skip if exceeds fuel budget
         if dv_mag > max_dv_kms {
             continue;
@@ -817,6 +1447,9 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
 
         // Compute new miss distance at TCA (post-maneuver position = r_target by construction)
         let miss_km = (r_target - r_sec_tca).norm();
+        if !miss_km.is_finite() {
+            continue;
+        }
 
         // Estimate post-maneuver Pc using Alfano
         let analyzer = ConjunctionAnalyzer::new();
@@ -832,8 +1465,13 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
             s_tca.state.clone(),
             orbital_mechanics::state::DataSource::OperatorEphemeris,
         );
-        let assessment = analyzer.assess(&post_p, &post_s);
-        let resulting_pc = assessment.collision_probability.pc;
+        // The post-maneuver synthetic states currently lack propagated
+        // covariance. Keep geometric candidates, but do not synthesize Pc=0
+        // or call an unchecked probability fallback.
+        let resulting_pc = analyzer
+            .try_assess(&post_p, &post_s)
+            .ok()
+            .map(|assessment| assessment.collision_probability.pc);
 
         let option = AvoidanceOption {
             session_id: input.session_id.clone(),
@@ -1091,7 +1729,8 @@ pub fn generate_avoidance_from_fusion(
                 delta_v: vec![dv.x, dv.y, dv.z],
                 delta_v_magnitude_ms: dv_mag * 1000.0,
                 resulting_miss_distance_km: miss_km,
-                resulting_pc: 0.0, // Conservative: fusion path skips Alfano (no TLE)
+                // Fusion has no checked post-maneuver covariance or Pc.
+                resulting_pc: None,
                 transfer_type: format!("{} (fused)", label),
             };
 
@@ -1362,79 +2001,6 @@ fn resolve_links_paginated<T: TryFrom<SerializedBytes, Error = SerializedBytesEr
         offset: effective_offset,
         limit: effective_limit,
     })
-}
-
-// =============================================================================
-// SGP4 + Alfano verification helpers
-// =============================================================================
-
-/// Mirror of orbital_objects TleLinesResponse for cross-zome deserialization.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct TleLinesResponse {
-    pub norad_id: u32,
-    pub line1: String,
-    pub line2: String,
-}
-
-/// Attempt to independently compute collision probability for two objects at a
-/// given time using SGP4 propagation and Alfano 2D Pc.
-///
-/// Returns `None` if TLEs are unavailable or propagation fails (best-effort).
-fn verify_pc_from_tles(
-    primary_norad_id: u32,
-    secondary_norad_id: u32,
-    burn_time: &SpaceTimestamp,
-) -> Option<f64> {
-    // Cross-zome call to orbital_objects for TLEs
-    let all_ids: Vec<u32> = vec![primary_norad_id, secondary_norad_id];
-
-    let response = call(
-        CallTargetCell::Local,
-        ZomeName::new("orbital_objects"),
-        FunctionName::new("get_latest_tles"),
-        None,
-        all_ids,
-    )
-    .ok()?;
-
-    let response_bytes = match response {
-        ZomeCallResponse::Ok(bytes) => bytes,
-        _ => return None,
-    };
-
-    let tle_lines: Vec<TleLinesResponse> = response_bytes.decode().ok()?;
-
-    // Find TLEs for both objects
-    let primary_tle_data = tle_lines.iter().find(|t| t.norad_id == primary_norad_id)?;
-    let secondary_tle_data = tle_lines
-        .iter()
-        .find(|t| t.norad_id == secondary_norad_id)?;
-
-    // Parse TLEs
-    let primary_tle =
-        TwoLineElement::parse_lines(None, &primary_tle_data.line1, &primary_tle_data.line2).ok()?;
-    let secondary_tle =
-        TwoLineElement::parse_lines(None, &secondary_tle_data.line1, &secondary_tle_data.line2)
-            .ok()?;
-
-    // Create propagators
-    let primary_prop = Propagator::from_tle(&primary_tle).ok()?;
-    let secondary_prop = Propagator::from_tle(&secondary_tle).ok()?;
-
-    // Convert SpaceTimestamp (microseconds since Unix epoch) to chrono DateTime
-    let secs = burn_time.micros / 1_000_000;
-    let nsecs = ((burn_time.micros % 1_000_000) * 1000) as u32;
-    let target_time = chrono::DateTime::from_timestamp(secs, nsecs)?;
-
-    // Propagate both objects to the burn time
-    let p_state = primary_prop.propagate_to(target_time).ok()?;
-    let s_state = secondary_prop.propagate_to(target_time).ok()?;
-
-    // Run Alfano 2D collision probability assessment
-    let analyzer = ConjunctionAnalyzer::new();
-    let assessment = analyzer.assess(&p_state, &s_state);
-
-    Some(assessment.collision_probability.pc)
 }
 
 // =============================================================================
@@ -2245,4 +2811,467 @@ pub fn get_proposal_agreement(proposal_id: String) -> ExternResult<Option<MultiP
     }
 
     Ok(None)
+}
+
+
+#[cfg(test)]
+mod conjunction_reference_tests {
+    use super::*;
+
+    const NOW_MICROS: i64 = 1_000_000;
+    const FUTURE_TCA_MICROS: i64 = 2_000_000;
+
+    fn event(
+        event_id: &str,
+        primary_norad_id: u32,
+        secondary_norad_id: u32,
+    ) -> ConjunctionReference {
+        ConjunctionReference {
+            event_id: event_id.to_string(),
+            primary_norad_id,
+            secondary_norad_id,
+            tca: SpaceTimestamp {
+                micros: FUTURE_TCA_MICROS,
+            },
+            status: ConjunctionReferenceStatus::Monitoring,
+        }
+    }
+
+    fn validate(
+        records: &[ConjunctionReference],
+        event_id: &str,
+        primary: u32,
+        secondary: u32,
+    ) -> Result<(), String> {
+        validate_conjunction_reference(
+            records,
+            event_id,
+            primary,
+            secondary,
+            FUTURE_TCA_MICROS,
+            NOW_MICROS,
+        )
+    }
+
+    #[test]
+    fn exact_event_and_object_pair_are_accepted() {
+        assert!(validate(&[event("cdm:42", 42, 77)], "cdm:42", 42, 77).is_ok());
+    }
+
+    #[test]
+    fn reversed_object_pair_is_accepted() {
+        assert!(validate(&[event("cdm:42", 77, 42)], "cdm:42", 42, 77).is_ok());
+    }
+
+    #[test]
+    fn missing_event_id_is_rejected() {
+        assert!(validate(&[event("cdm:other", 42, 77)], "cdm:42", 42, 77).is_err());
+    }
+
+    #[test]
+    fn mismatched_object_pair_is_rejected() {
+        assert!(validate(&[event("cdm:42", 42, 99)], "cdm:42", 42, 77).is_err());
+    }
+
+    #[test]
+    fn duplicate_event_id_is_rejected_as_ambiguous() {
+        let records = [event("cdm:42", 42, 77), event("cdm:42", 42, 88)];
+        assert!(validate(&records, "cdm:42", 42, 77).is_err());
+    }
+
+    #[test]
+    fn closed_conjunction_status_is_rejected() {
+        let mut closed = event("cdm:42", 42, 77);
+        closed.status = ConjunctionReferenceStatus::Passed;
+        assert!(validate(&[closed], "cdm:42", 42, 77).is_err());
+    }
+
+    #[test]
+    fn caller_tca_must_match_recorded_conjunction_tca() {
+        let records = [event("cdm:42", 42, 77)];
+        assert!(
+            validate_conjunction_reference(
+                &records,
+                "cdm:42",
+                42,
+                77,
+                FUTURE_TCA_MICROS + 1,
+                NOW_MICROS,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_conjunction_reference(
+                &records,
+                "cdm:42",
+                42,
+                77,
+                FUTURE_TCA_MICROS,
+                NOW_MICROS,
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn agreement_deadline_cannot_outlive_session_or_tca() {
+        let burn_time = FUTURE_TCA_MICROS - 10;
+        let session_deadline = FUTURE_TCA_MICROS - 20;
+        assert!(
+            validate_agreement_deadline(
+                NOW_MICROS + 10,
+                session_deadline,
+                burn_time,
+                FUTURE_TCA_MICROS,
+                NOW_MICROS,
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_agreement_deadline(
+                NOW_MICROS + 10,
+                NOW_MICROS + 5,
+                burn_time,
+                FUTURE_TCA_MICROS,
+                NOW_MICROS,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_agreement_deadline(
+                FUTURE_TCA_MICROS + 1,
+                FUTURE_TCA_MICROS - 20,
+                burn_time,
+                FUTURE_TCA_MICROS,
+                NOW_MICROS,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_agreement_deadline(
+                burn_time + 1,
+                session_deadline,
+                burn_time,
+                FUTURE_TCA_MICROS,
+                NOW_MICROS,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_agreement_deadline(
+                NOW_MICROS + 10,
+                session_deadline,
+                burn_time,
+                FUTURE_TCA_MICROS,
+                FUTURE_TCA_MICROS,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn proposed_burn_window_must_be_future_after_deadline_and_before_tca() {
+        let burn_time = NOW_MICROS + 500;
+        let deadline = NOW_MICROS + 100;
+        assert!(validate_proposal_burn_window(
+            burn_time, deadline, FUTURE_TCA_MICROS, NOW_MICROS
+        ).is_ok());
+        assert!(validate_proposal_burn_window(
+            NOW_MICROS, deadline, FUTURE_TCA_MICROS, NOW_MICROS
+        ).is_err());
+        assert!(validate_proposal_burn_window(
+            FUTURE_TCA_MICROS, deadline, FUTURE_TCA_MICROS, NOW_MICROS
+        ).is_err());
+        assert!(validate_proposal_burn_window(
+            burn_time, burn_time, FUTURE_TCA_MICROS, NOW_MICROS
+        ).is_err());
+        assert!(validate_proposal_burn_window(
+            burn_time, NOW_MICROS, FUTURE_TCA_MICROS, burn_time
+        ).is_err());
+    }
+
+    #[test]
+    fn negotiation_deadline_must_be_future_and_strictly_before_tca() {
+        assert!(
+            validate_session_deadline(NOW_MICROS + 1, FUTURE_TCA_MICROS, NOW_MICROS).is_ok()
+        );
+        assert!(
+            validate_session_deadline(NOW_MICROS, FUTURE_TCA_MICROS, NOW_MICROS).is_err()
+        );
+        assert!(
+            validate_session_deadline(FUTURE_TCA_MICROS + 1, FUTURE_TCA_MICROS, NOW_MICROS)
+                .is_err()
+        );
+        assert!(
+            validate_session_deadline(FUTURE_TCA_MICROS, FUTURE_TCA_MICROS, NOW_MICROS)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn tca_at_or_before_now_is_rejected() {
+        let mut expired = event("cdm:42", 42, 77);
+        expired.tca.micros = NOW_MICROS;
+        assert!(validate(&[expired], "cdm:42", 42, 77).is_err());
+    }
+}
+
+#[cfg(test)]
+mod orbital_basis_tests {
+    use super::*;
+
+    #[test]
+    fn valid_position_velocity_produce_orthonormal_orbital_basis() {
+        let position = nalgebra::Vector3::new(7_000.0, 0.0, 0.0);
+        let velocity = nalgebra::Vector3::new(0.0, 7.5, 0.0);
+        let (radial, prograde, normal) = orbital_basis(&position, &velocity).expect("valid basis");
+
+        assert!((radial.norm() - 1.0).abs() < 1e-12);
+        assert!((prograde.norm() - 1.0).abs() < 1e-12);
+        assert!((normal.norm() - 1.0).abs() < 1e-12);
+        assert!(radial.dot(&prograde).abs() < 1e-12);
+        assert!(radial.dot(&normal).abs() < 1e-12);
+        assert!(prograde.dot(&normal).abs() < 1e-12);
+    }
+
+    #[test]
+    fn degenerate_or_nonfinite_geometry_is_rejected() {
+        let position = nalgebra::Vector3::new(7_000.0, 0.0, 0.0);
+        assert!(orbital_basis(&position, &nalgebra::Vector3::zeros()).is_err());
+        assert!(orbital_basis(&position, &nalgebra::Vector3::new(1.0, 0.0, 0.0)).is_err());
+        assert!(
+            orbital_basis(
+                &nalgebra::Vector3::zeros(),
+                &nalgebra::Vector3::new(0.0, 7.5, 0.0),
+            )
+            .is_err()
+        );
+        assert!(
+            orbital_basis(
+                &position,
+                &nalgebra::Vector3::new(f64::NAN, 1.0, 0.0),
+            )
+            .is_err()
+        );
+    }
+}
+
+#[cfg(test)]
+mod avoidance_session_binding_tests {
+    use super::*;
+    use chrono::{TimeZone, Utc};
+
+    fn session() -> NegotiationSession {
+        NegotiationSession {
+            session_id: "session:binding".to_string(),
+            conjunction_id: "cdm:binding".to_string(),
+            primary_operator: AgentPubKey::from_raw_36(vec![1; 36]),
+            secondary_operator: AgentPubKey::from_raw_36(vec![2; 36]),
+            primary_norad_id: 42,
+            secondary_norad_id: 77,
+            tca: SpaceTimestamp { micros: 2_000_000 },
+            status: SessionStatus::Pending,
+            deadline: SpaceTimestamp { micros: 1_000_000 },
+            created_at: SpaceTimestamp { micros: 10 },
+        }
+    }
+
+    #[test]
+    fn avoidance_binding_requires_exact_ordered_tle_pair_and_tca() {
+        let session = session();
+        assert!(validate_avoidance_session_binding(&session, 42, 77, 2_000_000, 100).is_ok());
+        assert!(validate_avoidance_session_binding(&session, 77, 42, 2_000_000, 100).is_err());
+        assert!(validate_avoidance_session_binding(&session, 42, 88, 2_000_000, 100).is_err());
+        assert!(validate_avoidance_session_binding(&session, 42, 77, 2_000_001, 100).is_err());
+    }
+
+    #[test]
+    fn avoidance_binding_rejects_expired_tca_and_deadline() {
+        let mut session = session();
+        assert!(validate_avoidance_session_binding(&session, 42, 77, 2_000_000, 2_000_000).is_err());
+        session.tca.micros = 2_000_000;
+        session.deadline.micros = 2_000_000;
+        assert!(validate_avoidance_session_binding(&session, 42, 77, 2_000_000, 100).is_err());
+    }
+
+    #[test]
+    fn checked_burn_time_and_lambert_interval_use_identical_seconds() {
+        let tca = Utc
+            .with_ymd_and_hms(2026, 10, 13, 12, 0, 0)
+            .single()
+            .expect("valid TCA");
+        let (burn, tof) = checked_burn_time(tca, 1.5).expect("valid burn");
+        assert_eq!(tof, 5_400.0);
+        assert_eq!(
+            tca.signed_duration_since(burn),
+            chrono::Duration::seconds(5_400)
+        );
+    }
+
+    #[test]
+    fn checked_burn_time_rejects_invalid_and_unrepresentable_lead_times() {
+        let tca = Utc
+            .with_ymd_and_hms(2026, 10, 13, 12, 0, 0)
+            .single()
+            .expect("valid TCA");
+        for hours in [
+            0.0,
+            -1.0,
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            0.0001,
+            f64::MAX,
+        ] {
+            assert!(checked_burn_time(tca, hours).is_err(), "hours: {}", hours);
+        }
+        assert_eq!(
+            checked_burn_time(chrono::DateTime::<Utc>::MIN_UTC, 1.0),
+            Err(BurnTimeError::BurnTimeOutOfRange)
+        );
+    }
+}
+
+#[cfg(test)]
+mod session_participant_tests {
+    use super::*;
+
+    fn key(byte: u8) -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![byte; 36])
+    }
+
+    fn session(
+        primary_operator: AgentPubKey,
+        secondary_operator: AgentPubKey,
+    ) -> NegotiationSession {
+        NegotiationSession {
+            session_id: "session:1".to_string(),
+            conjunction_id: "cdm:1".to_string(),
+            primary_operator,
+            secondary_operator,
+            primary_norad_id: 42,
+            secondary_norad_id: 77,
+            tca: SpaceTimestamp { micros: 0 },
+            status: SessionStatus::Pending,
+            deadline: SpaceTimestamp { micros: 1 },
+            created_at: SpaceTimestamp { micros: 0 },
+        }
+    }
+
+    #[test]
+    fn recorded_primary_and_secondary_operators_are_participants() {
+        let primary = key(1);
+        let secondary = key(2);
+        let session = session(primary.clone(), secondary.clone());
+
+        assert!(session_matches_participant(&session, "session:1", &primary));
+        assert!(session_matches_participant(&session, "session:1", &secondary));
+    }
+
+    #[test]
+    fn foreign_agent_or_different_session_id_is_rejected() {
+        let primary = key(1);
+        let secondary = key(2);
+        let foreign = key(3);
+        let session = session(primary.clone(), secondary);
+
+        assert!(!session_matches_participant(&session, "session:1", &foreign));
+        assert!(!session_matches_participant(&session, "session:other", &primary));
+    }
+
+    #[test]
+    fn proposals_must_target_one_of_the_session_objects() {
+        let session = session(key(1), key(2));
+
+        assert!(maneuvering_object_belongs_to_session(42, &session));
+        assert!(maneuvering_object_belongs_to_session(77, &session));
+        assert!(!maneuvering_object_belongs_to_session(99, &session));
+    }
+
+    #[test]
+    fn operators_can_submit_positions_only_for_their_assigned_object() {
+        let primary = key(1);
+        let secondary = key(2);
+        let session = session(primary.clone(), secondary.clone());
+
+        assert!(operator_represents_session_object(&session, &primary, 42));
+        assert!(!operator_represents_session_object(&session, &primary, 77));
+        assert!(operator_represents_session_object(&session, &secondary, 77));
+        assert!(!operator_represents_session_object(&session, &secondary, 42));
+        assert!(!operator_represents_session_object(&session, &key(3), 42));
+    }
+
+    #[test]
+    fn first_signature_role_is_bound_to_recorded_primary_operator() {
+        let primary = key(1);
+        let secondary = key(2);
+        let session = session(primary.clone(), secondary.clone());
+
+        assert!(is_primary_operator(&session, &primary));
+        assert!(!is_primary_operator(&session, &secondary));
+    }
+
+    #[test]
+    fn cosignature_role_is_bound_to_recorded_secondary_operator() {
+        let primary = key(1);
+        let secondary = key(2);
+        let outsider = key(3);
+        let session = session(primary.clone(), secondary.clone());
+
+        assert!(is_secondary_operator(&session, &secondary));
+        assert!(!is_secondary_operator(&session, &primary));
+        assert!(!is_secondary_operator(&session, &outsider));
+    }
+
+    fn agreement(
+        session_id: &str,
+        accepted_proposal: ActionHash,
+        secondary_signature: Option<AgentPubKey>,
+    ) -> NegotiationAgreement {
+        NegotiationAgreement {
+            session_id: session_id.to_string(),
+            accepted_proposal,
+            primary_signature: Some(key(1)),
+            secondary_signature,
+            agreed_at: SpaceTimestamp { micros: 1 },
+            execution_deadline: SpaceTimestamp { micros: 2 },
+        }
+    }
+
+    #[test]
+    fn replay_detector_finds_cosigned_snapshot_for_same_session_and_proposal() {
+        let proposal = ActionHash::from_raw_36(vec![9; 36]);
+        let signed = agreement("session:1", proposal.clone(), Some(key(2)));
+
+        assert!(agreement_has_cosignature(&[signed], "session:1", &proposal));
+    }
+
+    #[test]
+    fn replay_detector_ignores_unsigned_or_unrelated_snapshots() {
+        let proposal = ActionHash::from_raw_36(vec![9; 36]);
+        let different_proposal = ActionHash::from_raw_36(vec![8; 36]);
+        let unsigned = agreement("session:1", proposal.clone(), None);
+        let other_proposal = agreement("session:1", different_proposal, Some(key(2)));
+        let other_session = agreement(
+            "session:other",
+            proposal.clone(),
+            Some(key(2)),
+        );
+
+        assert!(!agreement_has_cosignature(
+            &[unsigned],
+            "session:1",
+            &proposal,
+        ));
+        assert!(!agreement_has_cosignature(
+            &[other_proposal],
+            "session:1",
+            &proposal,
+        ));
+        assert!(!agreement_has_cosignature(
+            &[other_session],
+            "session:1",
+            &proposal,
+        ));
+    }
 }

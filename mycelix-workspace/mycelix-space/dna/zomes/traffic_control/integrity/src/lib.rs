@@ -221,11 +221,18 @@ pub struct ManeuverProposal {
     /// Direction (unit vector)
     pub direction: [f64; 3],
 
-    /// Resulting miss distance (km)
-    pub resulting_miss_km: f64,
+    /// Caller-reported post-maneuver miss-distance claim, if supplied.
+    ///
+    /// This is not independently verified trajectory output.
+    #[serde(default, alias = "resulting_miss_km")]
+    pub claimed_resulting_miss_km: Option<f64>,
 
-    /// Resulting collision probability
-    pub resulting_pc: f64,
+    /// Caller-reported post-maneuver collision-probability claim.
+    ///
+    /// This is not a verified result. It remains a claim until an independent
+    /// post-maneuver state/covariance propagation and checked Pc assessment exist.
+    #[serde(default, alias = "resulting_pc")]
+    pub claimed_resulting_pc: Option<f64>,
 
     /// Cost estimate
     pub cost_estimate: Option<CostEstimate>,
@@ -291,8 +298,11 @@ pub struct AvoidanceOption {
     /// Resulting miss distance after maneuver (km)
     pub resulting_miss_distance_km: f64,
 
-    /// Resulting collision probability after maneuver
-    pub resulting_pc: f64,
+    /// Checked post-maneuver collision-probability estimate, if available.
+    ///
+    /// `None` means the option is geometric only and no defensible Pc estimate
+    /// was produced. It must never be rendered or interpreted as zero risk.
+    pub resulting_pc: Option<f64>,
 
     /// Transfer type: "prograde", "retrograde", "radial", or "normal"
     pub transfer_type: String,
@@ -518,10 +528,11 @@ fn validate_session(session: &NegotiationSession) -> ExternResult<ValidateCallba
         ));
     }
 
-    // Deadline must be after TCA (negotiation window)
-    if session.deadline.micros < session.tca.micros {
+    // The negotiation deadline must be strictly before TCA so approval can
+    // complete before the conjunction. Equality or a later deadline is invalid.
+    if session.deadline.micros >= session.tca.micros {
         return Ok(ValidateCallbackResult::Invalid(
-            "Deadline cannot be before TCA".to_string(),
+            "Negotiation deadline must be strictly before TCA".to_string(),
         ));
     }
 
@@ -593,6 +604,30 @@ fn validate_position(pos: &NegotiationPosition) -> ExternResult<ValidateCallback
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_claimed_resulting_miss_km(distance: Option<f64>) -> Result<(), String> {
+    if let Some(value) = distance {
+        if !value.is_finite() || value < 0.0 {
+            return Err(format!(
+                "Claimed resulting miss distance must be finite and non-negative when present, got {}",
+                value
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_claimed_resulting_pc(pc: Option<f64>) -> Result<(), String> {
+    if let Some(value) = pc {
+        if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+            return Err(format!(
+                "Claimed resulting Pc must be finite and between 0 and 1 when present, got {}",
+                value
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn validate_proposal(prop: &ManeuverProposal) -> ExternResult<ValidateCallbackResult> {
     // Session ID must not be empty
     if prop.session_id.trim().is_empty() {
@@ -633,20 +668,14 @@ fn validate_proposal(prop: &ManeuverProposal) -> ExternResult<ValidateCallbackRe
         )));
     }
 
-    // Resulting miss distance must be non-negative and finite
-    if !prop.resulting_miss_km.is_finite() || prop.resulting_miss_km < 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "Resulting miss distance must be non-negative and finite, got {}",
-            prop.resulting_miss_km
-        )));
+    // Validate any caller-reported miss-distance claim. Absence remains unknown.
+    if let Err(message) = validate_claimed_resulting_miss_km(prop.claimed_resulting_miss_km) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
 
-    // Resulting Pc must be in [0, 1]
-    if !prop.resulting_pc.is_finite() || prop.resulting_pc < 0.0 || prop.resulting_pc > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "Resulting Pc must be between 0 and 1, got {}",
-            prop.resulting_pc
-        )));
+    // Validate any caller-reported Pc claim. Absence stays unknown, not zero.
+    if let Err(message) = validate_claimed_resulting_pc(prop.claimed_resulting_pc) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
 
     // Validate cost estimate if present
@@ -739,12 +768,14 @@ fn validate_avoidance_option(opt: &AvoidanceOption) -> ExternResult<ValidateCall
         )));
     }
 
-    // Pc must be in [0, 1]
-    if !opt.resulting_pc.is_finite() || opt.resulting_pc < 0.0 || opt.resulting_pc > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "resulting_pc must be between 0 and 1, got {}",
-            opt.resulting_pc
-        )));
+    // An absent Pc means inconclusive/unavailable, not zero risk.
+    if let Some(pc) = opt.resulting_pc {
+        if !pc.is_finite() || !(0.0..=1.0).contains(&pc) {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "resulting_pc must be finite and between 0 and 1 when present, got {}",
+                pc
+            )));
+        }
     }
 
     // Transfer type must be one of the valid types
@@ -1027,6 +1058,39 @@ fn validate_multi_party_agreement(
 mod tests {
     use super::*;
 
+    fn negotiation_session(deadline_micros: i64, tca_micros: i64) -> NegotiationSession {
+        NegotiationSession {
+            session_id: "session:test".to_string(),
+            conjunction_id: "conjunction:test".to_string(),
+            primary_operator: AgentPubKey::from_raw_36(vec![1; 36]),
+            secondary_operator: AgentPubKey::from_raw_36(vec![2; 36]),
+            primary_norad_id: 42,
+            secondary_norad_id: 77,
+            tca: SpaceTimestamp { micros: tca_micros },
+            status: SessionStatus::Pending,
+            deadline: SpaceTimestamp { micros: deadline_micros },
+            created_at: SpaceTimestamp { micros: 0 },
+        }
+    }
+
+    #[test]
+    fn negotiation_deadline_before_tca_is_valid() {
+        assert!(matches!(
+            validate_session(&negotiation_session(1_500_000, 2_000_000)).expect("validator"),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn negotiation_deadline_equal_to_or_after_tca_is_invalid() {
+        for deadline in [2_000_000, 2_000_001] {
+            assert!(matches!(
+                validate_session(&negotiation_session(deadline, 2_000_000)).expect("validator"),
+                ValidateCallbackResult::Invalid(_)
+            ));
+        }
+    }
+
     #[test]
     fn test_proposal_status_valid_transitions() {
         use MultiPartyProposalStatus::*;
@@ -1104,5 +1168,65 @@ mod tests {
             post_maneuver_pc: 0.5,
         };
         assert!(opt.post_maneuver_pc >= 0.0 && opt.post_maneuver_pc <= 1.0);
+    }
+}
+
+
+#[cfg(test)]
+mod avoidance_option_pc_tests {
+    use super::*;
+
+    fn option(resulting_pc: Option<f64>) -> AvoidanceOption {
+        AvoidanceOption {
+            session_id: "session:test".to_string(),
+            maneuver_time: SpaceTimestamp { micros: 1_000_000 },
+            delta_v: vec![0.001, 0.0, 0.0],
+            delta_v_magnitude_ms: 1.0,
+            resulting_miss_distance_km: 1.0,
+            resulting_pc,
+            transfer_type: "prograde".to_string(),
+        }
+    }
+
+    #[test]
+    fn missing_probability_is_allowed_as_unassessed_geometry_not_zero() {
+        assert!(matches!(
+            validate_avoidance_option(&option(None)).expect("validator"),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn present_probability_must_be_finite_and_bounded() {
+        assert!(matches!(
+            validate_avoidance_option(&option(Some(0.2))).expect("validator"),
+            ValidateCallbackResult::Valid
+        ));
+        for pc in [f64::NAN, f64::INFINITY, -0.01, 1.01] {
+            assert!(matches!(
+                validate_avoidance_option(&option(Some(pc))).expect("validator"),
+                ValidateCallbackResult::Invalid(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn maneuver_claimed_pc_distinguishes_absent_from_zero() {
+        assert!(validate_claimed_resulting_pc(None).is_ok());
+        assert!(validate_claimed_resulting_pc(Some(0.0)).is_ok());
+        assert!(validate_claimed_resulting_pc(Some(1.0)).is_ok());
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.01, 1.01] {
+            assert!(validate_claimed_resulting_pc(Some(value)).is_err());
+        }
+    }
+
+    #[test]
+    fn maneuver_claimed_miss_distance_distinguishes_absent_from_zero() {
+        assert!(validate_claimed_resulting_miss_km(None).is_ok());
+        assert!(validate_claimed_resulting_miss_km(Some(0.0)).is_ok());
+        assert!(validate_claimed_resulting_miss_km(Some(5.0)).is_ok());
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.01] {
+            assert!(validate_claimed_resulting_miss_km(Some(value)).is_err());
+        }
     }
 }
