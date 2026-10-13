@@ -1,0 +1,51 @@
+name: Mycelix Music Media Delivery
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/mycelix-media-delivery.yml"
+      - "mycelix-workspace/mycelix-music/apps/leptos/Cargo.toml"
+      - "mycelix-workspace/mycelix-music/apps/leptos/src/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/mycelix-media-delivery.yml"
+      - "mycelix-workspace/mycelix-music/apps/leptos/Cargo.toml"
+      - "mycelix-workspace/mycelix-music/apps/leptos/src/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mycelix-media-delivery-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  delivery-contract:
+    name: Dependency-free delivery contract tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Compile the delivery contract tests
+        run: >-
+          rustc --edition=2024 --test
+          mycelix-workspace/mycelix-music/apps/leptos/src/delivery.rs
+          -o "$RUNNER_TEMP/mycelix-media-delivery-tests"
+      - name: Run the delivery contract tests
+        run: "$RUNNER_TEMP/mycelix-media-delivery-tests"
+
+  music-ui-wasm-check:
+    name: Compile Music UI for browser WASM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Check browser build
+        run: >-
+          cargo check
+          --manifest-path mycelix-workspace/mycelix-music/apps/leptos/Cargo.toml
+          --target wasm32-unknown-unknown
+          --no-default-features
