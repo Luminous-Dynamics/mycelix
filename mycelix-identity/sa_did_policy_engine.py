@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import validate_sa_did_profile
+
 POLICY_INPUT_FIELDS = {
     "user_approved",
     "alternative_route_required",
@@ -147,11 +149,22 @@ def _reject_duplicate_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any
 
 
 def build_report(profile: Any) -> dict[str, Any]:
-    """Evaluate the profile's vectors and return a deterministic JSON report."""
+    """Validate the research contract, then evaluate vectors deterministically."""
     if not isinstance(profile, dict):
         raise ValueError("profile must be an object")
     if profile.get("production_enabled") is not False:
         raise ValueError("policy oracle refuses a production-enabled profile")
+
+    # Do not let a report pass simply because expected labels and synthetic
+    # inputs were altered together. Enforce the independent, closed contract
+    # (including the scenario-to-outcome table) before executing the oracle.
+    contract_errors = validate_sa_did_profile.validate_profile(profile)
+    if contract_errors:
+        summary = "; ".join(contract_errors[:8])
+        if len(contract_errors) > 8:
+            summary += f"; and {len(contract_errors) - 8} more contract errors"
+        raise ValueError("profile contract validation failed: " + summary)
+
     vectors = profile.get("test_vectors")
     if not isinstance(vectors, list):
         raise ValueError("profile.test_vectors must be an array")
