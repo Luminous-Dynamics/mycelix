@@ -47,8 +47,8 @@ These are schema bounds, not safety or ergonomic acceptance criteria. The compat
 
 ## Integrity profile
 
-The workspace pins the BLAKE3 implementation to `=1.8.7` for this prototype profile. The compiler computes domain-separated BLAKE3 digests over the explicitly specified `canonical-binary-v1` encoding:
-- `design_digest`: family/revision and configuration;
+The workspace pins the BLAKE3 implementation to `=1.8.7` for this prototype profile. The compiler computes domain-separated BLAKE3 digests over the explicitly specified `canonical-binary-v2` encoding:
+- `design_digest`: family/revision, explicit ruleset and geometry-rule IDs, fixed dimension bounds, panel-envelope constants, allowed material/finish matrix, and configuration;
 - `cut_list_digest`: generated cut-part envelopes;
 - `packet_digest`: the complete packet core, including blockers and subordinate digests.
 
@@ -60,7 +60,7 @@ Encoding rules:
 - aggregate fields use the fixed order in each `encode_*` function;
 - each hash includes a BLAKE3 derive-key context, domain label, NUL separator, encoded byte length, and encoded bytes.
 
-This is a versioned binary protocol, not RFC 8785 canonical JSON. Cross-language verifiers must independently implement these exact rules and pass shared test vectors before relying on these digests. Any field-order, enum-discriminant, units, or encoding change requires a new protocol version. Digests establish integrity/binding only, not truth, authorship, safety, or qualification.
+This is a versioned binary protocol, not RFC 8785 canonical JSON. Cross-language verifiers must independently implement these exact rules and pass shared test vectors before relying on these digests. The packet schema is `furniture-compiler-packet-v2`; the design digest uses the `design-spec-v2` domain. Geometry semantics that change beyond the explicitly bound constraints must increment the corresponding ruleset/geometry-rule identifier. Any field-order, enum-discriminant, units, or encoding change requires a new protocol version. Digests establish integrity/binding only, not truth, authorship, safety, or qualification.
 
 ## Tests
 
