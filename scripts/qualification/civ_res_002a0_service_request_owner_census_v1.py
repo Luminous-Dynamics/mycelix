@@ -49,6 +49,7 @@ EXPECTED_MATRIX = [
     ("external_city_reference_and_source_currentness", "city_provider_adapter", "Missing"),
     ("water_specific_channel_interoperability", "city_provider_adapter", "Missing"),
     ("public_turnaround_semantics_vs_adopted_sla", "service_level_registry", "Missing"),
+    ("official_utility_source_conflict_precedence", "service_level_registry", "Missing"),
     ("completion_claim_and_independent_verification", "municipal_completion_verifier", "Missing"),
     ("service_level_contract_and_clock", "service_level_registry", "Missing"),
     ("offline_retry_and_idempotency", "external_idempotency_adapter", "Missing"),
@@ -80,6 +81,7 @@ REQUIRED_FLAGS = [
     "support_autonomy_boundary_qualified",
     "utility_channel_contract_pinned",
     "operational_turnaround_semantics_separated",
+    "source_precedence_or_conflict_resolution_bound",
 ]
 UNSAFE_FLAGS = [
     "city_reference_used_as_internal_identity",
@@ -106,6 +108,10 @@ UNSAFE_FLAGS = [
     "published_turnaround_treated_as_adopted_sla",
     "non_equivalent_service_category_crosswalked_automatically",
     "official_contact_conflict_silently_canonicalized",
+    "one_official_page_silently_preferred_over_conflicting_page",
+    "page_crawl_date_treated_as_service_target_effective_date",
+    "uncorroborated_emergency_contact_treated_as_verified_contact",
+    "route_name_used_as_proof_of_service_scope",
 ]
 EXPECTED_PROBE_IDS = [
     "city-reference-overpromotion",
@@ -145,6 +151,11 @@ EXPECTED_PROBE_IDS = [
     "service-category-crosswalk-needs-proof",
     "daily-notices-contact-conflict-is-not-silently-canonicalized",
     "turnaround-semantics-gate-is-required",
+    "conflicting-official-page-needs-precedence",
+    "crawl-date-is-not-effective-date",
+    "unverified-emergency-contact-is-not-authoritative",
+    "route-name-does-not-establish-scope",
+    "source-precedence-gate-is-required",
     "all-shadow-preconditions-explicit",
 ]
 
@@ -359,6 +370,8 @@ def validate() -> None:
         fail("customer fault portal source anchor missing")
     if source_anchors.get("JOHANNESBURG_WATER_DAILY_NOTICES") != "https://www.johannesburgwater.co.za/daily-water-notices/":
         fail("daily notices source anchor missing")
+    if source_anchors.get("JOHANNESBURG_WATER_EMERGENCIES_PAGE") != "https://www.johannesburgwater.co.za/emergencies/":
+        fail("official emergencies route source anchor missing")
 
     utility_channels = data["external_utility_channel_contract"]
     exact_keys(utility_channels, {
@@ -373,6 +386,7 @@ def validate() -> None:
         "customer_fault_portal_url", "portal_authentication_boundary", "daily_water_notices_url",
         "published_turnaround_rows", "turnaround_semantics_policy",
         "contact_number_source_conflict", "contact_number_values_by_section", "contact_numbers_use_policy",
+        "published_page_conflicts",
     }, "external utility channel contract")
     if (utility_channels["schema"], utility_channels["source_id"], utility_channels["source_url"]) != (
         "mycelix.civic-resilience.utility-channel-boundary.v1",
@@ -409,6 +423,7 @@ def validate() -> None:
     expected_claims.extend([
         ("fault_logging_portal", "ResidentFacingPortalLink"),
         ("published_turnaround_times", "CustomerFacingTurnaroundStatement"),
+        ("emergencies_route_turnaround_and_contact_variant", "OfficialPageVariantConflict"),
     ])
     if claims != expected_claims:
         fail("documented water channel claim census drift")
@@ -418,6 +433,7 @@ def validate() -> None:
         ("JohannesburgWaterSOC", "customer_fault_portal"),
         ("JohannesburgWaterSOC", "daily_water_notices"),
         ("JohannesburgWaterSOC", "daily_water_status_bulletin"),
+        ("JohannesburgWaterSOC", "emergencies_page"),
     ]
     channel_ids = []
     for channel in utility_channels["channel_records"]:
@@ -456,6 +472,42 @@ def validate() -> None:
         fail("page-local contact-number conflict must remain source-scoped")
     if "do not silently canonicalize" not in utility_channels["contact_numbers_use_policy"]:
         fail("contact-number conflict use policy drift")
+    conflict = utility_channels["published_page_conflicts"]
+    exact_keys(conflict, {"conflict_set_id", "observed_on", "observation_method", "route_scope_relationship", "effective_date_rule", "cross_page_precedence", "source_variants", "observed_differences", "allowed_conclusion", "forbidden_inferences"}, "official page conflict set")
+    if conflict["conflict_set_id"] != "JOHANNESBURG_WATER_DAILY_NOTICES_VS_EMERGENCIES" or conflict["observed_on"] != "2026-10-13":
+        fail("official-page conflict identity/observation date drift")
+    if conflict["observation_method"] != "OfficialPageTextObserved" or conflict["cross_page_precedence"] != "NoneEstablished":
+        fail("source precedence must remain explicitly unresolved")
+    if conflict["effective_date_rule"] != "NotPublishedOnTheObservedPageText":
+        fail("do not infer page-effective dates")
+    if len(conflict["source_variants"]) != 2 or len(conflict["observed_differences"]) != 5:
+        fail("source conflict row count drift")
+    expected_variants = [
+        ("daily_water_notices", "https://www.johannesburgwater.co.za/daily-water-notices/", "Daily water Notices", "fault@jwater.co.za", "+27 (0) 10 061 4470", "+27 (0) 11 688 1699", {"sewer":48,"water_outage":24,"leaking_meter":72,"burst_meter":24,"water_leak":48,"major_burst_pipe":48}),
+        ("emergencies", "https://www.johannesburgwater.co.za/emergencies/", "Daily water Notices", "customerserviceemails@jwater.co.za", "+27 (0) 11 375 5555", "+27 (0) 0 061 4470", {"sewer":24,"water_outage":12,"leaking_meter":72,"burst_meter":24,"water_leak":48,"major_burst_pipe":48}),
+    ]
+    observed_variants = []
+    for variant in conflict["source_variants"]:
+        exact_keys(variant, {"page_id", "url", "page_heading", "crawl_observation_date", "crawl_date_is_effective_date", "logging_email", "logging_primary_contact", "logging_secondary_contact", "footer_email", "footer_primary_contact", "footer_secondary_contact", "turnarounds_hours"}, "official page variant")
+        if variant["crawl_observation_date"] != conflict["observed_on"] or variant["crawl_date_is_effective_date"] is not False:
+            fail("crawl date must not be treated as source effective date")
+        observed_variants.append((variant["page_id"], variant["url"], variant["page_heading"], variant["logging_email"], variant["logging_primary_contact"], variant["footer_primary_contact"], variant["turnarounds_hours"]))
+    if observed_variants != expected_variants:
+        fail("official page variant values/identity drift")
+    expected_differences = [
+        ("turnarounds_hours.sewer", 48, 24),
+        ("turnarounds_hours.water_outage", 24, 12),
+        ("logging_email", "fault@jwater.co.za", "customerserviceemails@jwater.co.za"),
+        ("logging_primary_contact", "+27 (0) 10 061 4470", "+27 (0) 11 375 5555"),
+        ("footer_primary_contact", "+27 (0) 11 688 1699", "+27 (0) 0 061 4470"),
+    ]
+    observed_difference_tuples = [(d["field_id"], d["daily_water_notices_value"], d["emergencies_value"]) for d in conflict["observed_differences"]]
+    if observed_difference_tuples != expected_differences:
+        fail("official page conflict value set drift")
+    if conflict["allowed_conclusion"] != "OfficialPageVariantConflict;NoPrecedenceOrEffectiveDateQualified":
+        fail("allowed claim ceiling for page conflict drift")
+    if len(conflict["forbidden_inferences"]) != 4:
+        fail("forbidden page-precedence inferences must remain explicit")
     if len(utility_channels["published_turnaround_rows"]) != 6:
         fail("public turnaround row coverage drift")
     expected_turnarounds = [
