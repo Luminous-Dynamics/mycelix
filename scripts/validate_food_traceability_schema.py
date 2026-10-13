@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -12,6 +13,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "docs/food/schemas/food-traceability-event.v1.schema.json"
+MANIFEST_PATH = ROOT / "docs/food/food-traceability-corpus-manifest.v1.json"
 EXAMPLE_PATH = ROOT / "docs/food/examples/eggs-produced.v1.json"
 FORECAST_PATH = ROOT / "docs/food/examples/forecasted-harvest.v1.json"
 TRANSFORMATION_PATH = ROOT / "docs/food/examples/milk-to-cheese-transformed.v1.json"
@@ -31,7 +33,47 @@ TRANSFORMATION_PATH = ROOT / "docs/food/examples/milk-to-cheese-transformed.v1.j
 MISSING_HANDLING_PATH = ROOT / "docs/food/examples/cold-chain-missing-sample.v1.json"
 
 
+def git_blob_sha1(path: Path) -> str:
+    """Return Git's SHA-1 blob identifier for exact file bytes."""
+    content = path.read_bytes()
+    header = f"blob {len(content)}".encode("ascii") + b"\\0"
+    return hashlib.sha1(header + content).hexdigest()
+
+
 def main() -> int:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    if manifest.get("profile") != "mycelix.food-traceability-corpus-manifest.v1":
+        raise AssertionError("unexpected traceability corpus manifest profile")
+    if manifest.get("corpusKind") != "synthetic":
+        raise AssertionError("H0 fixture corpus must be explicitly synthetic")
+    schema_entry = manifest.get("schema", {})
+    if schema_entry.get("path") != SCHEMA_PATH.relative_to(ROOT).as_posix():
+        raise AssertionError("manifest schema path mismatch")
+    actual_schema_blob = git_blob_sha1(SCHEMA_PATH)
+    if actual_schema_blob != schema_entry.get("gitBlobSha1"):
+        raise AssertionError(
+            f"schema Git blob mismatch: expected {schema_entry.get('gitBlobSha1')}, got {actual_schema_blob}"
+        )
+    expected_paths = {
+        EXAMPLE_PATH.relative_to(ROOT).as_posix(),
+        FORECAST_PATH.relative_to(ROOT).as_posix(),
+        TRANSFORMATION_PATH.relative_to(ROOT).as_posix(),
+        MISSING_HANDLING_PATH.relative_to(ROOT).as_posix(),
+    }
+    manifest_paths = {fixture.get("path") for fixture in manifest.get("fixtures", [])}
+    if manifest_paths != expected_paths:
+        raise AssertionError(
+            f"manifest fixture set mismatch: expected {sorted(expected_paths)}, got {sorted(manifest_paths)}"
+        )
+    for fixture in manifest["fixtures"]:
+        fixture_path = ROOT / fixture["path"]
+        actual_blob = git_blob_sha1(fixture_path)
+        if actual_blob != fixture.get("gitBlobSha1"):
+            raise AssertionError(
+                f"fixture Git blob mismatch for {fixture['path']}: expected {fixture.get('gitBlobSha1')}, got {actual_blob}"
+            )
+        json.loads(fixture_path.read_text(encoding="utf-8"))
+
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     example = json.loads(EXAMPLE_PATH.read_text(encoding="utf-8"))
     forecast_example = json.loads(FORECAST_PATH.read_text(encoding="utf-8"))
