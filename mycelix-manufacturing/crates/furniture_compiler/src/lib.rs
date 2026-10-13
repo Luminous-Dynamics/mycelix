@@ -11,7 +11,7 @@ use std::io::Read;
 
 pub const INPUT_SCHEMA_VERSION: &str = "furniture-desk-input-v1";
 pub const PACKET_SCHEMA_VERSION: &str = "furniture-compiler-packet-v1";
-pub const SERIALIZATION_PROFILE: &str = "serde-json-struct-order-v1";
+pub const SERIALIZATION_PROFILE: &str = "canonical-binary-v1";
 pub const MAX_INPUT_BYTES: usize = 64 * 1024;
 
 const FAMILY_ID: &str = "modular_desk_prototype";
@@ -151,13 +151,6 @@ impl fmt::Display for CompileError {
 
 impl std::error::Error for CompileError {}
 
-#[derive(Serialize)]
-struct DesignIdentity<'a> {
-    family_id: &'static str,
-    family_revision: u32,
-    configuration: &'a DeskConfiguration,
-}
-
 pub fn compile_json(input: &str) -> Result<CompiledPacket, CompileError> {
     if input.len() > MAX_INPUT_BYTES {
         return Err(CompileError::InputTooLarge);
@@ -239,8 +232,8 @@ pub fn compile(config: DeskConfiguration) -> Result<CompiledPacket, CompileError
         family_revision: FAMILY_REVISION,
         configuration: &config,
     };
-    let design_digest = digest("design-spec-v1", &design_identity)?;
-    let cut_list_digest = digest("cut-list-v1", &cut_parts)?;
+    let design_digest = digest_design_identity(FAMILY_ID, FAMILY_REVISION, &config);
+    let cut_list_digest = digest_cut_list(&cut_parts);
 
     let core = PacketCore {
         packet_schema_version: PACKET_SCHEMA_VERSION.to_owned(),
@@ -266,7 +259,7 @@ pub fn compile(config: DeskConfiguration) -> Result<CompiledPacket, CompileError
         design_digest,
         cut_list_digest,
     };
-    let packet_digest = digest("manufacturing-packet-v1", &core)?;
+    let packet_digest = digest_packet_core(&core);
 
     Ok(CompiledPacket { core, packet_digest })
 }
@@ -286,18 +279,127 @@ pub fn verify_integrity(packet: &CompiledPacket) -> Result<bool, CompileError> {
     Ok(packet == &expected)
 }
 
-/// Stable domain-separated BLAKE3 digest over this crate's explicitly versioned
-/// serde struct-order serialization profile. This is not a claim of RFC 8785
-/// canonical JSON or cross-language byte equivalence.
-fn digest<T: Serialize>(domain: &str, value: &T) -> Result<String, CompileError> {
-    let bytes = serde_json::to_vec(value)
-        .map_err(|error| CompileError::Serialization(error.to_string()))?;
+/// Canonical binary encoding v1:
+/// - strings/byte sequences: unsigned 64-bit big-endian byte length, then UTF-8 bytes;
+/// - list lengths: unsigned 64-bit big-endian element count;
+/// - integers: unsigned 32-bit big-endian;
+/// - booleans: one byte (0 or 1);
+/// - enums: explicit one-byte discriminants in the match functions below;
+/// - aggregate fields: the exact order written by each encode_* function.
+/// This is a protocol of its own, not RFC 8785 JSON. Changing order, units,
+/// discriminants, or numeric representation requires a new profile version.
+fn put_u32(out: &mut Vec<u8>, value: u32) {
+    out.extend_from_slice(&value.to_be_bytes());
+}
+
+fn put_len(out: &mut Vec<u8>, value: usize) {
+    out.extend_from_slice(&(value as u64).to_be_bytes());
+}
+
+fn put_str(out: &mut Vec<u8>, value: &str) {
+    put_len(out, value.len());
+    out.extend_from_slice(value.as_bytes());
+}
+
+fn encode_material(out: &mut Vec<u8>, value: MaterialId) {
+    out.push(match value {
+        MaterialId::BirchPlywood => 1,
+        MaterialId::MelamineMdf => 2,
+    });
+}
+
+fn encode_finish(out: &mut Vec<u8>, value: FinishId) {
+    out.push(match value {
+        FinishId::ClearCoat => 1,
+        FinishId::WhiteMelamine => 2,
+        FinishId::BlackMelamine => 3,
+    });
+}
+
+fn encode_configuration(out: &mut Vec<u8>, value: &DeskConfiguration) {
+    put_str(out, &value.schema_version);
+    put_u32(out, value.width_mm);
+    put_u32(out, value.depth_mm);
+    put_u32(out, value.height_mm);
+    put_u32(out, value.panel_thickness_mm);
+    encode_material(out, value.material_id);
+    encode_finish(out, value.finish_id);
+}
+
+fn encode_cut_parts(out: &mut Vec<u8>, parts: &[CutPart]) {
+    put_len(out, parts.len());
+    for part in parts {
+        put_str(out, &part.part_id);
+        put_u32(out, part.quantity);
+        put_u32(out, part.length_mm);
+        put_u32(out, part.width_mm);
+        put_u32(out, part.thickness_mm);
+        encode_material(out, part.material_id);
+        encode_finish(out, part.finish_id);
+        out.push(match part.grain_axis {
+            GrainAxis::Length => 1,
+        });
+    }
+}
+
+fn encode_process_steps(out: &mut Vec<u8>, steps: &[CandidateProcessStep]) {
+    put_len(out, steps.len());
+    for step in steps {
+        put_u32(out, step.sequence);
+        put_str(out, &step.operation_code);
+        out.push(u8::from(step.requires_partner_mapping));
+    }
+}
+
+fn encode_release_gate(out: &mut Vec<u8>, gate: &ReleaseGate) {
+    out.push(u8::from(gate.configuration_bounds_passed));
+    out.push(u8::from(gate.release_eligible));
+    put_len(out, gate.blockers.len());
+    for blocker in &gate.blockers {
+        put_str(out, blocker);
+    }
+}
+
+fn hash_canonical(domain: &str, bytes: &[u8]) -> String {
     let mut hasher = blake3::Hasher::new_derive_key("Luminous Dynamics Furniture Compiler v1");
     hasher.update(domain.as_bytes());
     hasher.update(&[0]);
     hasher.update(&(bytes.len() as u64).to_be_bytes());
-    hasher.update(&bytes);
-    Ok(hasher.finalize().to_hex().to_string())
+    hasher.update(bytes);
+    hasher.finalize().to_hex().to_string()
+}
+
+fn digest_design_identity(
+    family_id: &str,
+    family_revision: u32,
+    config: &DeskConfiguration,
+) -> String {
+    let mut bytes = Vec::new();
+    put_str(&mut bytes, family_id);
+    put_u32(&mut bytes, family_revision);
+    encode_configuration(&mut bytes, config);
+    hash_canonical("design-spec-v1", &bytes)
+}
+
+fn digest_cut_list(parts: &[CutPart]) -> String {
+    let mut bytes = Vec::new();
+    encode_cut_parts(&mut bytes, parts);
+    hash_canonical("cut-list-v1", &bytes)
+}
+
+fn digest_packet_core(core: &PacketCore) -> String {
+    let mut bytes = Vec::new();
+    put_str(&mut bytes, &core.packet_schema_version);
+    put_str(&mut bytes, &core.serialization_profile);
+    put_str(&mut bytes, &core.family_id);
+    put_u32(&mut bytes, core.family_revision);
+    encode_configuration(&mut bytes, &core.configuration);
+    encode_cut_parts(&mut bytes, &core.cut_parts);
+    encode_process_steps(&mut bytes, &core.candidate_process_steps);
+    encode_release_gate(&mut bytes, &core.release_gate);
+    put_str(&mut bytes, &core.design_digest);
+    put_str(&mut bytes, &core.cut_list_digest);
+    hash_canonical("manufacturing-packet-v1", &bytes)
 }
 
 pub fn validate(config: &DeskConfiguration) -> Vec<ValidationIssue> {
@@ -365,6 +467,13 @@ mod tests {
             material_id: MaterialId::BirchPlywood,
             finish_id: FinishId::ClearCoat,
         }
+    }
+
+    #[test]
+    fn canonical_encoding_uses_explicit_big_endian_integer_bytes() {
+        let mut bytes = Vec::new();
+        put_u32(&mut bytes, 0x0102_0304);
+        assert_eq!(bytes, vec![1, 2, 3, 4]);
     }
 
     #[test]
