@@ -143,6 +143,10 @@ grep -Fq "recordType: 'settlement_allocation_lineage_checkpoint_v1'" packages/ac
   || fail "allocation lineage checkpoint commitment domain missing"
 grep -Fq 'const VERIFIED_CHECKPOINTS = new WeakSet<object>();' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
   || fail "verified source checkpoints must carry private runtime provenance"
+grep -Fq 'const snapshot = snapshotCheckpoint(checkpoint);' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint signing must snapshot caller input before validating and signing"
+grep -Fq 'const snapshot = snapshotSignedCheckpoint(checkpoint);' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint verification must authenticate one detached input snapshot"
 grep -Fq 'allocationRoots: validateRootSequence(' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
   || fail "verified checkpoints must snapshot allocation roots before minting runtime provenance"
 grep -Fq 'linkRoots: validateRootSequence(' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
