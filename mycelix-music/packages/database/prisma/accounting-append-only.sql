@@ -150,6 +150,8 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   evidence "SettlementAllocationLineageCheckpointRecord"%ROWTYPE;
+  previous_evidence "SettlementAllocationLineageCheckpointRecord"%ROWTYPE;
+  root_index integer;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     RAISE EXCEPTION 'settlement allocation checkpoint cursor cannot be deleted'
@@ -197,6 +199,45 @@ BEGIN
     RAISE EXCEPTION 'settlement allocation checkpoint cursor requires a new root and revision + 1'
       USING ERRCODE = '23514';
   END IF;
+  -- The database repeats the application's anti-omission check at the
+  -- durable cursor boundary. A validly shaped newer checkpoint cannot rewrite
+  -- or drop any allocation/link root already accepted by the previous cursor.
+  SELECT *
+    INTO previous_evidence
+    FROM "SettlementAllocationLineageCheckpointRecord"
+   WHERE "checkpointRoot" = OLD."checkpointRoot";
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor predecessor evidence is missing'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF jsonb_array_length(evidence."allocationRoots")
+       < jsonb_array_length(previous_evidence."allocationRoots") THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor allocation root history cannot shrink after acceptance'
+      USING ERRCODE = '23514';
+  END IF;
+  FOR root_index IN 0..jsonb_array_length(previous_evidence."allocationRoots") - 1 LOOP
+    IF (previous_evidence."allocationRoots" -> root_index)
+       IS DISTINCT FROM (evidence."allocationRoots" -> root_index) THEN
+      RAISE EXCEPTION 'settlement allocation checkpoint cursor allocation root history prefix mismatch'
+        USING ERRCODE = '23514';
+    END IF;
+  END LOOP;
+
+  IF jsonb_array_length(evidence."linkRoots")
+       < jsonb_array_length(previous_evidence."linkRoots") THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor successor-link root history cannot shrink after acceptance'
+      USING ERRCODE = '23514';
+  END IF;
+  FOR root_index IN 0..jsonb_array_length(previous_evidence."linkRoots") - 1 LOOP
+    IF (previous_evidence."linkRoots" -> root_index)
+       IS DISTINCT FROM (evidence."linkRoots" -> root_index) THEN
+      RAISE EXCEPTION 'settlement allocation checkpoint cursor successor-link root history prefix mismatch'
+        USING ERRCODE = '23514';
+    END IF;
+  END LOOP;
+
   IF length(NEW."highWaterMark") < length(OLD."highWaterMark")
      OR (length(NEW."highWaterMark") = length(OLD."highWaterMark")
          AND NEW."highWaterMark" < OLD."highWaterMark") THEN
