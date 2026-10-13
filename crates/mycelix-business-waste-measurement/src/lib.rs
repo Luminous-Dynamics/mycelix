@@ -198,6 +198,7 @@ pub enum WasteMeasurementError {
     UnexpectedObservedTimestamp,
     RecordedBeforeObservation,
     EvidenceAfterAssessment,
+    ImputationBeforeSlotClosed,
     InvalidEvidenceTimestamp,
     MissingRecordEvidenceDigest,
     GrossBelowTare,
@@ -385,6 +386,11 @@ pub fn assess_waste_measurement_coverage(
                     } => {
                         if record.observed_at_unix_ms.is_some() {
                             return Err(WasteMeasurementError::UnexpectedObservedTimestamp);
+                        }
+                        // A value recorded before the slot closes is a forecast, not a
+                        // retrospective imputation for an unobserved outcome.
+                        if record.recorded_at_unix_ms < planned_slot.observation_window.end_unix_ms {
+                            return Err(WasteMeasurementError::ImputationBeforeSlotClosed);
                         }
                         imputed_mass = imputed_mass
                             .checked_add(*estimated_grams)
@@ -884,6 +890,20 @@ mod tests {
         assert_eq!(
             assess_waste_measurement_coverage(&protocol(), &values, 7_000),
             Err(WasteMeasurementError::UnexpectedObservedTimestamp)
+        );
+    }
+
+    #[test]
+    fn model_imputation_cannot_be_recorded_before_slot_closes() {
+        let mut values = outcomes();
+        if let WasteSlotOutcome::Measured(record) = &mut values[2] {
+            // The slot closes at 4_100. A model value written before then is a
+            // forecast, and must not enter the outcome-imputation path.
+            record.recorded_at_unix_ms = 4_099;
+        }
+        assert_eq!(
+            assess_waste_measurement_coverage(&protocol(), &values, 7_000),
+            Err(WasteMeasurementError::ImputationBeforeSlotClosed)
         );
     }
 
