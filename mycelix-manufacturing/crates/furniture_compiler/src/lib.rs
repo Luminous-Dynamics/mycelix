@@ -445,7 +445,7 @@ fn digest_packet_core(core: &PacketCore) -> String {
     encode_release_gate(&mut bytes, &core.release_gate);
     put_str(&mut bytes, &core.design_digest);
     put_str(&mut bytes, &core.cut_list_digest);
-    hash_canonical("manufacturing-packet-v1", &bytes)
+    hash_canonical("manufacturing-packet-v2", &bytes)
 }
 
 pub fn validate(config: &DeskConfiguration) -> Vec<ValidationIssue> {
