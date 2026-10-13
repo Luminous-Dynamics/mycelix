@@ -209,17 +209,24 @@ pub fn delivery_candidates_with_origins(
     configured_origins: &[TrustedHttpsGatewayOrigin],
 ) -> Result<Vec<DeliveryCandidate>, DeliveryPlanError> {
     manifest.validate()?;
+    if configured_origins.len() > MAX_CONFIGURED_GATEWAY_ORIGINS {
+        return Err(DeliveryPlanError::TooManyGatewayOrigins);
+    }
 
     let cid = match &manifest.content_address {
         ContentAddress::IpfsCid(cid) => cid,
     };
 
     let mut candidates = Vec::with_capacity(configured_origins.len());
-    for (index, origin) in configured_origins.iter().enumerate() {
+    for origin in configured_origins {
+        let url = origin.url_for_cid(cid);
+        if candidates.iter().any(|candidate: &DeliveryCandidate| candidate.url == url) {
+            continue;
+        }
         candidates.push(DeliveryCandidate {
             provider: DeliveryProvider::ConfiguredHttpsOrigin,
-            url: origin.url_for_cid(cid),
-            priority: index as u8,
+            url,
+            priority: candidates.len() as u8,
             verification: VerificationLevel::HttpsTransportOnly,
         });
     }
