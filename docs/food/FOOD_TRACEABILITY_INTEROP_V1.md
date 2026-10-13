@@ -75,7 +75,7 @@ A quantity includes:
 - unit code system (UNECE_REC20);
 - exact code-list version.
 
-Unknown must not become zero or a nominal value. Planned/forecast amounts must not feed available inventory. The product profile is responsible for permitted units and package semantics: eggs can be listed by count or dozen; milk by volume; cheese by weight or declared unit; fresh produce commonly by mass or count. Conversions are allowed only with a declared, product-valid conversion. **Never assume one litre equals one kilogram.**
+Unknown must not become zero or a nominal value. Planned/forecast amounts must not feed available inventory. The product profile is responsible for permitted units and package semantics: eggs can be listed by individual count (`C62`) or dozen (`DZN`); milk by volume (`LTR`); cheese by weight (`KGM`) or a declared sellable unit; fresh produce commonly by mass or count. These codes are from the pinned UN/CEFACT Recommendation 20 vocabulary; product-specific compatibility still requires validation. Conversions are allowed only with a declared, product-valid conversion. **Never assume one litre equals one kilogram.**
 
 ## 5. Event semantics and invariants
 
@@ -143,7 +143,7 @@ Each fixture should carry an immutable ID, schema/version, seed where generated,
 
 - [ ] JSON Schema parses under a draft-2020-12 validator; valid and invalid examples are tested.
 - [ ] Cross-field validator checks event-type/quantity-state rules, forecast horizon ordering, shipment endpoint consistency, transformation subject/output alignment, and correction self-reference.
-- [ ] H0 rejects units outside the small pinned fixture subset or incompatible with fixture product profiles; production integration must validate full Recommendation 20 list membership and the authoritative product-profile unit policy.
+- [ ] H0 rejects units outside the small pinned fixture subset or incompatible with fixture product profiles; it covers `C62`/`DZN` for eggs, `LTR` for milk, `KGM` for cheese/produce, and `CEL` for temperature observations. Production integration must validate full Recommendation 20 list membership and the authoritative product-profile unit policy.
 - [ ] EPCIS adapter mapping has round-trip tests for supported fields and explicit loss reports for non-representable fields.
 - [ ] Idempotency key/content-digest conflict behavior is tested.
 - [ ] Transformation, dispatch/receipt, handoff and recall lineage tests pass.
