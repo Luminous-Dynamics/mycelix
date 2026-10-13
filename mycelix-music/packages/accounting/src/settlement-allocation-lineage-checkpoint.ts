@@ -121,6 +121,40 @@ function validateRootSequence(label: string, roots: readonly Digest[]): readonly
   return Object.freeze(result);
 }
 
+/**
+ * Take one detached read of all caller-owned checkpoint fields before validating
+ * or authenticating them. This prevents mutable arrays and accessor/Proxy-backed
+ * inputs from presenting different values between signature verification and
+ * the trusted-object snapshot.
+ */
+function snapshotCheckpoint(
+  checkpoint: SettlementAllocationLineageCheckpoint,
+): Readonly<SettlementAllocationLineageCheckpoint> {
+  const allocationRoots = Object.freeze([...checkpoint.allocationRoots]);
+  const linkRoots = Object.freeze([...checkpoint.linkRoots]);
+  return Object.freeze({
+    checkpointId: checkpoint.checkpointId,
+    sourceRef: checkpoint.sourceRef,
+    sourceInstanceId: checkpoint.sourceInstanceId,
+    batchId: checkpoint.batchId,
+    asOf: checkpoint.asOf,
+    observedThrough: checkpoint.observedThrough,
+    highWaterMark: checkpoint.highWaterMark,
+    allocationRoots,
+    linkRoots,
+    checkpointRoot: checkpoint.checkpointRoot,
+  });
+}
+
+function snapshotSignedCheckpoint(
+  checkpoint: SignedSettlementAllocationLineageCheckpoint,
+): Readonly<SignedSettlementAllocationLineageCheckpoint> {
+  const payload = snapshotCheckpoint(checkpoint);
+  const signerKeyId = checkpoint.signerKeyId;
+  const signatureBase64 = checkpoint.signatureBase64;
+  return Object.freeze({ ...payload, signerKeyId, signatureBase64 });
+}
+
 function checkpointCommitment(input: Omit<SettlementAllocationLineageCheckpoint, 'checkpointRoot'>): Digest {
   return buildMerkleCommitment([{
     recordType: 'settlement_allocation_lineage_checkpoint_v1',
@@ -223,7 +257,8 @@ export function signSettlementAllocationLineageCheckpoint(
   signerKeyId: string,
   privateKeyPem: string,
 ): Readonly<SignedSettlementAllocationLineageCheckpoint> {
-  assertSettlementAllocationLineageCheckpoint(checkpoint);
+  const snapshot = snapshotCheckpoint(checkpoint);
+  assertSettlementAllocationLineageCheckpoint(snapshot);
   const keyId = required('settlement allocation checkpoint signerKeyId', signerKeyId);
   const privateKey = createPrivateKey(privateKeyPem);
   if (privateKey.asymmetricKeyType !== 'ed25519') {
@@ -231,36 +266,25 @@ export function signSettlementAllocationLineageCheckpoint(
   }
   const signatureBase64 = signEd25519(
     null,
-    checkpointSigningMessage(checkpoint.checkpointRoot),
+    checkpointSigningMessage(snapshot.checkpointRoot),
     privateKey,
   ).toString('base64');
-  return Object.freeze({
-    ...checkpoint,
-    allocationRoots: validateRootSequence(
-      'settlement allocation checkpoint allocation',
-      checkpoint.allocationRoots,
-    ),
-    linkRoots: validateRootSequence(
-      'settlement allocation checkpoint link',
-      checkpoint.linkRoots,
-    ),
-    signerKeyId: keyId,
-    signatureBase64,
-  });
+  return Object.freeze({ ...snapshot, signerKeyId: keyId, signatureBase64 });
 }
 
 export function verifySettlementAllocationLineageCheckpoint(
   checkpoint: SignedSettlementAllocationLineageCheckpoint,
   policy: SettlementAllocationLineageCheckpointTrustPolicy,
 ): Readonly<SignedSettlementAllocationLineageCheckpoint> {
-  assertSettlementAllocationLineageCheckpoint(checkpoint);
+  const snapshot = snapshotSignedCheckpoint(checkpoint);
+  assertSettlementAllocationLineageCheckpoint(snapshot);
   const trustedSourceRef = required('trusted checkpoint sourceRef', policy.sourceRef);
   const trustedSourceInstanceId = required('trusted checkpoint sourceInstanceId', policy.sourceInstanceId);
   const trustedSignerKeyId = required('trusted checkpoint signerKeyId', policy.signerKeyId);
-  if (checkpoint.sourceRef !== trustedSourceRef || checkpoint.sourceInstanceId !== trustedSourceInstanceId) {
+  if (snapshot.sourceRef !== trustedSourceRef || snapshot.sourceInstanceId !== trustedSourceInstanceId) {
     throw new Error('settlement allocation checkpoint source identity is not trusted');
   }
-  if (checkpoint.signerKeyId !== trustedSignerKeyId) {
+  if (snapshot.signerKeyId !== trustedSignerKeyId) {
     throw new Error('settlement allocation checkpoint signer key is not trusted');
   }
 
@@ -268,31 +292,17 @@ export function verifySettlementAllocationLineageCheckpoint(
   if (publicKey.asymmetricKeyType !== 'ed25519') {
     throw new Error('settlement allocation checkpoint verification key must be Ed25519');
   }
-  const signature = assertCanonicalSignature(checkpoint.signatureBase64);
+  const signature = assertCanonicalSignature(snapshot.signatureBase64);
   const valid = verifyEd25519(
     null,
-    checkpointSigningMessage(checkpoint.checkpointRoot),
+    checkpointSigningMessage(snapshot.checkpointRoot),
     publicKey,
     signature,
   );
   if (!valid) throw new Error('settlement allocation checkpoint signature verification failed');
 
-  // JSON transports supply mutable arrays. Snapshot and freeze both ordered
-  // root sequences so the object authenticated above cannot be changed after
-  // the WeakSet provenance marker is minted.
-  const verified = Object.freeze({
-    ...checkpoint,
-    allocationRoots: validateRootSequence(
-      'settlement allocation checkpoint allocation',
-      checkpoint.allocationRoots,
-    ),
-    linkRoots: validateRootSequence(
-      'settlement allocation checkpoint link',
-      checkpoint.linkRoots,
-    ),
-  });
-  VERIFIED_CHECKPOINTS.add(verified);
-  return verified;
+  VERIFIED_CHECKPOINTS.add(snapshot);
+  return snapshot;
 }
 
 /**
