@@ -141,34 +141,71 @@ pub struct TleStaleness {
     pub confidence: f64,
 }
 
+/// Validate the caller-supplied staleness policy before performing a TLE lookup.
+pub fn validate_staleness_config(config: &StalenessConfig) -> Result<(), SpaceError> {
+    if config.stale_threshold_secs <= 0 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "stale_threshold_secs must be positive",
+        ));
+    }
+    if config.min_quality > 100 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "min_quality must be between 0 and 100",
+        ));
+    }
+    Ok(())
+}
+
+/// Return whether the age-degraded quality satisfies the requested minimum.
+pub fn staleness_quality_is_acceptable(
+    staleness: &TleStaleness,
+    config: &StalenessConfig,
+) -> bool {
+    staleness.effective_quality.value() >= config.min_quality
+}
+
 /// Compute age-degraded quality and confidence for a TLE.
 ///
 /// Quality degrades linearly: loses ~1 point per day after 7 days.
-/// Confidence drops from 1.0 at epoch to 0.3 at the stale threshold,
-/// and continues to 0.1 at 2x the threshold.
+/// Confidence decreases linearly from 1.0 at epoch to 0.3 at the stale threshold,
+/// then to 0.1 at twice the threshold and remains at that floor for older data.
+/// A non-positive threshold is invalid; direct calls fail conservatively with
+/// minimum confidence and stale status while API boundaries reject that config.
 pub fn compute_staleness(
     epoch: &SpaceTimestamp,
     quality: &QualityScore,
     config: &StalenessConfig,
 ) -> TleStaleness {
-    let age_secs = epoch.age_seconds();
+    compute_staleness_at_age(epoch.age_seconds(), quality, config)
+}
 
+fn compute_staleness_at_age(
+    age_secs: i64,
+    quality: &QualityScore,
+    config: &StalenessConfig,
+) -> TleStaleness {
     // Quality degrades: ~1 point per day after 7 days of age
     let grace_period_secs: i64 = 7 * 24 * 3600;
     let days_past_grace = ((age_secs - grace_period_secs).max(0) as f64) / 86400.0;
     let degraded = (quality.value() as f64 - days_past_grace).max(0.0) as u8;
     let effective_quality = QualityScore::new(degraded);
 
-    // Confidence: 1.0 for fresh TLEs, decays towards 0.1 for very old ones
     let threshold = config.stale_threshold_secs as f64;
     let age_f = age_secs.max(0) as f64;
-    let confidence = if threshold <= 0.0 {
-        1.0
+    let (confidence, is_stale) = if threshold <= 0.0 {
+        (0.1, true)
     } else {
-        (1.0 - 0.7 * (age_f / threshold).min(2.0) / 2.0).max(0.1)
+        let age_ratio = (age_f / threshold).min(2.0);
+        let confidence = if age_ratio <= 1.0 {
+            1.0 - 0.7 * age_ratio
+        } else {
+            0.3 - 0.2 * (age_ratio - 1.0)
+        }
+        .clamp(0.1, 1.0);
+        (confidence, age_secs > config.stale_threshold_secs)
     };
-
-    let is_stale = age_secs > config.stale_threshold_secs;
 
     TleStaleness {
         age_secs,
@@ -176,6 +213,59 @@ pub fn compute_staleness(
         original_quality: *quality,
         effective_quality,
         confidence,
+    }
+}
+
+#[cfg(test)]
+mod staleness_confidence_tests {
+    use super::*;
+
+    fn config(threshold: i64, min_quality: u8) -> StalenessConfig {
+        StalenessConfig {
+            stale_threshold_secs: threshold,
+            min_quality,
+        }
+    }
+
+    #[test]
+    fn confidence_matches_documented_age_curve() {
+        let quality = QualityScore::new(80);
+        let policy = config(100, 20);
+        for (age_secs, expected) in [
+            (0, 1.0),
+            (100, 0.3),
+            (150, 0.2),
+            (200, 0.1),
+            (500, 0.1),
+        ] {
+            let result = compute_staleness_at_age(age_secs, &quality, &policy);
+            assert!(
+                (result.confidence - expected).abs() <= 1e-12,
+                "age {age_secs}s expected confidence {expected}, got {}",
+                result.confidence
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_staleness_config_is_rejected_and_direct_calculation_fails_conservatively() {
+        assert!(validate_staleness_config(&config(0, 20)).is_err());
+        assert!(validate_staleness_config(&config(-1, 20)).is_err());
+        assert!(validate_staleness_config(&config(100, 101)).is_err());
+        assert!(validate_staleness_config(&config(100, 0)).is_ok());
+
+        let result = compute_staleness_at_age(0, &QualityScore::new(80), &config(0, 20));
+        assert_eq!(result.confidence, 0.1);
+        assert!(result.is_stale);
+    }
+
+    #[test]
+    fn minimum_quality_uses_age_degraded_quality() {
+        let policy = config(100, 20);
+        let below = compute_staleness_at_age(0, &QualityScore::new(19), &policy);
+        let at_minimum = compute_staleness_at_age(0, &QualityScore::new(20), &policy);
+        assert!(!staleness_quality_is_acceptable(&below, &policy));
+        assert!(staleness_quality_is_acceptable(&at_minimum, &policy));
     }
 }
 
