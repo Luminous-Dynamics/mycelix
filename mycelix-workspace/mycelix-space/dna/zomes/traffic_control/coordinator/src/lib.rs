@@ -345,6 +345,67 @@ fn validate_proposal_burn_window(
     Ok(())
 }
 
+/// Validate that avoidance generation is bound to the authenticated session,
+/// the exact TCA, and the exact ordered TLE object pair supplied by that session.
+fn validate_avoidance_session_binding(
+    session: &NegotiationSession,
+    primary_tle_norad_id: u32,
+    secondary_tle_norad_id: u32,
+    requested_tca_micros: i64,
+    now_micros: i64,
+) -> Result<(), String> {
+    if primary_tle_norad_id != session.primary_norad_id
+        || secondary_tle_norad_id != session.secondary_norad_id
+    {
+        return Err(format!(
+            "TLE object pair {} / {} does not match negotiation session object pair {} / {}",
+            primary_tle_norad_id,
+            secondary_tle_norad_id,
+            session.primary_norad_id,
+            session.secondary_norad_id
+        ));
+    }
+    if requested_tca_micros != session.tca.micros {
+        return Err(format!(
+            "Requested avoidance TCA {} does not match session TCA {}",
+            requested_tca_micros, session.tca.micros
+        ));
+    }
+    if session.tca.micros <= now_micros {
+        return Err("Conjunction TCA has passed or is not in the future".to_string());
+    }
+    validate_session_deadline(session.deadline.micros, session.tca.micros, now_micros)
+}
+
+/// Reusable checked time conversion for avoidance planning. The solver uses the
+/// same whole-second interval as the representable burn epoch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BurnTimeError {
+    InvalidLeadTime,
+    DurationOutOfRange,
+    BurnTimeOutOfRange,
+}
+
+fn checked_burn_time(
+    tca: chrono::DateTime<chrono::Utc>,
+    lead_time_hours: f64,
+) -> Result<(chrono::DateTime<chrono::Utc>, f64), BurnTimeError> {
+    if !lead_time_hours.is_finite() || lead_time_hours <= 0.0 {
+        return Err(BurnTimeError::InvalidLeadTime);
+    }
+    let seconds = lead_time_hours * 3600.0;
+    if !seconds.is_finite() || seconds < 1.0 || seconds >= i64::MAX as f64 {
+        return Err(BurnTimeError::DurationOutOfRange);
+    }
+    let whole_seconds = seconds.trunc() as i64;
+    let duration = chrono::Duration::try_seconds(whole_seconds)
+        .ok_or(BurnTimeError::DurationOutOfRange)?;
+    let burn_time = tca
+        .checked_sub_signed(duration)
+        .ok_or(BurnTimeError::BurnTimeOutOfRange)?;
+    Ok((burn_time, whole_seconds as f64))
+}
+
 /// Ensure an agreement's execution deadline remains within the negotiation
 /// window and precedes both the maneuver burn time and conjunction TCA.
 fn validate_agreement_deadline(
@@ -1100,7 +1161,11 @@ fn anchor_for_session_avoidance(session_id: &str) -> ExternResult<AnyLinkableHas
 /// Lambert for each, and returns feasible options sorted by ΔV.
 #[hdk_extern]
 pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<AvoidanceOption>> {
+    gate_space_operation(&requirement_for_negotiation(), "generate_avoidance_options")?;
     validate_string_field(&input.session_id, "session_id", 256).map_err(|e| e.into_wasm_error())?;
+
+    let agent = agent_info()?.agent_initial_pubkey;
+    let session = verify_session_participant(&input.session_id, &agent)?;
 
     if input.max_delta_v_ms <= 0.0 || !input.max_delta_v_ms.is_finite() {
         return Err(SpaceError::new(
@@ -1153,17 +1218,47 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
         .into_wasm_error()
     })?;
 
-    // Convert SpaceTimestamp to DateTime
+    let now = SpaceTimestamp::now();
+    validate_avoidance_session_binding(
+        &session,
+        primary_tle.norad_id,
+        secondary_tle.norad_id,
+        input.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidInput, message)
+            .with_context(format!("session: {}", input.session_id))
+            .into_wasm_error()
+    })?;
+
+    // Convert the already-bound TCA. Checked burn-time arithmetic prevents
+    // overflow and guarantees the solver interval matches the burn timestamp.
     let tca_secs = input.tca.micros / 1_000_000;
     let tca_nsecs = ((input.tca.micros % 1_000_000) * 1000) as u32;
     let tca_dt = chrono::DateTime::from_timestamp(tca_secs, tca_nsecs).ok_or_else(|| {
         SpaceError::new(SpaceErrorCode::InvalidInput, "Invalid TCA timestamp").into_wasm_error()
     })?;
+    let (burn_dt, tof_secs) = checked_burn_time(tca_dt, input.lead_time_hours).map_err(|error| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!("Invalid avoidance burn time: {:?}", error),
+        )
+        .into_wasm_error()
+    })?;
+    let burn_ts = SpaceTimestamp::from_datetime(burn_dt);
 
-    // Burn time = TCA - lead_time
-    let lead_secs = (input.lead_time_hours * 3600.0) as i64;
-    let burn_dt = tca_dt - chrono::Duration::seconds(lead_secs);
-    let tof_secs = input.lead_time_hours * 3600.0;
+    validate_proposal_burn_window(
+        burn_ts.micros,
+        session.deadline.micros,
+        session.tca.micros,
+        now.micros,
+    )
+    .map_err(|message| {
+        SpaceError::new(SpaceErrorCode::InvalidInput, message)
+            .with_context(format!("session: {}", input.session_id))
+            .into_wasm_error()
+    })?;
 
     // Propagate primary to burn time and TCA
     let p_burn = primary_prop.propagate_to(burn_dt).map_err(|e| {
@@ -1200,6 +1295,13 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
     // Generate displacement targets at TCA: ±5 km in each direction
     let displacement_km = 5.0;
     let r_tca_mag = r_tca.norm();
+    if !r_tca_mag.is_finite() || r_tca_mag <= f64::EPSILON {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Propagated primary TCA position is non-finite or degenerate",
+        )
+        .into_wasm_error());
+    }
 
     // Compute orbital frame unit vectors at TCA
     let r_hat = r_tca / r_tca_mag;
@@ -1228,11 +1330,6 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
 
     let max_dv_kms = input.max_delta_v_ms / 1000.0;
 
-    let burn_epoch_micros = input.tca.micros - (lead_secs * 1_000_000);
-    let burn_ts = SpaceTimestamp {
-        micros: burn_epoch_micros,
-    };
-
     let mut options = Vec::new();
 
     for (label, offset) in &directions {
@@ -1248,6 +1345,11 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
         let dv = sol.v1 - v_burn;
         let dv_mag = dv.norm();
 
+        // Numerical solver failures must not enter DHT records as NaN or infinity.
+        if !dv.iter().all(|component| component.is_finite()) || !dv_mag.is_finite() {
+            continue;
+        }
+
         // Skip if exceeds fuel budget
         if dv_mag > max_dv_kms {
             continue;
@@ -1255,6 +1357,9 @@ pub fn generate_avoidance_options(input: AvoidanceInput) -> ExternResult<Vec<Avo
 
         // Compute new miss distance at TCA (post-maneuver position = r_target by construction)
         let miss_km = (r_target - r_sec_tca).norm();
+        if !miss_km.is_finite() {
+            continue;
+        }
 
         // Estimate post-maneuver Pc using Alfano
         let analyzer = ConjunctionAnalyzer::new();
@@ -2818,6 +2923,65 @@ mod conjunction_reference_tests {
         let mut expired = event("cdm:42", 42, 77);
         expired.tca.micros = NOW_MICROS;
         assert!(validate(&[expired], "cdm:42", 42, 77).is_err());
+    }
+}
+
+#[cfg(test)]
+mod avoidance_session_binding_tests {
+    use super::*;
+    use chrono::{TimeZone, Utc};
+
+    fn session() -> NegotiationSession {
+        NegotiationSession {
+            session_id: "session:binding".to_string(),
+            conjunction_id: "cdm:binding".to_string(),
+            primary_operator: AgentPubKey::from_raw_36(vec![1; 36]),
+            secondary_operator: AgentPubKey::from_raw_36(vec![2; 36]),
+            primary_norad_id: 42,
+            secondary_norad_id: 77,
+            tca: SpaceTimestamp { micros: 2_000_000 },
+            status: SessionStatus::Pending,
+            deadline: SpaceTimestamp { micros: 1_000_000 },
+            created_at: SpaceTimestamp { micros: 10 },
+        }
+    }
+
+    #[test]
+    fn avoidance_binding_requires_exact_ordered_tle_pair_and_tca() {
+        let session = session();
+        assert!(validate_avoidance_session_binding(&session, 42, 77, 2_000_000, 100).is_ok());
+        assert!(validate_avoidance_session_binding(&session, 77, 42, 2_000_000, 100).is_err());
+        assert!(validate_avoidance_session_binding(&session, 42, 88, 2_000_000, 100).is_err());
+        assert!(validate_avoidance_session_binding(&session, 42, 77, 2_000_001, 100).is_err());
+    }
+
+    #[test]
+    fn avoidance_binding_rejects_expired_tca_and_deadline() {
+        let mut session = session();
+        assert!(validate_avoidance_session_binding(&session, 42, 77, 2_000_000, 2_000_000).is_err());
+        session.tca.micros = 2_000_000;
+        session.deadline.micros = 2_000_000;
+        assert!(validate_avoidance_session_binding(&session, 42, 77, 2_000_000, 100).is_err());
+    }
+
+    #[test]
+    fn checked_burn_time_and_lambert_interval_use_identical_seconds() {
+        let tca = Utc.with_ymd_and_hms(2026, 10, 13, 12, 0, 0).single().expect("valid TCA");
+        let (burn, tof) = checked_burn_time(tca, 1.5).expect("valid burn");
+        assert_eq!(tof, 5_400.0);
+        assert_eq!(tca.signed_duration_since(burn), chrono::Duration::seconds(5_400));
+    }
+
+    #[test]
+    fn checked_burn_time_rejects_invalid_and_unrepresentable_lead_times() {
+        let tca = Utc.with_ymd_and_hms(2026, 10, 13, 12, 0, 0).single().expect("valid TCA");
+        for hours in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 0.0001, f64::MAX] {
+            assert!(checked_burn_time(tca, hours).is_err(), "hours: {}", hours);
+        }
+        assert_eq!(
+            checked_burn_time(chrono::DateTime::<Utc>::MIN_UTC, 1.0),
+            Err(BurnTimeError::BurnTimeOutOfRange)
+        );
     }
 }
 
