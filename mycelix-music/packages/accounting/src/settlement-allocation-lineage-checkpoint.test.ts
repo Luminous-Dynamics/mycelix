@@ -354,6 +354,27 @@ describe('authenticated settlement allocation lineage checkpoint', () => {
       .toBe(successor.allocationRoot);
   });
 
+  it('reads accessor-backed checkpoint fields only once before verification', () => {
+    let reads = 0;
+    const signed = signedCheckpoint();
+    const accessorBacked = { ...signed };
+    Object.defineProperty(accessorBacked, 'sourceRef', {
+      enumerable: true,
+      configurable: false,
+      get() {
+        reads += 1;
+        return reads < 3 ? trust.sourceRef : 'postgres:alternate';
+      },
+    });
+
+    const verified = verifySettlementAllocationLineageCheckpoint(accessorBacked, trust);
+    expect(reads).toBe(1);
+    expect(verified.sourceRef).toBe(trust.sourceRef);
+    const resolution = resolveCheckpointBackedSettlementAllocationLineage([initial, successor], [link], verified);
+    expect(requireCheckpointBackedSettlementAllocationLineage(resolution).headAllocation.allocationRoot)
+      .toBe(successor.allocationRoot);
+  });
+
   it('snapshots verified root arrays against post-verification transport mutation', () => {
     const transported = JSON.parse(JSON.stringify(signedCheckpoint())) as ReturnType<typeof signedCheckpoint>;
     const verified = verifySettlementAllocationLineageCheckpoint(transported, trust);
