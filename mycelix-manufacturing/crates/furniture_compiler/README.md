@@ -1,0 +1,56 @@
+# Furniture Compiler (prototype)
+
+A small Rust-first reference compiler for a bounded modular-desk parameter schema. It is intentionally isolated from manufacturing order release.
+
+## Status and claim boundary
+
+This is a prototype reference implementation, not a released furniture design, CAD exporter, nesting engine, structural solver, price calculator, safety certification, or production release authority. The output's release gate is always blocked until the listed engineering, supplier, process, qualification, inspection, and fulfillment evidence is bound to the exact revision.
+
+The generated cut parts are rectangular panel envelopes for early contract testing. They do not specify joinery, drill patterns, fasteners, edge-band placement, tolerances, load limits, or accepted manufacturing methods. Do not manufacture or sell a product from the packet alone.
+
+## Run
+
+From the manufacturing workspace:
+
+```bash
+cargo test -p furniture_compiler
+cargo run -p furniture_compiler --bin furniture-compile < desk-input.json
+```
+
+The CLI accepts one JSON document on standard input (maximum 64 KiB) and emits a JSON packet to standard output. Errors go to standard error and exit status 2.
+
+## Input example
+
+```json
+{
+  "schema_version": "furniture-desk-input-v1",
+  "width_mm": 1200,
+  "depth_mm": 600,
+  "height_mm": 750,
+  "panel_thickness_mm": 18,
+  "material_id": "birch_plywood",
+  "finish_id": "clear_coat"
+}
+```
+
+Allowed prototype envelope:
+- width: 600–1600 mm;
+- depth: 400–900 mm;
+- height: 650–850 mm;
+- panel thickness: exactly 18 mm;
+- birch plywood with clear coat, or melamine MDF with white/black melamine finish.
+
+These are schema bounds, not safety or ergonomic acceptance criteria. The compatibility matrix also does not establish that a material/finish combination is available from a real supplier.
+
+## Integrity profile
+
+The compiler computes domain-separated BLAKE3 digests over typed serialized structures:
+- `design_digest`: family/revision and configuration;
+- `cut_list_digest`: generated cut-part envelopes;
+- `packet_digest`: the complete packet core, including blockers and subordinate digests.
+
+The explicitly versioned `serde-json-struct-order-v1` profile promises deterministic serialization within the implemented schema/profile; it is not RFC 8785 canonical JSON and does not claim cross-language byte equivalence. A downstream verifier must implement this exact profile or introduce a separately versioned canonical encoding. Digests establish integrity/binding only, not truth, authorship, safety, or qualification.
+
+## Tests
+
+The crate contains tests for deterministic recompilation, digest sensitivity, stable parts ordering, expected geometry arithmetic, out-of-range dimensions, incompatible finishes, unsupported thickness, unknown JSON fields, oversized input, tamper detection, and the permanent release-blocked state. These tests must still be executed in the target Rust/Nix toolchain before this change is considered verified.
