@@ -55,6 +55,13 @@ pub enum FinishId {
     BlackMelamine,
 }
 
+/// Single source of truth for validation and the design-digest rules encoding.
+const ALLOWED_MATERIAL_FINISHES: [(MaterialId, FinishId); 3] = [
+    (MaterialId::BirchPlywood, FinishId::ClearCoat),
+    (MaterialId::MelamineMdf, FinishId::WhiteMelamine),
+    (MaterialId::MelamineMdf, FinishId::BlackMelamine),
+];
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CutPart {
@@ -350,15 +357,12 @@ fn encode_family_rules(out: &mut Vec<u8>) {
     put_u32(out, PANEL_THICKNESS_MM);
     put_u32(out, REAR_APRON_HEIGHT_MM);
 
-    // Matrix entries are serialized in a fixed order. The enum encoders above
-    // define stable discriminants for this protocol version.
-    put_len(out, 3);
-    encode_material(out, MaterialId::BirchPlywood);
-    encode_finish(out, FinishId::ClearCoat);
-    encode_material(out, MaterialId::MelamineMdf);
-    encode_finish(out, FinishId::WhiteMelamine);
-    encode_material(out, MaterialId::MelamineMdf);
-    encode_finish(out, FinishId::BlackMelamine);
+    // Serialize the exact allowlist used by validation, in its declared order.
+    put_len(out, ALLOWED_MATERIAL_FINISHES.len());
+    for (material, finish) in ALLOWED_MATERIAL_FINISHES {
+        encode_material(out, material);
+        encode_finish(out, finish);
+    }
 }
 
 fn encode_cut_parts(out: &mut Vec<u8>, parts: &[CutPart]) {
@@ -479,12 +483,8 @@ pub fn validate(config: &DeskConfiguration) -> Vec<ValidationIssue> {
             ),
         });
     }
-    let finish_valid = matches!(
-        (config.material_id, config.finish_id),
-        (MaterialId::BirchPlywood, FinishId::ClearCoat)
-            | (MaterialId::MelamineMdf, FinishId::WhiteMelamine)
-            | (MaterialId::MelamineMdf, FinishId::BlackMelamine)
-    );
+    let finish_valid =
+        ALLOWED_MATERIAL_FINISHES.contains(&(config.material_id, config.finish_id));
     if !finish_valid {
         issues.push(ValidationIssue {
             code: IssueCode::IncompatibleFinish,
@@ -632,6 +632,41 @@ mod tests {
         assert!(matches!(
             compile(bad_thickness),
             Err(CompileError::InvalidConfiguration(_))
+        ));
+    }
+
+    #[test]
+    fn every_dimension_range_rejects_both_sides_of_its_bounds() {
+        let cases = [
+            (599, 600, 750, IssueCode::WidthOutOfRange),
+            (1601, 600, 750, IssueCode::WidthOutOfRange),
+            (1200, 399, 750, IssueCode::DepthOutOfRange),
+            (1200, 901, 750, IssueCode::DepthOutOfRange),
+            (1200, 600, 649, IssueCode::HeightOutOfRange),
+            (1200, 600, 851, IssueCode::HeightOutOfRange),
+        ];
+        for (width_mm, depth_mm, height_mm, expected_code) in cases {
+            let mut config = valid_config();
+            config.width_mm = width_mm;
+            config.depth_mm = depth_mm;
+            config.height_mm = height_mm;
+            let error = compile(config).expect_err("outside bound must fail");
+            assert!(matches!(
+                error,
+                CompileError::InvalidConfiguration(ref issues)
+                    if issues.iter().any(|issue| issue.code == expected_code)
+            ));
+        }
+    }
+
+    #[test]
+    fn unsupported_input_schema_version_is_rejected() {
+        let mut config = valid_config();
+        config.schema_version = "furniture-desk-input-next".to_owned();
+        assert!(matches!(
+            compile(config),
+            Err(CompileError::InvalidConfiguration(ref issues))
+                if issues.iter().any(|issue| issue.code == IssueCode::WrongSchemaVersion)
         ));
     }
 
