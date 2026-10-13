@@ -247,6 +247,34 @@ test('PostgreSQL keeps checkpoint evidence append-only and rejects cursor rollba
       /successor-link root history prefix mismatch/,
     );
 
+    const shrunkAllocationHistory = {
+      id: 'checkpoint:sql:allocation-prefix-shrink',
+      root: root('e'),
+      asOf: '2026-10-03T00:00:01.000Z',
+      observedThrough: '2026-10-03T00:00:06.000Z',
+      highWaterMark: '12',
+      allocationRoots: [root('2')],
+      linkRoots: [],
+    };
+    await insertCheckpoint(prisma, shrunkAllocationHistory);
+    await assert.rejects(
+      prisma.$executeRawUnsafe(
+        'UPDATE "SettlementAllocationLineageCheckpointCursor" SET ' +
+        '"checkpointId" = $1, "checkpointRoot" = $2, "asOf" = $3, "observedThrough" = $4, ' +
+        '"highWaterMark" = $5, "revision" = 3 ' +
+        'WHERE "sourceRef" = $6 AND "sourceInstanceId" = $7 AND "batchId" = $8',
+        shrunkAllocationHistory.id,
+        shrunkAllocationHistory.root,
+        shrunkAllocationHistory.asOf,
+        shrunkAllocationHistory.observedThrough,
+        shrunkAllocationHistory.highWaterMark,
+        sourceRef,
+        sourceInstanceId,
+        batchId,
+      ),
+      /allocation root history cannot shrink after acceptance/,
+    );
+
     // An idle source may advance observation coverage without changing its data HWM.
     const idle = {
       id: 'checkpoint:sql:idle-observation',
