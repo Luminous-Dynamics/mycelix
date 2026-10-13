@@ -147,6 +147,8 @@ grep -Fq 'allocationRoots: validateRootSequence(' packages/accounting/src/settle
   || fail "verified checkpoints must snapshot allocation roots before minting runtime provenance"
 grep -Fq 'linkRoots: validateRootSequence(' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
   || fail "verified checkpoints must snapshot link roots before minting runtime provenance"
+grep -Fq 'reads accessor-backed checkpoint fields only once before verification' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
+  || fail "checkpoint verifier must authenticate one detached input snapshot"
 grep -Fq 'snapshots verified root arrays against post-verification transport mutation' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
   || fail "checkpoint cryptographic provenance must resist post-verification array mutation"
 grep -Fq 'signed checkpoints own independent immutable root snapshots' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
