@@ -34,7 +34,7 @@ fn finite_square_matrix(value: &Value, dimension: usize) -> bool {
         for j in (i + 1)..dimension {
             let upper = rows[i][j].as_f64().expect("shape was checked");
             let lower = rows[j][i].as_f64().expect("shape was checked");
-            let scale = upper.abs().max(lower.abs()).max(1.0);
+            let scale = upper.abs().max(lower.abs());
             if (upper - lower).abs() > 1e-10 * scale {
                 return false;
             }
