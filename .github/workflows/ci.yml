@@ -173,6 +173,17 @@ jobs:
           cmp /tmp/furniture-packet-a.json /tmp/furniture-packet-b.json
       - name: Assert output remains blocked from production release
         run: jq -e '.core.release_gate.release_eligible == false and (.core.release_gate.blockers | length > 0) and (.packet_digest | length == 64)' /tmp/furniture-packet-a.json > /dev/null
+      - name: Verify the packet in a separate CLI invocation
+        run: |
+          cargo run --quiet --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler --bin furniture-compile -- --verify < /tmp/furniture-packet-a.json > /tmp/furniture-verification.json
+          jq -e --slurpfile packet /tmp/furniture-packet-a.json '.integrity_verified == true and .packet_digest == $packet[0].packet_digest' /tmp/furniture-verification.json > /dev/null
+      - name: Reject a tampered production gate
+        run: |
+          jq '.core.release_gate.release_eligible = true' /tmp/furniture-packet-a.json > /tmp/furniture-packet-tampered.json
+          if cargo run --quiet --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler --bin furniture-compile -- --verify < /tmp/furniture-packet-tampered.json > /dev/null 2>&1; then
+            echo "verifier accepted a tampered release gate" >&2
+            exit 1
+          fi
 
   test-commons:
     needs: changes
