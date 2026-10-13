@@ -207,5 +207,14 @@ class SouthAfricanDigitalIdProfileTests(unittest.TestCase):
         self.assertTrue(any("policy_inputs.issuer_trusted must be a Boolean" in e for e in errors))
 
 
+    def test_research_sources_are_pinned_to_official_evidence(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["routes"][1]["source_urls"] = [
+            "https://www.gov.za/not-a-dha-digital-id-source"
+        ]
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("pinned official research sources" in e for e in errors))
+
+
 if __name__ == "__main__":
     unittest.main()
