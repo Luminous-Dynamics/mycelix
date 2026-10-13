@@ -422,7 +422,13 @@ def main() -> int:
     bad = copy.deepcopy(example)
     bad["eventType"] = "RETRACTION"
     bad["supersedesEventId"] = example["eventId"]
-    invalid("retraction requires an explicit reason and may not self-supersede", bad)
+    bad["correctionReason"] = "Test self-reference rejection."
+    invalid("retraction cannot supersede itself even when its reason is present", bad)
+
+    bad = copy.deepcopy(example)
+    bad["eventType"] = "RETRACTION"
+    bad["supersedesEventId"] = "urn:mycelix:food-event:producer-01:prior-event"
+    invalid("retraction requires a non-empty reason", bad)
 
     correction = copy.deepcopy(example)
     correction["eventId"] = "urn:mycelix:food-event:producer-01:eggs-lot-20261012:correction-001"
