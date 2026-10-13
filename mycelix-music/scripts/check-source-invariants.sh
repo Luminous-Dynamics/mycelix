@@ -155,6 +155,14 @@ grep -Fq 'checkpoint link roots do not match observed lineage' packages/accounti
   || fail "checkpoint replay must reject omitted or extra successor-link authority"
 grep -Fq 'highWaterMark must be a canonical unsigned integer' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
   || fail "checkpoint source cursor must use canonical monotonic representation"
+grep -Fq 'assertCheckpointRootPrefix' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "advancing checkpoints must preserve accepted allocation and link history"
+grep -Fq 'cannot shrink after acceptance' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint advancement must reject omission of previously accepted roots"
+grep -Fq 'rejects a newer checkpoint that omits accepted allocation history' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
+  || fail "checkpoint regression suite must reject post-acceptance lineage omission"
+grep -Fq 'jsonb_array_length("linkRoots") = jsonb_array_length("allocationRoots") - 1' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must enforce allocation/link root cardinality"
 grep -Fq 'cryptographically verified before lineage resolution' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
   || fail "unverified checkpoint objects must not mint lineage authority"
 grep -Fq 'rejects the omission attack' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
