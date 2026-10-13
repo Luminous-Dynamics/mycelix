@@ -1,0 +1,37 @@
+name: Business Waste Measurement
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-waste-measurement/**'
+      - 'docs/business/HOSPITALITY_OUTCOME_MEASUREMENT_PROTOCOL_V0_1.md'
+      - '.github/workflows/business-waste-measurement.yml'
+  push:
+    branches:
+      - main
+      - 'feat/business-hospitality-waste-measurement-*'
+    paths:
+      - 'crates/mycelix-business-core/**'
+      - 'crates/mycelix-business-waste-measurement/**'
+      - 'docs/business/HOSPITALITY_OUTCOME_MEASUREMENT_PROTOCOL_V0_1.md'
+      - '.github/workflows/business-waste-measurement.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  business-waste-measurement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-business-waste-measurement/Cargo.toml --all --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-business-waste-measurement/Cargo.toml --all-targets -- -D warnings
+      - name: Test waste measurement contract
+        run: cargo test --manifest-path crates/mycelix-business-waste-measurement/Cargo.toml --all-targets
