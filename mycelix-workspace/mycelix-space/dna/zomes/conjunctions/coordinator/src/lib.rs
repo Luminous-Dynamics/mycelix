@@ -732,15 +732,8 @@ pub fn screen_conjunction(input: ScreenInput) -> ExternResult<Vec<ConjunctionAss
         .into_wasm_error());
     }
 
-    if input.hours_ahead <= 0.0 || input.hours_ahead > 720.0 {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            "hours_ahead must be between 0 and 720 (30 days)",
-        )
-        .with_context(format!("value: {}", input.hours_ahead))
-        .into_wasm_error());
-    }
-
+    // Reject non-finite horizons and thresholds before performing network/DHT work.
+    validate_screening_parameters(input.hours_ahead, input.pc_threshold)?;
     validate_requested_secondary_ids(input.primary_norad_id, &input.secondary_norad_ids)?;
 
     // Collect all NORAD IDs we need
@@ -846,6 +839,8 @@ pub fn screen_conjunction_with_staleness(
         .into_wasm_error());
     }
 
+    // Reject invalid horizons/thresholds before performing network/DHT work.
+    validate_screening_parameters(input.hours_ahead, input.pc_threshold)?;
     validate_requested_secondary_ids(input.primary_norad_id, &input.secondary_norad_ids)?;
 
     // Collect all NORAD IDs
