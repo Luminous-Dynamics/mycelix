@@ -105,6 +105,10 @@ A separate, fail-closed research profile tracks possible interoperability with S
 
 **This is not a production integration.** The existing server-side OVS route and the future holder-presented smartphone Digital ID route are distinct evidence methods. The profile keeps production disabled, configures no official DHA trust anchor, and does not claim DHA access, approval, certification, or POPIA compliance. Tests use only synthetic policy scenarios; no real identity data or DHA endpoint is used.
 
+### Run the synthetic contract checks
+
+From `mycelix-identity/`, run `python3 validate_sa_did_profile.py`, then `python3 sa_did_policy_engine.py --report /tmp/sa-did-synthetic-policy-report.json`, then `python3 -m unittest discover -s tests -p 'test_sa_did_*.py' -v`. The report contains the exact expected and actual dispositions for all 16 vectors and explicitly records that it is synthetic-only, not a cryptographic verification result. CI uploads the report as the `sa-did-synthetic-policy-report` artifact when it is produced.
+
 ## Development
 
 ```bash
