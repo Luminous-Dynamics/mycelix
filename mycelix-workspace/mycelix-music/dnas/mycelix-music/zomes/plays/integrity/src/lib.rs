@@ -531,7 +531,7 @@ mod tests {
     use hdi::prelude::ActionHash;
 
     fn test_action_hash(seed: u8) -> ActionHash {
-        ActionHash::from_raw_32(vec![seed; 32])
+        ActionHash::from_raw_36(vec![seed; 36])
     }
 
     #[test]
