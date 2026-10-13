@@ -64,6 +64,8 @@ REQUIRED_FLAGS = [
     "human_approval_required", "symthaea_advisory_only",
     "per_report_sla_clocks_preserved", "completion_verification_separate",
     "service_level_source_pinned", "production_side_effects_disabled",
+    "external_reference_namespace_bound", "source_reference_origin_recorded",
+    "official_channel_instructions_present", "current_adopted_sla_source_verified",
 ]
 UNSAFE_FLAGS = [
     "city_reference_used_as_internal_identity",
@@ -73,6 +75,9 @@ UNSAFE_FLAGS = [
     "unmerged_branch_assumed_qualified",
     "duplicate_merge_resets_individual_sla_clock",
     "protected_resident_data_written_to_public_dht",
+    "portal_access_treated_as_api_authorization",
+    "same_reference_follow_up_creates_new_external_intake",
+    "unverified_city_status_claimed_authoritative",
 ]
 EXPECTED_PROBE_IDS = [
     "city-reference-overpromotion",
@@ -81,9 +86,16 @@ EXPECTED_PROBE_IDS = [
     "model-recommendation-is-not-authority",
     "open-pr-does-not-inherit-qualification",
     "dedup-must-preserve-each-clock",
+    "protected-resident-data-stays-private",
+    "portal-access-is-not-api-authority",
+    "same-reference-followup-is-not-new-intake",
+    "unverified-status-is-not-authoritative",
     "stale-or-unverified-external-state",
     "unqualified-provider-retry",
-    "no-authorised-source-contract",
+    "no-authorized-source-contract",
+    "missing-namespaced-source-reference",
+    "missing-source-reference-origin",
+    "no-current-adopted-sla",
     "all-shadow-preconditions-explicit",
 ]
 
@@ -112,9 +124,12 @@ def exact_keys(value: Any, keys: set[str], where: str) -> None:
 
 def classify_probe(facts: dict[str, Any]) -> str:
     """Classify evidence readiness; never grants production or civic authority."""
-    if any(facts.get(flag) is True for flag in UNSAFE_FLAGS):
+    expected = set(REQUIRED_FLAGS + UNSAFE_FLAGS)
+    if set(facts) != expected or any(type(v) is not bool for v in facts.values()):
+        return "UNRESOLVED"
+    if any(facts[flag] for flag in UNSAFE_FLAGS):
         return "REJECT"
-    if not all(facts.get(flag) is True for flag in REQUIRED_FLAGS):
+    if not all(facts[flag] for flag in REQUIRED_FLAGS):
         return "UNRESOLVED"
     return "ADVISORY_SHADOW_ELIGIBLE"
 
@@ -132,8 +147,8 @@ def validate() -> None:
         "schema", "program", "observed_at", "source_snapshot",
         "classification_vocabulary", "candidates", "owner_matrix",
         "branch_only_proposals", "source_anchors", "municipal_sla_source_posture",
-        "decision", "invariants", "required_gate_flags", "unsafe_flags",
-        "probe_cases", "nonclaims",
+        "channel_first_pilot_contract", "decision", "invariants",
+        "required_gate_flags", "unsafe_flags", "probe_cases", "nonclaims",
     }, "manifest")
     if data["schema"] != "mycelix.civic-resilience.service-request-owner-census.v1":
         fail("unexpected schema")
@@ -211,10 +226,46 @@ def validate() -> None:
     exact_keys(posture, {
         "latest_city_service_level_charter_listed_by_official_index",
         "current_planning_documents_listed", "adopted_2026_27_water_sla_bound_into_this_census",
-        "rule",
+        "rule", "service_level_standards_unit",
+        "2026_27_service_level_standards_charter_listed",
+        "official_source_index_observed", "adopted_2026_27_water_sla_verified",
+        "reporting_clock_status",
     }, "municipal SLA source posture")
     if posture["adopted_2026_27_water_sla_bound_into_this_census"] is not False:
         fail("must not assert an adopted 2026/27 SLA without source qualification")
+    if posture["2026_27_service_level_standards_charter_listed"] is not False:
+        fail("do not claim a 2026/27 charter is listed")
+    if posture["adopted_2026_27_water_sla_verified"] is not False:
+        fail("do not claim a current adopted SLA without qualification")
+    if posture["reporting_clock_status"] != "NotEvaluableUntilCurrentAdoptedTargetAndClockSemanticsArePinned":
+        fail("SLA reporting must remain not-evaluable until source and clock semantics are qualified")
+
+    pilot = data["channel_first_pilot_contract"]
+    exact_keys(pilot, {
+        "mode", "live_provider_calls_authorized", "automatic_city_submission_authorized",
+        "provider_api_contract_identified", "official_channels_preserved",
+        "external_reference_required_for_authoritative_followup", "reference_namespace_required",
+        "reference_record_default_status", "references_persisted_to_public_dht",
+        "raw_resident_identifiers_or_precise_protected_locations_persisted_to_public_dht",
+        "same_reference_followup_action", "new_reference_action", "missing_reference_behavior",
+        "manual_offline_reference_behavior", "external_status_without_authorized_readback",
+        "current_sla_without_adopted_effective_source", "emergency_behavior",
+    }, "channel-first pilot contract")
+    for key in ("live_provider_calls_authorized", "automatic_city_submission_authorized",
+                "provider_api_contract_identified", "references_persisted_to_public_dht",
+                "raw_resident_identifiers_or_precise_protected_locations_persisted_to_public_dht"):
+        if pilot[key] is not False:
+            fail(f"{key} must remain false")
+    if pilot["mode"] != "ResidentCompanionOnly" or pilot["reference_record_default_status"] != "UserReportedUnverified":
+        fail("unsafe channel-first pilot mode or default reference state")
+    if pilot["same_reference_followup_action"] != "AppendFollowUpToExistingExternalCase":
+        fail("same-reference follow-up must not create a new external intake")
+    if pilot["new_reference_action"] != "CreateSeparateSourceReferenceRecord;NoAutomaticMerge":
+        fail("new external references must remain separate by default")
+    if pilot["external_status_without_authorized_readback"] != "UserReportedUnverified":
+        fail("resident-reported status must not be labelled authoritative")
+    if pilot["current_sla_without_adopted_effective_source"] != "NotEvaluable":
+        fail("SLA cannot be evaluated without a qualified current target")
 
     decision = data["decision"]
     exact_keys(decision, {
@@ -255,6 +306,9 @@ def validate() -> None:
         ids.append(case["case_id"])
         if not isinstance(case["facts"], dict):
             fail("probe facts must be an object")
+        exact_keys(case["facts"], set(REQUIRED_FLAGS + UNSAFE_FLAGS), f"{case['case_id']} facts")
+        if any(type(v) is not bool for v in case["facts"].values()):
+            fail(f"{case['case_id']}: every fact must be an explicit boolean")
         actual = classify_probe(case["facts"])
         if actual != case["expected_disposition"]:
             fail(f"{case['case_id']}: expected {case['expected_disposition']}, derived {actual}")
@@ -262,6 +316,7 @@ def validate() -> None:
         fail("probe case coverage/order drift")
 
     all_ready = {flag: True for flag in REQUIRED_FLAGS}
+    all_ready.update({flag: False for flag in UNSAFE_FLAGS})
     if classify_probe(all_ready) != "ADVISORY_SHADOW_ELIGIBLE":
         fail("positive shadow-control failed")
     if classify_probe({}) != "UNRESOLVED":
@@ -271,10 +326,11 @@ def validate() -> None:
         mutated[flag] = True
         if classify_probe(mutated) != "REJECT":
             fail(f"unsafe mutation not rejected: {flag}")
-    if classify_probe({**all_ready, "external_currentness_verified": False}) != "UNRESOLVED":
-        fail("unknown external currentness must remain unresolved")
-    if classify_probe({**all_ready, "idempotency_contract_qualified": False}) != "UNRESOLVED":
-        fail("unqualified retry/idempotency must remain unresolved")
+    for flag in REQUIRED_FLAGS:
+        mutated = dict(all_ready)
+        mutated[flag] = False
+        if classify_probe(mutated) != "UNRESOLVED":
+            fail(f"missing positive evidence not unresolved: {flag}")
 
     print(f"CIV-RES-002A0 PASS: {len(candidates)} candidates, {len(matrix)} owner concerns, {len(proposals)} branch-only proposals, {len(cases)} semantic probes.")
     print("Disposition ceiling: ADVISORY_SHADOW_ELIGIBLE only; no live access, authority, or deployment qualification.")
