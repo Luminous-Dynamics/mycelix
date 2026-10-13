@@ -2,13 +2,13 @@
 
 > **Research and prototype source—not a production release.**
 
-**Vision:** Every artist chooses their own economic operating system
-**Innovation:** First music platform with truly pluggable payment models + zero-cost streaming via Holochain
-**Goal:** Artists earn 10-50x more, community-owned infrastructure, unstoppable
+**Vision:** Every artist should be able to choose transparent, interoperable economic terms for their music.
+**Design hypothesis:** Pluggable economic strategies and evidence-linked accounting can improve creator agency and statement auditability.
+**Goals:** Portable data, explicit gross-to-net reporting, privacy-conscious operation and resilient/federated infrastructure. No payout multiple, universal per-play rate, zero-cost operation or censorship-immunity claim is made.
 
 ---
 
-## ⚡ Current Status (July 2026)
+## ⚡ Verified Status Reference (13 October 2026)
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -19,21 +19,19 @@
 | **Holochain** | ⚠️ Source present | Economic mutations fail closed pending real authorization and atomic settlement |
 | **CDN** | 📋 Design/prototype | Production operation is not demonstrated here |
 
-See [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) for verified behavior, blockers, and release gates. Roadmaps and historical phase reports describe intent, not current evidence.
+See [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) for verified behavior, blockers, and release gates. Roadmaps and phase reports describe intent, not current evidence. See [Industry Comparison and Evidence](docs/INDUSTRY_COMPARISON_AND_EVIDENCE.md) for the current market benchmark, standards roadmap and evidence gates.
 
 ---
 
 ## 🌟 The Revolutionary Concept
 
-Traditional music platforms force ONE economic model on ALL artists:
-- Spotify: $0.003 per stream, pooled royalties, 90-day payout delay
-- Bandcamp: 15% fee, direct sales only
-- Patreon: Subscription-only, no per-song monetization
+Music reaches creators through several business models: streaming subscription/ad pools, direct sales, memberships, licensing and collective-rights reporting. Their economics and settlement terms are not interchangeable; streaming royalties do not use one universal per-stream rate. See [Spotify's royalties explanation](https://artists.spotify.com/en/royalties-guide) and the [industry comparison](docs/INDUSTRY_COMPARISON_AND_EVIDENCE.md).
 
-**Mycelix Music is different:**
-> Each artist/DAO can compose their own economic model from pluggable primitives.
+**Mycelix Music's design direction:** let artists select from configurable economic strategies while keeping terms, accounting evidence and net payouts inspectable. The repository is a research/prototype source; production artist payouts and cross-platform conformance are not established.
 
-### Real-World Example
+### Illustrative Product Sketches (not live artist case studies)
+
+The following profiles show intended choices. They do not imply deployed onboarding, real users, actual payouts or verified performance.
 
 **DJ Nova** (electronic artist):
 - **Model:** Gift Economy
@@ -42,18 +40,18 @@ Traditional music platforms force ONE economic model on ALL artists:
 - **Why:** Building community first, monetize later
 
 **The Echoes** (indie rock band):
-- **Model:** Pay Per Stream
-- **Listening:** $0.01 per play (10x Spotify!)
-- **Monetization:** Instant split to 4 band members + producer
+- **Model:** Configurable pay-per-play strategy
+- **Listening price:** Defined by the creator's disclosed model and funding terms; no universal rate is implied
+- **Monetization:** Contract-configured split among band members and producer after transaction finality; production cash-out is not established
 - **Why:** Established fanbase, want immediate revenue
 
-**Symphony Orchestra**:
-- **Model:** Patronage
-- **Listening:** $20/month unlimited
-- **Monetization:** Split among 50 musicians + conductor
-- **Why:** High-quality recordings, dedicated classical audience
+**Symphony Orchestra** (concept sketch):
+- **Model:** Patronage/subscription
+- **Listening:** Example membership price configured by the orchestra
+- **Monetization:** Split among musicians according to an explicit agreement
+- **Status:** Patronage and subscription paths require implementation and qualification before being presented as available
 
-**All three use THE SAME PLATFORM.** This is the power of economic modularity.
+These sketches are intended to share a common strategy interface. End-to-end integration across all three workflows has not been demonstrated.
 
 ---
 
@@ -64,7 +62,7 @@ mycelix-music/
 ├── contracts/                          # Smart contracts (Solidity)
 │   ├── EconomicStrategyRouter.sol     # Core routing logic
 │   ├── strategies/
-│   │   ├── PayPerStreamStrategy.sol   # $0.01 per stream model
+│   │   ├── PayPerStreamStrategy.sol   # configurable pay-per-play prototype
 │   │   └── GiftEconomyStrategy.sol    # Free + tips model
 │   └── test/                           # Comprehensive tests
 │
@@ -159,7 +157,9 @@ The guide uses development services and test data. It does not establish working
 - `npm run test --workspace=packages/sdk` &mdash; runs the Jest suite for the TypeScript SDK (watchman disabled via local Jest config, safe for sandboxed CI).
 - `nix flake check` &mdash; once run outside sandboxed environments, this executes the flake-defined checks; for now the dev shell (`nix develop`) is the primary Nix entrypoint.
 
-### For Artists: Upload Your First Song
+### For Artists: Intended onboarding flow (not yet a public workflow)
+
+The following is a product sketch. The README marks the public site as coming soon; do not treat these steps as an available or payment-qualified flow.
 
 1. **Visit** https://mycelix.music (coming soon)
 2. **Connect Wallet** (we'll create one for you!)
@@ -176,29 +176,23 @@ The guide uses development services and test data. It does not establish working
 
 ## 🏗️ Architecture Highlights
 
-### 1. Smart Contract Router Pattern
+### 1. Smart-contract router pattern (prototype design)
 
 ```solidity
-// Each song points to a strategy contract
-songStrategy[songId] => PayPerStreamStrategy
-                     OR GiftEconomyStrategy
-                     OR PatronageStrategy
-                     OR CustomStrategy
-
-// When listener pays:
+// Intended pattern: route a payment to a configured strategy
+songStrategy[songId] => PayPerStreamStrategy | GiftEconomyStrategy | CustomStrategy
 router.processPayment(songId, amount)
-  → delegates to strategy.processPayment()
-  → strategy handles distribution
-  → instant payment to all recipients
+  → strategy logic validates and allocates the transaction
+  → chain confirmation/finality still applies
 ```
 
-**Benefits:**
-- ✅ Add new strategies without changing core
-- ✅ Artists can switch strategies anytime
-- ✅ Each song can have different economics
-- ✅ Fully on-chain and auditable
+**Design benefits to validate:**
+- Add strategies without changing the router's core interface.
+- Give each release a disclosed economic configuration.
+- Make on-chain transaction paths inspectable where they actually execute.
+- Do not equate an on-chain allocation with a bank payout: production cash-out, reversals, compliance, source accounting and off-chain services need separate proof.
 
-### 2. TypeScript SDK Abstraction
+### 2. TypeScript SDK example (illustrative configuration)
 
 ```typescript
 import { EconomicStrategySDK } from '@mycelix/sdk';
@@ -211,13 +205,13 @@ await sdk.registerSong('my-song-id', {
     { recipient: artistAddress, basisPoints: 9500, role: 'artist' },
     { recipient: protocolAddress, basisPoints: 500, role: 'protocol' }
   ],
-  minimumPayment: 0.01,
+  minimumPayment: 0.01, // example token-unit threshold; not a USD quote
 });
 
-// Listener streams song
-await sdk.streamSong('my-song-id', '0.01');
+// Example amount in the configured token unit; not a universal price or USD quote.
+await sdk.streamSong('my-song-id', '0.01'); // illustrative configured token amount
 
-// Artist gets paid INSTANTLY ⚡
+// Transaction success/finality and subsequent cash-out must be verified separately.
 ```
 
 ### 3. React UI Wizard
@@ -235,73 +229,65 @@ await sdk.streamSong('my-song-id', '0.01');
 
 ---
 
-## 📊 Implemented Economic Models
+## 📊 Economic strategy prototypes in source
 
-### Model 1: Pay Per Stream ✅
+The contracts below are source-level prototypes, not a production-qualified payment service. Production use requires current-head tests, security review, token/treasury authority, anti-abuse controls, payment finality handling, terms disclosure and a tested cash-out path.
 
-**How it works:**
-- Listener pays $0.01 FLOW per play
-- Payment instantly splits per artist's configuration
-- No pooling, no delays
+### Model 1: Pay-per-play strategy
 
-**Smart contract:** `PayPerStreamStrategy.sol`
-**Use case:** Artists with established fanbase
+**Prototype behavior and limits:**
+- The strategy can be configured with a per-play amount denominated in its token/accounting unit; that amount is not an industry-wide rate and must not be described as USD unless a supported conversion authority says so.
+- Contract logic can allocate a confirmed transaction among configured recipients. It does not establish instant bank settlement or eliminate blockchain, processor, storage, FX, fraud, dispute or operating costs.
+- The amount, funding source, split basis, failure/reversal policy and all-in fee must be disclosed before a creator or listener opts in.
 
-### Model 2: Gift Economy ✅
+**Smart contract:** `PayPerStreamStrategy.sol`  
+**Potential use case:** Artists with a fanbase who prefer a direct, explicitly funded per-play model.
 
-**How it works:**
-- Listening is FREE
-- Listeners earn CGC tokens for listening (!)
-- Optional voluntary tips to artist
-- Early listener bonuses (first 100 get 10 CGC)
-- Repeat listener bonuses (1.5x multiplier)
+### Model 2: Gift-economy strategy
 
-**Smart contract:** `GiftEconomyStrategy.sol`
-**Use case:** Community-building, experimental music
+**Prototype concept:**
+- Free listening plus optional tips and token incentives.
+- Any listener-reward mechanism requires a documented token source, anti-fraud/sybil controls, budget limits and a disclosure of the token's actual value and redemption rights.
+- Incentive amounts and multipliers in code examples are not evidence of funded or paid rewards.
 
-### Model 3+: Coming Soon 🔮
+**Smart contract:** `GiftEconomyStrategy.sol`  
+**Potential use case:** Community-building and experimental music.
 
-- **Patronage:** Monthly subscription for unlimited listening
-- **NFT-Gated:** Own NFT to access exclusive tracks
-- **Pay What You Want:** Listener chooses amount
-- **Auction:** Dutch auction for limited releases
-- **Time Barter:** Trade TEND tokens for access
+### Model 3+: Planned strategies
 
-**The beauty:** New models can be added without changing core platform!
+- **Patronage:** Monthly support.
+- **NFT-gated:** Token-gated releases, subject to rights/accessibility requirements.
+- **Pay what you want:** Listener-selected amount.
+- **Auction:** Time-limited release pricing.
+- **Time barter:** Exchange access for a defined contribution or unit.
+
+These are planned/optional models, not promises that all are implemented. Each model needs its own conservation tests, funding and reversal rules, dispute semantics and disclosure.
 
 ---
 
-## 💡 Why This Architecture Wins
+## 💡 What the prototype is trying to differentiate
 
-### vs. Spotify
+This is a design comparison, not an audited ranking of competitors. Features and commercial terms change, and a fair comparison needs the same date, geography, rights type, currency, cost basis and production evidence.
 
-| Feature | Spotify | Mycelix Music |
-|---------|---------|---------------|
-| Artist earnings | $0.003/stream | $0.01+/stream (configurable!) |
-| Payment delay | 90 days | Instant |
-| Revenue visibility | Opaque | Fully transparent |
-| Payment model | One size fits all | Artist chooses |
-| Platform control | 100% centralized | Decentralized |
+| Dimension | Mycelix design direction | Evidence still needed |
+|---|---|---|
+| Economic choice | Pluggable per-release strategies and alternative funding models | Which models actually ship, creator adoption, disclosed terms and net payouts |
+| Accounting | Typed obligations, deductions, settlement receipts, statement projections and lineage commitments are being developed in the accounting layer | Exact-head qualification, real-source reconciliation, correction/dispute rates and an independent verifier |
+| Interoperability | DDEX/CRD-oriented field mappings are a starting point | Official schema/profile validation, licence and partner acceptance; mapping objects are not conformant messages |
+| Privacy | Minimize data and support carefully scoped disclosure | Full data-flow review and validation of each privacy property; no production zero-knowledge claim |
+| Resilience/governance | Hybrid/federated operation is a direction | Multiple live operators, key recovery, moderation/appeals, upgrade controls and failure-recovery evidence |
 
-### vs. Other Web3 Music Platforms
-
-| Feature | Audius | Sound.xyz | Mycelix Music |
-|---------|---------|-----------|---------------|
-| Economic models | Fixed | NFT-only | **Modular** ✨ |
-| P2P streaming | No | No | Yes (hybrid) |
-| Artist sovereignty | Partial | Partial | **Full** ✨ |
-| DAO governance | Yes | No | Yes (per-genre) |
-| Open source | Yes | No | Yes |
+See [Industry Comparison and Evidence](docs/INDUSTRY_COMPARISON_AND_EVIDENCE.md) for the dated benchmark and the evidence required before making comparative claims.
 
 ---
 
 ## 🚀 Implementation Status
 
-### ✅ Phase 1: COMPLETE - Fully Functional Platform
+### Prototype component inventory (not release qualification)
 
 **Smart Contracts (630 lines)**
 - [x] EconomicStrategyRouter.sol with pluggable strategies
-- [x] PayPerStreamStrategy.sol with instant royalty splits
+- [x] PayPerStreamStrategy.sol with contract-level split logic in the prototype source (not production payout qualification)
 - [x] GiftEconomyStrategy.sol with CGC rewards
 - [x] Comprehensive Foundry test suite (400 lines, 12 tests)
 - [x] DeployLocal.s.sol with mock tokens
@@ -346,7 +332,7 @@ await sdk.streamSong('my-song-id', '0.01');
 
 **Current State:** 🟡 **Prototype components are present; testnet readiness is not established.**
 
-### 🔨 Phase 2: Production Ready (Next 2 weeks)
+### Production-readiness gates (no date promised)
 
 - [ ] Get real service keys (Privy, Web3.Storage, Ceramic)
 - [ ] Replace mocked IPFS/DKG with real implementations
@@ -354,7 +340,7 @@ await sdk.streamSong('my-song-id', '0.01');
 - [ ] Deploy contracts to Gnosis Chiado testnet
 - [ ] Invite 10 beta testers
 
-### 🎸 Phase 3: Beta Launch (1 month)
+### Pilot gates (after production-readiness checks)
 
 - [ ] Recruit 50 founding artists
 - [ ] Launch "Independent Electronic Producers" DAO (first Hearth)
@@ -362,7 +348,7 @@ await sdk.streamSong('my-song-id', '0.01');
 - [ ] Gather feedback on economics
 - [ ] Build artist dashboard with analytics
 
-### 🌍 Phase 4: Mainnet (2-3 months)
+### Mainnet gates (only after explicit sign-off)
 
 - [ ] Security audit ($15-25K)
 - [ ] Deploy to Gnosis Chain mainnet
