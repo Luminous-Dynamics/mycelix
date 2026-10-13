@@ -183,6 +183,19 @@ pub struct RawPayloadBoundExport {
     pub raw_payload_binding_digest: Digest32,
 }
 
+/// Result of running trusted decoders over the exact raw export artifacts and
+/// binding their projections to the manifest and statement digests.
+///
+/// This is a distinct type from `RawPayloadBoundExport`, whose constructor path only
+/// checks byte hashes against caller-supplied digests. This type still does not prove
+/// decoder correctness or provider authenticity.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecodedRawArtifactExport {
+    pub raw_payload_assessment: RawPayloadBoundExport,
+    /// Domain-separated digest of the structural projection and raw-payload evidence.
+    pub decoded_projection_binding_digest: Digest32,
+}
+
 fn hash_text(hasher: &mut Sha256, value: &str) {
     hash_u64(hasher, value.len() as u64);
     hasher.update(value.as_bytes());
@@ -558,7 +571,7 @@ pub fn assess_export_completeness_from_raw_artifacts<DecodePage, DecodeCoverage>
     raw_coverage_statement: &[u8],
     mut decode_page: DecodePage,
     decode_coverage_statement: DecodeCoverage,
-) -> Result<RawPayloadBoundExport, ExportCompletenessError>
+) -> Result<DecodedRawArtifactExport, ExportCompletenessError>
 where
     DecodePage: FnMut(&[u8]) -> Option<ExportPageReceipt>,
     DecodeCoverage: FnOnce(&[u8]) -> Option<ProviderCoverageAttestation>,
@@ -592,12 +605,41 @@ where
         return Err(ExportCompletenessError::DecodedCoverageStatementDigestMismatch);
     }
 
-    assess_export_completeness_with_raw_payloads(
+    let raw_payload_assessment = assess_export_completeness_with_raw_payloads(
         manifest,
         &attestation,
         raw_page_payloads,
         raw_coverage_statement,
-    )
+    )?;
+
+    let mut binding_hasher = Sha256::new();
+    hash_text(
+        &mut binding_hasher,
+        "mycelix:decoded-raw-artifact-export:v1",
+    );
+    hash_digest(
+        &mut binding_hasher,
+        &raw_payload_assessment.structural_assessment.manifest_digest,
+    );
+    hash_digest(
+        &mut binding_hasher,
+        &raw_payload_assessment
+            .structural_assessment
+            .provider_coverage_projection_digest,
+    );
+    hash_digest(
+        &mut binding_hasher,
+        &raw_payload_assessment.structural_assessment.evidence_digest,
+    );
+    hash_digest(
+        &mut binding_hasher,
+        &raw_payload_assessment.raw_payload_binding_digest,
+    );
+
+    Ok(DecodedRawArtifactExport {
+        raw_payload_assessment,
+        decoded_projection_binding_digest: finish_digest(binding_hasher),
+    })
 }
 
 fn sha256_raw_bytes(bytes: &[u8]) -> Digest32 {
@@ -821,8 +863,63 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result.structural_assessment.page_count, 2);
-        assert_eq!(result.structural_assessment.observed_row_count, 5);
+        assert_eq!(result.raw_payload_assessment.structural_assessment.page_count, 2);
+        assert_eq!(result.raw_payload_assessment.structural_assessment.observed_row_count, 5);
+        assert_ne!(result.decoded_projection_binding_digest, digest(0));
+    }
+
+    #[test]
+    fn decoded_projection_binding_digest_is_deterministic() {
+        let (manifest, attestation, pages, statement) = raw_payload_fixture();
+        let first = assess_export_completeness_from_raw_artifacts(
+            &manifest,
+            &pages,
+            statement,
+            |raw| {
+                if raw == b"page-zero-payload" {
+                    Some(manifest.pages[0].clone())
+                } else if raw == b"page-one-payload" {
+                    Some(manifest.pages[1].clone())
+                } else {
+                    None
+                }
+            },
+            |raw| {
+                if raw == statement {
+                    Some(attestation.clone())
+                } else {
+                    None
+                }
+            },
+        )
+        .unwrap();
+        let second = assess_export_completeness_from_raw_artifacts(
+            &manifest,
+            &pages,
+            statement,
+            |raw| {
+                if raw == b"page-zero-payload" {
+                    Some(manifest.pages[0].clone())
+                } else if raw == b"page-one-payload" {
+                    Some(manifest.pages[1].clone())
+                } else {
+                    None
+                }
+            },
+            |raw| {
+                if raw == statement {
+                    Some(attestation.clone())
+                } else {
+                    None
+                }
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            first.decoded_projection_binding_digest,
+            second.decoded_projection_binding_digest
+        );
     }
 
     #[test]
