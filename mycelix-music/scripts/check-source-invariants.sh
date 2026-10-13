@@ -143,6 +143,12 @@ grep -Fq "recordType: 'settlement_allocation_lineage_checkpoint_v1'" packages/ac
   || fail "allocation lineage checkpoint commitment domain missing"
 grep -Fq 'const VERIFIED_CHECKPOINTS = new WeakSet<object>();' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
   || fail "verified source checkpoints must carry private runtime provenance"
+grep -Fq 'allocationRoots: validateRootSequence(' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "verified checkpoints must snapshot allocation roots before minting runtime provenance"
+grep -Fq 'linkRoots: validateRootSequence(' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "verified checkpoints must snapshot link roots before minting runtime provenance"
+grep -Fq 'snapshots verified root arrays against post-verification transport mutation' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
+  || fail "checkpoint cryptographic provenance must resist post-verification array mutation"
 grep -Fq 'const CHECKPOINT_BY_RESOLUTION = new WeakMap<object, SignedSettlementAllocationLineageCheckpoint>();' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
   || fail "checkpoint-backed lineage resolutions must retain private checkpoint provenance"
 grep -Fq "privateKey.asymmetricKeyType !== 'ed25519'" packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
