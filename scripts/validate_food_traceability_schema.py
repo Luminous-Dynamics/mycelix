@@ -21,8 +21,11 @@ def main() -> int:
 
     Draft202012Validator.check_schema(schema)
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    cases = 0
 
     def valid(name: str, instance: dict) -> None:
+        nonlocal cases
+        cases += 1
         errors = sorted(validator.iter_errors(instance), key=lambda err: list(map(str, err.path)))
         if errors:
             formatted = "\n".join(f"  {list(err.path)}: {err.message}" for err in errors)
@@ -30,6 +33,8 @@ def main() -> int:
         print(f"PASS valid: {name}")
 
     def invalid(name: str, instance: dict) -> None:
+        nonlocal cases
+        cases += 1
         errors = list(validator.iter_errors(instance))
         if not errors:
             raise AssertionError(f"{name} should be invalid but validated successfully")
@@ -63,6 +68,10 @@ def main() -> int:
     invalid("unit codes use canonical uppercase syntax", bad)
 
     bad = copy.deepcopy(example)
+    bad["subjects"][0]["quantity"]["unitCodeListVersion"] = "latest"
+    invalid("unit-code vocabulary release must be pinned", bad)
+
+    bad = copy.deepcopy(example)
     bad["unexpected"] = "must not be silently accepted"
     invalid("unknown top-level property", bad)
 
@@ -82,6 +91,17 @@ def main() -> int:
     bad["eventType"] = "TRANSFORMED"
     invalid("transformation requires explicit input and output lots", bad)
 
+    dispatch = copy.deepcopy(example)
+    dispatch["eventType"] = "DISPATCHED"
+    dispatch["shipmentRef"] = "urn:mycelix:shipment:run-20261012-01"
+    dispatch["originSiteRef"] = dispatch["siteRef"]
+    dispatch["destinationSiteRef"] = "urn:mycelix:site:cooperative-hub-01"
+    valid("dispatch binds shipment and both endpoints", dispatch)
+
+    bad = copy.deepcopy(dispatch)
+    bad.pop("shipmentRef")
+    invalid("dispatch cannot omit shipment identity", bad)
+
     bad = copy.deepcopy(example)
     bad["eventType"] = "HANDLING_OBSERVED"
     invalid("handling event requires handling observations", bad)
@@ -96,6 +116,7 @@ def main() -> int:
         "receivedAt": "2026-10-12T06:01:05+02:00",
         "sensorRef": "urn:mycelix:sensor:cold-room-01",
         "calibrationStatus": "current",
+        "calibrationRef": "urn:mycelix:calibration:cold-room-01:2026-09",
         "unitCode": "CEL",
         "unitCodeSystem": "UNECE_REC20",
         "unitCodeListVersion": "REC20-REV17-2021",
@@ -106,6 +127,10 @@ def main() -> int:
     bad = copy.deepcopy(handling_base)
     bad["handlingObservations"][0].pop("value")
     invalid("observed handling measurement requires a value", bad)
+
+    bad = copy.deepcopy(handling_base)
+    bad["handlingObservations"][0].pop("calibrationRef")
+    invalid("current calibration status requires calibration evidence reference", bad)
 
     bad = copy.deepcopy(handling_base)
     bad["handlingObservations"][0]["status"] = "missing"
@@ -124,7 +149,7 @@ def main() -> int:
     bad["supersedesEventId"] = example["eventId"]
     invalid("retraction requires an explicit reason", bad)
 
-    print("PASS: JSON Schema draft 2020-12 meta-validation and 19 contract cases")
+    print(f"PASS: JSON Schema draft 2020-12 meta-validation and {cases} contract cases")
     return 0
 
 
