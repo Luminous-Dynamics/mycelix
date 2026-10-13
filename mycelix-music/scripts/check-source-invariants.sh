@@ -149,6 +149,8 @@ grep -Fq 'linkRoots: validateRootSequence(' packages/accounting/src/settlement-a
   || fail "verified checkpoints must snapshot link roots before minting runtime provenance"
 grep -Fq 'snapshots verified root arrays against post-verification transport mutation' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
   || fail "checkpoint cryptographic provenance must resist post-verification array mutation"
+grep -Fq 'signed checkpoints own independent immutable root snapshots' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
+  || fail "checkpoint signing must detach frozen root arrays from caller-owned inputs"
 grep -Fq 'const CHECKPOINT_BY_RESOLUTION = new WeakMap<object, SignedSettlementAllocationLineageCheckpoint>();' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
   || fail "checkpoint-backed lineage resolutions must retain private checkpoint provenance"
 grep -Fq "privateKey.asymmetricKeyType !== 'ed25519'" packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
