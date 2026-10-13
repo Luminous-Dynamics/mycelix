@@ -146,6 +146,10 @@ pub enum ExportCompletenessError {
     RawPagePayloadCountMismatch,
     RawPagePayloadDigestMismatch { page_ordinal: u32 },
     RawCoverageStatementDigestMismatch,
+    RawPagePayloadDecodeFailed { page_ordinal: u32 },
+    RawPageProjectionMismatch { page_ordinal: u32 },
+    RawCoverageStatementDecodeFailed,
+    DecodedCoverageStatementDigestMismatch,
 }
 
 /// Structural result only. The intentionally narrow type name avoids claiming that
@@ -177,6 +181,19 @@ pub struct StructurallyConsistentExport {
 pub struct RawPayloadBoundExport {
     pub structural_assessment: StructurallyConsistentExport,
     pub raw_payload_binding_digest: Digest32,
+}
+
+/// Result of running trusted decoders over the exact raw export artifacts and
+/// binding their projections to the manifest and statement digests.
+///
+/// This is a distinct type from `RawPayloadBoundExport`, whose constructor path only
+/// checks byte hashes against caller-supplied digests. This type still does not prove
+/// decoder correctness or provider authenticity.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecodedRawArtifactExport {
+    pub raw_payload_assessment: RawPayloadBoundExport,
+    /// Domain-separated digest of the structural projection and raw-payload evidence.
+    pub decoded_projection_binding_digest: Digest32,
 }
 
 fn hash_text(hasher: &mut Sha256, value: &str) {
@@ -537,6 +554,94 @@ pub fn assess_export_completeness_with_raw_payloads(
     })
 }
 
+/// Decode raw source artifacts at the boundary where their exact bytes are available,
+/// then qualify the decoded projections against the manifest.
+///
+/// The page decoder is called once per supplied page, in manifest order. Each decoded
+/// receipt must exactly equal the corresponding manifest receipt, including the digest
+/// of that raw page. The coverage decoder receives the exact statement bytes and its
+/// returned statement digest must equal SHA-256 of those bytes. This removes the need
+/// for callers to pass unrelated pre-decoded projections to this entry point, but it
+/// still trusts the supplied decoder implementations to interpret bytes correctly.
+/// This function does not authenticate the provider or establish query semantics or
+/// real-world completeness.
+pub fn assess_export_completeness_from_raw_artifacts<DecodePage, DecodeCoverage>(
+    manifest: &SourceExportManifest,
+    raw_page_payloads: &[&[u8]],
+    raw_coverage_statement: &[u8],
+    mut decode_page: DecodePage,
+    decode_coverage_statement: DecodeCoverage,
+) -> Result<DecodedRawArtifactExport, ExportCompletenessError>
+where
+    DecodePage: FnMut(&[u8]) -> Option<ExportPageReceipt>,
+    DecodeCoverage: FnOnce(&[u8]) -> Option<ProviderCoverageAttestation>,
+{
+    if raw_page_payloads.len() != manifest.pages.len() {
+        return Err(ExportCompletenessError::RawPagePayloadCountMismatch);
+    }
+
+    for (page, raw_payload) in manifest.pages.iter().zip(raw_page_payloads) {
+        if sha256_raw_bytes(*raw_payload) != page.payload_digest {
+            return Err(ExportCompletenessError::RawPagePayloadDigestMismatch {
+                page_ordinal: page.ordinal,
+            });
+        }
+
+        let decoded = decode_page(*raw_payload).ok_or(
+            ExportCompletenessError::RawPagePayloadDecodeFailed {
+                page_ordinal: page.ordinal,
+            },
+        )?;
+        if &decoded != page {
+            return Err(ExportCompletenessError::RawPageProjectionMismatch {
+                page_ordinal: page.ordinal,
+            });
+        }
+    }
+
+    let attestation = decode_coverage_statement(raw_coverage_statement)
+        .ok_or(ExportCompletenessError::RawCoverageStatementDecodeFailed)?;
+    if sha256_raw_bytes(raw_coverage_statement) != attestation.statement_digest {
+        return Err(ExportCompletenessError::DecodedCoverageStatementDigestMismatch);
+    }
+
+    let raw_payload_assessment = assess_export_completeness_with_raw_payloads(
+        manifest,
+        &attestation,
+        raw_page_payloads,
+        raw_coverage_statement,
+    )?;
+
+    let mut binding_hasher = Sha256::new();
+    hash_text(
+        &mut binding_hasher,
+        "mycelix:decoded-raw-artifact-export:v1",
+    );
+    hash_digest(
+        &mut binding_hasher,
+        &raw_payload_assessment.structural_assessment.manifest_digest,
+    );
+    hash_digest(
+        &mut binding_hasher,
+        &raw_payload_assessment
+            .structural_assessment
+            .provider_coverage_projection_digest,
+    );
+    hash_digest(
+        &mut binding_hasher,
+        &raw_payload_assessment.structural_assessment.evidence_digest,
+    );
+    hash_digest(
+        &mut binding_hasher,
+        &raw_payload_assessment.raw_payload_binding_digest,
+    );
+
+    Ok(DecodedRawArtifactExport {
+        raw_payload_assessment,
+        decoded_projection_binding_digest: finish_digest(binding_hasher),
+    })
+}
+
 fn sha256_raw_bytes(bytes: &[u8]) -> Digest32 {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
@@ -729,6 +834,173 @@ mod tests {
                 statement,
             ),
             Err(ExportCompletenessError::RawPagePayloadCountMismatch)
+        );
+    }
+
+    #[test]
+    fn raw_artifact_entry_point_checks_decoded_page_and_statement_projections() {
+        let (manifest, attestation, pages, statement) = raw_payload_fixture();
+        let result = assess_export_completeness_from_raw_artifacts(
+            &manifest,
+            &pages,
+            statement,
+            |raw| {
+                if raw == b"page-zero-payload" {
+                    Some(manifest.pages[0].clone())
+                } else if raw == b"page-one-payload" {
+                    Some(manifest.pages[1].clone())
+                } else {
+                    None
+                }
+            },
+            |raw| {
+                if raw == statement {
+                    Some(attestation.clone())
+                } else {
+                    None
+                }
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.raw_payload_assessment.structural_assessment.page_count, 2);
+        assert_eq!(result.raw_payload_assessment.structural_assessment.observed_row_count, 5);
+        assert_ne!(result.decoded_projection_binding_digest, digest(0));
+    }
+
+    #[test]
+    fn decoded_projection_binding_digest_is_deterministic() {
+        let (manifest, attestation, pages, statement) = raw_payload_fixture();
+        let first = assess_export_completeness_from_raw_artifacts(
+            &manifest,
+            &pages,
+            statement,
+            |raw| {
+                if raw == b"page-zero-payload" {
+                    Some(manifest.pages[0].clone())
+                } else if raw == b"page-one-payload" {
+                    Some(manifest.pages[1].clone())
+                } else {
+                    None
+                }
+            },
+            |raw| {
+                if raw == statement {
+                    Some(attestation.clone())
+                } else {
+                    None
+                }
+            },
+        )
+        .unwrap();
+        let second = assess_export_completeness_from_raw_artifacts(
+            &manifest,
+            &pages,
+            statement,
+            |raw| {
+                if raw == b"page-zero-payload" {
+                    Some(manifest.pages[0].clone())
+                } else if raw == b"page-one-payload" {
+                    Some(manifest.pages[1].clone())
+                } else {
+                    None
+                }
+            },
+            |raw| {
+                if raw == statement {
+                    Some(attestation.clone())
+                } else {
+                    None
+                }
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            first.decoded_projection_binding_digest,
+            second.decoded_projection_binding_digest
+        );
+    }
+
+    #[test]
+    fn raw_artifact_entry_point_rejects_decoded_page_projection_drift() {
+        let (manifest, attestation, pages, statement) = raw_payload_fixture();
+        assert_eq!(
+            assess_export_completeness_from_raw_artifacts(
+                &manifest,
+                &pages,
+                statement,
+                |raw| {
+                    if raw == b"page-zero-payload" {
+                        Some(manifest.pages[0].clone())
+                    } else if raw == b"page-one-payload" {
+                        let mut changed = manifest.pages[1].clone();
+                        changed.returned_rows += 1;
+                        Some(changed)
+                    } else {
+                        None
+                    }
+                },
+                |_| Some(attestation.clone()),
+            ),
+            Err(ExportCompletenessError::RawPageProjectionMismatch { page_ordinal: 1 })
+        );
+    }
+
+    #[test]
+    fn raw_artifact_entry_point_rejects_unbound_decoded_statement() {
+        let (manifest, mut attestation, pages, statement) = raw_payload_fixture();
+        attestation.statement_digest = digest(7);
+        assert_eq!(
+            assess_export_completeness_from_raw_artifacts(
+                &manifest,
+                &pages,
+                statement,
+                |raw| {
+                    if raw == b"page-zero-payload" {
+                        Some(manifest.pages[0].clone())
+                    } else if raw == b"page-one-payload" {
+                        Some(manifest.pages[1].clone())
+                    } else {
+                        None
+                    }
+                },
+                |_| Some(attestation.clone()),
+            ),
+            Err(ExportCompletenessError::DecodedCoverageStatementDigestMismatch)
+        );
+    }
+
+    #[test]
+    fn raw_artifact_entry_point_rejects_decode_failures() {
+        let (manifest, attestation, pages, statement) = raw_payload_fixture();
+        assert_eq!(
+            assess_export_completeness_from_raw_artifacts(
+                &manifest,
+                &pages,
+                statement,
+                |_| None,
+                |_| Some(attestation.clone()),
+            ),
+            Err(ExportCompletenessError::RawPagePayloadDecodeFailed { page_ordinal: 0 })
+        );
+        assert_eq!(
+            assess_export_completeness_from_raw_artifacts(
+                &manifest,
+                &pages,
+                statement,
+                |raw| {
+                    if raw == b"page-zero-payload" {
+                        Some(manifest.pages[0].clone())
+                    } else if raw == b"page-one-payload" {
+                        Some(manifest.pages[1].clone())
+                    } else {
+                        None
+                    }
+                },
+                |_| None,
+            ),
+            Err(ExportCompletenessError::RawCoverageStatementDecodeFailed)
         );
     }
 
