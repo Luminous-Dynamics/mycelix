@@ -47,8 +47,9 @@ A future evidence-case record should contain only the minimum index data needed 
 - model identifier and exact revision identifier;
 - jurisdiction and rule-pack identifier/status;
 - manifest schema version and manifest SHA-256 digest;
+- SHA-256 digest of the independently controlled expected-claims contract, which pins schema/case/jurisdiction/model bytes/rule pack/toolchain and mandatory-claim definitions, criteria, scope, approved tools, and input digests;
 - an authorized content URI or retrieval locator, if used, with access/retention policy;
-- evaluation aggregate status and a count of each claim state;
+- the manifest-declared aggregate status kept separate from the verifier's evidence-integrity verdict and a count of each claim state;
 - author identity reference, creation timestamp, and provenance for the verifier that computed the aggregate;
 - immutable supersession/retraction relationship to previous records;
 - links to separate review/approval attestations.
@@ -66,9 +67,9 @@ Required design constraints:
 1. **Identity and authorship:** verify entry authorship and links; identify which authorized identity asserted each claim or review.
 2. **Append-only history:** revise by creating a new record linked to the prior record. Do not overwrite the evidence history with a new status.
 3. **Typed references:** referenced building, model revision, rule pack, manifest and predecessor records must resolve and have the expected type.
-4. **Status integrity:** only the deterministic verifier should produce an aggregate result from claim results. Client-provided aggregate values are untrusted input.
+4. **Status integrity:** the manifest's `overall_status` is an untrusted declaration. Preserve `declared_status` separately from the verifier's `EVIDENCE_INTEGRITY_VERIFIED` result. That verifier result means the pinned contract, manifest structure and local artifact bytes matched; it does not recompute structural, fire, thermal or code-compliance results. Any computed engineering evaluation must identify its own evaluator/version and remain distinct from professional review and statutory approval.
 5. **Fail-closed aggregation:** overall PASS is impossible if any mandatory claim is failed, blocked, not evaluated, insufficiently evidenced, or awaiting required review. Missing claims must not be silently omitted from the expected requirement set.
-6. **Digest verification:** check the manifest and artifact hashes against the actual bytes before trusting their integrity. A SHA-256 match does not establish correctness or real-world truth.
+6. **Digest verification:** check the manifest, independently pinned expected-claims contract, model/input/output/tool bytes, and any provided rule-source snapshots against actual bytes. A mandatory code-compliance claim cannot be evidence-integrity verified unless its source has a SHA-256 snapshot linked to a registered artifact and the bytes match. A SHA-256 match does not establish correctness or real-world truth.
 7. **Scoped reviews:** an attestation must record what was reviewed, the model revision, scope, applicable qualifications/authority, limitations, and date. It must not imply approval of later revisions.
 8. **External approval:** permits, certifications and other statutory decisions are separate evidence records with issuing body, identifier, scope, validity dates and status. Never synthesize or infer an approval.
 9. **Privacy:** keep occupant identity, tenancy details, access credentials, health information and unnecessary precise location data out of common engineering manifests. Use separate consent-controlled records when personal data is genuinely needed.
@@ -79,8 +80,8 @@ Required design constraints:
 1. Create or identify the Commons `Building` record.
 2. Register the engineering case with a specific design/model revision and provisional or confirmed jurisdiction.
 3. Produce an evidence manifest through the versioned external engineering workflow.
-4. Verify the manifest's schema, hashes, toolchain metadata, expected requirement set and claim/status invariants.
-5. Publish an immutable case record with an aggregate state that the verifier actually produced.
+4. Verify the manifest's schema and artifact bytes against the out-of-band pinned expected-claims contract; preserve the manifest-declared status separately from the verifier's evidence-integrity verdict.
+5. Publish an immutable case record with the declared aggregate status, the evidence-integrity verdict, verified artifact/claim counts, verifier version, and contract/manifest digests. Do not relabel package integrity as an engineering result.
 6. Request scoped review from a qualified professional, test body, or authority as applicable; store each response as a separate attestation.
 7. Link physical inspections and construction records to the exact design revision, recording deviations rather than silently editing the design record.
 8. For renovations, changed materials, failed inspections, revised calculations or changed rules, create new records and explicitly supersede only the affected prior evidence.
@@ -93,7 +94,9 @@ The first implementation should include unit tests and multi-agent Holochain val
 - reject malformed SHA-256 values, invalid status values, missing required IDs, and unknown schema versions;
 - reject a record that references a nonexistent building or predecessor;
 - reject self-asserted aggregate PASS when any mandatory claim is unresolved or failed;
-- reject a manifest or artifact whose bytes do not match its digest;
+- reject a manifest, model artifact, claim input, tool executable/container, or provided rule-source snapshot whose bytes do not match its independently pinned digest;
+- reject changes to the case/jurisdiction, model artifact digests, rule pack, toolchain, mandatory claim criteria, subject element scope, approved tool ID, or claim input digests when the expected-claims contract is pinned;
+- never render `EVIDENCE_INTEGRITY_VERIFIED` as engineering compliance or professional/statutory approval;
 - reject a review attestation that names a different model revision from the case under review;
 - prevent a superseded record from appearing as the current review result without displaying its supersession state;
 - preserve the complete history when an attestation is rejected, withdrawn, or superseded;
