@@ -5,7 +5,7 @@
 //! Mirror types from the music DNA zomes.
 //! These must be serde-compatible with the Holochain entry types.
 
-use crate::delivery::{delivery_candidates, DeliveryCandidate, MediaAssetManifestV1};
+use crate::delivery::{delivery_candidates_from_build_config, DeliveryCandidate, MediaAssetManifestV1};
 use serde::{Deserialize, Serialize};
 
 mod binary_bytes {
@@ -99,7 +99,7 @@ impl Song {
 
     /// Return currently supported, ordered retrieval routes for this song.
     pub fn audio_delivery_candidates(&self) -> Vec<DeliveryCandidate> {
-        delivery_candidates(&self.audio_manifest()).unwrap_or_default()
+        delivery_candidates_from_build_config(&self.audio_manifest()).unwrap_or_default()
     }
 
     /// Construct the audio URL for a specific fallback attempt.
@@ -126,7 +126,7 @@ impl Song {
             format!("{}:cover", self.song_hash),
             cid.clone(),
         );
-        delivery_candidates(&manifest)
+        delivery_candidates_from_build_config(&manifest)
             .ok()?
             .into_iter()
             .next()
