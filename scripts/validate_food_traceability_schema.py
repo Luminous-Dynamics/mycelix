@@ -129,10 +129,28 @@ def main() -> int:
 
     bad = copy.deepcopy(example)
     bad["eventType"] = "HANDLING_OBSERVED"
+    bad["subjects"][0].pop("quantity")
     invalid("handling event requires handling observations", bad)
+
+    handling_identity_only = copy.deepcopy(example)
+    handling_identity_only["eventType"] = "HANDLING_OBSERVED"
+    handling_identity_only["subjects"][0].pop("quantity")
+    handling_identity_only["handlingObservations"] = [{
+        "parameter": "temperature",
+        "status": "missing",
+        "observedAt": "2026-10-12T06:01:00+02:00",
+        "receivedAt": "2026-10-12T06:01:05+02:00",
+        "sensorRef": "urn:mycelix:sensor:cold-room-01",
+        "calibrationStatus": "unknown",
+        "unitCode": "CEL",
+        "unitCodeSystem": "UNECE_REC20",
+        "unitCodeListVersion": "REC20-REV17-2021"
+    }]
+    valid("handling observation identifies lot without inventing a quantity", handling_identity_only)
 
     handling_base = copy.deepcopy(example)
     handling_base["eventType"] = "HANDLING_OBSERVED"
+    handling_base["subjects"][0].pop("quantity")
     handling = {
         "parameter": "temperature",
         "status": "observed",
@@ -160,6 +178,10 @@ def main() -> int:
     bad = copy.deepcopy(handling_base)
     bad["handlingObservations"][0]["status"] = "missing"
     invalid("missing handling sample cannot claim a value", bad)
+
+    missing_with_unknown_value = copy.deepcopy(missing_handling_example)
+    missing_with_unknown_value["handlingObservations"][0]["value"] = "4.0"
+    invalid("missing cold-chain sample cannot smuggle a numeric reading", missing_with_unknown_value)
 
     bad = copy.deepcopy(example)
     bad["evidenceRefs"][0]["status"] = "verified"
