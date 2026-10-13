@@ -124,5 +124,12 @@ class SouthAfricanDigitalIdProfileTests(unittest.TestCase):
         self.assertTrue(any("closed v1 policy schema" in e for e in errors))
 
 
+    def test_malformed_route_identifier_returns_errors_not_type_error(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["routes"][0]["route_id"] = []
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("route_id must be a non-empty string" in e for e in errors))
+
+
 if __name__ == "__main__":
     unittest.main()
