@@ -9,6 +9,7 @@ when a vector is explicitly synthetic and production-ineligible.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -148,8 +149,12 @@ def _reject_duplicate_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any
     return result
 
 
-def build_report(profile: Any) -> dict[str, Any]:
-    """Validate the research contract, then evaluate vectors deterministically."""
+def build_report(
+    profile: Any,
+    *,
+    profile_source_sha256: str | None = None,
+) -> dict[str, Any]:
+    """Validate the contract and bind results to exact input and source hashes."""
     if not isinstance(profile, dict):
         raise ValueError("profile must be an object")
     if profile.get("production_enabled") is not False:
@@ -196,16 +201,35 @@ def build_report(profile: Any) -> dict[str, Any]:
             ),
         })
 
+    if profile_source_sha256 is not None and (
+        len(profile_source_sha256) != 64
+        or any(char not in "0123456789abcdef" for char in profile_source_sha256)
+    ):
+        raise ValueError("profile_source_sha256 must be a lowercase SHA-256 hex digest")
+
+    normalized_profile = json.dumps(
+        profile, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    engine_source = Path(__file__).read_bytes()
+    validator_source = Path(validate_sa_did_profile.__file__).read_bytes()
+    evidence_fingerprints = {
+        "profile_file_sha256": profile_source_sha256,
+        "profile_normalized_sha256": hashlib.sha256(normalized_profile).hexdigest(),
+        "policy_engine_source_sha256": hashlib.sha256(engine_source).hexdigest(),
+        "contract_validator_source_sha256": hashlib.sha256(validator_source).hexdigest(),
+    }
+
     matched = sum(1 for item in results if item["matched"])
     return {
         "report_schema": "mycelix.sa-did-synthetic-policy-report",
-        "schema_version": 1,
+        "schema_version": 2,
         "profile_id": profile.get("profile_id"),
         "profile_maturity": profile.get("maturity"),
         "production_enabled": profile.get("production_enabled"),
         "purpose": "synthetic_policy_oracle_only",
         "cryptographic_verification_performed": False,
         "dha_endpoint_contacted": False,
+        "evidence_fingerprints": evidence_fingerprints,
         "vectors_total": len(results),
         "vectors_matched": matched,
         "passed": bool(results) and matched == len(results),
@@ -223,11 +247,13 @@ def main() -> int:
     parser.add_argument("--report", type=Path, help="write a machine-readable JSON report")
     args = parser.parse_args()
     try:
+        profile_bytes = args.profile.read_bytes()
+        profile_source_sha256 = hashlib.sha256(profile_bytes).hexdigest()
         profile = json.loads(
-            args.profile.read_text(encoding="utf-8"),
+            profile_bytes.decode("utf-8"),
             object_pairs_hook=_reject_duplicate_object_keys,
         )
-        report = build_report(profile)
+        report = build_report(profile, profile_source_sha256=profile_source_sha256)
     except (OSError, ValueError) as exc:
         print(f"ERROR: could not evaluate synthetic profile: {exc}", file=sys.stderr)
         return 2
