@@ -142,6 +142,70 @@ def main() -> int:
             errors.append("an event must not supersede itself")
         return errors
 
+    def event_batch_errors(events: list[dict]) -> list[str]:
+        """Check event-ID equivocation and cycles in the supersession subgraph."""
+        errors: list[str] = []
+        canonical_content_by_id: dict[str, str] = {}
+        supersedes_by_id: dict[str, str] = {}
+
+        for event in events:
+            event_id = event.get("eventId")
+            if not isinstance(event_id, str):
+                continue
+            canonical = json.dumps(event, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+            prior = canonical_content_by_id.get(event_id)
+            if prior is not None and prior != canonical:
+                errors.append(f"eventId {event_id!r} was reused with different canonical content")
+            else:
+                canonical_content_by_id[event_id] = canonical
+
+            target = event.get("supersedesEventId")
+            if isinstance(target, str) and target:
+                supersedes_by_id[event_id] = target
+
+        state: dict[str, int] = {}
+
+        def visit(event_id: str) -> None:
+            if state.get(event_id) == 1:
+                errors.append(f"supersession cycle includes eventId {event_id!r}")
+                return
+            if state.get(event_id) == 2:
+                return
+            state[event_id] = 1
+            target = supersedes_by_id.get(event_id)
+            if target in supersedes_by_id:
+                visit(target)
+            state[event_id] = 2
+
+        for event_id in supersedes_by_id:
+            visit(event_id)
+        return sorted(set(errors))
+
+    def valid_batch(name: str, events: list[dict]) -> None:
+        nonlocal cases
+        cases += 1
+        failures: list[str] = []
+        for index, instance in enumerate(events):
+            schema_errors = list(validator.iter_errors(instance))
+            semantic = semantic_errors(instance)
+            if schema_errors or semantic:
+                failures.append(f"event {index}: schema_errors={len(schema_errors)} semantic={semantic}")
+        batch_errors = event_batch_errors(events)
+        failures.extend(batch_errors)
+        if failures:
+            raise AssertionError(f"{name} should be valid:\n  " + "\n  ".join(failures))
+        print(f"PASS valid batch: {name}")
+
+    def invalid_batch(name: str, events: list[dict]) -> None:
+        nonlocal cases
+        cases += 1
+        batch_errors = event_batch_errors(events)
+        if not batch_errors:
+            # A batch-level negative case must exercise the batch invariants, not
+            # merely fail an unrelated single-event schema check.
+            raise AssertionError(f"{name} should fail a batch invariant but did not")
+        print(f"PASS rejects batch: {name}")
+
     def valid(name: str, instance: dict) -> None:
         nonlocal cases
         cases += 1
@@ -274,6 +338,23 @@ def main() -> int:
     bad["originSiteRef"] = "urn:mycelix:site:wrong-origin"
     invalid("dispatch site must agree with shipment origin", bad)
 
+    received = copy.deepcopy(example)
+    received["eventId"] = "urn:mycelix:food-event:cooperative-hub-01:eggs-lot-20261012:received-001"
+    received["eventType"] = "RECEIVED"
+    received["shipmentRef"] = dispatch["shipmentRef"]
+    received["originSiteRef"] = dispatch["originSiteRef"]
+    received["destinationSiteRef"] = "urn:mycelix:site:cooperative-hub-01"
+    received["siteRef"] = received["destinationSiteRef"]
+    valid("receipt binds shipment and agrees with destination site", received)
+
+    bad = copy.deepcopy(received)
+    bad["siteRef"] = "urn:mycelix:site:unrelated-location"
+    invalid("receipt site must agree with shipment destination", bad)
+
+    bad = copy.deepcopy(received)
+    bad["destinationSiteRef"] = "urn:mycelix:site:wrong-destination"
+    invalid("receipt cannot claim a conflicting destination", bad)
+
     bad = copy.deepcopy(example)
     bad["eventType"] = "HANDLING_OBSERVED"
     bad["subjects"][0].pop("quantity")
@@ -342,6 +423,42 @@ def main() -> int:
     bad["eventType"] = "RETRACTION"
     bad["supersedesEventId"] = example["eventId"]
     invalid("retraction requires an explicit reason and may not self-supersede", bad)
+
+    correction = copy.deepcopy(example)
+    correction["eventId"] = "urn:mycelix:food-event:producer-01:eggs-lot-20261012:correction-001"
+    correction["eventType"] = "CORRECTION"
+    correction["supersedesEventId"] = example["eventId"]
+    correction["correctionReason"] = "Corrected against the producer's source ledger."
+    valid("correction appends a reasoned reference to the prior event", correction)
+    valid_batch("original event followed by a valid correction", [example, correction])
+
+    retraction = copy.deepcopy(example)
+    retraction["eventId"] = "urn:mycelix:food-event:producer-01:eggs-lot-20261012:retraction-001"
+    retraction["eventType"] = "RETRACTION"
+    retraction["supersedesEventId"] = example["eventId"]
+    retraction["correctionReason"] = "Source record withdrawn by its issuer."
+    valid("retraction carries a supersession link and reason", retraction)
+
+    bad = copy.deepcopy(example)
+    bad["supersedesEventId"] = "urn:mycelix:food-event:producer-01:prior-event"
+    invalid("ordinary production event cannot carry supersession metadata", bad)
+
+    valid_batch("same event ID and canonical content is an idempotent replay",
+                [example, copy.deepcopy(example)])
+
+    replay_conflict = copy.deepcopy(example)
+    replay_conflict["notes"] = "Different claim under a reused event identity."
+    invalid_batch("same event ID with different content is a conflict",
+                  [example, replay_conflict])
+
+    correction_a = copy.deepcopy(correction)
+    correction_a["eventId"] = "urn:mycelix:food-event:producer-01:correction-cycle-a"
+    correction_b = copy.deepcopy(correction)
+    correction_b["eventId"] = "urn:mycelix:food-event:producer-01:correction-cycle-b"
+    correction_a["supersedesEventId"] = correction_b["eventId"]
+    correction_b["supersedesEventId"] = correction_a["eventId"]
+    invalid_batch("mutually superseding corrections form a rejected cycle",
+                  [correction_a, correction_b])
 
     print(f"PASS: JSON Schema draft 2020-12 meta-validation and {cases} contract cases")
     return 0
