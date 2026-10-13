@@ -92,7 +92,7 @@ Bind a qualification record to the immutable design and manufacturing packet. Mi
 - exact tested configuration, any justified representative-variant scope, limitations, re-test triggers, and expiration/review policy;
 - independent approval receipt binding the above evidence to the exact design digest.
 
-A result without an applicable acceptance criterion is not a pass. A report that cannot identify the tested design revision is not qualification evidence for a later revision.
+A result without an applicable acceptance criterion is not a pass. A report that cannot identify the tested design revision is not qualification evidence for a later revision. Bind the `family_ruleset_version` and `geometry_ruleset_id` as well as the packet schema/digest profile; matching customer dimensions alone does not establish equivalence if the generator rules changed.
 
 ## 7. Release state machine
 
@@ -119,7 +119,7 @@ The proposed business target of at least 10% lower all-in cost than a comparable
 
 ## 9. Change-control and ongoing review
 
-Every drawing, material, joint, fastener, toolpath, machine, packaging, or instruction change gets a change record identifying affected artifacts and required rechecks. Version bumps alone do not prove equivalence.
+Every drawing, material, joint, fastener, toolpath, machine, packaging, instruction, family-ruleset, geometry-ruleset, or packet-schema change gets a change record identifying affected artifacts and required rechecks. A design-digest, ruleset, geometry-rule, or packet-schema change invalidates any release/qualification association until an accountable reviewer determines the required retesting or equivalence evidence. Version bumps alone do not prove equivalence.
 
 Preserve failed tests and their evidence. Supersede them with a linked record; do not erase or relabel failures. Recheck applicable standards and market requirements before a release, because this document is a dated plan, not a continuously updated compliance determination.
 
