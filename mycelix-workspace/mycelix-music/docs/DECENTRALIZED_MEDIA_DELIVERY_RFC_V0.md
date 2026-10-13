@@ -79,6 +79,8 @@ Use Iroh first for:
 
 Do not initially make successful playback depend on global Iroh discovery. Keep a standard HTTPS route available.
 
+**Discovery privacy gate:** the experimental Mainline-based discovery design is not an anonymity layer. Provider announcements can expose public endpoint addresses; unencrypted DHT traffic may expose lookup metadata to network observers. Do not enable this discovery path by default for listeners or providers, and do not use it as the sole path for private/gated assets. M2 must document which endpoint metadata is public, require explicit operator opt-in, measure what client and provider network metadata is exposed, and compare a known-peer/private-tracker path plus suitable relay or privacy-preserving alternatives before any public rollout. Do not claim that transport encryption alone hides discovery lookups or provider IP addresses.
+
 **Security gate:** Iroh published an `iroh-blobs` security fix on 2026-10-08. Its release note says versions 0.94.0 through 0.103.0 were affected by a request-mask bug that could permit unauthorized blob pushes and, in certain configurations, let remote peers fill a provider's disk. The note identifies 0.103.1 as the fixed 0.103-series release and corresponding fixed versions for several earlier series. Before deploying any Iroh provider, select a vendor-confirmed patched version, lock it, explicitly disable `push` unless an authenticated use case needs it, and separately enforce authorization for `get`, `get_many`, `observe`, and `push`. Add disk quotas and adversarial regression tests. Never assume that setting one read gate automatically secures every request type.
 
 Sources: [Iroh global content discovery, 2026-09-30](https://www.iroh.computer/blog/iroh-global-content-discovery), [iroh-blobs security fix, 2026-10-08](https://www.iroh.computer/blog/iroh-blobs-push-fix), [Iroh blob-store design](https://www.iroh.computer/blog/blob-store-design-challenges).
@@ -181,6 +183,8 @@ The client/resolver should:
 9. On total failure, expose a useful recoverable playback error instead of silently reporting a play as successful.
 
 A lower-integrity fallback must not be described as equally verified. A browser's native `<audio>`/`<video>` element reading a normal HTTPS URL does not independently prove that the response matches the CID or BLAKE3 digest in Mycelix. Use an integrity-capable client/segment loader where independent end-to-end verification is required, or explicitly label the route as HTTPS/TLS-delivered rather than client-verified.
+
+Do not append `?format=car` to the current native `<audio>` URL and treat the result as verified streaming: a CAR response is a structured block container, not a directly playable media file. An integrity-capable path must parse the CAR, validate each addressed block and the manifest's declared byte domain, reconstruct the requested file or segment, and only then pass verified bytes to a player-compatible source. Keep memory and buffering bounded; do not buffer an unbounded whole movie to prove one segment. If the browser path cannot perform this verification, it must continue to report `HttpsTransportOnly`.
 
 ### 4.4 Playback protocols
 
