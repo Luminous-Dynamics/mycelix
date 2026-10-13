@@ -55,7 +55,7 @@
 - [x] Pay-Per-Stream Strategy
 - [x] Gift Economy Strategy
 - [x] Frontend (Next.js)
-- [ ] **Fix build failures** ✅ DONE
+- [ ] Verify production build on the exact release head (record CI evidence)
 - [ ] Real IPFS integration (Web3.Storage)
 - [ ] Production deployment (Gnosis mainnet)
 
@@ -156,7 +156,7 @@ dnas/mycelix-music/
 │   ↓                                              │
 │   Credits appear on Holochain agent             │
 │   ↓                                              │
-│   Listener plays 5,000 songs (FREE)             │
+│   Listener plays 5,000 tracks in this example   │
 │   ↓                                              │
 │   Configured example strategy allocates $0.01/play │
 │   ↓                                              │
@@ -212,7 +212,9 @@ dnas/mycelix-music/
 - Local treasury for genre promotion
 - Artist collectives and label alternatives
 
-### 4.3 Artist Sovereignty
+### 4.3 Artist Agency (design objectives, not unconditional guarantees)
+
+Any artist control promise depends on shipped access controls, contract semantics, dispute processes, governance and applicable law. The platform must publish a moderation/appeal policy and an emergency/legal-compliance path rather than claiming immunity from takedowns or unilateral capture.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -244,14 +246,14 @@ dnas/mycelix-music/
 
 ### Target Segments
 
-| Segment | Current Solution | Mycelix Advantage |
-|---------|------------------|-------------------|
-| **Independent Artists** | Spotify, Bandcamp | Alternative economic models, itemized statements and measurable settlement transparency (targets; pilot evidence required) |
-| **Labels** | Complex contracts | Automatic splits, transparent |
-| **Podcasters** | Anchor, Spotify | Decentralized, censorship-resistant |
-| **Music Educators** | Patreon, Gumroad | Subscription + patronage models |
-| **Live Performers** | Ticket platforms | NFT-gated exclusives |
-| **Sample Makers** | Splice, Loopmasters | Direct licensing, fair royalties |
+| Segment | Existing category | Mycelix opportunity (target; not a proven advantage) |
+|---|---|---|
+| **Independent Artists** | Streaming and direct-sales services | Offer multiple economic models, itemized gross-to-net statements and exportable evidence. Validate with a rights-cleared pilot. |
+| **Labels and collectives** | Contract, rights and split-management tools | Versioned split agreements and attributable settlement receipts, subject to legal and partner integration requirements. |
+| **Podcasters** | Hosting and distribution services | Portability and transparent participant allocations if built and tested; no censorship-immunity claim. |
+| **Music educators** | Membership and digital-commerce tools | Combine subscriptions, patronage or licensing where those models are actually released. |
+| **Live performers** | Ticketing and event platforms | Optional event-linked exclusives; evaluate accessibility, refund handling and local regulation before launch. |
+| **Sample makers** | Sample catalogues and licensing tools | Explicit licence terms and usage-to-payment records; do not claim better royalties until measured. |
 
 ### Potential differentiators (hypotheses to validate)
 
@@ -315,7 +317,9 @@ Year 5: Interoperable creator infrastructure
 
 ## Success Metrics
 
-| Metric | Year 1 | Year 2 | Year 3 | Year 5 |
+The figures below are **aspirational planning targets, not forecasts or current user/earnings counts**. Report actuals separately, with date range, cohort definition, rights-cleared status and source evidence.
+
+| Metric | Year 1 target | Year 2 target | Year 3 target | Year 5 target |
 |--------|--------|--------|--------|--------|
 | **Artists** | 1K | 10K | 100K | 1M |
 | **Listeners** | 50K | 500K | 5M | 50M |
@@ -340,9 +344,9 @@ Year 5: Interoperable creator infrastructure
 - Run a CDN node
 
 **For Listeners:**
-- Support artists directly
+- Support artists directly where the selected economic model permits it
 - Privacy-minimizing design and clear disclosure of data collection; advertising-free listening is a product goal
-- Community ownership stake
+- Participate in community governance if and when the relevant mechanism ships
 
 ---
 
