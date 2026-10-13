@@ -440,6 +440,33 @@ mod tests {
     }
 
     #[test]
+    fn inclusive_dimension_boundaries_are_accepted() {
+        for (width_mm, depth_mm, height_mm) in [
+            (600, 400, 650),
+            (1600, 900, 850),
+        ] {
+            let mut config = valid_config();
+            config.width_mm = width_mm;
+            config.depth_mm = depth_mm;
+            config.height_mm = height_mm;
+            assert!(compile(config).is_ok(), "bounds should be inclusive");
+        }
+    }
+
+    #[test]
+    fn melamine_material_accepts_only_melamine_finishes() {
+        let mut white = valid_config();
+        white.material_id = MaterialId::MelamineMdf;
+        white.finish_id = FinishId::WhiteMelamine;
+        assert!(compile(white).is_ok());
+
+        let mut black = valid_config();
+        black.material_id = MaterialId::MelamineMdf;
+        black.finish_id = FinishId::BlackMelamine;
+        assert!(compile(black).is_ok());
+    }
+
+    #[test]
     fn tampered_packet_is_detected() {
         let mut packet = compile(valid_config()).expect("valid bounded configuration");
         packet.core.cut_parts[0].length_mm += 1;
