@@ -22,6 +22,11 @@ fn require_consciousness(requirement: &CivicRequirement, action_name: &str) -> E
     gate_civic("music_bridge", requirement, action_name).map(|_| ())
 }
 
+/// Add non-negative accounting values without allowing debug panics or release wrapping.
+fn checked_add_total(total: u64, increment: u64) -> Option<u64> {
+    total.checked_add(increment)
+}
+
 /// Helper to ensure a path exists and return its entry hash
 fn ensure_path(path: Path, link_type: LinkTypes) -> ExternResult<EntryHash> {
     let typed = path.typed(link_type)?;
@@ -149,15 +154,26 @@ pub fn get_my_balance_owed(_: ()) -> ExternResult<BalanceOwed> {
     let mut by_artist: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
 
     for play in plays {
-        total_amount += play.amount_owed;
-        play_count += 1;
-        *by_artist.entry(play.artist.to_string()).or_insert(0) += play.amount_owed;
+        total_amount = checked_add_total(total_amount, play.amount_owed).ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest("Balance amount overflow".to_string()))
+        })?;
+        play_count = checked_add_total(play_count, 1).ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest("Balance play-count overflow".to_string()))
+        })?;
+        let artist_total = by_artist.entry(play.artist.to_string()).or_insert(0);
+        *artist_total = checked_add_total(*artist_total, play.amount_owed).ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest("Per-artist balance overflow".to_string()))
+        })?;
     }
+
+    // HashMap iteration order is not stable; expose a deterministic projection.
+    let mut by_artist: Vec<_> = by_artist.into_iter().collect();
+    by_artist.sort_by(|left, right| left.0.cmp(&right.0));
 
     Ok(BalanceOwed {
         total_amount,
         play_count,
-        by_artist: by_artist.into_iter().collect(),
+        by_artist,
     })
 }
 
@@ -218,9 +234,16 @@ pub fn create_settlement_batch(artist: AgentPubKey) -> ExternResult<ActionHash> 
         )));
     }
 
-    let play_count = play_hashes.len() as u64;
+    // DHT link retrieval order is not a canonical consensus order. Sort by complete
+    // raw action-hash bytes so independent agents derive identical batch payloads and roots.
+    canonicalize_play_hashes(&mut play_hashes);
+    let play_count = u64::try_from(play_hashes.len()).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Settlement play-count exceeds u64".to_string()
+        ))
+    })?;
 
-    // Create the canonical ordered Merkle root validated by the integrity zome.
+    // The integrity zome independently enforces this order before accepting the batch.
     let merkle_root = compute_merkle_root(&play_hashes);
 
     let batch = SettlementBatch {
@@ -318,8 +341,17 @@ pub fn get_song_stats(song_hash: ActionHash) -> ExternResult<SongStats> {
                     .to_app_option::<PlayRecord>()
                     .map_err(|e| wasm_error!(e))?
                 {
-                    total_plays += 1;
-                    total_earnings += play.amount_owed;
+                    total_plays = checked_add_total(total_plays, 1).ok_or_else(|| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "Song play-count overflow".to_string()
+                        ))
+                    })?;
+                    total_earnings =
+                        checked_add_total(total_earnings, play.amount_owed).ok_or_else(|| {
+                            wasm_error!(WasmErrorInner::Guest(
+                                "Song earnings overflow".to_string()
+                            ))
+                        })?;
 
                     // Get the author of this play record for unique listener count
                     listeners.insert(record.action().author().to_string());
@@ -342,7 +374,27 @@ pub fn get_song_stats(song_hash: ActionHash) -> ExternResult<SongStats> {
     Ok(SongStats {
         total_plays,
         total_earnings,
-        unique_listeners: listeners.len() as u64,
+        unique_listeners: u64::try_from(listeners.len()).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Unique listener count exceeds u64".to_string()
+            ))
+        })?,
         avg_completion,
     })
+}
+#[cfg(test)]
+mod tests {
+    use super::checked_add_total;
+
+    #[test]
+    fn checked_accounting_addition_accepts_exact_boundary() {
+        assert_eq!(checked_add_total(u64::MAX - 1, 1), Some(u64::MAX));
+        assert_eq!(checked_add_total(u64::MAX, 0), Some(u64::MAX));
+    }
+
+    #[test]
+    fn checked_accounting_addition_rejects_overflow() {
+        assert_eq!(checked_add_total(u64::MAX, 1), None);
+        assert_eq!(checked_add_total(u64::MAX - 1, 2), None);
+    }
 }
