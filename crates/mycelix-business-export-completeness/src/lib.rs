@@ -906,9 +906,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result.raw_payload_assessment.structural_assessment.page_count, 2);
-        assert_eq!(result.raw_payload_assessment.structural_assessment.observed_row_count, 5);
-        assert_ne!(result.decoded_projection_binding_digest, digest(0));
+        let assessment = result.raw_payload_assessment();
+        assert_eq!(assessment.structural_assessment.page_count, 2);
+        assert_eq!(assessment.structural_assessment.observed_row_count, 5);
+        assert_ne!(result.decoded_projection_binding_digest(), digest(0));
     }
 
     #[test]
@@ -944,8 +945,8 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            first.decoded_projection_binding_digest,
-            second.decoded_projection_binding_digest
+            first.decoded_projection_binding_digest(),
+            second.decoded_projection_binding_digest()
         );
     }
 
