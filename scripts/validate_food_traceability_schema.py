@@ -13,11 +13,17 @@ from jsonschema import Draft202012Validator, FormatChecker
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "docs/food/schemas/food-traceability-event.v1.schema.json"
 EXAMPLE_PATH = ROOT / "docs/food/examples/eggs-produced.v1.json"
+FORECAST_PATH = ROOT / "docs/food/examples/forecasted-harvest.v1.json"
+TRANSFORMATION_PATH = ROOT / "docs/food/examples/milk-to-cheese-transformed.v1.json"
+MISSING_HANDLING_PATH = ROOT / "docs/food/examples/cold-chain-missing-sample.v1.json"
 
 
 def main() -> int:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     example = json.loads(EXAMPLE_PATH.read_text(encoding="utf-8"))
+    forecast_example = json.loads(FORECAST_PATH.read_text(encoding="utf-8"))
+    transformation_example = json.loads(TRANSFORMATION_PATH.read_text(encoding="utf-8"))
+    missing_handling_example = json.loads(MISSING_HANDLING_PATH.read_text(encoding="utf-8"))
 
     Draft202012Validator.check_schema(schema)
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
@@ -41,6 +47,9 @@ def main() -> int:
         print(f"PASS rejects: {name}")
 
     valid("canonical synthetic egg lot", example)
+    valid("forecast binds model identity, version, and horizon", forecast_example)
+    valid("dairy transformation binds observed input and output lots", transformation_example)
+    valid("missing cold-chain sample remains explicitly unknown", missing_handling_example)
 
     unknown = copy.deepcopy(example)
     unknown["subjects"][0]["quantity"]["status"] = "unknown"
@@ -90,6 +99,22 @@ def main() -> int:
     bad = copy.deepcopy(example)
     bad["eventType"] = "TRANSFORMED"
     invalid("transformation requires explicit input and output lots", bad)
+
+    bad = copy.deepcopy(transformation_example)
+    bad["inputs"][0]["quantity"]["status"] = "forecast"
+    invalid("transformation input cannot be forecast rather than observed/unknown", bad)
+
+    bad = copy.deepcopy(transformation_example)
+    bad["eventType"] = "PRODUCED"
+    invalid("non-transformation event cannot carry transformation inputs/outputs", bad)
+
+    bad = copy.deepcopy(forecast_example)
+    bad["forecastMetadata"].pop("modelVersion")
+    invalid("forecast requires a model version", bad)
+
+    bad = copy.deepcopy(forecast_example)
+    bad["eventType"] = "PRODUCED"
+    invalid("non-forecast event cannot carry forecast metadata", bad)
 
     dispatch = copy.deepcopy(example)
     dispatch["eventType"] = "DISPATCHED"
