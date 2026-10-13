@@ -36,6 +36,8 @@ interface ReportingProjectionBase {
    * apply profile rules, and validate against its official schema.
    */
   readonly standardConformance: typeof REPORTING_STANDARD_CONFORMANCE;
+  /** Native amount unit is preserved; no FX conversion or ISO 4217 mapping occurs here. */
+  readonly currencySemantics: 'source_accounting_unit_preserved_no_fx_conversion';
   readonly profileVersion: string;
   readonly source: ReportingProjectionSource;
 }
@@ -198,6 +200,7 @@ export function exportDdexRoyaltyReportingProjection(input: {
     authority: 'reporting_projection_only' as const,
     mappingVersion: ROYALTY_REPORTING_MAPPING_VERSION,
     standardConformance: REPORTING_STANDARD_CONFORMANCE,
+    currencySemantics: 'source_accounting_unit_preserved_no_fx_conversion' as const,
     profileVersion,
     source,
     lines,
@@ -228,6 +231,7 @@ export function exportCisacCrdReportingProjection(input: {
     authority: 'reporting_projection_only' as const,
     mappingVersion: ROYALTY_REPORTING_MAPPING_VERSION,
     standardConformance: REPORTING_STANDARD_CONFORMANCE,
+    currencySemantics: 'source_accounting_unit_preserved_no_fx_conversion' as const,
     profileVersion,
     source,
     lines,
