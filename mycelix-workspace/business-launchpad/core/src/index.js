@@ -1063,7 +1063,7 @@ const ACTUALS_CATEGORY_FIELDS = Object.freeze([
 
 function actualsMonthOrdinal(value) {
   if (typeof value !== 'string') return null;
-  const match = /^(\\d{4})-(0[1-9]|1[0-2])$/.exec(value);
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value);
   if (!match) return null;
   const year = Number(match[1]);
   return year < 1900 || year > 9999 ? null : year * 12 + Number(match[2]) - 1;
@@ -1071,7 +1071,7 @@ function actualsMonthOrdinal(value) {
 
 function validActualsDate(value) {
   if (typeof value !== 'string') return false;
-  const match = /^(\\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$/.exec(value);
+  const match = /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.exec(value);
   if (!match) return false;
   const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
   if (year < 1900 || year > 9999) return false;
