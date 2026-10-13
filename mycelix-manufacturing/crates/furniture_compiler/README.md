@@ -4,6 +4,8 @@ A small Rust-first reference compiler for a bounded modular-desk parameter schem
 
 ## Status and claim boundary
 
+See [QUALIFICATION_PLAN.md](QUALIFICATION_PLAN.md) for the proposed physical-test/evidence gates and current standards references. It is a plan, not a certification or release approval.
+
 This is a prototype reference implementation, not a released furniture design, CAD exporter, nesting engine, structural solver, price calculator, safety certification, or production release authority. The output's release gate is always blocked until the listed engineering, supplier, process, qualification, inspection, and fulfillment evidence is bound to the exact revision.
 
 The generated cut parts are rectangular panel envelopes for early contract testing. They do not specify joinery, drill patterns, fasteners, edge-band placement, tolerances, load limits, or accepted manufacturing methods. Do not manufacture or sell a product from the packet alone.
@@ -62,4 +64,4 @@ This is a versioned binary protocol, not RFC 8785 canonical JSON. Cross-language
 
 ## Tests
 
-The crate contains tests for deterministic recompilation, digest sensitivity, stable parts ordering, expected geometry arithmetic, out-of-range dimensions, incompatible finishes, unsupported thickness, unknown JSON fields, oversized input, tamper detection, and the permanent release-blocked state. These tests must still be executed in the target Rust/Nix toolchain before this change is considered verified.
+The crate contains tests for deterministic recompilation, canonical encoding golden vectors, digest sensitivity, stable parts ordering, expected geometry arithmetic, out-of-range dimensions, incompatible finishes, unsupported thickness, unknown JSON fields, oversized input, tamper detection, and the permanent release-blocked state. CI also invokes the CLI verifier on a generated packet and requires it to reject an altered release gate. These tests must still be executed in the target Rust/Nix toolchain before this change is considered verified.
