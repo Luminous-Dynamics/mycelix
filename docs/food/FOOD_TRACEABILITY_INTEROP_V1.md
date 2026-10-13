@@ -148,7 +148,7 @@ Each fixture should carry an immutable ID, schema/version, seed where generated,
 - [ ] H0 rejects units outside the small pinned fixture subset or incompatible with fixture product profiles; it covers `C62`/`DZN` for eggs, `LTR` for milk, `KGM` for cheese/produce, and `CEL` for temperature observations. Production integration must validate full Recommendation 20 list membership and the authoritative product-profile unit policy.
 - [ ] EPCIS adapter mapping has round-trip tests for supported fields and explicit loss reports for non-representable fields.
 - [ ] Synthetic batch regressions cover same-ID/same-content replay, same-ID/different-content conflict, and supersession-cycle rejection. Durable runtime persistence, cryptographic digesting, concurrency races, and quarantine transactionality remain open.
-- [ ] Schema/semantic cases cover dispatch and receipt endpoint consistency. Cross-event shipment lineage, handoff and recall-descendant propagation still require runtime tests.
+- [ ] Schema/semantic cases cover dispatch and receipt endpoint consistency; synthetic batch tests also require route parity for one matching dispatch/receipt pair. Multi-leg shipment identity, handoff and recall-descendant propagation still require runtime tests.
 - [ ] Missing/stale/calibration-invalid handling observations fail closed for any configured control that requires valid current evidence.
 - [ ] No forecast or plan can create stock or trigger payment.
 - [ ] Mycelix multi-agent/Holochain integrity validation and offline reconnect behavior are tested before field use.
