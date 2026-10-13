@@ -29,6 +29,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned NumPy for independent numerical verifier
+        run: python -m pip install --disable-pip-version-check numpy==2.3.5
+
+      - name: Recompute correlated Gaussian disk reference
+        run: python mycelix-workspace/crates/orbital-mechanics/tools/verify_pc_correlated_gaussian_reference.py
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
