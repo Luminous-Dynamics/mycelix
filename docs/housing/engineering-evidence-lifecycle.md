@@ -44,6 +44,7 @@ A future evidence-case record should contain only the minimum index data needed 
 
 - stable case identifier;
 - reference to the Mycelix building record and, where appropriate, the related inspection or work-order record;
+- optional versioned site-evidence projection ID and digest, using the read-only contract in the [Symtropy housing RFC](https://github.com/Luminous-Dynamics/symtropy/blob/rfc/housing-engineering-evidence-contract-2026-10/docs/built-environment/site-evidence-adapter-contract.md);
 - model identifier and exact revision identifier;
 - jurisdiction and rule-pack identifier/status;
 - manifest schema version and manifest SHA-256 digest;
@@ -55,6 +56,12 @@ A future evidence-case record should contain only the minimum index data needed 
 - links to separate review/approval attestations.
 
 The full manifest and large raw artifacts should not be copied into a Holochain entry by default. Keep their canonical bytes in a declared artifact store, then record their digest and locator. The artifact store, digest checker, access policy, and retention policy must be explicit. A digest mismatch blocks verification.
+
+### Site-evidence projection
+
+The site-evidence projection is an optional read-only reference, not a runtime dependency on the Sol Atlas renderer. Follow the [site-evidence adapter contract](https://github.com/Luminous-Dynamics/symtropy/blob/rfc/housing-engineering-evidence-contract-2026-10/docs/built-environment/site-evidence-adapter-contract.md): preserve source/product/version and acquisition time, capture/receive time, coordinate reference system and axis order, native spatial resolution, footprint/coverage, nodata/QA-mask accounting, uncertainty/accuracy, transform-chain and artifact hashes, reuse rights, and prohibited inferences. Distinguish catalogue metadata, captured bytes, processed measurements, and engineering applicability review.
+
+A globe marker, map tile, H3 cell, coarse elevation raster, public utility-layer listing, or satellite water index must not satisfy a parcel boundary, legal access/setback, foundation, groundwater, drainage, or design-flood claim by itself. Keep absent, stale, low-coverage, unlicensed, out-of-domain, or unreviewed site evidence as unresolved. Mycelix should store the projection ID/digest and status summaries rather than copy raw raster products or treat the renderer as an authority.
 
 The schema under development is in the [Symtropy RFC branch](https://github.com/Luminous-Dynamics/symtropy/tree/rfc/housing-engineering-evidence-contract-2026-10/docs/built-environment). Treat its schema/version as provisional until fixture-based conformance tests and a review are complete.
 
