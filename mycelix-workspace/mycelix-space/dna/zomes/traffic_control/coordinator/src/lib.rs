@@ -133,6 +133,40 @@ fn operator_represents_session_object(
         || (is_secondary_operator(session, agent) && session.secondary_norad_id == norad_id)
 }
 
+/// An entry with a matching session_id is not sufficient: proposals must
+/// also be reachable from that session's canonical proposal index.
+fn session_has_proposal(
+    session_id: &str,
+    proposal_hash: &ActionHash,
+) -> ExternResult<bool> {
+    let anchor = anchor_for_session_proposals(session_id)?;
+    let links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::SessionProposals)?,
+        GetStrategy::Network,
+    )?;
+    Ok(links
+        .into_iter()
+        .filter_map(|link| link.target.into_action_hash())
+        .any(|target| target == *proposal_hash))
+}
+
+/// Agreements with matching fields must be anchored to the canonical session
+/// agreement index before a second signature can be added.
+fn session_has_agreement(
+    session_id: &str,
+    agreement_hash: &ActionHash,
+) -> ExternResult<bool> {
+    let anchor = anchor_for_session_agreements(session_id)?;
+    let links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::SessionAgreements)?,
+        GetStrategy::Network,
+    )?;
+    Ok(links
+        .into_iter()
+        .filter_map(|link| link.target.into_action_hash())
+        .any(|target| target == *agreement_hash))
+}
+
 fn get_maneuver_proposal(proposal_hash: &ActionHash) -> ExternResult<ManeuverProposal> {
     let proposal_record = get(proposal_hash.clone(), GetOptions::default())?.ok_or(
         SpaceError::new(SpaceErrorCode::NotFound, "Maneuver proposal not found")
@@ -825,10 +859,16 @@ pub fn accept_proposal(input: AcceptProposalInput) -> ExternResult<ActionHash> {
         .into_wasm_error());
     }
 
-    // Resolve the exact proposed entry before writing an agreement. An arbitrary
-    // ActionHash must not be accepted merely because the caller belongs to this
-    // session.
+    // Resolve the exact proposal and require it to be indexed by this session.
+    // This rejects orphan entries left by a partial create-entry/link failure.
     let proposal = get_maneuver_proposal(&input.proposal_hash)?;
+    if !session_has_proposal(&input.session_id, &input.proposal_hash)? {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Proposal is not linked from this session's canonical proposal index",
+        )
+        .into_wasm_error());
+    }
 
     if proposal.session_id != input.session_id {
         return Err(SpaceError::new(
@@ -991,7 +1031,21 @@ pub fn cosign_agreement(input: CosignAgreementInput) -> ExternResult<ActionHash>
     // Resolve the referenced session and bind the second signature to the
     // recorded secondary operator, not merely to any different agent key.
     let session = verify_session_participant(&agreement.session_id, &agent)?;
+    if !session_has_agreement(&agreement.session_id, &input.agreement_hash)? {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Agreement is not linked from this session's canonical agreement index",
+        )
+        .into_wasm_error());
+    }
     let proposal = get_maneuver_proposal(&agreement.accepted_proposal)?;
+    if !session_has_proposal(&agreement.session_id, &agreement.accepted_proposal)? {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProposal,
+            "Agreement proposal is not linked from this session's canonical proposal index",
+        )
+        .into_wasm_error());
+    }
     validate_proposal_burn_window(
         proposal.burn_time.micros,
         session.deadline.micros,
