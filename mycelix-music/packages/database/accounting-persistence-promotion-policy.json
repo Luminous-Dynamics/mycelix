@@ -48,7 +48,7 @@
     {
       "id": "checkpoint-cursor-anti-rollback",
       "command": "npm run type-check:accounting-authority --workspace=@mycelix/database && npm run test:accounting-authority --workspace=@mycelix/database && npm run test:accounting-guards --workspace=@mycelix/database",
-      "purpose": "verify Ed25519-backed checkpoint acceptance, current-head idempotency, stale checkpoint rejection, source/batch identity continuity, allocation/link-root prefix preservation, serializable cursor compare-and-swap, PostgreSQL high-water-mark monotonicity, and immutable evidence"
+      "purpose": "verify Ed25519-backed checkpoint acceptance, current-head idempotency, stale checkpoint rejection, source/batch identity continuity, allocation/link-root prefix preservation, serializable cursor compare-and-swap, PostgreSQL high-water-mark monotonicity, immutable evidence, and rejection of UPDATE/DELETE/TRUNCATE reset paths"
     }
   ],
   "promotionRule": "Every qualification item must succeed against the exact proposed head, including live PostgreSQL mutation rejection. Missing, queued, skipped, stale, synthetic-merge-only, schema-only, unit-only, or ancestor evidence is not PASS.",
@@ -60,6 +60,7 @@
     "A deterministic netting batch is a second ledger.",
     "Queued or absent exact-head workflow evidence is PASS.",
     "A valid checkpoint signature alone prevents durable rollback without a persistent monotonic cursor.",
-    "A later timestamp or higher source cursor is sufficient if a checkpoint omits previously accepted allocation or successor-link roots."
+    "A later timestamp or higher source cursor is sufficient if a checkpoint omits previously accepted allocation or successor-link roots.",
+    "A row-level append-only trigger prevents an authorized database role from resetting checkpoint history with TRUNCATE."
   ]
 }
