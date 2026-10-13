@@ -63,6 +63,8 @@ Use IPFS for:
 
 Do not assume that a CID makes the bytes available. A CID does not pin its content, keep a node online, guarantee bandwidth, or certify rights. Public-gateway availability and latency vary.
 
+**Gateway selection and privacy:** the IPFS Standards document [User-Preferred Gateway Detection (2026-08-07)](https://specs.ipfs.tech/http-gateways/gateway-detection/) says applications SHOULD NOT silently default to hard-coded public gateways. Public gateways can observe requester network metadata and the requested CID/path. The web client cannot reliably read a user's local IPFS environment variable or gateway file, so the deployment must provide an explicit ordered pool or the user-facing application must obtain a gateway choice. The current implementation uses build-time `MYCELIX_MEDIA_GATEWAY_ORIGINS` with a maximum of eight HTTPS origins; an unset pool produces no candidate, and public gateways are included only if deliberately listed. Before a public release, add a visible gateway preference/consent flow and explain the metadata disclosed to each selected operator. Do not conflate choosing a gateway with verifying the bytes it returns.
+
 Sources: [How IPFS works](https://docs.ipfs.tech/concepts/how-ipfs-works/), [IPFS gateways](https://docs.ipfs.tech/concepts/ipfs-gateway/), [IPFS lifecycle and pinning](https://docs.ipfs.tech/concepts/lifecycle/), [gateway best practices](https://docs.ipfs.tech/how-to/gateway-best-practices/), [trustless gateway specification](https://specs.ipfs.tech/http-gateways/trustless-gateway/).
 
 ### Iroh: verified peer transport, not a magic global CDN
@@ -248,11 +250,11 @@ Required boundaries:
 
 ### M0 — Replace the hard-coded gateway seam (first implementation)
 
-Add a small Rust domain module for asset identities, manifests, typed retrieval candidates, integrity profiles, and resolver outcomes. Preserve backward compatibility with existing catalog entries by treating the current IPFS CID as one candidate, not the whole delivery contract.
+Add a small Rust domain module for asset identities, manifests, typed retrieval candidates, integrity profiles, and resolver outcomes. Preserve backward compatibility with existing catalog entries by treating the current IPFS CID as one content address, not the whole delivery contract. Resolve only through an explicit, ordered HTTPS origin pool (`MYCELIX_MEDIA_GATEWAY_ORIGINS`, at most eight entries); do not add implicit public-gateway defaults. A deployment may explicitly list public gateway origins after accepting their privacy trade-offs. An empty pool must return a visible no-provider result, not silently contact a third party.
 
 Acceptance:
-- no production `ipfs.io` URL is constructed outside the resolver;
-- pure tests cover empty/malformed identifiers, unsupported schemes, candidate order, expired provider lease, access denial, timeout, and no-provider outcomes;
+- no public gateway is contacted unless its origin is explicitly configured; no implicit `ipfs.io` or `dweb.link` fallback exists;
+- pure tests cover empty/malformed identifiers, unsupported schemes, candidate order, empty/duplicate/oversized origin pools, access denial, timeout, and no-provider outcomes;
 - fixture/mock transport remains explicit and cannot masquerade as production connectivity;
 - the same asset can have an IPFS path and an HTTPS mirror without changing logical identity;
 - standard playback keeps working if Iroh or peer discovery is unavailable.
