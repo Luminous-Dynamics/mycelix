@@ -103,6 +103,8 @@ Official source anchors:
 - Final Medium-Term Budget 2026/27–2028/29, section 2.3.4 text layer (printed page 125; screenshot review timed out): https://joburg.org.za/documents_/Documents/2026-27-Final-Medium-Budget-Reports/2026-27-FINAL-BUDGET-BOOK.pdf
 - Official-index-listed 2026/27 SDBIP PDF (opening timed out; not reconciled in this pass): https://joburg.org.za/documents_/Documents/2026-27_SDBIP.pdf
 - Johannesburg Water customer-facing channel page (water incident email and daily system-status update): https://www.johannesburgwater.co.za/
+- Johannesburg Water Customer Fault Logging link (third-party Forcelink login): https://customer.forcelink.net/joburg_water/login
+- Johannesburg Water Daily Water Notices (published turnaround-time list and logging/contact section): https://www.johannesburgwater.co.za/daily-water-notices/
 - 2025/26 Institutional Service Level Standards Charter: https://joburg.org.za/documents_/Documents/2025-2026-Institutional-Service-Level-Standards-Charter/Institutional-Service-Standards-Charter-2025-26.pdf
 - Joburg Connect channel information: https://joburg.org.za/services_/JoburgCares/Pages/call-centre.aspx
 - City eServices "Report a city problem": https://edit.eservices.joburg.org.za/Pages/Reportacityproblem.aspx
@@ -128,6 +130,25 @@ The external reference key must include `issuer_id + channel_id + provider_refer
 
 The companion may explain published channels and let residents initiate contact themselves. This census authorizes no automated email, API call, or City/utility write. Provider currentness, per-case acceptance, and physical repair remain unqualified.
 
+## Customer-facing turnaround listings are not adopted SLA clocks
+
+The official [Daily Water Notices page](https://www.johannesburgwater.co.za/daily-water-notices/) publishes a plain turnaround list: sewer 48 hours; water outage 24 hours; leaking meter 72 hours; burst meter 24 hours; water leak 48 hours; major burst pipe 48 hours. The official homepage's “Customer Fault Logging” link resolves to the third-party Forcelink login route `https://customer.forcelink.net/joburg_water/login`. The portal is a resident-facing path, not proof of an API or permission for automatic submissions.
+
+Do not collapse the published turnaround list into the City's 2026/27 budget-book percentage targets or the separately listed 2025/26 charter. They differ in service category, time window, or metric form; matching hours do not prove the same asset, event, denominator, clock or remedy.
+
+| Daily Water Notices wording | Possible budget-book comparator | Required interpretation |
+|---|---|---|
+| Sewer: 48 hours | Sewer blockages cleared within 24 hours (92%) | Different listed window and scope; not equivalent |
+| Water outage: 24 hours | Planned interruptions, 50% within prescribed notification timeline | Budget metric's duration is unresolved and its scope differs |
+| Leaking meter: 72 hours | Defective meters repaired within 3 days (80%) | Same nominal window does not prove same asset/process |
+| Burst meter: 24 hours | Stolen meters replaced within 24 hours (90%) | Different event and operation |
+| Water leak: 48 hours | Leaking valves repaired within 48 hours (92%) | Different asset type |
+| Major burst pipe: 48 hours | Water pipe bursts repaired within 48 hours (85%) | Potentially related category; no official crosswalk found |
+
+The page also has an internal contact-detail conflict: its “Logging calls” section lists `+27 (0) 10 061 4470` and `+27 (0) 86 056 2874`, while its footer lists `+27 (0) 11 688 1699` and `+27 (0) 86 056 2874`. Preserve the source section when citing a number; do not silently pick one as canonical from this page without independent confirmation.
+
+Consequently the companion may show source-linked official contact/channel instructions, but it must label which page/section supplied each value, avoid automatic portal/API access, and keep turnaround statements separate from adopted institutional targets. No SLA breach, per-case currentness or repair-completion inference is authorized by this public content.
+
 ## Channel-first pilot shape (new finding)
 
 The City documents an established intake/follow-up path. Joburg Connect issues a reference number for logged queries, and the City's eServices problem page instructs residents to use that reference on follow-up to prevent duplicate queries. It also documents resident-facing online tracking; this is not a grant of API access or evidence of a machine-to-machine contract.
@@ -139,7 +160,7 @@ The safe first user journey is a **resident-controlled companion**, not an auton
 3. Record each follow-up as an append-only local timeline event. Reusing the same issuer + source reference follows up the existing external issue; it must not silently submit a new issue. A new source reference is a separate source record; possible relations to other reports are explicit links, not automatic merges.
 4. Keep the raw reference and resident notes in private local/protected storage, never a public DHT or public receipt. Do not collect national ID, account numbers, exact addresses or photos by default.
 5. Label status supplied by a resident as resident-reported, with an observation time. Without authorised source readback it is not authoritative currentness.
-6. Do not calculate an SLA breach until the effective target, exact metric definition and start/stop/pause rules are pinned. The 2026/27 budget-book PDF text layer is observed, but visual review, reconciliation against the listed SDBIP/charter and clock semantics remain pending; its planned-interruption metric must not be relabelled as a 12-hour general-interruption target.
+6. Do not calculate an SLA breach until the effective target, exact metric definition and start/stop/pause rules are pinned. The 2026/27 budget-book PDF text layer is observed, but visual review, reconciliation against the listed SDBIP/charter and clock semantics remain pending; its planned-interruption metric must not be relabelled as a 12-hour general-interruption target. Published Daily Water Notices turnaround statements are tracked separately and are not cross-walked to these targets automatically.
 
 This creates useful value without assuming a City API, writing to City systems, or duplicating official intake. Because the City also documents offline/manual references, external reference identity must include issuer and channel; a bare reference string is not a safe global identifier.
 
@@ -168,6 +189,7 @@ The next implementation tranche must remain blocked until:
 - Symthaea is advisory only; no AI-only denial, disconnection, benefit, licensing or other rights-affecting decision.
 - An attestation proves a bounded statement about provenance; it is not a truth oracle.
 - A utility-wide water-status bulletin is not per-case status readback or physical-repair evidence.
+- Customer-facing turnaround listings do not establish an adopted SLA clock, and mismatched service categories must not be cross-walked automatically.
 - Existing municipal channels remain available; no new app is required for the census to be useful.
 
 ## Evidence ceiling
