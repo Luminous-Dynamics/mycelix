@@ -226,6 +226,29 @@ test('a valid advancing checkpoint appends evidence and compare-and-swaps the cu
   assert.equal(cursorRow.revision, 2);
 });
 
+test('an idle source may advance observation coverage without moving the source high-water mark', async () => {
+  const fixture = storeFixture();
+  const first = signedCheckpoint({
+    id: 'checkpoint:idle:1',
+    highWaterMark: '10',
+    asOf: '2026-10-02T00:00:00.000Z',
+    observedThrough: '2026-10-02T00:00:05.000Z',
+  });
+  const idle = signedCheckpoint({
+    id: 'checkpoint:idle:2',
+    highWaterMark: '10',
+    asOf: '2026-10-02T00:00:00.000Z',
+    observedThrough: '2026-10-02T00:00:06.000Z',
+  });
+  await fixture.store.acceptSettlementAllocationLineageCheckpoint({ checkpoint: first, trustPolicy: trust });
+  const accepted = await fixture.store.acceptSettlementAllocationLineageCheckpoint({ checkpoint: idle, trustPolicy: trust });
+  assert.equal(accepted.disposition, 'accepted');
+  assert.equal(accepted.revision, 2);
+  const cursorRow = [...fixture.cursor.rows.values()][0]!;
+  assert.equal(cursorRow.highWaterMark, '10');
+  assert.equal(new Date(cursorRow.observedThrough as Date).toISOString(), '2026-10-02T00:00:06.000Z');
+});
+
 test('an older already-accepted checkpoint cannot roll the cursor back', async () => {
   const fixture = storeFixture();
   const first = signedCheckpoint({ id: 'checkpoint:1', highWaterMark: '10' });
