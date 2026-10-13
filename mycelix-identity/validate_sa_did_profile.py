@@ -98,8 +98,9 @@ def validate_profile(data: Any) -> list[str]:
 
     if data.get("schema_id") != "mycelix.sa-digital-id-interoperability-profile":
         errors.append("unexpected schema_id")
-    if data.get("schema_version") != 1:
-        errors.append("schema_version must be 1")
+    # bool is a subclass of int in Python; reject true as schema_version=1.
+    if type(data.get("schema_version")) is not int or data.get("schema_version") != 1:
+        errors.append("schema_version must be the integer 1")
     if data.get("profile_id") != "SA-DID-001":
         errors.append("profile_id must be SA-DID-001")
     if data.get("maturity") != "research_only":
@@ -159,8 +160,12 @@ def validate_profile(data: Any) -> list[str]:
             if receipt.get(key) is not True:
                 errors.append(f"receipt_policy.{key} must be true")
         keys = receipt.get("prohibited_output_keys")
-        if not isinstance(keys, list) or not FORBIDDEN_RECEIPT_KEYS.issubset(set(keys)):
-            errors.append("prohibited_output_keys must include every required sensitive field")
+        if (
+            not isinstance(keys, list)
+            or any(not isinstance(key, str) for key in keys)
+            or not FORBIDDEN_RECEIPT_KEYS.issubset(set(keys))
+        ):
+            errors.append("prohibited_output_keys must include every required sensitive field as strings")
 
     mappings = data.get("reason_disposition")
     if not isinstance(mappings, dict):
@@ -170,7 +175,7 @@ def validate_profile(data: Any) -> list[str]:
         if mappings.get(reason) != expected:
             errors.append(f"wrong or missing disposition mapping for reason: {reason}")
     for reason, disposition in mappings.items():
-        if disposition not in ALLOWED_DISPOSITIONS:
+        if not isinstance(disposition, str) or disposition not in ALLOWED_DISPOSITIONS:
             errors.append(f"unsupported disposition for reason {reason}: {disposition}")
 
     vectors = data.get("test_vectors")
@@ -206,7 +211,7 @@ def validate_profile(data: Any) -> list[str]:
 
         disposition = vector.get("expected_disposition")
         reason = vector.get("expected_reason")
-        if disposition not in ALLOWED_DISPOSITIONS:
+        if not isinstance(disposition, str) or disposition not in ALLOWED_DISPOSITIONS:
             errors.append(f"{prefix}.expected_disposition is invalid")
         if not isinstance(reason, str) or not reason:
             errors.append(f"{prefix}.expected_reason must be a non-empty string")
