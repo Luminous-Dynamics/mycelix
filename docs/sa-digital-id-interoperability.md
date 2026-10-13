@@ -244,7 +244,7 @@ Not needed in the trust path. It may simulate queue/branch access or service res
 - [ ] Every profile pins issuer, format, schema, proof algorithms, holder binding, audience/nonce, validity and status semantics.
 - [ ] Current official DHA protocol and authorized relying-party pathway are documented before live integration.
 - [ ] Synthetic issuer and fixture lineage are unmistakable.
-- [ ] All 16 synthetic policy inputs execute through the test-only decision oracle and match exact expected outcomes/reasons.
+- [ ] All 20 synthetic policy inputs execute through the test-only decision oracle and match exact expected outcomes/reasons.
 - [ ] CI produces a machine-readable policy report that explicitly disclaims cryptographic verification and DHA endpoint contact.
 - [ ] Exact adversarial corpus produces deterministic outcomes and reason codes.
 - [ ] Unknown/unavailable current-status evidence cannot become verified-current.
