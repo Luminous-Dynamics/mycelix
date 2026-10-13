@@ -6,6 +6,7 @@
 // legal review, market-fit study, or production-readiness claim.
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -243,6 +244,53 @@ try {
   assert.equal(report.cashScenarioComparison.scenarios[3].deferredVariableSupplierPaymentsAfterHorizonMinor > 0, true);
   completedChecks.push('report export contains the evaluated inputs, base projection and auditable stress comparison');
 
+
+  // Actuals comparison accepts only a calculated plan and reconciled full-month
+  // source records. This fixture tests the import contract, not source authenticity.
+  await page.locator('#actuals-forecast-start-month').fill('2026-01');
+  const actualsSource = {
+    schemaVersion: 1,
+    kind: 'business-launchpad-actuals-source',
+    currency: { code: 'ZAR', minorUnitExponent: 2 },
+    source: {
+      type: 'bank_statement_export',
+      label: 'Synthetic two-month statement fixture',
+      evidenceReference: 'browser-journey-fixture',
+      coverageStartDate: '2026-01-01',
+      coverageEndDate: '2026-02-28',
+      completeMonthlyCoverage: true,
+      openingCashBalanceMinor: 350000,
+      closingCashBalanceMinor: 900000
+    },
+    transactions: [
+      { transactionId: 'a-001', date: '2026-01-10', currencyCode: 'ZAR', category: 'sales_receipt', amountMinor: 400000, sourceReference: 'line 1' },
+      { transactionId: 'a-002', date: '2026-01-15', currencyCode: 'ZAR', category: 'operating_outflow', amountMinor: 250000, sourceReference: 'line 2' },
+      { transactionId: 'a-003', date: '2026-02-10', currencyCode: 'ZAR', category: 'sales_receipt', amountMinor: 700000, sourceReference: 'line 3' },
+      { transactionId: 'a-004', date: '2026-02-15', currencyCode: 'ZAR', category: 'operating_outflow', amountMinor: 300000, sourceReference: 'line 4' }
+    ]
+  };
+  await page.locator('#load-actuals-file').setInputFiles({
+    name: 'actuals-source-v1.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(actualsSource, null, 2) + '\\n')
+  });
+  await page.getByText('Actuals compared — source balances reconcile').waitFor();
+  assert.equal(await page.locator('#download-variance-report').isDisabled(), false);
+  const varianceBundle = await readDownloadJson(
+    page,
+    '#download-variance-report',
+    'business-launchpad-actuals-variance-v1.json'
+  );
+  assert.equal(varianceBundle.kind, 'business-launchpad-actuals-variance-report-bundle');
+  assert.equal(varianceBundle.comparison.reconciliation.status, 'passed');
+  assert.equal(varianceBundle.comparison.periods[0].month, '2026-01');
+  assert.equal(
+    createHash('sha256').update(varianceBundle.sourceArtifactRawText, 'utf8').digest('hex'),
+    varianceBundle.sourceArtifactSha256,
+    'the embedded original source text must reproduce the recorded digest'
+  );
+  completedChecks.push('complete-month actuals reconcile and export a hash-verifiable local variance bundle');
+
   await page.locator('#cash-runway-details > summary').click();
   await page.locator('#cash-month-1-sales').fill('25');
   await page.locator('#cash-month-1-sales-receipts').fill('0.00');
@@ -300,7 +348,7 @@ try {
     buffer: Buffer.from(JSON.stringify({ schemaVersion: 99, kind: 'business-launchpad-scenario', input: {} }))
   });
   await errorBox.waitFor({ state: 'visible' });
-  assert.match(await errorBox.innerText(), /schemaVersion 1, 2, 3, 4 or 5 required/);
+  assert.match(await errorBox.innerText(), /schemaVersion 1 through 6 required/);
   assert.equal(await page.locator('#selling-price').inputValue(), priceBeforeInvalidImport);
   completedChecks.push('unsupported scenario version fails visibly without overwriting entered values');
 
