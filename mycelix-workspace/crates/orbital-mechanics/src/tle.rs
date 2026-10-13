@@ -33,6 +33,9 @@ pub enum TleParseError {
 
     #[error("Invalid NORAD catalog number: {0}")]
     InvalidNoradId(String),
+
+    #[error("TLE line catalog numbers disagree: line 1 has {line1}, line 2 has {line2}")]
+    CatalogNumberMismatch { line1: u32, line2: u32 },
 }
 
 /// Two-Line Element set representing orbital parameters
@@ -150,6 +153,16 @@ impl TwoLineElement {
             .trim()
             .parse::<u32>()
             .map_err(|_| TleParseError::InvalidNoradId(line1[2..7].to_string()))?;
+        let line2_norad_id = line2[2..7]
+            .trim()
+            .parse::<u32>()
+            .map_err(|_| TleParseError::InvalidNoradId(line2[2..7].to_string()))?;
+        if line2_norad_id != norad_id {
+            return Err(TleParseError::CatalogNumberMismatch {
+                line1: norad_id,
+                line2: line2_norad_id,
+            });
+        }
 
         let classification = line1.chars().nth(7).unwrap_or('U');
         let intl_designator = line1[9..17].trim().to_string();
@@ -388,6 +401,36 @@ mod tests {
         assert!((tle.inclination_deg - 51.6416).abs() < 0.0001);
         assert!((tle.eccentricity - 0.0006703).abs() < 0.0000001);
         assert!((tle.mean_motion - 15.72125391).abs() < 0.00000001);
+    }
+
+    #[test]
+    fn rejects_checksum_valid_tle_with_mismatched_line_catalog_numbers() {
+        let lines: Vec<&str> = ISS_TLE.lines().collect();
+        let line1 = lines[1];
+        let mut line2 = lines[2].to_string();
+
+        // Keep the test TLE well-formed: change the line-2 catalog number and
+        // recompute its checksum so rejection exercises identity, not checksum.
+        line2.replace_range(2..7, "25545");
+        let mut checksum_sum = 0u32;
+        for character in line2[..68].chars() {
+            if let Some(digit) = character.to_digit(10) {
+                checksum_sum += digit;
+            } else if character == '-' {
+                checksum_sum += 1;
+            }
+        }
+        let checksum = (checksum_sum % 10).to_string();
+        line2.replace_range(68..69, &checksum);
+
+        let error = TwoLineElement::parse_lines(None, line1, &line2).unwrap_err();
+        assert!(matches!(
+            error,
+            TleParseError::CatalogNumberMismatch {
+                line1: 25544,
+                line2: 25545
+            }
+        ));
     }
 
     #[test]
