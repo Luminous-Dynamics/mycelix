@@ -472,6 +472,22 @@ mod tests {
     }
 
     #[test]
+    fn canonical_configuration_encoding_has_a_fixed_golden_vector() {
+        let config = valid_config();
+        let mut actual = Vec::new();
+        encode_configuration(&mut actual, &config);
+
+        let mut expected = vec![0, 0, 0, 0, 0, 0, 0, 23];
+        expected.extend_from_slice(b"furniture-desk-input-v1");
+        expected.extend_from_slice(&1200_u32.to_be_bytes());
+        expected.extend_from_slice(&600_u32.to_be_bytes());
+        expected.extend_from_slice(&750_u32.to_be_bytes());
+        expected.extend_from_slice(&18_u32.to_be_bytes());
+        expected.extend_from_slice(&[1, 1]); // BirchPlywood, ClearCoat
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn same_frozen_input_produces_same_packet_and_digests() {
         let first = compile(valid_config()).expect("valid bounded configuration");
         let second = compile(valid_config()).expect("same valid configuration");
