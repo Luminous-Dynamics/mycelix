@@ -128,22 +128,24 @@
 
 ## Phase 3: Holochain Integration (Q3-Q4 2026)
 
-### 3.1 Zero-Cost Streaming
+### 3.1 Low-cost play recording (design goal)
 
 ```rust
 // Holochain DNA for P2P streaming
 dnas/mycelix-music/
 ├── zomes/
 │   ├── catalog/        // Song metadata, IPFS hashes
-│   ├── plays/          // Zero-cost play recording
+│   ├── plays/          // Avoid a chain transaction per play where feasible; infrastructure still costs
 │   ├── balances/       // Credit/debit tracking
 │   ├── trust/          // MATL integration
 │   └── discovery/      // Collaborative filtering
 ```
 
-**Key Innovation:** Plays recorded on Holochain (free) → Only cashouts touch blockchain (paid)
+**Design goal:** Avoid a blockchain transaction for every play where feasible. Holochain actions, storage, replication, bandwidth, indexers, abuse prevention and cashout still carry costs; measure them before describing streaming as free. Cashout and bridging costs must be disclosed separately.
 
 ### 3.2 Hybrid Bridge
+
+**Illustrative scenario only:** the $50 deposit, 5,000 plays, $0.01 per-play allocation and 1% fee in this diagram are assumed parameters for one possible economic strategy, not an industry benchmark, shipped payout rate or guarantee. The example excludes payment processing, gas, FX, refunds, reserves, tax/compliance costs and infrastructure costs; production terms must disclose them.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -156,13 +158,13 @@ dnas/mycelix-music/
 │   ↓                                              │
 │   Listener plays 5,000 songs (FREE)             │
 │   ↓                                              │
-│   Artist accumulates 5,000 × $0.01 = $50        │
+│   Configured example strategy allocates $0.01/play │
 │   ↓                                              │
 │   Artist requests cashout                       │
 │   ↓                                              │
 │   Bridge validators attest balance              │
 │   ↓                                              │
-│   Artist receives $49.50 (1% fee)               │
+│   Net payout depends on disclosed all-in costs    │
 │                                                  │
 └─────────────────────────────────────────────────┘
 ```
@@ -244,7 +246,7 @@ dnas/mycelix-music/
 
 | Segment | Current Solution | Mycelix Advantage |
 |---------|------------------|-------------------|
-| **Independent Artists** | Spotify, Bandcamp | 10x payouts, instant settlement |
+| **Independent Artists** | Spotify, Bandcamp | Alternative economic models, itemized statements and measurable settlement transparency (targets; pilot evidence required) |
 | **Labels** | Complex contracts | Automatic splits, transparent |
 | **Podcasters** | Anchor, Spotify | Decentralized, censorship-resistant |
 | **Music Educators** | Patreon, Gumroad | Subscription + patronage models |
@@ -293,7 +295,7 @@ Year 5: Interoperable creator infrastructure
 
 ### Q3 2026: Holochain MVP
 - [ ] Catalog zome (song metadata)
-- [ ] Plays zome (zero-cost streaming)
+- [ ] Plays zome (avoid per-play chain transactions; benchmark storage, replication and network costs)
 - [ ] Balances zome (credit tracking)
 - [ ] Bridge contracts (cashout)
 
@@ -339,7 +341,7 @@ Year 5: Interoperable creator infrastructure
 
 **For Listeners:**
 - Support artists directly
-- No surveillance, no ads
+- Privacy-minimizing design and clear disclosure of data collection; advertising-free listening is a product goal
 - Community ownership stake
 
 ---
