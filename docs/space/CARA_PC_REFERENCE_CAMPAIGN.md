@@ -1,6 +1,6 @@
 # CARA Foster 2-D probability-of-collision reference campaign
 
-**Status:** pinned reference fixture available; Mycelix-to-reference comparison not yet implemented or run.  
+**Status:** pinned reference fixture and independent Rust quadrature comparison test authored; exact-head Rust CI has not yet been observed passing.  
 **Scope:** numerical research/verification for the Earth-orbit conjunction probability code. This is not flight qualification or authority to make mitigation decisions.
 
 ## Source of record
@@ -12,6 +12,18 @@ The machine-readable cases are in:
 The fixture pins NASA's `nasa/CARA_Analysis_Tools` commit `ce0f00722c56808755ee0adbe47a4e3d56439484`, the `Pc2D_Foster.m` source blob, and the upstream test blob `dea6063ce5abdd7ad112f1ed55a15b4a24acc81b`. It records three source-asserted results for one encounter input: circular, square, and square-equivalent-area hard-body regions. The expected values are the assertions in that upstream test file, **not freshly executed results from this environment**.
 
 NASA describes its publicly available CA software as containing source, test cases and expected results to verify implementations. The upstream implementation and test suite are authoritative for this pinned regression fixture only; they do not establish operational validation for Mycelix. See [NASA's public CARA software page](https://www.nasa.gov/cara/publicly-available-cara-software/) and [the pinned upstream unit test](https://github.com/nasa/CARA_Analysis_Tools/blob/ce0f00722c56808755ee0adbe47a4e3d56439484/DistributedMatlab/ProbabilityOfCollision/UnitTests/Pc2D_Foster_UnitTest.m).
+
+## Independent numerical reproduction
+
+Before adding the Rust test, a separate numerical integration of the pinned geometry/covariance and Foster Gaussian-area integral reproduced the upstream assertions within the upstream relative tolerance of 0.1%. A second composite-Simpson reproduction returned approximately:
+
+| Region | Independent Simpson value |
+|---|---:|
+| Circle | `2.70598932657e-5` |
+| Square | `3.44534649703e-5` |
+| Square-equivalent area | `2.70601573490e-5` |
+
+These are computed reproductions of the formula and transcribed fixture inputs, not outputs executed from the NASA MATLAB implementation. The circle result shows the expected small difference from the upstream adaptive quadrature and remains inside its stated tolerance. The Rust test uses the same method definition with fixed composite-Simpson quadrature, but its compile and exact-head execution remain unverified until GitHub Actions completes.
 
 ## How to use the fixture safely
 
