@@ -409,7 +409,13 @@ mod tests {
         assert!(packet.core.release_gate.configuration_bounds_passed);
         assert!(!packet.core.release_gate.release_eligible);
         assert!(!packet.core.release_gate.blockers.is_empty());
-        assert!(packet.core.candidate_process_steps.iter().all(|step| step.requires_partner_mapping));
+        assert!(
+            packet
+                .core
+                .candidate_process_steps
+                .iter()
+                .all(|step| step.requires_partner_mapping)
+        );
     }
 
     #[test]
