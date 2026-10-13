@@ -1,0 +1,9 @@
+{
+  "schema_version": "furniture-desk-input-v1",
+  "width_mm": 1200,
+  "depth_mm": 600,
+  "height_mm": 750,
+  "panel_thickness_mm": 18,
+  "material_id": "birch_plywood",
+  "finish_id": "clear_coat"
+}
