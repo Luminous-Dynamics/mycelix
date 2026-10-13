@@ -304,6 +304,20 @@ pub fn compute_merkle_root(hashes: &[ActionHash]) -> Vec<u8> {
     current.pop().unwrap_or_else(|| vec![0u8; 32])
 }
 
+/// Sort play hashes by their complete raw action-hash bytes.
+/// This is the one canonical ordering used for settlement batch payloads and Merkle roots.
+pub fn canonicalize_play_hashes(hashes: &mut [ActionHash]) {
+    hashes.sort_by(|left, right| left.get_raw_39().cmp(right.get_raw_39()));
+}
+
+/// Return whether hashes are strictly increasing in canonical raw-action-hash order.
+/// Strictness also rejects duplicates, though settlement validation reports duplicates first.
+pub fn has_canonical_play_hash_order(hashes: &[ActionHash]) -> bool {
+    hashes
+        .windows(2)
+        .all(|pair| pair[0].get_raw_39() < pair[1].get_raw_39())
+}
+
 fn validate_create_play(play: PlayRecord, _action: Create) -> ExternResult<ValidateCallbackResult> {
     if play.duration_listened == 0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -452,6 +466,12 @@ fn validate_create_settlement(
         ));
     }
 
+    if !has_canonical_play_hash_order(&batch.play_hashes) {
+        return invalid(
+            "Settlement play hashes must be strictly sorted by raw action-hash bytes",
+        );
+    }
+
     let mut expected_total = 0u64;
     for play_hash in &batch.play_hashes {
         let record = must_get_valid_record(play_hash.clone())?;
@@ -501,7 +521,15 @@ fn validate_create_settlement(
 
 #[cfg(test)]
 mod tests {
-    use super::calculate_play_amount;
+    use super::{
+        calculate_play_amount, canonicalize_play_hashes, compute_merkle_root,
+        has_canonical_play_hash_order,
+    };
+    use hdi::prelude::ActionHash;
+
+    fn test_action_hash(seed: u8) -> ActionHash {
+        ActionHash::from_raw_36(vec![seed; 36])
+    }
 
     #[test]
     fn payment_terms_are_deterministic_and_fail_closed() {
@@ -521,5 +549,33 @@ mod tests {
         assert_eq!(calculate_play_amount("unknown", 180, 180), 0);
         assert_eq!(calculate_play_amount("pay_per_stream", 10, 180), 0);
         assert_eq!(calculate_play_amount("pay_per_stream", 181, 180), 0);
+    }
+
+    #[test]
+    fn canonical_play_hash_order_is_strict_and_rejects_duplicates() {
+        let a = test_action_hash(1);
+        let b = test_action_hash(2);
+        assert!(has_canonical_play_hash_order(&[a.clone(), b.clone()]));
+        assert!(!has_canonical_play_hash_order(&[b.clone(), a.clone()]));
+        assert!(!has_canonical_play_hash_order(&[a.clone(), a]));
+    }
+
+    #[test]
+    fn canonicalization_makes_merkle_root_independent_of_input_order() {
+        let a = test_action_hash(7);
+        let b = test_action_hash(2);
+        let c = test_action_hash(5);
+        let mut first = vec![a.clone(), b.clone(), c.clone()];
+        let mut second = vec![c, a, b];
+
+        canonicalize_play_hashes(&mut first);
+        canonicalize_play_hashes(&mut second);
+
+        assert!(has_canonical_play_hash_order(&first));
+        assert_eq!(
+            first.iter().map(|hash| hash.get_raw_39().to_vec()).collect::<Vec<_>>(),
+            second.iter().map(|hash| hash.get_raw_39().to_vec()).collect::<Vec<_>>()
+        );
+        assert_eq!(compute_merkle_root(&first), compute_merkle_root(&second));
     }
 }
