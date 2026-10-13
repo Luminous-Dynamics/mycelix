@@ -65,7 +65,7 @@ impl MediaAssetManifestV1 {
     }
 }
 
-/// Deployment-configured HTTPS gateway origin.
+/// Deployment-configured gateway origin; HTTPS is required except for loopback.
 ///
 /// Only an operator-controlled build setting should be passed to `parse`;
 /// never accept this value from publication metadata or a provider lease.
