@@ -967,14 +967,7 @@ pub fn screen_conjunction_from_tles(
         .into_wasm_error());
     }
 
-    if input.hours_ahead <= 0.0 || input.hours_ahead > 720.0 {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            "hours_ahead must be between 0 and 720 (30 days)",
-        )
-        .with_context(format!("value: {}", input.hours_ahead))
-        .into_wasm_error());
-    }
+    validate_screening_parameters(input.hours_ahead, input.pc_threshold)?;
 
     // Parse primary TLE
     let primary_tle = TwoLineElement::parse_lines(None, &input.primary_tle.0, &input.primary_tle.1)
@@ -1116,6 +1109,68 @@ pub fn screen_conjunction_from_tles(
     });
 
     Ok(results)
+}
+
+/// Reject malformed screening limits before parsing TLEs or starting propagation.
+/// In particular, a NaN Pc threshold makes every `pc >= threshold` comparison false
+/// and would otherwise turn an invalid request into an apparently empty result set.
+fn validate_screening_parameters(hours_ahead: f64, pc_threshold: f64) -> ExternResult<()> {
+    if !hours_ahead.is_finite() || hours_ahead <= 0.0 || hours_ahead > 720.0 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "hours_ahead must be finite and in (0, 720] hours",
+        )
+        .with_context(format!("value: {}", hours_ahead))
+        .into_wasm_error());
+    }
+
+    if !pc_threshold.is_finite() || !(0.0..=1.0).contains(&pc_threshold) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "pc_threshold must be finite and between 0.0 and 1.0",
+        )
+        .with_context(format!("value: {}", pc_threshold))
+        .into_wasm_error());
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod screening_parameter_tests {
+    use super::*;
+
+    #[test]
+    fn screening_limits_accept_finite_supported_boundaries() {
+        assert!(validate_screening_parameters(f64::MIN_POSITIVE, 0.0).is_ok());
+        assert!(validate_screening_parameters(720.0, 1.0).is_ok());
+    }
+
+    #[test]
+    fn screening_limits_reject_non_finite_and_out_of_range_hours() {
+        for hours in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 0.0, -1.0, 720.0001] {
+            assert!(
+                validate_screening_parameters(hours, 0.5).is_err(),
+                "invalid hours_ahead should fail closed: {hours}"
+            );
+        }
+    }
+
+    #[test]
+    fn screening_limits_reject_non_finite_and_out_of_range_pc_thresholds() {
+        for threshold in [
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            -f64::EPSILON,
+            1.0 + f64::EPSILON,
+        ] {
+            assert!(
+                validate_screening_parameters(24.0, threshold).is_err(),
+                "invalid pc_threshold should fail closed: {threshold}"
+            );
+        }
+    }
 }
 
 /// TLE lines response from cross-zome call to orbital_objects
