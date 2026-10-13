@@ -332,6 +332,28 @@ describe('authenticated settlement allocation lineage checkpoint', () => {
       .toThrow(/cryptographically verified/);
   });
 
+  it('signed checkpoints own independent immutable root snapshots', () => {
+    const source = unsignedCheckpoint();
+    const mutable = {
+      ...source,
+      allocationRoots: [...source.allocationRoots],
+      linkRoots: [...source.linkRoots],
+    };
+    const signed = signSettlementAllocationLineageCheckpoint(mutable, trust.signerKeyId, privateKeyPem);
+
+    mutable.allocationRoots[0] = 'f'.repeat(64);
+    mutable.linkRoots[0] = 'e'.repeat(64);
+
+    expect(Object.isFrozen(signed.allocationRoots)).toBe(true);
+    expect(Object.isFrozen(signed.linkRoots)).toBe(true);
+    expect(signed.allocationRoots[0]).toBe(initial.allocationRoot);
+    expect(signed.linkRoots[0]).toBe(link.linkRoot);
+    const verified = verifySettlementAllocationLineageCheckpoint(signed, trust);
+    const resolution = resolveCheckpointBackedSettlementAllocationLineage([initial, successor], [link], verified);
+    expect(requireCheckpointBackedSettlementAllocationLineage(resolution).headAllocation.allocationRoot)
+      .toBe(successor.allocationRoot);
+  });
+
   it('snapshots verified root arrays against post-verification transport mutation', () => {
     const transported = JSON.parse(JSON.stringify(signedCheckpoint())) as ReturnType<typeof signedCheckpoint>;
     const verified = verifySettlementAllocationLineageCheckpoint(transported, trust);
