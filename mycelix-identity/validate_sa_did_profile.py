@@ -45,9 +45,14 @@ REQUIRED_ROUTE_SOURCE_URLS_BY_ID = {
         "https://www.gov.za/news/speeches/minister-leon-schreiber-home-affairs-quantum-leap-vision-future-government-01-oct",
         "https://www.gov.za/news/media-statements/minister-leon-schreiber-invites-public-comment-draft-digital-identity",
         "https://www.dha.gov.za/images/AnnualReports/DHA-APP-2026-27_260326.pdf",
+        "https://www.parliament.gov.za/storage/app/media/Docs/atc/01ls62wghipk7yjq7tmng272dk6bqkozmm.pdf",
     ],
 }
-OFFICIAL_SOURCE_PREFIXES = ("https://www.gov.za/", "https://www.dha.gov.za/")
+OFFICIAL_SOURCE_PREFIXES = (
+    "https://www.gov.za/",
+    "https://www.dha.gov.za/",
+    "https://www.parliament.gov.za/",
+)
 REQUIRED_TOP_LEVEL_FIELDS = {
     "schema_id", "schema_version", "profile_id", "title", "snapshot_date",
     "maturity", "production_enabled", "authority", "routes",
