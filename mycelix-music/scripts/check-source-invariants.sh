@@ -294,6 +294,8 @@ grep -Fq 'checkpoint:sql:idle-observation' packages/database/src/accounting-chec
   || fail "live database regression must allow an observation-only cursor advance"
 grep -Fq 'accounting-checkpoint-cursor.test.ts' packages/database/package.json \
   || fail "checkpoint store replay/rollback tests must run in qualification"
+grep -Fq 'idle source may advance observation coverage without moving the source high-water mark' packages/database/src/accounting-checkpoint-cursor.test.ts \
+  || fail "checkpoint store regression must permit idle observation-only progress"
 grep -Fq 'accounting-checkpoint-cursor.integration.ts' packages/database/package.json \
   || fail "checkpoint cursor database guards must run against PostgreSQL"
 grep -Fq 'test:accounting-guards' packages/database/package.json \
