@@ -36,6 +36,18 @@ REQUIRED_ROUTE_NONCLAIMS_BY_ID = {
         "candidate_standards_are_not_evidence_of_dha_protocol_support",
     ],
 }
+REQUIRED_ROUTE_SOURCE_URLS_BY_ID = {
+    "dha_ovs": [
+        "https://www.gov.za/news/media-statements/home-affairs-corrects-unsustainable-under-pricing-national-population",
+        "https://www.gov.za/news/media-statements/minister-leon-schreiber-welcomes-withdrawal-act-court-application-against",
+    ],
+    "dha_smartphone_digital_id": [
+        "https://www.gov.za/news/speeches/minister-leon-schreiber-home-affairs-quantum-leap-vision-future-government-01-oct",
+        "https://www.gov.za/news/media-statements/minister-leon-schreiber-invites-public-comment-draft-digital-identity",
+        "https://www.dha.gov.za/images/AnnualReports/DHA-APP-2026-27_260326.pdf",
+    ],
+}
+OFFICIAL_SOURCE_PREFIXES = ("https://www.gov.za/", "https://www.dha.gov.za/")
 REQUIRED_TOP_LEVEL_FIELDS = {
     "schema_id", "schema_version", "profile_id", "title", "snapshot_date",
     "maturity", "production_enabled", "authority", "routes",
@@ -269,10 +281,17 @@ def validate_profile(data: Any) -> list[str]:
                     errors.append(f"{prefix}.{key} must remain false until official profile review")
         urls = route.get("source_urls")
         if not isinstance(urls, list) or not urls or any(
-            not isinstance(url, str) or not url.startswith("https://www.gov.za/")
+            not isinstance(url, str) or not url.startswith(OFFICIAL_SOURCE_PREFIXES)
             for url in urls
         ):
-            errors.append(f"{prefix}.source_urls must contain official HTTPS gov.za sources")
+            errors.append(f"{prefix}.source_urls must contain official HTTPS government sources")
+        expected_urls = (
+            REQUIRED_ROUTE_SOURCE_URLS_BY_ID.get(route_id)
+            if isinstance(route_id, str)
+            else None
+        )
+        if expected_urls is not None and urls != expected_urls:
+            errors.append(f"{prefix}.source_urls must match the pinned official research sources")
     if route_ids != REQUIRED_ROUTES:
         errors.append(
             "routes must distinguish exactly dha_ovs and dha_smartphone_digital_id"
