@@ -1005,9 +1005,11 @@ pub fn screen_conjunction_from_tles(
     // Sweep the time window to find TCA (time of closest approach) for each pair.
     // Step size: 10 minutes for coarse scan, then refine around the minimum.
     let total_seconds = (input.hours_ahead * 3600.0) as i64;
-    let coarse_step_secs: i64 = 600; // 10 minutes
+    // Keep every coarse sample inside the requested window, including windows
+    // shorter than ten minutes and a final interval shorter than ten minutes.
+    let coarse_step_secs: i64 = 600.min(total_seconds);
     let fine_step_secs: i64 = 10; // 10 seconds for refinement
-    let num_coarse_steps = (total_seconds / coarse_step_secs).max(1);
+    let num_coarse_steps = (total_seconds + coarse_step_secs - 1) / coarse_step_secs;
 
     let analyzer = ConjunctionAnalyzer::new();
     let mut results: Vec<ConjunctionAssessment> = Vec::new();
@@ -1018,7 +1020,8 @@ pub fn screen_conjunction_from_tles(
         let mut best_step: i64 = 0;
 
         for i in 0..=num_coarse_steps {
-            let t = primary_tle.epoch + chrono::Duration::seconds(i * coarse_step_secs);
+            let coarse_offset = (i * coarse_step_secs).min(total_seconds);
+            let t = primary_tle.epoch + chrono::Duration::seconds(coarse_offset);
             let p_state = match primary_prop.propagate_to(t) {
                 Ok(s) => s,
                 Err(_) => continue,
@@ -1030,7 +1033,7 @@ pub fn screen_conjunction_from_tles(
             let dist = distance_between(&p_state, &s_state);
             if dist < best_distance {
                 best_distance = dist;
-                best_step = i * coarse_step_secs;
+                best_step = coarse_offset;
             }
         }
 
@@ -1115,10 +1118,15 @@ pub fn screen_conjunction_from_tles(
 /// In particular, a NaN Pc threshold makes every `pc >= threshold` comparison false
 /// and would otherwise turn an invalid request into an apparently empty result set.
 fn validate_screening_parameters(hours_ahead: f64, pc_threshold: f64) -> ExternResult<()> {
-    if !hours_ahead.is_finite() || hours_ahead <= 0.0 || hours_ahead > 720.0 {
+    let horizon_seconds = hours_ahead * 3600.0;
+    if !hours_ahead.is_finite()
+        || !horizon_seconds.is_finite()
+        || horizon_seconds < 1.0
+        || hours_ahead > 720.0
+    {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidInput,
-            "hours_ahead must be finite and in (0, 720] hours",
+            "hours_ahead must provide at least one finite second and be at most 720 hours",
         )
         .with_context(format!("value: {}", hours_ahead))
         .into_wasm_error());
@@ -1142,7 +1150,7 @@ mod screening_parameter_tests {
 
     #[test]
     fn screening_limits_accept_finite_supported_boundaries() {
-        assert!(validate_screening_parameters(f64::MIN_POSITIVE, 0.0).is_ok());
+        assert!(validate_screening_parameters(1.0 / 3600.0, 0.0).is_ok());
         assert!(validate_screening_parameters(720.0, 1.0).is_ok());
     }
 
