@@ -303,7 +303,7 @@ jobs:
           python3 --version
           cd mycelix-identity
           python3 validate_sa_did_profile.py
-          python3 sa_did_policy_engine.py --report sa-did-policy-report.json
+          python3 sa_did_policy_engine.py --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" --report sa-did-policy-report.json
           python3 -m unittest discover -s tests -p 'test_sa_did_*.py' -v
       - name: Test identity
         run: cd mycelix-identity && cargo test --workspace
