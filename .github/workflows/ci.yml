@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      furniture_compiler: ${{ steps.filter.outputs.furniture_compiler }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +81,10 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            furniture_compiler:
+              - 'mycelix-manufacturing/crates/furniture_compiler/**'
+              - 'mycelix-manufacturing/Cargo.toml'
+              - 'mycelix-manufacturing/Cargo.lock'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -110,6 +115,7 @@ jobs:
           done
           (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
+          cargo fmt --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler -- --check || status=1
           exit $status
 
   # Per-cluster test jobs
@@ -132,6 +138,28 @@ jobs:
         run: cd mycelix-manufacturing && cargo run -q -p cos_conformance --bin cos-report > cos-conformance-report.json
       - name: Validate report
         run: test -s mycelix-manufacturing/cos-conformance-report.json && grep -q 'COS-CONF-001' mycelix-manufacturing/cos-conformance-report.json
+
+  test-furniture-compiler:
+    name: Furniture compiler (Rust)
+    needs: changes
+    if: needs.changes.outputs.furniture_compiler == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-manufacturing
+      - name: Test bounded compiler and adversarial cases
+        run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler
+      - name: Compile the example twice and compare exact output
+        run: |
+          cargo run --quiet --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler --bin furniture-compile < mycelix-manufacturing/crates/furniture_compiler/examples/desk-input.json > /tmp/furniture-packet-a.json
+          cargo run --quiet --manifest-path mycelix-manufacturing/Cargo.toml -p furniture_compiler --bin furniture-compile < mycelix-manufacturing/crates/furniture_compiler/examples/desk-input.json > /tmp/furniture-packet-b.json
+          cmp /tmp/furniture-packet-a.json /tmp/furniture-packet-b.json
+      - name: Assert output remains blocked from production release
+        run: jq -e '.core.release_gate.release_eligible == false and (.core.release_gate.blockers | length > 0) and (.packet_digest | length == 64)' /tmp/furniture-packet-a.json > /dev/null
 
   test-commons:
     needs: changes
@@ -440,6 +468,7 @@ jobs:
     needs:
       - format
       - test-cos-conformance
+      - test-furniture-compiler
       - test-commons
       - test-civic
       - test-hearth
@@ -458,6 +487,7 @@ jobs:
         run: |
           echo "Format: ${{ needs.format.result }}"
           echo "COS conformance: ${{ needs.test-cos-conformance.result }}"
+          echo "Furniture compiler: ${{ needs.test-furniture-compiler.result }}"
           echo "Commons: ${{ needs.test-commons.result }}"
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
@@ -474,7 +504,7 @@ jobs:
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-furniture-compiler.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
