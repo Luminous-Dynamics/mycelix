@@ -209,8 +209,7 @@
       "additionalProperties": false,
       "required": [
         "productProfileRef",
-        "lotRef",
-        "quantity"
+        "lotRef"
       ],
       "properties": {
         "productProfileRef": {
@@ -221,9 +220,6 @@
           "type": "string",
           "format": "uri",
           "description": "Stable lot reference; product class identity and lot identity must remain distinct."
-        },
-        "quantity": {
-          "$ref": "#/$defs/quantity"
         }
       }
     },
@@ -492,7 +488,10 @@
                     }
                   }
                 }
-              }
+              },
+              "required": [
+                "quantity"
+              ]
             }
           }
         }
@@ -521,7 +520,10 @@
                     }
                   }
                 }
-              }
+              },
+              "required": [
+                "quantity"
+              ]
             }
           }
         },
@@ -548,13 +550,8 @@
               "PACKED",
               "DISPATCHED",
               "RECEIVED",
-              "STORED",
               "HANDOFF",
-              "HANDLING_OBSERVED",
-              "RECALLED",
-              "SPOILED",
-              "CORRECTION",
-              "RETRACTION"
+              "SPOILED"
             ]
           }
         },
@@ -568,16 +565,26 @@
             "items": {
               "properties": {
                 "quantity": {
-                  "properties": {
-                    "status": {
-                      "enum": [
-                        "observed",
-                        "unknown"
-                      ]
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/quantity"
+                    },
+                    {
+                      "properties": {
+                        "status": {
+                          "enum": [
+                            "observed",
+                            "unknown"
+                          ]
+                        }
+                      }
                     }
-                  }
+                  ]
                 }
-              }
+              },
+              "required": [
+                "quantity"
+              ]
             }
           }
         }
@@ -709,6 +716,43 @@
           "originSiteRef",
           "destinationSiteRef"
         ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "enum": [
+              "STORED",
+              "RECALLED",
+              "CORRECTION",
+              "RETRACTION"
+            ]
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "subjects": {
+            "items": {
+              "properties": {
+                "quantity": {
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "observed",
+                        "unknown"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
   ]
