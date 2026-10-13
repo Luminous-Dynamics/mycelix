@@ -91,7 +91,8 @@ This does not diminish the vision. It makes each claim falsifiable and helps art
 ### P1 — Standards-aware identifiers and mapping
 1. Define internal canonical IDs and explicit mappings for works, recordings, releases, parties, rights shares, territories, currencies, usage periods and settlement references.
 2. Preserve source IDs and source rows; never infer a rightsholder identity from a fuzzy match without recording confidence, competing candidates and a human-review path.
-3. Implement the smallest useful connector first—likely a version-pinned royalty/revenue import/export path—and keep each incoming report immutable with a digest and ingestion receipt.
+3. Do not relabel a Mycelix-native accounting unit as ISO 4217 merely because it is a non-empty string. Require an explicit supported currency mapping; any conversion needs an authoritative, dated FX quote, disclosed rate, rounding policy and separately committed evidence.
+4. Implement the smallest useful connector first—likely a version-pinned royalty/revenue import/export path—and keep each incoming report immutable with a digest and ingestion receipt.
 4. Validate actual standard messages against current DDEX/CISAC schemas and sample files. Label a mapping object as non-conformant until this passes; acquire the DDEX production implementation licence before production exchanges.
 
 ### P2 — Artist-visible transparency
