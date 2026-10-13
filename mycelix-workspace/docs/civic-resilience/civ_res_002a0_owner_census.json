@@ -335,18 +335,27 @@
       "id": "COJ_JOBURG_CONNECT_FAQ",
       "url": "https://joburg.org.za/services_/Documents/Customer%20Interface/Joburg%20Connect%20FAQ.pdf",
       "purpose": "Official channel FAQ describing reference-number allocation and forwarding to service providers; not a machine interface contract."
+    },
+    {
+      "id": "COJ_FINAL_MEDIUM_TERM_BUDGET_2026_27_2028_29",
+      "url": "https://joburg.org.za/documents_/Documents/2026-27-Final-Medium-Budget-Reports/2026-27-FINAL-BUDGET-BOOK.pdf",
+      "purpose": "Final current-period budget book; indexed text of section 2.3.4, page 125, lists Joburg Water service standards. Direct PDF retrieval timed out during this research pass; values are provisional pending direct document review."
     }
   ],
   "municipal_sla_source_posture": {
     "latest_city_service_level_charter_listed_by_official_index": "2025/26 Institutional Service Level Standards Charter",
-    "current_planning_documents_listed": "2026/27 IDP, SDBIP, final IDP and business plans",
+    "current_planning_documents_listed": "2026/27 IDP, SDBIP, final IDP, final Medium-Term Budget 2026/27–2028/29 and business plans",
     "adopted_2026_27_water_sla_bound_into_this_census": false,
-    "rule": "Do not use a previous-year charter as an adopted current SLA without confirming the current approved source, effective period, clock definitions, denominator and exclusions.",
+    "rule": "Use the 2026/27 final budget book as a current-year service-standard source candidate. Keep the 2025/26 charter metrics separate; verify exact source text, scope, clock semantics and effective period before qualifying compliance reporting.",
     "service_level_standards_unit": "https://joburg.org.za/departments_/Pages/City%20directorates%20including%20departmental%20sub-directorates/Service-Level-Standards-Unit-.aspx",
     "2026_27_service_level_standards_charter_listed": false,
     "official_source_index_observed": "2026/27 SDBIP and final IDP listed; 2025/2026 Institutional Service Level Standards Charter is the latest charter shown in the inspected index.",
     "adopted_2026_27_water_sla_verified": false,
-    "reporting_clock_status": "NotEvaluableUntilCurrentAdoptedTargetAndClockSemanticsArePinned"
+    "reporting_clock_status": "NotEvaluableUntilCurrentAdoptedTargetAndClockSemanticsArePinned",
+    "2026_27_water_standards_in_budget_book_indexed": true,
+    "current_target_claim_ceiling": "IndexedTargetReferencePendingDirectPdfReviewAndClockSemantics",
+    "direct_pdf_visual_review_complete": false,
+    "planned_interruption_metric_semantics": "Planned water supply interruptions; prescribed timeline is mentioned but duration is not stated in indexed row."
   },
   "decision": {
     "direction": "NoNewServiceIssueOwner;ExternalSourceAdapterOnlyAfterGates",
@@ -385,7 +394,11 @@
     "The City's resident-facing website is not evidence of API authorization.",
     "A resident-reported status is not verified external currentness.",
     "A previous-year service-level charter is not an adopted current-year target.",
-    "Keep raw resident references and protected details out of public DHTs and public receipts."
+    "Keep raw resident references and protected details out of public DHTs and public receipts.",
+    "A 2026/27 budget-book service target and a 2025/26 charter target are versioned separately.",
+    "The 2026/27 planned-interruption measure is not equivalent to the prior 12-hour general interruption measure.",
+    "An indexed target is not a live status observation or proof that a specific issue met the target.",
+    "Do not calculate compliance while target scope, source review or required clock semantics are unresolved."
   ],
   "required_gate_flags": [
     "source_access_authorized",
@@ -403,7 +416,10 @@
     "external_reference_namespace_bound",
     "source_reference_origin_recorded",
     "official_channel_instructions_present",
-    "current_adopted_sla_source_verified"
+    "current_adopted_sla_source_verified",
+    "2026_27_budget_book_source_pinned",
+    "metric_definition_and_period_preserved",
+    "source_pdf_review_and_clock_semantics_qualified"
   ],
   "unsafe_flags": [
     "city_reference_used_as_internal_identity",
@@ -415,7 +431,10 @@
     "protected_resident_data_written_to_public_dht",
     "portal_access_treated_as_api_authorization",
     "same_reference_follow_up_creates_new_external_intake",
-    "unverified_city_status_claimed_authoritative"
+    "unverified_city_status_claimed_authoritative",
+    "prior_year_target_substituted_for_current",
+    "planned_metric_reinterpreted_as_unplanned_12h_target",
+    "indexed_budget_target_claimed_as_live_status"
   ],
   "probe_cases": [
     {
@@ -437,6 +456,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": true,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -446,7 +468,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "REJECT"
     },
@@ -469,6 +494,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": true,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -478,7 +506,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "REJECT"
     },
@@ -501,6 +532,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": true,
@@ -510,7 +544,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "REJECT"
     },
@@ -533,6 +570,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -542,7 +582,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "REJECT"
     },
@@ -565,6 +608,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -574,7 +620,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "REJECT"
     },
@@ -597,6 +646,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -606,7 +658,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "REJECT"
     },
@@ -629,6 +684,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -638,7 +696,10 @@
         "protected_resident_data_written_to_public_dht": true,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "REJECT"
     },
@@ -661,6 +722,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -670,7 +734,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": true,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "REJECT"
     },
@@ -693,6 +760,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -702,7 +772,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": true,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "REJECT"
     },
@@ -725,6 +798,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -734,7 +810,124 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": true
+        "unverified_city_status_claimed_authoritative": true,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "prior-year-target-is-not-current",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": true,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "planned-interruption-is-not-12h-general-target",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": true,
+        "indexed_budget_target_claimed_as_live_status": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "indexed-target-is-not-live-status",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": true
       },
       "expected_disposition": "REJECT"
     },
@@ -757,6 +950,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -766,7 +962,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -789,6 +988,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -798,7 +1000,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -821,6 +1026,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -830,7 +1038,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -853,6 +1064,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -862,7 +1076,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -885,6 +1102,9 @@
         "source_reference_origin_recorded": false,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -894,7 +1114,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -917,6 +1140,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": false,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -926,7 +1152,48 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
+      },
+      "expected_disposition": "UNRESOLVED"
+    },
+    {
+      "case_id": "source-pdf-not-reviewed",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": false,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -949,6 +1216,9 @@
         "source_reference_origin_recorded": true,
         "official_channel_instructions_present": true,
         "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
         "city_reference_used_as_internal_identity": false,
         "municipal_acceptance_treated_as_physical_resolution": false,
         "ticket_closed_treated_as_physical_resolution": false,
@@ -958,7 +1228,10 @@
         "protected_resident_data_written_to_public_dht": false,
         "portal_access_treated_as_api_authorization": false,
         "same_reference_follow_up_creates_new_external_intake": false,
-        "unverified_city_status_claimed_authoritative": false
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false
       },
       "expected_disposition": "ADVISORY_SHADOW_ELIGIBLE"
     }
@@ -991,5 +1264,99 @@
     "external_status_without_authorized_readback": "UserReportedUnverified",
     "current_sla_without_adopted_effective_source": "NotEvaluable",
     "emergency_behavior": "PreserveOfficialEmergencyChannel;DoNotRouteThroughRoutineCompanion"
+  },
+  "current_year_budget_book_metrics": {
+    "source_id": "COJ_FINAL_MEDIUM_TERM_BUDGET_2026_27_2028_29",
+    "source_url": "https://joburg.org.za/documents_/Documents/2026-27-Final-Medium-Budget-Reports/2026-27-FINAL-BUDGET-BOOK.pdf",
+    "source_section": "2.3.4 Service Standards",
+    "source_page": 125,
+    "effective_period": "2026/27 within Medium-Term Budget 2026/27–2028/29",
+    "extraction_status": "OfficialSearchIndexText; directPDFFetchTimedOut",
+    "direct_pdf_visual_review_complete": false,
+    "production_threshold_use_authorized": false,
+    "metrics": [
+      {
+        "metric_id": "planned_water_interruptions_prescribed_timeline",
+        "service": "Percentage of planned water supply interruptions concluded within prescribed timeline of notification",
+        "target_percent": 50,
+        "window_hours": null,
+        "scope": "Planned interruptions only",
+        "clock_semantics": "Prescribed duration not present in indexed row; unresolved",
+        "source_page": 125
+      },
+      {
+        "metric_id": "fire_hydrants_repaired_48h",
+        "service": "Percentage of fire hydrants repaired within 48 hours of notification",
+        "target_percent": 80,
+        "window_hours": 48,
+        "scope": "Fire hydrants",
+        "clock_semantics": "48 hours from notification; timezone/calendar exclusions not specified in indexed row",
+        "source_page": 125
+      },
+      {
+        "metric_id": "stolen_meters_replaced_24h",
+        "service": "Percentage of stolen meters replaced within 24 hours of notification",
+        "target_percent": 90,
+        "window_hours": 24,
+        "scope": "Stolen meters",
+        "clock_semantics": "24 hours from notification; timezone/calendar exclusions not specified in indexed row",
+        "source_page": 125
+      },
+      {
+        "metric_id": "defective_meters_repaired_3d",
+        "service": "Percentage of defective meters repaired within 3 days of notification",
+        "target_percent": 80,
+        "window_hours": 72,
+        "scope": "Defective meters",
+        "clock_semantics": "3 days from notification; exact day/holiday convention needs confirmation",
+        "source_page": 125
+      },
+      {
+        "metric_id": "leaking_valves_repaired_48h",
+        "service": "Percentage of leaking valves repaired within 48 hours of notification",
+        "target_percent": 92,
+        "window_hours": 48,
+        "scope": "Leaking valves",
+        "clock_semantics": "48 hours from notification; timezone/calendar exclusions not specified in indexed row",
+        "source_page": 125
+      },
+      {
+        "metric_id": "missing_manhole_covers_replaced_24h",
+        "service": "Percentage of missing manhole covers replaced within 24 hours of notification",
+        "target_percent": 95,
+        "window_hours": 24,
+        "scope": "Missing manhole covers",
+        "clock_semantics": "24 hours from notification; timezone/calendar exclusions not specified in indexed row",
+        "source_page": 125
+      },
+      {
+        "metric_id": "water_pipe_bursts_repaired_48h",
+        "service": "Percentage repair of water pipe burst within 48 hours of notification",
+        "target_percent": 85,
+        "window_hours": 48,
+        "scope": "Water pipe bursts",
+        "clock_semantics": "48 hours from notification; timezone/calendar exclusions not specified in indexed row",
+        "source_page": 125
+      },
+      {
+        "metric_id": "sewer_blockages_cleared_24h",
+        "service": "Percentage sewer blockages cleared within 24 hours of notification",
+        "target_percent": 92,
+        "window_hours": 24,
+        "scope": "Sewer blockages",
+        "clock_semantics": "24 hours from notification; timezone/calendar exclusions not specified in indexed row",
+        "source_page": 125
+      }
+    ],
+    "historical_comparison": {
+      "source_id": "COJ_2025_26_INSTITUTIONAL_SERVICE_LEVEL_STANDARDS_CHARTER",
+      "source_url": "https://joburg.org.za/documents_/Documents/2025-2026-Institutional-Service-Level-Standards-Charter/Institutional-Service-Standards-Charter-2025-26.pdf",
+      "metric_id": "water_supply_interruptions_concluded_within_12_hours",
+      "effective_period": "2025/26",
+      "target_percent": 90,
+      "window_hours": 12,
+      "comparability": "NotEquivalentTo2026_27PlannedInterruptionMetric",
+      "direct_pdf_visual_review_complete": false
+    }
   }
 }

@@ -59,10 +59,28 @@ A referenced branch, successful local check, queued workflow or synthetic fixtur
 
 ## Johannesburg source and SLA posture
 
-The official City document index lists 2026/27 planning documents, including the SDBIP and final IDP, while the service-level standards charter listed there is for 2025/26. That older charter can help construct comparison fixtures, but it is not automatically the adopted 2026/27 service target. This census does not bind a current water SLA value. Before defining the clock, confirm the presently approved source, effective period, clock start/stop, dispatch/arrival/repair/restoration events, pauses/exclusions, denominator, reopening treatment and responsible operational owner.
+The official index lists the separately named Institutional Service Level Standards Charter for 2025/26. Separately, the indexed text for the City's **final Medium-Term Budget 2026/27–2028/29**, section 2.3.4 (page 125), contains a Joburg Water service-standards table. This is a relevant current-year source candidate, not a reason to carry forward a prior-year metric unchanged.
+
+The indexed text lists these Joburg Water service standards for 2026/27:
+| Metric | Target shown in indexed text | Clock / scope shown |
+|---|---:|---|
+| Planned water supply interruptions concluded within prescribed timeline of notification | 50% | Duration of the prescribed timeline is not stated in the extracted row; do not convert to 12 hours |
+| Fire hydrants repaired | 80% | Within 48 hours of notification |
+| Stolen meters replaced | 90% | Within 24 hours of notification |
+| Defective meters repaired | 80% | Within 3 days of notification |
+| Leaking valves repaired | 92% | Within 48 hours of notification |
+| Missing manhole covers replaced | 95% | Within 24 hours of notification |
+| Water pipe bursts repaired | 85% | Within 48 hours of notification |
+| Sewer blockages cleared | 92% | Within 24 hours of notification |
+
+The 2025/26 charter separately states that 90% of water-supply interruptions should be concluded within 12 hours. That is **not the same metric text** as the 2026/27 planned-interruption measure. Preserve both with their source year and exact definitions; do not silently reinterpret one as the other.
+
+**Evidence limitation:** the official budget-book search index exposes the table text, but direct PDF retrieval timed out in this research pass, so the current-year row values are source-backed provisional references pending direct-document review. The table does not establish live status for any particular service issue. Before calculating compliance, bind the source/version, metric definition, effective dates, clock start/stop/pause rules, denominator, exclusions and reopen treatment. For the planned-interruption metric, the exact prescribed duration remains unresolved.
 
 Official source anchors:
 - City SDBIP / IDP / service standards index: https://joburg.org.za/documents_/Pages/Key%20Documents/SDBIP%20IDP%20and%20Budget/SDBIP-IDP-And-Budget.aspx
+- Final Medium-Term Budget 2026/27–2028/29, indexed service standards table: https://joburg.org.za/documents_/Documents/2026-27-Final-Medium-Budget-Reports/2026-27-FINAL-BUDGET-BOOK.pdf
+- 2025/26 Institutional Service Level Standards Charter: https://joburg.org.za/documents_/Documents/2025-2026-Institutional-Service-Level-Standards-Charter/Institutional-Service-Standards-Charter-2025-26.pdf
 - Joburg Connect channel information: https://joburg.org.za/services_/JoburgCares/Pages/call-centre.aspx
 - City eServices "Report a city problem": https://edit.eservices.joburg.org.za/Pages/Reportacityproblem.aspx
 - Service Level Standards Unit mandate: https://joburg.org.za/departments_/Pages/City%20directorates%20including%20departmental%20sub-directorates/Service-Level-Standards-Unit-.aspx
@@ -82,7 +100,7 @@ The safe first user journey is a **resident-controlled companion**, not an auton
 3. Record each follow-up as an append-only local timeline event. Reusing the same issuer + source reference follows up the existing external issue; it must not silently submit a new issue. A new source reference is a separate source record; possible relations to other reports are explicit links, not automatic merges.
 4. Keep the raw reference and resident notes in private local/protected storage, never a public DHT or public receipt. Do not collect national ID, account numbers, exact addresses or photos by default.
 5. Label status supplied by a resident as resident-reported, with an observation time. Without authorised source readback it is not authoritative currentness.
-6. Do not calculate an SLA breach until an adopted, effective target and exact start/stop/pause rules are pinned. The listed 2025/26 charter is historical context, not a verified 2026/27 target.
+6. Do not calculate an SLA breach until the effective target, exact metric definition and start/stop/pause rules are pinned. The indexed 2026/27 budget-book table is a candidate current-year source, but its planned-interruption metric must not be relabelled as a 12-hour general-interruption target; direct PDF review remains pending.
 
 This creates useful value without assuming a City API, writing to City systems, or duplicating official intake. Because the City also documents offline/manual references, external reference identity must include issuer and channel; a bare reference string is not a safe global identifier.
 
