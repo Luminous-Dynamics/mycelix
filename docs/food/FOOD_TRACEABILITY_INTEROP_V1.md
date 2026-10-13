@@ -49,7 +49,7 @@ References:
 
 ## 4. Envelope contract
 
-The machine-readable JSON Schema is at docs/food/schemas/food-traceability-event.v1.schema.json; a valid example is at docs/food/examples/eggs-produced.v1.json. V1 pins unit-code versions to REC20-REV17-2021 so a vague value such as latest cannot silently change interpretation.
+The machine-readable JSON Schema is at docs/food/schemas/food-traceability-event.v1.schema.json. Synthetic examples cover an egg lot (`examples/eggs-produced.v1.json`), a milk-to-cheese transformation (`examples/milk-to-cheese-transformed.v1.json`), a model-versioned forecast (`examples/forecasted-harvest.v1.json`), and a missing cold-chain sample (`examples/cold-chain-missing-sample.v1.json`). V1 pins unit-code versions to REC20-REV17-2021 so a vague value such as latest cannot silently change interpretation.
 
 Every event carries:
 
