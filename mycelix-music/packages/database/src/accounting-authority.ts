@@ -1,6 +1,13 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import {
+  assertSettlementAllocationLineageCheckpointAdvances,
+  verifySettlementAllocationLineageCheckpoint,
+  type SettlementAllocationLineageCheckpointTrustPolicy,
+  type SignedSettlementAllocationLineageCheckpoint,
+} from '../../accounting/src/settlement-allocation-lineage-checkpoint.js';
+
 /**
  * Append-only creator-accounting persistence boundary.
  *
