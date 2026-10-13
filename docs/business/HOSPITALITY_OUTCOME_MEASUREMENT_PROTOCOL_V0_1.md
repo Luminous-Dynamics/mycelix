@@ -51,7 +51,7 @@ Register and retain digests for:
 - the data adapter and mapping versions; and
 - the exact candidate forecast/recommendation lineages, when those outputs will later be compared.
 
-Registration must predate the measurement window. If a semantic input changes, start a new evidence lineage rather than reclassifying previous observations.
+Registration must predate the measurement window. In the executable contract, every slot ID is bound to an exact target timestamp and waste category; every measured outcome must match those preregistered values, and a missing outcome cannot be declared before its target time. If a semantic input changes, start a new evidence lineage rather than reclassifying previous observations.
 
 Slots should be defined at a useful operational grain (for example site × service period × waste category) with exact predicates and non-overlapping interpretation. The operator must choose this grain before seeing candidate model errors. Avoid sample plans that over-represent quiet periods while missing busy shifts.
 
@@ -65,7 +65,7 @@ Slots should be defined at a useful operational grain (for example site × servi
 - **Audit observer/process effects.** Repeat a preregistered subset with an independent observer or instrument where feasible. Report the disagreement distribution and missingness by daypart, waste class, and service conditions.
 - **Never confuse waste categories.** Freeze whether the measure includes prep trimmings, spoilage, unsold prepared food, returned plate waste, liquids, packaging, bones, or inedible portions. Preserve disaggregated categories rather than changing definitions after results are seen.
 
-The protocol's Rust validator is not a substitute for the physical measurement process. It can validate the consistency of submitted evidence while still being unable to know whether the submitted measurements represent all waste generated.
+The protocol's Rust validator is not a substitute for the physical measurement process. It can validate the consistency of submitted evidence while still being unable to know whether the submitted measurements represent all waste generated. Model-imputed outcomes have a target time but must not invent a physical observation timestamp; directly weighed, count-derived, and visual observations must record a physical observation time.
 
 ## 6. Conservative metrics and gates
 
