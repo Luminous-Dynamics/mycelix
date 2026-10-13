@@ -2,13 +2,13 @@
 
 > **Research and prototype source—not a production release.**
 
-**Vision:** Every artist chooses their own economic operating system
-**Innovation:** First music platform with truly pluggable payment models + zero-cost streaming via Holochain
-**Goal:** Artists earn 10-50x more, community-owned infrastructure, unstoppable
+**Vision:** Every artist should be able to choose transparent, interoperable economic terms for their music.
+**Design hypothesis:** Pluggable economic strategies and evidence-linked accounting can improve creator agency and statement auditability.
+**Goals:** Portable data, explicit gross-to-net reporting, privacy-conscious operation and resilient/federated infrastructure. No payout multiple, universal per-play rate, zero-cost operation or censorship-immunity claim is made.
 
 ---
 
-## ⚡ Current Status (July 2026)
+## ⚡ Verified Status Reference (13 October 2026)
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -19,21 +19,19 @@
 | **Holochain** | ⚠️ Source present | Economic mutations fail closed pending real authorization and atomic settlement |
 | **CDN** | 📋 Design/prototype | Production operation is not demonstrated here |
 
-See [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) for verified behavior, blockers, and release gates. Roadmaps and historical phase reports describe intent, not current evidence.
+See [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) for verified behavior, blockers, and release gates. Roadmaps and phase reports describe intent, not current evidence. See [Industry Comparison and Evidence](docs/INDUSTRY_COMPARISON_AND_EVIDENCE.md) for the current market benchmark, standards roadmap and evidence gates.
 
 ---
 
 ## 🌟 The Revolutionary Concept
 
-Traditional music platforms force ONE economic model on ALL artists:
-- Spotify: $0.003 per stream, pooled royalties, 90-day payout delay
-- Bandcamp: 15% fee, direct sales only
-- Patreon: Subscription-only, no per-song monetization
+Music reaches creators through several business models: streaming subscription/ad pools, direct sales, memberships, licensing and collective-rights reporting. Their economics and settlement terms are not interchangeable; streaming royalties do not use one universal per-stream rate. See [Spotify's royalties explanation](https://artists.spotify.com/en/royalties-guide) and the [industry comparison](docs/INDUSTRY_COMPARISON_AND_EVIDENCE.md).
 
-**Mycelix Music is different:**
-> Each artist/DAO can compose their own economic model from pluggable primitives.
+**Mycelix Music's design direction:** let artists select from configurable economic strategies while keeping terms, accounting evidence and net payouts inspectable. The repository is a research/prototype source; production artist payouts and cross-platform conformance are not established.
 
-### Real-World Example
+### Illustrative Product Sketches (not live artist case studies)
+
+The following profiles show intended choices. They do not imply deployed onboarding, real users, actual payouts or verified performance.
 
 **DJ Nova** (electronic artist):
 - **Model:** Gift Economy
@@ -42,16 +40,16 @@ Traditional music platforms force ONE economic model on ALL artists:
 - **Why:** Building community first, monetize later
 
 **The Echoes** (indie rock band):
-- **Model:** Pay Per Stream
-- **Listening:** $0.01 per play (10x Spotify!)
-- **Monetization:** Instant split to 4 band members + producer
+- **Model:** Configurable pay-per-play strategy
+- **Listening price:** Defined by the creator's disclosed model and funding terms; no universal rate is implied
+- **Monetization:** Contract-configured split among band members and producer after transaction finality; production cash-out is not established
 - **Why:** Established fanbase, want immediate revenue
 
-**Symphony Orchestra**:
-- **Model:** Patronage
-- **Listening:** $20/month unlimited
-- **Monetization:** Split among 50 musicians + conductor
-- **Why:** High-quality recordings, dedicated classical audience
+**Symphony Orchestra** (concept sketch):
+- **Model:** Patronage/subscription
+- **Listening:** Example membership price configured by the orchestra
+- **Monetization:** Split among musicians according to an explicit agreement
+- **Status:** Patronage and subscription paths require implementation and qualification before being presented as available
 
 **All three use THE SAME PLATFORM.** This is the power of economic modularity.
 
