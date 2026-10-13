@@ -51,7 +51,7 @@ The following profiles show intended choices. They do not imply deployed onboard
 - **Monetization:** Split among musicians according to an explicit agreement
 - **Status:** Patronage and subscription paths require implementation and qualification before being presented as available
 
-**All three use THE SAME PLATFORM.** This is the power of economic modularity.
+These sketches are intended to share a common strategy interface. End-to-end integration across all three workflows has not been demonstrated.
 
 ---
 
@@ -62,7 +62,7 @@ mycelix-music/
 ├── contracts/                          # Smart contracts (Solidity)
 │   ├── EconomicStrategyRouter.sol     # Core routing logic
 │   ├── strategies/
-│   │   ├── PayPerStreamStrategy.sol   # $0.01 per stream model
+│   │   ├── PayPerStreamStrategy.sol   # configurable pay-per-play prototype
 │   │   └── GiftEconomyStrategy.sol    # Free + tips model
 │   └── test/                           # Comprehensive tests
 │
@@ -205,11 +205,11 @@ await sdk.registerSong('my-song-id', {
     { recipient: artistAddress, basisPoints: 9500, role: 'artist' },
     { recipient: protocolAddress, basisPoints: 500, role: 'protocol' }
   ],
-  minimumPayment: 0.01,
+  minimumPayment: 0.01, // example token-unit threshold; not a USD quote
 });
 
 // Example amount in the configured token unit; not a universal price or USD quote.
-await sdk.streamSong('my-song-id', '0.01');
+await sdk.streamSong('my-song-id', '0.01'); // illustrative configured token amount
 
 // Transaction success/finality and subsequent cash-out must be verified separately.
 ```
@@ -287,7 +287,7 @@ See [Industry Comparison and Evidence](docs/INDUSTRY_COMPARISON_AND_EVIDENCE.md)
 
 **Smart Contracts (630 lines)**
 - [x] EconomicStrategyRouter.sol with pluggable strategies
-- [x] PayPerStreamStrategy.sol with instant royalty splits
+- [x] PayPerStreamStrategy.sol with contract-level split logic in the prototype source (not production payout qualification)
 - [x] GiftEconomyStrategy.sol with CGC rewards
 - [x] Comprehensive Foundry test suite (400 lines, 12 tests)
 - [x] DeployLocal.s.sol with mock tokens
