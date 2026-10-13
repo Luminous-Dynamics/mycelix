@@ -219,7 +219,7 @@ def main() -> int:
         print(f"ERROR: could not evaluate synthetic profile: {exc}", file=sys.stderr)
         return 2
 
-    serialized = json.dumps(report, indent=2, sort_keys=True) + "\\n"
+    serialized = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.report is not None:
         try:
             args.report.write_text(serialized, encoding="utf-8")
