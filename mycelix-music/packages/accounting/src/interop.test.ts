@@ -47,6 +47,7 @@ describe('royalty reporting projections', () => {
     expect(projection.authority).toBe('reporting_projection_only');
     expect(projection.mappingVersion).toBe(ROYALTY_REPORTING_MAPPING_VERSION);
     expect(projection.standardConformance).toBe(REPORTING_STANDARD_CONFORMANCE);
+    expect(projection.currencySemantics).toBe('source_accounting_unit_preserved_no_fx_conversion');
     expect(projection.source.statementCommitmentRoot).toBe(root('a'));
     expect(projection.source.generatedAt).toBe('2026-10-08T12:00:00.000Z');
     expect(projection.projectionRoot).toMatch(/^[0-9a-f]{64}$/);
@@ -72,6 +73,7 @@ describe('royalty reporting projections', () => {
     expect(projection.format).toBe('CISAC_CRD');
     expect(projection.authority).toBe('reporting_projection_only');
     expect(projection.standardConformance).toBe('mapping_only_not_schema_conformant');
+    expect(projection.currencySemantics).toBe('source_accounting_unit_preserved_no_fx_conversion');
     expect(projection.lines[0]?.distributionReference).toBe('obligation:o1');
     assertCisacCrdReportingProjection(projection);
   });
