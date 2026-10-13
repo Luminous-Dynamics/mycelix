@@ -150,6 +150,42 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
                 self.assertEqual(self._evaluate_with(field, value), ("rejected", reason))
 
 
+    def test_each_single_policy_gate_fails_closed(self) -> None:
+        negative_cases = (
+            ("user_approved", False),
+            ("alternative_route_required", True),
+            ("source_state", "unavailable"),
+            ("profile_supported", False),
+            ("issuer_trusted", False),
+            ("proof_valid", False),
+            ("schema_valid", False),
+            ("audience_matches", False),
+            ("nonce_fresh", False),
+            ("holder_binding_valid", False),
+            ("time_state", "expired"),
+            ("time_state", "unknown"),
+            ("credential_status", "revoked"),
+            ("credential_status", "unknown"),
+            ("credential_status", "unavailable"),
+            ("credential_status", "stale"),
+            ("privacy_safe", False),
+            ("authorization_scope_valid", False),
+        )
+        for field, value in negative_cases:
+            with self.subTest(field=field, value=value):
+                disposition, reason = self._evaluate_with(field, value)
+                self.assertNotEqual(disposition, "verified", (field, value, reason))
+
+    def test_unknown_or_future_policy_enums_cannot_silently_pass(self) -> None:
+        for field, value in (
+            ("source_state", "degraded-but-usable"),
+            ("time_state", "not-sure"),
+            ("credential_status", "maybe-valid"),
+        ):
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(ValueError, "must be one of"):
+                    self._evaluate_with(field, value)
+
     def test_unknown_validity_time_has_distinct_reason_from_unknown_status(self) -> None:
         self.assertEqual(
             self._evaluate_with("time_state", "unknown"),
