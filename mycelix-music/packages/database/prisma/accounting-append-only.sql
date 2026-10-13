@@ -112,6 +112,13 @@ ALTER TABLE "SettlementAllocationLineageCheckpointRecord"
     AND "highWaterMark" ~ '^(0|[1-9][0-9]*)$'
     AND unique_sha256_json_array("allocationRoots")
     AND unique_sha256_json_array("linkRoots")
+    AND CASE
+      WHEN jsonb_typeof("allocationRoots") = 'array'
+       AND jsonb_typeof("linkRoots") = 'array'
+      THEN jsonb_array_length("allocationRoots") > 0
+       AND jsonb_array_length("linkRoots") = jsonb_array_length("allocationRoots") - 1
+      ELSE false
+    END
     AND "checkpointRoot" ~ '^[0-9a-f]{64}$'
     AND btrim("signerKeyId") <> ''
     AND length("signatureBase64") = 88
