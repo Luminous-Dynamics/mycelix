@@ -597,6 +597,155 @@ export class AccountingAuthorityStore {
     return appendAllocation(allocationDelegate(this.client.settlementAllocationRecord), data);
   }
 
+  /**
+   * Accept a signed checkpoint through a durable, optimistic cursor.
+   *
+   * Evidence insert and cursor advance share one PostgreSQL SERIALIZABLE transaction.
+   * Exact replay of the current head is idempotent; stale/reused identities fail closed.
+   */
+  async acceptSettlementAllocationLineageCheckpoint(
+    input: AcceptSettlementAllocationLineageCheckpointInput,
+  ): Promise<AcceptSettlementAllocationLineageCheckpointResult> {
+    const candidate = normalizeSignedCheckpoint(input.checkpoint, input.trustPolicy);
+    const runner = (this.client as unknown as { $transaction?: SerializableTransactionRunner }).$transaction;
+    if (typeof runner !== 'function') {
+      throw new Error('checkpoint acceptance requires Prisma $transaction with SERIALIZABLE isolation');
+    }
+
+    const key: CheckpointKey = Object.freeze({
+      sourceRef: candidate.sourceRef,
+      sourceInstanceId: candidate.sourceInstanceId,
+      batchId: candidate.batchId,
+    });
+    const evidenceData = checkpointEvidenceData(candidate);
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        return await runner(async (rawTransaction) => {
+          const { evidence, cursor } = checkpointTransactionClient(rawTransaction);
+          const current = await cursor.findUnique({
+            where: { sourceRef_sourceInstanceId_batchId: key },
+          });
+          const existingRoot = await evidence.findUnique({
+            where: { checkpointRoot: candidate.checkpointRoot },
+          });
+          const identityWhere = {
+            sourceRef_sourceInstanceId_batchId_checkpointId: {
+              ...key,
+              checkpointId: candidate.checkpointId,
+            },
+          };
+          const existingIdentity = await evidence.findUnique({ where: identityWhere });
+
+          if (
+            existingIdentity
+            && stringValue('stored checkpointRoot', existingIdentity.checkpointRoot) !== candidate.checkpointRoot
+          ) {
+            throw new Error('settlement allocation checkpointId cannot be reused for different checkpoint contents');
+          }
+
+          if (current) {
+            const revision = current.revision;
+            if (typeof revision !== 'number' || !Number.isSafeInteger(revision) || revision < 1) {
+              throw new Error('stored settlement allocation checkpoint cursor revision is invalid');
+            }
+            const currentRoot = stringValue('cursor checkpointRoot', current.checkpointRoot);
+
+            if (currentRoot === candidate.checkpointRoot) {
+              if (!existingRoot) {
+                throw new Error('checkpoint cursor references missing immutable checkpoint evidence');
+              }
+              assertStoredCheckpointExact(existingRoot, candidate);
+              const stored = checkpointFromStoredRow(existingRoot);
+              if (
+                stringValue('cursor checkpointId', current.checkpointId) !== stored.checkpointId
+                || stringValue('cursor sourceRef', current.sourceRef) !== stored.sourceRef
+                || stringValue('cursor sourceInstanceId', current.sourceInstanceId) !== stored.sourceInstanceId
+                || stringValue('cursor batchId', current.batchId) !== stored.batchId
+                || stringValue('cursor highWaterMark', current.highWaterMark) !== stored.highWaterMark
+                || timestamp('cursor asOf', current.asOf as Date | string).toISOString() !== stored.asOf
+                || timestamp('cursor observedThrough', current.observedThrough as Date | string).toISOString() !== stored.observedThrough
+              ) {
+                throw new Error('checkpoint cursor fields disagree with its immutable evidence');
+              }
+              return Object.freeze({
+                disposition: 'replayed' as const,
+                checkpointRoot: candidate.checkpointRoot,
+                revision,
+              });
+            }
+
+            if (existingRoot) {
+              throw new Error('previously accepted settlement allocation checkpoint is stale and cannot replace the current cursor');
+            }
+            const previousRow = await evidence.findUnique({ where: { checkpointRoot: currentRoot } });
+            if (!previousRow) {
+              throw new Error('checkpoint cursor references missing immutable predecessor evidence');
+            }
+            const previous = normalizeSignedCheckpoint(
+              checkpointFromStoredRow(previousRow),
+              input.trustPolicy,
+            );
+            assertSettlementAllocationLineageCheckpointAdvances(previous, candidate, input.trustPolicy);
+
+            await evidence.create({ data: evidenceData });
+            const updated = await cursor.updateMany({
+              where: {
+                ...key,
+                revision,
+                checkpointRoot: currentRoot,
+              },
+              data: {
+                checkpointId: candidate.checkpointId,
+                checkpointRoot: candidate.checkpointRoot,
+                asOf: timestamp('checkpoint asOf', candidate.asOf),
+                observedThrough: timestamp('checkpoint observedThrough', candidate.observedThrough),
+                highWaterMark: candidate.highWaterMark,
+                revision: revision + 1,
+              },
+            });
+            if (updated.count !== 1) throw new CheckpointCursorRaceError();
+            return Object.freeze({
+              disposition: 'accepted' as const,
+              checkpointRoot: candidate.checkpointRoot,
+              revision: revision + 1,
+            });
+          }
+
+          if (existingRoot || existingIdentity) {
+            throw new Error('checkpoint evidence exists without a durable cursor; refusing to reconstruct trust');
+          }
+
+          await evidence.create({ data: evidenceData });
+          await cursor.create({
+            data: {
+              ...key,
+              checkpointId: candidate.checkpointId,
+              checkpointRoot: candidate.checkpointRoot,
+              asOf: timestamp('checkpoint asOf', candidate.asOf),
+              observedThrough: timestamp('checkpoint observedThrough', candidate.observedThrough),
+              highWaterMark: candidate.highWaterMark,
+              revision: 1,
+            },
+          });
+          return Object.freeze({
+            disposition: 'accepted' as const,
+            checkpointRoot: candidate.checkpointRoot,
+            revision: 1,
+          });
+        }, {
+          isolationLevel: 'Serializable',
+          maxWait: 5000,
+          timeout: 10000,
+        });
+      } catch (error) {
+        if (attempt < 4 && retryableCheckpointTransactionError(error)) continue;
+        throw error;
+      }
+    }
+    throw new Error('checkpoint acceptance exhausted bounded transaction retries');
+  }
+
   async appendStatementSnapshot(input: RoyaltyStatementSnapshotRecordInput): Promise<Record<string, unknown>> {
     if (!STATEMENT_KINDS.has(input.kind)) throw new Error(`unsupported statement kind: ${input.kind}`);
     if (!COMPLETENESS_KINDS.has(input.completenessKind)) {
