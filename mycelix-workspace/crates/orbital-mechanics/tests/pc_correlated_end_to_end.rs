@@ -92,10 +92,7 @@ fn synthetic_state(
     let (x_offset, y_offset) = if primary {
         (0.0, 0.0)
     } else {
-        (
-            -miss_encounter_plane_km[1],
-            miss_encounter_plane_km[0],
-        )
+        (-miss_encounter_plane_km[1], miss_encounter_plane_km[0])
     };
 
     // Both synthetic objects have 7.5 km/s speed; their relative velocity is
@@ -128,7 +125,10 @@ fn checked_assessment_matches_correlated_gaussian_disk_reference() {
         fixture.reference.integrator,
         "tensor-product Gauss-Legendre quadrature in polar coordinates"
     );
-    assert_eq!(fixture.reference.radial_orders, REFERENCE_RADIAL_ORDERS);
+    assert_eq!(
+        fixture.reference.radial_orders.as_slice(),
+        REFERENCE_RADIAL_ORDERS
+    );
     assert_eq!(
         fixture.reference.angular_nodes_rule,
         "angular_nodes = 2 * radial_order + 24"
@@ -190,14 +190,14 @@ fn checked_assessment_matches_correlated_gaussian_disk_reference() {
             covariance_for_projected_case(case.covariance_encounter_plane_km2);
         let primary = synthetic_state(
             25544,
-            epoch,
+            epoch.clone(),
             case.miss_encounter_plane_km,
             true,
             covariance_primary,
         );
         let secondary = synthetic_state(
             12345,
-            epoch,
+            epoch.clone(),
             case.miss_encounter_plane_km,
             false,
             covariance_secondary,
