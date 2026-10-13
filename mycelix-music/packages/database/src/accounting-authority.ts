@@ -637,7 +637,7 @@ export class AccountingAuthorityStore {
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       try {
-        return await runner.call(transactionHost, async (rawTransaction) => {
+        return await transactionHost.$transaction!(async (rawTransaction) => {
           const { evidence, cursor } = checkpointTransactionClient(rawTransaction);
           const current = await cursor.findUnique({
             where: { sourceRef_sourceInstanceId_batchId: key },
