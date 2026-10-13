@@ -1242,6 +1242,14 @@ mod screening_parameter_tests {
 
 /// Reject self-conjunctions and repeated target IDs before performing cross-zome I/O.
 fn validate_requested_secondary_ids(primary_norad_id: u32, secondary_norad_ids: &[u32]) -> ExternResult<()> {
+    if secondary_norad_ids.len() > 100 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Maximum 100 secondary objects per screening call",
+        )
+        .with_context(format!("count: {}", secondary_norad_ids.len()))
+        .into_wasm_error());
+    }
     let mut seen = std::collections::HashSet::with_capacity(secondary_norad_ids.len());
     for norad_id in secondary_norad_ids {
         if *norad_id == primary_norad_id {
@@ -1295,6 +1303,12 @@ mod screening_target_tests {
         assert!(validate_requested_secondary_ids(25544, &[25544]).is_err());
         assert!(validate_requested_secondary_ids(25544, &[40001, 40001]).is_err());
         assert!(validate_requested_secondary_ids(25544, &[40001, 40002]).is_ok());
+    }
+
+    #[test]
+    fn requested_secondary_ids_enforce_batch_limit_before_lookup() {
+        let ids: Vec<u32> = (40_000..40_101).collect();
+        assert!(validate_requested_secondary_ids(25544, &ids).is_err());
     }
 
     #[test]
