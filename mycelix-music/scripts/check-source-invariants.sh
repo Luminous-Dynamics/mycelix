@@ -239,6 +239,20 @@ grep -Fq 'TRUNCATE TABLE "SettlementAllocationLineageCheckpointCursor"' packages
   || fail "live database regression must reject cursor truncation"
 grep -Fq 'TRUNCATE TABLE "SettlementAllocationLineageCheckpointRecord"' packages/database/src/accounting-checkpoint-cursor.integration.ts \
   || fail "live database regression must reject checkpoint evidence truncation"
+grep -Fq 'initial settlement allocation checkpoint cursor revision must equal 1' packages/database/src/accounting-append-only.sql \
+  || fail "PostgreSQL must require revision one for a new checkpoint cursor"
+grep -Fq 'checkpoint cursor must reference exact immutable evidence' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL cursor must point to an exact immutable checkpoint row"
+grep -Fq 'requires a new root and revision + 1' packages/database/src/accounting-append-only.integration.ts packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject root replay without a cursor advance"
+grep -Fq 'timestamps cannot move backwards' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject timestamp rollback"
+grep -Fq 'must advance a source cursor or observation coverage' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject no-progress cursor updates"
+grep -Fq 'checkpoint:sql:missing-evidence' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject a cursor without exact evidence"
+grep -Fq 'checkpoint:sql:no-progress' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must exercise the no-progress cursor attack"
 grep -Fq 'accounting-checkpoint-cursor.test.ts' packages/database/package.json \
   || fail "checkpoint store replay/rollback tests must run in qualification"
 grep -Fq 'accounting-checkpoint-cursor.integration.ts' packages/database/package.json \
