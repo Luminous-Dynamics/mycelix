@@ -17,6 +17,19 @@ FORECAST_PATH = ROOT / "docs/food/examples/forecasted-harvest.v1.json"
 TRANSFORMATION_PATH = ROOT / "docs/food/examples/milk-to-cheese-transformed.v1.json"
 MISSING_HANDLING_PATH = ROOT / "docs/food/examples/cold-chain-missing-sample.v1.json"
 
+# H0 fixture subset from pinned Recommendation 20. This is not a complete copy
+# of the code list.
+REC20_FIXTURE_CODES = {"DZN", "KGM", "LTR", "CEL"}
+PRODUCT_UNIT_POLICY = {
+    "urn:mycelix:product-profile:free-range-eggs-v1": {"DZN"},
+    "urn:mycelix:product-profile:pasteurized-milk-v1": {"LTR"},
+    "urn:mycelix:product-profile:cheese-v1": {"KGM"},
+    "urn:mycelix:product-profile:strawberries-v1": {"KGM"},
+}
+FORECAST_PATH = ROOT / "docs/food/examples/forecasted-harvest.v1.json"
+TRANSFORMATION_PATH = ROOT / "docs/food/examples/milk-to-cheese-transformed.v1.json"
+MISSING_HANDLING_PATH = ROOT / "docs/food/examples/cold-chain-missing-sample.v1.json"
+
 
 def main() -> int:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -29,12 +42,74 @@ def main() -> int:
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
     cases = 0
 
+    def semantic_errors(instance: dict) -> list[str]:
+        errors: list[str] = []
+        event_type = instance.get("eventType")
+
+        for collection_name in ("subjects", "inputs", "outputs"):
+            for entry in instance.get(collection_name, []):
+                quantity = entry.get("quantity")
+                if quantity is None:
+                    continue
+                code = quantity.get("unitCode")
+                profile_ref = entry.get("productProfileRef")
+                if code not in REC20_FIXTURE_CODES:
+                    errors.append(f"{collection_name}: unit code {code!r} is outside the pinned H0 fixture subset")
+                allowed = PRODUCT_UNIT_POLICY.get(profile_ref)
+                if allowed is None:
+                    errors.append(f"{collection_name}: no pinned product-unit policy for {profile_ref!r}")
+                elif code not in allowed:
+                    errors.append(f"{collection_name}: unit {code!r} is not permitted for {profile_ref!r}")
+
+        for observation in instance.get("handlingObservations", []):
+            if observation.get("parameter") == "temperature" and observation.get("unitCode") != "CEL":
+                errors.append("temperature observations must use CEL in this H0 profile")
+
+        if event_type == "TRANSFORMED":
+            subjects = {
+                (x.get("productProfileRef"), x.get("lotRef"))
+                for x in instance.get("subjects", [])
+            }
+            outputs = {
+                (x.get("productProfileRef"), x.get("lotRef"))
+                for x in instance.get("outputs", [])
+            }
+            if subjects != outputs:
+                errors.append("transformation subjects must identify exactly the output lots")
+            input_lots = {x.get("lotRef") for x in instance.get("inputs", [])}
+            output_lots = {x.get("lotRef") for x in instance.get("outputs", [])}
+            if input_lots & output_lots:
+                errors.append("transformation must not reuse an input lot identity as an output lot")
+
+        forecast = instance.get("forecastMetadata")
+        if forecast:
+            try:
+                start = datetime.fromisoformat(forecast["horizonStart"].replace("Z", "+00:00"))
+                end = datetime.fromisoformat(forecast["horizonEnd"].replace("Z", "+00:00"))
+                issued = datetime.fromisoformat(forecast["issuedAt"].replace("Z", "+00:00"))
+                if end <= start:
+                    errors.append("forecast horizonEnd must be later than horizonStart")
+                if start < issued:
+                    errors.append("forecast horizonStart must not precede issuedAt")
+            except (KeyError, ValueError, TypeError) as exc:
+                errors.append(f"forecast timestamps are not comparable ISO datetimes: {exc}")
+
+        if event_type == "DISPATCHED" and instance.get("siteRef") != instance.get("originSiteRef"):
+            errors.append("DISPATCHED siteRef must match originSiteRef")
+        if event_type == "RECEIVED" and instance.get("siteRef") != instance.get("destinationSiteRef"):
+            errors.append("RECEIVED siteRef must match destinationSiteRef")
+        if instance.get("supersedesEventId") == instance.get("eventId"):
+            errors.append("an event must not supersede itself")
+        return errors
+
     def valid(name: str, instance: dict) -> None:
         nonlocal cases
         cases += 1
         errors = sorted(validator.iter_errors(instance), key=lambda err: list(map(str, err.path)))
-        if errors:
+        semantic = semantic_errors(instance)
+        if errors or semantic:
             formatted = "\n".join(f"  {list(err.path)}: {err.message}" for err in errors)
+            formatted += ("\n" if formatted and semantic else "") + "\n".join(f"  semantic: {message}" for message in semantic)
             raise AssertionError(f"{name} should be valid:\n{formatted}")
         print(f"PASS valid: {name}")
 
@@ -42,7 +117,8 @@ def main() -> int:
         nonlocal cases
         cases += 1
         errors = list(validator.iter_errors(instance))
-        if not errors:
+        semantic = semantic_errors(instance)
+        if not errors and not semantic:
             raise AssertionError(f"{name} should be invalid but validated successfully")
         print(f"PASS rejects: {name}")
 
@@ -77,6 +153,14 @@ def main() -> int:
     invalid("unit codes use canonical uppercase syntax", bad)
 
     bad = copy.deepcopy(example)
+    bad["subjects"][0]["quantity"]["unitCode"] = "XYZ"
+    invalid("unit code must be in the pinned H0 fixture subset", bad)
+
+    bad = copy.deepcopy(example)
+    bad["subjects"][0]["quantity"]["unitCode"] = "KGM"
+    invalid("product profile cannot use an incompatible quantity unit", bad)
+
+    bad = copy.deepcopy(example)
     bad["subjects"][0]["quantity"]["unitCodeListVersion"] = "latest"
     invalid("unit-code vocabulary release must be pinned", bad)
 
@@ -108,6 +192,16 @@ def main() -> int:
     bad["eventType"] = "PRODUCED"
     invalid("non-transformation event cannot carry transformation inputs/outputs", bad)
 
+    bad = copy.deepcopy(transformation_example)
+    bad["subjects"][0]["lotRef"] = "urn:mycelix:food-lot:other-cheese"
+    invalid("transformation subjects must match output lots", bad)
+
+    bad = copy.deepcopy(transformation_example)
+    bad["outputs"][0]["lotRef"] = bad["inputs"][0]["lotRef"]
+    bad["subjects"][0]["lotRef"] = bad["outputs"][0]["lotRef"]
+    bad["subjects"][0]["productProfileRef"] = bad["inputs"][0]["productProfileRef"]
+    invalid("transformation cannot reuse an input lot identity as output", bad)
+
     bad = copy.deepcopy(forecast_example)
     bad["forecastMetadata"].pop("modelVersion")
     invalid("forecast requires a model version", bad)
@@ -115,6 +209,10 @@ def main() -> int:
     bad = copy.deepcopy(forecast_example)
     bad["eventType"] = "PRODUCED"
     invalid("non-forecast event cannot carry forecast metadata", bad)
+
+    bad = copy.deepcopy(forecast_example)
+    bad["forecastMetadata"]["horizonEnd"] = "2026-10-12T23:59:59+02:00"
+    invalid("forecast horizon must be ordered and not predate issuance", bad)
 
     dispatch = copy.deepcopy(example)
     dispatch["eventType"] = "DISPATCHED"
@@ -126,6 +224,10 @@ def main() -> int:
     bad = copy.deepcopy(dispatch)
     bad.pop("shipmentRef")
     invalid("dispatch cannot omit shipment identity", bad)
+
+    bad = copy.deepcopy(dispatch)
+    bad["originSiteRef"] = "urn:mycelix:site:wrong-origin"
+    invalid("dispatch site must agree with shipment origin", bad)
 
     bad = copy.deepcopy(example)
     bad["eventType"] = "HANDLING_OBSERVED"
@@ -194,7 +296,7 @@ def main() -> int:
     bad = copy.deepcopy(example)
     bad["eventType"] = "RETRACTION"
     bad["supersedesEventId"] = example["eventId"]
-    invalid("retraction requires an explicit reason", bad)
+    invalid("retraction requires an explicit reason and may not self-supersede", bad)
 
     print(f"PASS: JSON Schema draft 2020-12 meta-validation and {cases} contract cases")
     return 0
