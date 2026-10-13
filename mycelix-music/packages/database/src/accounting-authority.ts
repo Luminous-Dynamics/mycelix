@@ -437,6 +437,21 @@ function assertStoredCheckpointExact(
     throw new Error('stored settlement allocation checkpoint root has conflicting immutable content');
   }
 }
+function assertCursorMatchesCheckpoint(
+  cursor: Record<string, unknown>,
+  checkpoint: SignedSettlementAllocationLineageCheckpoint,
+): void {
+  const matches =
+    stringValue('cursor checkpointId', cursor.checkpointId) === checkpoint.checkpointId
+    && stringValue('cursor checkpointRoot', cursor.checkpointRoot) === checkpoint.checkpointRoot
+    && stringValue('cursor sourceRef', cursor.sourceRef) === checkpoint.sourceRef
+    && stringValue('cursor sourceInstanceId', cursor.sourceInstanceId) === checkpoint.sourceInstanceId
+    && stringValue('cursor batchId', cursor.batchId) === checkpoint.batchId
+    && stringValue('cursor highWaterMark', cursor.highWaterMark) === checkpoint.highWaterMark
+    && timestamp('cursor asOf', cursor.asOf as Date | string).toISOString() === checkpoint.asOf
+    && timestamp('cursor observedThrough', cursor.observedThrough as Date | string).toISOString() === checkpoint.observedThrough;
+  if (!matches) throw new Error('checkpoint cursor fields disagree with its immutable evidence');
+}
 function checkpointTransactionClient(value: unknown): {
   evidence: CheckpointEvidenceDelegate;
   cursor: CheckpointCursorDelegate;
@@ -657,17 +672,7 @@ export class AccountingAuthorityStore {
               }
               assertStoredCheckpointExact(existingRoot, candidate);
               const stored = checkpointFromStoredRow(existingRoot);
-              if (
-                stringValue('cursor checkpointId', current.checkpointId) !== stored.checkpointId
-                || stringValue('cursor sourceRef', current.sourceRef) !== stored.sourceRef
-                || stringValue('cursor sourceInstanceId', current.sourceInstanceId) !== stored.sourceInstanceId
-                || stringValue('cursor batchId', current.batchId) !== stored.batchId
-                || stringValue('cursor highWaterMark', current.highWaterMark) !== stored.highWaterMark
-                || timestamp('cursor asOf', current.asOf as Date | string).toISOString() !== stored.asOf
-                || timestamp('cursor observedThrough', current.observedThrough as Date | string).toISOString() !== stored.observedThrough
-              ) {
-                throw new Error('checkpoint cursor fields disagree with its immutable evidence');
-              }
+              assertCursorMatchesCheckpoint(current, stored);
               return Object.freeze({
                 disposition: 'replayed' as const,
                 checkpointRoot: candidate.checkpointRoot,
@@ -682,10 +687,9 @@ export class AccountingAuthorityStore {
             if (!previousRow) {
               throw new Error('checkpoint cursor references missing immutable predecessor evidence');
             }
-            const previous = normalizeSignedCheckpoint(
-              checkpointFromStoredRow(previousRow),
-              input.trustPolicy,
-            );
+            const previousFromRow = checkpointFromStoredRow(previousRow);
+            assertCursorMatchesCheckpoint(current, previousFromRow);
+            const previous = normalizeSignedCheckpoint(previousFromRow, input.trustPolicy);
             assertSettlementAllocationLineageCheckpointAdvances(previous, candidate, input.trustPolicy);
 
             await evidence.create({ data: evidenceData });
