@@ -209,6 +209,25 @@ grep -Fq 'deductionRoot: deduction.deductionRoot' packages/accounting/src/persis
 grep -Fq 'createRoyaltyDeductionAuthority' packages/accounting/src/persistence-verification.ts \
   || fail "deduction replay must reconstruct canonical authority"
 
+# Industry-format adapters are explicit Mycelix mapping projections, not claims
+# of official DDEX/CISAC schema conformance. Bind them to statement evidence.
+grep -Fq "REPORTING_STANDARD_CONFORMANCE = 'mapping_only_not_schema_conformant'" packages/accounting/src/interop.ts \
+  || fail "royalty interoperability exports must explicitly state mapping-only conformance"
+grep -Fq 'statementCommitmentRoot must be a lowercase SHA-256 digest' packages/accounting/src/interop.ts \
+  || fail "external reports must bind a canonical statement commitment root"
+grep -Fq 'projectionRoot: computeProjectionRoot(payload)' packages/accounting/src/interop.ts \
+  || fail "external report mappings must carry a deterministic content commitment"
+grep -Fq 'assertDdexRoyaltyReportingProjection' packages/accounting/src/interop.ts \
+  || fail "DDEX mapping output must expose a tamper-detection verifier"
+grep -Fq 'assertCisacCrdReportingProjection' packages/accounting/src/interop.ts \
+  || fail "CISAC CRD mapping output must expose a tamper-detection verifier"
+grep -Fq 'rejects post-export edits using the projection commitment' packages/accounting/src/interop.test.ts \
+  || fail "reporting regression must detect altered exported amounts"
+grep -Fq 'returns detached, frozen output and canonicalizes identifiers/territories' packages/accounting/src/interop.test.ts \
+  || fail "reporting mapping must normalize and freeze outbound records"
+grep -Fq 'rejects a non-digest statement source root' packages/accounting/src/interop.test.ts \
+  || fail "reporting mapping must reject uncommitted or malformed statement roots"
+
 for model in \
   RoyaltyObligationRecord \
   RoyaltyEligibilityObservation \
