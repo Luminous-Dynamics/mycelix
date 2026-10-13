@@ -736,4 +736,53 @@ mod tests {
         let master_report = allocate_rights_pool("master-pool", "USD-cents", 100, &master).unwrap();
         assert_eq!(master_report.rights_class, RightsClass::MasterRecording);
     }
+
+    #[test]
+    fn conservation_holds_across_split_and_pool_amount_grid() {
+        for first_bp in (1000_u16..=8000_u16).step_by(1000) {
+            for second_bp in (1000_u16..=(9000_u16 - first_bp)).step_by(1000) {
+                let third_bp = 10_000_u16 - first_bp - second_bp;
+                let input = revision(
+                    1,
+                    "grid-rev",
+                    None,
+                    RevisionKind::Initial,
+                    vec![
+                        share("claim-a", Some("writer-a"), first_bp, ClaimStatus::Confirmed),
+                        share("claim-b", Some("writer-b"), second_bp, ClaimStatus::Disputed),
+                        share("claim-c", None, third_bp, ClaimStatus::Unmatched),
+                    ],
+                );
+                for amount in 0_u64..=128 {
+                    let report =
+                        allocate_rights_pool("pool-1", "USD-cents", amount, &input).unwrap();
+                    assert!(report.reconciles(), "amount={amount}, shares={first_bp}/{second_bp}/{third_bp}");
+                    assert_eq!(
+                        report.paid_minor_units().unwrap() + report.escrow_minor_units().unwrap(),
+                        amount
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn maximum_u64_pool_is_conserved_without_overflow() {
+        let input = revision(
+            1,
+            "max-rev",
+            None,
+            RevisionKind::Initial,
+            vec![
+                share("claim-a", Some("writer-a"), 1, ClaimStatus::Disputed),
+                share("claim-b", Some("writer-b"), 9999, ClaimStatus::Confirmed),
+            ],
+        );
+        let report = allocate_rights_pool("pool-1", "USD-cents", u64::MAX, &input).unwrap();
+        assert_eq!(
+            report.paid_minor_units().unwrap() + report.escrow_minor_units().unwrap(),
+            u64::MAX
+        );
+        assert!(report.reconciles());
+    }
 }
