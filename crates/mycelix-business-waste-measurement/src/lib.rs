@@ -370,7 +370,7 @@ pub fn assess_waste_measurement_coverage(
                         estimated_grams,
                         method_digest,
                     } => {
-                        physical_observation_time(record, protocol)?;
+                        physical_observation_time(record, planned_slot)?;
                         if is_zero(method_digest) {
                             return Err(WasteMeasurementError::ZeroDigest);
                         }
@@ -917,6 +917,25 @@ mod tests {
         assert_eq!(result.non_imputed_observation_rate_bps, 7_500);
         assert_eq!(result.model_imputed_slots, 0);
         assert_eq!(result.model_imputed_mass_grams, 0);
+    }
+
+    #[test]
+    fn visual_estimate_must_be_inside_its_preregistered_slot_window() {
+        let mut values = outcomes();
+        if let WasteSlotOutcome::Measured(record) = &mut values[2] {
+            // 4_500 is inside the overall protocol window [2_000, 6_000), but
+            // outside this slot's narrower preregistered window [3_900, 4_100).
+            record.observed_at_unix_ms = Some(4_500);
+            record.recorded_at_unix_ms = 4_600;
+            record.mass = MassEvidence::VisualEstimate {
+                estimated_grams: 700,
+                method_digest: digest(8),
+            };
+        }
+        assert_eq!(
+            assess_waste_measurement_coverage(&protocol(), &values, 7_000),
+            Err(WasteMeasurementError::ObservationOutsideWindow)
+        );
     }
 
     #[test]
