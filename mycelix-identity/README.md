@@ -107,7 +107,7 @@ A separate, fail-closed research profile tracks possible interoperability with S
 
 ### Run the synthetic contract checks
 
-From `mycelix-identity/`, run `python3 validate_sa_did_profile.py`, then `python3 sa_did_policy_engine.py --report /tmp/sa-did-synthetic-policy-report.json`, then `python3 -m unittest discover -s tests -p 'test_sa_did_*.py' -v`. The report contains the exact expected and actual dispositions for all 16 vectors and explicitly records that it is synthetic-only, not a cryptographic verification result. CI uploads the report as the `sa-did-synthetic-policy-report` artifact when it is produced.
+From `mycelix-identity/`, run `python3 validate_sa_did_profile.py`, then `python3 sa_did_policy_engine.py --report /tmp/sa-did-synthetic-policy-report.json`, then `python3 -m unittest discover -s tests -p 'test_sa_did_*.py' -v`. The report contains the exact expected and actual dispositions for all 20 vectors and explicitly records that it is synthetic-only, not a cryptographic verification result. CI uploads the report as the `sa-did-synthetic-policy-report` artifact when it is produced.
 
 ## Development
 
