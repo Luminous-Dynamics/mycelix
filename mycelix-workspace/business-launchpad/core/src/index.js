@@ -1048,3 +1048,215 @@ export function parseMajorToMinorUnits(value, minorUnitExponent) {
     return fail('invalid_money_text', 'Amount could not be parsed exactly.', 'amount');
   }
 }
+
+
+const ACTUALS_CATEGORY_FIELDS = Object.freeze([
+  Object.freeze({ category: 'sales_receipt', field: 'salesCashReceiptsMinor', direction: 'inflow', label: 'Sales cash receipts' }),
+  Object.freeze({ category: 'operating_outflow', field: 'operatingCashOutflowsMinor', direction: 'outflow', label: 'Operating cash payments' }),
+  Object.freeze({ category: 'other_inflow', field: 'otherCashInflowsMinor', direction: 'inflow', label: 'Other/unclassified inflows' }),
+  Object.freeze({ category: 'other_outflow', field: 'otherCashOutflowsMinor', direction: 'outflow', label: 'Other/unclassified outflows' }),
+  Object.freeze({ category: 'investing_inflow', field: 'investingCashInflowsMinor', direction: 'inflow', label: 'Investing inflows' }),
+  Object.freeze({ category: 'investing_outflow', field: 'investingCashOutflowsMinor', direction: 'outflow', label: 'Investing outflows' }),
+  Object.freeze({ category: 'financing_inflow', field: 'financingCashInflowsMinor', direction: 'inflow', label: 'Financing inflows' }),
+  Object.freeze({ category: 'financing_outflow', field: 'financingCashOutflowsMinor', direction: 'outflow', label: 'Financing outflows' })
+]);
+
+function actualsMonthOrdinal(value) {
+  if (typeof value !== 'string') return null;
+  const match = /^(\\d{4})-(0[1-9]|1[0-2])$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  return year < 1900 || year > 9999 ? null : year * 12 + Number(match[2]) - 1;
+}
+
+function validActualsDate(value) {
+  if (typeof value !== 'string') return false;
+  const match = /^(\\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+  if (year < 1900 || year > 9999) return false;
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= days[month - 1];
+}
+
+function actualsDateMonthOrdinal(value) {
+  return Number(value.slice(0, 4)) * 12 + Number(value.slice(5, 7)) - 1;
+}
+
+function actualsLastDayOfMonth(value) {
+  const year = Number(value.slice(0, 4)), month = Number(value.slice(5, 7));
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  return String([31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]).padStart(2, '0');
+}
+
+/**
+ * Compare dated owner-imported cash records with a monthly plan.
+ * A complete month-range and exact opening/closing balance reconciliation are
+ * required. The caller hashes the source bytes; a hash does not authenticate them.
+ */
+export function compareCashPlanToActuals(input) {
+  if (!isRecord(input)) return fail('invalid_actuals_comparison_input', 'An actuals comparison input object is required.');
+  const projection = projectCashRunway({ model: input.model, monthlyPlan: input.monthlyPlan });
+  if (!projection.ok) return projection;
+  const source = input.actualsSource;
+  if (!isRecord(source) || source.schemaVersion !== 1 || source.kind !== 'business-launchpad-actuals-source') {
+    return fail('invalid_actuals_source_schema', 'Actuals must use Business Launchpad actuals-source schema version 1.', 'actualsSource');
+  }
+  if (typeof input.sourceSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(input.sourceSha256)) {
+    return fail('invalid_actuals_source_digest', 'The source needs a lowercase 64-character SHA-256 digest.', 'sourceSha256');
+  }
+  if (!isRecord(source.currency) || source.currency.code !== projection.report.currency.code ||
+      source.currency.minorUnitExponent !== projection.report.currency.minorUnitExponent) {
+    return fail('actuals_currency_mismatch', 'Actuals currency and minor-unit precision must exactly match the cash plan.', 'actualsSource.currency');
+  }
+  const forecastStartOrdinal = actualsMonthOrdinal(input.forecastStartMonth);
+  if (forecastStartOrdinal === null) return fail('invalid_forecast_start_month', 'Set Month 1 to a valid calendar month in YYYY-MM format.', 'forecastStartMonth');
+  if (!isRecord(source.source)) return fail('invalid_actuals_source_metadata', 'Actuals source metadata is required.', 'actualsSource.source');
+  const metadata = source.source;
+  if (!['bank_statement_export', 'reconciled_cash_ledger_export'].includes(metadata.type)) {
+    return fail('unsupported_actuals_source_type', 'Use a bank-statement export or reconciled cash-ledger export.', 'actualsSource.source.type');
+  }
+  if (typeof metadata.label !== 'string' || !metadata.label.trim() || metadata.label.trim().length > 120) {
+    return fail('invalid_actuals_source_label', 'Describe the source file in 1–120 characters.', 'actualsSource.source.label');
+  }
+  if (typeof metadata.evidenceReference !== 'string' || !metadata.evidenceReference.trim() || metadata.evidenceReference.trim().length > 240) {
+    return fail('invalid_actuals_evidence_reference', 'Provide a source-document reference of at most 240 characters.', 'actualsSource.source.evidenceReference');
+  }
+  if (metadata.completeMonthlyCoverage !== true) {
+    return fail('incomplete_actuals_coverage', 'Confirm the source contains complete transactions for every full month in its coverage.', 'actualsSource.source.completeMonthlyCoverage');
+  }
+  const coverageStart = metadata.coverageStartDate, coverageEnd = metadata.coverageEndDate;
+  if (!validActualsDate(coverageStart) || coverageStart.slice(8) !== '01' ||
+      !validActualsDate(coverageEnd) || coverageEnd.slice(8) !== actualsLastDayOfMonth(coverageEnd)) {
+    return fail('invalid_actuals_coverage_dates', 'Coverage must begin on the first day and end on the last day of a calendar month.', 'actualsSource.source');
+  }
+  const firstOrdinal = actualsDateMonthOrdinal(coverageStart), lastOrdinal = actualsDateMonthOrdinal(coverageEnd);
+  const lastForecastOrdinal = forecastStartOrdinal + projection.report.horizonMonths - 1;
+  if (firstOrdinal < forecastStartOrdinal || lastOrdinal > lastForecastOrdinal || lastOrdinal < firstOrdinal) {
+    return fail('actuals_coverage_outside_plan', 'Actuals coverage must fall within the dated forecast horizon; map Month 1 correctly.', 'actualsSource.source.coverageStartDate');
+  }
+  if (!Number.isSafeInteger(metadata.openingCashBalanceMinor) || !Number.isSafeInteger(metadata.closingCashBalanceMinor)) {
+    return fail('invalid_actuals_statement_balance', 'Opening and closing balances must be signed safe integers in currency minor units.', 'actualsSource.source');
+  }
+  if (!Array.isArray(source.transactions) || source.transactions.length > 50000) {
+    return fail('invalid_actuals_transactions', 'Actuals must contain an array of at most 50,000 records.', 'actualsSource.transactions');
+  }
+
+  const categoryMap = new Map(ACTUALS_CATEGORY_FIELDS.map(item => [item.category, item]));
+  const monthCount = lastOrdinal - firstOrdinal + 1;
+  const totals = Array.from({ length: monthCount }, () => Object.fromEntries(ACTUALS_CATEGORY_FIELDS.map(item => [item.field, 0n])));
+  const ids = new Set();
+
+  try {
+    for (let index = 0; index < source.transactions.length; index += 1) {
+      const row = source.transactions[index], field = 'actualsSource.transactions[' + index + ']';
+      if (!isRecord(row)) return fail('invalid_actuals_transaction', 'Each actuals row must be an object.', field);
+      if (typeof row.transactionId !== 'string' || !row.transactionId.trim() || row.transactionId.length > 160 || ids.has(row.transactionId)) {
+        return fail('duplicate_or_invalid_actuals_transaction_id', 'Each transaction needs a unique non-empty ID of at most 160 characters.', field + '.transactionId');
+      }
+      if (!validActualsDate(row.date) || row.date < coverageStart || row.date > coverageEnd) {
+        return fail('actuals_transaction_outside_coverage', 'Every transaction date must be valid and inside declared coverage.', field + '.date');
+      }
+      if (row.currencyCode !== projection.report.currency.code) {
+        return fail('actuals_currency_mismatch', 'Every transaction must use the plan currency; conversion is outside this prototype.', field + '.currencyCode');
+      }
+      const descriptor = categoryMap.get(row.category);
+      if (!descriptor) return fail('invalid_actuals_category', 'Choose one of the eight supported cash-flow categories.', field + '.category');
+      if (!isNonNegativeSafeInteger(row.amountMinor) || row.amountMinor === 0) {
+        return fail('invalid_actuals_amount', 'Transaction amount must be a positive safe integer in currency minor units.', field + '.amountMinor');
+      }
+      if (typeof row.sourceReference !== 'string' || !row.sourceReference.trim() || row.sourceReference.length > 240) {
+        return fail('missing_actuals_row_reference', 'Each transaction needs a statement, receipt, or ledger-entry reference.', field + '.sourceReference');
+      }
+      ids.add(row.transactionId);
+      const monthIndex = actualsDateMonthOrdinal(row.date) - firstOrdinal;
+      const sum = totals[monthIndex][descriptor.field] + BigInt(row.amountMinor);
+      if (sum > MAX_SAFE) return fail('calculation_overflow', 'A monthly category total exceeds the supported exact integer range.', field + '.amountMinor');
+      totals[monthIndex][descriptor.field] = sum;
+    }
+
+    let netMovement = 0n, actualOpeningCash = BigInt(metadata.openingCashBalanceMinor);
+    const balanceDerivedMovement = BigInt(metadata.closingCashBalanceMinor) - actualOpeningCash;
+    const periods = [];
+    for (let index = 0; index < monthCount; index += 1) {
+      const ordinal = firstOrdinal + index, forecastIndex = ordinal - forecastStartOrdinal;
+      const year = Math.floor(ordinal / 12), monthNumber = ordinal - year * 12 + 1;
+      const month = String(year).padStart(4, '0') + '-' + String(monthNumber).padStart(2, '0');
+      const plan = projection.report.periods[forecastIndex], planned = {}, actual = {}, variance = {}, categories = [];
+      let inflows = 0n, outflows = 0n;
+      for (const descriptor of ACTUALS_CATEGORY_FIELDS) {
+        const plannedMinor = plan[descriptor.field];
+        const actualMinorBig = totals[index][descriptor.field];
+        const actualMinor = outputInteger(actualMinorBig, month + '.' + descriptor.field + '.actualMinor');
+        const difference = BigInt(actualMinor) - BigInt(plannedMinor);
+        planned[descriptor.field] = plannedMinor;
+        actual[descriptor.field] = actualMinor;
+        variance[descriptor.field] = outputInteger(difference, month + '.' + descriptor.field + '.varianceMinor');
+        if (descriptor.direction === 'inflow') inflows += actualMinorBig; else outflows += actualMinorBig;
+        categories.push({
+          category: descriptor.category, label: descriptor.label, direction: descriptor.direction,
+          plannedMinor, actualMinor,
+          actualMinusPlanMinor: outputInteger(difference, month + '.' + descriptor.field + '.varianceMinor')
+        });
+      }
+      const actualNet = inflows - outflows, plannedNet = BigInt(plan.netCashChangeMinor);
+      const actualClosingCash = actualOpeningCash + actualNet;
+      const plannedOpeningCash = forecastIndex === 0
+        ? BigInt(projection.report.startup.cashAfterSetupBeforeMonthOneMinor)
+        : BigInt(projection.report.periods[forecastIndex - 1].closingCashMinor);
+      const plannedClosingCash = BigInt(plan.closingCashMinor);
+      netMovement += actualNet;
+      periods.push({
+        month, forecastPeriod: forecastIndex + 1, planned, actual, variance, categories,
+        plannedNetCashMovementMinor: outputInteger(plannedNet, month + '.plannedNetCashMovementMinor'),
+        actualNetCashMovementMinor: outputInteger(actualNet, month + '.actualNetCashMovementMinor'),
+        netCashMovementVarianceMinor: outputInteger(actualNet - plannedNet, month + '.netCashMovementVarianceMinor'),
+        plannedOpeningCashMinor: outputInteger(plannedOpeningCash, month + '.plannedOpeningCashMinor'),
+        actualOpeningCashMinor: outputInteger(actualOpeningCash, month + '.actualOpeningCashMinor'),
+        openingCashVarianceMinor: outputInteger(actualOpeningCash - plannedOpeningCash, month + '.openingCashVarianceMinor'),
+        plannedClosingCashMinor: outputInteger(plannedClosingCash, month + '.plannedClosingCashMinor'),
+        actualClosingCashMinor: outputInteger(actualClosingCash, month + '.actualClosingCashMinor'),
+        closingCashVarianceMinor: outputInteger(actualClosingCash - plannedClosingCash, month + '.closingCashVarianceMinor')
+      });
+      actualOpeningCash = actualClosingCash;
+    }
+
+    const actualNetMovement = outputInteger(netMovement, 'source.actualNetCashMovementMinor');
+    if (BigInt(metadata.closingCashBalanceMinor) - BigInt(metadata.openingCashBalanceMinor) !== netMovement) {
+      return fail('actuals_balance_reconciliation_failed', 'Imported transactions do not reconcile to source opening and closing balances; review coverage, duplicates, omissions, and categories.', 'actualsSource.source.closingCashBalanceMinor');
+    }
+    if (outputInteger(actualOpeningCash, 'source.derivedClosingCashBalanceMinor') !== metadata.closingCashBalanceMinor) {
+      return fail('actuals_balance_reconciliation_failed', 'Derived ending cash does not match source ending cash.', 'actualsSource.source.closingCashBalanceMinor');
+    }
+    return {
+      ok: true,
+      report: {
+        schemaVersion: 1, kind: 'business-launchpad-actuals-variance-report',
+        currency: { ...projection.report.currency }, forecastStartMonth: input.forecastStartMonth,
+        source: {
+          type: metadata.type, label: metadata.label.trim(), evidenceReference: metadata.evidenceReference.trim(),
+          coverageStartDate: coverageStart, coverageEndDate: coverageEnd, completeMonthlyCoverage: true,
+          openingCashBalanceMinor: metadata.openingCashBalanceMinor, closingCashBalanceMinor: metadata.closingCashBalanceMinor,
+          transactionCount: source.transactions.length, sha256: input.sourceSha256, authenticity: 'not_independently_verified'
+        },
+        reconciliation: {
+          status: 'passed', openingCashBalanceMinor: metadata.openingCashBalanceMinor,
+          closingCashBalanceMinor: metadata.closingCashBalanceMinor, transactionNetMovementMinor: actualNetMovement,
+          balanceDerivedNetMovementMinor: outputInteger(balanceDerivedMovement, 'source.balanceDerivedNetMovementMinor'), differenceMinor: 0
+        },
+        periods,
+        interpretation: [
+          'Category variance is actual minus plan. For outflows, positive means spending exceeded plan; for inflows, positive means receipts exceeded plan.',
+          'Net cash movement variance is actual movement minus planned movement. Closing-balance variance also includes any opening-balance difference.',
+          'The fingerprint identifies the imported bytes but does not authenticate the bank, ledger, records, or person supplying them.',
+          'Source opening/closing balances reconcile over the selected range. Intermediate month-end actual balances are derived from transactions; only the range-end balance is separately supplied.',
+          'This is a cash-timing comparison, not accounting recognition, tax reporting, profit analysis, invoice aging, or proof that the source export is complete.'
+        ]
+      }
+    };
+  } catch (error) {
+    if (error instanceof RangeError && error.code === 'calculation_overflow') return fail(error.code, error.message, error.field ?? null);
+    return fail('calculation_error', 'The actuals comparison could not be calculated safely. No report has been produced.');
+  }
+}

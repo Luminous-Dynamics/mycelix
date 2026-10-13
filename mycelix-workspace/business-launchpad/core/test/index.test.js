@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import assert from 'node:assert/strict';
-import { analyzeBusinessModel, compareCashRunwayScenarios, DEFAULT_CASH_TIMING_SCHEDULE, formatMinorUnits, projectCashRunway, projectCashRunwayWithTimingSchedule } from '../src/index.js';
+import { analyzeBusinessModel, compareCashPlanToActuals, compareCashRunwayScenarios, DEFAULT_CASH_TIMING_SCHEDULE, formatMinorUnits, projectCashRunway, projectCashRunwayWithTimingSchedule } from '../src/index.js';
 
 const completeModel = (overrides = {}) => ({
   currency: { code: 'ZAR', minorUnitExponent: 2 },
@@ -928,4 +928,83 @@ test('rejects extremely long amount text before BigInt conversion', async () => 
   const result = parseMajorToMinorUnits('9'.repeat(65), 2);
   assert.equal(result.ok, false);
   assert.equal(result.error.code, 'money_text_too_long');
+});
+
+
+function actualsFixture() {
+  return {
+    schemaVersion: 1, kind: 'business-launchpad-actuals-source',
+    currency: { code: 'ZAR', minorUnitExponent: 2 },
+    source: {
+      type: 'bank_statement_export', label: 'Synthetic test bank statement export',
+      evidenceReference: 'Synthetic fixture reference only',
+      coverageStartDate: '2026-01-01', coverageEndDate: '2026-02-28',
+      completeMonthlyCoverage: true, openingCashBalanceMinor: 5000, closingCashBalanceMinor: 7050
+    },
+    transactions: [
+      { transactionId: 'tx-001', date: '2026-01-10', currencyCode: 'ZAR', category: 'sales_receipt', amountMinor: 900, sourceReference: 'statement line 1' },
+      { transactionId: 'tx-002', date: '2026-01-14', currencyCode: 'ZAR', category: 'operating_outflow', amountMinor: 450, sourceReference: 'statement line 2' },
+      { transactionId: 'tx-003', date: '2026-02-10', currencyCode: 'ZAR', category: 'sales_receipt', amountMinor: 2200, sourceReference: 'statement line 3' },
+      { transactionId: 'tx-004', date: '2026-02-14', currencyCode: 'ZAR', category: 'operating_outflow', amountMinor: 600, sourceReference: 'statement line 4' }
+    ]
+  };
+}
+function actualsPlanFixture() {
+  const model = completeModel({
+    sellingPricePerUnitMinor: 100, variableCostPerUnitMinor: 60, fixedMonthlyCostsMinor: 10,
+    setupCostsMinor: 0, availableCashForStartupMinor: 5000, initialWorkingCapitalBufferMinor: 0
+  });
+  const monthlyPlan = [
+    { salesUnits: 10, salesCashReceiptsMinor: 1000, operatingCashOutflowsMinor: 400, otherCashInflowsMinor: 0, otherCashOutflowsMinor: 0, investingCashInflowsMinor: 0, investingCashOutflowsMinor: 0, financingCashInflowsMinor: 0, financingCashOutflowsMinor: 0 },
+    { salesUnits: 10, salesCashReceiptsMinor: 2000, operatingCashOutflowsMinor: 500, otherCashInflowsMinor: 0, otherCashOutflowsMinor: 0, investingCashInflowsMinor: 0, investingCashOutflowsMinor: 0, financingCashInflowsMinor: 0, financingCashOutflowsMinor: 0 }
+  ];
+  return { model, monthlyPlan };
+}
+
+test('actuals comparison reconciles balances and reports category, net-movement, and closing-cash variance', () => {
+  const { model, monthlyPlan } = actualsPlanFixture();
+  const result = compareCashPlanToActuals({ model, monthlyPlan, forecastStartMonth: '2026-01', actualsSource: actualsFixture(), sourceSha256: 'a'.repeat(64) });
+  assert.equal(result.ok, true);
+  assert.equal(result.report.kind, 'business-launchpad-actuals-variance-report');
+  assert.equal(result.report.source.authenticity, 'not_independently_verified');
+  assert.equal(result.report.source.transactionCount, 4);
+  assert.deepEqual(result.report.reconciliation, {
+    status: 'passed', openingCashBalanceMinor: 5000, closingCashBalanceMinor: 7050,
+    transactionNetMovementMinor: 2050, balanceDerivedNetMovementMinor: 2050, differenceMinor: 0
+  });
+  assert.equal(result.report.periods[0].month, '2026-01');
+  assert.equal(result.report.periods[0].categories[0].actualMinusPlanMinor, -100);
+  assert.equal(result.report.periods[0].categories[1].actualMinusPlanMinor, 50);
+  assert.equal(result.report.periods[0].netCashMovementVarianceMinor, -150);
+  assert.equal(result.report.periods[0].actualClosingCashMinor, 5450);
+  assert.equal(result.report.periods[0].closingCashVarianceMinor, -150);
+  assert.equal(result.report.periods[1].actualClosingCashMinor, 7050);
+  assert.equal(result.report.periods[1].closingCashVarianceMinor, -50);
+});
+
+test('actuals comparison fails closed on duplicate IDs, incomplete coverage, and unreconciled balances', () => {
+  const { model, monthlyPlan } = actualsPlanFixture();
+  const input = { model, monthlyPlan, forecastStartMonth: '2026-01', actualsSource: actualsFixture(), sourceSha256: 'b'.repeat(64) };
+  const duplicate = actualsFixture();
+  duplicate.transactions[1].transactionId = duplicate.transactions[0].transactionId;
+  assert.equal(compareCashPlanToActuals({ ...input, actualsSource: duplicate }).error.code, 'duplicate_or_invalid_actuals_transaction_id');
+  const incomplete = actualsFixture();
+  incomplete.source.completeMonthlyCoverage = false;
+  assert.equal(compareCashPlanToActuals({ ...input, actualsSource: incomplete }).error.code, 'incomplete_actuals_coverage');
+  const unreconciled = actualsFixture();
+  unreconciled.source.closingCashBalanceMinor += 1;
+  assert.equal(compareCashPlanToActuals({ ...input, actualsSource: unreconciled }).error.code, 'actuals_balance_reconciliation_failed');
+});
+
+test('actuals comparison rejects currency mismatch, out-of-horizon months, and missing row references', () => {
+  const { model, monthlyPlan } = actualsPlanFixture();
+  const input = { model, monthlyPlan, forecastStartMonth: '2026-01', actualsSource: actualsFixture(), sourceSha256: 'c'.repeat(64) };
+  const mismatch = actualsFixture();
+  mismatch.transactions[0].currencyCode = 'USD';
+  assert.equal(compareCashPlanToActuals({ ...input, actualsSource: mismatch }).error.code, 'actuals_currency_mismatch');
+  assert.equal(compareCashPlanToActuals({ ...input, forecastStartMonth: '2025-12' }).error.code, 'actuals_coverage_outside_plan');
+  const noReference = actualsFixture();
+  noReference.transactions[0].sourceReference = '';
+  assert.equal(compareCashPlanToActuals({ ...input, actualsSource: noReference }).error.code, 'missing_actuals_row_reference');
+  assert.equal(compareCashPlanToActuals({ ...input, sourceSha256: 'not-a-digest' }).error.code, 'invalid_actuals_source_digest');
 });
