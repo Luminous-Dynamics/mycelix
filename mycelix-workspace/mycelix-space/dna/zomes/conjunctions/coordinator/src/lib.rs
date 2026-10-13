@@ -11,10 +11,10 @@ use hdk::prelude::*;
 use mycelix_space_shared::{
     AlertPriority, AlertType, ConjunctionAlert, ConjunctionAssessment, ConjunctionDataMessage,
     ManeuverAlert, ManeuverType as SharedManeuverType, PaginatedResponse, PaginationParams,
-    QualityScore, ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp,
-    StalenessAwareAssessment, StalenessConfig, TleWithMetadata, compute_staleness,
+    ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp,
+    StalenessAwareAssessment, StalenessConfig, TleWithMetadata,
     gate_space_operation, requirement_for_conjunction_creation, requirement_for_negotiation,
-    requirement_for_risk_update,
+    requirement_for_risk_update, validate_staleness_config,
 };
 use orbital_mechanics::conjunction::ConjunctionAnalyzer;
 use orbital_mechanics::propagator::Propagator;
@@ -80,14 +80,16 @@ pub enum ConjunctionSignal {
     },
 }
 
-/// Risk level threshold for automatic alerts
+/// Minimum Pc-only screening band for priority notifications; not action authority.
 const ALERT_THRESHOLD: RiskLevel = RiskLevel::Medium;
 
 /// Create a conjunction event
 ///
 /// When `compute_details` is true and TLEs are provided, the collision probability,
-/// miss distance, and risk level are computed using SGP4 propagation and Alfano 2D
-/// analysis. Otherwise, the manually-provided values are used (backward compatible).
+/// miss distance, and Pc-only screening band are computed using SGP4 propagation and
+/// the experimental Gaussian local-density/small-disk approximation. This is not the
+/// published Alfano/Foster integral or qualified maneuver-risk evidence. Otherwise, the
+/// manually-provided values are used (backward compatible).
 #[hdk_extern]
 pub fn create_conjunction_event(input: CreateEventInput) -> ExternResult<ActionHash> {
     gate_space_operation(
@@ -125,6 +127,24 @@ pub fn create_conjunction_event(input: CreateEventInput) -> ExternResult<ActionH
         .with_context(format!("value: {}", input.max_pc))
         .into_wasm_error());
     }
+    if !input.compute_details {
+        let expected_risk = mycelix_space_shared::RiskLevel::try_from_pc(input.max_pc).ok_or_else(|| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidProbability,
+                "Cannot derive a screening band from an invalid Pc value",
+            )
+            .into_wasm_error()
+        })?;
+        if convert_risk_level(input.risk_level) != expected_risk {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Provided risk_level does not match the Pc-only screening band derived from max_pc",
+            )
+            .with_context(format!("pc: {}, supplied band: {:?}", input.max_pc, input.risk_level))
+            .into_wasm_error());
+        }
+    }
+
     let (miss_distance_km, max_pc, risk_level) = if input.compute_details {
         // Compute values from TLEs using orbital-mechanics library
         let (primary_lines, secondary_lines) = match (&input.primary_tle, &input.secondary_tle) {
@@ -189,7 +209,13 @@ pub fn create_conjunction_event(input: CreateEventInput) -> ExternResult<ActionH
         })?;
 
         let analyzer = ConjunctionAnalyzer::new();
-        let assessment = analyzer.assess(&primary_state, &secondary_state);
+        let assessment = analyzer.try_assess(&primary_state, &secondary_state).map_err(|e| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Checked conjunction assessment rejected: {}", e),
+            )
+            .into_wasm_error()
+        })?;
 
         (
             assessment.miss_distance_km,
@@ -256,9 +282,11 @@ pub struct CreateEventInput {
     pub tca: SpaceTimestamp,
     pub miss_distance_km: f64,
     pub max_pc: f64,
+    /// Pc-only band. In manual mode this must match the band derived from max_pc.
     pub risk_level: RiskLevel,
     /// If true and TLEs are provided, compute collision_probability and miss_distance
-    /// using SGP4 propagation and Alfano 2D analysis instead of using manual values.
+    /// using SGP4 propagation and the experimental Gaussian local-density/small-disk
+    /// approximation instead of manual values; it is not a validated Alfano/Foster integral.
     #[serde(default)]
     pub compute_details: bool,
     /// Primary TLE (line1, line2) - required when compute_details is true
@@ -275,6 +303,39 @@ pub struct CreateEventInput {
 #[hdk_extern]
 pub fn update_conjunction_risk(input: UpdateRiskInput) -> ExternResult<ActionHash> {
     gate_space_operation(&requirement_for_risk_update(), "update_conjunction_risk")?;
+
+    if !input.new_pc.is_finite() || !(0.0..=1.0).contains(&input.new_pc) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidProbability,
+            "New Pc must be finite and between 0.0 and 1.0",
+        )
+        .with_context(format!("value: {}", input.new_pc))
+        .into_wasm_error());
+    }
+    if !input.new_miss_distance_km.is_finite() || input.new_miss_distance_km < 0.0 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidMissDistance,
+            "New miss distance must be finite and non-negative",
+        )
+        .with_context(format!("value: {}", input.new_miss_distance_km))
+        .into_wasm_error());
+    }
+    let expected_risk = mycelix_space_shared::RiskLevel::try_from_pc(input.new_pc).ok_or_else(|| {
+        SpaceError::new(
+            SpaceErrorCode::InvalidProbability,
+            "Cannot derive a screening band from an invalid Pc value",
+        )
+        .into_wasm_error()
+    })?;
+    if convert_risk_level(input.new_risk_level) != expected_risk {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Provided new_risk_level does not match the Pc-only screening band derived from new_pc",
+        )
+        .with_context(format!("pc: {}, supplied band: {:?}", input.new_pc, input.new_risk_level))
+        .into_wasm_error());
+    }
+
     // Get the current event
     let record = get(input.event_hash.clone(), GetOptions::default())?.ok_or(
         SpaceError::new(SpaceErrorCode::EventNotFound, "Conjunction event not found")
@@ -325,6 +386,7 @@ pub fn update_conjunction_risk(input: UpdateRiskInput) -> ExternResult<ActionHas
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UpdateRiskInput {
     pub event_hash: ActionHash,
+    /// Must match the Pc-only band derived from new_pc.
     pub new_risk_level: RiskLevel,
     pub new_pc: f64,
     pub new_miss_distance_km: f64,
@@ -670,14 +732,9 @@ pub fn screen_conjunction(input: ScreenInput) -> ExternResult<Vec<ConjunctionAss
         .into_wasm_error());
     }
 
-    if input.hours_ahead <= 0.0 || input.hours_ahead > 720.0 {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            "hours_ahead must be between 0 and 720 (30 days)",
-        )
-        .with_context(format!("value: {}", input.hours_ahead))
-        .into_wasm_error());
-    }
+    // Reject non-finite horizons and thresholds before performing network/DHT work.
+    validate_screening_parameters(input.hours_ahead, input.pc_threshold)?;
+    validate_requested_secondary_ids(input.primary_norad_id, &input.secondary_norad_ids)?;
 
     // Collect all NORAD IDs we need
     let mut all_ids: Vec<u32> = vec![input.primary_norad_id];
@@ -735,11 +792,10 @@ pub fn screen_conjunction(input: ScreenInput) -> ExternResult<Vec<ConjunctionAss
     })?;
 
     // Delegate to the TLE-based screening function
-    let secondary_tles: Vec<(String, String)> = input
-        .secondary_norad_ids
-        .iter()
-        .filter_map(|id| tle_map.get(id).map(|t| (t.line1.clone(), t.line2.clone())))
-        .collect();
+    let secondary_tles: Vec<(String, String)> = require_secondary_items(
+        &input.secondary_norad_ids,
+        |id| tle_map.get(&id).map(|t| (t.line1.clone(), t.line2.clone())),
+    )?;
 
     let from_tles_input = ScreenFromTlesInput {
         primary_tle: (
@@ -782,6 +838,12 @@ pub fn screen_conjunction_with_staleness(
         .with_context(format!("count: {}", input.secondary_norad_ids.len()))
         .into_wasm_error());
     }
+
+    // Reject invalid horizons/thresholds before performing network/DHT work.
+    validate_staleness_config(&input.staleness_config)
+        .map_err(|error| error.into_wasm_error())?;
+    validate_screening_parameters(input.hours_ahead, input.pc_threshold)?;
+    validate_requested_secondary_ids(input.primary_norad_id, &input.secondary_norad_ids)?;
 
     // Collect all NORAD IDs
     let mut all_ids: Vec<u32> = vec![input.primary_norad_id];
@@ -826,17 +888,19 @@ pub fn screen_conjunction_with_staleness(
     let primary_meta = meta_map.get(&input.primary_norad_id).ok_or_else(|| {
         SpaceError::new(
             SpaceErrorCode::NotFound,
-            format!("No TLE found for primary object {}", input.primary_norad_id),
+            format!(
+                "No usable TLE found for primary object {}",
+                input.primary_norad_id
+            ),
         )
         .into_wasm_error()
     })?;
 
     // Build TLE pairs for screening
-    let secondary_tles: Vec<(String, String)> = input
-        .secondary_norad_ids
-        .iter()
-        .filter_map(|id| meta_map.get(id).map(|t| (t.line1.clone(), t.line2.clone())))
-        .collect();
+    let secondary_tles: Vec<(String, String)> = require_secondary_items(
+        &input.secondary_norad_ids,
+        |id| meta_map.get(&id).map(|t| (t.line1.clone(), t.line2.clone())),
+    )?;
 
     let from_tles_input = ScreenFromTlesInput {
         primary_tle: (primary_meta.line1.clone(), primary_meta.line2.clone()),
@@ -851,33 +915,36 @@ pub fn screen_conjunction_with_staleness(
     // Enrich with staleness metadata
     let primary_staleness = primary_meta.staleness.clone();
 
-    Ok(assessments
+    assessments
         .into_iter()
         .map(|assessment| {
             let secondary_staleness = meta_map
                 .get(&assessment.secondary_norad_id)
-                .map(|m| m.staleness.clone())
-                .unwrap_or_else(|| {
-                    // Fallback: unknown staleness (shouldn't happen)
-                    compute_staleness(
-                        &SpaceTimestamp { micros: 0 },
-                        &QualityScore::new(0),
-                        &input.staleness_config,
+                .map(|metadata| metadata.staleness.clone())
+                .ok_or_else(|| {
+                    SpaceError::new(
+                        SpaceErrorCode::NotFound,
+                        format!(
+                            "Screening result references secondary object {} without matching TLE metadata; screening batch incomplete",
+                            assessment.secondary_norad_id
+                        ),
                     )
-                });
+                    .with_context(format!("norad_id: {}", assessment.secondary_norad_id))
+                    .into_wasm_error()
+                })?;
 
             let combined_confidence = primary_staleness.confidence * secondary_staleness.confidence;
             let has_stale_data = primary_staleness.is_stale || secondary_staleness.is_stale;
 
-            StalenessAwareAssessment {
+            Ok(StalenessAwareAssessment {
                 assessment,
                 primary_staleness: primary_staleness.clone(),
                 secondary_staleness,
                 combined_confidence,
                 has_stale_data,
-            }
+            })
         })
-        .collect())
+        .collect()
 }
 
 /// Mirror of orbital_objects GetTlesWithMetadataInput for cross-zome serialization
@@ -896,6 +963,13 @@ struct GetTlesWithMetadataCallInput {
 pub fn screen_conjunction_from_tles(
     input: ScreenFromTlesInput,
 ) -> ExternResult<Vec<ConjunctionAssessment>> {
+    if input.secondary_tles.is_empty() {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "At least one secondary TLE is required per screening call",
+        )
+        .into_wasm_error());
+    }
     if input.secondary_tles.len() > 100 {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidInput,
@@ -905,14 +979,7 @@ pub fn screen_conjunction_from_tles(
         .into_wasm_error());
     }
 
-    if input.hours_ahead <= 0.0 || input.hours_ahead > 720.0 {
-        return Err(SpaceError::new(
-            SpaceErrorCode::InvalidInput,
-            "hours_ahead must be between 0 and 720 (30 days)",
-        )
-        .with_context(format!("value: {}", input.hours_ahead))
-        .into_wasm_error());
-    }
+    validate_screening_parameters(input.hours_ahead, input.pc_threshold)?;
 
     // Parse primary TLE
     let primary_tle = TwoLineElement::parse_lines(None, &input.primary_tle.0, &input.primary_tle.1)
@@ -932,54 +999,102 @@ pub fn screen_conjunction_from_tles(
         .into_wasm_error()
     })?;
 
-    // Parse secondary TLEs
+    // Fail the batch rather than silently omitting a malformed/uninitializable
+    // secondary object. A shorter result vector has no completeness marker, so
+    // skipping an input here could masquerade as a complete screening.
     let mut secondary_props: Vec<(u32, Propagator)> = Vec::new();
-    for (line1, line2) in &input.secondary_tles {
-        match TwoLineElement::parse_lines(None, line1, line2) {
-            Ok(tle) => {
-                let norad_id = tle.norad_id;
-                match Propagator::from_tle(&tle) {
-                    Ok(prop) => secondary_props.push((norad_id, prop)),
-                    Err(_) => continue, // Skip objects that fail to initialize
-                }
-            }
-            Err(_) => continue, // Skip malformed TLEs
+    let mut seen_secondary_ids =
+        std::collections::HashSet::with_capacity(input.secondary_tles.len());
+    for (index, (line1, line2)) in input.secondary_tles.iter().enumerate() {
+        let tle = TwoLineElement::parse_lines(None, line1, line2).map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::TleParseError,
+                format!(
+                    "Invalid secondary TLE at index {index}; screening batch incomplete: {error}"
+                ),
+            )
+            .with_context(format!("secondary_index: {index}"))
+            .into_wasm_error()
+        })?;
+        let norad_id = tle.norad_id;
+        if norad_id == primary_tle.norad_id {
+            return Err(SpaceError::new(
+                SpaceErrorCode::SelfConjunction,
+                "Primary NORAD ID must not also appear as a secondary object",
+            )
+            .with_context(format!("secondary_index: {index}, norad_id: {norad_id}"))
+            .into_wasm_error());
         }
+        if !seen_secondary_ids.insert(norad_id) {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Secondary NORAD IDs must be unique within a screening batch",
+            )
+            .with_context(format!("secondary_index: {index}, norad_id: {norad_id}"))
+            .into_wasm_error());
+        }
+        let prop = Propagator::from_tle(&tle).map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!(
+                    "Secondary propagation initialization failed; screening batch incomplete: {error}"
+                ),
+            )
+            .with_context(format!("secondary_index: {index}, norad_id: {norad_id}"))
+            .into_wasm_error()
+        })?;
+        secondary_props.push((norad_id, prop));
     }
 
     // Sweep the time window to find TCA (time of closest approach) for each pair.
     // Step size: 10 minutes for coarse scan, then refine around the minimum.
     let total_seconds = (input.hours_ahead * 3600.0) as i64;
-    let coarse_step_secs: i64 = 600; // 10 minutes
+    // Keep every coarse sample inside the requested window, including windows
+    // shorter than ten minutes and a final interval shorter than ten minutes.
+    let coarse_step_secs: i64 = 600.min(total_seconds);
     let fine_step_secs: i64 = 10; // 10 seconds for refinement
-    let num_coarse_steps = (total_seconds / coarse_step_secs).max(1);
+    let num_coarse_steps = (total_seconds + coarse_step_secs - 1) / coarse_step_secs;
 
     let analyzer = ConjunctionAnalyzer::new();
     let mut results: Vec<ConjunctionAssessment> = Vec::new();
 
-    for (_norad_id, sec_prop) in &secondary_props {
-        // Coarse scan: find the time step with minimum miss distance
+    for (secondary_norad_id, sec_prop) in &secondary_props {
+        // Coarse scan: find the time step with minimum miss distance. Any failed
+        // sample makes the screening window incomplete; do not silently skip it.
         let mut best_distance = f64::MAX;
         let mut best_step: i64 = 0;
 
         for i in 0..=num_coarse_steps {
-            let t = primary_tle.epoch + chrono::Duration::seconds(i * coarse_step_secs);
-            let p_state = match primary_prop.propagate_to(t) {
-                Ok(s) => s,
-                Err(_) => continue,
-            };
-            let s_state = match sec_prop.propagate_to(t) {
-                Ok(s) => s,
-                Err(_) => continue,
-            };
+            let coarse_offset = (i * coarse_step_secs).min(total_seconds);
+            let t = primary_tle.epoch + chrono::Duration::seconds(coarse_offset);
+            let p_state = primary_prop.propagate_to(t).map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!(
+                        "Primary propagation failed during coarse scan at +{coarse_offset}s; screening batch incomplete: {error}"
+                    ),
+                )
+                .into_wasm_error()
+            })?;
+            let s_state = sec_prop.propagate_to(t).map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!(
+                        "Secondary {secondary_norad_id} propagation failed during coarse scan at +{coarse_offset}s; screening batch incomplete: {error}"
+                    ),
+                )
+                .into_wasm_error()
+            })?;
             let dist = distance_between(&p_state, &s_state);
+            ensure_screening_distance(dist, *secondary_norad_id, "coarse scan", coarse_offset)?;
             if dist < best_distance {
                 best_distance = dist;
-                best_step = i * coarse_step_secs;
+                best_step = coarse_offset;
             }
         }
 
-        // Fine scan: refine around the best coarse step
+        // Fine scan: refine around the best coarse step. Propagation failure is
+        // an incomplete result, not a sample that may be silently discarded.
         let fine_start = (best_step - coarse_step_secs).max(0);
         let fine_end = (best_step + coarse_step_secs).min(total_seconds);
         let mut tca_offset = best_step;
@@ -988,21 +1103,26 @@ pub fn screen_conjunction_from_tles(
         let mut t_secs = fine_start;
         while t_secs <= fine_end {
             let t = primary_tle.epoch + chrono::Duration::seconds(t_secs);
-            let p_state = match primary_prop.propagate_to(t) {
-                Ok(s) => s,
-                Err(_) => {
-                    t_secs += fine_step_secs;
-                    continue;
-                }
-            };
-            let s_state = match sec_prop.propagate_to(t) {
-                Ok(s) => s,
-                Err(_) => {
-                    t_secs += fine_step_secs;
-                    continue;
-                }
-            };
+            let p_state = primary_prop.propagate_to(t).map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!(
+                        "Primary propagation failed during fine scan at +{t_secs}s; screening batch incomplete: {error}"
+                    ),
+                )
+                .into_wasm_error()
+            })?;
+            let s_state = sec_prop.propagate_to(t).map_err(|error| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!(
+                        "Secondary {secondary_norad_id} propagation failed during fine scan at +{t_secs}s; screening batch incomplete: {error}"
+                    ),
+                )
+                .into_wasm_error()
+            })?;
             let dist = distance_between(&p_state, &s_state);
+            ensure_screening_distance(dist, *secondary_norad_id, "fine scan", t_secs)?;
             if dist < tca_distance {
                 tca_distance = dist;
                 tca_offset = t_secs;
@@ -1012,16 +1132,32 @@ pub fn screen_conjunction_from_tles(
 
         // Assess at TCA
         let tca_time = primary_tle.epoch + chrono::Duration::seconds(tca_offset);
-        let p_state = match primary_prop.propagate_to(tca_time) {
-            Ok(s) => s,
-            Err(_) => continue,
-        };
-        let s_state = match sec_prop.propagate_to(tca_time) {
-            Ok(s) => s,
-            Err(_) => continue,
-        };
+        let p_state = primary_prop.propagate_to(tca_time).map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!(
+                    "Primary propagation failed at selected TCA offset +{tca_offset}s; screening batch incomplete: {error}"
+                ),
+            )
+            .into_wasm_error()
+        })?;
+        let s_state = sec_prop.propagate_to(tca_time).map_err(|error| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!(
+                    "Secondary {secondary_norad_id} propagation failed at selected TCA offset +{tca_offset}s; screening batch incomplete: {error}"
+                ),
+            )
+            .into_wasm_error()
+        })?;
 
-        let assessment = analyzer.assess(&p_state, &s_state);
+        let assessment = analyzer.try_assess(&p_state, &s_state).map_err(|e| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Checked conjunction assessment rejected; batch is incomplete: {}", e),
+            )
+            .into_wasm_error()
+        })?;
 
         if assessment.collision_probability.pc >= input.pc_threshold {
             let shared_assessment = ConjunctionAssessment {
@@ -1031,7 +1167,7 @@ pub fn screen_conjunction_from_tles(
                 miss_distance_km: assessment.miss_distance_km,
                 relative_velocity_kms: assessment.relative_velocity_kms,
                 collision_probability: assessment.collision_probability.pc,
-                pc_method: mycelix_space_shared::PcMethod::Alfano2D,
+                pc_method: mycelix_space_shared::PcMethod::GaussianSmallDiskApprox2D,
                 risk_level: convert_lib_risk_level(assessment.risk_level),
                 hard_body_radius_m: assessment.hard_body_radius_m,
                 screening_volume_km: 5.0,
@@ -1048,6 +1184,214 @@ pub fn screen_conjunction_from_tles(
     });
 
     Ok(results)
+}
+
+/// Reject malformed screening limits before parsing TLEs or starting propagation.
+/// In particular, a NaN Pc threshold makes every `pc >= threshold` comparison false
+/// and would otherwise turn an invalid request into an apparently empty result set.
+fn validate_screening_parameters(hours_ahead: f64, pc_threshold: f64) -> ExternResult<()> {
+    let horizon_seconds = hours_ahead * 3600.0;
+    if !hours_ahead.is_finite()
+        || !horizon_seconds.is_finite()
+        || horizon_seconds < 1.0
+        || hours_ahead > 720.0
+    {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "hours_ahead must provide at least one finite second and be at most 720 hours",
+        )
+        .with_context(format!("value: {}", hours_ahead))
+        .into_wasm_error());
+    }
+
+    if !pc_threshold.is_finite() || !(0.0..=1.0).contains(&pc_threshold) {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "pc_threshold must be finite and between 0.0 and 1.0",
+        )
+        .with_context(format!("value: {}", pc_threshold))
+        .into_wasm_error());
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod screening_parameter_tests {
+    use super::*;
+
+    #[test]
+    fn screening_limits_accept_finite_supported_boundaries() {
+        assert!(validate_screening_parameters(1.0 / 3600.0, 0.0).is_ok());
+        assert!(validate_screening_parameters(720.0, 1.0).is_ok());
+    }
+
+    #[test]
+    fn screening_limits_reject_non_finite_and_out_of_range_hours() {
+        for hours in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 0.0, -1.0, 720.0001] {
+            assert!(
+                validate_screening_parameters(hours, 0.5).is_err(),
+                "invalid hours_ahead should fail closed: {hours}"
+            );
+        }
+    }
+
+    #[test]
+    fn screening_limits_reject_non_finite_and_out_of_range_pc_thresholds() {
+        for threshold in [
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            -f64::EPSILON,
+            1.0 + f64::EPSILON,
+        ] {
+            assert!(
+                validate_screening_parameters(24.0, threshold).is_err(),
+                "invalid pc_threshold should fail closed: {threshold}"
+            );
+        }
+    }
+}
+
+/// Reject non-finite or negative propagated separation values before they can
+/// influence closest-approach selection. NaN comparisons otherwise silently fail.
+fn ensure_screening_distance(
+    distance_km: f64,
+    secondary_norad_id: u32,
+    phase: &str,
+    offset_seconds: i64,
+) -> ExternResult<()> {
+    if !distance_km.is_finite() || distance_km < 0.0 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            format!(
+                "Invalid propagated separation during {phase} at +{offset_seconds}s; screening batch incomplete"
+            ),
+        )
+        .with_context(format!(
+            "secondary_norad_id: {secondary_norad_id}, distance_km: {distance_km}"
+        ))
+        .into_wasm_error());
+    }
+    Ok(())
+}
+
+/// Reject self-conjunctions and repeated target IDs before performing cross-zome I/O.
+fn validate_requested_secondary_ids(
+    primary_norad_id: u32,
+    secondary_norad_ids: &[u32],
+) -> ExternResult<()> {
+    if secondary_norad_ids.is_empty() {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "At least one secondary NORAD ID is required per screening call",
+        )
+        .into_wasm_error());
+    }
+    if secondary_norad_ids.len() > 100 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "Maximum 100 secondary objects per screening call",
+        )
+        .with_context(format!("count: {}", secondary_norad_ids.len()))
+        .into_wasm_error());
+    }
+    let mut seen = std::collections::HashSet::with_capacity(secondary_norad_ids.len());
+    for norad_id in secondary_norad_ids {
+        if *norad_id == primary_norad_id {
+            return Err(SpaceError::new(
+                SpaceErrorCode::SelfConjunction,
+                "Primary NORAD ID must not also appear as a secondary object",
+            )
+            .with_context(format!("norad_id: {norad_id}"))
+            .into_wasm_error());
+        }
+        if !seen.insert(*norad_id) {
+            return Err(SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                "Secondary NORAD IDs must be unique within a screening batch",
+            )
+            .with_context(format!("norad_id: {norad_id}"))
+            .into_wasm_error());
+        }
+    }
+    Ok(())
+}
+
+/// Resolve every requested target; do not let an incomplete lookup masquerade as a complete screen.
+fn require_secondary_items<T>(
+    secondary_norad_ids: &[u32],
+    mut lookup: impl FnMut(u32) -> Option<T>,
+) -> ExternResult<Vec<T>> {
+    secondary_norad_ids
+        .iter()
+        .map(|norad_id| {
+            lookup(*norad_id).ok_or_else(|| {
+                SpaceError::new(
+                    SpaceErrorCode::NotFound,
+                    format!(
+                        "No usable TLE found for requested secondary object {norad_id}; screening batch incomplete"
+                    ),
+                )
+                .with_context(format!("norad_id: {norad_id}"))
+                .into_wasm_error()
+            })
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod screening_target_tests {
+    use super::*;
+
+    #[test]
+    fn closest_approach_samples_reject_invalid_separation_values() {
+        assert!(ensure_screening_distance(0.0, 40001, "coarse scan", 0).is_ok());
+        assert!(ensure_screening_distance(1.0, 40001, "fine scan", 10).is_ok());
+        for distance in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0] {
+            assert!(
+                ensure_screening_distance(distance, 40001, "coarse scan", 600).is_err(),
+                "invalid separation must fail closed: {distance}"
+            );
+        }
+    }
+
+    #[test]
+    fn requested_secondary_ids_reject_empty_primary_and_duplicate_batches() {
+        assert!(validate_requested_secondary_ids(25544, &[]).is_err());
+        assert!(validate_requested_secondary_ids(25544, &[25544]).is_err());
+        assert!(validate_requested_secondary_ids(25544, &[40001, 40001]).is_err());
+        assert!(validate_requested_secondary_ids(25544, &[40001, 40002]).is_ok());
+    }
+
+    #[test]
+    fn requested_secondary_ids_enforce_batch_limit_before_lookup() {
+        let ids: Vec<u32> = (40_000..40_101).collect();
+        assert!(validate_requested_secondary_ids(25544, &ids).is_err());
+    }
+
+    #[test]
+    fn missing_requested_secondary_makes_lookup_fail_closed() {
+        let available = std::collections::HashMap::from([
+            (40001_u32, "tle-40001"),
+            (40002_u32, "tle-40002"),
+        ]);
+        assert!(
+            require_secondary_items(&[40001, 40003], |id| available.get(&id).copied()).is_err()
+        );
+    }
+
+    #[test]
+    fn lookup_preserves_requested_order_and_count() {
+        let available = std::collections::HashMap::from([
+            (40001_u32, "tle-40001"),
+            (40002_u32, "tle-40002"),
+        ]);
+        let resolved =
+            require_secondary_items(&[40002, 40001], |id| available.get(&id).copied())
+                .expect("all requested targets should resolve");
+        assert_eq!(resolved, vec!["tle-40002", "tle-40001"]);
+    }
 }
 
 /// TLE lines response from cross-zome call to orbital_objects
@@ -1267,7 +1611,13 @@ pub fn rescreen_conjunction(event_hash: ActionHash) -> ExternResult<ConjunctionE
     })?;
 
     let analyzer = ConjunctionAnalyzer::new();
-    let assessment = analyzer.assess(&primary_state, &secondary_state);
+    let assessment = analyzer.try_assess(&primary_state, &secondary_state).map_err(|e| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidInput,
+                format!("Checked conjunction assessment rejected: {}", e),
+            )
+            .into_wasm_error()
+        })?;
     let new_risk = convert_lib_risk_to_integrity(assessment.risk_level);
     let new_pc = assessment.collision_probability.pc;
     let new_miss = assessment.miss_distance_km;
@@ -1326,7 +1676,7 @@ fn emit_conjunction_alert(event: &ConjunctionEvent) -> ExternResult<()> {
         miss_distance_km: event.miss_distance_km,
         relative_velocity_kms: 10.0, // Would come from actual data
         collision_probability: event.max_pc,
-        pc_method: mycelix_space_shared::PcMethod::Alfano2D,
+        pc_method: mycelix_space_shared::PcMethod::Unspecified,
         risk_level: convert_risk_level(event.risk_level),
         hard_body_radius_m: 20.0,
         screening_volume_km: 5.0,
@@ -1351,7 +1701,7 @@ fn emit_risk_escalation_alert(
         miss_distance_km: event.miss_distance_km,
         relative_velocity_kms: 10.0,
         collision_probability: event.max_pc,
-        pc_method: mycelix_space_shared::PcMethod::Alfano2D,
+        pc_method: mycelix_space_shared::PcMethod::Unspecified,
         risk_level: convert_risk_level(event.risk_level),
         hard_body_radius_m: 20.0,
         screening_volume_km: 5.0,

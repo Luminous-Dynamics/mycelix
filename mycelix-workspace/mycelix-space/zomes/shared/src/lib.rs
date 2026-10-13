@@ -113,7 +113,7 @@ pub const TLE_STALE_THRESHOLD_SECS: i64 = 30 * 24 * 3600;
 pub struct StalenessConfig {
     /// Seconds after which a TLE is considered stale (default: 30 days)
     pub stale_threshold_secs: i64,
-    /// Quality score below which a TLE is rejected (default: 20)
+    /// Minimum age-degraded quality score below which metadata retrieval omits a TLE (default: 20).
     pub min_quality: u8,
 }
 
@@ -141,34 +141,71 @@ pub struct TleStaleness {
     pub confidence: f64,
 }
 
+/// Validate the caller-supplied staleness policy before performing a TLE lookup.
+pub fn validate_staleness_config(config: &StalenessConfig) -> Result<(), SpaceError> {
+    if config.stale_threshold_secs <= 0 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "stale_threshold_secs must be positive",
+        ));
+    }
+    if config.min_quality > 100 {
+        return Err(SpaceError::new(
+            SpaceErrorCode::InvalidInput,
+            "min_quality must be between 0 and 100",
+        ));
+    }
+    Ok(())
+}
+
+/// Return whether the age-degraded quality satisfies the requested minimum.
+pub fn staleness_quality_is_acceptable(
+    staleness: &TleStaleness,
+    config: &StalenessConfig,
+) -> bool {
+    staleness.effective_quality.value() >= config.min_quality
+}
+
 /// Compute age-degraded quality and confidence for a TLE.
 ///
 /// Quality degrades linearly: loses ~1 point per day after 7 days.
-/// Confidence drops from 1.0 at epoch to 0.3 at the stale threshold,
-/// and continues to 0.1 at 2x the threshold.
+/// Confidence decreases linearly from 1.0 at epoch to 0.3 at the stale threshold,
+/// then to 0.1 at twice the threshold and remains at that floor for older data.
+/// A non-positive threshold is invalid; direct calls fail conservatively with
+/// minimum confidence and stale status while API boundaries reject that config.
 pub fn compute_staleness(
     epoch: &SpaceTimestamp,
     quality: &QualityScore,
     config: &StalenessConfig,
 ) -> TleStaleness {
-    let age_secs = epoch.age_seconds();
+    compute_staleness_at_age(epoch.age_seconds(), quality, config)
+}
 
+fn compute_staleness_at_age(
+    age_secs: i64,
+    quality: &QualityScore,
+    config: &StalenessConfig,
+) -> TleStaleness {
     // Quality degrades: ~1 point per day after 7 days of age
     let grace_period_secs: i64 = 7 * 24 * 3600;
     let days_past_grace = ((age_secs - grace_period_secs).max(0) as f64) / 86400.0;
     let degraded = (quality.value() as f64 - days_past_grace).max(0.0) as u8;
     let effective_quality = QualityScore::new(degraded);
 
-    // Confidence: 1.0 for fresh TLEs, decays towards 0.1 for very old ones
     let threshold = config.stale_threshold_secs as f64;
     let age_f = age_secs.max(0) as f64;
-    let confidence = if threshold <= 0.0 {
-        1.0
+    let (confidence, is_stale) = if threshold <= 0.0 {
+        (0.1, true)
     } else {
-        (1.0 - 0.7 * (age_f / threshold).min(2.0) / 2.0).max(0.1)
+        let age_ratio = (age_f / threshold).min(2.0);
+        let confidence = if age_ratio <= 1.0 {
+            1.0 - 0.7 * age_ratio
+        } else {
+            0.3 - 0.2 * (age_ratio - 1.0)
+        }
+        .clamp(0.1, 1.0);
+        (confidence, age_secs > config.stale_threshold_secs)
     };
-
-    let is_stale = age_secs > config.stale_threshold_secs;
 
     TleStaleness {
         age_secs,
@@ -176,6 +213,59 @@ pub fn compute_staleness(
         original_quality: *quality,
         effective_quality,
         confidence,
+    }
+}
+
+#[cfg(test)]
+mod staleness_confidence_tests {
+    use super::*;
+
+    fn config(threshold: i64, min_quality: u8) -> StalenessConfig {
+        StalenessConfig {
+            stale_threshold_secs: threshold,
+            min_quality,
+        }
+    }
+
+    #[test]
+    fn confidence_matches_documented_age_curve() {
+        let quality = QualityScore::new(80);
+        let policy = config(100, 20);
+        for (age_secs, expected) in [
+            (0, 1.0),
+            (100, 0.3),
+            (150, 0.2),
+            (200, 0.1),
+            (500, 0.1),
+        ] {
+            let result = compute_staleness_at_age(age_secs, &quality, &policy);
+            assert!(
+                (result.confidence - expected).abs() <= 1e-12,
+                "age {age_secs}s expected confidence {expected}, got {}",
+                result.confidence
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_staleness_config_is_rejected_and_direct_calculation_fails_conservatively() {
+        assert!(validate_staleness_config(&config(0, 20)).is_err());
+        assert!(validate_staleness_config(&config(-1, 20)).is_err());
+        assert!(validate_staleness_config(&config(100, 101)).is_err());
+        assert!(validate_staleness_config(&config(100, 0)).is_ok());
+
+        let result = compute_staleness_at_age(0, &QualityScore::new(80), &config(0, 20));
+        assert_eq!(result.confidence, 0.1);
+        assert!(result.is_stale);
+    }
+
+    #[test]
+    fn minimum_quality_uses_age_degraded_quality() {
+        let policy = config(100, 20);
+        let below = compute_staleness_at_age(0, &QualityScore::new(19), &policy);
+        let at_minimum = compute_staleness_at_age(0, &QualityScore::new(20), &policy);
+        assert!(!staleness_quality_is_acceptable(&below, &policy));
+        assert!(staleness_quality_is_acceptable(&at_minimum, &policy));
     }
 }
 
@@ -462,49 +552,70 @@ pub struct StateVectorData {
 // Conjunction Assessment Types
 // =============================================================================
 
-/// Risk level for conjunction events
+/// Pc-only screening classification for conjunction events.
+///
+/// This is not a complete collision-risk assessment, safety finding, or maneuver
+/// authority. The Pc method, covariance realism and intended-use limits still apply.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum RiskLevel {
-    /// Pc < 1e-7, routine monitoring only
+    /// Pc below 1e-7; a screening band, not proof of safety.
     Negligible = 0,
-    /// Pc 1e-7 to 1e-5, increased monitoring
+    /// Pc from 1e-7 to 1e-5.
     Low = 1,
-    /// Pc 1e-5 to 1e-4, planning phase
+    /// Pc from 1e-5 to 1e-4.
     Medium = 2,
-    /// Pc 1e-4 to 1e-3, maneuver recommended
+    /// Pc from 1e-4 to 1e-3; independent review required.
     High = 3,
-    /// Pc > 1e-3, immediate action required
+    /// Pc at or above 1e-3; highest screening band, not an action command.
     Emergency = 4,
 }
 
 impl RiskLevel {
-    pub fn from_pc(pc: f64) -> Self {
-        if pc > 1e-3 {
+    /// Return a Pc-only screening band for a finite probability in [0, 1].
+    pub fn try_from_pc(pc: f64) -> Option<Self> {
+        if !pc.is_finite() || !(0.0..=1.0).contains(&pc) {
+            return None;
+        }
+        Some(if pc >= 1e-3 {
             RiskLevel::Emergency
-        } else if pc > 1e-4 {
+        } else if pc >= 1e-4 {
             RiskLevel::High
-        } else if pc > 1e-5 {
+        } else if pc >= 1e-5 {
             RiskLevel::Medium
-        } else if pc > 1e-7 {
+        } else if pc >= 1e-7 {
             RiskLevel::Low
         } else {
             RiskLevel::Negligible
-        }
+        })
+    }
+
+    /// Legacy total mapping. Invalid values map to the highest screening band
+    /// instead of silently falling through to negligible. Prefer try_from_pc
+    /// when handling untrusted or externally supplied Pc values.
+    pub fn from_pc(pc: f64) -> Self {
+        Self::try_from_pc(pc).unwrap_or(RiskLevel::Emergency)
     }
 }
 
-/// Probability of collision calculation method
+/// Probability-of-collision method descriptor.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum PcMethod {
-    /// Alfano 2D screening
+    /// Legacy serialized label retained for historical records; not emitted by the
+    /// current orbital-mechanics small-disk approximation.
     Alfano2D,
-    /// Foster 3D integration
+    /// Legacy descriptor for historical Foster-method records.
     Foster3D,
-    /// Chan Monte Carlo
+    /// Chan Monte Carlo.
     ChanMonteCarlo,
-    /// Patera maximum
+    /// Patera maximum.
     PateraMax,
+    /// Gaussian local-density/small-disk approximation on a 2D encounter plane.
+    /// This descriptor does not claim a validated Alfano/Foster integration method.
+    GaussianSmallDiskApprox2D,
+    /// The stored event does not carry method provenance, so the algorithm cannot
+    /// be inferred from its numeric Pc field alone.
+    Unspecified,
 }
 
 /// Conjunction assessment entry
@@ -669,7 +780,8 @@ pub enum AlertType {
     RiskEscalation,
     /// Conjunction risk level de-escalated
     RiskDeescalation,
-    /// Maneuver required
+    /// A qualified, independent operational process has determined that maneuvering is required.
+    /// This event must not be emitted from a Pc screening band alone.
     ManeuverRequired,
     /// Maneuver executed successfully
     ManeuverExecuted,
@@ -690,9 +802,9 @@ pub enum AlertPriority {
     Low,
     /// Medium priority, review recommended
     Medium,
-    /// High priority, action may be needed
+    /// High-priority alert requiring timely independent review
     High,
-    /// Critical priority, immediate action required
+    /// Highest review priority; not itself an action command
     Critical,
 }
 
@@ -732,25 +844,37 @@ pub struct ConjunctionAlert {
     pub generated_at: DateTime<Utc>,
     /// Previous risk level (for escalation alerts)
     pub previous_risk_level: Option<RiskLevel>,
-    /// Recommended action
+    /// Review guidance only. This field is not maneuver authority or a flight command.
     pub recommendation: Option<String>,
 }
 
 impl ConjunctionAlert {
     /// Create a new conjunction detected alert
     pub fn new_conjunction(assessment: &ConjunctionAssessment) -> Self {
+        // RiskLevel is a Pc-only screening band. Because the current Pc and covariance
+        // models are not operationally qualified, these notifications request review
+        // and never direct maneuver execution.
         let recommendation = match assessment.risk_level {
-            RiskLevel::Emergency => {
-                Some("IMMEDIATE ACTION REQUIRED: Initiate collision avoidance maneuver".to_string())
-            }
-            RiskLevel::High => {
-                Some("Prepare collision avoidance maneuver, monitor closely".to_string())
-            }
-            RiskLevel::Medium => {
-                Some("Increase monitoring frequency, prepare contingency plans".to_string())
-            }
-            RiskLevel::Low => Some("Continue monitoring, no immediate action required".to_string()),
-            RiskLevel::Negligible => None,
+            RiskLevel::Emergency => Some(
+                "Highest Pc-only screening band: promptly obtain qualified independent conjunction assessment. This alert is not a maneuver command."
+                    .to_string(),
+            ),
+            RiskLevel::High => Some(
+                "High Pc-only screening band: obtain qualified independent review of source data, covariance realism, and encounter assumptions before any action."
+                    .to_string(),
+            ),
+            RiskLevel::Medium => Some(
+                "Medium Pc-only screening band: increase monitoring and validate data freshness, covariance, and method applicability."
+                    .to_string(),
+            ),
+            RiskLevel::Low => Some(
+                "Low Pc-only screening band: continue monitoring; this estimate does not establish safety."
+                    .to_string(),
+            ),
+            RiskLevel::Negligible => Some(
+                "Below the lowest configured Pc screening band; not a finding of safety or an operational clearance."
+                    .to_string(),
+            ),
         };
 
         Self {
@@ -782,7 +906,8 @@ impl ConjunctionAlert {
         alert
     }
 
-    /// Check if this alert requires immediate attention
+    /// Indicates that the alert should receive prompt review. This does not authorize
+    /// or require physical maneuvering.
     pub fn is_critical(&self) -> bool {
         self.priority == AlertPriority::Critical || self.priority == AlertPriority::High
     }
@@ -1060,6 +1185,41 @@ mod tests {
     }
 
     #[test]
+    fn risk_level_thresholds_are_inclusive() {
+        assert_eq!(RiskLevel::from_pc(0.999e-7), RiskLevel::Negligible);
+        assert_eq!(RiskLevel::from_pc(1e-7), RiskLevel::Low);
+        assert_eq!(RiskLevel::from_pc(1e-5), RiskLevel::Medium);
+        assert_eq!(RiskLevel::from_pc(1e-4), RiskLevel::High);
+        assert_eq!(RiskLevel::from_pc(1e-3), RiskLevel::Emergency);
+    }
+
+    #[test]
+    fn risk_level_rejects_non_finite_and_out_of_range_pc() {
+        assert_eq!(RiskLevel::try_from_pc(f64::NAN), None);
+        assert_eq!(RiskLevel::try_from_pc(f64::INFINITY), None);
+        assert_eq!(RiskLevel::try_from_pc(-0.1), None);
+        assert_eq!(RiskLevel::try_from_pc(1.1), None);
+        assert_eq!(RiskLevel::from_pc(f64::NAN), RiskLevel::Emergency);
+    }
+
+    #[test]
+    fn pc_method_variants_round_trip_including_legacy_and_unknown_provenance() {
+        let methods = [
+            PcMethod::Alfano2D,
+            PcMethod::Foster3D,
+            PcMethod::ChanMonteCarlo,
+            PcMethod::PateraMax,
+            PcMethod::GaussianSmallDiskApprox2D,
+            PcMethod::Unspecified,
+        ];
+        for method in methods {
+            let json = serde_json::to_string(&method).expect("serialize Pc method");
+            let parsed: PcMethod = serde_json::from_str(&json).expect("deserialize Pc method");
+            assert_eq!(parsed, method);
+        }
+    }
+
+    #[test]
     fn test_conjunction_assessment_serialization() {
         let assessment = ConjunctionAssessment {
             primary_norad_id: 25544,
@@ -1068,7 +1228,7 @@ mod tests {
             miss_distance_km: 0.5,
             relative_velocity_kms: 14.5,
             collision_probability: 1e-5,
-            pc_method: PcMethod::Alfano2D,
+            pc_method: PcMethod::GaussianSmallDiskApprox2D,
             risk_level: RiskLevel::Medium,
             hard_body_radius_m: 20.0,
             screening_volume_km: 5.0,
@@ -1080,6 +1240,42 @@ mod tests {
         assert_eq!(parsed.primary_norad_id, 25544);
         assert_eq!(parsed.secondary_norad_id, 49863);
         assert_eq!(parsed.risk_level, RiskLevel::Medium);
+        assert_eq!(parsed.pc_method, PcMethod::GaussianSmallDiskApprox2D);
+    }
+
+    #[test]
+    fn conjunction_alert_recommendations_do_not_authorize_maneuvers() {
+        let levels = [
+            RiskLevel::Negligible,
+            RiskLevel::Low,
+            RiskLevel::Medium,
+            RiskLevel::High,
+            RiskLevel::Emergency,
+        ];
+
+        for level in levels {
+            let assessment = ConjunctionAssessment {
+                primary_norad_id: 25544,
+                secondary_norad_id: 49863,
+                tca: Utc::now(),
+                miss_distance_km: 0.5,
+                relative_velocity_kms: 14.5,
+                collision_probability: 1e-3,
+                pc_method: PcMethod::GaussianSmallDiskApprox2D,
+                risk_level: level,
+                hard_body_radius_m: 20.0,
+                screening_volume_km: 5.0,
+            };
+            let alert = ConjunctionAlert::new_conjunction(&assessment);
+            let recommendation = alert.recommendation.expect("every Pc band carries review guidance");
+            let lower = recommendation.to_ascii_lowercase();
+            assert!(!lower.contains("initiate collision avoidance maneuver"));
+            assert!(!lower.contains("immediate action required"));
+            if level == RiskLevel::Emergency {
+                assert!(lower.contains("not a maneuver command"));
+                assert!(lower.contains("qualified independent conjunction assessment"));
+            }
+        }
     }
 
     #[test]

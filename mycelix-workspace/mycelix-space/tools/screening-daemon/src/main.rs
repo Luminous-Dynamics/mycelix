@@ -118,6 +118,8 @@ struct ScreeningSummary {
     pairs_evaluated: usize,
     conjunctions_found: usize,
     high_risk_count: usize,
+    assessment_rejections: u64,
+    propagation_failures: u64,
     duration_ms: u64,
     results: Vec<ScreeningResult>,
 }
@@ -345,6 +347,7 @@ fn load_priority_weights(path: &str) -> Result<HashMap<u32, f64>, Box<dyn std::e
 struct ScreeningStats {
     pairs_attempted: u64,
     propagation_failures: u64,
+    assessment_rejections: u64,
 }
 
 /// Screen protected objects against catalog for conjunctions.
@@ -470,7 +473,19 @@ fn screen_catalog(
                     continue;
                 };
 
-                let assessment = analyzer.assess(&p_state, &s_state);
+                let assessment = match analyzer.try_assess(&p_state, &s_state) {
+                    Ok(assessment) => assessment,
+                    Err(reason) => {
+                        stats.assessment_rejections += 1;
+                        warn!(
+                            primary_norad_id = primary_id,
+                            secondary_norad_id = secondary_id,
+                            reason = %reason,
+                            "Conjunction assessment rejected; pair is inconclusive, not low risk"
+                        );
+                        continue;
+                    }
+                };
 
                 if assessment.collision_probability.pc >= pc_threshold {
                     let risk_level = match assessment.risk_level {
@@ -691,6 +706,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             stats.pairs_attempted,
             screen_ms,
         );
+        if stats.assessment_rejections > 0 {
+            warn!(
+                rejections = stats.assessment_rejections,
+                "Some candidate pairs were rejected by checked conjunction assessment; treat these as inconclusive"
+            );
+        }
         if stats.propagation_failures > 0 {
             let fail_rate = stats.propagation_failures as f64 / stats.pairs_attempted.max(1) as f64;
             warn!(
@@ -706,6 +727,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             pairs_evaluated: stats.pairs_attempted as usize,
             conjunctions_found: results.len(),
             high_risk_count: high_risk,
+            assessment_rejections: stats.assessment_rejections,
+            propagation_failures: stats.propagation_failures,
             duration_ms,
             results: results.clone(),
         };
@@ -720,6 +743,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     pairs = summary.pairs_evaluated,
                     conjunctions = summary.conjunctions_found,
                     high_risk = summary.high_risk_count,
+                    assessment_rejections = summary.assessment_rejections,
+                    propagation_failures = summary.propagation_failures,
                     duration_ms,
                     "Screening cycle complete"
                 );
