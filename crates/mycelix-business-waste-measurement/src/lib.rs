@@ -687,6 +687,10 @@ mod tests {
                 (
                     ref_id("slot:one"),
                     PlannedWasteSlot {
+                        observation_window: MeasurementWindow {
+                            start_unix_ms: 2_900,
+                            end_unix_ms: 3_100,
+                        },
                         target_at_unix_ms: 3_000,
                         category: ref_id("waste:prep"),
                     },
@@ -694,6 +698,10 @@ mod tests {
                 (
                     ref_id("slot:two"),
                     PlannedWasteSlot {
+                        observation_window: MeasurementWindow {
+                            start_unix_ms: 3_400,
+                            end_unix_ms: 3_600,
+                        },
                         target_at_unix_ms: 3_500,
                         category: ref_id("waste:prep"),
                     },
@@ -701,6 +709,10 @@ mod tests {
                 (
                     ref_id("slot:three"),
                     PlannedWasteSlot {
+                        observation_window: MeasurementWindow {
+                            start_unix_ms: 3_900,
+                            end_unix_ms: 4_100,
+                        },
                         target_at_unix_ms: 4_000,
                         category: ref_id("waste:unsold"),
                     },
@@ -708,6 +720,10 @@ mod tests {
                 (
                     ref_id("slot:four"),
                     PlannedWasteSlot {
+                        observation_window: MeasurementWindow {
+                            start_unix_ms: 4_900,
+                            end_unix_ms: 5_100,
+                        },
                         target_at_unix_ms: 5_000,
                         category: ref_id("waste:other"),
                     },
@@ -738,7 +754,7 @@ mod tests {
             reason: ref_id("reason:trim"),
             target_at_unix_ms,
             observed_at_unix_ms: Some(target_at_unix_ms),
-            recorded_at_unix_ms: 3_100,
+            recorded_at_unix_ms: target_at_unix_ms + 100,
             record_evidence_digest: digest(2),
             mass: MassEvidence::DirectWeighing {
                 gross_grams: gross,
@@ -956,7 +972,7 @@ mod tests {
     }
 
     #[test]
-    fn missing_slot_cannot_be_declared_before_its_target_time() {
+    fn missing_slot_cannot_be_declared_before_its_window_closes() {
         let mut values = outcomes();
         if let WasteSlotOutcome::NotObserved(record) = &mut values[3] {
             record.recorded_at_unix_ms = 4_999;
@@ -1048,6 +1064,19 @@ mod tests {
         assert_eq!(
             assess_waste_measurement_coverage(&protocol(), &values, 7_000),
             Err(WasteMeasurementError::ZeroDigest)
+        );
+    }
+
+    #[test]
+    fn rejects_observation_outside_its_slot_window_even_inside_protocol_window() {
+        let mut values = outcomes();
+        if let WasteSlotOutcome::Measured(record) = &mut values[0] {
+            record.observed_at_unix_ms = Some(3_300);
+            record.recorded_at_unix_ms = 3_400;
+        }
+        assert_eq!(
+            assess_waste_measurement_coverage(&protocol(), &values, 7_000),
+            Err(WasteMeasurementError::ObservationOutsideWindow)
         );
     }
 
