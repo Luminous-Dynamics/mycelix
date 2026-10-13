@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import subprocess
 import tempfile
@@ -178,6 +179,61 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
             self.assertTrue(report["passed"])
             self.assertFalse(report["cryptographic_verification_performed"])
             self.assertFalse(report["dha_endpoint_contacted"])
+
+
+    def test_report_fingerprints_input_profile_and_verifier_sources(self) -> None:
+        report = sa_did_policy_engine.build_report(self.profile)
+        fingerprints = report["evidence_fingerprints"]
+        self.assertIsNone(fingerprints["profile_file_sha256"])
+        self.assertEqual(
+            fingerprints["profile_normalized_sha256"],
+            hashlib.sha256(
+                json.dumps(
+                    self.profile,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                ).encode("utf-8")
+            ).hexdigest(),
+        )
+        self.assertEqual(
+            fingerprints["policy_engine_source_sha256"],
+            hashlib.sha256((IDENTITY_DIR / "sa_did_policy_engine.py").read_bytes()).hexdigest(),
+        )
+        self.assertEqual(
+            fingerprints["contract_validator_source_sha256"],
+            hashlib.sha256((IDENTITY_DIR / "validate_sa_did_profile.py").read_bytes()).hexdigest(),
+        )
+        self.assertEqual(report["schema_version"], 2)
+
+    def test_cli_binds_report_to_exact_profile_bytes_and_is_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            report_one = Path(temporary_dir) / "report-one.json"
+            report_two = Path(temporary_dir) / "report-two.json"
+            profile_path = IDENTITY_DIR / "SA_DID_PROFILE_V1.json"
+            original_bytes = profile_path.read_bytes()
+            for report_path in (report_one, report_two):
+                completed = subprocess.run(
+                    [
+                        sys.executable,
+                        str(IDENTITY_DIR / "sa_did_policy_engine.py"),
+                        "--profile",
+                        str(profile_path),
+                        "--report",
+                        str(report_path),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(report_one.read_bytes(), report_two.read_bytes())
+            report = json.loads(report_one.read_text(encoding="utf-8"))
+            fingerprints = report["evidence_fingerprints"]
+            self.assertEqual(
+                fingerprints["profile_file_sha256"],
+                hashlib.sha256(original_bytes).hexdigest(),
+            )
 
 
     def test_report_refuses_contract_drift_even_when_inputs_are_changed_to_match(self) -> None:
