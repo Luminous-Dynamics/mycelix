@@ -9,14 +9,7 @@
   "subjects": [
     {
       "productProfileRef": "urn:mycelix:product-profile:cheese-v1",
-      "lotRef": "urn:mycelix:food-lot:cheese-20261012-a",
-      "quantity": {
-        "status": "observed",
-        "value": "3.2",
-        "unitCode": "KGM",
-        "unitCodeSystem": "UNECE_REC20",
-        "unitCodeListVersion": "REC20-REV17-2021"
-      }
+      "lotRef": "urn:mycelix:food-lot:cheese-20261012-a"
     }
   ],
   "inputs": [
