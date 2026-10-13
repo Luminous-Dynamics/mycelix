@@ -66,6 +66,20 @@ These are proposed engineering gates, not results already achieved:
 **What “better than the best” should mean initially:** superior auditability and cross-vendor reproducibility, plus prediction/decision quality that is demonstrated on the same data, targets, costs and evaluation windows used for comparison. We cannot currently substantiate superiority in camera-based waste recognition, deployment scale, source access, or forecast performance. Those remain explicit competitive gaps—not marketing claims.
 
 
+
+### Build sequence: prove each layer before adding autonomy
+
+| Milestone | Build | Exit evidence | What must not be claimed yet |
+|---|---|---|---|
+| **M0 — Contract-correct** | Exact artifact digests, query/semantic identities, cursor/page checks, response-decoder projection, preregistered waste denominator and explicit missingness | Exact-head fmt/Clippy/tests pass; deterministic fixtures exercise tampering, retries, gaps, revisions, timestamps, zero/low-volume items, arithmetic limits and missing observations | Live-provider compatibility, physical completeness, forecast superiority |
+| **M1 — Read-only source adapter** | One operator-authorised connector; raw event and webhook preservation; event-identity deduplication; correction/revision lineage; retry-safe checkpointing; explicit scope and event-time/recorded-time semantics | Replaying the same event does not change the ledger twice; changed events remain visible; source controls and unresolved gaps are emitted in a reproducible evidence packet | That source-side omitted events can be inferred from local success |
+| **M2 — Forecast benchmark** | Symthaea forecasts against seasonal-naive and other simple baselines on identical rolling-origin holdouts | Per-site/item/horizon MAE, WAPE where defined, signed bias and cost-weighted error; segment-level results; prediction interval calibration whenever intervals are emitted | “Best in industry” from one site or one aggregate metric |
+| **M3 — Measurement validation** | Physical waste slots, method-specific values, independent audit sample, and mass/cost conversion lineage | Preregistered coverage gates pass; missingness and audit disagreement are published; direct-weigh, count-derived, visual, imputed and unobserved values remain separate | A drop in reported waste proves a drop in actual waste |
+| **M4 — Decision comparison** | Explanations linking demand, recipes, inventory, procurement constraints and waste risk; proposed actions remain human-approved | Evidence freshness, uncertainty, expected benefit/downside, affected constraints, reversibility and approval are captured; recommendation accuracy and operator workload are measured | Unsupervised procurement/accounting writes or causal savings claims |
+| **M5 — Multi-site superiority claim** | Repeat the protocol across independent operators/sites and more than one source system | Frozen protocol, comparable baselines, external control checks, adoption costs, failure rates, uncertainty and site-level distributions; reproducible release evidence | Universal superiority or savings outside the tested population |
+
+The first engineering milestone should not be a new dashboard. It should be a complete, replayable, read-only evidence path on one authorised source, with an explicit “unknown” state whenever the source cannot prove the relevant property. This creates a base from which model and workflow improvements can be compared without confusing a better-looking report with a better operational outcome.
+
 ## 3. Key discovery gap: data rights and source semantics
 
 The official public pages reviewed do not establish whether an independent developer can obtain the full source records needed for the proposed qualification flow. Do not infer API availability from an API release-notes page, nor infer export completeness from CSV import support.
