@@ -2,7 +2,7 @@
 
 **Status:** Proposed architecture; not a deployed service  
 **Reviewed:** 2026-10-13  
-**Scope:** Active public repository, \`Luminous-Dynamics/mycelix\`  
+**Scope:** Active public repository, `Luminous-Dynamics/mycelix`  
 **Primary implementation direction:** Rust-first control plane; interoperable HTTP delivery; optional IPFS and Iroh peer paths  
 **Decision requested:** Accept the architectural boundaries and phase gates before implementing a delivery service or paying providers.
 
@@ -28,12 +28,12 @@ A content hash establishes byte identity under its hash/profile; it does not est
 
 This RFC is grounded in the active public repository's current source paths:
 
-- \`mycelix-workspace/mycelix-music/dnas/mycelix-music/zomes/catalog/integrity/src/lib.rs\` models songs using an IPFS CID.
-- \`mycelix-workspace/mycelix-music/apps/leptos/src/types.rs\` currently turns that CID into a single hard-coded \`https://ipfs.io/ipfs/{cid}\` URL in \`Song::audio_url()\`.
-- \`mycelix-workspace/mycelix-music/apps/leptos/src/components/player.rs\` drives browser audio playback from that URL.
-- \`mycelix-civic/zomes/media-publication/integrity/src/lib.rs\` already models media types, content hashes, authorship claims, licenses, publication versions, and blocks.
-- \`mycelix-civic/apps/leptos/src/main.rs\` still mounts the component showcase rather than a real media application.
-- \`mycelix-workspace/mycelix-music/IMPLEMENTATION_STATUS.md\` describes the delivery/deployment path as not yet production-verified and explicitly calls for end-to-end verification and a canonical runtime.
+- `mycelix-workspace/mycelix-music/dnas/mycelix-music/zomes/catalog/integrity/src/lib.rs` models songs using an IPFS CID.
+- `mycelix-workspace/mycelix-music/apps/leptos/src/types.rs` currently turns that CID into a single hard-coded `https://ipfs.io/ipfs/{cid}` URL in `Song::audio_url()`.
+- `mycelix-workspace/mycelix-music/apps/leptos/src/components/player.rs` drives browser audio playback from that URL.
+- `mycelix-civic/zomes/media-publication/integrity/src/lib.rs` already models media types, content hashes, authorship claims, licenses, publication versions, and blocks.
+- `mycelix-civic/apps/leptos/src/main.rs` still mounts the component showcase rather than a real media application.
+- `mycelix-workspace/mycelix-music/IMPLEMENTATION_STATUS.md` describes the delivery/deployment path as not yet production-verified and explicitly calls for end-to-end verification and a canonical runtime.
 
 Relevant code links:
 
@@ -78,7 +78,7 @@ Use Iroh first for:
 
 Do not initially make successful playback depend on global Iroh discovery. Keep a standard HTTPS route available.
 
-**Security gate:** Iroh published an \`iroh-blobs\` security fix on 2026-10-08. Its release note says versions 0.94.0 through 0.103.0 were affected by a request-mask bug that could permit unauthorized blob pushes and, in certain configurations, let remote peers fill a provider's disk. The note identifies 0.103.1 as the fixed 0.103-series release and corresponding fixed versions for several earlier series. Before deploying any Iroh provider, select a vendor-confirmed patched version, lock it, explicitly disable \`push\` unless an authenticated use case needs it, and separately enforce authorization for \`get\`, \`get_many\`, \`observe\`, and \`push\`. Add disk quotas and adversarial regression tests. Never assume that setting one read gate automatically secures every request type.
+**Security gate:** Iroh published an `iroh-blobs` security fix on 2026-10-08. Its release note says versions 0.94.0 through 0.103.0 were affected by a request-mask bug that could permit unauthorized blob pushes and, in certain configurations, let remote peers fill a provider's disk. The note identifies 0.103.1 as the fixed 0.103-series release and corresponding fixed versions for several earlier series. Before deploying any Iroh provider, select a vendor-confirmed patched version, lock it, explicitly disable `push` unless an authenticated use case needs it, and separately enforce authorization for `get`, `get_many`, `observe`, and `push`. Add disk quotas and adversarial regression tests. Never assume that setting one read gate automatically secures every request type.
 
 Sources: [Iroh global content discovery, 2026-09-30](https://www.iroh.computer/blog/iroh-global-content-discovery), [iroh-blobs security fix, 2026-10-08](https://www.iroh.computer/blog/iroh-blobs-push-fix), [Iroh blob-store design](https://www.iroh.computer/blog/blob-store-design-challenges).
 
@@ -102,7 +102,7 @@ Source: [Holochain DHT concepts](https://developer.holochain.org/concepts/4_dht/
 
 Separate the fabric into a control plane and data plane. The layers can be operated by different organizations.
 
-\`\`\`text
+```text
                       Mycelix Media clients
                Leptos web / mobile / desktop players
                               |
@@ -122,13 +122,13 @@ Separate the fabric into a control plane and data plane. The layers can be opera
               +--------------------+------------+-----------------+
                                    |
                       durable origin / creator copy
-\`\`\`
+```
 
 ### 4.1 Control plane records
 
 Keep long-lived content identity separate from short-lived provider locations.
 
-**\`MediaAssetManifestV1\`** should bind:
+**`MediaAssetManifestV1`** should bind:
 - schema/profile version and canonical asset ID;
 - Mycelix publication reference and content type;
 - one or more rendition/track descriptions (codec, dimensions/audio properties, duration, language, media type);
@@ -141,7 +141,7 @@ Keep long-lived content identity separate from short-lived provider locations.
 
 Do not embed changing provider IP addresses in the immutable manifest. That harms cacheability and creates stale manifests.
 
-**\`MediaProviderLeaseV1\`** should be separately signed and expire. It should identify:
+**`MediaProviderLeaseV1`** should be separately signed and expire. It should identify:
 - the exact asset/renditions/ranges the provider claims to serve;
 - a stable provider identity/endpoint commitment;
 - supported protocols and integrity profiles;
@@ -178,7 +178,7 @@ The client/resolver should:
 8. Populate only caches allowed by the asset's rights/access policy.
 9. On total failure, expose a useful recoverable playback error instead of silently reporting a play as successful.
 
-A lower-integrity fallback must not be described as equally verified. A browser's native \`<audio>\`/\`<video>\` element reading a normal HTTPS URL does not independently prove that the response matches the CID or BLAKE3 digest in Mycelix. Use an integrity-capable client/segment loader where independent end-to-end verification is required, or explicitly label the route as HTTPS/TLS-delivered rather than client-verified.
+A lower-integrity fallback must not be described as equally verified. A browser's native `<audio>`/`<video>` element reading a normal HTTPS URL does not independently prove that the response matches the CID or BLAKE3 digest in Mycelix. Use an integrity-capable client/segment loader where independent end-to-end verification is required, or explicitly label the route as HTTPS/TLS-delivered rather than client-verified.
 
 ### 4.4 Playback protocols
 
@@ -241,7 +241,7 @@ Required boundaries:
 Add a small Rust domain module for asset identities, manifests, typed retrieval candidates, integrity profiles, and resolver outcomes. Preserve backward compatibility with existing catalog entries by treating the current IPFS CID as one candidate, not the whole delivery contract.
 
 Acceptance:
-- no production \`ipfs.io\` URL is constructed outside the resolver;
+- no production `ipfs.io` URL is constructed outside the resolver;
 - pure tests cover empty/malformed identifiers, unsupported schemes, candidate order, expired provider lease, access denial, timeout, and no-provider outcomes;
 - fixture/mock transport remains explicit and cannot masquerade as production connectivity;
 - the same asset can have an IPFS path and an HTTPS mirror without changing logical identity;
@@ -265,9 +265,9 @@ For repeatability, freeze a synthetic corpus and exact client/network profiles. 
 Only after reviewing the current Rust dependency tree and the security fix, add a feature-gated Iroh provider/client. Begin with controlled providers and known endpoint identities; do not require the experimental global discovery service for successful playback.
 
 Acceptance:
-- dependency lock records a vendor-confirmed fixed \`iroh-blobs\` release;
+- dependency lock records a vendor-confirmed fixed `iroh-blobs` release;
 - unauthorized push is rejected and consumes no unbounded disk;
-- \`get\`, \`get_many\`, and \`observe\` each have independent authorization tests;
+- `get`, `get_many`, and `observe` each have independent authorization tests;
 - interrupted transfer resumes correctly and verified data matches the manifest;
 - peer unavailability always falls back; bounded retry does not stall the player indefinitely.
 
@@ -300,7 +300,7 @@ Before this is considered an operational media fabric, freeze and test these con
 8. Public-cache entries cannot cross authorization contexts.
 9. Revocation prevents new first-party advertisements and future gated-key access; the UI does not falsely claim previously downloaded plaintext was erased.
 10. A malicious provider's reputation cannot make bad bytes valid.
-11. A provider cannot fill storage with unauthorized Iroh push requests; \`get_many\` and \`observe\` do not bypass the access policy.
+11. A provider cannot fill storage with unauthorized Iroh push requests; `get_many` and `observe` do not bypass the access policy.
 12. Cache eviction, process restart, and interrupted transfers preserve manifest identity and resumability.
 13. Provider meters distinguish bytes sent, bytes verified, bytes requested, and successful playback signals; none alone establishes human viewing.
 14. Settlement retries are idempotent and cannot create a second payable obligation for one eligible play.
