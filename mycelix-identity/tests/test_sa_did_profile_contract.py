@@ -198,5 +198,14 @@ class SouthAfricanDigitalIdProfileTests(unittest.TestCase):
         self.assertTrue(any("evidence_nonclaims must preserve the v1 nonclaims" in e for e in errors))
 
 
+    def test_policy_inputs_are_closed_and_type_checked(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        mutated["test_vectors"][0]["policy_inputs"]["issuer_trusted"] = "true"
+        mutated["test_vectors"][0]["policy_inputs"]["allow_production"] = True
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any("policy_inputs must match the closed synthetic input schema" in e for e in errors))
+        self.assertTrue(any("policy_inputs.issuer_trusted must be a Boolean" in e for e in errors))
+
+
 if __name__ == "__main__":
     unittest.main()
