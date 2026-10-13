@@ -5,6 +5,7 @@
 //! Mirror types from the music DNA zomes.
 //! These must be serde-compatible with the Holochain entry types.
 
+use crate::delivery::{delivery_candidates, DeliveryCandidate, MediaAssetManifestV1};
 use serde::{Deserialize, Serialize};
 
 mod binary_bytes {
@@ -88,16 +89,48 @@ pub struct Song {
 }
 
 impl Song {
-    /// Construct an IPFS gateway URL for the audio file.
-    pub fn audio_url(&self) -> String {
-        format!("https://ipfs.io/ipfs/{}", self.ipfs_cid)
+    /// Build the local delivery manifest adapter used by the browser resolver.
+    ///
+    /// The current catalog stores one IPFS CID; signed multi-rendition
+    /// manifests and native content verification remain future work.
+    fn audio_manifest(&self) -> MediaAssetManifestV1 {
+        MediaAssetManifestV1::for_ipfs(self.song_hash.clone(), self.ipfs_cid.clone())
     }
 
-    /// Construct an IPFS gateway URL for the cover art.
+    /// Return currently supported, ordered retrieval routes for this song.
+    pub fn audio_delivery_candidates(&self) -> Vec<DeliveryCandidate> {
+        delivery_candidates(&self.audio_manifest()).unwrap_or_default()
+    }
+
+    /// Construct the audio URL for a specific fallback attempt.
+    pub fn audio_url_at(&self, source_index: usize) -> Option<String> {
+        self.audio_delivery_candidates()
+            .get(source_index)
+            .map(|candidate| candidate.url.clone())
+    }
+
+    /// Number of routes available to the player for this catalog CID.
+    pub fn audio_source_count(&self) -> usize {
+        self.audio_delivery_candidates().len()
+    }
+
+    /// Backwards-compatible first-choice audio URL.
+    pub fn audio_url(&self) -> String {
+        self.audio_url_at(0).unwrap_or_default()
+    }
+
+    /// Construct the first supported IPFS gateway URL for the cover art.
     pub fn cover_url(&self) -> Option<String> {
-        self.cover_cid
-            .as_ref()
-            .map(|cid| format!("https://ipfs.io/ipfs/{}", cid))
+        let cid = self.cover_cid.as_ref()?;
+        let manifest = MediaAssetManifestV1::for_ipfs(
+            format!("{}:cover", self.song_hash),
+            cid.clone(),
+        );
+        delivery_candidates(&manifest)
+            .ok()?
+            .into_iter()
+            .next()
+            .map(|candidate| candidate.url)
     }
 
     /// Format duration as mm:ss.
