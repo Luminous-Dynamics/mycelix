@@ -764,6 +764,12 @@ test('reconciled actuals import produces a hash-bound portable variance evidence
   const digest = await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(bundle.sourceArtifactRawText));
   const hex = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
   assert.equal(hex, bundle.sourceArtifactSha256);
+
+  documentMock.getElementById('actuals-forecast-start-month').value = '2026-02';
+  documentMock.getElementById('actuals-forecast-start-month').dispatchEvent({ type: 'input' });
+  assert.equal(documentMock.getElementById('download-variance-report').disabled, true);
+  assert.equal(documentMock.getElementById('actuals-status').textContent, 'Forecast month changed — import actuals again.');
+  assert.equal(documentMock.getElementById('actuals-result').children.length, 0);
 });
 
 test('failed actuals reconciliation disables its report download and keeps the business report separate', async () => {

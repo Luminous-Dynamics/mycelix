@@ -923,6 +923,22 @@ downloadScenarioButton.addEventListener('click', () => {
 });
 
 
+
+actualsForecastStartMonth.addEventListener('input', () => {
+  if (!latestActualsComparison) return;
+  latestActualsComparison = null;
+  latestActualsSourcePayload = null;
+  latestActualsSourceRawText = null;
+  latestActualsSourceSha256 = null;
+  latestActualsForecastStartMonth = null;
+  actualsResultRoot.replaceChildren();
+  actualsError.textContent = '';
+  actualsError.hidden = true;
+  actualsStatus.textContent = 'Forecast month changed — import actuals again.';
+  actualsStatus.className = 'status-pill status-muted';
+  downloadVarianceReportButton.disabled = true;
+});
+
 downloadActualsTemplateButton.addEventListener('click', () => {
   try {
     const model = readModel();
@@ -1020,7 +1036,7 @@ loadActualsInput.addEventListener('change', async event => {
 downloadVarianceReportButton.addEventListener('click', () => {
   if (!latestModel || !latestCashRunwayPlan || !latestCashRunway || !latestActualsComparison ||
       latestActualsSourceRawText === null || !latestActualsSourceSha256 || !latestActualsForecastStartMonth ||
-      downloadVarianceReportButton.disabled) {
+      actualsForecastStartMonth.value !== latestActualsForecastStartMonth || downloadVarianceReportButton.disabled) {
     actualsError.textContent = 'Import and reconcile actuals against the current calculated plan before downloading the variance bundle.';
     actualsError.hidden = false;
     return;

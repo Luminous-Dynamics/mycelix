@@ -272,7 +272,7 @@ try {
   await page.locator('#load-actuals-file').setInputFiles({
     name: 'actuals-source-v1.json',
     mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify(actualsSource, null, 2) + '\\n')
+    buffer: Buffer.from(JSON.stringify(actualsSource, null, 2) + '\n')
   });
   await page.getByText('Actuals compared — source balances reconcile').waitFor();
   assert.equal(await page.locator('#download-variance-report').isDisabled(), false);
@@ -289,7 +289,10 @@ try {
     varianceBundle.sourceArtifactSha256,
     'the embedded original source text must reproduce the recorded digest'
   );
-  completedChecks.push('complete-month actuals reconcile and export a hash-verifiable local variance bundle');
+  await page.locator('#actuals-forecast-start-month').fill('2026-02');
+  assert.equal(await page.locator('#download-variance-report').isDisabled(), true);
+  assert.match(await page.locator('#actuals-status').innerText(), /Forecast month changed/);
+  completedChecks.push('complete-month actuals reconcile, export a hash-verifiable bundle, and invalidate on mapping changes');
 
   await page.locator('#cash-runway-details > summary').click();
   await page.locator('#cash-month-1-sales').fill('25');
