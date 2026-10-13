@@ -47,7 +47,7 @@ A future evidence-case record should contain only the minimum index data needed 
 - model identifier and exact revision identifier;
 - jurisdiction and rule-pack identifier/status;
 - manifest schema version and manifest SHA-256 digest;
-- SHA-256 digest of the independently controlled expected-claims contract, which pins schema/case/jurisdiction/model bytes/rule pack/toolchain and mandatory-claim definitions, criteria, scope, approved tools, and exact input/output digests;
+- SHA-256 digest of the independently controlled expected-claims contract, which pins the exact schema digest and verifier executable/version, plus case/jurisdiction/model bytes/rule pack/toolchain and mandatory-claim definitions, criteria, scope, approved tools, and exact input/output digests;
 - an authorized content URI or retrieval locator, if used, with access/retention policy;
 - the manifest-declared aggregate status kept separate from the verifier's evidence-integrity verdict and a count of each claim state;
 - author identity reference, creation timestamp, and provenance for the verifier that computed the aggregate;
@@ -95,7 +95,7 @@ The first implementation should include unit tests and multi-agent Holochain val
 - reject a record that references a nonexistent building or predecessor;
 - reject self-asserted aggregate PASS when any mandatory claim is unresolved or failed;
 - reject a manifest, model artifact, claim input, tool executable/container, or provided rule-source snapshot whose bytes do not match its independently pinned digest;
-- reject changes to the case/jurisdiction, model artifact digests, rule pack, toolchain, mandatory claim criteria, subject element scope, approved tool ID, or claim input/output digests when the expected-claims contract is pinned;
+- reject changes to the embedded schema digest, verifier version/executable digest, case/jurisdiction, model artifact digests, rule pack, toolchain, mandatory claim criteria, subject element scope, approved tool ID, or claim input/output digests when the expected-claims contract is pinned;
 - never render `EVIDENCE_INTEGRITY_VERIFIED` as engineering compliance or professional/statutory approval;
 - reject a review attestation that names a different model revision from the case under review;
 - prevent a superseded record from appearing as the current review result without displaying its supersession state;
