@@ -124,7 +124,7 @@ def main() -> int:
     bad["supersedesEventId"] = example["eventId"]
     invalid("retraction requires an explicit reason", bad)
 
-    print("PASS: JSON Schema draft 2020-12 meta-validation and 17 contract cases")
+    print("PASS: JSON Schema draft 2020-12 meta-validation and 19 contract cases")
     return 0
 
 
