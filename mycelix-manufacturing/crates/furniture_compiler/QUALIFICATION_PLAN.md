@@ -33,17 +33,18 @@ Use the current edition applicable to the chosen market and intended use. Obtain
 
 - [ISO 19682:2023 — Furniture — Tables — Test methods for the determination of stability, strength and durability](https://www.iso.org/standard/73590.html). ISO describes this as applying to the structure of tables and desks. This is the current published successor to **ISO 21016:2007**, which ISO marks withdrawn. Do not cite the withdrawn edition as the active desk test-method standard.
 - [ANSI/BIFMA X5.5-2021 — Desk and Table Products](https://www.bifma.org/page/standardsshortdesc) covers desk/table products aimed at commercial office, institutional, and educational environments, including product types called out in the standard.
-- [ANSI/BIFMA X6.5-2022 — Home Office and Occasional-Use Desk, Table and Storage Products](https://www.bifma.org/page/standardsshortdesc) may be relevant if the intended claim/use is home-office or occasional-use furniture.
+- [ANSI/BIFMA X6.5-2022 — Home Office and Occasional-Use Desk, Table and Storage Products](https://www.bifma.org/page/standardsshortdesc) may be relevant if the intended claim/use is home-office or occasional-use furniture. The current BIFMA descriptions page also lists X5.5-2021 for commercial/institutional desk and table products and X10.1-2024 for computer-use ergonomic dimensions.
 
 Choose one applicable qualification route with a competent test engineer or laboratory. Do not mix convenient tests from different standards and then claim conformance to either standard. Confirm edition/status again before product release.
 
 ### Ergonomic design intent
 
 - [ISO 9241-5:2024 — Workstation layout and postural requirements](https://www.iso.org/standard/86222.html) gives ergonomic principles and requirements for workstation equipment used with visual-display systems. Use it as a design-review reference for workstation layout, fit, adjustability, postural change, support surfaces, and user information where applicable. It is not a claim that one fixed desk height fits every person or that the furniture alone ensures ergonomic health outcomes.
+- [ANSI/BIFMA X10.1-2024 — Ergonomics Requirements for Furniture Designed for Computer Use](https://www.bifma.org/page/standardsshortdesc) establishes dimensional requirements applying relevant measurable ergonomics principles to computer-use furniture. Evaluate it alongside ISO 9241-5 when the market and intended use make it applicable; neither standard replaces structural stability/strength/durability testing.
 
 ### Storage modules, if introduced
 
-- [ISO 7170:2021 — Storage units — Test methods for strength, durability and stability](https://www.iso.org/standard/76864.html) applies to assembled storage units and their movable/non-movable parts. Add it to the plan when drawers, cupboards, or storage units enter scope. It is not a substitute for table/desk-specific testing.
+- [ISO 7170:2021 — Storage units — Test methods for strength, durability and stability](https://www.iso.org/standard/76864.html) applies to assembled storage units and their movable/non-movable parts. ISO currently lists it as published and under systematic review; recheck its lifecycle before test-plan approval. Add it to the plan when drawers, cupboards, or storage units enter scope. It is not a substitute for table/desk-specific testing.
 
 ### Market and material obligations
 
