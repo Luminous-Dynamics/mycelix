@@ -215,6 +215,7 @@ pub struct WasteMeasurementCoverageAssessment {
     pub imputed_rate_bps: u16,
     pub unobserved_rate_bps: u16,
     pub direct_weighing_rate_bps: u16,
+    pub non_imputed_observation_rate_bps: u16,
     pub directly_weighed_mass_grams: u64,
     pub count_derived_mass_grams: u64,
     pub visually_estimated_mass_grams: u64,
@@ -318,7 +319,7 @@ pub fn assess_waste_measurement_coverage(
                         {
                             return Err(WasteMeasurementError::CalibrationNotValidAtObservation);
                         }
-                        let net = gross_grams - tare_grams;
+                        let net = *gross_grams - *tare_grams;
                         direct_mass = direct_mass
                             .checked_add(net)
                             .ok_or(WasteMeasurementError::MassOverflow)?;
@@ -336,7 +337,7 @@ pub fn assess_waste_measurement_coverage(
                         if *count > 0 && *grams_per_unit == 0 {
                             return Err(WasteMeasurementError::InvalidDerivedMassEvidence);
                         }
-                        let mass = count
+                        let mass = (*count)
                             .checked_mul(*grams_per_unit)
                             .ok_or(WasteMeasurementError::MassOverflow)?;
                         count_derived_mass = count_derived_mass
@@ -417,6 +418,7 @@ pub fn assess_waste_measurement_coverage(
     let imputed_rate_bps = rate_bps_ceil(imputed_count, planned)?;
     let unobserved_rate_bps = rate_bps_ceil(imputed_plus_missing, planned)?;
     let direct_weighing_rate_bps = rate_bps_floor(direct_count, planned)?;
+    let non_imputed_observation_rate_bps = rate_bps_floor(directly_observed, planned)?;
 
     let mut gate_failures = Vec::new();
     if missing_rate_bps > protocol.maximum_missing_bps {
@@ -467,6 +469,7 @@ pub fn assess_waste_measurement_coverage(
         imputed_rate_bps,
         unobserved_rate_bps,
         direct_weighing_rate_bps,
+        non_imputed_observation_rate_bps,
         directly_weighed_mass_grams: direct_mass,
         count_derived_mass_grams: count_derived_mass,
         visually_estimated_mass_grams: visual_mass,
@@ -779,6 +782,7 @@ mod tests {
         assert_eq!(result.model_imputed_slots, 1);
         assert_eq!(result.not_observed_slots, 1);
         assert_eq!(result.direct_weighing_rate_bps, 5_000);
+        assert_eq!(result.non_imputed_observation_rate_bps, 5_000);
         assert_eq!(result.missing_rate_bps, 2_500);
         assert_eq!(result.imputed_rate_bps, 2_500);
         assert_eq!(result.unobserved_rate_bps, 5_000);
@@ -850,6 +854,7 @@ mod tests {
         let result = assess_waste_measurement_coverage(&protocol(), &values, 7_000).unwrap();
         assert_eq!(result.count_derived_slots, 1);
         assert_eq!(result.count_derived_mass_grams, 300);
+        assert_eq!(result.non_imputed_observation_rate_bps, 7_500);
         assert_eq!(result.model_imputed_slots, 0);
         assert_eq!(result.model_imputed_mass_grams, 0);
     }
