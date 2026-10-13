@@ -622,7 +622,8 @@ export class AccountingAuthorityStore {
     input: AcceptSettlementAllocationLineageCheckpointInput,
   ): Promise<AcceptSettlementAllocationLineageCheckpointResult> {
     const candidate = normalizeSignedCheckpoint(input.checkpoint, input.trustPolicy);
-    const runner = (this.client as unknown as { $transaction?: SerializableTransactionRunner }).$transaction;
+    const transactionHost = this.client as unknown as { $transaction?: SerializableTransactionRunner };
+    const runner = transactionHost.$transaction;
     if (typeof runner !== 'function') {
       throw new Error('checkpoint acceptance requires Prisma $transaction with SERIALIZABLE isolation');
     }
@@ -636,7 +637,7 @@ export class AccountingAuthorityStore {
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       try {
-        return await runner(async (rawTransaction) => {
+        return await runner.call(transactionHost, async (rawTransaction) => {
           const { evidence, cursor } = checkpointTransactionClient(rawTransaction);
           const current = await cursor.findUnique({
             where: { sourceRef_sourceInstanceId_batchId: key },
