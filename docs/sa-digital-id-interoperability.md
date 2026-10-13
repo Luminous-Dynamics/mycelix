@@ -40,7 +40,7 @@ This oracle is deliberately **not a credential verifier**. It performs no parsin
 
 ### Evidence fingerprints and report limitations
 
-Report schema v2 records SHA-256 fingerprints for the exact profile bytes read by the CLI, the normalized profile representation, and the source files of both the policy engine and contract validator. Repeated runs over the same files should produce byte-identical JSON reports. The fingerprints let a reviewer compare the report to the input and code artifacts, but they are **not** a digital signature and do not independently prove that a trusted CI runner generated the report. CI retention is time-limited; preserve the report together with the exact commit and workflow run when it is needed as evidence.
+Report schema v3 records the exact source commit SHA supplied by CI, plus SHA-256 fingerprints for the exact profile bytes read by the CLI, normalized profile representation, and source files of both the policy engine and contract validator. Repeated runs over the same files and source commit should produce byte-identical JSON reports. These identifiers let a reviewer compare a report to its declared input/code, but they are **not** a digital signature and do not independently prove that a trusted CI runner generated it. CI artifact retention is time-limited; preserve the report together with the workflow run when it is needed as evidence.
 
 ## Near-term official path: the existing Online Verification Service
 
