@@ -6,6 +6,7 @@ import { buildDeterministicNettingBatches } from './netting.js';
 import { createRoyaltyObligationAuthority } from './obligation-authority.js';
 import { reconstructSettlementRecovery, SettlementAttemptState } from './recovery.js';
 import {
+  assertSettlementAllocationLineageCheckpointAdvances,
   createSettlementAllocationLineageCheckpoint,
   requireCheckpointBackedSettlementAllocationLineage,
   resolveCheckpointBackedSettlementAllocationLineage,
@@ -141,6 +142,26 @@ function verifiedCheckpoint() {
   return verifySettlementAllocationLineageCheckpoint(signedCheckpoint(), trust);
 }
 
+function signedCheckpointState(options: {
+  readonly checkpointId?: string;
+  readonly asOf?: string;
+  readonly observedThrough?: string;
+  readonly highWaterMark?: string;
+} = {}) {
+  const unsigned = createSettlementAllocationLineageCheckpoint({
+    checkpointId: options.checkpointId ?? 'checkpoint:allocation-lineage:next',
+    sourceRef: trust.sourceRef,
+    sourceInstanceId: trust.sourceInstanceId,
+    batchId: batch.batchId,
+    asOf: options.asOf ?? '2026-10-03T00:00:00Z',
+    observedThrough: options.observedThrough ?? '2026-10-03T00:00:05Z',
+    highWaterMark: options.highWaterMark ?? '43',
+    allocations: [initial, successor],
+    links: [link],
+  });
+  return signSettlementAllocationLineageCheckpoint(unsigned, trust.signerKeyId, privateKeyPem);
+}
+
 describe('authenticated settlement allocation lineage checkpoint', () => {
   it('authenticates exact source snapshot and resolves its canonical successor head', () => {
     const verified = verifiedCheckpoint();
@@ -205,6 +226,57 @@ describe('authenticated settlement allocation lineage checkpoint', () => {
       allocations: [initial, successor],
       links: [link],
     })).toThrow(/canonical unsigned integer/);
+  });
+
+  it('accepts a signature-valid checkpoint that advances the trusted source cursor', () => {
+    const previous = signedCheckpoint();
+    const candidate = signedCheckpointState();
+    const advanced = assertSettlementAllocationLineageCheckpointAdvances(previous, candidate, trust);
+    expect(advanced.highWaterMark).toBe('43');
+    expect(Date.parse(advanced.observedThrough)).toBeGreaterThan(Date.parse(previous.observedThrough));
+  });
+
+  it('rejects a signed checkpoint whose high-water mark rolls back', () => {
+    const previous = signedCheckpoint();
+    const candidate = signedCheckpointState({ highWaterMark: '41' });
+    expect(() => assertSettlementAllocationLineageCheckpointAdvances(previous, candidate, trust))
+      .toThrow(/high-water mark cannot move backwards/);
+  });
+
+  it('rejects a signed checkpoint whose as-of time rolls back even when its cursor grows', () => {
+    const previous = signedCheckpoint();
+    const candidate = signedCheckpointState({
+      asOf: '2026-10-01T00:00:00Z',
+      observedThrough: '2026-10-02T00:00:05Z',
+      highWaterMark: '43',
+    });
+    expect(() => assertSettlementAllocationLineageCheckpointAdvances(previous, candidate, trust))
+      .toThrow(/asOf cannot move backwards/);
+  });
+
+  it('rejects checkpoint-id changes that do not advance any source cursor', () => {
+    const previous = signedCheckpoint();
+    const replayWithNewId = signedCheckpointState({
+      checkpointId: 'checkpoint:allocation-lineage:replay',
+      asOf: previous.asOf,
+      observedThrough: previous.observedThrough,
+      highWaterMark: previous.highWaterMark,
+    });
+    expect(() => assertSettlementAllocationLineageCheckpointAdvances(previous, replayWithNewId, trust))
+      .toThrow(/does not advance the accepted source cursor/);
+  });
+
+  it('permits an idle-source checkpoint only when observation coverage advances', () => {
+    const previous = signedCheckpoint();
+    const idle = signedCheckpointState({
+      checkpointId: 'checkpoint:allocation-lineage:idle',
+      asOf: previous.asOf,
+      observedThrough: '2026-10-02T00:00:06Z',
+      highWaterMark: previous.highWaterMark,
+    });
+    const advanced = assertSettlementAllocationLineageCheckpointAdvances(previous, idle, trust);
+    expect(advanced.highWaterMark).toBe(previous.highWaterMark);
+    expect(advanced.observedThrough).toBe('2026-10-02T00:00:06.000Z');
   });
 
   it('does not let a spread clone of a verified checkpoint retain runtime trust', () => {
