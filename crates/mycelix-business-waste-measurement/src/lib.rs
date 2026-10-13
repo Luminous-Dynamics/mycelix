@@ -943,6 +943,18 @@ mod tests {
     }
 
     #[test]
+    fn missing_slot_cannot_be_declared_before_its_target_time() {
+        let mut values = outcomes();
+        if let WasteSlotOutcome::NotObserved(record) = &mut values[3] {
+            record.recorded_at_unix_ms = 4_999;
+        }
+        assert_eq!(
+            assess_waste_measurement_coverage(&protocol(), &values, 7_000),
+            Err(WasteMeasurementError::InvalidEvidenceTimestamp)
+        );
+    }
+
+    #[test]
     fn rejects_unaccounted_planned_slot() {
         let mut values = outcomes();
         values.pop();
