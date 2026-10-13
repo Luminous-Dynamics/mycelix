@@ -181,6 +181,44 @@ test('PostgreSQL keeps checkpoint evidence append-only and rejects cursor rollba
     assert.equal(accepted[0]?.highWaterMark, '11');
     assert.equal(accepted[0]?.revision, 2);
 
+    // An idle source may advance observation coverage without changing its data HWM.
+    const idle = {
+      id: 'checkpoint:sql:idle-observation',
+      root: root('7'),
+      asOf: next.asOf,
+      observedThrough: '2026-10-03T00:00:10.000Z',
+      highWaterMark: next.highWaterMark,
+    };
+    await insertCheckpoint(prisma, idle);
+    await prisma.$executeRawUnsafe(
+      'UPDATE "SettlementAllocationLineageCheckpointCursor" SET ' +
+      '"checkpointId" = $1, "checkpointRoot" = $2, "asOf" = $3, "observedThrough" = $4, ' +
+      '"highWaterMark" = $5, "revision" = 3 ' +
+      'WHERE "sourceRef" = $6 AND "sourceInstanceId" = $7 AND "batchId" = $8',
+      idle.id,
+      idle.root,
+      idle.asOf,
+      idle.observedThrough,
+      idle.highWaterMark,
+      sourceRef,
+      sourceInstanceId,
+      batchId,
+    );
+    const idleAccepted = await prisma.$queryRawUnsafe<Array<{
+      checkpointRoot: string; highWaterMark: string; observedThrough: Date; revision: number;
+    }>>(
+      'SELECT "checkpointRoot", "highWaterMark", "observedThrough", "revision" ' +
+      'FROM "SettlementAllocationLineageCheckpointCursor" ' +
+      'WHERE "sourceRef" = $1 AND "sourceInstanceId" = $2 AND "batchId" = $3',
+      sourceRef,
+      sourceInstanceId,
+      batchId,
+    );
+    assert.equal(idleAccepted[0]?.checkpointRoot, idle.root);
+    assert.equal(idleAccepted[0]?.highWaterMark, '11');
+    assert.equal(new Date(idleAccepted[0]!.observedThrough).toISOString(), idle.observedThrough);
+    assert.equal(idleAccepted[0]?.revision, 3);
+
     const timestampRollback = {
       id: 'checkpoint:sql:timestamp-rollback',
       root: root('5'),
@@ -193,7 +231,7 @@ test('PostgreSQL keeps checkpoint evidence append-only and rejects cursor rollba
       prisma.$executeRawUnsafe(
         'UPDATE "SettlementAllocationLineageCheckpointCursor" SET ' +
         '"checkpointId" = $1, "checkpointRoot" = $2, "asOf" = $3, "observedThrough" = $4, ' +
-        '"highWaterMark" = $5, "revision" = 3 ' +
+        '"highWaterMark" = $5, "revision" = 4 ' +
         'WHERE "sourceRef" = $6 AND "sourceInstanceId" = $7 AND "batchId" = $8',
         timestampRollback.id,
         timestampRollback.root,
@@ -210,16 +248,16 @@ test('PostgreSQL keeps checkpoint evidence append-only and rejects cursor rollba
     const noProgress = {
       id: 'checkpoint:sql:no-progress',
       root: root('6'),
-      asOf: next.asOf,
-      observedThrough: next.observedThrough,
-      highWaterMark: next.highWaterMark,
+      asOf: idle.asOf,
+      observedThrough: idle.observedThrough,
+      highWaterMark: idle.highWaterMark,
     };
     await insertCheckpoint(prisma, noProgress);
     await assert.rejects(
       prisma.$executeRawUnsafe(
         'UPDATE "SettlementAllocationLineageCheckpointCursor" SET ' +
         '"checkpointId" = $1, "checkpointRoot" = $2, "asOf" = $3, "observedThrough" = $4, ' +
-        '"highWaterMark" = $5, "revision" = 3 ' +
+        '"highWaterMark" = $5, "revision" = 4 ' +
         'WHERE "sourceRef" = $6 AND "sourceInstanceId" = $7 AND "batchId" = $8',
         noProgress.id,
         noProgress.root,
@@ -231,6 +269,65 @@ test('PostgreSQL keeps checkpoint evidence append-only and rejects cursor rollba
         batchId,
       ),
       /must advance a source cursor or observation coverage/,
+    );
+
+    // Decimal high-water marks must stay exact beyond JavaScript's safe-integer range.
+    const largeCursor = {
+      id: 'checkpoint:sql:large-hwm',
+      root: root('8'),
+      asOf: '2026-10-04T00:00:00.000Z',
+      observedThrough: '2026-10-04T00:00:05.000Z',
+      highWaterMark: '9007199254740993',
+    };
+    await insertCheckpoint(prisma, largeCursor);
+    await prisma.$executeRawUnsafe(
+      'UPDATE "SettlementAllocationLineageCheckpointCursor" SET ' +
+      '"checkpointId" = $1, "checkpointRoot" = $2, "asOf" = $3, "observedThrough" = $4, ' +
+      '"highWaterMark" = $5, "revision" = 4 ' +
+      'WHERE "sourceRef" = $6 AND "sourceInstanceId" = $7 AND "batchId" = $8',
+      largeCursor.id,
+      largeCursor.root,
+      largeCursor.asOf,
+      largeCursor.observedThrough,
+      largeCursor.highWaterMark,
+      sourceRef,
+      sourceInstanceId,
+      batchId,
+    );
+    const largeAccepted = await prisma.$queryRawUnsafe<Array<{ highWaterMark: string; revision: number }>>(
+      'SELECT "highWaterMark", "revision" FROM "SettlementAllocationLineageCheckpointCursor" ' +
+      'WHERE "sourceRef" = $1 AND "sourceInstanceId" = $2 AND "batchId" = $3',
+      sourceRef,
+      sourceInstanceId,
+      batchId,
+    );
+    assert.equal(largeAccepted[0]?.highWaterMark, '9007199254740993');
+    assert.equal(largeAccepted[0]?.revision, 4);
+
+    const largeRollback = {
+      id: 'checkpoint:sql:large-hwm-rollback',
+      root: root('9'),
+      asOf: '2026-10-05T00:00:00.000Z',
+      observedThrough: '2026-10-05T00:00:05.000Z',
+      highWaterMark: '9007199254740992',
+    };
+    await insertCheckpoint(prisma, largeRollback);
+    await assert.rejects(
+      prisma.$executeRawUnsafe(
+        'UPDATE "SettlementAllocationLineageCheckpointCursor" SET ' +
+        '"checkpointId" = $1, "checkpointRoot" = $2, "asOf" = $3, "observedThrough" = $4, ' +
+        '"highWaterMark" = $5, "revision" = 5 ' +
+        'WHERE "sourceRef" = $6 AND "sourceInstanceId" = $7 AND "batchId" = $8',
+        largeRollback.id,
+        largeRollback.root,
+        largeRollback.asOf,
+        largeRollback.observedThrough,
+        largeRollback.highWaterMark,
+        sourceRef,
+        sourceInstanceId,
+        batchId,
+      ),
+      /highWaterMark cannot move backwards/,
     );
 
     await assert.rejects(
