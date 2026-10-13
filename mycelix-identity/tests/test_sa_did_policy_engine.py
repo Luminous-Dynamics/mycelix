@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 import sys
@@ -152,6 +154,30 @@ class SyntheticPolicyEngineTests(unittest.TestCase):
             self._evaluate_with("time_state", "unknown"),
             ("indeterminate", "credential_time_unknown"),
         )
+
+
+    def test_cli_emits_valid_machine_readable_evidence_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            report_path = Path(temporary_dir) / "sa-did-policy-report.json"
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(IDENTITY_DIR / "sa_did_policy_engine.py"),
+                    "--report",
+                    str(report_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertIn("SA_DID_POLICY_ORACLE=PASS vectors=16 matched=16", completed.stdout)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["vectors_total"], 16)
+            self.assertEqual(report["vectors_matched"], 16)
+            self.assertTrue(report["passed"])
+            self.assertFalse(report["cryptographic_verification_performed"])
+            self.assertFalse(report["dha_endpoint_contacted"])
 
 
 if __name__ == "__main__":
