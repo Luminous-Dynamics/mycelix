@@ -49,7 +49,7 @@ References:
 
 ## 4. Envelope contract
 
-The machine-readable JSON Schema is at docs/food/schemas/food-traceability-event.v1.schema.json. Synthetic examples cover an egg lot (`examples/eggs-produced.v1.json`), a milk-to-cheese transformation (`examples/milk-to-cheese-transformed.v1.json`), a model-versioned forecast (`examples/forecasted-harvest.v1.json`), and a missing cold-chain sample (`examples/cold-chain-missing-sample.v1.json`). V1 pins unit-code versions to REC20-REV17-2021 so a vague value such as latest cannot silently change interpretation.
+The machine-readable JSON Schema is at docs/food/schemas/food-traceability-event.v1.schema.json. The synthetic corpus manifest at docs/food/food-traceability-corpus-manifest.v1.json pins the schema and four fixture Git-blob identities. Examples cover an egg lot, milk-to-cheese transformation, model-versioned forecast, and missing cold-chain sample. V1 pins unit-code versions to REC20-REV17-2021 so a vague value such as latest cannot silently change interpretation.
 
 Every event carries:
 
@@ -58,7 +58,7 @@ Every event carries:
 - eventTime: source event time; preserve its timezone/offset.
 - recordedAt: time the current system accepted the record. Do not overwrite event time with receive time.
 - actorRef, siteRef: stable identity references. Public payloads do not have to reveal a farm's exact address or household identity.
-- subjects: product-profile and lot references with a typed quantity state.
+- subjects: product-profile and lot references; quantities are optional at the identity layer and required by event-specific rules. A handling observation identifies its lot without fabricating a product quantity. For transformation events, `subjects` must match the output-lot identities; quantity-bearing inputs and outputs remain canonical in their respective arrays.
 - inputs and outputs: required for transformation events, preserving the many-to-many relationship from input lots to output lots.
 - handlingObservations: sensor observations, explicitly marking missing and invalid measurements.
 - evidenceRefs: references to source evidence with a claim/verification status.
@@ -84,12 +84,12 @@ Unknown must not become zero or a nominal value. Planned/forecast amounts must n
 | PLANNED | Intention or planting/production plan | Does not create current supply |
 | FORECASTED | Model estimate or projected output | Forecast metadata must bind model identity/version and horizon; never inventory |
 | PRODUCED / HARVESTED | Reported production or crop harvest | Keep source evidence and measurement method; event does not prove edible or marketable status |
-| TRANSFORMED | One or more lots transformed into one or more lots | Record input/output lots and quantities; preserve lineage and any loss/by-product |
+| TRANSFORMED | One or more lots transformed into one or more lots | Record input/output quantities once; `subjects` must exactly identify output lots, and input/output lot identities cannot overlap |
 | PACKED | Product packed or repacked | Preserve source lots, packaging/aggregation relations and quantities |
 | DISPATCHED / RECEIVED | Shipment dispatch/receipt | Both events bind the same shipmentRef and explicit origin/destination; dispatch is not proof of arrival and receipt is distinct |
 | STORED | Placement/status event for a lot at a site | Location/capability claims are separate from measured handling observations |
 | HANDOFF | Physical handover to an authorized recipient/channel | Order intention is not fulfillment; keep receipt separate |
-| HANDLING_OBSERVED | Sensor observation or explicit sensor gap/invalid reading | Preserve units, sensor identity, event/receive times and calibration status |
+| HANDLING_OBSERVED | Sensor observation or explicit sensor gap/invalid reading | Identify the affected lot, but keep measurement state separate from product quantity; preserve units, sensor identity, event/receive times and calibration status |
 | RECALLED / SPOILED | Lot restriction or loss event | Affected lot lineage propagates to dependent output lots; do not silently continue offering affected stock |
 | CORRECTION / RETRACTION | Correct a previous assertion | Append-only link to superseded event, reason and verifier/issuer provenance |
 
@@ -142,7 +142,8 @@ Each fixture should carry an immutable ID, schema/version, seed where generated,
 ## 8. Minimal acceptance gates
 
 - [ ] JSON Schema parses under a draft-2020-12 validator; valid and invalid examples are tested.
-- [ ] Cross-field validator checks event-type/quantity-state rules, unit code membership and product-profile allowed-unit policy.
+- [ ] Cross-field validator checks event-type/quantity-state rules, forecast horizon ordering, shipment endpoint consistency, transformation subject/output alignment, and correction self-reference.
+- [ ] H0 rejects units outside the small pinned fixture subset or incompatible with fixture product profiles; production integration must validate full Recommendation 20 list membership and the authoritative product-profile unit policy.
 - [ ] EPCIS adapter mapping has round-trip tests for supported fields and explicit loss reports for non-representable fields.
 - [ ] Idempotency key/content-digest conflict behavior is tested.
 - [ ] Transformation, dispatch/receipt, handoff and recall lineage tests pass.
