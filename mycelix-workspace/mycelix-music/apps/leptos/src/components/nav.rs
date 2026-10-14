@@ -13,6 +13,7 @@ pub fn Nav() -> impl IntoView {
             <div class="nav-links">
                 <A href="/">"Synthesize"</A>
                 <A href="/discover">"Discover"</A>
+                <A href="/videos">"Watch"</A>
                 <A href="/gallery">"Gallery"</A>
                 <A href="/dashboard">"Dashboard"</A>
                 <A href="/upload">"Contribute"</A>
