@@ -16,18 +16,15 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["devtools"] }
 tauri-plugin-shell = "2"
 
-# Prism engine crates (fetch URLs directly — no CORS proxy needed)
 prism-common = { path = "../prism-common" }
 prism-dom = { path = "../prism-dom" }
 prism-reflex = { path = "../prism-reflex" }
 prism-privacy = { path = "../prism-privacy" }
 prism-search = { path = "../prism-search" }
 prism-ingest = { path = "../prism-ingest" }
+prism-net = { path = "../prism-net" }
 
-# Direct HTTP fetch (no CORS restrictions in native)
-reqwest = { workspace = true }
 tokio = { workspace = true }
-
 serde = { workspace = true }
 serde_json = { workspace = true }
 url = { workspace = true }
