@@ -65,17 +65,40 @@ pub enum ReplayError {
     AdapterConfiguration,
     ConnectorMismatch,
     NoFiles,
-    TooManyFiles { actual: usize, maximum: usize },
-    SourceFileCountMismatch { expected: usize, actual: usize },
-    Diagnostic { index: usize, error: DiagnosticError },
-    UnexpectedSourceFile { index: usize },
-    ManifestMismatch { index: usize, source_file_digest: Digest32 },
+    TooManyFiles {
+        actual: usize,
+        maximum: usize,
+    },
+    SourceFileCountMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    Diagnostic {
+        index: usize,
+        error: DiagnosticError,
+    },
+    UnexpectedSourceFile {
+        index: usize,
+    },
+    ManifestMismatch {
+        index: usize,
+        source_file_digest: Digest32,
+    },
     MissingCampaignFile,
-    Csv { index: usize },
-    Serialization { index: usize },
+    Csv {
+        index: usize,
+    },
+    Serialization {
+        index: usize,
+    },
     DuplicateCampaignSourceEvent { source_event_id: ReferenceId },
-    AcceptedCountMismatch { expected: u64, actual: u64 },
-    TooManyNormalizedObservations { maximum: usize },
+    AcceptedCountMismatch {
+        expected: u64,
+        actual: u64,
+    },
+    TooManyNormalizedObservations {
+        maximum: usize,
+    },
     ArithmeticOverflow,
     InvalidEvidence,
 }
@@ -148,15 +171,12 @@ pub fn replay_campaign(
     let mut source_file_digests = Vec::with_capacity(files.len());
 
     for (file_index, file) in files.iter().enumerate() {
-        let manifest = diagnose_delimited_import(
-            adapter,
-            file.bytes.as_slice(),
-            file.ingested_at_unix_ms,
-        )
-        .map_err(|error| ReplayError::Diagnostic {
-            index: file_index,
-            error,
-        })?;
+        let manifest =
+            diagnose_delimited_import(adapter, file.bytes.as_slice(), file.ingested_at_unix_ms)
+                .map_err(|error| ReplayError::Diagnostic {
+                    index: file_index,
+                    error,
+                })?;
         let Some(expected) = expected_manifests.remove(&manifest.source_file_digest) else {
             return Err(ReplayError::UnexpectedSourceFile { index: file_index });
         };
@@ -179,8 +199,8 @@ pub fn replay_campaign(
         return Err(ReplayError::MissingCampaignFile);
     }
 
-    let accepted_source_events = u64::try_from(global_source_events.len())
-        .map_err(|_| ReplayError::ArithmeticOverflow)?;
+    let accepted_source_events =
+        u64::try_from(global_source_events.len()).map_err(|_| ReplayError::ArithmeticOverflow)?;
     if accepted_source_events != campaign.accepted_rows {
         return Err(ReplayError::AcceptedCountMismatch {
             expected: campaign.accepted_rows,
@@ -195,7 +215,9 @@ pub fn replay_campaign(
             .observed_at_unix_ms
             .cmp(&right.observation.observed_at_unix_ms)
             .then_with(|| left.input.cmp(&right.input))
-            .then_with(|| left.observation.observation.cmp(&right.observation.observation))
+            .then_with(|| {
+                left.observation.observation.cmp(&right.observation.observation)
+            })
     });
     let observation_set_digest = observation_set_digest(&observations);
     let mut evidence = CampaignReplayEvidence {
@@ -290,7 +312,9 @@ fn serialize_single_record(
 ) -> Result<Vec<u8>, ReplayError> {
     let mut bytes = Vec::new();
     {
-        let mut writer = WriterBuilder::new().delimiter(delimiter).from_writer(&mut bytes);
+        let mut writer = WriterBuilder::new()
+            .delimiter(delimiter)
+            .from_writer(&mut bytes);
         writer
             .write_record(headers)
             .map_err(|_| ReplayError::Serialization { index: file_index })?;
@@ -427,12 +451,8 @@ mod tests {
         let manifests = files
             .iter()
             .map(|file| {
-                diagnose_delimited_import(
-                    adapter,
-                    file.bytes.as_slice(),
-                    file.ingested_at_unix_ms,
-                )
-                .unwrap()
+                diagnose_delimited_import(adapter, file.bytes.as_slice(), file.ingested_at_unix_ms)
+                    .unwrap()
             })
             .collect::<Vec<_>>();
         ExtractionCampaignManifest::from_files(manifests).unwrap()
