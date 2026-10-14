@@ -1,0 +1,73 @@
+{
+  "schema": "mycelix.sovereignty-role-concentration-formal-crosswalk.v1",
+  "profile_id": "SOV-AI-ROLE-CONCENTRATION-FORMAL-QUAL-001-V1",
+  "status": "candidate-verification",
+  "authority": "non-authoritative",
+  "formal_subject_head": "824289de1940bcb6096120da21735cdaa87e3efd",
+  "formal_subject_tree": "49aa06853c7484d0a442faa2784a438791e130f6",
+  "mappings": [
+    {
+      "id": "role-concentration-finding",
+      "boundary": "holding two or more qualification-path roles != automatic absence of conflict",
+      "tla": [
+        "RoleConcentrationRequiresFinding"
+      ],
+      "alloy": [
+        "RoleConcentrationRequiresFindingInvariant"
+      ],
+      "reference": [
+        "assign -> RoleConcentrationRequiresFinding"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "full-control-independent-review",
+      "boundary": "holding all four qualification-path roles != self-certifying qualification",
+      "tla": [
+        "FullControlRequiresIndependentExternalReview"
+      ],
+      "alloy": [
+        "FullControlRequiresIndependentReviewInvariant"
+      ],
+      "reference": [
+        "full-control-bad -> FullControlRequiresIndependentExternalReview"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "self-review",
+      "boundary": "subject reviewing itself != external review",
+      "tla": [
+        "FullControlRequiresIndependentExternalReview"
+      ],
+      "alloy": [
+        "SelfReviewAloneDoesNotCountAsIndependentReview"
+      ],
+      "reference": [
+        "self-review-full-control-bad -> FullControlRequiresIndependentExternalReview"
+      ],
+      "coverage": "aligned"
+    },
+    {
+      "id": "same-role-review",
+      "boundary": "different subject that still holds a qualification-path role != independent reviewer",
+      "tla": [
+        "FullControlRequiresIndependentExternalReview"
+      ],
+      "alloy": [
+        "FullControlRequiresIndependentReviewInvariant"
+      ],
+      "reference": [
+        "same-role-review -> FullControlRequiresIndependentExternalReview"
+      ],
+      "coverage": "aligned"
+    }
+  ],
+  "deliberate_limits": [
+    "This theorem does not prohibit multi-role institutions.",
+    "It triggers conflict/review requirements instead of assigning a scalar power score.",
+    "It does not establish legal validity or competition-law compliance.",
+    "It does not prove that every real-world review process is substantively independent.",
+    "It does not confer sovereignty, personhood, jurisdiction, or external recognition."
+  ]
+}
