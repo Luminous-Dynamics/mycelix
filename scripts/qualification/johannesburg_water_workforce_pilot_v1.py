@@ -21,7 +21,7 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
 EXPECTED_CORPUS_BLOB_SHA = "a5a1ad647accd693c8cbccff7da63970aae90131"
-EXPECTED_SOURCE_IDS = ["JW-1", "JW-3", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3", "SA-WAGE-2026-1", "COJ-PROC-1", "PIKITUP-PROC-1", "PIKITUP-CURRENT-INDEX-1", "SA-TREASURY-OCDS-REGISTRY-1", "SA-ETENDER-PORTAL-1", "OCDS-STANDARD-1"]
+EXPECTED_SOURCE_IDS = ["JW-1", "JW-3", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3", "SA-WAGE-2026-1", "COJ-PROC-1", "PIKITUP-PROC-1", "PIKITUP-CURRENT-INDEX-1", "SA-TREASURY-OCDS-REGISTRY-1", "SA-ETENDER-PORTAL-1", "OCDS-STANDARD-1", "PIKITUP-RFQ-INDEX-1", "PIKITUP-PIK016-DOC-1"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
     "InternalServiceIssueId != external reference number",
@@ -70,13 +70,13 @@ EXPECTED_PROBES = {
 REQUIRED_GUARDS = {
     "issuer-reference-collision": {"DoNotMergeByReferenceStringAlone", "ExternalReferenceIsNotInternalIdentity"},
     "same-source-possible-duplicate": {"CandidateDuplicateIsNotProofOfDuplicate", "DoNotInferPreciseLocation"},
-    "unversioned-web-standard": {"PublicSourceDoesNotEstablishAdoption", "NoProductionSlaCalculation"},
-    "verified-repair-followed-by-repeat-fault": {"DoNotDeleteEarlierEvidence", "PriorVerificationDoesNotProveCurrentHealth"},
     "stale-systemwide-bulletin": {"BulletinDoesNotResolveIndividualCase", "RetrievalDoesNotProveCurrentness"},
     "source-fetch-unavailable": {"FetchFailureIsNotSourceAbsence", "NoInferredCurrentStatus"},
     "response-without-restoration": {"ResponseIsNotRestoration", "NoFalseResolutionClaim"},
     "working-days-calendar-conversion": {"WorkingDaysAreNotCalendarDays", "MissingClockSemanticsFailsClosed"},
+    "unversioned-web-standard": {"PublicSourceDoesNotEstablishAdoption", "NoProductionSlaCalculation"},
     "repair-claim-without-independent-evidence": {"RepairClaimIsNotVerifiedOutcome", "TicketClosureIsNotAuthority"},
+    "verified-repair-followed-by-repeat-fault": {"DoNotDeleteEarlierEvidence", "PriorVerificationDoesNotProveCurrentHealth"},
     "unauthorized-sensor-feed": {"NoUnauthorizedProviderAccess", "DataAvailabilityDoesNotImplyPermission"},
     "duplicate-invoice-with-missing-delivery-evidence": {"AnomalyIsNotProofOfFraud", "NoAutomaticBlacklisting"},
     "unfunded-work-pathway": {"NoSpeculativePayroll", "OpportunityIsNotAJob"},
@@ -93,11 +93,12 @@ REQUIRED_GUARDS = {
     "national-registry-absence-is-not-city-tender-absence": {"RegistryCoverageExcludesSomeMunicipalAndSoeData", "MissingRecordIsNotEvidenceOfNoTender", "UseIssuerSpecificNotice", "NoAbsenceProofFromListing"},
     "ocds-empty-status-is-not-open": {"EmptyTenderStatusIsNotOpen", "UnknownIsNotOpen", "RequireAuthoritativeCurrentNotice", "NoAutomaticStatusPromotion"},
     "award-is-not-contract-or-funded-role": {"AwardIsNotSignedContract", "ContractValueIsNotRoleBudget", "NoPositionBeforeFullFunding", "QualifiedWageReviewRequired", "NoSpeculativePayroll"},
-    "duplicate-ocds-release-is-not-second-opportunity": {"DeduplicateOnlyAfterExactReleaseIdentityAndContentMatch", "DoNotCountReleaseAsTenderProcess", "ConflictingContentRequiresHumanReview"    "pikitup-deadline-without-timezone-is-not-open-verified": {"TenderDeadlineNeedsTimezone", "FuturePublishedDeadlineAloneNotFullOpenGate", "CheckLatestAddendaBeforeOpenStatus", "NoAutomaticStagePromotion"},
+    "duplicate-ocds-release-is-not-second-opportunity": {"DeduplicateOnlyAfterExactReleaseIdentityAndContentMatch", "DoNotCountReleaseAsTenderProcess", "ConflictingContentRequiresHumanReview"},
+    "pikitup-deadline-without-timezone-is-not-open-verified": {"TenderDeadlineNeedsTimezone", "FuturePublishedDeadlineAloneNotFullOpenGate", "CheckLatestAddendaBeforeOpenStatus", "NoAutomaticStagePromotion"},
     "cidb-tender-requirement-is-not-cooperative-job-eligibility": {"SpecificTenderRequirementsControl", "DoNotAssumeCooperativeEligibility", "ContractScopeDoesNotEqualRoleBudget", "NoPositionBeforeFullFunding"},
     "tender-document-fee-or-bribe-solicitation-is-not-official": {"TenderDocumentsAndCsdRegistrationAreFree", "UseIssuerPublishedChannels", "NoBribeOrPreferentialTreatment", "ReportThroughOfficialChannelOnly", "AllegationIsNotAdjudicatedFinding"},
-},
 }
+
 EXPECTED_BASE_KEYS = {
     "automated_external_write", "automated_closure", "production_sla_calculation",
     "criminality_conclusion", "real_resident_data_present",
