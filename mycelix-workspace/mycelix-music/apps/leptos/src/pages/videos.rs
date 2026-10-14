@@ -421,7 +421,7 @@ pub fn VideosPage() -> impl IntoView {
         };
         let seconds = video_element.current_time().max(0.0) as u64;
         let bucket = seconds / 10;
-        if bucket <= last_saved_bucket.get_untracked() || seconds >= listing.duration_seconds {
+        if bucket == last_saved_bucket.get_untracked() || seconds >= listing.duration_seconds {
             return;
         }
         last_saved_bucket.set(bucket);
