@@ -9,6 +9,6 @@ cargo test --manifest-path tools/life-civic-reference-checker/Cargo.toml
 cargo fmt --manifest-path tools/life-civic-reference-checker/Cargo.toml -- --check
 ```
 
-The tests check JSON Schema validity, a positive working-draft representation, evidence and human-review requirements for `applicable` assessments, pinned Git blob identities, cross-field service claim semantics, retrieval timestamps, and adversarial source-conflict and outcome-verification controls. The active service journey schema and fixtures are version 0.3.0.
+The tests check JSON Schema validity, a positive working-draft representation, evidence and human-review requirements for `applicable` assessments, pinned Git blob identities, cross-field service claim semantics, retrieval-state/timestamp consistency, evidence-linked official contact references, and adversarial source-conflict/outcome-verification controls. Synthetic fixture evidence must carry `retrieval_state=synthetic_fixture` and `retrieved_at=null`; real captured sources must cite a retrieval timestamp. The active service journey schema and fixtures are version 0.3.0.
 
 Passing these tests would establish only the tested schema/corpus invariants. It would not verify that any external source is current, determine legal applicability, certify conformance, validate production Rust integration, or show that a civic service outcome occurred.
