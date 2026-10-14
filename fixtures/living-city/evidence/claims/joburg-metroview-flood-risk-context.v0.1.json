@@ -1,0 +1,47 @@
+{
+  "schema_version": "living-city-evidence/0.1",
+  "evidence_id": "joburg-metroview-flood-risk-context-v0-1",
+  "concept_ref": {
+    "concept_id": "johannesburg-highveld-rewoven",
+    "concept_version": 1,
+    "hypothesis_id": "johannesburg-highveld-rewoven-2"
+  },
+  "claim": "The City of Johannesburg's public announcement reports that its climate-risk assessment projects severe flooding exposure by 2050. This is context for investigating runoff and access risk, not evidence that a proposed rainwater intervention will work.",
+  "evidence_kind": "published_projection",
+  "relationship_to_hypothesis": "context",
+  "source_refs": [
+    "joburg-metroview-announcement"
+  ],
+  "coverage": {
+    "spatial_scope": "city",
+    "place_label": "City of Johannesburg (source-described; mapped resolution not verified)",
+    "spatial_resolution_m": null,
+    "temporal_start": null,
+    "temporal_end": null,
+    "spatial_resolution_qualifier": "unknown",
+    "administrative_level": "metropolitan_municipality"
+  },
+  "method": {
+    "kind": "source_reported",
+    "description": "Manual summary of the municipal announcement. The underlying assessment data and model files have not been retrieved or independently examined.",
+    "model_or_protocol_version": null
+  },
+  "uncertainty": {
+    "classification": "unknown",
+    "description": "The announcement alone does not establish the underlying model version, scenario settings, spatial resolution, uncertainty range, or neighborhood-level interpretation.",
+    "bounds": null
+  },
+  "review": {
+    "status": "unreviewed",
+    "reviewer_ref": null,
+    "rationale": "Initial source-grounded note only; independent technical and local review has not occurred.",
+    "decided_at": null
+  },
+  "recorded_at": "2026-10-14T20:31:00+02:00",
+  "limitations": [
+    "This is a secondary summary of a municipal announcement, not the source dataset.",
+    "Citywide flood exposure does not establish conditions at a particular parcel, crossing, or corridor.",
+    "This evidence does not establish the effectiveness, safety, soil suitability, or maintenance feasibility of infiltration or rainwater-capture interventions."
+  ],
+  "supersedes": []
+}

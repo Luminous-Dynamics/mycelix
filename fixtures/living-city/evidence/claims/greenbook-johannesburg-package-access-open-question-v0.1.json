@@ -1,0 +1,48 @@
+{
+  "schema_version": "living-city-evidence/0.1",
+  "evidence_id": "greenbook-johannesburg-package-access-open-question-v0-1",
+  "concept_ref": {
+    "concept_id": "johannesburg-highveld-rewoven",
+    "concept_version": 1,
+    "hypothesis_id": "johannesburg-highveld-rewoven-1"
+  },
+  "claim": "GreenBook's support page documents separate climate-risk reports, adaptation plans and Maps & Data Packages, while its MetroView index lists a Johannesburg profile. The support-page content does not conclusively establish downloadable Johannesburg package availability; treat the download/API and reuse status as unresolved and verify them with the publisher rather than infer either availability or absence.",
+  "evidence_kind": "source_catalogue_note",
+  "relationship_to_hypothesis": "context",
+  "source_refs": [
+    "greenbook-planning-support-listing",
+    "greenbook-metroview-profiles"
+  ],
+  "coverage": {
+    "spatial_scope": "city",
+    "place_label": "City of Johannesburg; catalogue-level availability question",
+    "spatial_resolution_m": null,
+    "spatial_resolution_qualifier": "unknown",
+    "administrative_level": "unknown",
+    "temporal_start": null,
+    "temporal_end": null
+  },
+  "method": {
+    "kind": "source_reported",
+    "description": "Cross-check of two public GreenBook pages with different purposes; no direct file download or API call was tested.",
+    "model_or_protocol_version": null
+  },
+  "uncertainty": {
+    "classification": "qualitative_only",
+    "description": "The website text and accessible listing are insufficient to conclude whether a city-specific file package is available behind another route or upon request.",
+    "bounds": null
+  },
+  "review": {
+    "status": "unreviewed",
+    "reviewer_ref": null,
+    "rationale": "Open data-discovery question intended to prevent assumptions about access or licensing.",
+    "decided_at": null
+  },
+  "recorded_at": "2026-10-14T22:11:00+02:00",
+  "limitations": [
+    "An unresolved catalogue listing is not proof that no data package exists.",
+    "Access to an interactive tool does not imply API access or redistribution rights.",
+    "Follow up with CSIR/GreenBook before implementation depends on a specific download."
+  ],
+  "supersedes": []
+}

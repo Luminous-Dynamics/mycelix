@@ -1,0 +1,47 @@
+{
+  "schema_version": "living-city-evidence/0.1",
+  "evidence_id": "sarva-climate-resolution-context-v0-1",
+  "concept_ref": {
+    "concept_id": "johannesburg-highveld-rewoven",
+    "concept_version": 1,
+    "hypothesis_id": "johannesburg-highveld-rewoven-1"
+  },
+  "claim": "The SARVA homepage describes the South African Climate Risk Tool as using NASA NEX-GDDP-CMIP6 projections, bias-corrected and statistically downscaled to approximately 25 km, with spatial information at local-municipality level. This supports broad climate screening, not a claim about street-level heat exposure or a particular corridor.",
+  "evidence_kind": "published_methodology",
+  "relationship_to_hypothesis": "context",
+  "source_refs": [
+    "sarva-climate-risk-tool-overview"
+  ],
+  "coverage": {
+    "spatial_scope": "country",
+    "place_label": "South Africa; tool overview describes local-municipality-level information",
+    "spatial_resolution_m": 25000,
+    "spatial_resolution_qualifier": "approximate",
+    "temporal_start": null,
+    "temporal_end": null,
+    "administrative_level": "local_municipality"
+  },
+  "method": {
+    "kind": "source_reported",
+    "description": "Summary of SARVA's public overview page; the underlying raster/data service was not retrieved or independently inspected.",
+    "model_or_protocol_version": "NASA NEX-GDDP-CMIP6 (as described; exact product version not captured)"
+  },
+  "uncertainty": {
+    "classification": "unknown",
+    "description": "The overview provides an approximate spatial resolution but does not by itself establish the selected scenario, current dataset release, or uncertainty values for a particular place and period.",
+    "bounds": null
+  },
+  "review": {
+    "status": "unreviewed",
+    "reviewer_ref": null,
+    "rationale": "Initial public-source summary; the underlying tool and local suitability have not been independently reviewed.",
+    "decided_at": null
+  },
+  "recorded_at": "2026-10-14T20:31:00+02:00",
+  "limitations": [
+    "Approximately 25 km resolution is not exact 25,000-metre precision; the qualifier must remain visible.",
+    "Municipal-scale climate projections must not be downscaled or represented as street-level observations without additional validated data and methods.",
+    "The overview is a discovery source, not evidence that a specific shaded-route intervention will improve measured heat exposure."
+  ],
+  "supersedes": []
+}

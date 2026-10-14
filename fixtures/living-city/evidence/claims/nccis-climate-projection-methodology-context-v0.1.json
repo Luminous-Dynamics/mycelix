@@ -1,0 +1,47 @@
+{
+  "schema_version": "living-city-evidence/0.1",
+  "evidence_id": "nccis-climate-projection-methodology-context-v0-1",
+  "concept_ref": {
+    "concept_id": "johannesburg-highveld-rewoven",
+    "concept_version": 1,
+    "hypothesis_id": "johannesburg-highveld-rewoven-1"
+  },
+  "claim": "The NCCIS climate-projections page describes maps comparing a 1971-2000 baseline with 2021-2050 projections, using the median of six dynamically downscaled global climate models under RCP 4.5 and RCP 8.5. This is national climate-screening methodology context, not a street-level forecast or a measurement of the effect of shade infrastructure.",
+  "evidence_kind": "published_methodology",
+  "relationship_to_hypothesis": "context",
+  "source_refs": [
+    "nccis-climate-projections-page"
+  ],
+  "coverage": {
+    "spatial_scope": "country",
+    "place_label": "South Africa; map product's metric resolution is not reported here",
+    "spatial_resolution_m": null,
+    "spatial_resolution_qualifier": "unknown",
+    "administrative_level": "national",
+    "temporal_start": "1971-01-01",
+    "temporal_end": "2050-12-31"
+  },
+  "method": {
+    "kind": "source_reported",
+    "description": "Summary of the NCCIS public page describing national temperature and rainfall change maps; individual map files and metadata were not retrieved.",
+    "model_or_protocol_version": "Median of six dynamically downscaled GCMs; RCP 4.5 and RCP 8.5 (as described on the page)"
+  },
+  "uncertainty": {
+    "classification": "unknown",
+    "description": "This page summary does not establish product-specific ensemble spread, calibration uncertainty, exact map resolution, or an indicator value for Johannesburg.",
+    "bounds": null
+  },
+  "review": {
+    "status": "unreviewed",
+    "reviewer_ref": null,
+    "rationale": "Methodology record grounded in a public catalogue page; a specific downloadable product has not yet been independently verified.",
+    "decided_at": null
+  },
+  "recorded_at": "2026-10-14T22:11:00+02:00",
+  "limitations": [
+    "The 1971-2000 baseline and 2021-2050 projection are different windows; the broad interval must not be presented as continuous observation.",
+    "The page states a median of six dynamically downscaled models; it does not provide this claim with a numeric uncertainty range.",
+    "Do not reinterpret national maps as 25 m, street-level or parcel-level evidence."
+  ],
+  "supersedes": []
+}

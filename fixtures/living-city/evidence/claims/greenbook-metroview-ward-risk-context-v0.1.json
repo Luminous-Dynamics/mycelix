@@ -1,0 +1,47 @@
+{
+  "schema_version": "living-city-evidence/0.1",
+  "evidence_id": "greenbook-metroview-ward-risk-context-v0-1",
+  "concept_ref": {
+    "concept_id": "johannesburg-highveld-rewoven",
+    "concept_version": 1,
+    "hypothesis_id": "johannesburg-highveld-rewoven-2"
+  },
+  "claim": "GreenBook describes its MetroView Climate Risk Profile Tool as providing quantified spatial information up to ward level on current and 2050 climate projections, hazard likelihood, exposure, vulnerabilities and demographic insights for selected metropolitan cities, including Johannesburg. Treat this as a candidate ward-scale screening source; it does not establish a particular site's risk or prove that a proposed intervention works.",
+  "evidence_kind": "published_methodology",
+  "relationship_to_hypothesis": "context",
+  "source_refs": [
+    "greenbook-metroview-profiles"
+  ],
+  "coverage": {
+    "spatial_scope": "city",
+    "place_label": "Selected South African metros; City of Johannesburg is listed as a MetroView profile",
+    "spatial_resolution_m": null,
+    "spatial_resolution_qualifier": "not_applicable",
+    "administrative_level": "ward",
+    "temporal_start": null,
+    "temporal_end": "2050-12-31"
+  },
+  "method": {
+    "kind": "source_reported",
+    "description": "Summary of GreenBook's profile-index page. The underlying profile's layers, current release, and export/API behavior were not independently inspected.",
+    "model_or_protocol_version": null
+  },
+  "uncertainty": {
+    "classification": "unknown",
+    "description": "The landing page alone does not establish individual hazard model version, per-layer resolution, uncertainty bounds, or current values for a particular ward.",
+    "bounds": null
+  },
+  "review": {
+    "status": "unreviewed",
+    "reviewer_ref": null,
+    "rationale": "Source discovery claim; the Johannesburg profile's individual layers and methodology still require review.",
+    "decided_at": null
+  },
+  "recorded_at": "2026-10-14T22:11:00+02:00",
+  "limitations": [
+    "Ward-level profile results are not a continuous metric grid and must not be presented as metre-scale precision.",
+    "Climate projections and hazard likelihood are modeled information, not observed outcomes.",
+    "A profile is not an intervention evaluation or community approval."
+  ],
+  "supersedes": []
+}

@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/living-city-source-v0.1.schema.json",
+  "title": "Living-City Source Record",
+  "description": "Source metadata; validation does not establish source authority, availability, accuracy, or reuse permission.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_id",
+    "title",
+    "publisher",
+    "resource_kind",
+    "landing_url",
+    "published_at",
+    "accessed_at",
+    "version_label",
+    "geographic_coverage",
+    "temporal_coverage",
+    "reuse",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "living-city-source/0.1"
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3
+    },
+    "publisher": {
+      "type": "string",
+      "minLength": 2
+    },
+    "resource_kind": {
+      "enum": [
+        "municipal_announcement",
+        "dataset_catalog",
+        "dataset",
+        "research_publication",
+        "technical_standard",
+        "policy_document",
+        "community_source",
+        "other"
+      ]
+    },
+    "landing_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "published_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "accessed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "version_label": {
+      "type": "string",
+      "minLength": 2
+    },
+    "geographic_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "scope",
+        "verification_status",
+        "spatial_resolution_m",
+        "spatial_resolution_qualifier",
+        "administrative_level"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 2
+        },
+        "scope": {
+          "enum": [
+            "neighborhood",
+            "city",
+            "region",
+            "country",
+            "multi-region",
+            "global",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "verification_status": {
+          "enum": [
+            "source_declared",
+            "independently_verified",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "spatial_resolution_m": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "spatial_resolution_qualifier": {
+          "enum": [
+            "exact",
+            "approximate",
+            "unknown",
+            "not_applicable"
+          ],
+          "description": "Qualifies the numerical resolution; prevents an approximate value from being presented as exact."
+        },
+        "administrative_level": {
+          "enum": [
+            "national",
+            "province",
+            "district_municipality",
+            "local_municipality",
+            "metropolitan_municipality",
+            "ward",
+            "settlement",
+            "parcel_or_site",
+            "multi_region",
+            "global",
+            "unknown",
+            "not_applicable"
+          ],
+          "description": "Administrative reference scale reported by the source; this is separate from metric spatial resolution."
+        }
+      }
+    },
+    "temporal_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_date",
+        "end_date"
+      ],
+      "properties": {
+        "start_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "end_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        }
+      }
+    },
+    "reuse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "license_url",
+        "review_notes"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "open_license_verified",
+            "link_only",
+            "permission_required",
+            "restricted",
+            "unknown",
+            "withdrawn"
+          ]
+        },
+        "license_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "review_notes": {
+          "type": "string",
+          "minLength": 12
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 8
+      }
+    }
+  }
+}
