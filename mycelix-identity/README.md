@@ -92,6 +92,20 @@ use mycelix_identity::did_registry::get_did_document;
 let did_doc = get_did_document(agent_pub_key)?;
 ```
 
+## African Digital Public Infrastructure interoperability
+
+A continent-level contract defines the governance boundaries for interoperating independently governed national systems:
+- Design and country capability strategy: [Africa DPI interoperability strategy](../docs/africa-digital-public-infrastructure-interoperability.md)
+- Machine-readable invariant contract: [AFRICA_DPI_INTEROP_CONTRACT_V1.json](AFRICA_DPI_INTEROP_CONTRACT_V1.json)
+- Contract validator: [validate_africa_dpi_contract.py](validate_africa_dpi_contract.py)
+- Adversarial tests: [test_africa_dpi_contract.py](tests/test_africa_dpi_contract.py)
+
+The contract deliberately contains no qualified national profiles and keeps every release gate closed. It prohibits a continental identity database/root of trust, storing raw government identity material in a public DHT, using identity as authorization, undocumented API access, and mandatory smartphone-only access. It requires a legal/purpose review, minimum disclosure, assisted/non-digital alternatives, correction/grievance paths, and country-specific release approval. The AU framework is a coordination reference, not a claim that a country implements a particular protocol or that Mycelix is a continental trust authority.
+
+### Validate the contracts
+
+From `mycelix-identity/`, run `python3 validate_africa_dpi_contract.py` and `python3 -m unittest discover -s tests -p 'test_africa_dpi_contract.py' -v`. The focused SA-DID workflow runs these checks alongside the South African research profile.
+
 ## South African DHA Digital ID (research-only)
 
 A separate, fail-closed research profile tracks possible interoperability with South Africa's Department of Home Affairs (DHA):
