@@ -6,6 +6,7 @@ legal-classification, identity-authentication, or real-world outcome service.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from datetime import date, datetime
@@ -56,6 +57,10 @@ def _unique_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 def _reject_constant(value: str) -> None:
     fail(f"non-standard JSON numeric constant: {value}")
+
+
+def git_blob_sha(data: bytes) -> str:
+    return hashlib.sha1(b'blob ' + str(len(data)).encode('ascii') + b'\0' + data).hexdigest()
 
 
 def load_json(path: Path) -> Any:
@@ -207,6 +212,10 @@ def main() -> int:
     schema = load_json(SCHEMA_PATH)
     Draft202012Validator.check_schema(schema)
     manifest = load_json(MANIFEST_PATH)
+    expected_schema_sha = manifest.get('schema_git_blob_sha')
+    actual_schema_sha = git_blob_sha(SCHEMA_PATH.read_bytes())
+    if actual_schema_sha != expected_schema_sha:
+        raise ValueError(f'SCHEMA_BLOB_PIN_MISMATCH expected={expected_schema_sha} actual={actual_schema_sha}')
     entries = manifest.get("fixtures")
     if manifest.get("manifest_version") != "civic-work-package-fixture-manifest/0.1" or not isinstance(entries, list) or not entries:
         raise ValueError("MANIFEST_INVALID: missing versioned fixture list")
@@ -222,6 +231,10 @@ def main() -> int:
         if ROOT.resolve() not in path.parents:
             failures.append(f"MANIFEST_PATH_ESCAPE: {path_text}")
             continue
+        expected_blob_sha = entry.get('git_blob_sha')
+        actual_blob_sha = git_blob_sha(path.read_bytes())
+        if actual_blob_sha != expected_blob_sha:
+            failures.append(f'FIXTURE_BLOB_PIN_MISMATCH {path_text}: expected={expected_blob_sha} actual={actual_blob_sha}')
         record = load_json(path)
         errors = validate_record(record, schema, path_text)
         if entry.get("expect_valid") is True and errors:
