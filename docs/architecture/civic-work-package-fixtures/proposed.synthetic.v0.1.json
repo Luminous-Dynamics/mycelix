@@ -1,0 +1,159 @@
+{
+  "schema_version": "civic-work-package/0.1",
+  "work_package_id": "joburg-water-leak-response.synthetic",
+  "revision": 1,
+  "status": "proposed",
+  "scope": {
+    "description": "Synthetic work package for a small water-leak inspection and repair-coordination pilot.",
+    "service_domains": [
+      "water.reliability"
+    ],
+    "area": {
+      "area_ref": "area:synthetic-ward-001",
+      "public_granularity": "ward",
+      "privacy_classification": "restricted"
+    },
+    "period": {
+      "start_date": "2026-11-01",
+      "end_date": "2027-01-31"
+    }
+  },
+  "linked_records": {
+    "case_refs": [
+      {
+        "system": "sol-atlas",
+        "record_id": "case:SYNTH-001",
+        "revision": 1,
+        "sha256": null
+      }
+    ],
+    "scenario_refs": [
+      {
+        "system": "symtropy",
+        "record_id": "scenario:SYNTH-001",
+        "revision": 1,
+        "sha256": null
+      }
+    ],
+    "analysis_refs": [
+      {
+        "system": "symthaea",
+        "record_id": "analysis:SYNTH-001",
+        "revision": 1,
+        "sha256": null
+      }
+    ],
+    "evidence_refs": []
+  },
+  "deliverables": [
+    {
+      "deliverable_id": "inspection-and-coordination",
+      "description": "Inspect reported synthetic leak cases and coordinate documented next steps.",
+      "acceptance_criteria": [
+        "Every case has a source and observed time.",
+        "No repair is marked verified without independent evidence."
+      ]
+    }
+  ],
+  "commissioning": {
+    "status": "identified",
+    "commissioning_body_ref": "org:synthetic-commissioner",
+    "payer_ref": null,
+    "authority_basis": null,
+    "decision_ref": null
+  },
+  "procurement": {
+    "route": "open_tender",
+    "lifecycle_stage": "tender_open",
+    "issuer_ref": "org:synthetic-issuer",
+    "process_ref": "contract:SYNTH-TENDER-001",
+    "source_ref": "evidence:SYNTH-TENDER-LISTING",
+    "retrieved_at": "2026-10-14T12:00:00Z",
+    "closing_date": "2026-11-15",
+    "rationale": "Synthetic discovery record; an open listing is not evidence of an award or authorization."
+  },
+  "funding": {
+    "status": "estimated",
+    "currency": "ZAR",
+    "price_year": 2026,
+    "committed_amount": null,
+    "full_period_cost_estimate": 25000,
+    "whole_period_fully_costed": false,
+    "commitment_evidence_ref": null,
+    "funded_period_start": null,
+    "funded_period_end": null,
+    "payer_ref": null
+  },
+  "labor_plan": {
+    "execution_actor_refs": [],
+    "roles": [
+      {
+        "role_id": "field-technician",
+        "arrangement": "cooperative_member",
+        "paid": true,
+        "positions_count": 2,
+        "classification": {
+          "status": "unknown",
+          "classification_code": null,
+          "wage_basis_ref": null,
+          "source_ref": null,
+          "reviewer_ref": null,
+          "reviewed_at": null
+        },
+        "terms_ref": null
+      }
+    ]
+  },
+  "authorization": {
+    "status": "pending",
+    "authorizer_ref": null,
+    "authority_basis": null,
+    "decision_ref": null,
+    "decided_at": null,
+    "approved_by_human": false,
+    "conditions": []
+  },
+  "protections": {
+    "written_terms_ref": null,
+    "payment_schedule": null,
+    "safety_plan_ref": null,
+    "grievance_route_ref": null,
+    "accessibility_review_ref": null,
+    "no_adverse_automated_decisions": true
+  },
+  "community_review": {
+    "status": "planned",
+    "evidence_ref": null,
+    "rationale": "Review is planned before any local deployment or announcement."
+  },
+  "verification": {
+    "status": "defined",
+    "completion_criteria_ref": "criteria:SYNTH-001",
+    "method_ref": "method:SYNTH-independent-inspection",
+    "reviewer_ref": null,
+    "reviewed_at": null,
+    "reviewer_is_independent": false,
+    "evidence": []
+  },
+  "lifecycle_events": [
+    {
+      "event_id": "event:SYNTH-001",
+      "from_status": null,
+      "to_status": "proposed",
+      "actor_ref": "person:synthetic-planner",
+      "actor_kind": "human",
+      "happened_at": "2026-10-14T12:00:00Z",
+      "evidence_refs": [
+        "evidence:SYNTH-DRAFT"
+      ]
+    }
+  ],
+  "timestamps": {
+    "created_at": "2026-10-14T12:00:00Z",
+    "updated_at": "2026-10-14T12:00:00Z"
+  },
+  "limitations": [
+    "Entire record is synthetic and is not a municipal contract, job offer, funded position, or proof of available work.",
+    "No wage classification, contract award, funding commitment, service outcome, or partner authorization is asserted."
+  ]
+}
