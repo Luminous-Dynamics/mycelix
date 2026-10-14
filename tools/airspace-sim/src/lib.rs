@@ -104,7 +104,7 @@ pub enum Classification {
     RequiresAuthorityReview,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SimulationReport {
     pub scenario_id: String,
     pub classification: Classification,
@@ -130,7 +130,7 @@ pub struct ConflictObservation {
     pub effective_vertical_limit_mm: u64,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ReplayOutput {
     pub schema: &'static str,
     pub status: &'static str,
@@ -517,13 +517,16 @@ mod tests {
     }
 
     #[test]
-    fn withdrawn_or_completed_intents_are_not_active_future_intents() {
-        let mut scenario = fixture_set().scenarios
+    fn withdrawn_and_completed_intents_are_not_active_future_intents() {
+        let template = fixture_set().scenarios
             .into_iter()
             .find(|item| item.scenario_id == "clear_separation")
             .expect("clear case exists");
-        scenario.flights[0].state = IntentState::Withdrawn;
-        assert_eq!(evaluate_scenario(&scenario).classification, Classification::Reject);
+        for state in [IntentState::Withdrawn, IntentState::Completed] {
+            let mut scenario = template.clone();
+            scenario.flights[0].state = state;
+            assert_eq!(evaluate_scenario(&scenario).classification, Classification::Reject);
+        }
     }
 
     #[test]
