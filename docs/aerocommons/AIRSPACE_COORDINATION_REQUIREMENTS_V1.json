@@ -267,18 +267,11 @@
       "duplicate_reservation_ids_remain_unresolved_without_last_writer_wins",
       "stale_or_partitioned_snapshot_cannot_yield_no_conflict",
       "emergency_reservation_does_not_automatically_preempt_conflict",
-      "bounded_reservation_claim_and_pairwise_work",
-      "provider_reservation_snapshot_pairwise_overlap_screen",
-      "half_open_resource_time_intervals",
-      "expired_withdrawn_and_ended_reservation_claims_are_not_current",
-      "duplicate_reservation_ids_remain_unresolved_without_last_writer_wins",
-      "stale_or_partitioned_snapshot_cannot_yield_no_conflict",
-      "emergency_reservation_does_not_automatically_preempt_conflict",
       "bounded_reservation_claim_and_pairwise_work"
     ],
     "not_yet_implemented": [
       "networked provider federation, authenticated peer exchange, and replicated snapshot/event-log reconciliation",
-      "dynamic airspace constraint update replay",
+      "dynamic airspace/weather constraint updates and invalidation replay",
       "weather or terrain modeling",
       "non_cooperative traffic modeling",
       "validated aircraft dynamics or reachable-set analysis",
@@ -288,8 +281,7 @@
       "competent-authority reservation allocation and flight-authorization lifecycle integration",
       "capacity-aware scheduling, sequencing, and fairness across resource pools",
       "authoritative provider identity/signature verification and trust-root governance",
-      "versioned reservation update stream with explicit cross-provider causal ordering and partition merge policy",
-      "dynamic airspace-constraint and weather-change invalidation replay"
+      "versioned reservation update stream with explicit cross-provider causal ordering and partition merge policy"
     ],
     "results_interpretation": "Passing means only that the simplified model matches synthetic fixture expectations; it is not safety, airworthiness, certification, or permission to fly.",
     "lifecycle_transition_cases": [
