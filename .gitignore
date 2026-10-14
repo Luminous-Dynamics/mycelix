@@ -30,3 +30,8 @@ Thumbs.db
 credentials.json
 *.pem
 *.key
+
+# Local Python virtual environments — never commit generated environments
+.venv/
+venv/
+env/
