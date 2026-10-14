@@ -20,7 +20,7 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "a18c65b04cf7d40f3f6e360ec7d459ef3c51bd91"
+EXPECTED_CORPUS_BLOB_SHA = "2713cab33f8e3103b36277d39a1c77761a0ff645"
 EXPECTED_SOURCE_IDS = ["JW-1", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
@@ -52,6 +52,7 @@ EXPECTED_PROBES = {
     "sensitive-location-publication": ("PrivacyAndAssetProtection", "BlockPublicationOrRedact", "DisclosureBlocked"),
     "demographic-risk-proxy": ("FairnessAndRights", "RejectAdverseAction", "UnsupportedAndProhibited"),
     "working-on-infrastructure-geography-mismatch": ("EmploymentIntegrity", "TreatAsPartnerDiscoveryOnly", "GeographyNotInAnnouncedLaunchScope"),
+    "sdbip-cooperative-kpi-is-not-contract-award": ("EmploymentIntegrity", "PartnerDiscoveryOnlyNoContractAward", "PlanningTargetNotContract"),
 }
 REQUIRED_GUARDS = {
     "issuer-reference-collision": {"DoNotMergeByReferenceStringAlone", "ExternalReferenceIsNotInternalIdentity"},
@@ -66,6 +67,7 @@ REQUIRED_GUARDS = {
     "sensitive-location-publication": {"NoPublicSensitiveAssetCoordinates", "NoExploitableOperationalDetail"},
     "demographic-risk-proxy": {"PovertyIsNotEvidenceOfWrongdoing", "ModelFlagIsNotAdjudication"},
     "working-on-infrastructure-geography-mismatch": {"DoNotInferGautengPilotEligibility", "NationalProgrammeAnnouncementIsNotLocalFunding", "NoSpeculativePayroll"},
+    "sdbip-cooperative-kpi-is-not-contract-award": {"SdbipPlanningKpiIsNotProcurementAward", "NoCooperativeContractWithoutOpenAuthorizedProcess", "NoSpeculativePayroll"},
 }
 EXPECTED_BASE_KEYS = {
     "automated_external_write", "automated_closure", "production_sla_calculation",
@@ -195,6 +197,15 @@ def validate() -> None:
         fail("EPWP opportunities must not be promoted to durable jobs or pilot funding")
     if epwp.get("visually_reviewed") is not False:
         fail("do not claim visual review of the EPWP footnote")
+    pikitup_kpi = sdbip_source.get("pikitup_cooperative_service_kpi", {})
+    if pikitup_kpi.get("kpi_number") != 15 or pikitup_kpi.get("operational_entity") != "PIKITUP":
+        fail("Pikitup basic-removal KPI identity drift")
+    if pikitup_kpi.get("target_2026_27_percent") != 100 or pikitup_kpi.get("quarterly_targets_2026_27_percent") != [100, 100, 100, 100]:
+        fail("Pikitup target literals drift")
+    if pikitup_kpi.get("visually_reviewed") is not False:
+        fail("do not claim visual review of SDBIP printed page 27")
+    if "No specific open tender" in str(pikitup_kpi.get("prohibited_inference", [])):
+        fail("internal contradictory guard")
     programme_source = source_by_id["SA-JOBS-3"]
     if programme_source.get("source_kind") != "OfficialPilotLaunchSpeech" or programme_source.get("publication_date") != "2026-05-04":
         fail("Working on Infrastructure launch source identity/date drift")
@@ -307,6 +318,11 @@ def validate() -> None:
         fail("unfunded pathway must not be represented as a funded job")
     if by_id["demographic-risk-proxy"]["expected"]["disposition"] != "RejectAdverseAction":
         fail("demographic/poverty proxy cannot produce adverse action")
+    coop_probe = by_id["sdbip-cooperative-kpi-is-not-contract-award"]
+    if coop_probe["expected"]["disposition"] != "PartnerDiscoveryOnlyNoContractAward":
+        fail("SDBIP planning KPI must not be treated as a procurement award")
+    if coop_probe["expected"]["issue_status_effect"] != "NoFundedPositionsOrContractClaim":
+        fail("cooperative contract candidate cannot imply funded positions")
 
     # Ensure every public-facing data/authority limiter is still explicit.
     if "Automated municipal case submission" not in manifest["prohibited_capabilities"]:
