@@ -22,7 +22,8 @@
     "ot_security_draft_lifecycle",
     "crime_prevention_guidance_scope",
     "employment_crime_evidence_scope",
-    "robotics_safety_boundary"
+    "robotics_safety_boundary",
+    "industrial_robot_vs_service_robot_scope"
   ],
   "claim_ceiling": {
     "permitted": [
@@ -39,7 +40,9 @@
       "robot or intervention safety qualification",
       "causal crime-prevention efficacy",
       "universal employment-crime effect",
-      "cross-jurisdiction generalization without local evidence"
+      "cross-jurisdiction generalization without local evidence",
+      "universal industrial-robot-standard applicability to public-facing service robots",
+      "robot safety qualification from catalogue membership alone"
     ]
   },
   "frozen_inputs": [
@@ -55,7 +58,7 @@
     },
     {
       "path": "tests/reference/life-civic-standards/cases.json",
-      "git_blob_sha1": "e8d7488406b1e573b087af4308f5289f8005edbe",
+      "git_blob_sha1": "b4f55c446deb344b9932c07396f8870b80b40ac2",
       "purpose": "adversarial and lifecycle fixture corpus"
     }
   ],
