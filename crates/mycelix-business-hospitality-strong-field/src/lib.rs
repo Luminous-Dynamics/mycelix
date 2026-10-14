@@ -728,12 +728,9 @@ mod tests {
         adapter: &DelimitedIngressAdapter,
         file: &CampaignSourceFile,
     ) -> ExtractionCampaignManifest {
-        let manifest = diagnose_delimited_import(
-            adapter,
-            file.bytes.as_slice(),
-            file.ingested_at_unix_ms,
-        )
-        .unwrap();
+        let manifest =
+            diagnose_delimited_import(adapter, file.bytes.as_slice(), file.ingested_at_unix_ms)
+                .unwrap();
         ExtractionCampaignManifest::from_files(vec![manifest]).unwrap()
     }
 
@@ -902,18 +899,26 @@ mod tests {
                 .is_ok()
         );
         assert!(report.validate_digest());
-        assert!(report
-            .unresolved_limitations
-            .contains(&upstream_export_completeness_unverified_ref()));
-        assert!(report
-            .unresolved_limitations
-            .contains(&time_rule_source_authority_unverified_ref()));
-        assert!(!report
-            .unresolved_limitations
-            .contains(&fixed_offset_clock_limitation_ref()));
-        assert!(!report
-            .unresolved_limitations
-            .contains(&forecast_actual_membership_limitation_ref()));
+        assert!(
+            report
+                .unresolved_limitations
+                .contains(&upstream_export_completeness_unverified_ref())
+        );
+        assert!(
+            report
+                .unresolved_limitations
+                .contains(&time_rule_source_authority_unverified_ref())
+        );
+        assert!(
+            !report
+                .unresolved_limitations
+                .contains(&fixed_offset_clock_limitation_ref())
+        );
+        assert!(
+            !report
+                .unresolved_limitations
+                .contains(&forecast_actual_membership_limitation_ref())
+        );
     }
 
     #[test]
