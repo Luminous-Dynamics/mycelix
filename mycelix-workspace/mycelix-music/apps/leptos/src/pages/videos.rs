@@ -497,6 +497,20 @@ pub fn VideosPage() -> impl IntoView {
                                     let select_id = id.clone();
                                     let title = listing.title.clone();
                                     let poster_style = listing.poster_style;
+                                    let card_poster_listing = listing.clone();
+                                    let card_poster_preferences = preferences.clone();
+                                    let card_poster_url = Signal::derive(move || {
+                                        if card_poster_preferences.loaded.get() {
+                                            listing_url(
+                                                &card_poster_listing,
+                                                "poster",
+                                                card_poster_listing.poster_cid.as_deref(),
+                                                card_poster_preferences.gateway_origins.get().as_deref(),
+                                            )
+                                        } else {
+                                            None
+                                        }
+                                    });
                                     let creator = listing.creator.clone();
                                     let kind = listing.kind.clone();
                                     let duration = listing.duration_label();
@@ -514,6 +528,9 @@ pub fn VideosPage() -> impl IntoView {
                                                 on:click=move |_| selected_id.set(Some(select_id.clone()))
                                             >
                                                 <span class=format!("video-poster {poster_style}") aria-hidden="true">
+                                                    {move || card_poster_url.get().map(|url| view! {
+                                                        <img class="video-poster-image" src=url alt="" loading="lazy" decoding="async" />
+                                                    }.into_any())}
                                                     <span class="video-poster-mark">"▶"</span>
                                                     <span class="video-duration">{duration.clone()}</span>
                                                 </span>
@@ -558,58 +575,64 @@ pub fn VideosPage() -> impl IntoView {
                             .map(|candidate| candidate.url.clone())
                         })
                     };
-                    let poster_listing = listing.clone();
-                    let poster_url = move || {
-                        if preferences.loaded.get() {
-                            listing_url(
-                                &poster_listing,
-                                "poster",
-                                poster_listing.poster_cid.as_deref(),
-                                preferences.gateway_origins.get().as_deref(),
-                            )
-                        } else {
-                            None
+                    let source_preferences = preferences.clone();
+                    let source_video = listing.clone();
+                    let current_source_index = source_index;
+                    let source_url = Signal::derive(move || {
+                        if !source_preferences.loaded.get() {
+                            return None;
                         }
-                    };
+                        listing_candidates(
+                            &source_video,
+                            "content",
+                            source_video.content_cid.as_deref(),
+                            source_preferences.gateway_origins.get().as_deref(),
+                        )
+                        .get(current_source_index.get())
+                        .map(|candidate| candidate.url.clone())
+                    });
+                    let caption_preferences = preferences.clone();
                     let caption_listing = listing.clone();
-                    let caption_url = move || {
-                        if preferences.loaded.get() {
+                    let caption_url = Signal::derive(move || {
+                        if caption_preferences.loaded.get() {
                             listing_url(
                                 &caption_listing,
                                 "captions",
                                 caption_listing.captions_cid.as_deref(),
-                                preferences.gateway_origins.get().as_deref(),
+                                caption_preferences.gateway_origins.get().as_deref(),
                             )
                         } else {
                             None
                         }
-                    };
+                    });
+                    let transcript_preferences = preferences.clone();
                     let transcript_listing = listing.clone();
-                    let transcript_url = move || {
-                        if preferences.loaded.get() {
+                    let transcript_url = Signal::derive(move || {
+                        if transcript_preferences.loaded.get() {
                             listing_url(
                                 &transcript_listing,
                                 "transcript",
                                 transcript_listing.transcript_cid.as_deref(),
-                                preferences.gateway_origins.get().as_deref(),
+                                transcript_preferences.gateway_origins.get().as_deref(),
                             )
                         } else {
                             None
                         }
-                    };
+                    });
+                    let description_preferences = preferences.clone();
                     let description_listing = listing.clone();
-                    let description_url = move || {
-                        if preferences.loaded.get() {
+                    let description_url = Signal::derive(move || {
+                        if description_preferences.loaded.get() {
                             listing_url(
                                 &description_listing,
                                 "visual-description",
                                 description_listing.visual_description_cid.as_deref(),
-                                preferences.gateway_origins.get().as_deref(),
+                                description_preferences.gateway_origins.get().as_deref(),
                             )
                         } else {
                             None
                         }
-                    };
+                    });
                     let chapters = listing.chapters.clone().into_iter().map(|chapter| {
                         let seconds = chapter.start_seconds;
                         let seek = move |_| {
@@ -654,7 +677,7 @@ pub fn VideosPage() -> impl IntoView {
                             <div class="video-watch-layout">
                                 <div class="video-main-column">
                                     {move || {
-                                        if source_url().is_some() {
+                                        if source_url.get().is_some() {
                                             let title_for_player = title.clone();
                                             let caption_language = listing.caption_language.clone().unwrap_or_else(|| "en".into());
                                             view! {
@@ -662,7 +685,7 @@ pub fn VideosPage() -> impl IntoView {
                                                     <video
                                                         node_ref=video_node
                                                         class="video-element"
-                                                        prop:src=move || source_url().unwrap_or_default()
+                                                        prop:src=move || source_url.get().unwrap_or_default()
                                                         controls
                                                         playsinline
                                                         preload="none"
@@ -671,14 +694,20 @@ pub fn VideosPage() -> impl IntoView {
                                                         on:loadedmetadata=on_video_loaded
                                                         on:timeupdate=on_video_timeupdate
                                                     >
-                                                        {move || caption_url().map(|url| view! {
-                                                            <track kind="captions"
-                                                                src=url
-                                                                srclang=caption_language.clone()
-                                                                label="Captions"
-                                                                default
-                                                            />
-                                                        })}
+                                                        {move || {
+                                                            if let Some(url) = caption_url.get() {
+                                                                view! {
+                                                                    <track kind="captions"
+                                                                        src=url
+                                                                        srclang=caption_language.clone()
+                                                                        label="Captions"
+                                                                        default
+                                                                    />
+                                                                }.into_any()
+                                                            } else {
+                                                                ().into_any()
+                                                            }
+                                                        }}
                                                         "Your browser does not support HTML video. Use the linked transcript when available."
                                                     </video>
                                                 </div>
@@ -750,7 +779,7 @@ pub fn VideosPage() -> impl IntoView {
                                         {move || {
                                             if !listing.has_captions() {
                                                 view! { <p class="video-capability unavailable">"Captions not provided"</p> }.into_any()
-                                            } else if caption_url().is_some() {
+                                            } else if caption_url.get().is_some() {
                                                 view! { <p class="video-capability available">"✓ Captions track linked"</p> }.into_any()
                                             } else {
                                                 view! { <p class="video-capability unavailable">"Captions asset exists, but no trusted route is available"</p> }.into_any()
@@ -759,7 +788,7 @@ pub fn VideosPage() -> impl IntoView {
                                         {move || {
                                             if !listing.has_transcript() {
                                                 view! { <p class="video-capability unavailable">"Transcript not provided"</p> }.into_any()
-                                            } else if let Some(url) = transcript_url() {
+                                            } else if let Some(url) = transcript_url.get() {
                                                 view! { <a class="video-resource-link" href=url target="_blank" rel="noopener noreferrer">"Open transcript ↗"</a> }.into_any()
                                             } else {
                                                 view! { <p class="video-capability unavailable">"Transcript asset exists, but no trusted route is available"</p> }.into_any()
@@ -768,7 +797,7 @@ pub fn VideosPage() -> impl IntoView {
                                         {move || {
                                             if !listing.has_visual_description() {
                                                 view! { <p class="video-capability unavailable">"Visual description not provided"</p> }.into_any()
-                                            } else if let Some(url) = description_url() {
+                                            } else if let Some(url) = description_url.get() {
                                                 view! { <a class="video-resource-link" href=url target="_blank" rel="noopener noreferrer">"Open visual description ↗"</a> }.into_any()
                                             } else {
                                                 view! { <p class="video-capability unavailable">"Description asset exists, but no trusted route is available"</p> }.into_any()
