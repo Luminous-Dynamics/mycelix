@@ -68,9 +68,49 @@ class CivicWorkPackageTests(unittest.TestCase):
 
     def test_commitment_must_cover_full_period_cost(self) -> None:
         record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
-        record["funding"]["committed_amount"] = 10000
+        record["funding"]["committed_amount_minor_units"] = 10000
         errors = validate_record(record, SCHEMA, "underfunded")
         self.assertIn("CWP_E_COMMITMENT_DOES_NOT_COVER_FULL_PERIOD_COST", errors)
+
+    def test_cost_breakdown_total_must_match_declared_estimate(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        record["funding"]["full_period_cost_estimate_minor_units"] += 1
+        errors = validate_record(record, SCHEMA, "cost total mismatch")
+        self.assertIn("CWP_E_COST_TOTAL_MISMATCH", errors)
+
+    def test_every_cost_category_must_be_assessed_once(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        record["funding"]["cost_breakdown"]["category_coverage"].pop()
+        errors = validate_record(record, SCHEMA, "incomplete category coverage")
+        self.assertTrue(
+            "CWP_E_COST_COVERAGE_INCOMPLETE" in errors
+            or any(error.startswith("SCHEMA ") for error in errors),
+            errors,
+        )
+
+    def test_duplicate_cost_line_ids_are_rejected(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        items = record["funding"]["cost_breakdown"]["cost_items"]
+        items[1]["line_item_id"] = items[0]["line_item_id"]
+        errors = validate_record(record, SCHEMA, "duplicate cost line")
+        self.assertIn("CWP_E_DUPLICATE_COST_ITEM_ID", errors)
+
+    def test_cost_period_cannot_exceed_work_scope(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        record["funding"]["cost_breakdown"]["cost_items"][0]["period_end"] = "2027-02-01"
+        errors = validate_record(record, SCHEMA, "out-of-scope cost")
+        self.assertIn("CWP_E_COST_PERIOD_OUT_OF_SCOPE", errors)
+
+    def test_not_applicable_category_cannot_have_a_cost_line(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        item = dict(record["funding"]["cost_breakdown"]["cost_items"][0])
+        item.update({
+            "line_item_id": "cost-other-invalid",
+            "category": "other",
+        })
+        record["funding"]["cost_breakdown"]["cost_items"].append(item)
+        errors = validate_record(record, SCHEMA, "N/A category with cost")
+        self.assertIn("CWP_E_NOT_APPLICABLE_CATEGORY_HAS_COST_LINE", errors)
 
     def test_provider_cannot_verify_own_work(self) -> None:
         record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
