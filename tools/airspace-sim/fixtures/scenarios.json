@@ -710,7 +710,7 @@
       "expected_outcome": "accepted"
     },
     {
-      "case_id": "activated_to_completed",
+      "case_id": "activated_to_ended",
       "previous": {
         "intent_id": "intent-demo-001",
         "issuer_id": "provider-demo-01",
@@ -727,7 +727,7 @@
         "time_basis": "fixture-tai-epoch-v1",
         "sequence": 2,
         "event_time_s": 101,
-        "state": "completed"
+        "state": "ended"
       },
       "expected_outcome": "accepted"
     },
@@ -754,7 +754,7 @@
       "expected_outcome": "accepted"
     },
     {
-      "case_id": "illegal_accepted_to_completed",
+      "case_id": "illegal_accepted_to_ended",
       "previous": {
         "intent_id": "intent-demo-001",
         "issuer_id": "provider-demo-01",
@@ -771,7 +771,7 @@
         "time_basis": "fixture-tai-epoch-v1",
         "sequence": 2,
         "event_time_s": 101,
-        "state": "completed"
+        "state": "ended"
       },
       "expected_outcome": "rejected"
     },
