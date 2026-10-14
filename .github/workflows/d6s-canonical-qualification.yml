@@ -20,8 +20,11 @@ on:
       - "docs/integral/d6s-canon-2-manifest.json"
       - "scripts/integral/verify_d6s_canon_1.py"
       - "scripts/integral/verify_d6s_canon_2_authority_boundary.py"
-      - "mycelix-manufacturing/Cargo.toml"
+      - "rust-toolchain.toml"
+      - ".cargo/**"
+      - "mycelix-manufacturing/**/Cargo.toml"
       - "mycelix-manufacturing/Cargo.lock"
+      - "mycelix-manufacturing/.cargo/**"
       - "mycelix-manufacturing/crates/cos_conformance/**"
       - "mycelix-manufacturing/crates/manufacturing_common/**"
   workflow_dispatch:
