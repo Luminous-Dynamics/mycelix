@@ -33,5 +33,22 @@
       "current status beyond each recorded source snapshot",
       "production readiness"
     ]
-  }
+  },
+  "frozen_inputs": [
+    {
+      "path": "schemas/life-civic/standard-instrument.schema.json",
+      "git_blob_sha1": "a4c87f4e7ca27140af590cf353b252c3ceee2ed3",
+      "purpose": "instrument metadata schema"
+    },
+    {
+      "path": "schemas/life-civic/applicability-assessment.schema.json",
+      "git_blob_sha1": "241d4c4abbd765c05e56ddfae3391cead0f26dbc",
+      "purpose": "context-bound applicability schema"
+    },
+    {
+      "path": "tests/reference/life-civic-standards/cases.json",
+      "git_blob_sha1": "6fef3b6248c528ea58bf96113e88ba840b9c5a72",
+      "purpose": "adversarial and lifecycle fixture corpus"
+    }
+  ]
 }
