@@ -90,6 +90,13 @@ fn resume_storage_key(video_id: &str) -> String {
     format!("{RESUME_STORAGE_PREFIX}{video_id}")
 }
 
+/// Save at most once per ten-second bucket, but allow explicit backward seeks
+/// to lower the locally stored position. Completed videos are cleared by the
+/// ended handler instead of storing a terminal resume point.
+fn should_persist_resume_position(seconds: u64, duration_seconds: u64, last_saved_bucket: u64) -> bool {
+    seconds < duration_seconds && seconds / 10 != last_saved_bucket
+}
+
 fn listing_candidates(
     listing: &VideoListing,
     media_kind: &str,
@@ -421,7 +428,11 @@ pub fn VideosPage() -> impl IntoView {
         };
         let seconds = video_element.current_time().max(0.0) as u64;
         let bucket = seconds / 10;
-        if bucket == last_saved_bucket.get_untracked() || seconds >= listing.duration_seconds {
+        if !should_persist_resume_position(
+            seconds,
+            listing.duration_seconds,
+            last_saved_bucket.get_untracked(),
+        ) {
             return;
         }
         last_saved_bucket.set(bucket);
@@ -901,5 +912,21 @@ mod tests {
     #[test]
     fn local_resume_key_is_namespaced_and_stable() {
         assert_eq!(resume_storage_key("film-1"), "mycelix-video-progress-v1:film-1");
+    }
+
+    #[test]
+    fn resume_progress_accepts_backward_seeks_but_throttles_same_bucket() {
+        assert!(should_persist_resume_position(1_000, 2_000, 80));
+        assert!(should_persist_resume_position(910, 2_000, 100));
+        assert!(!should_persist_resume_position(915, 2_000, 91));
+        assert!(!should_persist_resume_position(2_000, 2_000, 199));
+    }
+
+    #[test]
+    fn missing_content_cid_never_creates_playable_route() {
+        let mut listing = fixture_videos().into_iter().next().expect("fixture exists");
+        listing.content_cid = None;
+        assert!(listing_candidates(&listing, "content", listing.content_cid.as_deref(), None).is_empty());
+        assert!(listing_url(&listing, "content", listing.content_cid.as_deref(), Some("https://gateway.example")).is_none());
     }
 }
