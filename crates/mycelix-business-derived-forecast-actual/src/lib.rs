@@ -521,7 +521,10 @@ mod tests {
             &protocol(),
             id("target-plan:aggregate:v1"),
             900,
-            vec![target("target:one", 2_000, 4_000), target("target:two", 4_000, 6_000)],
+            vec![
+                target("target:one", 2_000, 4_000),
+                target("target:two", 4_000, 6_000),
+            ],
         )
         .unwrap()
     }
@@ -620,7 +623,13 @@ mod tests {
         let plan = plan();
         let replay = replay(vec![observation("a", 2_100, 2)]);
         let actuals = derive_actuals(&protocol(), &plan, &spec(&plan), &replay).unwrap();
-        assert!(actuals[0].actual.0.as_str().starts_with("evaluation-actual:sha256:"));
+        assert!(
+            actuals[0]
+                .actual
+                .0
+                .as_str()
+                .starts_with("evaluation-actual:sha256:")
+        );
     }
 
     fn forecast(
@@ -630,9 +639,21 @@ mod tests {
         point: i128,
     ) -> ShadowForecast {
         let value = ForecastValue {
-            point: ScaledValue { mantissa: point, scale: 0, unit: target.unit.clone() },
-            lower: ScaledValue { mantissa: point, scale: 0, unit: target.unit.clone() },
-            upper: ScaledValue { mantissa: point, scale: 0, unit: target.unit.clone() },
+            point: ScaledValue {
+                mantissa: point,
+                scale: 0,
+                unit: target.unit.clone(),
+            },
+            lower: ScaledValue {
+                mantissa: point,
+                scale: 0,
+                unit: target.unit.clone(),
+            },
+            upper: ScaledValue {
+                mantissa: point,
+                scale: 0,
+                unit: target.unit.clone(),
+            },
         };
         ShadowForecast {
             forecast: ForecastRef(id(&format!("forecast:{name}"))),
