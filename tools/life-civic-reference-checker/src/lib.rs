@@ -228,7 +228,9 @@ fn scoped_independent_restoration_positive_control_is_accepted() {
         let referenced = evidence
             .iter()
             .find(|item| item["evidence_id"] == reference_id)
-            .unwrap_or_else(|| panic!("verification evidence ID has no evidence record: {reference_id}"));
+            .unwrap_or_else(|| {
+                panic!("verification evidence ID has no evidence record: {reference_id}")
+            });
         assert!(
             referenced["kind"] == "independent_observation"
                 || referenced["kind"] == "independent_measurement",
