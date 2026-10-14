@@ -163,6 +163,27 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+/// Validate finite quantities at the integrity boundary. IEEE-754 NaN compares
+/// false to both greater-than and less-than checks, so numeric bounds must be
+/// paired with an explicit finiteness check.
+#[inline]
+fn finite_positive(value: f64) -> bool {
+    value.is_finite() && value > 0.0
+}
+
+#[inline]
+fn finite_nonnegative(value: f64) -> bool {
+    value.is_finite() && value >= 0.0
+}
+
+#[inline]
+fn optional_finite(value: Option<f64>) -> bool {
+    match value {
+        Some(value) => value.is_finite(),
+        None => true,
+    }
+}
+
 fn validate_create_energy_production(
     _action: EntryCreationAction,
     production: EnergyProduction,
@@ -170,8 +191,20 @@ fn validate_create_energy_production(
     if !production.producer_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid("Producer must be a valid DID".into()));
     }
-    if production.amount_kwh <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid("Production amount must be positive".into()));
+    if !finite_positive(production.amount_kwh) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Production amount must be finite and positive".into(),
+        ));
+    }
+    if !finite_positive(production.period_hours) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Production period must be finite and positive".into(),
+        ));
+    }
+    if !optional_finite(production.meter_reading) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Meter reading must be finite".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -183,8 +216,20 @@ fn validate_create_energy_consumption(
     if !consumption.consumer_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid("Consumer must be a valid DID".into()));
     }
-    if consumption.amount_kwh <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid("Consumption amount must be positive".into()));
+    if !finite_positive(consumption.amount_kwh) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Consumption amount must be finite and positive".into(),
+        ));
+    }
+    if !finite_positive(consumption.period_hours) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Consumption period must be finite and positive".into(),
+        ));
+    }
+    if !optional_finite(consumption.meter_reading) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Meter reading must be finite".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -196,11 +241,20 @@ fn validate_create_trade_offer(
     if !offer.seller_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid("Seller must be a valid DID".into()));
     }
-    if offer.amount_kwh <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid("Offer amount must be positive".into()));
+    if !finite_positive(offer.amount_kwh) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Offer amount must be finite and positive".into(),
+        ));
     }
-    if offer.price_per_kwh < 0.0 {
-        return Ok(ValidateCallbackResult::Invalid("Price cannot be negative".into()));
+    if !finite_nonnegative(offer.price_per_kwh) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Price must be finite and nonnegative".into(),
+        ));
+    }
+    if offer.available_until <= offer.available_from {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Offer availability window must have positive duration".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -209,8 +263,20 @@ fn validate_update_trade_offer(
     _action: Update,
     offer: TradeOffer,
 ) -> ExternResult<ValidateCallbackResult> {
-    if offer.amount_kwh <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid("Offer amount must be positive".into()));
+    if !finite_positive(offer.amount_kwh) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Offer amount must be finite and positive".into(),
+        ));
+    }
+    if !finite_nonnegative(offer.price_per_kwh) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Price must be finite and nonnegative".into(),
+        ));
+    }
+    if offer.available_until <= offer.available_from {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Offer availability window must have positive duration".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -224,6 +290,21 @@ fn validate_create_trade(
     }
     if trade.seller_did == trade.buyer_did {
         return Ok(ValidateCallbackResult::Invalid("Cannot trade with yourself".into()));
+    }
+    if !finite_positive(trade.amount_kwh) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Trade amount must be finite and positive".into(),
+        ));
+    }
+    if !finite_nonnegative(trade.price_per_kwh) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Trade price must be finite and nonnegative".into(),
+        ));
+    }
+    if !finite_nonnegative(trade.total_price) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Trade total must be finite and nonnegative".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -239,6 +320,19 @@ fn validate_update_trade(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finite_numeric_guards_fail_closed() {
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(!finite_positive(value));
+            assert!(!finite_nonnegative(value));
+            assert!(!optional_finite(Some(value)));
+        }
+        assert!(finite_positive(f64::MIN_POSITIVE));
+        assert!(!finite_positive(0.0));
+        assert!(finite_nonnegative(0.0));
+        assert!(optional_finite(None));
+    }
 
     // =========================================================================
     // OfferStatus Enum Tests
@@ -311,7 +405,30 @@ mod tests {
             amount_kwh: 0.0,
             ..valid_energy_production()
         };
-        assert!(production.amount_kwh <= 0.0);
+        assert!(!finite_positive(production.amount_kwh));
+    }
+
+    #[test]
+    fn test_energy_production_non_finite_quantity_and_period_invalid() {
+        for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let bad_amount = EnergyProduction {
+                amount_kwh: bad,
+                ..valid_energy_production()
+            };
+            assert!(!finite_positive(bad_amount.amount_kwh));
+
+            let bad_period = EnergyProduction {
+                period_hours: bad,
+                ..valid_energy_production()
+            };
+            assert!(!finite_positive(bad_period.period_hours));
+
+            let bad_meter = EnergyProduction {
+                meter_reading: Some(bad),
+                ..valid_energy_production()
+            };
+            assert!(!optional_finite(bad_meter.meter_reading));
+        }
     }
 
     #[test]
@@ -387,7 +504,30 @@ mod tests {
             amount_kwh: 0.0,
             ..valid_energy_consumption()
         };
-        assert!(consumption.amount_kwh <= 0.0);
+        assert!(!finite_positive(consumption.amount_kwh));
+    }
+
+    #[test]
+    fn test_energy_consumption_non_finite_quantity_and_period_invalid() {
+        for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let bad_amount = EnergyConsumption {
+                amount_kwh: bad,
+                ..valid_energy_consumption()
+            };
+            assert!(!finite_positive(bad_amount.amount_kwh));
+
+            let bad_period = EnergyConsumption {
+                period_hours: bad,
+                ..valid_energy_consumption()
+            };
+            assert!(!finite_positive(bad_period.period_hours));
+
+            let bad_meter = EnergyConsumption {
+                meter_reading: Some(bad),
+                ..valid_energy_consumption()
+            };
+            assert!(!optional_finite(bad_meter.meter_reading));
+        }
     }
 
     #[test]
