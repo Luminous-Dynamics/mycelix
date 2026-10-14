@@ -239,7 +239,7 @@ def validate_profile(data: Any) -> list[str]:
         errors.append("nonclaims must contain at least three non-empty caveats")
     else:
         combined = " ".join(nonclaims).lower()
-        for phrase in ("not a national identity profile", "no authority", "not a digital signature"):
+        for phrase in ("does not itself grant identity", "does not imply external permission", "not a digital signature"):
             if phrase not in combined:
                 errors.append(f"nonclaims must preserve: {phrase}")
 
@@ -255,6 +255,8 @@ def validate_profile(data: Any) -> list[str]:
             if not isinstance(authority.get("official_sources"), list) or not authority["official_sources"]:
                 errors.append("production_authorized requires official source references")
         if isinstance(protocol, dict):
+            if protocol.get("route_kind") == "synthetic_only":
+                errors.append("synthetic_only route cannot be production_authorized")
             required_protocol_fields = ("name", "version", "verifier_endpoint", "official_specification_url", "official_spec_sha256")
             if any(not isinstance(protocol.get(k), str) or not protocol[k].strip() for k in required_protocol_fields):
                 errors.append("production_authorized requires official protocol identity, endpoint, specification URL and digest")
@@ -263,8 +265,11 @@ def validate_profile(data: Any) -> list[str]:
         if isinstance(trust, dict):
             if not trust.get("issuer_ids") or not isinstance(trust.get("metadata_url"), str) or not trust.get("status_method") or not trust.get("revocation_method") or trust.get("key_rotation_policy_reviewed") is not True:
                 errors.append("production_authorized requires issuer metadata, status/revocation methods and key-rotation review")
-        if isinstance(service, dict) and service.get("lawful_basis_status") != "approved":
-            errors.append("production_authorized requires approved lawful basis")
+        if isinstance(service, dict):
+            if service.get("lawful_basis_status") != "approved":
+                errors.append("production_authorized requires approved lawful basis")
+            if not isinstance(service.get("purpose_grant_id"), str) or not service["purpose_grant_id"].strip():
+                errors.append("production_authorized requires a purpose-grant reference")
         if isinstance(privacy, dict) and (privacy.get("data_minimization_reviewed") is not True or privacy.get("deletion_policy_reviewed") is not True):
             errors.append("production_authorized requires data-minimization and deletion-policy review")
         if isinstance(accessibility, dict) and (accessibility.get("fallback_tested") is not True or accessibility.get("accessibility_reviewed") is not True):
