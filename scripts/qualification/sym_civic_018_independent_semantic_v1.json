@@ -1,0 +1,54 @@
+{
+  "schema": "MYCELIX-SYM-CIVIC-018-INDEPENDENT-SEMANTIC-V1",
+  "candidate_pr": 4322,
+  "candidate_sha": "11d5586c555f47b9e682a24597e04340a5234373",
+  "parent_sha": "1196889eb2a849ddc359d8d05edf063aa9537699",
+  "candidate_manifest_blob_sha": "b9be91fb92b929809d580c6f4b86f5516d5144eb",
+  "candidate_workflow_blob_sha": "27359c1bc7d130780ca82bababa927a1952f170b",
+  "candidate_doc_blob_sha": "1d92fc0304402ff61316313a6df5b5230b0803ef",
+  "candidate_qualifier_blob_sha": "af388f237c4b99b028464caf173d586d4ef1b352",
+  "expected_changed_files": [
+    ".github/workflows/sym-civic-018-cbor-encoding.yml",
+    "mycelix-workspace/docs/civic-resilience/SYM_CIVIC_018_CBOR_ENCODING_V1.md",
+    "mycelix-workspace/docs/civic-resilience/sym_civic_018_cbor_encoding_v1.json",
+    "scripts/qualification/sym_civic_018_cbor_encoding_v1.py"
+  ],
+  "candidate_schema": "mycelix.sym-civic.cbor-fp-depth-preflight.v16",
+  "candidate_program": "SYM-CIVIC-018-CBOR-FP-DEPTH-V5",
+  "expected_message_corpus_sha256": "279d8836f4c2c48720eb539bbf60a0d9a83b89b9e0adfadc6c9bfa0cc73d3393",
+  "expected_depth_corpus_sha256": "ed130ccaa3cd40fcfdd329e02dffcd8bbe6d17d2280292634e5ee3942a2a124b",
+  "expected_resource_corpus_sha256": "23d115bcd1d9e1a909db90d0954b1835afb003b87b332efbabe3462c380ef6f4",
+  "expected_message_results_sha256": "79c63865e5ecee076e4c71150a992af02564870a601d3b3da7482caa3810b1c1",
+  "expected_counts": {
+    "CBOR_ENCODING_SUFFICIENT": 9,
+    "CBOR_MESSAGE_REJECT": 13,
+    "CBOR_ENCODING_REJECT": 17,
+    "CBOR_PARSE_ERROR": 12,
+    "CBOR_ENCODING_UNRESOLVED": 0
+  },
+  "resource_profile": {
+    "max_depth": 32,
+    "max_string_bytes": 1024,
+    "max_container_items": 64
+  },
+  "depth_results": {
+    "D-01": "DEPTH_PROBE_EXCEEDED",
+    "D-02": "DEPTH_PROBE_WITHIN_LIMIT",
+    "D-03": "DEPTH_PROBE_WITHIN_LIMIT",
+    "D-04": "DEPTH_PROBE_EXCEEDED"
+  },
+  "resource_results": {
+    "R-01": "RESOURCE_PROBE_WITHIN_LIMIT",
+    "R-02": "RESOURCE_PROBE_WITHIN_LIMIT",
+    "R-03": "RESOURCE_PROBE_EXCEEDED",
+    "R-04": "RESOURCE_PROBE_WITHIN_LIMIT",
+    "R-05": "RESOURCE_PROBE_WITHIN_LIMIT",
+    "R-06": "RESOURCE_PROBE_EXCEEDED",
+    "R-07": "RESOURCE_PROBE_WITHIN_LIMIT",
+    "R-08": "RESOURCE_PROBE_WITHIN_LIMIT",
+    "R-09": "RESOURCE_PROBE_EXCEEDED",
+    "R-10": "RESOURCE_PROBE_WITHIN_LIMIT",
+    "R-11": "RESOURCE_PROBE_WITHIN_LIMIT",
+    "R-12": "RESOURCE_PROBE_EXCEEDED"
+  }
+}
