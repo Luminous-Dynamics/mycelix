@@ -300,7 +300,7 @@ const INSTRUMENT_SCHEMA: &str = "schemas/life-civic/standard-instrument.schema.j
 const ASSESSMENT_SCHEMA: &str = "schemas/life-civic/applicability-assessment.schema.json";
 const CORPUS_PATH: &str = "tests/reference/life-civic-standards/cases.json";
 const SERVICE_JOURNEY_SCHEMA: &str = "schemas/life-civic/service-journey-reference.schema.json";
-const SERVICE_JOURNEY_CASES: &str = "tests/reference/life-civic-service/cases-v0.3.0.json";
+const SERVICE_JOURNEY_CASES: &str = "tests/reference/life-civic-service/cases-v0.4.0.json";
 const SERVICE_JOURNEY_POSITIVE: &str =
     "tests/reference/life-civic-service/independently-verified-local-restoration-v0.3.0.json";
 
@@ -586,7 +586,7 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
     let fixtures = cases["cases"]
         .as_array()
         .expect("service reference cases must be an array");
-    assert_eq!(fixtures.len(), 5);
+    assert_eq!(fixtures.len(), 6);
 
     let mut ids = HashSet::new();
     for fixture in fixtures {
@@ -682,6 +682,46 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
     assert!(
         unavailable["evidence"][0]["checked_at"].as_str().is_some(),
         "unavailable source must record the failed refresh attempt time"
+    );
+
+    let cross_utility = &find_service_fixture(
+        fixtures,
+        "cross-utility-statement-not-incident-cause",
+    )["instance"];
+    assert_eq!(cross_utility["case_state"], "human_review_required");
+    assert_eq!(cross_utility["route"]["status"], "unknown");
+    assert_eq!(cross_utility["route"]["source_evidence_ids"].as_array().unwrap().len(), 0);
+    assert_eq!(cross_utility["outcome"]["status"], "unknown");
+    assert_eq!(cross_utility["review_required"], true);
+    assert_eq!(cross_utility["review_status"], "requested");
+    assert_eq!(cross_utility["effects"]["effects_requested"], false);
+    let statement = &cross_utility["evidence"][0];
+    assert_eq!(statement["kind"], "official_notice");
+    assert_eq!(statement["retrieval_state"], "synthetic_fixture");
+    assert_eq!(statement["retrieved_at"], Value::Null);
+    assert_eq!(statement["checked_at"], Value::Null);
+    assert!(
+        statement["limitations"]
+            .as_str()
+            .unwrap()
+            .contains("not evidence that a specific resident's interruption was caused by electricity"),
+        "public cross-utility context must not become incident-level causal evidence"
+    );
+    assert!(
+        cross_utility["claim_ceiling"]["prohibited_inferences"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|claim| claim.as_str().unwrap().contains("caused by a power trip")),
+        "negative control must forbid incident-level power-causality inference"
+    );
+    assert!(
+        cross_utility["claim_ceiling"]["prohibited_inferences"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|claim| claim.as_str().unwrap().contains("restored now")),
+        "negative control must forbid asserting current restoration from a historical statement"
     );
 
     let false_verification = &find_service_fixture(
