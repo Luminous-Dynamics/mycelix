@@ -13,6 +13,7 @@ pub fn Player() -> impl IntoView {
     let player = expect_context::<PlayerState>();
     let delivery_preferences = expect_context::<DeliveryPreferences>();
     let gateway_origins = delivery_preferences.gateway_origins;
+    let preferences_loaded = delivery_preferences.loaded;
     let current = player.current_song;
     let is_playing = player.is_playing;
     let volume = player.volume;
@@ -25,6 +26,7 @@ pub fn Player() -> impl IntoView {
     Effect::new(move |_| {
         let _current_asset = current.get().map(|song| song.song_hash);
         let _gateway_preference = gateway_origins.get();
+        let _preferences_loaded = preferences_loaded.get();
         source_index.set(0);
         delivery_failed.set(false);
     });
@@ -39,7 +41,8 @@ pub fn Player() -> impl IntoView {
     Effect::new(move |_| {
         let has_song = current.get().is_some();
         let should_play = is_playing.get();
-        if !has_song {
+        let preferences_ready = preferences_loaded.get();
+        if !has_song || !preferences_ready {
             return;
         }
         if let Some(audio) = audio_ref.get() {
@@ -73,7 +76,7 @@ pub fn Player() -> impl IntoView {
     let player_for_end = player.clone();
 
     let start_when_ready = move |_| {
-        if is_playing.get_untracked() {
+        if preferences_loaded.get_untracked() && is_playing.get_untracked() {
             if let Some(audio) = audio_ref.get() {
                 if audio.play().is_err() {
                     is_playing.set(false);
@@ -98,7 +101,14 @@ pub fn Player() -> impl IntoView {
                         let delivery_failed = delivery_failed;
                         let is_playing = is_playing;
                         let gateway_origins = gateway_origins;
+                        let preferences_loaded = preferences_loaded;
                         move |_| {
+                            // The placeholder source may emit an error while
+                            // localStorage is being read; it is not a failed
+                            // gateway candidate and must not advance/fail the plan.
+                            if !preferences_loaded.get_untracked() {
+                                return;
+                            }
                             if let Some(current_song) = current.get_untracked() {
                                 if let Some(next_index) = next_candidate_index(
                                     source_index.get_untracked(),
@@ -122,9 +132,10 @@ pub fn Player() -> impl IntoView {
                             <span class="player-title">{song.title.clone()}</span>
                             <span class="player-duration">{song.duration_display()}</span>
                             {move || {
-                                let no_delivery_route = song_for_status
+                                let ready = preferences_loaded.get();
+                                let no_delivery_route = ready && song_for_status
                                     .audio_source_count_with_preference(gateway_origins.get().as_deref()) == 0;
-                                (delivery_failed.get() || no_delivery_route).then(|| view! {
+                                (ready && (delivery_failed.get() || no_delivery_route)).then(|| view! {
                                     <span class="player-error" role="status">
                                         "No gateway is selected, or all selected gateways failed. Review Delivery Settings or retry later."
                                     </span>
@@ -142,12 +153,20 @@ pub fn Player() -> impl IntoView {
                         </div>
                         <audio
                             node_ref=audio_ref
-                            prop:src=move || song_for_src
-                                .audio_url_at_with_preference(
-                                    source_index.get(),
-                                    gateway_origins.get().as_deref(),
-                                )
-                                .unwrap_or_else(|| "about:blank".to_string())
+                            prop:src=move || {
+                                if !preferences_loaded.get() {
+                                    // Do not make an outbound request until the
+                                    // saved browser-local gateway preference is known.
+                                    "about:blank".to_string()
+                                } else {
+                                    song_for_src
+                                        .audio_url_at_with_preference(
+                                            source_index.get(),
+                                            gateway_origins.get().as_deref(),
+                                        )
+                                        .unwrap_or_else(|| "about:blank".to_string())
+                                }
+                            }
                             prop:volume=move || volume.get()
                             preload="metadata"
                             on:canplay=start_when_ready
