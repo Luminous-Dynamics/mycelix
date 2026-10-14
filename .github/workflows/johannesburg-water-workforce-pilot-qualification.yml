@@ -1,0 +1,72 @@
+name: Johannesburg Water Workforce Pilot Qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-v1.json'
+      - 'mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json'
+      - 'scripts/qualification/johannesburg_water_workforce_pilot_v1.py'
+      - '.github/workflows/johannesburg-water-workforce-pilot-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: joburg-water-workforce-pilot-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head research corpus and fail-closed controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert exact qualification subject
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          printf 'expected_head=%s\nobserved_head=%s\n' "$EXPECTED_SHA" "$observed"
+          test "$observed" = "$EXPECTED_SHA"
+          test -z "$(git status --short)"
+
+      - name: Enforce documentation-only tranche scope
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$BASE_SHA"
+          mapfile -t observed < <(git diff --name-only "$BASE_SHA"...HEAD | sort)
+          expected=(
+            '.github/workflows/johannesburg-water-workforce-pilot-qualification.yml'
+            'mycelix-workspace/docs/civic-resilience/JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md'
+            'mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json'
+            'mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-v1.json'
+            'scripts/qualification/johannesburg_water_workforce_pilot_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${observed[@]}")
+          if printf '%s\n' "${observed[@]}" | grep -E '\.(rs|toml|lock)$'; then
+            echo 'This pilot PR is a research/specification/validator/workflow-only tranche.' >&2
+            exit 1
+          fi
+
+      - name: Run fail-closed source, schema, corpus and invariant checks
+        run: python3 scripts/qualification/johannesburg_water_workforce_pilot_v1.py
+
+      - name: Assert checkout remains immutable
+        run: test -z "$(git status --short)"
