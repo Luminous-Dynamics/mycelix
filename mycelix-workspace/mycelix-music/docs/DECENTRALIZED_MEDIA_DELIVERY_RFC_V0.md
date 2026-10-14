@@ -170,6 +170,57 @@ The manifest must explicitly bind each storage representation to:
 
 When an IPFS representation and an Iroh blob contain the same bytes, compute and record both identifiers under their own formats and verify that both resolve to the declared byte sequence. Do not introduce a custom hash bridge without golden vectors and independent tests.
 
+### 4.2.1 Proposed bounded segment-integrity profile
+
+The current M0 resolver chooses a retrieval route; it does **not** prove that the bytes returned by that route match the immutable asset. Before the browser path may report `IntegrityVerified`, define and qualify a separate `MycelixMediaSegmentIntegrityV1` profile for HLS/CMAF renditions. This is a proposal, not an implemented format.
+
+**Identity and fields**
+
+The integrity manifest should bind the logical asset/version and rendition, the exact playlist identity, and each segment's stable logical ID, sequence number, expected byte length, media type, digest algorithm, and digest. Start with SHA-256 for the segment digest to use a broadly available browser primitive. Keep these distinct:
+
+- **Storage identity:** an IPFS CID identifies its encoded IPLD/block/file structure, while an Iroh hash identifies its own defined blob byte domain.
+- **Segment digest:** SHA-256 over the exact fetched segment bytes, after HTTP transfer decoding has produced the segment body exposed to the application.
+- **Logical identity:** the asset/rendition/segment relationship asserted by the signed manifest and publication record.
+
+Do not assume these three identifiers are equal or interchangeable. Transcoding, packaging, or segmentation creates new immutable outputs: record and verify the resulting playlist/segment identities rather than treating the source-file CID as proof of every derivative segment. The manifest's exact signed bytes must use a named, frozen canonical encoding profile; never hash arbitrary JSON serialization and assume it is canonical. Bind the manifest to the authorized Mycelix publication/version separately from delivery-provider locations. Hashes establish byte identity, not license or entitlement.
+
+**Playlist interoperability**
+
+Do not invent an `EXT-X-HASH` tag or silently extend a standard HLS playlist with a Mycelix-only tag. RFC 8216 defines the HLS playlist/segment model and encryption tags; this proposal uses a versioned sidecar integrity manifest and preserves standard playlist syntax. For the initial profile, each playlist is itself immutable and identified by its digest, and each segment reference resolves to exactly one integrity-manifest entry. If a deployment rewrites playlist paths per provider, it must either resolve the same stable logical segment IDs through a reviewed adapter or create a separately authorized manifest binding; it must not silently associate a URI with an unrelated digest.
+
+**Verify before append**
+
+For a client-owned Media Source Extensions (MSE) segment loader, the required order is:
+
+1. Validate the publication/manifest signature, supported integrity profile, rights state, rendition, playlist identity, segment sequence, declared byte length, and digest syntax.
+2. Select a permitted candidate and fetch the segment under a strict per-request timeout and byte limit.
+3. Reject oversized bodies while reading; require the actual byte length and allowed content type to match the manifest.
+4. Compute the declared digest over the complete bounded segment and compare it in constant time where the language/runtime offers that primitive.
+5. Only after the comparison succeeds, append that same verified byte buffer to the compatible MSE `SourceBuffer`. Do not append, decode, or cache a failed segment as verified.
+6. On mismatch, fail that provider attempt, record a redacted diagnostic bound to asset/segment/provider identifiers, then try another permitted provider with the *same expected segment digest*. A second provider must not get to redefine the digest.
+7. If no provider returns matching bytes, stop with a recoverable integrity error; do not silently downgrade the label or play the mismatched segment.
+
+MSE is designed for an application to append media segments to a `SourceBuffer` ([W3C Media Source Extensions](https://www.w3.org/TR/media-source-2/)). The Web Crypto `SubtleCrypto.digest()` operation accepts a complete `BufferSource`, not an incremental streaming digest ([Web Crypto API](https://www.w3.org/TR/WebCryptoAPI/#SubtleCrypto-method-digest)). Therefore, browser v1 must hold at most one bounded segment for verification before appending it. Define hard limits for manifest bytes, segment bytes, in-flight segments, queued verified bytes, and outstanding requests; backpressure must stop new fetches when the player buffer is full. Never buffer an unbounded full film to verify a small segment.
+
+This segment-level profile is distinct from trustless IPFS retrieval. Raw blocks must be checked against the CID's multihash. For a CAR response, verify each addressed block and reconstruct the requested UnixFS/IPLD path before comparing any whole-file or segment digest. A trustless gateway's CAR response is a structured block container, not a directly playable media URL; do not pass it to a native `<audio src>` or `<video src>` element and label it verified. See the [IPFS Trustless Gateway specification](https://specs.ipfs.tech/http-gateways/trustless-gateway/).
+
+**Compatibility and claim ceiling**
+
+The current native browser media URL path remains `TransportOnly`: the media element fetches and decodes directly, without Mycelix independently hashing the response bytes. It must not report `IntegrityVerified` based only on HTTPS, a CID-shaped string, a successful HTTP status, or provider reputation. MSE segment verification is a later client path and must not be claimed until exact-head tests cover its implementation. Standard HLS clients that do not consume the sidecar continue to receive a standard playlist, but are not considered independently verified by this profile.
+
+**Required integrity corpus before release**
+
+- A valid segment matches its frozen SHA-256 and declared byte length.
+- Single-byte mutation, truncation, extension, wrong digest, wrong length, malformed digest, unsupported profile, unknown segment ID, duplicate sequence, and playlist-to-manifest mismatch all fail closed.
+- Two providers return identical segment bytes and the same digest; one corrupted provider falls back to the other without appending any corrupted bytes.
+- A provider cannot alter the expected digest or replace the signed manifest during fallback.
+- Oversized segment and manifest responses are rejected before unbounded buffering; in-flight count, retry count, and queued-buffer bytes remain within frozen limits.
+- Verified bytes are appended only after successful comparison; failed bytes are never inserted into the verified cache.
+- A rights revocation blocks future fetches/key release according to policy without falsely claiming that previously downloaded plaintext has been erased.
+- Test receipt identifies the exact source commit, manifest fixture digest, browser/runtime profile, limits, and expected/observed digest values. Queued or skipped execution is not a pass.
+
+Claim ceiling until this corpus passes: `TransportOnly` for the current direct media path and `ReferenceModelOnly` for the proposed profile. This section itself creates no integrity guarantee.
+
 ### 4.3 Retrieval and fallback algorithm
 
 The client/resolver should:
