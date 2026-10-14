@@ -1,0 +1,79 @@
+{
+  "fixture_id": "independently-verified-local-restoration",
+  "expected_schema_valid": true,
+  "instance": {
+    "case_id": "LCSV-WATER-005",
+    "schema_version": "0.2.0",
+    "scope": {
+      "service_class": "water_sanitation",
+      "jurisdiction": "ZA-GP-JHB",
+      "service_area_ref": "synthetic-service-area-005",
+      "urgency": "routine"
+    },
+    "need": {
+      "report_id": "REPORT-SYN-005",
+      "source_kind": "community_report",
+      "reported_on": "2026-10-14",
+      "description": "Synthetic water interruption case with a limited independent observation of restoration.",
+      "personal_data_minimized": true,
+      "privacy_class": "ordinary",
+      "consent_basis_ref": null
+    },
+    "route": {
+      "status": "officially_confirmed",
+      "institution_ref": "provider-ref-jwater-example",
+      "source_references": [
+        "https://www.johannesburgwater.co.za/contact-us/"
+      ],
+      "checked_on": "2026-10-14",
+      "notes": "Synthetic route metadata only; not a live integration."
+    },
+    "case_state": "verified_resolved",
+    "evidence": [
+      {
+        "evidence_id": "EV-REPORT-005",
+        "kind": "community_report",
+        "source_uri": "https://example.invalid/reports/REPORT-SYN-005",
+        "observed_on": "2026-10-14",
+        "independence": "unknown",
+        "claim_scope": "Initial report of an interruption.",
+        "limitations": "Community report only."
+      },
+      {
+        "evidence_id": "EV-INDEP-005",
+        "kind": "independent_measurement",
+        "source_uri": "https://example.invalid/inspection/EV-INDEP-005",
+        "observed_on": "2026-10-14",
+        "independence": "independent",
+        "claim_scope": "Synthetic independent check observed water supply at one sampling point at this time.",
+        "limitations": "Confirms only this point and observation time; it does not establish restoration across the wider service area."
+      }
+    ],
+    "outcome": {
+      "status": "independently_verified_complete",
+      "summary": "Independent evidence supports restoration only at the recorded sampling point and time.",
+      "verification_evidence_ids": [
+        "EV-INDEP-005"
+      ],
+      "verified_at": "2026-10-14T10:00:00Z"
+    },
+    "review_required": true,
+    "review_status": "completed",
+    "effects": {
+      "mode": "effects_disabled",
+      "effects_requested": false,
+      "external_action_status": "not_attempted"
+    },
+    "claim_ceiling": {
+      "permitted_claims": [
+        "Independent evidence supports restoration at the specified sampling point and time in this synthetic fixture."
+      ],
+      "prohibited_inferences": [
+        "All affected households have water restored.",
+        "The entire network is restored.",
+        "The fixture represents a real service inspection or submitted service request."
+      ]
+    },
+    "source_conflicts": []
+  }
+}
