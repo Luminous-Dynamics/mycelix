@@ -6,6 +6,7 @@ on:
       - ".github/workflows/life-civic-reference-contract.yml"
       - "schemas/life-civic/**"
       - "tests/reference/life-civic-standards/**"
+      - "tests/reference/life-civic-service/**"
       - "tools/life-civic-reference-checker/**"
   push:
     branches: [main]
