@@ -1,0 +1,307 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/living-city-evidence-v0.1.schema.json",
+  "title": "Living-City Evidence Claim",
+  "description": "A bounded claim linked to a versioned concept hypothesis and source records; not a determination of truth or intervention success.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_id",
+    "concept_ref",
+    "claim",
+    "evidence_kind",
+    "relationship_to_hypothesis",
+    "source_refs",
+    "coverage",
+    "method",
+    "uncertainty",
+    "review",
+    "recorded_at",
+    "limitations",
+    "supersedes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "living-city-evidence/0.1"
+    },
+    "evidence_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "concept_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "concept_id",
+        "concept_version",
+        "hypothesis_id"
+      ],
+      "properties": {
+        "concept_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+        },
+        "concept_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "hypothesis_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+        }
+      }
+    },
+    "claim": {
+      "type": "string",
+      "minLength": 20
+    },
+    "evidence_kind": {
+      "enum": [
+        "observed_measurement",
+        "published_projection",
+        "administrative_notice",
+        "source_catalogue_note",
+        "published_methodology",
+        "community_report",
+        "reproducible_analysis",
+        "simulation",
+        "design_assumption",
+        "contested_interpretation"
+      ]
+    },
+    "relationship_to_hypothesis": {
+      "enum": [
+        "supports",
+        "challenges",
+        "context",
+        "mixed",
+        "unknown"
+      ]
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spatial_scope",
+        "place_label",
+        "spatial_resolution_m",
+        "temporal_start",
+        "temporal_end"
+      ],
+      "properties": {
+        "spatial_scope": {
+          "enum": [
+            "neighborhood",
+            "city",
+            "region",
+            "country",
+            "multi-region",
+            "global",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "place_label": {
+          "type": "string",
+          "minLength": 2
+        },
+        "spatial_resolution_m": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "temporal_start": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "temporal_end": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        }
+      }
+    },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "description",
+        "model_or_protocol_version"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "source_reported",
+            "instrument_measurement",
+            "reproducible_analysis",
+            "simulation",
+            "community_process",
+            "assumption",
+            "unknown"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 12
+        },
+        "model_or_protocol_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      }
+    },
+    "uncertainty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "description",
+        "bounds"
+      ],
+      "properties": {
+        "classification": {
+          "enum": [
+            "source_reported_range",
+            "qualitative_only",
+            "unquantified",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 12
+        },
+        "bounds": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "lower",
+            "upper",
+            "confidence_level"
+          ],
+          "properties": {
+            "lower": {
+              "type": "number"
+            },
+            "upper": {
+              "type": "number"
+            },
+            "confidence_level": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "classification": {
+                "const": "source_reported_range"
+              }
+            },
+            "required": [
+              "classification"
+            ]
+          },
+          "then": {
+            "properties": {
+              "bounds": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reviewer_ref",
+        "rationale",
+        "decided_at"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "unreviewed",
+            "reviewed",
+            "contested",
+            "superseded",
+            "withdrawn"
+          ]
+        },
+        "reviewer_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 8
+        },
+        "decided_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 8
+      }
+    },
+    "supersedes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      }
+    }
+  }
+}

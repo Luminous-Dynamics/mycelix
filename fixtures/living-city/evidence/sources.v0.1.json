@@ -1,0 +1,62 @@
+[
+  {
+    "schema_version": "living-city-source/0.1",
+    "source_id": "joburg-metroview-announcement",
+    "title": "Joburg launches Metroview tool during Climate Action Plan gathering",
+    "publisher": "City of Johannesburg",
+    "resource_kind": "municipal_announcement",
+    "landing_url": "https://joburg.org.za/media_/Documents/2026-Media-Statements/Joburg-launches-Metroview-tool-during-Climate-Action-Plan-gathering.pdf",
+    "published_at": "2026-09-15",
+    "accessed_at": "2026-10-14T20:31:00+02:00",
+    "version_label": "press-release/2026-09-15",
+    "geographic_coverage": {
+      "label": "City of Johannesburg (as described by publisher)",
+      "scope": "city",
+      "verification_status": "source_declared",
+      "spatial_resolution_m": null
+    },
+    "temporal_coverage": {
+      "start_date": null,
+      "end_date": null
+    },
+    "reuse": {
+      "status": "unknown",
+      "license_url": null,
+      "review_notes": "Treat as a link to a municipal announcement only. No open reuse license was verified and no underlying data file was retrieved."
+    },
+    "limitations": [
+      "This announcement is not the underlying assessment dataset or evidence that a machine-readable API is available.",
+      "The announcement alone does not establish raster/vector resolution, detailed model settings, uncertainty bounds, or parcel-level truth."
+    ]
+  },
+  {
+    "schema_version": "living-city-source/0.1",
+    "source_id": "nccis-climate-services-catalogue",
+    "title": "Climate Services — Download Data",
+    "publisher": "National Climate Change Information System (NCCIS)",
+    "resource_kind": "dataset_catalog",
+    "landing_url": "https://nccis.environment.gov.za/climate-services/download-data",
+    "published_at": null,
+    "accessed_at": "2026-10-14T20:31:00+02:00",
+    "version_label": "catalogue-version-not-stated",
+    "geographic_coverage": {
+      "label": "South Africa; individual dataset coverage varies",
+      "scope": "country",
+      "verification_status": "source_declared",
+      "spatial_resolution_m": null
+    },
+    "temporal_coverage": {
+      "start_date": null,
+      "end_date": null
+    },
+    "reuse": {
+      "status": "unknown",
+      "license_url": null,
+      "review_notes": "Catalogue discovery only. Check each linked dataset's terms, version, metadata, spatial resolution, and download/service availability before reuse."
+    },
+    "limitations": [
+      "A catalogue listing does not prove that a specific download, API, or service is available.",
+      "The portal links to heterogeneous products; no shared spatial resolution, time range, or reuse license can be inferred for all entries."
+    ]
+  }
+]

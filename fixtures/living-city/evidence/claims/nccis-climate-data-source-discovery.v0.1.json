@@ -1,0 +1,45 @@
+{
+  "schema_version": "living-city-evidence/0.1",
+  "evidence_id": "nccis-climate-data-source-discovery-v0-1",
+  "concept_ref": {
+    "concept_id": "johannesburg-highveld-rewoven",
+    "concept_version": 1,
+    "hypothesis_id": "johannesburg-highveld-rewoven-1"
+  },
+  "claim": "The NCCIS Climate Services catalogue lists climate projections, climatological conditions, historical weather and climate extremes, and links to additional decision-support resources. It is a lead for source discovery, not proof of neighborhood-scale suitability.",
+  "evidence_kind": "source_catalogue_note",
+  "relationship_to_hypothesis": "context",
+  "source_refs": [
+    "nccis-climate-services-catalogue"
+  ],
+  "coverage": {
+    "spatial_scope": "country",
+    "place_label": "South Africa; coverage varies by linked product",
+    "spatial_resolution_m": null,
+    "temporal_start": null,
+    "temporal_end": null
+  },
+  "method": {
+    "kind": "source_reported",
+    "description": "Catalogue page inspected as a source-discovery step; individual linked collections have not yet been fully assessed.",
+    "model_or_protocol_version": null
+  },
+  "uncertainty": {
+    "classification": "unknown",
+    "description": "The catalogue page does not provide one common resolution, date range, data access method, license, or quality profile for all linked products.",
+    "bounds": null
+  },
+  "review": {
+    "status": "unreviewed",
+    "reviewer_ref": null,
+    "rationale": "Discovery lead pending dataset-level metadata and license review.",
+    "decided_at": null
+  },
+  "recorded_at": "2026-10-14T20:31:00+02:00",
+  "limitations": [
+    "A link in a catalogue is not verification that a dataset can be downloaded or reused.",
+    "Any selected product must be checked for date, scenario, geographic coverage, spatial resolution, method, and licensing.",
+    "National or provincial coverage should not be silently downscaled to street or parcel precision."
+  ],
+  "supersedes": []
+}
