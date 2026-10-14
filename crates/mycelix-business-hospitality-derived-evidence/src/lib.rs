@@ -241,8 +241,8 @@ pub fn derive_and_evaluate_hospitality_pilot(
     }
     validate_cases(registration, &cases)?;
 
-    let overall_scorecard =
-        ForecastScorecard::score(&cases).map_err(|_| DerivedEvidenceError::ScoringFailed)?;
+    let overall_scorecard = ForecastScorecard::score_for_protocol(&registration.protocol, &cases)
+        .map_err(|_| DerivedEvidenceError::ScoringFailed)?;
     let overall_case_set_digest = case_set_digest(&cases);
     let overall_decision = evaluate_forecast_gate(&registration.protocol, &overall_scorecard)
         .map_err(|_| DerivedEvidenceError::ProtocolGateFailed)?;
@@ -256,12 +256,14 @@ pub fn derive_and_evaluate_hospitality_pilot(
                 selected.push(case.clone());
             }
         }
-        let scorecard =
-            ForecastScorecard::score(&selected).map_err(|_| DerivedEvidenceError::ScoringFailed)?;
+        let scorecard = ForecastScorecard::score_for_protocol(&registration.protocol, &selected)
+            .map_err(|_| DerivedEvidenceError::ScoringFailed)?;
         let selected_digest = case_set_digest(&selected);
         let passed = scorecard.cases >= slice.minimum_cases
             && scorecard.abstention_bps() <= registration.protocol.maximum_abstention_bps
-            && (!registration.protocol.require_candidate_not_worse_than_baseline
+            && (!registration
+                .protocol
+                .require_candidate_not_worse_than_baseline
                 || scorecard.candidate_not_worse_than_baseline());
         let evidence_digest = slice_evidence_digest(
             clock.plan_digest,
@@ -324,11 +326,9 @@ pub fn derive_and_evaluate_hospitality_pilot(
         campaign,
         pilot_evidence,
     };
-    let field_decision = evaluate_extraction_bound_hospitality_pilot(
-        registration,
-        &extraction_evidence,
-    )
-    .map_err(DerivedEvidenceError::Extraction)?;
+    let field_decision =
+        evaluate_extraction_bound_hospitality_pilot(registration, &extraction_evidence)
+            .map_err(DerivedEvidenceError::Extraction)?;
 
     let decision = if overall_decision != ShadowPromotionDecision::PassShadowGate {
         DerivedQualificationDecision::OverallShadowFailed(overall_decision)
@@ -425,15 +425,12 @@ fn case_belongs_to_slice(
         .window_end_unix_ms
         .checked_sub(1)
         .ok_or(DerivedEvidenceError::ClockArithmetic)?;
-    let (end_day, end_minute, end_weekday) =
-        local_parts(end_inclusive, clock.utc_offset_minutes)?;
+    let (end_day, end_minute, end_weekday) = local_parts(end_inclusive, clock.utc_offset_minutes)?;
     match slice.kind {
         HospitalitySliceKind::Weekend => {
-            let same_weekend_day =
-                start_day == end_day && start_weekday >= 5 && end_weekday >= 5;
-            let saturday_to_sunday = start_day.checked_add(1) == Some(end_day)
-                && start_weekday == 5
-                && end_weekday == 6;
+            let same_weekend_day = start_day == end_day && start_weekday >= 5 && end_weekday >= 5;
+            let saturday_to_sunday =
+                start_day.checked_add(1) == Some(end_day) && start_weekday == 5 && end_weekday == 6;
             Ok(same_weekend_day || saturday_to_sunday)
         }
         _ => {
@@ -556,6 +553,8 @@ fn slice_evidence_digest(
     finish_digest(hasher)
 }
 
+// These are the independent, digest-bound evidence components; keep all constituents explicit.
+#[allow(clippy::too_many_arguments)]
 fn field_evidence_digest(
     registration_digest: Digest32,
     campaign_digest: Digest32,
@@ -604,20 +603,18 @@ fn field_evidence_digest(
 mod tests {
     use super::*;
     use mycelix_business_adapter_delimited::{
-        DecimalPolicy, DelimitedAdapterConfig, DelimitedIngressAdapter, OutputMapping, ScopeMapping,
-        TimestampEncoding, ValueMapping,
+        DecimalPolicy, DelimitedAdapterConfig, DelimitedIngressAdapter, OutputMapping,
+        ScopeMapping, TimestampEncoding, ValueMapping,
     };
     use mycelix_business_core::{Digest32, ForecastRef, ObservationRef, ReferenceId, ScopeRef};
     use mycelix_business_import_diagnostics::{
         ExtractionCampaignManifest, diagnose_delimited_import,
     };
     use mycelix_business_pilot_hospitality::{
-        HOUR_MS, HospitalityForecastPilotConfig, HospitalityPilotPolicy,
-        sales_input_ref, standard_daypart_slices_v1,
+        HOUR_MS, HospitalityForecastPilotConfig, HospitalityPilotPolicy, sales_input_ref,
+        standard_daypart_slices_v1,
     };
-    use mycelix_business_shadow::{
-        ForecastDisposition, ForecastValue, MetricObservation,
-    };
+    use mycelix_business_shadow::{ForecastDisposition, ForecastValue, MetricObservation};
 
     const EVAL_START: u64 = 1_788_739_200_000;
     const EVAL_END: u64 = 1_789_344_000_000;
@@ -801,7 +798,6 @@ mod tests {
             BTreeSet::new(),
         )
         .unwrap();
-        assert!(DERIVED_EVIDENCE_IS_READ_ONLY);
         assert_eq!(
             report.decision,
             DerivedQualificationDecision::Field(FieldQualificationDecision::PassShadowFieldGate)

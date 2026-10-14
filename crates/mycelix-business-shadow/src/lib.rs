@@ -187,9 +187,7 @@ pub enum ForecastTargetError {
 
 impl ForecastTarget {
     pub fn validate(&self) -> Result<(), ForecastTargetError> {
-        if self.window_start_unix_ms == 0
-            || self.window_start_unix_ms >= self.window_end_unix_ms
-        {
+        if self.window_start_unix_ms == 0 || self.window_start_unix_ms >= self.window_end_unix_ms {
             return Err(ForecastTargetError::InvalidWindow);
         }
         if self.scale > ScaledValue::MAX_SCALE {
@@ -251,7 +249,8 @@ impl ShadowForecast {
         self.target
             .validate()
             .map_err(ShadowForecastError::InvalidTarget)?;
-        if self.issued_at_unix_ms == 0 || self.issued_at_unix_ms >= self.target.window_start_unix_ms {
+        if self.issued_at_unix_ms == 0 || self.issued_at_unix_ms >= self.target.window_start_unix_ms
+        {
             return Err(ShadowForecastError::IssuedAfterTargetStart);
         }
         if let ForecastDisposition::Predicted(value) = &self.disposition {
@@ -347,7 +346,10 @@ impl ForecastCase {
         if self.candidate.target != self.baseline.target {
             return Err(ForecastCaseError::TargetMismatch);
         }
-        if matches!(self.baseline.disposition, ForecastDisposition::Abstained { .. }) {
+        if matches!(
+            self.baseline.disposition,
+            ForecastDisposition::Abstained { .. }
+        ) {
             return Err(ForecastCaseError::BaselineAbstained);
         }
         if self.actual.metric != self.candidate.target.metric {
@@ -381,7 +383,10 @@ pub struct ForecastScorecard {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ForecastScoringError {
-    InvalidCase { index: usize, error: ForecastCaseError },
+    InvalidCase {
+        index: usize,
+        error: ForecastCaseError,
+    },
 }
 
 impl ForecastScorecard {
@@ -406,7 +411,9 @@ impl ForecastScorecard {
                         .candidate_absolute_error_sum
                         .saturating_add(candidate_value.point.mantissa.abs_diff(actual));
                     result.candidate_interval_trials += 1;
-                    if candidate_value.lower.mantissa <= actual && actual <= candidate_value.upper.mantissa {
+                    if candidate_value.lower.mantissa <= actual
+                        && actual <= candidate_value.upper.mantissa
+                    {
                         result.candidate_interval_hits += 1;
                     }
                 }
@@ -423,10 +430,12 @@ impl ForecastScorecard {
         Ok(result)
     }
 
+    #[cfg(test)]
     pub fn candidate_not_worse_than_baseline(&self) -> bool {
         self.candidate_absolute_error_sum <= self.baseline_absolute_error_sum
     }
 
+    #[cfg(test)]
     pub fn abstention_bps(&self) -> u16 {
         if self.cases == 0 {
             return 10_000;
@@ -444,6 +453,7 @@ pub enum ShadowPromotionDecision {
     CandidateWorseThanBaseline,
 }
 
+#[cfg(test)]
 pub fn evaluate_forecast_gate(
     protocol: &ForecastQualificationProtocol,
     scorecard: &ForecastScorecard,
@@ -589,6 +599,7 @@ impl RecommendationScorecard {
         Ok(result)
     }
 
+    #[cfg(test)]
     pub fn useful_or_modified_bps(&self) -> u16 {
         if self.reviewed == 0 {
             return 0;
@@ -606,6 +617,7 @@ pub enum RecommendationPromotionDecision {
     InsufficientUsefulness { actual_bps: u16, required_bps: u16 },
 }
 
+#[cfg(test)]
 pub fn evaluate_recommendation_gate(
     protocol: &RecommendationQualificationProtocol,
     scorecard: &RecommendationScorecard,

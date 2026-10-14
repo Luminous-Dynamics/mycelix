@@ -368,9 +368,8 @@ pub fn retry_disposition(
             UnknownOutcomePolicy::IdempotentRetryOnly if provider_supports_stable_idempotency => {
                 RetryDisposition::RetryWithSameIdempotencyKey
             }
-            UnknownOutcomePolicy::IdempotentRetryOnly | UnknownOutcomePolicy::ReconcileBeforeRetry => {
-                RetryDisposition::ReconcileFirst
-            }
+            UnknownOutcomePolicy::IdempotentRetryOnly
+            | UnknownOutcomePolicy::ReconcileBeforeRetry => RetryDisposition::ReconcileFirst,
         },
     }
 }
@@ -644,7 +643,10 @@ mod tests {
         let coordination = coordination();
         let authorization = authorization();
         let mut value = attempt();
-        assert_eq!(value.validate_binding(&authorization, &coordination), Ok(()));
+        assert_eq!(
+            value.validate_binding(&authorization, &coordination),
+            Ok(())
+        );
         value.idempotency_key = id("order:different");
         assert_eq!(
             value.validate_binding(&authorization, &coordination),

@@ -12,9 +12,9 @@ use mycelix_business_control_coverage::{
     ControlCoverageEvidence, ControlCoveragePlan, CoverageError, QualificationLimitationTransition,
 };
 use mycelix_business_control_reconciliation::{
-    aggregation_semantic_authority_unverified_ref, control_metric_semantic_authority_unverified_ref,
-    control_source_authenticity_unverified_ref, control_source_external_reality_unverified_ref,
-    upstream_export_completeness_unverified_ref,
+    aggregation_semantic_authority_unverified_ref,
+    control_metric_semantic_authority_unverified_ref, control_source_authenticity_unverified_ref,
+    control_source_external_reality_unverified_ref, upstream_export_completeness_unverified_ref,
 };
 use mycelix_business_core::{Digest32, ReferenceId};
 use mycelix_business_derived_forecast_actual::{ActualProjectionSpec, AggregationKind};
@@ -101,7 +101,14 @@ pub fn compose_controlled_hospitality_qualification(
     coverage
         .validate_against(control_plan)
         .map_err(ControlledQualificationError::ControlCoverage)?;
-    validate_control_semantics(registration, target_plan, projection_spec, report, control_plan, coverage)?;
+    validate_control_semantics(
+        registration,
+        target_plan,
+        projection_spec,
+        report,
+        control_plan,
+        coverage,
+    )?;
 
     let transitions = coverage
         .qualification_limitation_transitions(control_plan)
@@ -295,7 +302,10 @@ fn apply_expected_replacements(
 
 fn envelope_digest(value: &ControlledHospitalityQualification) -> Digest32 {
     let mut hasher = Sha256::new();
-    hash_str(&mut hasher, "mycelix:controlled-hospitality-qualification:v1");
+    hash_str(
+        &mut hasher,
+        "mycelix:controlled-hospitality-qualification:v1",
+    );
     hasher.update(value.original_report_digest.0);
     hasher.update(value.registration_digest.0);
     hasher.update(value.target_plan_digest.0);

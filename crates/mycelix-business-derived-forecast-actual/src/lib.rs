@@ -11,8 +11,8 @@ use mycelix_business_campaign_replay::{CampaignReplay, ReplayedObservation};
 use mycelix_business_core::{Digest32, ReferenceId};
 use mycelix_business_forecast_plan::{ForecastPlanError, ForecastTargetPlan};
 use mycelix_business_shadow::{
-    ForecastDisposition, ForecastQualificationProtocol, ForecastScorecard, ForecastTarget,
-    ScaledValue, ShadowForecast,
+    ForecastDisposition, ForecastProtocolError, ForecastQualificationProtocol, ForecastScorecard,
+    ForecastTarget, ScaledValue, ShadowForecast,
 };
 use sha2::{Digest, Sha256};
 
@@ -222,8 +222,8 @@ pub fn derive_actuals(
             source_digests.push(source_observation_digest(replayed));
         }
         source_digests.sort_unstable();
-        let source_observation_count = u64::try_from(source_digests.len())
-            .map_err(|_| DerivedActualError::CountOverflow)?;
+        let source_observation_count =
+            u64::try_from(source_digests.len()).map_err(|_| DerivedActualError::CountOverflow)?;
         let source_observation_set_digest = source_set_digest(&source_digests);
         let value = ScaledValue {
             mantissa: sum,
@@ -241,8 +241,11 @@ pub fn derive_actuals(
             source_observation_set_digest,
         );
         let actual = EvaluationActualRef(
-            ReferenceId::new(format!("evaluation-actual:sha256:{}", hex_digest(identity_digest)))
-                .expect("generated evaluation actual id is canonical"),
+            ReferenceId::new(format!(
+                "evaluation-actual:sha256:{}",
+                hex_digest(identity_digest)
+            ))
+            .expect("generated evaluation actual id is canonical"),
         );
         let mut derived = DerivedMetricActual {
             actual,
@@ -269,7 +272,11 @@ impl DerivedMetricActual {
         spec: &ActualProjectionSpec,
         replay: &CampaignReplay,
     ) -> Result<(), DerivedActualError> {
-        let Some(planned) = plan.targets.iter().find(|item| item.target_id == self.target_id) else {
+        let Some(planned) = plan
+            .targets
+            .iter()
+            .find(|item| item.target_id == self.target_id)
+        else {
             return Err(DerivedActualError::DigestMismatch);
         };
         if self.target != planned.target
@@ -292,7 +299,10 @@ fn source_observation_digest(value: &ReplayedObservation) -> Digest32 {
     let mut hasher = Sha256::new();
     hash_str(&mut hasher, "mycelix:evaluation-source-observation:v1");
     hash_str(&mut hasher, value.input.as_str());
-    hash_str(&mut hasher, value.observation.observation.as_ref_id().as_str());
+    hash_str(
+        &mut hasher,
+        value.observation.observation.as_ref_id().as_str(),
+    );
     hash_str(&mut hasher, value.observation.source_system.as_str());
     hash_str(&mut hasher, value.observation.source_event_id.as_str());
     hasher.update(value.observation.source_payload_digest.0);
@@ -397,7 +407,10 @@ impl DerivedForecastCase {
         {
             return Err(DerivedCaseError::TargetMismatch);
         }
-        if matches!(self.baseline.disposition, ForecastDisposition::Abstained { .. }) {
+        if matches!(
+            self.baseline.disposition,
+            ForecastDisposition::Abstained { .. }
+        ) {
             return Err(DerivedCaseError::BaselineAbstained);
         }
         if self.actual.value.unit != self.candidate.target.unit
@@ -411,14 +424,51 @@ impl DerivedForecastCase {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DerivedScoringError {
-    InvalidCase { index: usize, error: DerivedCaseError },
+    InvalidProtocol(ForecastProtocolError),
+    CandidateModelMismatch {
+        index: usize,
+    },
+    BaselineModelMismatch {
+        index: usize,
+    },
+    CaseOutsideEvaluationWindow {
+        index: usize,
+    },
+    InvalidCase {
+        index: usize,
+        error: DerivedCaseError,
+    },
 }
 
 pub fn score_derived_cases(
+    protocol: &ForecastQualificationProtocol,
     cases: &[DerivedForecastCase],
 ) -> Result<ForecastScorecard, DerivedScoringError> {
-    let mut scorecard = ForecastScorecard::default();
+    protocol
+        .validate()
+        .map_err(DerivedScoringError::InvalidProtocol)?;
+    let mut scorecard = ForecastScorecard {
+        protocol_digest: protocol.protocol_digest,
+        capability: protocol.capability.clone(),
+        cases: 0,
+        candidate_abstentions: 0,
+        candidate_absolute_error_sum: 0,
+        baseline_absolute_error_sum: 0,
+        candidate_interval_hits: 0,
+        candidate_interval_trials: 0,
+    };
     for (index, case) in cases.iter().enumerate() {
+        if case.candidate.model_lineage != protocol.candidate_model_lineage {
+            return Err(DerivedScoringError::CandidateModelMismatch { index });
+        }
+        if case.baseline.model_lineage != protocol.baseline_model_lineage {
+            return Err(DerivedScoringError::BaselineModelMismatch { index });
+        }
+        if case.candidate.target.window_start_unix_ms < protocol.evaluation_start_unix_ms
+            || case.candidate.target.window_end_unix_ms > protocol.evaluation_end_unix_ms
+        {
+            return Err(DerivedScoringError::CaseOutsideEvaluationWindow { index });
+        }
         case.validate()
             .map_err(|error| DerivedScoringError::InvalidCase { index, error })?;
         let actual = case.actual.value.mantissa;
@@ -434,19 +484,15 @@ pub fn score_derived_cases(
                 scorecard.candidate_absolute_error_sum = scorecard
                     .candidate_absolute_error_sum
                     .saturating_add(candidate.point.mantissa.abs_diff(actual));
-                scorecard.candidate_interval_trials = scorecard
-                    .candidate_interval_trials
-                    .saturating_add(1);
+                scorecard.candidate_interval_trials =
+                    scorecard.candidate_interval_trials.saturating_add(1);
                 if candidate.lower.mantissa <= actual && actual <= candidate.upper.mantissa {
-                    scorecard.candidate_interval_hits = scorecard
-                        .candidate_interval_hits
-                        .saturating_add(1);
+                    scorecard.candidate_interval_hits =
+                        scorecard.candidate_interval_hits.saturating_add(1);
                 }
             }
             ForecastDisposition::Abstained { .. } => {
-                scorecard.candidate_abstentions = scorecard
-                    .candidate_abstentions
-                    .saturating_add(1);
+                scorecard.candidate_abstentions = scorecard.candidate_abstentions.saturating_add(1);
                 scorecard.candidate_absolute_error_sum = scorecard
                     .candidate_absolute_error_sum
                     .saturating_add(baseline_error);
@@ -509,7 +555,10 @@ mod tests {
             &protocol(),
             id("target-plan:aggregate:v1"),
             900,
-            vec![target("target:one", 2_000, 4_000), target("target:two", 4_000, 6_000)],
+            vec![
+                target("target:one", 2_000, 4_000),
+                target("target:two", 4_000, 6_000),
+            ],
         )
         .unwrap()
     }
@@ -577,7 +626,6 @@ mod tests {
             observation("c", 4_000, 7),
         ]);
         let actuals = derive_actuals(&protocol(), &plan, &spec(&plan), &replay).unwrap();
-        assert!(DERIVED_ACTUAL_IS_NOT_RAW_OBSERVATION);
         assert_eq!(actuals[0].value.mantissa, 5);
         assert_eq!(actuals[0].source_observation_count, 2);
         assert_eq!(actuals[1].value.mantissa, 7);
@@ -608,7 +656,13 @@ mod tests {
         let plan = plan();
         let replay = replay(vec![observation("a", 2_100, 2)]);
         let actuals = derive_actuals(&protocol(), &plan, &spec(&plan), &replay).unwrap();
-        assert!(actuals[0].actual.0.as_str().starts_with("evaluation-actual:sha256:"));
+        assert!(
+            actuals[0]
+                .actual
+                .0
+                .as_str()
+                .starts_with("evaluation-actual:sha256:")
+        );
     }
 
     fn forecast(
@@ -618,9 +672,21 @@ mod tests {
         point: i128,
     ) -> ShadowForecast {
         let value = ForecastValue {
-            point: ScaledValue { mantissa: point, scale: 0, unit: target.unit.clone() },
-            lower: ScaledValue { mantissa: point, scale: 0, unit: target.unit.clone() },
-            upper: ScaledValue { mantissa: point, scale: 0, unit: target.unit.clone() },
+            point: ScaledValue {
+                mantissa: point,
+                scale: 0,
+                unit: target.unit.clone(),
+            },
+            lower: ScaledValue {
+                mantissa: point,
+                scale: 0,
+                unit: target.unit.clone(),
+            },
+            upper: ScaledValue {
+                mantissa: point,
+                scale: 0,
+                unit: target.unit.clone(),
+            },
         };
         ShadowForecast {
             forecast: ForecastRef(id(&format!("forecast:{name}"))),
@@ -653,7 +719,7 @@ mod tests {
             ),
             actual,
         };
-        let score = score_derived_cases(&[case]).unwrap();
+        let score = score_derived_cases(&protocol(), &[case]).unwrap();
         assert_eq!(score.candidate_absolute_error_sum, 0);
         assert_eq!(score.baseline_absolute_error_sum, 3);
     }

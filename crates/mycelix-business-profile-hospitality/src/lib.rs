@@ -96,11 +96,20 @@ pub enum HospitalityProfileError {
     ProfileIdentityMismatch,
     DuplicateShadowCapability,
     DescriptorCapabilityMismatch,
-    LaneCapabilityMissing { lane: ReferenceId },
-    LaneModeMismatch { lane: ReferenceId },
-    MissingInputDefinition { lane: ReferenceId, input: ReferenceId },
+    LaneCapabilityMissing {
+        lane: ReferenceId,
+    },
+    LaneModeMismatch {
+        lane: ReferenceId,
+    },
+    MissingInputDefinition {
+        lane: ReferenceId,
+        input: ReferenceId,
+    },
     DemandLaneMissingBaseline,
-    RecommendationLaneHasBaseline { lane: ReferenceId },
+    RecommendationLaneHasBaseline {
+        lane: ReferenceId,
+    },
 }
 
 impl HospitalityShadowProfile {
@@ -119,7 +128,10 @@ impl HospitalityShadowProfile {
             }
         }
 
-        let declared = shadow_by_capability.keys().cloned().collect::<BTreeSet<_>>();
+        let declared = shadow_by_capability
+            .keys()
+            .cloned()
+            .collect::<BTreeSet<_>>();
         if declared != self.descriptor.capabilities {
             return Err(HospitalityProfileError::DescriptorCapabilityMismatch);
         }
@@ -404,10 +416,12 @@ mod tests {
     fn food_service_profile_is_self_consistent_and_read_only() {
         let profile = food_service_shadow_profile();
         assert_eq!(profile.validate(), Ok(()));
-        assert!(profile
-            .shadow_capabilities
-            .iter()
-            .all(|value| value.mode <= ShadowMode::Recommend));
+        assert!(
+            profile
+                .shadow_capabilities
+                .iter()
+                .all(|value| value.mode <= ShadowMode::Recommend)
+        );
     }
 
     #[test]
@@ -424,7 +438,10 @@ mod tests {
         });
         assert_eq!(protocol.profile, food_service_profile_ref());
         assert_eq!(protocol.capability, demand_forecast_capability());
-        assert_eq!(protocol.baseline_model_lineage, seasonal_naive_baseline_ref());
+        assert_eq!(
+            protocol.baseline_model_lineage,
+            seasonal_naive_baseline_ref()
+        );
         assert_eq!(protocol.validate(), Ok(()));
     }
 
@@ -467,7 +484,10 @@ mod tests {
             },
         )
         .unwrap();
-        assert_eq!(protocol.capability, replenishment_recommendation_capability());
+        assert_eq!(
+            protocol.capability,
+            replenishment_recommendation_capability()
+        );
         assert_eq!(
             profile
                 .lane(&replenishment_recommendation_lane_ref())

@@ -168,16 +168,13 @@ impl RevalidationEvidence {
     fn checked_at_unix_ms(&self) -> u64 {
         match self {
             Self::ExactFrontier {
-                checked_at_unix_ms,
-                ..
+                checked_at_unix_ms, ..
             }
             | Self::DependencyWitness {
-                checked_at_unix_ms,
-                ..
+                checked_at_unix_ms, ..
             }
             | Self::FreshnessOnly {
-                checked_at_unix_ms,
-                ..
+                checked_at_unix_ms, ..
             } => *checked_at_unix_ms,
         }
     }
@@ -250,7 +247,8 @@ impl ExecutionRevalidationContract {
         now_unix_ms: u64,
         evidence: &[RevalidationEvidence],
     ) -> Result<RevalidatedForAttempt, RevalidationError> {
-        self.validate().map_err(RevalidationError::InvalidContract)?;
+        self.validate()
+            .map_err(RevalidationError::InvalidContract)?;
         coordination
             .validate()
             .map_err(RevalidationError::InvalidCoordination)?;
@@ -271,7 +269,10 @@ impl ExecutionRevalidationContract {
         let mut evidence_by_identity = BTreeMap::new();
         for item in evidence {
             let identity = item.identity();
-            if evidence_by_identity.insert(identity.clone(), item).is_some() {
+            if evidence_by_identity
+                .insert(identity.clone(), item)
+                .is_some()
+            {
                 return Err(RevalidationError::DuplicateEvidence {
                     class: identity.0,
                     domain: identity.1,
@@ -305,10 +306,7 @@ impl ExecutionRevalidationContract {
                     RevalidationEvidence::ExactFrontier { current, .. },
                 ) => {
                     if current != expected {
-                        return Err(RevalidationError::ExactFrontierChanged {
-                            class,
-                            domain,
-                        });
+                        return Err(RevalidationError::ExactFrontierChanged { class, domain });
                     }
                 }
                 (
@@ -392,9 +390,10 @@ impl ExecutionRevalidationContract {
         }
 
         for frontier in &coordination.prepared.frontiers.authority {
-            if !exact.iter().any(|(class, expected)| {
-                *class == FrontierClass::Authority && expected == frontier
-            }) {
+            if !exact
+                .iter()
+                .any(|(class, expected)| *class == FrontierClass::Authority && expected == frontier)
+            {
                 return Err(RevalidationError::MissingPreparedAuthorityFrontier {
                     domain: frontier.domain.clone(),
                 });

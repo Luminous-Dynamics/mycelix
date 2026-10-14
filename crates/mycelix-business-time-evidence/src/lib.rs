@@ -118,9 +118,7 @@ impl LocalTimeSchedule {
             {
                 return Err(ScheduleError::InvalidPeriod { index });
             }
-            if i32::from(period.utc_offset_minutes).abs()
-                > i32::from(MAX_UTC_OFFSET_MINUTES)
-            {
+            if i32::from(period.utc_offset_minutes).abs() > i32::from(MAX_UTC_OFFSET_MINUTES) {
                 return Err(ScheduleError::OffsetOutOfRange { index });
             }
         }
@@ -230,8 +228,7 @@ fn local_time_point(unix_ms: u64, offset_minutes: i16) -> Result<LocalTimePoint,
         .ok_or(ResolveError::ArithmeticOverflow)?;
     let local_day = shifted.div_euclid(MILLIS_PER_DAY);
     let within_day = shifted.rem_euclid(MILLIS_PER_DAY);
-    let local_day_index =
-        i64::try_from(local_day).map_err(|_| ResolveError::ArithmeticOverflow)?;
+    let local_day_index = i64::try_from(local_day).map_err(|_| ResolveError::ArithmeticOverflow)?;
     let minute_of_day = u16::try_from(within_day / MILLIS_PER_MINUTE)
         .map_err(|_| ResolveError::ArithmeticOverflow)?;
     let weekday = u8::try_from((local_day + 3).rem_euclid(7))
@@ -292,7 +289,6 @@ mod tests {
         .unwrap();
         let point = schedule.resolve(2_000).unwrap();
         assert_eq!(point.utc_offset_minutes, 120);
-        assert!(TIME_EVIDENCE_IS_NON_AUTHORITATIVE);
     }
 
     #[test]
@@ -355,7 +351,10 @@ mod tests {
             end_unix_ms: 5_000,
             utc_offset_minutes: i16::MIN,
         }]);
-        assert!(matches!(result, Err(ScheduleError::OffsetOutOfRange { .. })));
+        assert!(matches!(
+            result,
+            Err(ScheduleError::OffsetOutOfRange { .. })
+        ));
     }
 
     #[test]

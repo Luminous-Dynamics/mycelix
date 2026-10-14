@@ -13,10 +13,9 @@ pub use implementation::{
     ForecastQualificationProtocol, ForecastTarget, ForecastTargetError, ForecastValue,
     MetricObservation, MetricObservationError, RecommendationPromotionDecision,
     RecommendationProtocolError, RecommendationQualificationProtocol, RecommendationReview,
-    RecommendationReviewError, ReviewDisposition, ScaledValue, ScaledValueError,
-    ShadowCapability, ShadowForecast, ShadowForecastError, ShadowMode, ShadowPromotionDecision,
-    ShadowRecommendation, SourceWitness, WitnessError, WitnessRegistry, maximum_shadow_mode,
-    unique_capabilities,
+    RecommendationReviewError, ReviewDisposition, ScaledValue, ScaledValueError, ShadowCapability,
+    ShadowForecast, ShadowForecastError, ShadowMode, ShadowPromotionDecision, ShadowRecommendation,
+    SourceWitness, WitnessError, WitnessRegistry, maximum_shadow_mode, unique_capabilities,
 };
 
 use mycelix_business_core::{CapabilityRef, Digest32};
@@ -36,10 +35,19 @@ pub struct ForecastScorecard {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ForecastScoringError {
     InvalidProtocol(ForecastProtocolError),
-    CandidateModelMismatch { index: usize },
-    BaselineModelMismatch { index: usize },
-    CaseOutsideEvaluationWindow { index: usize },
-    InvalidCase { index: usize, error: ForecastCaseError },
+    CandidateModelMismatch {
+        index: usize,
+    },
+    BaselineModelMismatch {
+        index: usize,
+    },
+    CaseOutsideEvaluationWindow {
+        index: usize,
+    },
+    InvalidCase {
+        index: usize,
+        error: ForecastCaseError,
+    },
 }
 
 impl ForecastScorecard {
@@ -67,11 +75,12 @@ impl ForecastScorecard {
                 .map_err(|error| ForecastScoringError::InvalidCase { index, error })?;
         }
 
-        let score = implementation::ForecastScorecard::score(cases).map_err(|error| match error {
-            implementation::ForecastScoringError::InvalidCase { index, error } => {
-                ForecastScoringError::InvalidCase { index, error }
-            }
-        })?;
+        let score =
+            implementation::ForecastScorecard::score(cases).map_err(|error| match error {
+                implementation::ForecastScoringError::InvalidCase { index, error } => {
+                    ForecastScoringError::InvalidCase { index, error }
+                }
+            })?;
 
         Ok(Self {
             protocol_digest: protocol.protocol_digest,
@@ -153,10 +162,19 @@ pub struct RecommendationScorecard {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RecommendationScoringError {
     InvalidProtocol(RecommendationProtocolError),
-    CapabilityMismatch { index: usize },
-    RecommendationOutsideEvaluationWindow { index: usize },
-    ReviewOutsideEvaluationWindow { index: usize },
-    InvalidReview { index: usize, error: RecommendationReviewError },
+    CapabilityMismatch {
+        index: usize,
+    },
+    RecommendationOutsideEvaluationWindow {
+        index: usize,
+    },
+    ReviewOutsideEvaluationWindow {
+        index: usize,
+    },
+    InvalidReview {
+        index: usize,
+        error: RecommendationReviewError,
+    },
 }
 
 impl RecommendationScorecard {
@@ -175,9 +193,9 @@ impl RecommendationScorecard {
             if review.recommendation.issued_at_unix_ms < protocol.evaluation_start_unix_ms
                 || review.recommendation.issued_at_unix_ms >= protocol.evaluation_end_unix_ms
             {
-                return Err(RecommendationScoringError::RecommendationOutsideEvaluationWindow {
-                    index,
-                });
+                return Err(
+                    RecommendationScoringError::RecommendationOutsideEvaluationWindow { index },
+                );
             }
             if review.reviewed_at_unix_ms > protocol.evaluation_end_unix_ms {
                 return Err(RecommendationScoringError::ReviewOutsideEvaluationWindow { index });
@@ -187,9 +205,8 @@ impl RecommendationScorecard {
                 .map_err(|error| RecommendationScoringError::InvalidReview { index, error })?;
         }
 
-        let score = implementation::RecommendationScorecard::score(reviews).map_err(|error| {
-            RecommendationScoringError::InvalidReview { index: 0, error }
-        })?;
+        let score = implementation::RecommendationScorecard::score(reviews)
+            .map_err(|error| RecommendationScoringError::InvalidReview { index: 0, error })?;
 
         Ok(Self {
             protocol_digest: protocol.protocol_digest,

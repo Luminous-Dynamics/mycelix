@@ -643,9 +643,7 @@ mod tests {
         assert!(!amplified.is_no_broader_than(&parent));
 
         amplified = child;
-        amplified
-            .capabilities
-            .insert(capability("treasury:borrow"));
+        amplified.capabilities.insert(capability("treasury:borrow"));
         assert!(!amplified.is_no_broader_than(&parent));
     }
 
@@ -701,7 +699,8 @@ mod tests {
         breaker.trip_to(OperatingMode::ApprovalRequired);
         assert_eq!(breaker.mode(), OperatingMode::RecommendOnly);
 
-        breaker.rearm(OperatingMode::ApprovalRequired, &lease(), 1_500, 7)
+        breaker
+            .rearm(OperatingMode::ApprovalRequired, &lease(), 1_500, 7)
             .unwrap();
         assert_eq!(breaker.mode(), OperatingMode::ApprovalRequired);
         assert!(!breaker.is_tripped());

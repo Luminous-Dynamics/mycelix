@@ -11,8 +11,8 @@ use std::io::Read;
 use csv::{ReaderBuilder, StringRecord};
 use mycelix_business_core::{Digest32, ObservationRef, ReferenceId, ScopeRef};
 use mycelix_business_ingress::{
-    ExternalAdapterDescriptor, ExternalEventEnvelope, IngressBatch, IngressBatchError, IngressRecord,
-    NormalizedInput,
+    ExternalAdapterDescriptor, ExternalEventEnvelope, IngressBatch, IngressBatchError,
+    IngressRecord, NormalizedInput,
 };
 use mycelix_business_shadow::{MetricObservation, ScaledValue, SourceWitness, WitnessRegistry};
 use sha2::{Digest, Sha256};
@@ -102,14 +102,25 @@ pub enum ConfigError {
     InvalidDelimiter,
     NoHeaders,
     TooManyHeaders,
-    DuplicateHeader { header: String },
+    DuplicateHeader {
+        header: String,
+    },
     EmptyHeader,
-    MissingColumn { column: String },
+    MissingColumn {
+        column: String,
+    },
     NoOutputs,
     TooManyOutputs,
-    DuplicateOutputIdentity { input: ReferenceId, metric: ReferenceId },
-    InvalidScale { metric: ReferenceId },
-    InvalidDecimalPolicy { metric: ReferenceId },
+    DuplicateOutputIdentity {
+        input: ReferenceId,
+        metric: ReferenceId,
+    },
+    InvalidScale {
+        metric: ReferenceId,
+    },
+    InvalidDecimalPolicy {
+        metric: ReferenceId,
+    },
     InvalidScopePrefix,
     ZeroMaximumBatchRecords,
 }
@@ -119,19 +130,55 @@ pub enum AdapterError {
     Config(ConfigError),
     Io(std::io::Error),
     Csv(csv::Error),
-    InputTooLarge { actual_bytes: u64, maximum_bytes: u64 },
+    InputTooLarge {
+        actual_bytes: u64,
+        maximum_bytes: u64,
+    },
     HeaderMismatch,
-    EmptyField { row: usize, column: String },
-    InvalidReference { row: usize, column: String },
-    InvalidTimestamp { row: usize, column: String },
-    TimestampOutOfRange { row: usize, column: String },
-    InvalidNumber { row: usize, column: String },
-    InvalidGrouping { row: usize, column: String },
-    PrecisionLoss { row: usize, column: String },
-    NegativeNotAllowed { row: usize, column: String },
-    ArithmeticOverflow { row: usize, column: String },
-    InvalidScope { row: usize, column: String },
-    TooManyRecords { actual: usize, maximum: u32 },
+    EmptyField {
+        row: usize,
+        column: String,
+    },
+    InvalidReference {
+        row: usize,
+        column: String,
+    },
+    InvalidTimestamp {
+        row: usize,
+        column: String,
+    },
+    TimestampOutOfRange {
+        row: usize,
+        column: String,
+    },
+    InvalidNumber {
+        row: usize,
+        column: String,
+    },
+    InvalidGrouping {
+        row: usize,
+        column: String,
+    },
+    PrecisionLoss {
+        row: usize,
+        column: String,
+    },
+    NegativeNotAllowed {
+        row: usize,
+        column: String,
+    },
+    ArithmeticOverflow {
+        row: usize,
+        column: String,
+    },
+    InvalidScope {
+        row: usize,
+        column: String,
+    },
+    TooManyRecords {
+        actual: usize,
+        maximum: u32,
+    },
     EmptyFile,
     Ingress(IngressBatchError),
 }
@@ -332,7 +379,11 @@ impl DelimitedAdapterConfig {
             source_schema: self.source_schema.clone(),
             source_schema_digest: self.source_schema_digest()?,
             mapping_digest: self.mapping_digest()?,
-            supported_inputs: self.outputs.iter().map(|value| value.input.clone()).collect(),
+            supported_inputs: self
+                .outputs
+                .iter()
+                .map(|value| value.input.clone())
+                .collect(),
             maximum_batch_records: self.maximum_batch_records,
         })
     }
@@ -425,12 +476,19 @@ impl DelimitedIngressAdapter {
         ingested_at_unix_ms: u64,
         descriptor: &ExternalAdapterDescriptor,
     ) -> Result<IngressRecord, AdapterError> {
-        let event_raw = required_field(row, header_index, record, &self.config.source_event_id_column)?;
-        let source_event_id = ReferenceId::new(event_raw).map_err(|_| AdapterError::InvalidReference {
+        let event_raw = required_field(
             row,
-            column: self.config.source_event_id_column.clone(),
-        })?;
-        let timestamp_raw = required_field(row, header_index, record, &self.config.observed_at_column)?;
+            header_index,
+            record,
+            &self.config.source_event_id_column,
+        )?;
+        let source_event_id =
+            ReferenceId::new(event_raw).map_err(|_| AdapterError::InvalidReference {
+                row,
+                column: self.config.source_event_id_column.clone(),
+            })?;
+        let timestamp_raw =
+            required_field(row, header_index, record, &self.config.observed_at_column)?;
         let observed_at_unix_ms = parse_timestamp(
             timestamp_raw,
             self.config.timestamp_encoding,
@@ -466,8 +524,11 @@ impl DelimitedIngressAdapter {
                 mapping_digest,
             );
             let observation = ObservationRef(
-                ReferenceId::new(format!("observation:sha256:{}", hex_digest(observation_digest)))
-                    .expect("generated observation id is canonical"),
+                ReferenceId::new(format!(
+                    "observation:sha256:{}",
+                    hex_digest(observation_digest)
+                ))
+                .expect("generated observation id is canonical"),
             );
             normalized.push(NormalizedInput {
                 input: output.input.clone(),
@@ -601,12 +662,14 @@ fn parse_timestamp(
     column: &str,
 ) -> Result<u64, AdapterError> {
     let millis = match encoding {
-        TimestampEncoding::UnixMilliseconds => value
-            .parse::<u64>()
-            .map_err(|_| AdapterError::InvalidTimestamp {
-                row,
-                column: column.to_owned(),
-            })?,
+        TimestampEncoding::UnixMilliseconds => {
+            value
+                .parse::<u64>()
+                .map_err(|_| AdapterError::InvalidTimestamp {
+                    row,
+                    column: column.to_owned(),
+                })?
+        }
         TimestampEncoding::UnixSeconds => value
             .parse::<u64>()
             .map_err(|_| AdapterError::InvalidTimestamp {
@@ -780,12 +843,12 @@ fn parse_scaled_decimal(
                 column: column.to_owned(),
             })?
     };
-    let magnitude = whole_value
-        .checked_add(fraction_value)
-        .ok_or_else(|| AdapterError::ArithmeticOverflow {
+    let magnitude = whole_value.checked_add(fraction_value).ok_or_else(|| {
+        AdapterError::ArithmeticOverflow {
             row,
             column: column.to_owned(),
-        })?;
+        }
+    })?;
     if negative {
         magnitude
             .checked_neg()
@@ -872,11 +935,13 @@ mod tests {
         let batch = adapter
             .parse_batch(csv.as_bytes(), 1_789_000_000_000)
             .unwrap();
-        assert!(DELIMITED_ADAPTER_IS_READ_ONLY);
         assert_eq!(batch.records.len(), 2);
         assert_eq!(batch.records[0].normalized.len(), 2);
         assert_eq!(batch.records[0].normalized[0].observation.value.mantissa, 2);
-        assert_eq!(batch.records[0].normalized[1].observation.value.mantissa, 14_990);
+        assert_eq!(
+            batch.records[0].normalized[1].observation.value.mantissa,
+            14_990
+        );
         assert_eq!(
             batch.records[0].normalized[0].observation.scope.0.as_str(),
             "scope:location:rosebank"
@@ -907,8 +972,12 @@ mod tests {
             "event_id,occurred_at,location,item,quantity,net_amount\n",
             "sale:1,2026-09-10T08:00:00+02:00,rosebank,Coffee,2,34.50\n"
         );
-        let a = adapter.parse_batch(a.as_bytes(), 1_789_000_000_000).unwrap();
-        let b = adapter.parse_batch(b.as_bytes(), 1_789_000_000_000).unwrap();
+        let a = adapter
+            .parse_batch(a.as_bytes(), 1_789_000_000_000)
+            .unwrap();
+        let b = adapter
+            .parse_batch(b.as_bytes(), 1_789_000_000_000)
+            .unwrap();
         assert_ne!(
             a.records[0].event.witness.payload_digest,
             b.records[0].event.witness.payload_digest
@@ -943,7 +1012,10 @@ mod tests {
             parse_scaled_decimal("1.234", 2, &policy, 2, "amount"),
             Err(AdapterError::PrecisionLoss { .. })
         ));
-        assert_eq!(parse_scaled_decimal("1.23", 2, &policy, 2, "amount").unwrap(), 123);
+        assert_eq!(
+            parse_scaled_decimal("1.23", 2, &policy, 2, "amount").unwrap(),
+            123
+        );
     }
 
     #[test]
@@ -986,7 +1058,9 @@ mod tests {
         );
         assert!(matches!(
             adapter.parse_batch(csv.as_bytes(), 1_789_000_000_000),
-            Err(AdapterError::Ingress(IngressBatchError::DuplicateSourceEvent { .. }))
+            Err(AdapterError::Ingress(
+                IngressBatchError::DuplicateSourceEvent { .. }
+            ))
         ));
     }
 

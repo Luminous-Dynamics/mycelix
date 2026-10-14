@@ -51,15 +51,35 @@ pub enum IntegrityError {
     Campaign(CampaignError),
     AdapterConfiguration,
     ConnectorMismatch,
-    SourceFileCountMismatch { expected: usize, actual: usize },
-    Diagnostic { index: usize, error: DiagnosticError },
-    UnexpectedSourceFile { index: usize },
-    ManifestMismatch { index: usize, source_file_digest: Digest32 },
+    SourceFileCountMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    Diagnostic {
+        index: usize,
+        error: DiagnosticError,
+    },
+    UnexpectedSourceFile {
+        index: usize,
+    },
+    ManifestMismatch {
+        index: usize,
+        source_file_digest: Digest32,
+    },
     MissingCampaignFile,
-    Csv { index: usize },
-    Serialization { index: usize },
-    DuplicateCampaignSourceEvent { source_event_id: ReferenceId },
-    AcceptedCountMismatch { manifest_total: u64, unique_events: u64 },
+    Csv {
+        index: usize,
+    },
+    Serialization {
+        index: usize,
+    },
+    DuplicateCampaignSourceEvent {
+        source_event_id: ReferenceId,
+    },
+    AcceptedCountMismatch {
+        manifest_total: u64,
+        unique_events: u64,
+    },
     CoverageMismatch,
     ArithmeticOverflow,
     InvalidEvidence,
@@ -139,15 +159,12 @@ pub fn verify_campaign_integrity(
     let mut latest = None;
 
     for (file_index, file) in files.iter().enumerate() {
-        let manifest = diagnose_delimited_import(
-            adapter,
-            file.bytes.as_slice(),
-            file.ingested_at_unix_ms,
-        )
-        .map_err(|error| IntegrityError::Diagnostic {
-            index: file_index,
-            error,
-        })?;
+        let manifest =
+            diagnose_delimited_import(adapter, file.bytes.as_slice(), file.ingested_at_unix_ms)
+                .map_err(|error| IntegrityError::Diagnostic {
+                    index: file_index,
+                    error,
+                })?;
         let Some(expected) = expected_manifests.remove(&manifest.source_file_digest) else {
             return Err(IntegrityError::UnexpectedSourceFile { index: file_index });
         };
@@ -261,7 +278,9 @@ fn serialize_single_record(
 ) -> Result<Vec<u8>, IntegrityError> {
     let mut bytes = Vec::new();
     {
-        let mut writer = WriterBuilder::new().delimiter(delimiter).from_writer(&mut bytes);
+        let mut writer = WriterBuilder::new()
+            .delimiter(delimiter)
+            .from_writer(&mut bytes);
         writer
             .write_record(headers)
             .map_err(|_| IntegrityError::Serialization { index: file_index })?;
@@ -396,12 +415,8 @@ mod tests {
         let manifests = files
             .iter()
             .map(|file| {
-                diagnose_delimited_import(
-                    adapter,
-                    file.bytes.as_slice(),
-                    file.ingested_at_unix_ms,
-                )
-                .unwrap()
+                diagnose_delimited_import(adapter, file.bytes.as_slice(), file.ingested_at_unix_ms)
+                    .unwrap()
             })
             .collect::<Vec<_>>();
         ExtractionCampaignManifest::from_files(manifests).unwrap()
@@ -422,7 +437,6 @@ mod tests {
         ];
         let campaign = campaign(&adapter, &files);
         let evidence = verify_campaign_integrity(&adapter, &campaign, &files).unwrap();
-        assert!(CAMPAIGN_INTEGRITY_IS_READ_ONLY);
         assert_eq!(evidence.unique_source_events, 4);
         assert!(evidence.validate_against(&campaign).is_ok());
     }

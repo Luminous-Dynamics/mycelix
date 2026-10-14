@@ -12,7 +12,8 @@ use mycelix_business_campaign_replay::CampaignReplay;
 use mycelix_business_control_reconciliation::{
     ControlAggregationKind, ControlReconciliationContract, ControlReconciliationDecision,
     ControlReconciliationEvidence, ControlSourceClass, ControlTotalStatement, ReconciliationError,
-    aggregation_semantic_authority_unverified_ref, control_metric_semantic_authority_unverified_ref,
+    aggregation_semantic_authority_unverified_ref,
+    control_metric_semantic_authority_unverified_ref,
     control_source_external_reality_unverified_ref, upstream_export_completeness_unverified_ref,
 };
 use mycelix_business_core::{Digest32, ReferenceId, ScopeRef};
@@ -247,18 +248,44 @@ pub struct ControlCoverageEvidence {
 #[derive(Debug)]
 pub enum CoverageError {
     Plan(CoveragePlanError),
-    EntryCountMismatch { expected: usize, actual: usize },
-    DuplicateEntry { window_id: ReferenceId },
-    UnknownWindow { window_id: ReferenceId },
-    MissingWindow { window_id: ReferenceId },
-    ContractInvalid { window_id: ReferenceId },
-    ContractRegisteredAfterPlan { window_id: ReferenceId },
-    ContractSemanticsMismatch { window_id: ReferenceId },
-    ContractWindowMismatch { window_id: ReferenceId },
-    StatementOrEvidence { window_id: ReferenceId, error: ReconciliationError },
-    ReconciliationDidNotMatch { window_id: ReferenceId },
-    TransitionMismatch { window_id: ReferenceId },
-    WindowEvidenceInvalid { window_id: ReferenceId },
+    EntryCountMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    DuplicateEntry {
+        window_id: ReferenceId,
+    },
+    UnknownWindow {
+        window_id: ReferenceId,
+    },
+    MissingWindow {
+        window_id: ReferenceId,
+    },
+    ContractInvalid {
+        window_id: ReferenceId,
+    },
+    ContractRegisteredAfterPlan {
+        window_id: ReferenceId,
+    },
+    ContractSemanticsMismatch {
+        window_id: ReferenceId,
+    },
+    ContractWindowMismatch {
+        window_id: ReferenceId,
+    },
+    StatementOrEvidence {
+        window_id: ReferenceId,
+        error: ReconciliationError,
+    },
+    ReconciliationDidNotMatch {
+        window_id: ReferenceId,
+    },
+    TransitionMismatch {
+        window_id: ReferenceId,
+    },
+    WindowEvidenceInvalid {
+        window_id: ReferenceId,
+    },
     ZeroDigest,
     DigestMismatch,
 }
@@ -334,9 +361,9 @@ pub fn verify_control_coverage(
                 error,
             })?;
         if transitions.len() != 2
-            || transitions
-                .iter()
-                .any(|transition| !transition.validate_against(&entry.contract, &entry.reconciliation))
+            || transitions.iter().any(|transition| {
+                !transition.validate_against(&entry.contract, &entry.reconciliation)
+            })
         {
             return Err(CoverageError::TransitionMismatch {
                 window_id: entry.window_id.clone(),
@@ -548,7 +575,10 @@ impl QualificationLimitationTransition {
 
 fn qualification_transition_digest(value: &QualificationLimitationTransition) -> Digest32 {
     let mut hasher = Sha256::new();
-    hash_str(&mut hasher, "mycelix:qualification-limitation-transition:v1");
+    hash_str(
+        &mut hasher,
+        "mycelix:qualification-limitation-transition:v1",
+    );
     hash_str(&mut hasher, value.from.as_str());
     hash_str(&mut hasher, value.to.as_str());
     hasher.update(value.coverage_plan_digest.0);
@@ -607,8 +637,8 @@ fn hash_connector(hasher: &mut Sha256, value: &IngressQualificationBinding) {
 #[cfg(test)]
 mod tests {
     use mycelix_business_adapter_delimited::{
-        DecimalPolicy, DelimitedAdapterConfig, DelimitedIngressAdapter, OutputMapping, ScopeMapping,
-        TimestampEncoding, ValueMapping,
+        DecimalPolicy, DelimitedAdapterConfig, DelimitedIngressAdapter, OutputMapping,
+        ScopeMapping, TimestampEncoding, ValueMapping,
     };
     use mycelix_business_campaign_replay::replay_campaign;
     use mycelix_business_control_reconciliation::reconcile_control_total;
@@ -658,7 +688,8 @@ mod tests {
 
     fn source_file() -> CampaignSourceFile {
         CampaignSourceFile {
-            bytes: b"event_id,occurred_at,location,quantity\nevent:1,1100,a,2\nevent:2,2100,a,3\n".to_vec(),
+            bytes: b"event_id,occurred_at,location,quantity\nevent:1,1100,a,2\nevent:2,2100,a,3\n"
+                .to_vec(),
             ingested_at_unix_ms: 3_100,
         }
     }
@@ -667,12 +698,9 @@ mod tests {
         adapter: &DelimitedIngressAdapter,
         file: &CampaignSourceFile,
     ) -> ExtractionCampaignManifest {
-        let manifest = diagnose_delimited_import(
-            adapter,
-            file.bytes.as_slice(),
-            file.ingested_at_unix_ms,
-        )
-        .unwrap();
+        let manifest =
+            diagnose_delimited_import(adapter, file.bytes.as_slice(), file.ingested_at_unix_ms)
+                .unwrap();
         ExtractionCampaignManifest::from_files(vec![manifest]).unwrap()
     }
 
@@ -744,7 +772,8 @@ mod tests {
             },
         )
         .unwrap();
-        let reconciliation = reconcile_control_total(campaign, replay, &contract, &statement).unwrap();
+        let reconciliation =
+            reconcile_control_total(campaign, replay, &contract, &statement).unwrap();
         ControlCoverageEntry {
             window_id: window.window_id.clone(),
             contract,
@@ -778,11 +807,15 @@ mod tests {
         assert!(CONTROL_COVERAGE_IS_READ_ONLY);
         assert_eq!(evidence.windows.len(), 2);
         assert!(evidence.validate_against(&plan).is_ok());
-        let transitions = evidence.qualification_limitation_transitions(&plan).unwrap();
+        let transitions = evidence
+            .qualification_limitation_transitions(&plan)
+            .unwrap();
         assert_eq!(transitions.len(), 2);
-        assert!(transitions
-            .iter()
-            .all(|transition| transition.validate_against(&plan, &evidence)));
+        assert!(
+            transitions
+                .iter()
+                .all(|transition| transition.validate_against(&plan, &evidence))
+        );
         assert!(transitions.iter().all(|transition| {
             transition.qualification_start_unix_ms == 1_000
                 && transition.qualification_end_unix_ms == 3_000
@@ -839,7 +872,10 @@ mod tests {
                 },
             ],
         );
-        assert!(matches!(result, Err(CoveragePlanError::GapOrOverlap { .. })));
+        assert!(matches!(
+            result,
+            Err(CoveragePlanError::GapOrOverlap { .. })
+        ));
     }
 
     #[test]
@@ -908,13 +944,8 @@ mod tests {
             },
         )
         .unwrap();
-        let late_reconciliation = reconcile_control_total(
-            &campaign,
-            &replay,
-            &late_contract,
-            &late_statement,
-        )
-        .unwrap();
+        let late_reconciliation =
+            reconcile_control_total(&campaign, &replay, &late_contract, &late_statement).unwrap();
         entries[1] = ControlCoverageEntry {
             window_id: window.window_id.clone(),
             contract: late_contract,

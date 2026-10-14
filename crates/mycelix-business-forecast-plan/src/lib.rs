@@ -62,11 +62,22 @@ pub enum ForecastPlanError {
     InvalidEvaluationWindow,
     NoTargets,
     TooManyTargets,
-    InvalidTarget { index: usize },
-    TargetOutsideEvaluationWindow { target: ReferenceId },
-    DuplicateTargetId { target: ReferenceId },
-    DuplicateTargetSemantics { target: ReferenceId },
-    OverlappingTargets { left: ReferenceId, right: ReferenceId },
+    InvalidTarget {
+        index: usize,
+    },
+    TargetOutsideEvaluationWindow {
+        target: ReferenceId,
+    },
+    DuplicateTargetId {
+        target: ReferenceId,
+    },
+    DuplicateTargetSemantics {
+        target: ReferenceId,
+    },
+    OverlappingTargets {
+        left: ReferenceId,
+        right: ReferenceId,
+    },
     ProtocolBindingMismatch,
     NonCanonicalOrder,
     DigestMismatch,
@@ -293,7 +304,8 @@ pub fn verify_exact_case_coverage(
     plan: &ForecastTargetPlan,
     cases: &[ForecastCase],
 ) -> Result<ForecastCoverageEvidence, CoverageError> {
-    plan.validate_against(protocol).map_err(CoverageError::Plan)?;
+    plan.validate_against(protocol)
+        .map_err(CoverageError::Plan)?;
     if cases.len() > u32::MAX as usize {
         return Err(CoverageError::TooManyCases);
     }
@@ -516,7 +528,6 @@ mod tests {
         let plan = plan();
         assert_eq!(plan.targets[0].target_id, id("target:1"));
         assert_eq!(plan.targets[1].target_id, id("target:2"));
-        assert!(FORECAST_PLAN_IS_NON_AUTHORITATIVE);
     }
 
     #[test]
