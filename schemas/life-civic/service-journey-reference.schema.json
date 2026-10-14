@@ -123,7 +123,8 @@
         "status",
         "institution_ref",
         "source_references",
-        "checked_on"
+        "checked_on",
+        "source_evidence_ids"
       ],
       "properties": {
         "status": {
@@ -157,6 +158,15 @@
         },
         "notes": {
           "type": "string"
+        },
+        "source_evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Evidence-record identifiers supporting the referenced route/contact sources. These do not by themselves prove that the route is legally applicable or operationally authoritative."
         }
       }
     },
@@ -407,6 +417,13 @@
               },
               "source_references": {
                 "minItems": 1
+              },
+              "source_evidence_ids": {
+                "minItems": 1
+              },
+              "checked_on": {
+                "type": "string",
+                "format": "date"
               }
             }
           }
