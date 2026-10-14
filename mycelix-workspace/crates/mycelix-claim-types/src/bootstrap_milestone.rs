@@ -772,6 +772,11 @@ mod tests {
         }
         assert!(milestone.validate().is_err());
 
+        if let ResourceStatement::AcceptedInventoryDelta { evidence, .. } =
+            &mut milestone.resource_statements[0]
+        {
+            evidence[0].kind = EvidenceKind::InventoryReconciliation;
+        }
         if let ResourceStatement::AcceptedInventoryDelta {
             delta_milligrams, ..
         } = &mut milestone.resource_statements[0]
