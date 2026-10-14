@@ -315,11 +315,11 @@ fn verify_citizen_tier() -> ExternResult<()> {
             }
         }
         // Identity cluster unavailable — fall back to governance agent check
-        _ => verify_governance_or_bootstrap(),
+        _ => verify_governance(),
     }
 }
 
-fn verify_governance_or_bootstrap() -> ExternResult<()> {
+fn verify_governance() -> ExternResult<()> {
     let gov_links = get_links(
         LinkQuery::try_new(
             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
@@ -731,7 +731,7 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
 /// Requires governance authorization. Weights must sum to ~1.0.
 #[hdk_extern]
 pub fn define_basket(input: DefineBasketInput) -> ExternResult<Record> {
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
 
     let my_info = agent_info()?;
     let my_did = format!("did:holo:{}", my_info.agent_initial_pubkey);

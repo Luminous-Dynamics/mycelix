@@ -14,6 +14,7 @@ use hdk::prelude::*;
 use mycelix_finance_shared::{
     GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain, links_to_records,
     verify_caller_is_did, verify_governance_or_bootstrap_from_links,
+    verify_governance_registration_from_links,
 };
 use mycelix_zome_helpers as _;
 use staking_integrity::*;
@@ -21,7 +22,7 @@ use staking_integrity::*;
 /// Anchor for active stakes
 const ACTIVE_STAKES_ANCHOR: &str = "active_stakes";
 
-fn verify_governance_or_bootstrap() -> ExternResult<()> {
+fn verify_governance() -> ExternResult<()> {
     let gov_links = get_links(
         LinkQuery::try_new(
             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
@@ -32,11 +33,22 @@ fn verify_governance_or_bootstrap() -> ExternResult<()> {
     verify_governance_or_bootstrap_from_links(gov_links)
 }
 
+fn verify_governance_registration_authority() -> ExternResult<()> {
+    let gov_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
+            LinkTypes::GovernanceAgents,
+        )?,
+        GetStrategy::default(),
+    )?;
+    verify_governance_registration_from_links(gov_links)
+}
+
 /// Register a governance agent. Only existing governance agents can register
 /// new ones (or anyone during bootstrap when no agents exist yet).
 #[hdk_extern]
 pub fn register_governance_agent(agent: AgentPubKey) -> ExternResult<ActionHash> {
-    verify_governance_or_bootstrap()?;
+    verify_governance_registration_authority()?;
     create_link(
         anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
         agent,
@@ -457,7 +469,7 @@ pub struct SlashStakeInput {
 /// Restricted to authorized governance agents (or any agent during bootstrap).
 #[hdk_extern]
 pub fn slash_stake(input: SlashStakeInput) -> ExternResult<Record> {
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
     let now = sys_time()?;
 
     // Serialize and hash evidence

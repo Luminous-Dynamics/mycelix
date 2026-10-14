@@ -269,6 +269,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             .into(),
                     ))
                 }
+                // Governance registration is a permanent lifecycle boundary.
+                LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Invalid(
+                    "Governance agent links are append-only and cannot be deleted".into(),
+                )),
                 // Manager links require governance process (not direct deletion)
                 LinkTypes::ManagerToTreasury => Ok(ValidateCallbackResult::Invalid(
                     "Manager links cannot be directly deleted - use governance process".into(),
