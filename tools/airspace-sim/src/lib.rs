@@ -471,6 +471,195 @@ pub fn evaluate_scenario(scenario: &Scenario) -> SimulationReport {
     report(scenario, classification, scenario.flights.len(), pair_total, pair_sample_checks, conflicts, reasons)
 }
 
+const RESERVATION_AUTHORITY_CEILING: &str =
+    "synthetic reservation snapshot assessment only; no reservation grant or flight authorization";
+
+/// Assess a single provider snapshot without choosing a winner or granting a slot.
+///
+/// Time intervals are half-open [start_s, end_s). This checks only the supplied
+/// snapshot; an incomplete snapshot can never yield a no-conflict conclusion.
+pub fn evaluate_reservation_case(case: &ReservationCoordinationCase) -> ReservationCoordinationReport {
+    let mut errors = Vec::new();
+    let mut reasons = Vec::new();
+
+    if case.case_id.trim().is_empty() {
+        return reservation_report(
+            case,
+            ReservationOutcome::Reject,
+            0,
+            Vec::new(),
+            Vec::new(),
+            vec!["case_id must not be empty".to_owned()],
+        );
+    }
+
+    for claim in &case.claims {
+        if claim.reservation_id.trim().is_empty()
+            || claim.provider_id.trim().is_empty()
+            || claim.resource_id.trim().is_empty()
+            || claim.trajectory_digest.trim().is_empty()
+            || claim.time_basis.trim().is_empty()
+        {
+            errors.push(ReservationError::EmptyIdentity);
+        }
+        if claim.sequence == 0 {
+            errors.push(ReservationError::InvalidSequence);
+        }
+        if claim.start_s >= claim.end_s {
+            errors.push(ReservationError::InvalidInterval);
+        }
+        if claim.expires_at_s <= claim.issued_at_s {
+            errors.push(ReservationError::InvalidExpiry);
+        }
+        if claim.issued_at_s > case.now_s {
+            errors.push(ReservationError::FutureIssuedAt);
+        }
+    }
+
+    if !errors.is_empty() {
+        let has_malformed_claim = errors.iter().any(|error| {
+            matches!(
+                error,
+                ReservationError::EmptyIdentity
+                    | ReservationError::InvalidSequence
+                    | ReservationError::InvalidInterval
+                    | ReservationError::InvalidExpiry
+            )
+        });
+        let outcome = if has_malformed_claim {
+            ReservationOutcome::Reject
+        } else {
+            ReservationOutcome::Unresolved
+        };
+        reasons.push("one or more claims failed identity, sequence, time, or interval qualification".to_owned());
+        return reservation_report(case, outcome, 0, Vec::new(), errors, reasons);
+    }
+
+    // A snapshot must contain one current projection per global reservation ID.
+    // Never apply an implicit last-writer-wins policy to duplicate/competing versions.
+    for left in 0..case.claims.len() {
+        for right in (left + 1)..case.claims.len() {
+            if case.claims[left].reservation_id == case.claims[right].reservation_id {
+                errors.push(ReservationError::DuplicateReservationId);
+            }
+        }
+    }
+    if !errors.is_empty() {
+        reasons.push("duplicate reservation IDs require explicit upstream reconciliation".to_owned());
+        return reservation_report(
+            case,
+            ReservationOutcome::Unresolved,
+            0,
+            Vec::new(),
+            errors,
+            reasons,
+        );
+    }
+
+    let active_claims: Vec<&ReservationClaim> = case
+        .claims
+        .iter()
+        .filter(|claim| {
+            !matches!(claim.state, IntentState::Withdrawn | IntentState::Ended)
+                && case.now_s < claim.expires_at_s
+                && case.now_s < claim.end_s
+        })
+        .collect();
+
+    if let Some(first) = active_claims.first() {
+        if active_claims.iter().any(|claim| claim.time_basis != first.time_basis) {
+            reasons.push("active reservation claims use incompatible time bases".to_owned());
+            return reservation_report(
+                case,
+                ReservationOutcome::Unresolved,
+                active_claims.len(),
+                Vec::new(),
+                vec![ReservationError::TimeBasisMismatch],
+                reasons,
+            );
+        }
+    }
+
+    let mut conflicts = Vec::new();
+    for left_index in 0..active_claims.len() {
+        for right_index in (left_index + 1)..active_claims.len() {
+            let left = active_claims[left_index];
+            let right = active_claims[right_index];
+            if left.resource_id != right.resource_id {
+                continue;
+            }
+
+            // Half-open intervals [start, end): adjacent reservations do not overlap.
+            let overlap_start_s = left.start_s.max(right.start_s);
+            let overlap_end_s = left.end_s.min(right.end_s);
+            if overlap_start_s < overlap_end_s {
+                conflicts.push(ReservationConflict {
+                    reservation_a: left.reservation_id.clone(),
+                    provider_a: left.provider_id.clone(),
+                    reservation_b: right.reservation_id.clone(),
+                    provider_b: right.provider_id.clone(),
+                    resource_id: left.resource_id.clone(),
+                    overlap_start_s,
+                    overlap_end_s,
+                });
+            }
+        }
+    }
+
+    let emergency_present = active_claims
+        .iter()
+        .any(|claim| claim.priority == FlightPriority::Emergency);
+    let outcome = if !conflicts.is_empty() {
+        reasons.push("overlapping current claims were found; this evaluator does not pick a winner".to_owned());
+        if emergency_present {
+            reasons.push("an emergency claim is present but does not automatically preempt another claim".to_owned());
+        }
+        ReservationOutcome::Conflict
+    } else if case.snapshot_state != ProviderSnapshotState::CompleteFresh {
+        reasons.push("provider snapshot is partitioned, stale, or incomplete; absence of a conflict cannot be established".to_owned());
+        if emergency_present {
+            reasons.push("emergency claims in an incomplete view still require the competent operational process".to_owned());
+        }
+        ReservationOutcome::Degraded
+    } else if emergency_present {
+        reasons.push("emergency claim requires competent-authority/operational review; no priority-based authorization is inferred".to_owned());
+        ReservationOutcome::RequiresAuthorityReview
+    } else {
+        reasons.push("no overlap was found in this complete supplied snapshot; this is not a slot grant or flight authorization".to_owned());
+        ReservationOutcome::NoConflictInProvidedSnapshot
+    };
+
+    reservation_report(
+        case,
+        outcome,
+        active_claims.len(),
+        conflicts,
+        errors,
+        reasons,
+    )
+}
+
+fn reservation_report(
+    case: &ReservationCoordinationCase,
+    actual_outcome: ReservationOutcome,
+    active_claim_count: usize,
+    conflicts: Vec<ReservationConflict>,
+    errors: Vec<ReservationError>,
+    reasons: Vec<String>,
+) -> ReservationCoordinationReport {
+    ReservationCoordinationReport {
+        case_id: case.case_id.clone(),
+        actual_outcome,
+        expected_outcome: case.expected_outcome,
+        expectation_matches: actual_outcome == case.expected_outcome,
+        active_claim_count,
+        conflicts,
+        errors,
+        reasons,
+        authority_ceiling: RESERVATION_AUTHORITY_CEILING,
+    }
+}
+
 /// Evaluate a complete versioned fixture and preserve expected classifications.
 pub fn replay_set(set: &ScenarioSet) -> ReplayOutput {
     let reports: Vec<SimulationReport> = set.scenarios.iter().map(evaluate_scenario).collect();
@@ -479,16 +668,24 @@ pub fn replay_set(set: &ScenarioSet) -> ReplayOutput {
         .iter()
         .map(evaluate_lifecycle_transition_case)
         .collect();
+    let reservation_reports: Vec<ReservationCoordinationReport> = set
+        .reservation_cases
+        .iter()
+        .map(evaluate_reservation_case)
+        .collect();
     let all_expectations_match = reports.iter().all(|item| item.expectation_matches)
-        && lifecycle_transition_reports.iter().all(|item| item.expectation_matches);
+        && lifecycle_transition_reports.iter().all(|item| item.expectation_matches)
+        && reservation_reports.iter().all(|item| item.expectation_matches);
     ReplayOutput {
         schema: "airspace-replay-output-v1",
         status: "research_fixture_not_operational",
         input_scenario_count: reports.len(),
         input_lifecycle_transition_case_count: lifecycle_transition_reports.len(),
+        input_reservation_case_count: reservation_reports.len(),
         all_expectations_match,
         reports,
         lifecycle_transition_reports,
+        reservation_reports,
     }
 }
 
@@ -674,11 +871,16 @@ mod tests {
         assert_eq!(output.status, "research_fixture_not_operational");
         assert_eq!(output.input_scenario_count, set.scenarios.len());
         assert_eq!(output.input_lifecycle_transition_case_count, set.lifecycle_transition_cases.len());
+        assert_eq!(output.input_reservation_case_count, set.reservation_cases.len());
         assert!(
             output.all_expectations_match,
-            "mismatched traffic reports: {:#?}; mismatched lifecycle reports: {:#?}",
+            "mismatched traffic reports: {:#?}; mismatched lifecycle reports: {:#?}; mismatched reservation reports: {:#?}",
             output.reports.iter().filter(|report| !report.expectation_matches).collect::<Vec<_>>(),
             output.lifecycle_transition_reports
+                .iter()
+                .filter(|report| !report.expectation_matches)
+                .collect::<Vec<_>>(),
+            output.reservation_reports
                 .iter()
                 .filter(|report| !report.expectation_matches)
                 .collect::<Vec<_>>()
