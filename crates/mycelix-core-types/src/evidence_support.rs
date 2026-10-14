@@ -96,6 +96,31 @@ impl Default for CoverageAssessment {
     }
 }
 
+impl CoverageAssessment {
+    /// Validate count relationships without inferring evidentiary quality.
+    ///
+    /// Zero-sized samples or populations are structurally representable here;
+    /// whether they are informative belongs to the assessment context. What is
+    /// never structurally coherent is observing more units than a known total,
+    /// or sampling more units than a known population.
+    pub fn validate(&self) -> Result<(), &'static str> {
+        match self {
+            Self::Partial {
+                observed,
+                total: Some(total),
+            } if observed > total => Err("observed coverage cannot exceed known total"),
+            Self::Sampled {
+                sample_size,
+                population_size: Some(population_size),
+                ..
+            } if sample_size > population_size => {
+                Err("sample size cannot exceed known population size")
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
 /// Quantitative uncertainty attached to an assessed quantity.
 ///
 /// No interval is interpreted as a frequentist confidence interval or Bayesian
@@ -208,6 +233,7 @@ pub struct EvidenceSupportProfile {
 impl EvidenceSupportProfile {
     /// Validate local structural invariants only.
     pub fn validate(&self) -> Result<(), &'static str> {
+        self.coverage.validate()?;
         self.uncertainty.validate()
     }
 
@@ -305,6 +331,43 @@ mod tests {
 
         assert_eq!(
             profile.assessment_status,
+            EvidenceAssessmentStatus::Indeterminate
+        );
+    }
+
+    #[test]
+    fn coverage_structural_count_relationships_are_validated() {
+        let impossible_partial = EvidenceSupportProfile {
+            coverage: CoverageAssessment::Partial {
+                observed: 12,
+                total: Some(10),
+            },
+            ..Default::default()
+        };
+        assert!(impossible_partial.validate().is_err());
+
+        let impossible_sample = EvidenceSupportProfile {
+            coverage: CoverageAssessment::Sampled {
+                sample_size: 500,
+                population_size: Some(100),
+                representativeness: AssuranceStatus::Unassessed,
+            },
+            ..Default::default()
+        };
+        assert!(impossible_sample.validate().is_err());
+
+        let valid_zero = EvidenceSupportProfile {
+            coverage: CoverageAssessment::Sampled {
+                sample_size: 0,
+                population_size: Some(0),
+                representativeness: AssuranceStatus::Unassessed,
+            },
+            assessment_status: EvidenceAssessmentStatus::Indeterminate,
+            ..Default::default()
+        };
+        assert!(valid_zero.validate().is_ok());
+        assert_eq!(
+            valid_zero.assessment_status,
             EvidenceAssessmentStatus::Indeterminate
         );
     }
