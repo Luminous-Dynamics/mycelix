@@ -155,6 +155,57 @@ async fn test_multi_hearth_isolation() {
         "get_my_hearths should return 2 hearths"
     );
 
+    // 3b. The canonical Active Hearth catalog must preserve both exact Hearth identities.
+    let active_catalog: serde_json::Value = conductor
+        .call(&alice.zome("hearth_kinship"), "get_my_active_hearths", ())
+        .await;
+    let active_items = active_catalog
+        .as_array()
+        .expect("canonical Active Hearth catalog must be an array");
+    assert_eq!(
+        active_items.len(),
+        2,
+        "canonical Active Hearth catalog should expose both active Hearths"
+    );
+
+    let catalog_hashes: std::collections::BTreeSet<String> = active_items
+        .iter()
+        .map(|item| {
+            item.get("hearth_hash")
+                .and_then(serde_json::Value::as_str)
+                .expect("catalog item must contain hearth_hash")
+                .to_owned()
+        })
+        .collect();
+    let expected_hashes: std::collections::BTreeSet<String> = [
+        serde_json::to_string(&hearth1_hash).unwrap().trim_matches('"').to_owned(),
+        serde_json::to_string(&hearth2_hash).unwrap().trim_matches('"').to_owned(),
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(
+        catalog_hashes, expected_hashes,
+        "catalog must preserve the exact Hearth ActionHashes rather than display projections"
+    );
+
+    for item in active_items {
+        let hearth_hash = item
+            .get("hearth_hash")
+            .and_then(serde_json::Value::as_str)
+            .expect("catalog item must contain hearth_hash");
+        let agent = item
+            .get("agent")
+            .and_then(serde_json::Value::as_str)
+            .expect("catalog item must contain caller agent provenance");
+        let membership_hash = item
+            .get("membership_hash")
+            .and_then(serde_json::Value::as_str)
+            .expect("catalog item must contain membership evidence hash");
+        assert!(!hearth_hash.is_empty());
+        assert!(!agent.is_empty());
+        assert!(!membership_hash.is_empty());
+    }
+
     // 4. Alice creates a decision in hearth1
     let deadline_micros = Timestamp::now().as_micros() + 3_600_000_000; // 1 hour
     let deadline = Timestamp::from_micros(deadline_micros);

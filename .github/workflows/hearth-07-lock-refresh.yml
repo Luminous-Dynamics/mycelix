@@ -1,0 +1,84 @@
+name: Hearth Holochain 0.7 lock refresh
+
+# Branch-push only: the job commits the resolved lock back to the same branch.
+# PR events are intentionally excluded because GitHub may check out a merge ref
+# and the workflow must have write access to the actual head branch.
+
+on:
+  push:
+    branches:
+      - hearth-holochain-0.7-foundation
+    paths:
+      - "mycelix-workspace/mycelix-hearth/flake.nix"
+      - "mycelix-workspace/mycelix-hearth/flake.lock"
+      - "mycelix-workspace/mycelix-hearth/sdk-ts/package.json"
+      - "mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json"
+      - ".github/workflows/hearth-07-lock-refresh.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hearth-07-lock-refresh-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    if: ${{ !contains(github.event.head_commit.message, '[skip-hearth-lock]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Refresh Hearth flake lock
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: nix flake update holonix
+
+      - name: Verify resolved Holochain 0.7 toolchain
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          nix develop .#ci --impure --command holochain --version
+          nix develop .#ci --impure --command hc --version
+
+      - name: Refresh Hearth Cargo lock
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: nix develop .#ci --impure --command cargo update
+
+      - name: Refresh Hearth Sweettest Cargo lock
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: nix develop .#ci --impure --command cargo update --manifest-path tests/Cargo.toml
+
+      - name: Refresh Hearth SDK npm lock
+        working-directory: mycelix-workspace/mycelix-hearth/sdk-ts
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Validate npm lock without mutating it
+        working-directory: mycelix-workspace/mycelix-hearth/sdk-ts
+        run: npm ci --ignore-scripts --dry-run
+
+      - name: Verify generated lock and source invariants
+        run: bash mycelix-workspace/mycelix-hearth/tools/verify-holochain-07.sh
+
+      - name: Verify no whitespace errors in refreshed locks
+        run: git diff --check -- mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/Cargo.lock mycelix-workspace/mycelix-hearth/tests/Cargo.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
+
+      - name: Commit refreshed dependency locks
+        run: |
+          if git diff --quiet -- mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/Cargo.lock mycelix-workspace/mycelix-hearth/tests/Cargo.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json; then
+            echo "Hearth dependency locks are already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/Cargo.lock mycelix-workspace/mycelix-hearth/tests/Cargo.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
+          git commit -m "HEARTH-0.7-SOURCE: resolve Hearth dependency locks [skip-hearth-lock]"
+          git push origin "HEAD:${{ github.ref_name }}"

@@ -146,6 +146,28 @@ pub fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
     Ok(records)
 }
 
+/// Resolve a record only when its update chain has exactly one canonical successor.
+///
+/// This is deliberately separate from get_latest_record: historical/display
+/// callers may accept conventional last-update traversal, while authority
+/// and current-state callers must not silently choose one branch of a conflict.
+pub fn get_unique_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
+    let Some(details) = get_details(action_hash, GetOptions::default())? else {
+        return Ok(None);
+    };
+    match details {
+        Details::Record(record_details) => match record_details.updates.as_slice() {
+            [] if !record_details.deletes.is_empty() => Ok(None),
+            [] => Ok(Some(record_details.record)),
+            [update] => get_unique_latest_record(update.action_address().clone()),
+            _ => Err(wasm_error!(WasmErrorInner::Guest(
+                "Conflicting update branches prevent canonical record resolution".into(),
+            ))),
+        },
+        Details::Entry(_) => Ok(None),
+    }
+}
+
 /// Resolve a list of links into their corresponding records, requiring all to exist.
 ///
 /// Like [`records_from_links`], but returns an error if any link target is missing
@@ -447,3 +469,20 @@ mod tests {
         assert!(validate_length_range(&max_items, 2, 5, "f").is_ok());
     }
 }
+/// Resolve linked records using the canonical update resolver.
+///
+/// Unlike records_from_links, this fails closed if a linked entry has
+/// multiple update branches. Use this for collections whose records represent
+/// current state rather than historical or append-only events.
+pub fn records_from_links_canonical(links: Vec<Link>) -> ExternResult<Vec<Record>> {
+    let mut records = Vec::new();
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(record) = get_unique_latest_record(action_hash)? {
+            records.push(record);
+        }
+    }
+    Ok(records)
+}
+

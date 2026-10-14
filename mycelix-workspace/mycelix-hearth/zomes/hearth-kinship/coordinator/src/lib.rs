@@ -7,7 +7,7 @@
 //! This is the CORE membership and relationship zome for the Hearth cluster.
 
 use hdk::prelude::*;
-use hearth_coordinator_common::{get_latest_record, records_from_links};
+use hearth_coordinator_common::{get_unique_latest_record, records_from_links};
 use hearth_kinship_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
@@ -101,35 +101,89 @@ fn entry_from_record<T: TryFrom<SerializedBytes, Error = SerializedBytesError>>(
 fn membership_records_for_hearth(
     hearth_hash: &ActionHash,
 ) -> ExternResult<Vec<(Record, HearthMembership)>> {
+    // Membership is authority-bearing evidence throughout this zome, not only
+    // in the Active Hearth catalog. Resolve every linked revision through the
+    // same branch-aware canonical resolver so no caller can accidentally
+    // reintroduce "last update wins" semantics.
+    membership_records_for_hearth_strict(hearth_hash)
+}
+/// Resolve membership links for canonical catalog assembly without silently
+/// dropping missing/deleted evidence. A discovered active Hearth must fail
+/// closed when one of its membership evidence records cannot be resolved.
+///
+/// Link actions are distinct even when base/target/type/tag are identical, so
+/// duplicate HearthToMembers links must be deduplicated before cardinality is
+/// interpreted as membership authority.
+fn membership_records_for_hearth_strict(
+    hearth_hash: &ActionHash,
+) -> ExternResult<Vec<(Record, HearthMembership)>> {
     let links = get_links(
         LinkQuery::try_new(hearth_hash.clone(), LinkTypes::HearthToMembers)?,
         GetStrategy::default(),
     )?;
-    let mut records = Vec::new();
+    let mut targets = std::collections::BTreeSet::<ActionHash>::new();
     for link in links {
-        let target = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid membership link".into())))?;
-        if let Some(record) = get_latest_record(target)? {
-            let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
-            if membership.hearth_hash == *hearth_hash {
-                records.push((record, membership));
-            }
+        let target = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest("Invalid membership link".into()))
+        })?;
+        targets.insert(target);
+    }
+
+    let mut records = Vec::new();
+    for target in targets {
+        let record = get_unique_latest_record(target.clone())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Active Hearth catalog evidence is incomplete: membership record {:?} is missing",
+                target
+            )))
+        })?;
+        let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
+        if membership.hearth_hash != *hearth_hash {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Active Hearth catalog evidence is linked from the wrong Hearth".into()
+            )));
         }
+        records.push((record, membership));
     }
     Ok(records)
 }
 
+/// Resolve exactly one Active membership for the caller within a Hearth.
+///
+/// This is the authority boundary for caller-scoped membership decisions:
+/// zero Active records means no authority, one means canonical authority, and
+/// multiple Active records are a conflict rather than an ordering choice.
+fn active_membership_for_agent(
+    hearth_hash: &ActionHash,
+    agent: &AgentPubKey,
+) -> ExternResult<Option<HearthMembership>> {
+    let memberships = membership_records_for_hearth(hearth_hash)?;
+    let values: Vec<HearthMembership> =
+        memberships.into_iter().map(|(_, membership)| membership).collect();
+
+    let Some(index) = classify_active_membership_indices(agent, &values)? else {
+        return Ok(None);
+    };
+
+    values.into_iter().nth(index).ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Active membership authority disappeared during resolution".into()
+        ))
+    }).map(Some)
+}
+
 /// Verify the caller has a guardian-level role (Founder, Elder, or Adult)
-/// within the specified hearth. Returns the caller's membership record.
+/// within the specified hearth. Returns the caller's canonical membership.
 fn require_guardian_role(hearth_hash: &ActionHash) -> ExternResult<HearthMembership> {
     let agent = agent_info()?.agent_initial_pubkey;
-    for (_, membership) in membership_records_for_hearth(hearth_hash)? {
-        if membership.agent == agent
-            && membership.status == MembershipStatus::Active
-            && membership.role.is_guardian()
-        {
-            return Ok(membership);
-        }
+    let Some(membership) = active_membership_for_agent(hearth_hash, &agent)? else {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Caller does not have an Active membership in this hearth".into()
+        )));
+    };
+
+    if membership.role.is_guardian() {
+        return Ok(membership);
     }
 
     Err(wasm_error!(WasmErrorInner::Guest(
@@ -142,11 +196,16 @@ fn get_invitation_response_records(invitation_hash: &ActionHash) -> ExternResult
         LinkQuery::try_new(invitation_hash.clone(), LinkTypes::InvitationToResponses)?,
         GetStrategy::default(),
     )?;
-    let mut responses = Vec::new();
+    let mut targets = std::collections::BTreeSet::<ActionHash>::new();
     for link in links {
         let target = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid response link".into())))?;
-        if let Some(record) = get(target, GetOptions::default())? {
+        targets.insert(target);
+    }
+
+    let mut responses = Vec::new();
+    for target in targets {
+        if let Some(record) = get_unique_latest_record(target)? {
             let response: InvitationResponse = entry_from_record(&record, "InvitationResponse")?;
             if response.invitation_hash == *invitation_hash {
                 responses.push(record);
@@ -311,8 +370,8 @@ pub fn accept_invitation(input: AcceptInvitationInput) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
-    let invitation_record = get(input.invitation_hash.clone(), GetOptions::default())?.ok_or(
-        wasm_error!(WasmErrorInner::Guest("Invitation not found".into())),
+    let invitation_record = get_unique_latest_record(input.invitation_hash.clone())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest("Invitation not found or has conflicting/deleted revisions".into())),
     )?;
     let invitation: HearthInvitation = entry_from_record(&invitation_record, "HearthInvitation")?;
 
@@ -340,8 +399,8 @@ pub fn accept_invitation(input: AcceptInvitationInput) -> ExternResult<Record> {
 
     // Best-effort coordinator guard. Integrity validation independently binds
     // the resulting membership to this exact invitation and response.
-    let hearth_record = get(invitation.hearth_hash.clone(), GetOptions::default())?.ok_or(
-        wasm_error!(WasmErrorInner::Guest("Hearth not found".into())),
+    let hearth_record = get_unique_latest_record(invitation.hearth_hash.clone())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest("Hearth not found or has conflicting/deleted revisions".into())),
     )?;
     let hearth: Hearth = entry_from_record(&hearth_record, "Hearth")?;
     let mut active_count = 0u32;
@@ -436,8 +495,10 @@ pub fn decline_invitation(invitation_hash: ActionHash) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
-    let invitation_record = get(invitation_hash.clone(), GetOptions::default())?.ok_or(
-        wasm_error!(WasmErrorInner::Guest("Invitation not found".into())),
+    let invitation_record = get_unique_latest_record(invitation_hash.clone())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest(
+            "Invitation not found or has conflicting/deleted revisions".into()
+        )),
     )?;
     let invitation: HearthInvitation = entry_from_record(&invitation_record, "HearthInvitation")?;
 
@@ -514,8 +575,11 @@ pub fn leave_hearth(membership_hash: ActionHash) -> ExternResult<Record> {
     )?;
     let agent = agent_info()?.agent_initial_pubkey;
 
-    let record = get(membership_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Membership not found".into())
+    // Membership hashes are stable identity anchors. Resolve the canonical
+    // revision with the same branch-aware fail-closed rule used by the catalog
+    // so a stale/branched membership can never authorize departure.
+    let record = get_unique_latest_record(membership_hash.clone())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Membership not found or has conflicting/deleted revisions".into())
     ))?;
     let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
 
@@ -592,28 +656,15 @@ pub fn create_kinship_bond(input: CreateBondInput) -> ExternResult<Record> {
     let now = sys_time()?;
     let initial_strength = input.initial_strength_bp.unwrap_or(BOND_BASE_FAMILY);
 
-    // Verify both caller and member_b are active members of this hearth
-    let mut caller_is_member = false;
-    let mut member_b_is_member = false;
-    for (_, membership) in membership_records_for_hearth(&input.hearth_hash)? {
-        if membership.status == MembershipStatus::Active {
-            if membership.agent == agent {
-                caller_is_member = true;
-            }
-            if membership.agent == input.member_b {
-                member_b_is_member = true;
-            }
-        }
-        if caller_is_member && member_b_is_member {
-            break;
-        }
-    }
-    if !caller_is_member {
+    // Resolve both participants through the same exact-one Active membership
+    // authority rule used by caller-scoped governance decisions. A duplicate
+    // Active membership is a conflict, not evidence to merge into a boolean.
+    if active_membership_for_agent(&input.hearth_hash, &agent)?.is_none() {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Caller is not an active member of this hearth".into()
         )));
     }
-    if !member_b_is_member {
+    if active_membership_for_agent(&input.hearth_hash, &input.member_b)?.is_none() {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "member_b is not an active member of this hearth".into()
         )));
@@ -676,9 +727,27 @@ pub fn tend_bond(input: TendBondInput) -> ExternResult<Record> {
     )?;
     let now = sys_time()?;
 
-    let record = get(input.bond_hash.clone(), GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Bond not found".into())))?;
+    let record = get_unique_latest_record(input.bond_hash.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Bond not found or has conflicting/deleted revisions".into()
+        )))?;
     let bond: KinshipBond = entry_from_record(&record, "KinshipBond")?;
+
+    // Tending is a current authority-bearing mutation: the caller must still
+    // have exactly one Active membership in this Hearth, and must be the bond's
+    // member_a (the entry's signer-bound actor). Historical bond possession is
+    // not sufficient authorization after departure.
+    let agent = agent_info()?.agent_initial_pubkey;
+    if bond.member_a != agent {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only bond member_a may tend this bond".into()
+        )));
+    }
+    if active_membership_for_agent(&bond.hearth_hash, &agent)?.is_none() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Bond member_a is not an active Hearth member".into()
+        )));
+    }
 
     // Compute days since last tended
     let now_micros: i64 = now.as_micros();
@@ -726,8 +795,8 @@ pub fn tend_bond(input: TendBondInput) -> ExternResult<Record> {
 pub fn get_bond_health(input: GetBondHealthInput) -> ExternResult<u32> {
     let now = sys_time()?;
 
-    let record = get(input.bond_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Bond not found".into())))?;
+    let record = get_unique_latest_record(input.bond_hash)?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Bond not found or has conflicting revisions".into())))?;
     let bond: KinshipBond = entry_from_record(&record, "KinshipBond")?;
 
     // Calculate days inactive using integer microsecond math.
@@ -805,12 +874,36 @@ pub fn is_guardian(hearth_hash: ActionHash) -> ExternResult<bool> {
 #[hdk_extern]
 pub fn get_caller_vote_weight(hearth_hash: ActionHash) -> ExternResult<u32> {
     let agent = agent_info()?.agent_initial_pubkey;
-    for (_, membership) in membership_records_for_hearth(&hearth_hash)? {
-        if membership.agent == agent && membership.status == MembershipStatus::Active {
-            return Ok(membership.role.default_vote_weight_bp());
-        }
+    Ok(active_membership_for_agent(&hearth_hash, &agent)?
+        .map(|membership| membership.role.default_vote_weight_bp())
+        .unwrap_or(0))
+}
+
+/// Classify membership authority for one caller/hearth pair.
+///
+/// This rule is intentionally pure: discovery may produce zero, one, or many
+/// membership records, but only exactly one current Active record can become
+/// authority. Multiple Active records are a conflict, never an ordering choice.
+fn classify_active_membership_indices(
+    agent: &AgentPubKey,
+    memberships: &[HearthMembership],
+) -> ExternResult<Option<usize>> {
+    let active: Vec<usize> = memberships
+        .iter()
+        .enumerate()
+        .filter(|(_, membership)| {
+            membership.agent == *agent && membership.status == MembershipStatus::Active
+        })
+        .map(|(index, _)| index)
+        .collect();
+
+    match active.as_slice() {
+        [] => Ok(None),
+        [index] => Ok(Some(*index)),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Conflicting active membership revisions for this Hearth and agent".into()
+        ))),
     }
-    Ok(0)
 }
 
 /// Get the caller's role in a given hearth.
@@ -819,12 +912,8 @@ pub fn get_caller_vote_weight(hearth_hash: ActionHash) -> ExternResult<u32> {
 #[hdk_extern]
 pub fn get_caller_role(hearth_hash: ActionHash) -> ExternResult<Option<MemberRole>> {
     let agent = agent_info()?.agent_initial_pubkey;
-    for (_, membership) in membership_records_for_hearth(&hearth_hash)? {
-        if membership.agent == agent && membership.status == MembershipStatus::Active {
-            return Ok(Some(membership.role));
-        }
-    }
-    Ok(None)
+    Ok(active_membership_for_agent(&hearth_hash, &agent)?
+        .map(|membership| membership.role))
 }
 
 /// Get the count of active members in a hearth.
@@ -845,20 +934,21 @@ fn recovery_threshold(adult_count: usize) -> usize {
 /// H4: Propose auto social recovery if the hearth has >= 3 adult-level members.
 /// Cross-cluster call to identity cluster is best-effort (don't block on failure).
 fn propose_auto_recovery(hearth_hash: &ActionHash) -> ExternResult<()> {
-    let mut adult_agents: Vec<AgentPubKey> = Vec::new();
+    let mut adult_agents = std::collections::BTreeSet::<AgentPubKey>::new();
     for (_, membership) in membership_records_for_hearth(hearth_hash)? {
         if membership.status == MembershipStatus::Active && membership.role.is_guardian() {
-            adult_agents.push(membership.agent);
+            adult_agents.insert(membership.agent);
         }
     }
 
-    // Need at least 3 adults for social recovery quorum
+    // Need at least 3 distinct adults for social recovery quorum.
     if adult_agents.len() < 3 {
         return Ok(());
     }
 
-    // Compute threshold: 60% rounded up
+    // Compute threshold: 60% rounded up.
     let threshold = recovery_threshold(adult_agents.len());
+    let adult_agents: Vec<AgentPubKey> = adult_agents.into_iter().collect();
 
     // Best-effort cross-cluster call to identity recovery
     #[derive(Serialize, Debug)]
@@ -915,6 +1005,95 @@ pub fn get_hearth_members(hearth_hash: ActionHash) -> ExternResult<Vec<Record>> 
         .collect())
 }
 
+/// Return the canonical Active Hearth catalog for the connected agent.
+///
+/// This endpoint is deliberately source-side: AgentToHearths is treated only
+/// as discovery, then every candidate is rebound to the latest membership
+/// state for this exact hearth and caller AgentPubKey. Historical/departed
+/// links therefore cannot establish active membership.
+///
+/// The endpoint fails closed if a discovered candidate has incomplete evidence
+/// or more than one active membership revision for the same caller/hearth pair.
+#[hdk_extern]
+pub fn get_my_active_hearths(_: ()) -> ExternResult<Vec<ActiveHearthCatalogItem>> {
+    let agent = agent_info()?.agent_initial_pubkey;
+
+    let links = get_links(
+        LinkQuery::try_new(agent.clone(), LinkTypes::AgentToHearths)?,
+        GetStrategy::default(),
+    )?;
+
+    let mut hearth_hashes = std::collections::BTreeSet::<ActionHash>::new();
+    for link in links {
+        let hearth_hash = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "AgentToHearths contains a non-Hearth ActionHash target".into()
+            ))
+        })?;
+        hearth_hashes.insert(hearth_hash);
+    }
+
+    let mut catalog = Vec::new();
+
+    for hearth_hash in hearth_hashes {
+        let hearth_record = get_unique_latest_record(hearth_hash.clone())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Active Hearth discovery evidence is incomplete: Hearth record missing".into()
+            ))
+        })?;
+        let hearth: Hearth = entry_from_record(&hearth_record, "Hearth")?;
+
+        let memberships = membership_records_for_hearth_strict(&hearth_hash)?;
+        let membership_values: Vec<HearthMembership> =
+            memberships.iter().map(|(_, membership)| membership.clone()).collect();
+
+        let Some(active_index) =
+            classify_active_membership_indices(&agent, &membership_values)?
+        else {
+            // Historical/departed discovery links remain observable but
+            // never establish active membership.
+            continue;
+        };
+
+        let (membership_record, membership) =
+            memberships.into_iter().nth(active_index).ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Active membership evidence disappeared during catalog assembly".into()
+                ))
+            })?;
+
+        if membership.hearth_hash != hearth_hash || membership.agent != agent {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Membership provenance does not match the catalog Hearth or caller".into()
+            )));
+        }
+
+        catalog.push(ActiveHearthCatalogItem {
+            hearth_hash,
+            hearth: HearthCatalogData {
+                name: hearth.name,
+                description: hearth.description,
+                hearth_type: hearth.hearth_type,
+                created_by: hearth.created_by,
+                created_at: hearth.created_at,
+                max_members: hearth.max_members,
+            },
+            membership_hash: membership_record.action_address().clone(),
+            membership: HearthMembershipCatalogData {
+                agent: membership.agent,
+                role: membership.role,
+                status: membership.status,
+                display_name: membership.display_name,
+                joined_at: membership.joined_at,
+                admission: membership.admission,
+            },
+            agent: agent.clone(),
+        });
+    }
+
+    Ok(catalog)
+}
+
 /// Get all hearths the calling agent belongs to.
 #[hdk_extern]
 pub fn get_my_hearths(_: ()) -> ExternResult<Vec<Record>> {
@@ -952,7 +1131,7 @@ pub fn get_neglected_bonds(hearth_hash: ActionHash) -> ExternResult<Vec<Record>>
     for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
+        if let Some(record) = get_unique_latest_record(action_hash)? {
             let bond: KinshipBond = entry_from_record(&record, "KinshipBond")?;
             let last_tended_micros: i64 = bond.last_tended.as_micros();
             let elapsed_micros: u64 = if now_micros > last_tended_micros {
@@ -988,7 +1167,7 @@ pub fn get_bond_snapshots(hearth_hash: ActionHash) -> ExternResult<Vec<BondUpdat
     for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
+        if let Some(record) = get_unique_latest_record(action_hash)? {
             let bond: KinshipBond = entry_from_record(&record, "KinshipBond")?;
             let last_tended_micros: i64 = bond.last_tended.as_micros();
             let elapsed_micros: u64 = if now_micros > last_tended_micros {
@@ -1049,6 +1228,52 @@ mod tests {
             .iter()
             .find(|m| m.agent == *agent && m.status == MembershipStatus::Active)
             .map(|m| m.role.clone())
+    }
+
+    #[test]
+    fn active_membership_authority_zero_one_many() {
+        let agent = AgentPubKey::from_raw_32([1; 32]);
+        let hearth = ActionHash::from_raw_36(vec![2; 36]);
+
+        let make = |status, name: &str| HearthMembership {
+            hearth_hash: hearth.clone(),
+            agent: agent.clone(),
+            role: MemberRole::Adult,
+            status,
+            display_name: name.into(),
+            joined_at: Timestamp::now(),
+            admission: MembershipAdmission::Founder,
+        };
+
+        let none = vec![make(MembershipStatus::Departed, "old")];
+        assert_eq!(
+            classify_active_membership_indices(&agent, &none).unwrap(),
+            None
+        );
+
+        let other_agent = AgentPubKey::from_raw_32([3; 32]);
+        let mut foreign = make(MembershipStatus::Active, "foreign");
+        foreign.agent = other_agent;
+        assert_eq!(
+            classify_active_membership_indices(&agent, &[foreign]).unwrap(),
+            None,
+            "an Active membership for another agent cannot establish caller authority"
+        );
+
+        let one = vec![make(MembershipStatus::Active, "current")];
+        assert_eq!(
+            classify_active_membership_indices(&agent, &one).unwrap(),
+            Some(0)
+        );
+
+        let conflict = vec![
+            make(MembershipStatus::Active, "branch-a"),
+            make(MembershipStatus::Active, "branch-b"),
+        ];
+        assert!(
+            classify_active_membership_indices(&agent, &conflict).is_err(),
+            "multiple Active memberships must fail closed"
+        );
     }
 
     // ---- Entry Type Existence ----
