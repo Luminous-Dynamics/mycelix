@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "milestone_id": "reference-synthetic-001",
+  "disposition": "claim",
+  "supersedes_milestone_id": null,
+  "prior_state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "resulting_state_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "claimed_capability": "local_bulk_handling",
+  "closure_stage": "feedstock",
+  "source_repository": "https://github.com/Luminous-Dynamics/symtropy",
+  "source_commit_sha": "cccccccccccccccccccccccccccccccccccccccc",
+  "scenario_manifest_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "fixture_class": "synthetic_software_contract",
+  "evidence": [
+    {
+      "uri": "https://example.invalid/evidence/reference-run.json",
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "kind": "synthetic_fixture"
+    }
+  ],
+  "dependency_deltas": [
+    {
+      "dependency_id": "imported_metrology",
+      "prior": "imported_durable",
+      "resulting": "blocked"
+    }
+  ],
+  "imported_mass_delta_milligrams": -250000,
+  "energy_delta_millijoules": 1500000,
+  "resource_statements": [
+    {
+      "record_type": "estimate",
+      "resource_id": "regolith-simulant",
+      "quantity_milligrams": 100000000,
+      "evidence": [
+        {
+          "uri": "https://example.invalid/evidence/synthetic-feed.json",
+          "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "kind": "synthetic_fixture"
+        }
+      ]
+    }
+  ],
+  "failure_recovery": [
+    {
+      "scenario_id": "LEDGER-DUPLICATE-EVENT",
+      "failure_class": "duplicate_event_identity",
+      "outcome": "recovered",
+      "recovery_duration_milliseconds": 0,
+      "evidence": [
+        {
+          "uri": "https://example.invalid/evidence/fault-result.json",
+          "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "kind": "test_report"
+        }
+      ]
+    }
+  ],
+  "authority_basis": {
+    "policy_id": "bootstrap-planning-only",
+    "policy_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "scope": "claim-recording only; no execution authority",
+    "decision_evidence": null
+  }
+}
