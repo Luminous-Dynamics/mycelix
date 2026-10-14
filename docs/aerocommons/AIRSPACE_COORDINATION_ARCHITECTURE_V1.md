@@ -200,7 +200,11 @@ Review object definitions, authority boundaries, state machines, threat model an
 
 ### Gate 1 — deterministic simulation
 
-Build a small, transparent traffic simulator or adapter around existing validated research tools rather than immediately inventing a new physics engine. Use versioned scenarios, fixed seeds, exact input digests and a conventional baseline. Test mixed vehicle capabilities, normal demand, weather closures, emergencies and provider partition.
+**Initial research harness is now authored** in `tools/airspace-sim`, as a standalone Rust crate rather than another production zome. It replays versioned JSON scenarios with integer millimetre units, a fixed time horizon, explicit intent states, frame/time qualification, uncertainty expansion, a bounded pair-sample budget, and expected-vs-actual classifications.
+
+The first nine fixtures cover separated parallel paths, nominal crossing, vertical separation, uncertainty expansion, a between-sample encounter, reference-frame mismatch, unqualified time, expired intent, and emergency review. A dedicated GitHub Actions workflow runs Rust unit tests and replays the committed fixture set with `--verify`.
+
+This is deliberately a **small semantics prototype**, not a realistic air traffic or flight-dynamics simulator. It currently omits provider federation, reservation reconciliation, dynamic weather/airspace changes, non-cooperative traffic, validated aircraft dynamics, and full one-to-one executable coverage of the requirement corpus. Conservative sample margins may produce false positives, and the model has no authority to clear a real flight. Initial source was authored without a local Rust toolchain in the execution environment; compilation and CI status must be confirmed on the exact PR head before describing tests as passed.
 
 ### Gate 2 — adversarial replay and independent review
 
