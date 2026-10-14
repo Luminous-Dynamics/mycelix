@@ -99,12 +99,15 @@ A continent-level contract defines the governance boundaries for interoperating 
 - Machine-readable invariant contract: [AFRICA_DPI_INTEROP_CONTRACT_V1.json](AFRICA_DPI_INTEROP_CONTRACT_V1.json)
 - Contract validator: [validate_africa_dpi_contract.py](validate_africa_dpi_contract.py)
 - Adversarial tests: [test_africa_dpi_contract.py](tests/test_africa_dpi_contract.py)
+- Source-backed country research matrix (South Africa OVS + smartphone Digital ID, Ghana NIA, Rwanda e-ID, Nigeria NIMC/NIN): [AFRICA_COUNTRY_RESEARCH_MATRIX_V1.json](AFRICA_COUNTRY_RESEARCH_MATRIX_V1.json)
+- Country-matrix validator: [validate_africa_country_research_matrix.py](validate_africa_country_research_matrix.py)
+- Country-matrix adversarial tests: [test_africa_country_research_matrix.py](tests/test_africa_country_research_matrix.py)
 
 The contract deliberately contains no qualified national profiles and keeps every release gate closed. It prohibits a continental identity database/root of trust, storing raw government identity material in a public DHT, using identity as authorization, undocumented API access, and mandatory smartphone-only access. It requires a legal/purpose review, minimum disclosure, assisted/non-digital alternatives, correction/grievance paths, and country-specific release approval. The AU framework is a coordination reference, not a claim that a country implements a particular protocol or that Mycelix is a continental trust authority.
 
 ### Validate the contracts
 
-From `mycelix-identity/`, run `python3 validate_africa_dpi_contract.py` and `python3 -m unittest discover -s tests -p 'test_africa_dpi_contract.py' -v`. The focused SA-DID workflow runs these checks alongside the South African research profile.
+From `mycelix-identity/`, run `python3 validate_africa_dpi_contract.py` and `python3 -m unittest discover -s tests -p 'test_africa_dpi_contract.py' -v`. The focused SA-DID workflow runs these checks alongside the South African research profile. Also run `python3 validate_africa_country_research_matrix.py` and `python3 -m unittest discover -s tests -p 'test_africa_country_research_matrix.py' -v` to confirm every research route remains unauthorized and production-disabled.
 
 ## South African DHA Digital ID (research-only)
 
