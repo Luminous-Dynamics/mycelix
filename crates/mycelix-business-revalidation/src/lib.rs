@@ -167,9 +167,15 @@ impl RevalidationEvidence {
 
     fn checked_at_unix_ms(&self) -> u64 {
         match self {
-            Self::ExactFrontier { checked_at_unix_ms, .. }
-            | Self::DependencyWitness { checked_at_unix_ms, .. }
-            | Self::FreshnessOnly { checked_at_unix_ms, .. } => *checked_at_unix_ms,
+            Self::ExactFrontier {
+                checked_at_unix_ms, ..
+            }
+            | Self::DependencyWitness {
+                checked_at_unix_ms, ..
+            }
+            | Self::FreshnessOnly {
+                checked_at_unix_ms, ..
+            } => *checked_at_unix_ms,
         }
     }
 }
