@@ -486,9 +486,15 @@ mod tests {
     #[test]
     fn excessive_pair_sample_work_is_rejected_before_the_loop() {
         let mut scenario = fixture_set().scenarios.remove(0);
-        scenario.window_end_s = 100_000;
+        scenario.window_end_s = MAX_HORIZON_S;
         for flight in &mut scenario.flights {
-            flight.valid_until_s = 100_000;
+            flight.valid_until_s = MAX_HORIZON_S;
+        }
+        let template = scenario.flights[0].clone();
+        for index in 2..5 {
+            let mut flight = template.clone();
+            flight.flight_id = format!("LOAD-{index}");
+            scenario.flights.push(flight);
         }
         assert_eq!(evaluate_scenario(&scenario).classification, Classification::Reject);
     }
