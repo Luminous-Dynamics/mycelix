@@ -216,7 +216,7 @@
     "test_runner": "GitHub Actions: Airspace Replay Research Gate",
     "target_commit": null,
     "result": "not_run",
-    "note": "Source and fixtures have been authored; local cargo/rustc are unavailable in the current execution environment. Update only from exact-head CI evidence."
+    "note": "Scenario and transition fixtures are authored. A tool-side independent check is not Rust execution; update this only from exact-head CI evidence."
   },
   "references": [
     "https://www.faa.gov/uas/advanced_operations/traffic_management",
@@ -256,7 +256,9 @@
       "proposed_accepted_activated_withdrawn_completed_lifecycle_type",
       "emergency_priority_requires_authority_review_without_granting_authority",
       "bounded_pair_sample_work",
-      "expected_vs_actual_fixture_replay"
+      "expected_vs_actual_fixture_replay",
+      "deterministic_intent_state_transition_validation",
+      "issuer_trajectory_digest_time_basis_and_monotonic_sequence_binding"
     ],
     "not_yet_implemented": [
       "provider federation and reservation reconciliation",
@@ -267,8 +269,23 @@
       "official jurisdictional separation minima",
       "operational authorization",
       "full one-to-one executable coverage of all AIR-CASE requirements",
-      "versioned transition history and reservation/authorization lifecycle state machine"
+      "federated reservation and flight-authorization lifecycle reconciliation"
     ],
-    "results_interpretation": "Passing means only that the simplified model matches synthetic fixture expectations; it is not safety, airworthiness, certification, or permission to fly."
+    "results_interpretation": "Passing means only that the simplified model matches synthetic fixture expectations; it is not safety, airworthiness, certification, or permission to fly.",
+    "lifecycle_transition_cases": [
+      "proposed_to_accepted",
+      "accepted_to_activated",
+      "activated_to_completed",
+      "proposed_to_withdrawn",
+      "illegal_accepted_to_completed",
+      "sequence_gap",
+      "duplicate_sequence",
+      "time_reversal",
+      "issuer_changed",
+      "trajectory_digest_changed",
+      "time_basis_changed",
+      "withdrawn_terminal",
+      "empty_digest"
+    ]
   }
 }
