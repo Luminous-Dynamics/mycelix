@@ -14,12 +14,10 @@ use mycelix_business_core::{Digest32, ObservationRef, ReferenceId};
 use mycelix_business_field_qualification::DataQualityEvidence;
 use mycelix_business_hospitality_derived_evidence::{
     DerivedEvidenceError, DerivedHospitalityReport, FixedOffsetSlicePlan,
-    forecast_actual_campaign_membership_unverified_ref,
-    derive_and_evaluate_hospitality_pilot,
+    derive_and_evaluate_hospitality_pilot, forecast_actual_campaign_membership_unverified_ref,
 };
 use mycelix_business_import_diagnostics::{
-    CampaignError, DiagnosticError, ExtractionCampaignManifest,
-    diagnose_delimited_import,
+    CampaignError, DiagnosticError, ExtractionCampaignManifest, diagnose_delimited_import,
 };
 use mycelix_business_ingress::IngressQualificationBinding;
 use mycelix_business_pilot_hospitality::HospitalityForecastPilotRegistration;
@@ -69,18 +67,41 @@ pub enum MembershipError {
     AdapterConfiguration,
     ConnectorMismatch,
     EmptyClaims,
-    InvalidClaim { index: usize },
+    InvalidClaim {
+        index: usize,
+    },
     DuplicateClaim(ObservationRef),
-    SourceFileCountMismatch { expected: usize, actual: usize },
-    Diagnostic { index: usize, error: DiagnosticError },
-    UnexpectedSourceFile { index: usize },
-    ManifestMismatch { index: usize, source_file_digest: Digest32 },
+    SourceFileCountMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    Diagnostic {
+        index: usize,
+        error: DiagnosticError,
+    },
+    UnexpectedSourceFile {
+        index: usize,
+    },
+    ManifestMismatch {
+        index: usize,
+        source_file_digest: Digest32,
+    },
     MissingCampaignFile,
-    Csv { index: usize },
-    Serialization { index: usize },
-    ObservationIdentityCollision { observation: ObservationRef },
-    MissingObservation { observation: ObservationRef },
-    DuplicateObservationMatch { observation: ObservationRef },
+    Csv {
+        index: usize,
+    },
+    Serialization {
+        index: usize,
+    },
+    ObservationIdentityCollision {
+        observation: ObservationRef,
+    },
+    MissingObservation {
+        observation: ObservationRef,
+    },
+    DuplicateObservationMatch {
+        observation: ObservationRef,
+    },
     EvidenceDigestMismatch,
     ClaimSetMismatch,
 }
@@ -161,15 +182,12 @@ pub fn verify_observation_membership(
     let mut scanned_file_digests = Vec::with_capacity(files.len());
 
     for (file_index, file) in files.iter().enumerate() {
-        let manifest = diagnose_delimited_import(
-            adapter,
-            file.bytes.as_slice(),
-            file.ingested_at_unix_ms,
-        )
-        .map_err(|error| MembershipError::Diagnostic {
-            index: file_index,
-            error,
-        })?;
+        let manifest =
+            diagnose_delimited_import(adapter, file.bytes.as_slice(), file.ingested_at_unix_ms)
+                .map_err(|error| MembershipError::Diagnostic {
+                    index: file_index,
+                    error,
+                })?;
         let Some(expected) = expected_manifests.remove(&manifest.source_file_digest) else {
             return Err(MembershipError::UnexpectedSourceFile { index: file_index });
         };
@@ -180,13 +198,7 @@ pub fn verify_observation_membership(
             });
         }
         scanned_file_digests.push(manifest.source_file_digest);
-        scan_file_for_claims(
-            adapter,
-            file,
-            &claim_map,
-            &mut match_counts,
-            file_index,
-        )?;
+        scan_file_for_claims(adapter, file, &claim_map, &mut match_counts, file_index)?;
     }
     if !expected_manifests.is_empty() {
         return Err(MembershipError::MissingCampaignFile);
@@ -197,7 +209,7 @@ pub fn verify_observation_membership(
             0 => {
                 return Err(MembershipError::MissingObservation {
                     observation: observation.clone(),
-                })
+                });
             }
             1 => {}
             _ => {
@@ -274,7 +286,8 @@ fn scan_file_for_claims(
         let Ok(record) = row else {
             continue;
         };
-        let one_row = serialize_single_record(adapter.config.delimiter, &headers, &record, file_index)?;
+        let one_row =
+            serialize_single_record(adapter.config.delimiter, &headers, &record, file_index)?;
         let Ok(batch) = adapter.parse_batch(one_row.as_slice(), file.ingested_at_unix_ms) else {
             continue;
         };
@@ -311,7 +324,9 @@ fn serialize_single_record(
 ) -> Result<Vec<u8>, MembershipError> {
     let mut bytes = Vec::new();
     {
-        let mut writer = WriterBuilder::new().delimiter(delimiter).from_writer(&mut bytes);
+        let mut writer = WriterBuilder::new()
+            .delimiter(delimiter)
+            .from_writer(&mut bytes);
         writer
             .write_record(headers)
             .map_err(|_| MembershipError::Serialization { index: file_index })?;
@@ -370,9 +385,7 @@ pub struct LimitationDischarge {
 }
 
 impl LimitationDischarge {
-    fn actual_membership(
-        membership: &ObservationMembershipEvidence,
-    ) -> Self {
+    fn actual_membership(membership: &ObservationMembershipEvidence) -> Self {
         let limitation = forecast_actual_campaign_membership_unverified_ref();
         let mut discharge = Self {
             limitation,
@@ -416,7 +429,9 @@ impl VerifiedHospitalityReport {
         self.membership_limitation_discharge.validate()
             && self.membership_limitation_discharge.campaign_digest
                 == self.membership.campaign_digest
-            && self.membership_limitation_discharge.supporting_evidence_digest
+            && self
+                .membership_limitation_discharge
+                .supporting_evidence_digest
                 == self.membership.evidence_digest
             && self.report_digest == verified_report_digest(self)
     }
@@ -466,13 +481,8 @@ pub fn derive_evaluate_and_verify_actual_membership(
     )
     .map_err(VerifiedHospitalityError::Derived)?;
 
-    let membership = verify_observation_membership(
-        adapter,
-        &campaign,
-        source_files,
-        &actuals,
-    )
-    .map_err(VerifiedHospitalityError::Membership)?;
+    let membership = verify_observation_membership(adapter, &campaign, source_files, &actuals)
+        .map_err(VerifiedHospitalityError::Membership)?;
     let discharge = LimitationDischarge::actual_membership(&membership);
     debug_assert!(discharge.validate());
 
@@ -563,12 +573,8 @@ event:weekend,{},a,40\n",
         .into_bytes()
     }
 
-    fn campaign(
-        adapter: &DelimitedIngressAdapter,
-        bytes: &[u8],
-    ) -> ExtractionCampaignManifest {
-        let manifest =
-            diagnose_delimited_import(adapter, bytes, INGESTED_AT).unwrap();
+    fn campaign(adapter: &DelimitedIngressAdapter, bytes: &[u8]) -> ExtractionCampaignManifest {
+        let manifest = diagnose_delimited_import(adapter, bytes, INGESTED_AT).unwrap();
         ExtractionCampaignManifest::from_files(vec![manifest]).unwrap()
     }
 
