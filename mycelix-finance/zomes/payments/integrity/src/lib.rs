@@ -275,6 +275,7 @@ pub enum LinkTypes {
     ChannelIdToChannel,
     PendingCompostQueue,
     MintCapCounterAnchor,
+    RateLimitBucketToAgent,
 }
 
 /// Genesis self-check
@@ -341,101 +342,61 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             link_type,
             base_address,
             target_address,
+            action,
             ..
-        } => {
-            match link_type {
-                LinkTypes::SenderToPayments | LinkTypes::ReceiverToPayments => {
-                    // Base should be an agent pubkey (DID anchor)
-                    // Target should be an entry hash (payment)
-                    if base_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Link base must be a valid agent pubkey".into(),
-                        ));
-                    }
-                    if target_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Link target must be a valid entry hash".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                LinkTypes::PaymentToReceipt => {
-                    // Both should be entry hashes
-                    if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "PaymentToReceipt link must connect two entry hashes".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                LinkTypes::ChannelPartyA | LinkTypes::ChannelPartyB => {
-                    // Base is agent, target is channel entry
-                    if target_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Link target must be a valid entry hash".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                LinkTypes::DidToSapBalance => {
-                    if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "DidToSapBalance link must connect valid hashes".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                LinkTypes::MemberToExitRecord => {
-                    if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "MemberToExitRecord link must connect valid hashes".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                LinkTypes::PaymentIdToPayment | LinkTypes::MintIdToMintRecord => {
-                    if target_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Link target must be a valid action hash".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                LinkTypes::DidToMintRecords | LinkTypes::HearthDidToSapPool => {
-                    if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Link must connect valid hashes".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                LinkTypes::ChannelIdToChannel => {
-                    if target_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Link target must be a valid action hash".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                LinkTypes::PendingCompostQueue => {
-                    // Base is anchor hash, tag carries serialized PendingCompost
-                    if base_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "PendingCompostQueue base must be a valid anchor hash".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                LinkTypes::MintCapCounterAnchor => {
-                    if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "MintCapCounterAnchor link must connect valid hashes".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
+        } => match link_type {
+            LinkTypes::SenderToPayments | LinkTypes::ReceiverToPayments => {
+                validate_payment_index_link(link_type, &base_address, &target_address)
             }
-        }
+            LinkTypes::PaymentToReceipt => {
+                validate_payment_to_receipt_link(&base_address, &target_address)
+            }
+            LinkTypes::ChannelPartyA | LinkTypes::ChannelPartyB => {
+                validate_channel_party_link(link_type, &base_address, &target_address)
+            }
+            LinkTypes::DidToSapBalance => {
+                validate_sap_balance_index_link(&base_address, &target_address)
+            }
+            LinkTypes::MemberToExitRecord => {
+                validate_exit_index_link(&base_address, &target_address)
+            }
+            LinkTypes::PaymentIdToPayment => {
+                validate_payment_id_index_link(&base_address, &target_address)
+            }
+            LinkTypes::MintIdToMintRecord => {
+                validate_mint_id_index_link(&base_address, &target_address)
+            }
+            LinkTypes::DidToMintRecords => {
+                validate_member_mint_index_link(&base_address, &target_address)
+            }
+            LinkTypes::HearthDidToSapPool => {
+                validate_hearth_pool_index_link(&base_address, &target_address)
+            }
+            LinkTypes::ChannelIdToChannel => {
+                validate_channel_id_index_link(&base_address, &target_address)
+            }
+            LinkTypes::PendingCompostQueue => {
+                let expected = deterministic_anchor_hash("pending_compost_queue");
+                if base_address.clone().into_entry_hash() != Some(expected.clone())
+                    || target_address.clone().into_entry_hash() != Some(expected)
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "PendingCompostQueue must target its deterministic self-anchor".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
+            LinkTypes::MintCapCounterAnchor => {
+                validate_mint_cap_counter_link(&base_address, &target_address)
+            }
+            LinkTypes::RateLimitBucketToAgent => {
+                validate_rate_limit_bucket_link(
+                    &action.author,
+                    &base_address,
+                    &target_address,
+                )
+            }
+        },
         FlatOp::RegisterDeleteLink { link_type, .. } => {
             // Prevent deletion of critical links
             match link_type {
@@ -450,6 +411,29 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+fn validate_rate_limit_bucket_link(
+    author: &AgentPubKey,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    if base_address.clone().into_entry_hash().is_none() {
+        return Ok(invalid_link(
+            "RateLimitBucketToAgent base must be an EntryHash",
+        ));
+    }
+    let Some(target_agent) = target_address.clone().into_agent_pub_key() else {
+        return Ok(invalid_link(
+            "RateLimitBucketToAgent target must be an AgentPubKey",
+        ));
+    };
+    if target_agent != *author {
+        return Ok(invalid_link(
+            "RateLimitBucketToAgent target must equal the CreateLink author",
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_payment(
@@ -541,6 +525,308 @@ fn validate_create_payment(
         ));
     }
 
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn deterministic_anchor_hash(anchor: &str) -> EntryHash {
+    EntryHash::from_raw_32(holo_hash::blake2b_256(anchor.as_bytes()).to_vec())
+}
+
+fn invalid_link(message: impl Into<String>) -> ValidateCallbackResult {
+    ValidateCallbackResult::Invalid(message.into())
+}
+
+fn require_entry_base(
+    base_address: &AnyLinkableHash,
+    relation: &str,
+) -> Result<EntryHash, ValidateCallbackResult> {
+    base_address
+        .clone()
+        .into_entry_hash()
+        .ok_or_else(|| invalid_link(format!("{relation} base must be an EntryHash")))
+}
+
+fn require_action_target(
+    target_address: &AnyLinkableHash,
+    relation: &str,
+) -> Result<ActionHash, ValidateCallbackResult> {
+    target_address
+        .clone()
+        .into_action_hash()
+        .ok_or_else(|| invalid_link(format!("{relation} target must be an ActionHash")))
+}
+
+fn require_anchor(
+    base_address: &AnyLinkableHash,
+    anchor: &str,
+    relation: &str,
+) -> Result<(), ValidateCallbackResult> {
+    let expected = deterministic_anchor_hash(anchor);
+    let actual = require_entry_base(base_address, relation)?;
+    if actual != expected {
+        return Err(invalid_link(format!(
+            "{relation} base does not match deterministic anchor"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_payment_index_link(
+    link_type: LinkTypes,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let relation = match link_type {
+        LinkTypes::SenderToPayments => "SenderToPayments",
+        LinkTypes::ReceiverToPayments => "ReceiverToPayments",
+        _ => return Ok(invalid_link("internal payment-index link type mismatch")),
+    };
+    let target_hash = match require_action_target(target_address, relation) {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(payment) = record.entry().to_app_option::<Payment>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "{relation} target decode failed: {e:?}"
+        )))
+    })? else {
+        return Ok(invalid_link(format!(
+            "{relation} target must be a Payment entry"
+        )));
+    };
+    let did = match link_type {
+        LinkTypes::SenderToPayments => &payment.from_did,
+        LinkTypes::ReceiverToPayments => &payment.to_did,
+        _ => unreachable!(),
+    };
+    if let Err(invalid) = require_anchor(base_address, did, relation) {
+        return Ok(invalid);
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_payment_to_receipt_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let payment_hash = match require_action_target(base_address, "PaymentToReceipt base") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let receipt_hash = match require_action_target(target_address, "PaymentToReceipt target") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let payment_record = must_get_valid_record(payment_hash)?;
+    let receipt_record = must_get_valid_record(receipt_hash)?;
+    let Some(payment) = payment_record.entry().to_app_option::<Payment>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("PaymentToReceipt payment decode failed: {e:?}")))
+    })? else {
+        return Ok(invalid_link("PaymentToReceipt base must resolve to Payment"));
+    };
+    let Some(receipt) = receipt_record.entry().to_app_option::<Receipt>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("PaymentToReceipt receipt decode failed: {e:?}")))
+    })? else {
+        return Ok(invalid_link("PaymentToReceipt target must resolve to Receipt"));
+    };
+    if receipt.payment_id != payment.id
+        || receipt.from_did != payment.from_did
+        || receipt.to_did != payment.to_did
+        || receipt.amount != payment.amount
+        || receipt.currency != payment.currency
+    {
+        return Ok(invalid_link(
+            "PaymentToReceipt target does not bind to the referenced Payment",
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_channel_party_link(
+    link_type: LinkTypes,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash = match require_action_target(
+        target_address,
+        "ChannelParty link",
+    ) {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(channel) = record.entry().to_app_option::<PaymentChannel>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("ChannelParty target decode failed: {e:?}")))
+    })? else {
+        return Ok(invalid_link("ChannelParty target must resolve to PaymentChannel"));
+    };
+    let (did, relation) = match link_type {
+        LinkTypes::ChannelPartyA => (&channel.party_a, "ChannelPartyA"),
+        LinkTypes::ChannelPartyB => (&channel.party_b, "ChannelPartyB"),
+        _ => unreachable!(),
+    };
+    if let Err(invalid) = require_anchor(base_address, did, relation) {
+        return Ok(invalid);
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_sap_balance_index_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash = match require_action_target(target_address, "DidToSapBalance") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(balance) = record.entry().to_app_option::<SapBalance>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("DidToSapBalance target decode failed: {e:?}")))
+    })? else {
+        return Ok(invalid_link("DidToSapBalance target must resolve to SapBalance"));
+    };
+    require_anchor(base_address, &format!("sap:{}", balance.member_did), "DidToSapBalance")
+        .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
+}
+
+fn validate_exit_index_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash = match require_action_target(target_address, "MemberToExitRecord") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(exit) = record.entry().to_app_option::<ExitRecord>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("MemberToExitRecord target decode failed: {e:?}")))
+    })? else {
+        return Ok(invalid_link("MemberToExitRecord target must resolve to ExitRecord"));
+    };
+    require_anchor(base_address, &exit.member_did, "MemberToExitRecord")
+        .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
+}
+
+fn validate_payment_id_index_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash = match require_action_target(target_address, "PaymentIdToPayment") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(payment) = record.entry().to_app_option::<Payment>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("PaymentIdToPayment target decode failed: {e:?}")))
+    })? else {
+        return Ok(invalid_link("PaymentIdToPayment target must resolve to Payment"));
+    };
+    require_anchor(base_address, &payment.id, "PaymentIdToPayment")
+        .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
+}
+
+fn validate_mint_id_index_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash = match require_action_target(target_address, "MintIdToMintRecord") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(mint) = record.entry().to_app_option::<SapMintRecord>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("MintIdToMintRecord target decode failed: {e:?}")))
+    })? else {
+        return Ok(invalid_link("MintIdToMintRecord target must resolve to SapMintRecord"));
+    };
+    require_anchor(base_address, &mint.id, "MintIdToMintRecord")
+        .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
+}
+
+fn validate_member_mint_index_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash = match require_action_target(target_address, "DidToMintRecords") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(mint) = record.entry().to_app_option::<SapMintRecord>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("DidToMintRecords target decode failed: {e:?}")))
+    })? else {
+        return Ok(invalid_link("DidToMintRecords target must resolve to SapMintRecord"));
+    };
+    require_anchor(base_address, &format!("mints:{}", mint.recipient_did), "DidToMintRecords")
+        .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
+}
+
+fn validate_hearth_pool_index_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash = match require_action_target(target_address, "HearthDidToSapPool") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(pool) = record.entry().to_app_option::<HearthSapPool>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("HearthDidToSapPool target decode failed: {e:?}")))
+    })? else {
+        return Ok(invalid_link("HearthDidToSapPool target must resolve to HearthSapPool"));
+    };
+    require_anchor(
+        base_address,
+        &format!("hearth-sap:{}", pool.hearth_did),
+        "HearthDidToSapPool",
+    )
+    .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
+}
+
+fn validate_channel_id_index_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_hash = match require_action_target(target_address, "ChannelIdToChannel") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    let Some(channel) = record.entry().to_app_option::<PaymentChannel>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("ChannelIdToChannel target decode failed: {e:?}")))
+    })? else {
+        return Ok(invalid_link("ChannelIdToChannel target must resolve to PaymentChannel"));
+    };
+    require_anchor(base_address, &channel.id, "ChannelIdToChannel")
+        .map_or_else(|invalid| Ok(invalid), |_| Ok(ValidateCallbackResult::Valid))
+}
+
+fn validate_mint_cap_counter_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Err(invalid) = require_anchor(
+        base_address,
+        "sap_mint_cap_counter",
+        "MintCapCounterAnchor",
+    ) {
+        return Ok(invalid);
+    }
+    let target_hash = match require_action_target(target_address, "MintCapCounterAnchor") {
+        Ok(hash) => hash,
+        Err(invalid) => return Ok(invalid),
+    };
+    let record = must_get_valid_record(target_hash)?;
+    if record.entry().to_app_option::<SapMintCapCounterEntry>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "MintCapCounterAnchor target decode failed: {e:?}"
+        )))
+    })?.is_none() {
+        return Ok(invalid_link(
+            "MintCapCounterAnchor target must resolve to SapMintCapCounterEntry",
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -1420,4 +1706,76 @@ mod tests {
             other => panic!("forged member_did must be rejected, got {other:?}"),
         }
     }
+
+    #[test]
+    fn test_rate_limit_bucket_target_must_be_link_author() {
+        let author = AgentPubKey::from_raw_36(vec![1; 36]);
+        let target = AnyLinkableHash::from(author.clone());
+        let base = AnyLinkableHash::from(deterministic_anchor_hash(
+            "payment-rate-limit:author:bucket",
+        ));
+        assert!(matches!(
+            validate_rate_limit_bucket_link(&author, &base, &target).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+
+        let forged_target = AnyLinkableHash::from(AgentPubKey::from_raw_36(vec![2; 36]));
+        assert!(matches!(
+            validate_rate_limit_bucket_link(&author, &base, &forged_target).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    // ---- 29. Authoritative payment-index anchor binding ----
+
+    #[test]
+    fn test_payment_index_anchor_is_exact_not_length_only() {
+        let did = "did:mycelix:uhCAkalice";
+        let expected = deterministic_anchor_hash(did);
+        let valid_base = AnyLinkableHash::from(expected);
+
+        assert!(require_anchor(&valid_base, did, "SenderToPayments").is_ok());
+
+        let forged_base = AnyLinkableHash::from(deterministic_anchor_hash(
+            "did:mycelix:uhCAkmallory",
+        ));
+        assert!(
+            require_anchor(&forged_base, did, "SenderToPayments").is_err(),
+            "same-length forged anchor must be rejected"
+        );
+    }
+
+    // ---- 30. Index bases/targets are type-safe, not just 39-byte values ----
+
+    #[test]
+    fn test_action_hash_is_not_accepted_as_entry_hash_index_base() {
+        let action = ActionHash::from_raw_36(vec![0; 36]);
+        let linkable = AnyLinkableHash::from(action);
+        assert!(
+            require_entry_base(&linkable, "DidToSapBalance").is_err(),
+            "an ActionHash must not satisfy an EntryHash-only base"
+        );
+    }
+
+    #[test]
+    fn test_authoritative_anchor_accepts_real_entry_hash() {
+        let anchor = deterministic_anchor_hash("sap:did:mycelix:uhCAkalice");
+        let linkable = AnyLinkableHash::from(anchor);
+        assert!(require_anchor(
+            &linkable,
+            "sap:did:mycelix:uhCAkalice",
+            "DidToSapBalance"
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_rate_limit_target_requires_agent_pubkey() {
+        let action = AnyLinkableHash::from(ActionHash::from_raw_36(vec![7; 36]));
+        assert!(
+            action.into_agent_pub_key().is_none(),
+            "a payment ActionHash must never satisfy the rate-limit AgentPubKey target"
+        );
+    }
+
 }
