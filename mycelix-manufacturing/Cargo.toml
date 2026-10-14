@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/manufacturing_common",
     "crates/cos_conformance",
+    "crates/furniture_compiler",
     "zomes/workorders/coordinator",
     "zomes/workorders/integrity",
     "zomes/bom/coordinator",
@@ -26,6 +27,7 @@ hdi = "0.5"
 hdk = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+blake3 = "=1.8.7"
 
 [workspace.lints.clippy]
 all = "warn"
