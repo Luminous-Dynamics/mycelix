@@ -155,7 +155,7 @@ def validate() -> None:
             fail(f"{candidate['candidate_id']}: do not claim funding/contract")
     if selection["candidates"][1].get("readiness") != "PartnerDiscoveryOnly":
         fail("Pikitup option must remain a partner-discovery lead, not a live pilot")
-    if not any("written permissions" in str(rule).lower() for rule in selection["decision_rule"]):
+    if not any("written data-use permission" in str(rule).lower() for rule in selection["decision_rule"]):
         fail("pilot selection must require written permissions")
 
     pilot = manifest["pilot"]
