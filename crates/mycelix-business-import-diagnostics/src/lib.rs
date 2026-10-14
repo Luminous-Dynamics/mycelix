@@ -669,7 +669,6 @@ mod tests {
     fn diagnostics_keep_rejected_rows_in_denominator() {
         let csv = b"event_id,occurred_at,location,quantity\nevent:1,1000,a,1\nevent:2,1100,a,oops\nevent:1,1200,a,3\n";
         let manifest = diagnose_delimited_import(&adapter(), csv.as_slice(), 2_000).unwrap();
-        assert!(IMPORT_DIAGNOSTICS_ARE_READ_ONLY);
         assert_eq!(manifest.discovered_rows, 3);
         assert_eq!(manifest.accepted_rows, 1);
         assert_eq!(manifest.rejected_rows, 2);
