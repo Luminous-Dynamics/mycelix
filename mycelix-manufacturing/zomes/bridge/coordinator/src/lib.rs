@@ -52,6 +52,28 @@ pub struct ProcurementRequestOutput {
     pub message: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct WorkOrderFabricationProjection {
+    #[serde(default)]
+    product_id: String,
+    #[serde(default)]
+    quantity: u64,
+    #[serde(default)]
+    status: Option<manufacturing_common::WorkOrderStatus>,
+}
+
+fn is_active_work_order(status: Option<&manufacturing_common::WorkOrderStatus>) -> bool {
+    matches!(
+        status,
+        Some(
+            manufacturing_common::WorkOrderStatus::Draft
+                | manufacturing_common::WorkOrderStatus::Released
+                | manufacturing_common::WorkOrderStatus::InProgress
+                | manufacturing_common::WorkOrderStatus::OnHold
+        )
+    )
+}
+
 // ============================================================================
 // Circuit breaker for cross-cluster calls
 // ============================================================================
@@ -125,13 +147,37 @@ pub fn query_fabrication_design(input: FabricationQueryInput) -> ExternResult<Fa
         )))),
     };
 
-    // Count work orders matching the product_id
-    let count = wo_links.len() as u32;
+    // Resolve each linked work order and count only the requested product.
+    // Unknown/malformed records are not counted; this keeps the query fail-closed
+    // rather than turning an unrelated link into a fabrication claim.
+    let mut count = 0u32;
+    let mut total_quantity_planned = 0u64;
+
+    for link in wo_links {
+        let Some(hash) = link.target.into_action_hash() else {
+            continue;
+        };
+        let Some(record) = get(hash, GetOptions::default())? else {
+            continue;
+        };
+        let Some(wo) = record
+            .entry()
+            .to_app_option::<WorkOrderFabricationProjection>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            continue;
+        };
+
+        if wo.product_id == input.product_id && is_active_work_order(wo.status.as_ref()) {
+            count = count.saturating_add(1);
+            total_quantity_planned = total_quantity_planned.saturating_add(wo.quantity);
+        }
+    }
 
     Ok(FabricationQueryOutput {
         product_id: input.product_id,
         active_work_orders: count,
-        total_quantity_planned: 0, // TODO: sum quantities from filtered WOs
+        total_quantity_planned,
     })
 }
 
@@ -363,7 +409,7 @@ pub fn query_commons_inventory(
 pub struct LocalPreferenceResult {
     /// Quantity sourced from commons (0 if unavailable or insufficient).
     pub from_commons: u64,
-    /// Quantity that must come from supplychain.
+    /// Quantity actually available/sourced from supplychain for the deficit.
     pub from_supplychain: u64,
     /// Whether commons was reachable.
     pub commons_available: bool,
@@ -425,7 +471,7 @@ pub fn source_with_local_preference(
     let sc_payload = ExternIO::encode(serde_json::json!({ "sku": input.part_id }))
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
 
-    let (sc_sufficient, message) = match call(
+    let (sc_sufficient, sc_qty, message) = match call(
         CallTargetCell::OtherRole("supplychain".into()),
         ZomeName::from("inventory_coordinator"),
         FunctionName::from("get_stock_level_by_sku"),
@@ -450,21 +496,23 @@ pub fn source_with_local_preference(
                     commons_qty, sc_qty, deficit
                 )
             };
-            (sufficient, msg)
+            (sufficient, sc_qty, msg)
         }
         Ok(other) => (
             false,
+            0,
             format!("Supplychain call rejected: {:?}", other),
         ),
         Err(_) => (
             false,
+            0,
             "Supplychain cluster not available".to_string(),
         ),
     };
 
     Ok(LocalPreferenceResult {
         from_commons: commons_qty,
-        from_supplychain: deficit,
+        from_supplychain: sc_qty.min(deficit),
         commons_available,
         supplychain_queried: true,
         supplychain_sufficient: sc_sufficient,
@@ -582,6 +630,20 @@ mod tests {
         assert!(back2.available_quantity.is_none());
         assert!(!back2.commons_available);
         assert!(back2.error.is_some());
+    }
+
+    #[test]
+    fn test_active_work_order_requires_known_non_terminal_status() {
+        use manufacturing_common::WorkOrderStatus;
+
+        assert!(is_active_work_order(Some(&WorkOrderStatus::Draft)));
+        assert!(is_active_work_order(Some(&WorkOrderStatus::Released)));
+        assert!(is_active_work_order(Some(&WorkOrderStatus::InProgress)));
+        assert!(is_active_work_order(Some(&WorkOrderStatus::OnHold)));
+        assert!(!is_active_work_order(Some(&WorkOrderStatus::Completed)));
+        assert!(!is_active_work_order(Some(&WorkOrderStatus::Closed)));
+        assert!(!is_active_work_order(Some(&WorkOrderStatus::Cancelled)));
+        assert!(!is_active_work_order(None));
     }
 
     #[test]
