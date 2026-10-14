@@ -20,8 +20,8 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "1e75f7702e6e3c2e1a44956a9571ad7461c664c7"
-EXPECTED_SOURCE_IDS = ["JW-1", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2"]
+EXPECTED_CORPUS_BLOB_SHA = "a18c65b04cf7d40f3f6e360ec7d459ef3c51bd91"
+EXPECTED_SOURCE_IDS = ["JW-1", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
     "InternalServiceIssueId != external reference number",
@@ -51,6 +51,7 @@ EXPECTED_PROBES = {
     "unfunded-work-pathway": ("EmploymentIntegrity", "DoNotAnnounceFundedPosition", "Unfunded"),
     "sensitive-location-publication": ("PrivacyAndAssetProtection", "BlockPublicationOrRedact", "DisclosureBlocked"),
     "demographic-risk-proxy": ("FairnessAndRights", "RejectAdverseAction", "UnsupportedAndProhibited"),
+    "working-on-infrastructure-geography-mismatch": ("EmploymentIntegrity", "TreatAsPartnerDiscoveryOnly", "GeographyNotInAnnouncedLaunchScope"),
 }
 REQUIRED_GUARDS = {
     "issuer-reference-collision": {"DoNotMergeByReferenceStringAlone", "ExternalReferenceIsNotInternalIdentity"},
@@ -64,6 +65,7 @@ REQUIRED_GUARDS = {
     "unfunded-work-pathway": {"NoSpeculativePayroll", "OpportunityIsNotAJob"},
     "sensitive-location-publication": {"NoPublicSensitiveAssetCoordinates", "NoExploitableOperationalDetail"},
     "demographic-risk-proxy": {"PovertyIsNotEvidenceOfWrongdoing", "ModelFlagIsNotAdjudication"},
+    "working-on-infrastructure-geography-mismatch": {"DoNotInferGautengPilotEligibility", "NationalProgrammeAnnouncementIsNotLocalFunding", "NoSpeculativePayroll"},
 }
 EXPECTED_BASE_KEYS = {
     "automated_external_write", "automated_closure", "production_sla_calculation",
@@ -193,6 +195,19 @@ def validate() -> None:
         fail("EPWP opportunities must not be promoted to durable jobs or pilot funding")
     if epwp.get("visually_reviewed") is not False:
         fail("do not claim visual review of the EPWP footnote")
+    programme_source = source_by_id["SA-JOBS-3"]
+    if programme_source.get("source_kind") != "OfficialPilotLaunchSpeech" or programme_source.get("publication_date") != "2026-05-04":
+        fail("Working on Infrastructure launch source identity/date drift")
+    if programme_source.get("announced_initial_pilot_provinces") != ["KwaZulu-Natal", "Limpopo"]:
+        fail("initial programme geography drift")
+    if programme_source.get("joburg_gauteng_participation_explicitly_confirmed") is not False:
+        fail("do not infer Johannesburg/Gauteng participation from initial launch")
+    if programme_source.get("local_johannesburg_funding_or_slots_verified") is not False or programme_source.get("allowed_to_claim_active_joburg_pilot") is not False:
+        fail("national pilot announcement must not become local funding or participation evidence")
+    if programme_source.get("intended_programme_duration_months") != {"minimum": 8, "maximum": 10}:
+        fail("structured programme-duration source claim drift")
+    if programme_source.get("recruitment_platform") != "SAYouth.mobi" or programme_source.get("platform_support_partner") != "Harambee":
+        fail("official programme recruitment platform record drift")
     job_source = source_by_id["SA-JOBS-2"]
     if job_source.get("geography_scope") != "South Africa nationally":
         fail("youth employment source must be labelled national, not Johannesburg-specific")
