@@ -198,7 +198,8 @@
           "observed_on",
           "independence",
           "claim_scope",
-          "retrieved_at"
+          "retrieved_at",
+          "retrieval_state"
         ],
         "properties": {
           "evidence_id": {
@@ -238,11 +239,69 @@
             "type": "string"
           },
           "retrieved_at": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
-            "description": "When this source material was retrieved; distinct from the observation date or the date asserted by the source."
+            "description": "Exact retrieval time for a captured source; null when the source is only synthetic or was unavailable."
+          },
+          "retrieval_state": {
+            "enum": [
+              "captured",
+              "synthetic_fixture",
+              "unavailable"
+            ],
+            "description": "Whether the referenced source was actually retrieved for this record or exists only as synthetic test data."
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "retrieval_state": {
+                  "const": "captured"
+                }
+              },
+              "required": [
+                "retrieval_state"
+              ]
+            },
+            "then": {
+              "required": [
+                "retrieved_at"
+              ],
+              "properties": {
+                "retrieved_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "retrieval_state": {
+                  "enum": [
+                    "synthetic_fixture",
+                    "unavailable"
+                  ]
+                }
+              },
+              "required": [
+                "retrieval_state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retrieved_at": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "outcome": {
