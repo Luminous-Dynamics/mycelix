@@ -216,5 +216,20 @@ class SouthAfricanDigitalIdProfileTests(unittest.TestCase):
         self.assertTrue(any("pinned official research sources" in e for e in errors))
 
 
+    def test_trusted_synthetic_issuer_requires_test_only_anchor(self) -> None:
+        mutated = copy.deepcopy(self.profile)
+        vector = next(
+            item for item in mutated["test_vectors"]
+            if item["scenario"] == "unsupported_unpublished_profile"
+        )
+        self.assertEqual(vector["trust_anchor_ref"], "none")
+        vector["policy_inputs"]["issuer_trusted"] = True
+        errors = validate_sa_did_profile.validate_profile(mutated)
+        self.assertTrue(any(
+            "trusted synthetic issuer requires a test-only anchor" in error
+            for error in errors
+        ))
+
+
 if __name__ == "__main__":
     unittest.main()
