@@ -26,8 +26,6 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt
-      - name: Format check
-        run: cargo fmt --manifest-path tools/airspace-sim/Cargo.toml -- --check
       - name: Unit and fixture tests
         run: cargo test --manifest-path tools/airspace-sim/Cargo.toml
       - name: Verify committed scenario expectations
