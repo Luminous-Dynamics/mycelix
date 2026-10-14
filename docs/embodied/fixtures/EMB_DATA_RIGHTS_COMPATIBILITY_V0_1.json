@@ -1,0 +1,299 @@
+{
+  "schema": "mycelix:emb-data-rights-compatibility-corpus:v0.1",
+  "authority": "SyntheticCompatibilitySemanticsOnly",
+  "review_date": "2026-09-22",
+  "legal_permission_authority": false,
+  "access_authority": false,
+  "training_execution_authority": false,
+  "physical_execution_authority": false,
+  "states": [
+    "CompatibleWithReviewedTermsProfile",
+    "IncompatibleWithReviewedTermsProfile",
+    "HumanReviewRequired",
+    "TermsEvidenceConflict",
+    "TermsProfileExpiredOrSuperseded",
+    "IntendedUseOutOfProfile"
+  ],
+  "dimensions": [
+    "LocalStorage",
+    "ResearchAnalysis",
+    "Training",
+    "Evaluation",
+    "CommercialResearch",
+    "CommercialProductDevelopment",
+    "DerivedModelUse",
+    "DerivedModelDistribution",
+    "DerivedDatasetCreation",
+    "DerivedDatasetRedistribution",
+    "RawRedistribution",
+    "PublicationExcerpt",
+    "PublicDemo",
+    "RemoteProcessing"
+  ],
+  "obligations": [
+    "Attribution",
+    "NoticeRetention",
+    "NonCommercialUseOnly",
+    "NoRawRedistribution",
+    "SourceLineageRetention",
+    "ReviewOnTermsChange",
+    "DeletionOnRevocation",
+    "NoDerivedDatasetRedistribution"
+  ],
+  "split_roles": [
+    "Training",
+    "Validation",
+    "EvaluationOnly",
+    "BenchmarkHoldout",
+    "Unspecified"
+  ],
+  "cases": [
+    {
+      "id": "C01-research-compatible-commercial-prohibited",
+      "subjects": ["synthetic:dataset:a:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "dimensions": {"ResearchAnalysis": "Compatible", "CommercialProductDevelopment": "Incompatible"},
+        "obligations": ["SourceLineageRetention"]
+      },
+      "intended_use": ["ResearchAnalysis"],
+      "expected_state": "CompatibleWithReviewedTermsProfile",
+      "expected_obligations": ["SourceLineageRetention"],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C02-training-compatible-raw-redistribution-prohibited",
+      "subjects": ["synthetic:dataset:b:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "dimensions": {"Training": "Compatible", "RawRedistribution": "Incompatible"},
+        "obligations": ["NoRawRedistribution", "SourceLineageRetention"]
+      },
+      "intended_use": ["Training"],
+      "expected_state": "CompatibleWithReviewedTermsProfile",
+      "expected_obligations": ["NoRawRedistribution", "SourceLineageRetention"],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C03-attribution-retained",
+      "subjects": ["synthetic:asset:c:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "dimensions": {"Training": "Compatible", "DerivedModelUse": "Compatible"},
+        "obligations": ["Attribution", "SourceLineageRetention"]
+      },
+      "intended_use": ["Training", "DerivedModelUse"],
+      "expected_state": "CompatibleWithReviewedTermsProfile",
+      "expected_obligations": ["Attribution", "SourceLineageRetention"],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C04-evaluation-only-blocks-training",
+      "subjects": ["synthetic:dataset:d:v1"],
+      "split_role": "EvaluationOnly",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "dimensions": {"Training": "Compatible", "Evaluation": "Compatible"},
+        "obligations": []
+      },
+      "intended_use": ["Training"],
+      "expected_state": "IncompatibleWithReviewedTermsProfile",
+      "expected_obligations": [],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C05-public-url-terms-unknown",
+      "subjects": ["synthetic:dataset:e:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Unknown",
+        "dimensions": {"ResearchAnalysis": "Unknown"},
+        "obligations": []
+      },
+      "intended_use": ["ResearchAnalysis"],
+      "expected_state": "HumanReviewRequired",
+      "expected_obligations": [],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C06-ambiguous-clause",
+      "subjects": ["synthetic:dataset:f:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "dimensions": {"Training": "Unknown"},
+        "obligations": []
+      },
+      "intended_use": ["Training"],
+      "expected_state": "HumanReviewRequired",
+      "expected_obligations": [],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C07-expired-terms-profile",
+      "subjects": ["synthetic:dataset:g:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Expired",
+        "dimensions": {"Training": "Compatible"},
+        "obligations": ["ReviewOnTermsChange"]
+      },
+      "intended_use": ["Training"],
+      "expected_state": "TermsProfileExpiredOrSuperseded",
+      "expected_obligations": ["ReviewOnTermsChange"],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C08-profile-subject-mismatch",
+      "subjects": ["synthetic:dataset:h:v2"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "subject": "synthetic:dataset:h:v1",
+        "currentness": "Current",
+        "dimensions": {"Training": "Compatible"},
+        "obligations": []
+      },
+      "intended_use": ["Training"],
+      "expected_state": "IntendedUseOutOfProfile",
+      "expected_obligations": [],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C09-two-compatible-sources-obligations-union",
+      "subjects": ["synthetic:dataset:i:v1", "synthetic:dataset:j:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "per_source": [
+          {"subject": "synthetic:dataset:i:v1", "dimensions": {"Training": "Compatible"}, "obligations": ["Attribution"]},
+          {"subject": "synthetic:dataset:j:v1", "dimensions": {"Training": "Compatible"}, "obligations": ["NoRawRedistribution", "SourceLineageRetention"]}
+        ]
+      },
+      "intended_use": ["Training"],
+      "expected_state": "CompatibleWithReviewedTermsProfile",
+      "expected_obligations": ["Attribution", "NoRawRedistribution", "SourceLineageRetention"],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C10-noncommercial-source-blocks-commercial-composite",
+      "subjects": ["synthetic:dataset:k:v1", "synthetic:dataset:l:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "per_source": [
+          {"subject": "synthetic:dataset:k:v1", "dimensions": {"CommercialProductDevelopment": "Incompatible"}, "obligations": ["NonCommercialUseOnly"]},
+          {"subject": "synthetic:dataset:l:v1", "dimensions": {"CommercialProductDevelopment": "Compatible"}, "obligations": []}
+        ]
+      },
+      "intended_use": ["CommercialProductDevelopment"],
+      "expected_state": "IncompatibleWithReviewedTermsProfile",
+      "expected_obligations": ["NonCommercialUseOnly"],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C11-one-unknown-source-withholds-composite",
+      "subjects": ["synthetic:dataset:m:v1", "synthetic:dataset:n:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "per_source": [
+          {"subject": "synthetic:dataset:m:v1", "dimensions": {"Training": "Compatible"}, "obligations": []},
+          {"subject": "synthetic:dataset:n:v1", "dimensions": {"Training": "Unknown"}, "obligations": []}
+        ]
+      },
+      "intended_use": ["Training"],
+      "expected_state": "HumanReviewRequired",
+      "expected_obligations": [],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C12-caller-request-cannot-rewrite-evidence",
+      "subjects": ["synthetic:dataset:o:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "dimensions": {"Training": "Incompatible"},
+        "obligations": []
+      },
+      "intended_use": ["Training"],
+      "expected_state": "IncompatibleWithReviewedTermsProfile",
+      "expected_obligations": [],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C13-privacy-prerequisite-remains-external",
+      "subjects": ["synthetic:human-dataset:p:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "dimensions": {"Training": "Compatible"},
+        "obligations": ["SourceLineageRetention"]
+      },
+      "intended_use": ["Training"],
+      "expected_state": "CompatibleWithReviewedTermsProfile",
+      "expected_obligations": ["SourceLineageRetention"],
+      "external_prerequisites": ["PrivacyConsentAssessment"]
+    },
+    {
+      "id": "C14-benchmark-holdout-blocks-training",
+      "subjects": ["synthetic:dataset:q:v1"],
+      "split_role": "BenchmarkHoldout",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "dimensions": {"Training": "Compatible", "Evaluation": "Compatible"},
+        "obligations": []
+      },
+      "intended_use": ["Training"],
+      "expected_state": "IncompatibleWithReviewedTermsProfile",
+      "expected_obligations": [],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C15-derived-model-distribution-out-of-scope",
+      "subjects": ["synthetic:dataset:r:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "dimensions": {"Training": "Compatible", "DerivedModelDistribution": "OutOfScope"},
+        "obligations": ["Attribution"]
+      },
+      "intended_use": ["Training", "DerivedModelDistribution"],
+      "expected_state": "IntendedUseOutOfProfile",
+      "expected_obligations": ["Attribution"],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C16-compatibility-never-grants-robot-actuation",
+      "subjects": ["synthetic:robot-demo:s:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "dimensions": {"Training": "Compatible", "DerivedModelUse": "Compatible"},
+        "obligations": ["SourceLineageRetention"]
+      },
+      "intended_use": ["Training", "DerivedModelUse"],
+      "expected_state": "CompatibleWithReviewedTermsProfile",
+      "expected_obligations": ["SourceLineageRetention"],
+      "external_prerequisites": []
+    },
+    {
+      "id": "C17-conflicting-reviewed-evidence",
+      "subjects": ["synthetic:dataset:t:v1"],
+      "split_role": "Training",
+      "reviewed_terms_evidence": {
+        "currentness": "Current",
+        "per_source": [
+          {"subject": "synthetic:dataset:t:v1", "evidence_ref": "review-a", "dimensions": {"Training": "Compatible"}, "obligations": []},
+          {"subject": "synthetic:dataset:t:v1", "evidence_ref": "review-b", "dimensions": {"Training": "Incompatible"}, "obligations": []}
+        ]
+      },
+      "intended_use": ["Training"],
+      "expected_state": "TermsEvidenceConflict",
+      "expected_obligations": [],
+      "external_prerequisites": []
+    }
+  ]
+}
