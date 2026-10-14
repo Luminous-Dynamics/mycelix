@@ -23,11 +23,12 @@
     "non-monotonic-lifecycle",
     "underfunded-commitment",
     "provider-self-verification",
-    "duplicate-json-keys"
+    "duplicate-json-keys",
+    "open-tender-route-mismatch"
   ],
   "limitations": [
     "Fixtures are synthetic only and must not be used as real contracts or employment evidence.",
     "A valid schema is not evidence of truth, funding, legal compliance, authority, or delivery."
   ],
-  "schema_git_blob_sha": "790b3ed26ef48619c12f384533ae6b430b0cb3a7"
+  "schema_git_blob_sha": "e8f0d1fd8e571a3390141b1bc345d74b8e6757c4"
 }
