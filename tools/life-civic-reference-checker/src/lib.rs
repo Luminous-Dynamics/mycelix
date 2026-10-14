@@ -1027,4 +1027,38 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
             }),
         "industrial robot-cell standard must not be generalized to a public-facing service robot"
     );
+
+    let statssa = by_id
+        .get("MYC-LCA-013")
+        .expect("Stats SA national-statistic scope control missing");
+    assert_eq!(statssa["expected"]["status"], "unknown");
+    assert_eq!(
+        statssa["expected"]["required_reason_codes"][0],
+        "context_insufficient"
+    );
+    assert!(
+        statssa["expected"]["forbidden_claims"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|claim| claim.as_str().unwrap().contains("causal crime coefficient")),
+        "national QLFS descriptive statistics must not be treated as a crime coefficient"
+    );
+
+    let decent_work = by_id
+        .get("MYC-LCA-014")
+        .expect("ILO decent-work threshold-scope control missing");
+    assert_eq!(decent_work["expected"]["status"], "unknown");
+    assert_eq!(
+        decent_work["expected"]["required_reason_codes"][0],
+        "context_insufficient"
+    );
+    assert!(
+        decent_work["expected"]["forbidden_claims"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|claim| claim.as_str().unwrap().contains("universal 0.80 fair-pay adequacy threshold")),
+        "ILO measurement framework must not be treated as a source for the synthetic numeric threshold"
+    );
 }
