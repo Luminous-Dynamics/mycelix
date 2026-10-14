@@ -101,6 +101,7 @@ fn expected_disposition(id: &str) -> Option<&'static str> {
         "VF-CORRECTION-001" => Some("preserve_append_only_correction_lineage"),
         "VF-UNKNOWN-001" => Some("indeterminate_or_policy_bounded_rejection"),
         "VF-VERSION-001" => Some("reject_unqualified_version_claim"),
+        "VF-TEND-F32-001" => Some("block_unqualified_quantity_export"),
         _ => None,
     }
 }
@@ -118,7 +119,7 @@ fn expected_mapping(
         )),
         "TEND" => Some((
             "mycelix:TEND",
-            "canonical_integer_tend_units",
+            "blocked_legacy_f32_needs_quantization_profile",
             "mycelix:TEND-hour",
             true,
             &["Commitment", "EconomicEvent"],
@@ -183,6 +184,11 @@ fn expected_guards(id: &str) -> Option<&'static [&'static str]> {
             "ontology_version_and_adapter_profile_separate",
             "exact_source_commit_pinned",
             "packaged_artifact_qualification_required",
+        ]),
+        "VF-TEND-F32-001" => Some(&[
+            "legacy_f32_source_explicitly_blocked",
+            "quantization_profile_required",
+            "round_trip_error_bound_required",
         ]),
         _ => None,
     }
@@ -474,6 +480,7 @@ fn validate(corpus: &Corpus) -> Vec<String> {
         "VF-CORRECTION-001",
         "VF-UNKNOWN-001",
         "VF-VERSION-001",
+        "VF-TEND-F32-001",
     ];
     let mut control_ids = BTreeSet::new();
     for control in &corpus.negative_controls {
@@ -582,7 +589,7 @@ mod tests {
     fn checked_in_corpus_satisfies_fail_closed_contract() {
         let raw = EMBEDDED_CORPUS;
         let count = check_text(raw).expect("checked-in corpus must satisfy local contract");
-        assert_eq!(count, 11);
+        assert_eq!(count, 12);
     }
 
     #[test]
@@ -616,6 +623,20 @@ mod tests {
             .expect("SAP mapping");
         sap["quantity_encoding"] = "binary_float".into();
         let errors = check_text(&value.to_string()).expect_err("binary float encoding must fail");
+        assert!(errors.iter().any(|error| error.contains("unsafe or unexpected quantity encoding")));
+    }
+
+    #[test]
+    fn legacy_tend_f32_quantity_export_remains_blocked() {
+        let mut value = fixture();
+        let mappings = value["mappings"].as_array_mut().expect("mappings array");
+        let tend = mappings
+            .iter_mut()
+            .find(|mapping| mapping["mycelix_instrument"] == "TEND")
+            .expect("TEND mapping");
+        tend["quantity_encoding"] = "canonical_integer_tend_units".into();
+        let errors = check_text(&value.to_string())
+            .expect_err("unqualified exact TEND amount export must remain blocked");
         assert!(errors.iter().any(|error| error.contains("unsafe or unexpected quantity encoding")));
     }
 
