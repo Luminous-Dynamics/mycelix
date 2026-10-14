@@ -814,6 +814,24 @@ mod tests {
     }
 
     #[test]
+    fn canonical_json_fixture_deserializes_and_validates() {
+        let milestone: BootstrapMilestone = serde_json::from_str(include_str!(
+            "../fixtures/bootstrap-milestone.synthetic.json"
+        ))
+        .expect("canonical shared fixture must deserialize");
+        assert!(milestone.validate().is_ok());
+        assert_eq!(
+            milestone.fixture_class,
+            FixtureClass::SyntheticSoftwareContract
+        );
+        assert_eq!(
+            milestone.resource_statements.len(),
+            1,
+            "the sample resource is an estimate, not accepted inventory"
+        );
+    }
+
+    #[test]
     fn unknown_fields_fail_closed_during_deserialization() {
         let mut value = serde_json::to_value(valid_milestone()).expect("serialize record");
         value["authority_basis"]["authority_granted"] = serde_json::Value::Bool(true);
