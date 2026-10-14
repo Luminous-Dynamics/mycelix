@@ -1,0 +1,130 @@
+name: Mycelix Music Leptos
+
+on:
+  # The PR event follows updates to the proposed public source branch.
+  # Avoid duplicate push + pull_request jobs for the same commit.
+  pull_request:
+    paths:
+      - ".github/workflows/mycelix-music-leptos.yml"
+      - "mycelix-workspace/mycelix-music/apps/leptos/**"
+      - "mycelix-workspace/Cargo.toml"
+      - "mycelix-workspace/Cargo.lock"
+      - "crates/mycelix-leptos-core/**"
+      - "crates/mycelix-leptos-client/**"
+      - "crates/mycelix-leptos-ui/**"
+      - "mycelix-workspace/mycelix-personal/crates/personal-leptos-types/**"
+      - "mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mycelix-music-leptos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Native tests and WASM check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CARGO_TERM_COLOR: always
+      # Keep hosted CI independent of any developer-machine sccache wrapper.
+      RUSTC_WRAPPER: /usr/bin/env
+    steps:
+      - name: Checkout exact public source subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Qualify the PR's source commit, not GitHub's synthetic merge ref.
+          # Manual dispatch falls back to the selected ref's commit.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Install repository Rust toolchain
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # reviewed master commit (2026-10-09)
+        with:
+          toolchain: 1.96.0
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      # Check every Rust source changed by this PR. The enclosing Leptos app
+      # has pre-existing formatting drift in untouched modules; keeping this
+      # gate diff-scoped prevents unrelated files from blocking playback changes.
+      - name: Format changed Rust sources
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+          QUALIFIED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          mapfile -t changed_files < <(
+            git diff --name-only FETCH_HEAD "$QUALIFIED_SHA" -- mycelix-workspace/mycelix-music/apps/leptos
+          )
+          rust_count=0
+          for file in "${changed_files[@]}"; do
+            [[ "$file" == *.rs ]] || continue
+            rust_count=$((rust_count + 1))
+            echo "Checking rustfmt: $file"
+            rustfmt +1.96.0 --check --edition 2024 --config skip_children=true "$file"
+          done
+          echo "Rust files checked: $rust_count"
+
+      - name: Native unit tests
+        working-directory: mycelix-workspace/mycelix-music/apps/leptos
+        run: cargo test --manifest-path Cargo.toml
+
+      - name: Clippy (warnings denied)
+        working-directory: mycelix-workspace/mycelix-music/apps/leptos
+        run: cargo clippy --manifest-path Cargo.toml --all-targets -- -D warnings
+
+      - name: Browser-target compilation
+        working-directory: mycelix-workspace/mycelix-music/apps/leptos
+        run: cargo check --manifest-path Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Install pinned browser-test tooling
+        run: |
+          cargo install trunk --version 0.21.14 --locked
+          npm install --global playwright@1.64.0
+          playwright install --with-deps chromium
+
+      - name: Deterministic Leptos browser smoke
+        working-directory: mycelix-workspace/mycelix-music/apps/leptos
+        env:
+          BASE_URL: http://127.0.0.1:8121
+          EVIDENCE_DIR: /tmp/mycelix-player-smoke-evidence
+        run: |
+          set -euo pipefail
+          trunk serve index-fixtures.html --address 127.0.0.1 --port 8121 > /tmp/mycelix-leptos-trunk.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=0
+          for attempt in $(seq 1 600); do
+            if curl --fail --silent http://127.0.0.1:8121/discover >/dev/null; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat /tmp/mycelix-leptos-trunk.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/mycelix-leptos-trunk.log
+            echo "Leptos fixture server did not become ready within 10 minutes" >&2
+            exit 1
+          fi
+
+          NODE_PATH="$(npm root -g)" node e2e/player-smoke.cjs
+
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mycelix-music-leptos-browser-failure
+          path: /tmp/mycelix-player-smoke-evidence/
+          if-no-files-found: ignore
+          retention-days: 7

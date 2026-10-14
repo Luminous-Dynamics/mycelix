@@ -2,20 +2,32 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
-use leptos::prelude::*;
 use crate::app::PlayerState;
 use crate::types::Song;
+use leptos::prelude::*;
 
 /// A card displaying a song with play button, title, artist, genres, and duration.
 #[component]
 pub fn SongCard(song: Song) -> impl IntoView {
     let player = expect_context::<PlayerState>();
-    let song_clone = song.clone();
 
+    // Use the single player transition for direct playback so current song,
+    // queue membership, queue index, progress, and play state stay coherent.
+    let song_for_play = song.clone();
+    let player_for_play = player.clone();
     let play = move |_| {
-        player.current_song.set(Some(song_clone.clone()));
-        player.is_playing.set(true);
+        player_for_play.play_song(song_for_play.clone());
     };
+
+    // Queueing is separate from playing: it never interrupts the current track.
+    let song_for_queue = song.clone();
+    let player_for_queue = player;
+    let enqueue = move |_| {
+        player_for_queue.enqueue(song_for_queue.clone());
+    };
+
+    let play_label = format!("Play {}", song.title);
+    let queue_label = format!("Add {} to queue", song.title);
 
     let genre_tags = song
         .genres
@@ -38,7 +50,9 @@ pub fn SongCard(song: Song) -> impl IntoView {
     view! {
         <div class="song-card">
             <div class="song-card-header">
-                <button class="btn-play" on:click=play>"▶"</button>
+                <button class="btn-play" on:click=play aria-label=play_label>
+                    "▶"
+                </button>
                 <div class="song-info">
                     <h3 class="song-title">{song.title.clone()}</h3>
                     <span class="song-duration">{song.duration_display()}</span>
@@ -47,6 +61,11 @@ pub fn SongCard(song: Song) -> impl IntoView {
             <div class="song-genres">{genre_tags}</div>
             <div class="song-strategy">
                 <span class="strategy-badge">{strategy_label}</span>
+            </div>
+            <div class="song-card-actions">
+                <button class="btn-queue" on:click=enqueue aria-label=queue_label>
+                    "+ Queue"
+                </button>
             </div>
         </div>
     }

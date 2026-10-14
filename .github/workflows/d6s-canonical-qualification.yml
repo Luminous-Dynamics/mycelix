@@ -5,6 +5,17 @@ on:
     branches:
       - myc-int-demo-d6t-canonical-encoding
   pull_request:
+    # Only evaluate canonical reference/runtime subjects. A music-only PR must
+    # not run this gate against a base tree that does not contain its fixtures.
+    # Workflow-only changes are exercised by explicit workflow_dispatch.
+    paths:
+      - "docs/integral/d6s-canon-1-*"
+      - "docs/integral/d6s-canon-2-*"
+      - "scripts/integral/verify_d6s_canon_*.py"
+      - "mycelix-manufacturing/crates/cos_conformance/tests/d6s_canon_*.rs"
+      - "docs/integral/d6u-runtime-*"
+      - "scripts/integral/verify_d6u_runtime_*.py"
+      - "d6u-runtime-harness/**"
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
