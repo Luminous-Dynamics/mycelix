@@ -184,8 +184,7 @@ fn checked_assessment_matches_correlated_gaussian_disk_reference() {
             case.case_id
         );
 
-        let covariance_primary =
-            covariance_for_projected_case(case.covariance_encounter_plane_km2);
+        let covariance_primary = covariance_for_projected_case(case.covariance_encounter_plane_km2);
         let covariance_secondary =
             covariance_for_projected_case(case.covariance_encounter_plane_km2);
         let primary = synthetic_state(
@@ -206,7 +205,12 @@ fn checked_assessment_matches_correlated_gaussian_disk_reference() {
         let result = ConjunctionAnalyzer::new()
             .with_hbr(case.hard_body_radius_km * 1000.0)
             .try_assess(&primary, &secondary)
-            .unwrap_or_else(|error| panic!("{}: checked assessment rejected fixture: {error}", case.case_id));
+            .unwrap_or_else(|error| {
+                panic!(
+                    "{}: checked assessment rejected fixture: {error}",
+                    case.case_id
+                )
+            });
 
         assert_eq!(
             result.collision_probability.method,
@@ -230,9 +234,8 @@ fn checked_assessment_matches_correlated_gaussian_disk_reference() {
             case.expected_pc_gaussian_small_disk
         );
 
-        let integral_relative_error =
-            (actual_pc - case.expected_pc_integral_reference).abs()
-                / case.expected_pc_integral_reference;
+        let integral_relative_error = (actual_pc - case.expected_pc_integral_reference).abs()
+            / case.expected_pc_integral_reference;
         assert!(
             integral_relative_error <= fixture.comparison.relative_tolerance,
             "{}: production Pc differs from independent Gaussian-disk integral by {:.5}%, tolerance is {:.3}%; actual={actual_pc:.16e}, reference={:.16e}",
