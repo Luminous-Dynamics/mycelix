@@ -7,6 +7,11 @@ on:
       - "mycelix-workspace/Cargo.toml"
       - "mycelix-workspace/mycelix-music/apps/leptos/Cargo.toml"
       - "mycelix-workspace/mycelix-music/apps/leptos/src/**"
+      - "crates/mycelix-leptos-core/**"
+      - "crates/mycelix-leptos-client/**"
+      - "crates/mycelix-leptos-ui/**"
+      - "mycelix-workspace/mycelix-personal/crates/personal-leptos-types/**"
+      - "mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**"
   push:
     branches: [main]
     paths:
@@ -14,6 +19,11 @@ on:
       - "mycelix-workspace/Cargo.toml"
       - "mycelix-workspace/mycelix-music/apps/leptos/Cargo.toml"
       - "mycelix-workspace/mycelix-music/apps/leptos/src/**"
+      - "crates/mycelix-leptos-core/**"
+      - "crates/mycelix-leptos-client/**"
+      - "crates/mycelix-leptos-ui/**"
+      - "mycelix-workspace/mycelix-personal/crates/personal-leptos-types/**"
+      - "mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**"
 
 permissions:
   contents: read
