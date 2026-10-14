@@ -432,10 +432,7 @@
             "required": [
               "status"
             ]
-          },
-          "required": [
-            "outcome"
-          ]
+          }
         },
         "required": [
           "outcome"
@@ -494,10 +491,7 @@
             "required": [
               "status"
             ]
-          },
-          "required": [
-            "outcome"
-          ]
+          }
         },
         "required": [
           "outcome"
