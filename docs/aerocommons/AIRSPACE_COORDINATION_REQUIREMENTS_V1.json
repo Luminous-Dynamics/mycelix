@@ -213,10 +213,10 @@
     }
   ],
   "execution": {
-    "test_runner": null,
+    "test_runner": "GitHub Actions: Airspace Replay Research Gate",
     "target_commit": null,
     "result": "not_run",
-    "note": "This is an authored requirement corpus, not evidence that tests have executed or passed."
+    "note": "Source and fixtures have been authored; local cargo/rustc are unavailable in the current execution environment. Update this only from exact-head CI evidence."
   },
   "references": [
     "https://www.faa.gov/uas/advanced_operations/traffic_management",
@@ -229,5 +229,43 @@
     "https://www.caa.co.za/industry-information/uas/",
     "https://www.gov.za/documents/notices/civil-aviation-act-thirty-sixth-amendment-civil-aviation-regulations-2026-english",
     "https://cad.atns.co.za/SmartAIM/EAipPackages/15-OCT-22/2022-10-15-000000/html/eAIP/FA-ENR-1.9-en-US.html"
-  ]
+  ],
+  "prototype": {
+    "implementation": "tools/airspace-sim",
+    "language": "Rust",
+    "status": "initial_replay_harness_authored",
+    "fixture_scenarios": [
+      "clear_separation",
+      "crossing_conflict",
+      "vertical_separation",
+      "uncertainty_expands_conflict",
+      "between_sample_crossing",
+      "frame_mismatch_unresolved",
+      "time_unqualified_unresolved",
+      "expired_intent_rejected",
+      "emergency_requires_review"
+    ],
+    "implemented_semantics": [
+      "synthetic_pairwise_trajectory_conflict_screen",
+      "horizontal_and_vertical_thresholds_remain_separate",
+      "uncertainty_and_relative_motion_conservative_margins",
+      "space_time_reference_frame_and_vertical_datum_qualification",
+      "intent_validity_window_checks",
+      "proposed_accepted_activated_withdrawn_completed_lifecycle_type",
+      "emergency_priority_requires_authority_review_without_granting_authority",
+      "bounded_pair_sample_work",
+      "expected_vs_actual_fixture_replay"
+    ],
+    "not_yet_implemented": [
+      "provider federation and reservation reconciliation",
+      "dynamic airspace constraint update replay",
+      "weather or terrain modeling",
+      "non_cooperative traffic modeling",
+      "validated aircraft dynamics or reachable-set analysis",
+      "official jurisdictional separation minima",
+      "operational authorization",
+      "full one-to-one executable coverage of all AIR-CASE requirements"
+    ],
+    "results_interpretation": "Passing means only that the simplified model matches synthetic fixture expectations; it is not safety, airworthiness, certification, or permission to fly."
+  }
 }
