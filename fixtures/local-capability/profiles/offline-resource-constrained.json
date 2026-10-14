@@ -1,0 +1,125 @@
+{
+  "schema_version": "local-capability-profile/0.1",
+  "profile_id": "offline-resource-constrained",
+  "version": 1,
+  "status": "illustrative",
+  "place": {
+    "label": "Illustrative offline resource-constrained context",
+    "scope": "generalized_context",
+    "location_precision": "generalized",
+    "basis": "illustrative"
+  },
+  "context": {
+    "settlement_type": "remote_rural",
+    "climate_profile": {
+      "classification": "unknown",
+      "basis": "unknown",
+      "evidence_refs": [],
+      "hazards_to_investigate": []
+    }
+  },
+  "resource_envelope": {
+    "electricity": {
+      "value": "none_or_unreliable",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "digital_comms": {
+      "value": "none",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "cash_access": {
+      "value": "none_or_rare",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "manufacturing": {
+      "value": "hand_tools",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "supply_chain": {
+      "value": "local_reuse",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "water_service": {
+      "value": "no_improved_service",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "health_access": {
+      "value": "community_care_only",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "transport_access": {
+      "value": "walking_or_carry_only",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "knowledge_exchange": {
+      "value": "oral_demonstration",
+      "basis": "illustrative",
+      "evidence_refs": []
+    }
+  },
+  "capabilities": [],
+  "priorities": [
+    {
+      "priority_id": "safe-water-options",
+      "area": "water_sanitation",
+      "rank": 1,
+      "basis": "provisional_hypothesis",
+      "evidence_refs": []
+    },
+    {
+      "priority_id": "repairable-tools",
+      "area": "tools_repair",
+      "rank": 2,
+      "basis": "provisional_hypothesis",
+      "evidence_refs": []
+    },
+    {
+      "priority_id": "food-storage-options",
+      "area": "food_security",
+      "rank": 3,
+      "basis": "provisional_hypothesis",
+      "evidence_refs": []
+    }
+  ],
+  "engagement": {
+    "mode": "public_context_only",
+    "authorization_status": "not_sought",
+    "location_handling": "generalized",
+    "restricted_knowledge_present": false,
+    "intervention_policy": "no_intervention_without_authorized_request"
+  },
+  "safety_gates": {
+    "water_safety": "not_assessed",
+    "clinical_safety": "not_assessed",
+    "structural_safety": "not_assessed",
+    "ecological_impact": "not_assessed",
+    "legal_authority": "not_assessed",
+    "community_consent": "not_assessed",
+    "maintenance_owner": "not_assessed",
+    "rights_and_attribution": "not_assessed",
+    "accessibility": "not_assessed",
+    "privacy": "not_assessed",
+    "anti_displacement": "not_assessed",
+    "repairability": "not_assessed"
+  },
+  "sources": [
+    {
+      "source_id": "sphere-handbook",
+      "title": "Sphere Handbook humanitarian standards",
+      "url": "https://handbook.spherestandards.org/en/sphere",
+      "use": "methodology",
+      "rights_status": "link_only"
+    }
+  ],
+  "limitations": [
+    "Illustrative profile only; no actual place baseline, community consent, deployment authorization, safety approval, or outcome is established."
+  ]
+}
