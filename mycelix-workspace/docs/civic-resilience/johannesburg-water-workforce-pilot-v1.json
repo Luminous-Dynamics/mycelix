@@ -187,7 +187,17 @@
           33,
           47
         ],
-        "reason": "Screenshot requests for the EPWP footnote and green-economy KPI pages timed out; those claims remain text-layer-only observations."
+        "reason": "Screenshot requests for the EPWP footnote and green-economy KPI pages timed out; those claims remain text-layer-only observations.",
+        "latest_screenshot_recheck": "TimedOutDuring2026-10-14ResearchPass",
+        "previous_recorded_visual_review": [
+          28,
+          58
+        ],
+        "additional_text_layer_pages_not_visually_rechecked": [
+          32,
+          33,
+          47
+        ]
       }
     },
     {
@@ -274,6 +284,47 @@
         "Johannesburg-specific unemployment or NEET rate",
         "Pilot recruitment eligibility",
         "Funding, positions, partner commitments or causal employment impact"
+      ]
+    },
+    {
+      "source_id": "SA-JOBS-3",
+      "issuer": "Department of Public Works and Infrastructure",
+      "source_url": "https://www.gov.za/news/speeches/minister-dean-macpherson-launch-working-infrastructure-pilot-programme-04-may-2026",
+      "source_kind": "OfficialPilotLaunchSpeech",
+      "publication_date": "2026-05-04",
+      "announced_initial_pilot_provinces": [
+        "KwaZulu-Natal",
+        "Limpopo"
+      ],
+      "joburg_gauteng_participation_explicitly_confirmed": false,
+      "intended_programme_duration_months": {
+        "minimum": 8,
+        "maximum": 10
+      },
+      "recruitment_platform": "SAYouth.mobi",
+      "platform_support_partner": "Harambee",
+      "intended_training_and_transition_elements": [
+        "TVET and accredited partner training",
+        "Work readiness",
+        "Mentorship",
+        "Workplace learning",
+        "Transition support"
+      ],
+      "stated_partner_types": [
+        "Municipalities",
+        "Provincial departments",
+        "SMMEs",
+        "Industry partners"
+      ],
+      "allowed_use": "Programme-design reference for transparent recruitment, mentorship, training and employment transitions; partner-discovery lead only",
+      "local_johannesburg_funding_or_slots_verified": false,
+      "allowed_to_claim_active_joburg_pilot": false,
+      "prohibited_inference": [
+        "Johannesburg/Gauteng is included in the initial pilot",
+        "Local Joburg placement slots or funding exist",
+        "Mycelix is a programme partner",
+        "An announced work opportunity is a durable job",
+        "Mycelix should duplicate SAYouth recruitment or store unnecessary applicant identity data"
       ]
     }
   ],
@@ -622,13 +673,13 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "1e75f7702e6e3c2e1a44956a9571ad7461c664c7",
-    "probe_count": 14,
+    "git_blob_sha": "a18c65b04cf7d40f3f6e360ec7d459ef3c51bd91",
+    "probe_count": 15,
     "synthetic_only": true,
-    "qualification_status": "NotRun",
+    "qualification_status": "NotRunAfterCorpusV1Revision",
     "authoring_preflight": {
       "json_parse": "Passed",
-      "unique_probe_ids": 14,
+      "unique_probe_ids": 15,
       "all_external_writes_disabled": true,
       "all_automated_closures_disabled": true,
       "all_production_sla_calculations_disabled": true
