@@ -290,6 +290,7 @@ pub fn withdraw_stake(stake_id: String) -> ExternResult<Record> {
 #[hdk_extern]
 pub fn update_stake_mycel(input: UpdateMycelInput) -> ExternResult<Record> {
     let (stake, record) = find_stake_by_id(&input.stake_id)?;
+    verify_caller_is_did(&stake.staker_did)?;
 
     if stake.status != StakeStatus::Active {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(

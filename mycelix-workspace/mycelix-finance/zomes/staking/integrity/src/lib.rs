@@ -499,38 +499,183 @@ fn validate_create_stake(
 }
 
 /// Validate stake update — enforces status transition rules
+
+fn validate_stake_update_terms(
+    original_author: &AgentPubKey,
+    update_author: &AgentPubKey,
+    original: &CollateralStake,
+    updated: &CollateralStake,
+) -> ValidateCallbackResult {
+    // Ordinary owner-controlled lifecycle/refresh updates must remain on the
+    // stake owner's source chain. Governance slashing is intentionally left as
+    // a separate authority theorem because its legitimate author is not the
+    // stake owner.
+    let owner_controlled = matches!(
+        (&original.status, &updated.status),
+        (StakeStatus::Active, StakeStatus::Active)
+            | (StakeStatus::Active, StakeStatus::Unbonding)
+            | (StakeStatus::Unbonding, StakeStatus::Withdrawn)
+    );
+    if owner_controlled && original_author != update_author {
+        return ValidateCallbackResult::Invalid(
+            "Owner-controlled stake updates must be authored by the original staker"
+                .into(),
+        );
+    }
+
+    // Identity and historical provenance are immutable across every update.
+    if original.id != updated.id {
+        return ValidateCallbackResult::Invalid(
+            "Stake ID is immutable across updates".into(),
+        );
+    }
+    if original.staker_did != updated.staker_did {
+        return ValidateCallbackResult::Invalid(
+            "Stake staker_did is immutable across updates".into(),
+        );
+    }
+    if original.staked_at != updated.staked_at {
+        return ValidateCallbackResult::Invalid(
+            "Stake staked_at is immutable across updates".into(),
+        );
+    }
+    if original.pending_rewards != updated.pending_rewards {
+        return ValidateCallbackResult::Invalid(
+            "Stake pending_rewards must be preserved by this update protocol".into(),
+        );
+    }
+    if original.last_reward_claim != updated.last_reward_claim {
+        return ValidateCallbackResult::Invalid(
+            "Stake last_reward_claim must be preserved by this update protocol".into(),
+        );
+    }
+
+    // Status changes are evaluated against the exact validated predecessor.
+    if original.status != updated.status && !original.status.can_transition_to(&updated.status) {
+        return ValidateCallbackResult::Invalid(format!(
+            "Invalid status transition: {:?} -> {:?}",
+            original.status, updated.status
+        ));
+    }
+
+    // There is currently no non-governance coordinator path after a stake has
+    // already entered Slashed. Do not leave those transitions open merely
+    // because the generic status enum admits them; AC-145 will add an explicit
+    // addressable governance authorization proof for any such mutation.
+    if original.status == StakeStatus::Slashed && original.status != updated.status {
+        return ValidateCallbackResult::Invalid(
+            "Slashed stakes require explicit governance authorization for further status transitions"
+                .into(),
+        );
+    }
+
+    // SAP collateral may only be consumed by the documented terminalizing
+    // transitions. Every ordinary refresh/lifecycle update preserves it.
+    let collateral_terminalization = matches!(
+        (&original.status, &updated.status),
+        (StakeStatus::Active, StakeStatus::Slashed | StakeStatus::Jailed)
+            | (StakeStatus::Unbonding, StakeStatus::Withdrawn)
+    );
+    if collateral_terminalization {
+        if updated.sap_amount != 0 {
+            return ValidateCallbackResult::Invalid(
+                "Terminal stake update must set sap_amount to zero".into(),
+            );
+        }
+    } else if original.sap_amount != updated.sap_amount {
+        return ValidateCallbackResult::Invalid(
+            "Stake sap_amount is immutable except for documented terminalization".into(),
+        );
+    }
+
+    // Only Active -> Unbonding may introduce the unbonding deadline.
+    let unbonding_initialization = matches!(
+        (&original.status, &updated.status),
+        (StakeStatus::Active, StakeStatus::Unbonding)
+    );
+    if unbonding_initialization {
+        if original.unbonding_until.is_some() || updated.unbonding_until.is_none() {
+            return ValidateCallbackResult::Invalid(
+                "Active -> Unbonding must initialize exactly one unbonding deadline".into(),
+            );
+        }
+    } else if original.unbonding_until != updated.unbonding_until {
+        return ValidateCallbackResult::Invalid(
+            "Stake unbonding_until may only change on Active -> Unbonding".into(),
+        );
+    }
+
+    // MYCEL/weight changes are limited to an owner-controlled Active refresh.
+    // Integrity validates their internal relation; recognition authority is a
+    // separate coordinator/cross-zome theorem.
+    let mycel_refresh = matches!(
+        (&original.status, &updated.status),
+        (StakeStatus::Active, StakeStatus::Active)
+    );
+    if !mycel_refresh
+        && (original.mycel_score != updated.mycel_score
+            || original.stake_weight != updated.stake_weight)
+    {
+        return ValidateCallbackResult::Invalid(
+            "MYCEL and stake weight are immutable outside Active refresh".into(),
+        );
+    }
+
+    // Every update must preserve the score/weight domain and relation.
+    if !updated.mycel_score.is_finite()
+        || updated.mycel_score < 0.0
+        || updated.mycel_score > 1.0
+    {
+        return ValidateCallbackResult::Invalid(
+            "MYCEL score must be a finite number in [0.0, 1.0]".into(),
+        );
+    }
+    if !updated.stake_weight.is_finite()
+        || updated.stake_weight < 1.0
+        || updated.stake_weight > 2.0
+    {
+        return ValidateCallbackResult::Invalid(
+            "Stake weight must be in [1.0, 2.0]".into(),
+        );
+    }
+    let expected_weight = 1.0 + updated.mycel_score;
+    if (updated.stake_weight - expected_weight).abs() > 0.001 {
+        return ValidateCallbackResult::Invalid(
+            "Stake weight must equal 1.0 + mycel_score".into(),
+        );
+    }
+
+    ValidateCallbackResult::Valid
+}
+
+
 fn validate_update_stake(
     action: Update,
     stake: CollateralStake,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Validate MYCEL score range — is_finite rejects NaN/Infinity
-    if !stake.mycel_score.is_finite() || stake.mycel_score < 0.0 || stake.mycel_score > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "MYCEL score must be a finite number in [0.0, 1.0]".into(),
-        ));
-    }
+    // A staking update is valid only with an exact, valid predecessor.
+    // Never convert a dependency/decoding failure into Valid.
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record
+        .entry()
+        .to_app_option::<CollateralStake>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode original CollateralStake predecessor: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Original staking update predecessor is not a CollateralStake entry".into()
+            ))
+        })?;
 
-    // Validate stake weight range
-    if !stake.stake_weight.is_finite() || stake.stake_weight < 1.0 || stake.stake_weight > 2.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Stake weight must be in [1.0, 2.0]".into(),
-        ));
-    }
-
-    // Enforce status transition rules via original entry comparison
-    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
-        if let Ok(Some(original)) = original_record.entry().to_app_option::<CollateralStake>() {
-            if original.status != stake.status && !original.status.can_transition_to(&stake.status)
-            {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid status transition: {:?} → {:?}",
-                    original.status, stake.status
-                )));
-            }
-        }
-    }
-
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_stake_update_terms(
+        original_record.action().author(),
+        &action.author,
+        &original,
+        &stake,
+    ))
 }
 
 /// Validate slashing event
@@ -678,25 +823,79 @@ fn validate_update_escrow(
     action: Update,
     escrow: CryptoEscrow,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Basic validation
     if !escrow.depositor_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Depositor must be a valid DID".into(),
         ));
     }
 
-    // Enforce status transition rules
-    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
-        if let Ok(Some(original)) = original_record.entry().to_app_option::<CryptoEscrow>() {
-            if original.status != escrow.status
-                && !original.status.can_transition_to(&escrow.status)
-            {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid escrow status transition: {:?} → {:?}",
-                    original.status, escrow.status
-                )));
-            }
-        }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record
+        .entry()
+        .to_app_option::<CryptoEscrow>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode original CryptoEscrow predecessor: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Original escrow update predecessor is not a CryptoEscrow entry".into(),
+            ))
+        })?;
+
+    if original.id != escrow.id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow ID is immutable across updates".into(),
+        ));
+    }
+    if original.depositor_did != escrow.depositor_did
+        || original.beneficiary_did != escrow.beneficiary_did
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow party identities are immutable across updates".into(),
+        ));
+    }
+    if original.sap_amount != escrow.sap_amount
+        || original.purpose != escrow.purpose
+        || original.conditions != escrow.conditions
+        || original.required_conditions != escrow.required_conditions
+        || original.hash_lock != escrow.hash_lock
+        || original.timelock != escrow.timelock
+        || original.multisig_threshold != escrow.multisig_threshold
+        || original.multisig_signers != escrow.multisig_signers
+        || original.created_at != escrow.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow economic terms and release policy are immutable across updates".into(),
+        ));
+    }
+    if original.collected_signatures != escrow.collected_signatures {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow collected_signatures must be preserved; use EscrowSignatureEntry".into(),
+        ));
+    }
+
+    if original.status != escrow.status && !original.status.can_transition_to(&escrow.status) {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid escrow status transition: {:?} → {:?}",
+            original.status, escrow.status
+        )));
+    }
+
+    if !matches!(escrow.status, EscrowStatus::Released) && escrow.released_at.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "released_at may only be set when escrow is Released".into(),
+        ));
+    }
+    if matches!(
+        original.status,
+        EscrowStatus::Released | EscrowStatus::Refunded | EscrowStatus::Expired
+    ) && original.status != escrow.status
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Terminal escrow status cannot be reopened".into(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -859,6 +1058,156 @@ mod tests {
             entry_hash: EntryHash::from_raw_36(vec![0; 36]),
             weight: Default::default(),
         }
+    }
+
+    // ---- Stake update hardening ----
+
+    #[test]
+    fn stake_active_refresh_requires_original_staker_author() {
+        let original = valid_stake();
+        let mut updated = original.clone();
+        updated.mycel_score = 0.8;
+        updated.stake_weight = 1.8;
+
+        let other_author = AgentPubKey::from_raw_36(vec![1; 36]);
+        let result = validate_stake_update_terms(
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &other_author,
+            &original,
+            &updated,
+        );
+
+        assert!(matches!(
+            result,
+            ValidateCallbackResult::Invalid(msg) if msg.contains("original staker")
+        ));
+    }
+
+    #[test]
+    fn stake_active_refresh_allows_owner_and_rebinds_weight() {
+        let original = valid_stake();
+        let mut updated = original.clone();
+        updated.mycel_score = 0.8;
+        updated.stake_weight = 1.8;
+
+        let result = validate_stake_update_terms(
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &original,
+            &updated,
+        );
+
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn stake_update_rejects_identity_or_collateral_mutation() {
+        let original = valid_stake();
+
+        let mut cases = Vec::new();
+
+        let mut changed_id = original.clone();
+        changed_id.id.push_str("-mutated");
+        cases.push(changed_id);
+
+        let mut changed_did = original.clone();
+        changed_did.staker_did = "did:mycelix:other".into();
+        cases.push(changed_did);
+
+        let mut changed_amount = original.clone();
+        changed_amount.sap_amount += 1;
+        cases.push(changed_amount);
+
+        let mut changed_time = original.clone();
+        changed_time.staked_at = ts(2_000_000);
+        cases.push(changed_time);
+
+        for updated in cases {
+            let result = validate_stake_update_terms(
+                &AgentPubKey::from_raw_36(vec![0; 36]),
+                &AgentPubKey::from_raw_36(vec![0; 36]),
+                &original,
+                &updated,
+            );
+            assert!(
+                matches!(result, ValidateCallbackResult::Invalid(_)),
+                "semantic predecessor binding must reject mutated stake terms"
+            );
+        }
+    }
+
+    #[test]
+    fn active_to_unbonding_requires_one_new_deadline_and_preserves_collateral() {
+        let original = valid_stake();
+        let mut updated = original.clone();
+        updated.status = StakeStatus::Unbonding;
+        updated.unbonding_until = Some(ts(3_000_000));
+
+        let result = validate_stake_update_terms(
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &original,
+            &updated,
+        );
+
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn slashed_stake_cannot_change_status_without_governance_proof() {
+        let mut original = valid_stake();
+        original.status = StakeStatus::Slashed;
+
+        for target in [StakeStatus::Jailed, StakeStatus::Unbonding] {
+            let mut updated = original.clone();
+            updated.status = target;
+            updated.unbonding_until = None;
+
+            let result = validate_stake_update_terms(
+                &AgentPubKey::from_raw_36(vec![0; 36]),
+                &AgentPubKey::from_raw_36(vec![0; 36]),
+                &original,
+                &updated,
+            );
+
+            assert!(
+                matches!(result, ValidateCallbackResult::Invalid(msg)
+                    if msg.contains("Slashed stakes require explicit governance authorization")),
+                "post-slash status escalation must fail closed"
+            );
+        }
+    }
+
+    #[test]
+    fn withdrawal_terminalization_requires_zero_remaining_stake() {
+        let mut original = valid_stake();
+        original.status = StakeStatus::Unbonding;
+        original.unbonding_until = Some(ts(3_000_000));
+
+        let mut updated = original.clone();
+        updated.status = StakeStatus::Withdrawn;
+
+        let result = validate_stake_update_terms(
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &original,
+            &updated,
+        );
+
+        assert!(!matches!(result, ValidateCallbackResult::Invalid(_)));
+
+        updated.sap_amount = 1;
+        let result = validate_stake_update_terms(
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &AgentPubKey::from_raw_36(vec![0; 36]),
+            &original,
+            &updated,
+        );
+
+        assert!(matches!(
+            result,
+            ValidateCallbackResult::Invalid(msg) if msg.contains("sap_amount")
+        ));
     }
 
     // ---- Stake creation ----
