@@ -47,7 +47,7 @@ These cutoffs are early engineering filters anchored to the selected cases, not 
 
 ## Correlated-covariance end-to-end campaign
 
-A second test campaign is now authored in `PC_CORRELATED_REFERENCE_CAMPAIGN.md`. It exercises the public checked assessment path with four synthetic cases containing non-zero 2-D covariance cross terms. The independent reference integrates the bivariate Gaussian over a circular hard-body region using tensor-product Gauss-Legendre quadrature, and a NumPy verifier regenerates the frozen results. The Rust test separately pins the approximation's expected output and compares it with the integral reference.
+A second test campaign is now authored in `PC_CORRELATED_REFERENCE_CAMPAIGN.md`. It exercises the public checked assessment path with four synthetic cases containing non-zero 2-D covariance cross terms and a fifth centered-isotropic control checked against the closed-form disk probability. The independent reference integrates the bivariate Gaussian over a circular hard-body region using tensor-product Gauss-Legendre quadrature, and a NumPy verifier regenerates the frozen results. The Rust test separately pins the approximation's expected output and compares it with the integral reference.
 
 This addresses the prior gap between testing the private local-density kernel on diagonal scalar values and exercising state validation, encounter-plane projection, correlated covariance projection, and method identity end-to-end. The new exact-head Rust check has **not yet been observed passing**; this is authored test coverage, not a claim of verified parity. The 0.2% tolerance is restricted to the four frozen synthetic cases and is not a general error bound.
 

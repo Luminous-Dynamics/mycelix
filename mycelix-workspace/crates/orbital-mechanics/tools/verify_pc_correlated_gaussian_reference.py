@@ -98,7 +98,7 @@ def main() -> int:
     output: list[dict[str, Any]] = []
     largest_order_delta = 0.0
 
-    for case in fixture["cases"]:
+    for case in [*fixture["cases"], fixture["analytic_control"]]:
         values = [integrate_disk(case, int(order)) for order in orders]
         expected = float(case["expected_pc_integral_reference"])
         actual = values[-1]
@@ -124,6 +124,47 @@ def main() -> int:
             failures.append(
                 f"{case['case_id']}: quadrature did not converge "
                 f"({order_delta:.3e} absolute delta)"
+            )
+
+    control = fixture["analytic_control"]
+    control_mean = np.asarray(control["miss_encounter_plane_km"], dtype=np.float64)
+    control_covariance = np.asarray(
+        control["covariance_encounter_plane_km2"], dtype=np.float64
+    )
+    control_radius = float(control["hard_body_radius_km"])
+    if control_mean.shape != (2,) or control_covariance.shape != (2, 2):
+        failures.append("analytic control: invalid vector/matrix shape")
+        closed_form_error = float("inf")
+    elif (
+        not np.array_equal(control_mean, np.zeros(2, dtype=np.float64))
+        or not np.allclose(
+            control_covariance,
+            np.eye(2, dtype=np.float64) * control_covariance[0, 0],
+            rtol=1e-14,
+            atol=1e-15,
+        )
+        or control_covariance[0, 0] <= 0.0
+    ):
+        failures.append("analytic control must be centered with isotropic positive covariance")
+        closed_form_error = float("inf")
+    else:
+        closed_form_pc = 1.0 - float(
+            np.exp(-control_radius**2 / (2.0 * control_covariance[0, 0]))
+        )
+        closed_form_error = abs(
+            float(control["expected_pc_integral_reference"]) - closed_form_pc
+        ) / abs(closed_form_pc)
+        control_record = next(
+            (record for record in output if record["case_id"] == control["case_id"]),
+            None,
+        )
+        if control_record is not None:
+            control_record["closed_form_pc"] = closed_form_pc
+            control_record["relative_error_to_closed_form"] = closed_form_error
+        if closed_form_error > MAX_REFERENCE_RELATIVE_ERROR:
+            failures.append(
+                "analytic control: frozen integral reference differs from "
+                f"closed form by {closed_form_error:.3e}"
             )
 
     print(json.dumps(

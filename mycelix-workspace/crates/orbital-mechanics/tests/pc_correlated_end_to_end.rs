@@ -26,6 +26,7 @@ struct Fixture {
     reference: ReferenceMetadata,
     comparison: ComparisonMetadata,
     cases: Vec<ReferenceCase>,
+    analytic_control: ReferenceCase,
 }
 
 #[derive(Debug, Deserialize)]
@@ -139,12 +140,37 @@ fn checked_assessment_matches_correlated_gaussian_disk_reference() {
         "GaussianSmallDiskApprox2D"
     );
     assert_eq!(fixture.cases.len(), 4);
+    assert_eq!(
+        fixture.analytic_control.case_id,
+        "centered-isotropic-closed-form"
+    );
+    assert_eq!(fixture.analytic_control.miss_encounter_plane_km, [0.0, 0.0]);
+    assert_eq!(
+        fixture.analytic_control.covariance_encounter_plane_km2,
+        [[0.04, 0.0], [0.0, 0.04]]
+    );
+    let analytic_radius = fixture.analytic_control.hard_body_radius_km;
+    let analytic_sigma_km = 0.2_f64;
+    let analytic_closed_form_pc =
+        1.0 - (-analytic_radius.powi(2) / (2.0 * analytic_sigma_km.powi(2))).exp();
+    let analytic_reference_error = (fixture.analytic_control.expected_pc_integral_reference
+        - analytic_closed_form_pc)
+        .abs()
+        / analytic_closed_form_pc;
+    assert!(
+        analytic_reference_error <= 1e-12,
+        "centered-isotropic reference must match 1-exp(-R^2/(2*sigma^2)); relative error={analytic_reference_error:.3e}"
+    );
+    assert_eq!(
+        fixture.analytic_control.expected_pc_gaussian_small_disk,
+        0.00125
+    );
 
     let epoch = DateTime::parse_from_rfc3339("2026-01-01T00:00:00Z")
         .expect("fixed test epoch")
         .with_timezone(&Utc);
 
-    for case in &fixture.cases {
+    for case in fixture.cases.iter().chain(std::iter::once(&fixture.analytic_control)) {
         assert!(!case.case_id.trim().is_empty());
         assert!(
             case.miss_encounter_plane_km.iter().all(|v| v.is_finite()),
@@ -178,11 +204,26 @@ fn checked_assessment_matches_correlated_gaussian_disk_reference() {
             "{}: correlated encounter covariance must be finite and positive definite",
             case.case_id
         );
-        assert_ne!(
-            case.covariance_encounter_plane_km2[0][1], 0.0,
-            "{}: fixture must keep a non-zero covariance cross term",
+        assert_eq!(
+            case.covariance_encounter_plane_km2[0][1],
+            case.covariance_encounter_plane_km2[1][0],
+            "{}: encounter covariance must be symmetric",
             case.case_id
         );
+        if case.case_id == fixture.analytic_control.case_id {
+            assert_eq!(
+                case.covariance_encounter_plane_km2[0][1],
+                0.0,
+                "analytic control intentionally uses an isotropic diagonal covariance"
+            );
+        } else {
+            assert_ne!(
+                case.covariance_encounter_plane_km2[0][1],
+                0.0,
+                "{}: correlated fixtures must keep a non-zero covariance cross term",
+                case.case_id
+            );
+        }
 
         let covariance_primary = covariance_for_projected_case(case.covariance_encounter_plane_km2);
         let covariance_secondary =

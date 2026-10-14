@@ -1,15 +1,20 @@
 {
   "schema_version": "1.0.0",
   "fixture_id": "mycelix-correlated-gaussian-disk-reference-v1",
-  "purpose": "End-to-end differential test of the production GaussianSmallDiskApprox2D path against an independently integrated bivariate-normal probability over a circular hard-body region.",
+  "purpose": "End-to-end differential test of the production GaussianSmallDiskApprox2D path against independent bivariate-Gaussian disk integrals, including a centered-isotropic closed-form control.",
   "reference": {
     "method": "bivariate Gaussian probability mass over a circular region",
     "integrator": "tensor-product Gauss-Legendre quadrature in polar coordinates",
     "implementation": "separate NumPy calculation; does not call Mycelix production code",
     "precision": "IEEE-754 binary64",
-    "radial_orders": [60, 100, 160, 220],
+    "radial_orders": [
+      60,
+      100,
+      160,
+      220
+    ],
     "angular_nodes_rule": "angular_nodes = 2 * radial_order + 24",
-    "convergence_note": "The stored outputs were stable across all four radial orders to a maximum absolute difference below 4e-19 for these cases."
+    "convergence_note": "The four correlated-case outputs were stable across all radial orders to below 4e-19 absolute delta. A fifth, centered-isotropic control is independently cross-checked against the closed form 1 - exp(-R^2 / (2 sigma^2))."
   },
   "comparison": {
     "relative_tolerance": 0.002,
@@ -20,35 +25,106 @@
   "cases": [
     {
       "case_id": "correlated-moderate-miss",
-      "miss_encounter_plane_km": [0.15, -0.12],
-      "covariance_encounter_plane_km2": [[0.64, 0.24], [0.24, 0.49]],
+      "miss_encounter_plane_km": [
+        0.15,
+        -0.12
+      ],
+      "covariance_encounter_plane_km2": [
+        [
+          0.64,
+          0.24
+        ],
+        [
+          0.24,
+          0.49
+        ]
+      ],
       "hard_body_radius_km": 0.02,
       "expected_pc_gaussian_small_disk": 0.00037360462307441984,
       "expected_pc_integral_reference": 0.0003735287881455558
     },
     {
       "case_id": "correlated-anisotropic",
-      "miss_encounter_plane_km": [0.04, 0.07],
-      "covariance_encounter_plane_km2": [[0.04, -0.015], [-0.015, 0.09]],
+      "miss_encounter_plane_km": [
+        0.04,
+        0.07
+      ],
+      "covariance_encounter_plane_km2": [
+        [
+          0.04,
+          -0.015
+        ],
+        [
+          -0.015,
+          0.09
+        ]
+      ],
       "hard_body_radius_km": 0.01,
       "expected_pc_gaussian_small_disk": 0.0008082635393812167,
       "expected_pc_integral_reference": 0.0008079039235142575
     },
     {
       "case_id": "correlated-low-probability-tail",
-      "miss_encounter_plane_km": [1.0, -0.4],
-      "covariance_encounter_plane_km2": [[1.0, 0.6], [0.6, 1.0]],
+      "miss_encounter_plane_km": [
+        1,
+        -0.4
+      ],
+      "covariance_encounter_plane_km2": [
+        [
+          1,
+          0.6
+        ],
+        [
+          0.6,
+          1
+        ]
+      ],
       "hard_body_radius_km": 0.02,
       "expected_pc_gaussian_small_disk": 0.00006942249273844748,
       "expected_pc_integral_reference": 0.00006943314793609137
     },
     {
       "case_id": "correlated-near-center",
-      "miss_encounter_plane_km": [0.0, 0.0],
-      "covariance_encounter_plane_km2": [[0.09, 0.05], [0.05, 0.16]],
+      "miss_encounter_plane_km": [
+        0,
+        0
+      ],
+      "covariance_encounter_plane_km2": [
+        [
+          0.09,
+          0.05
+        ],
+        [
+          0.05,
+          0.16
+        ]
+      ],
       "hard_body_radius_km": 0.01,
       "expected_pc_gaussian_small_disk": 0.0004583492485141056,
       "expected_pc_integral_reference": 0.00045822890727077335
     }
-  ]
+  ],
+  "analytic_control": {
+    "case_id": "centered-isotropic-closed-form",
+    "miss_encounter_plane_km": [
+      0,
+      0
+    ],
+    "covariance_encounter_plane_km2": [
+      [
+        0.04,
+        0
+      ],
+      [
+        0,
+        0.04
+      ]
+    ],
+    "hard_body_radius_km": 0.01,
+    "expected_pc_gaussian_small_disk": 0.00125,
+    "expected_pc_integral_reference": 0.0012492190754190835,
+    "analytic_reference_method": "1 - exp(-R^2 / (2*sigma^2))",
+    "analytic_sigma_km": 0.2,
+    "control_purpose": "Cross-checks both quadrature implementations against a closed-form centered isotropic Gaussian disk probability; not a Foster/Alfano parity case."
+  }
 }
