@@ -1,0 +1,105 @@
+{
+  "fixture_profile": "OPS-INTEL-TEST-001",
+  "fixture_version": "CrossDomainDisruptionV1",
+  "frontier_ref": "frontier:F2",
+  "parent_frontier_ref": "frontier:F1",
+  "data_class": "synthetic",
+  "visibility": "solver-visible-only-when-F2-is-the-requested-frontier",
+  "immutable": true,
+  "phase": "post-decision-simulated-attempt",
+  "attempt": {
+    "attempt_ref": "attempt:reroute-B-01",
+    "candidate_ref": "candidate:RerouteToSupplierB",
+    "subject_ref": "subject:shipment-A-17",
+    "decision_frontier_ref": "frontier:F1",
+    "attempt_time_utc": "2026-06-01T12:30:00Z",
+    "execution_mode": "SimulationOnly",
+    "mock_authority_requirement_ref": "authority-requirement:logistics-reroute",
+    "live_capability_present": false,
+    "reported_attempt_disposition": "DispatchAccepted",
+    "effect_state": "Unobserved",
+    "receipt_ref": "receipt:simulated-dispatch-01",
+    "limitations": [
+      "This is a synthetic record and does not represent a real shipment or dispatch.",
+      "A dispatch acknowledgement establishes neither arrival nor beneficial effect.",
+      "The record carries no bearer credential, permit, token or live execution authority."
+    ],
+    "receipt_semantics": "SimulationReceiptOnly",
+    "actual_execution_authorized": false,
+    "valid_mock_permit_ref": null
+  },
+  "required_interpretation": [
+    "attempt exists != effect observed",
+    "dispatch accepted != shipment arrived",
+    "scenario/attempt data do not mutate prior frontiers"
+  ],
+  "frontier_cutoff_utc": "2026-06-01T12:32:00Z",
+  "authority_effect_cases": [
+    {
+      "case_ref": "authority-case:policy-allow-no-permit",
+      "policy_decision_ref": "policy-decision:synthetic-allow-A",
+      "permit_ref": null,
+      "requested_attempt_ref": "attempt:reroute-B-negative-no-permit",
+      "expected_disposition": "BlockedNoCurrentPermit",
+      "mode": "SimulationOnly",
+      "limitation": "A policy decision is not a permit."
+    },
+    {
+      "case_ref": "authority-case:stale-permit",
+      "policy_decision_ref": "policy-decision:synthetic-allow-A",
+      "permit_ref": "mock-permit:stale",
+      "permit_state": "Stale",
+      "requested_attempt_ref": "attempt:reroute-B-negative-stale-permit",
+      "expected_disposition": "RejectStalePermit",
+      "mode": "ValidationOnly",
+      "limitation": "Mock permit contains no bearer secret and cannot authorize real execution."
+    },
+    {
+      "case_ref": "authority-case:wrong-subject",
+      "policy_decision_ref": "policy-decision:synthetic-allow-A",
+      "permit_ref": "mock-permit:current-wrong-subject",
+      "permit_state": "CurrentUnderSyntheticProfile",
+      "permit_subject_ref": "subject:shipment-X-99",
+      "expected_subject_ref": "subject:shipment-A-17",
+      "requested_attempt_ref": "attempt:reroute-B-negative-wrong-subject",
+      "expected_disposition": "RejectWrongSubject",
+      "mode": "ValidationOnly",
+      "limitation": "Subject strings and permit binding are synthetic identifiers only."
+    },
+    {
+      "case_ref": "authority-case:wrong-candidate",
+      "policy_decision_ref": "policy-decision:synthetic-allow-A",
+      "permit_ref": "mock-permit:current-wrong-candidate",
+      "permit_state": "CurrentUnderSyntheticProfile",
+      "permit_candidate_ref": "candidate:NoAction",
+      "expected_candidate_ref": "candidate:RerouteToSupplierB",
+      "requested_attempt_ref": "attempt:reroute-B-negative-wrong-candidate",
+      "expected_disposition": "RejectWrongCandidate",
+      "mode": "ValidationOnly",
+      "limitation": "No real action is executed."
+    },
+    {
+      "case_ref": "authority-case:wrong-payload",
+      "policy_decision_ref": "policy-decision:synthetic-allow-A",
+      "permit_ref": "mock-permit:current-wrong-payload",
+      "permit_state": "CurrentUnderSyntheticProfile",
+      "permit_payload_commitment_ref": "commitment:payload-A",
+      "expected_payload_commitment_ref": "commitment:payload-B",
+      "requested_attempt_ref": "attempt:reroute-B-negative-wrong-payload",
+      "expected_disposition": "RejectWrongPayload",
+      "mode": "ValidationOnly",
+      "limitation": "Commitment refs are placeholders, not bearer material or verified cryptographic commitments."
+    },
+    {
+      "case_ref": "authority-case:matching-mock-permit",
+      "policy_decision_ref": "policy-decision:synthetic-allow-A",
+      "permit_ref": "mock-permit:current-exact-binding",
+      "permit_state": "CurrentUnderSyntheticProfile",
+      "requested_candidate_ref": "candidate:RerouteToSupplierB",
+      "requested_subject_ref": "subject:shipment-A-17",
+      "expected_disposition": "PermitShapeAcceptedForSimulationOnly",
+      "mode": "SimulationOnly",
+      "limitation": "Structural acceptance does not grant real-world execution authority."
+    }
+  ]
+}

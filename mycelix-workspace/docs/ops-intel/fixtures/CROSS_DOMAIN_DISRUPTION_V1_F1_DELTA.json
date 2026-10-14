@@ -1,0 +1,144 @@
+{
+  "fixture_profile": "OPS-INTEL-TEST-001",
+  "fixture_version": "CrossDomainDisruptionV1",
+  "frontier_ref": "frontier:F1",
+  "parent_frontier_ref": "frontier:F0",
+  "data_class": "synthetic",
+  "visibility": "solver-visible-only-when-F1-is-the-requested-frontier",
+  "immutable": true,
+  "availability_rule": "The F1 package is a delta. An F0 run must not receive this file or any derivative of it.",
+  "added_observations": [
+    {
+      "observation_ref": "observation:supplier-B-inventory-refresh",
+      "subject_ref": "subject:supplier-B",
+      "proposition_ref": "proposition:supplier-B-available-inventory",
+      "property_ref": "property:inventory.available_pallet_positions",
+      "value": 82,
+      "unit_ref": "unit:pallet-position",
+      "value_class": "ObservedValue",
+      "source_ref": "source:warehouse-inspection-B-refresh",
+      "artifact_ref": "artifact:warehouse-inspection-B-refresh-20260601T1210Z",
+      "observation_time_utc": "2026-06-01T12:10:00Z",
+      "receipt_time_utc": "2026-06-01T12:12:00Z",
+      "currentness": "CurrentUnderProfile",
+      "coverage": {
+        "state": "NamedFacilitiesCovered",
+        "facility_refs_observed": [
+          "subject:supplier-B-facility-D",
+          "subject:supplier-B-facility-E"
+        ],
+        "facilities_observed": 2,
+        "facilities_known": 2
+      },
+      "dependency_assessment": "Unknown",
+      "limitations": [
+        "Distinct acquisition method/source is recorded; independence from all prior data is not implied without an admitted dependency assessment.",
+        "This observation covers only facilities D and E at its own observation time. F0's A/B/C value is earlier; do not sum the two snapshots into a purported current supplier-wide total without a separately qualified temporal reconciliation."
+      ],
+      "scope_ref": "scope:supplier-B-facilities-D-E",
+      "aggregate_semantics": "SumWithinListedFacilitiesAtObservationTime"
+    },
+    {
+      "observation_ref": "observation:energy-E1-recalibrated-capacity",
+      "subject_ref": "subject:energy-zone-1",
+      "proposition_ref": "proposition:energy-zone-1-available-capacity",
+      "property_ref": "property:capacity.available",
+      "value": 44,
+      "unit_ref": "unit:MW",
+      "value_class": "ObservedValue",
+      "source_ref": "source:energy-E1",
+      "artifact_ref": "artifact:energy-E1-calibration-refresh-20260601T1215Z",
+      "observation_time_utc": "2026-06-01T12:15:00Z",
+      "receipt_time_utc": "2026-06-01T12:17:00Z",
+      "currentness": "CurrentUnderProfile",
+      "calibration_ref": "calibration:energy-E1-refresh",
+      "calibration_state": "Valid",
+      "supersedes_for_currentness_only": "observation:energy-E1-capacity",
+      "limitations": [
+        "The refresh changes E1 currentness under this profile; it does not erase the earlier E1 observation or automatically resolve disagreement with E2."
+      ]
+    },
+    {
+      "observation_ref": "observation:energy-E2-refreshed-capacity",
+      "subject_ref": "subject:energy-zone-1",
+      "proposition_ref": "proposition:energy-zone-1-available-capacity",
+      "property_ref": "property:capacity.available",
+      "value": 63,
+      "unit_ref": "unit:MW",
+      "value_class": "ObservedValue",
+      "source_ref": "source:energy-E2",
+      "artifact_ref": "artifact:energy-E2-refresh-20260601T1218Z",
+      "observation_time_utc": "2026-06-01T12:18:00Z",
+      "receipt_time_utc": "2026-06-01T12:20:00Z",
+      "currentness": "CurrentUnderProfile",
+      "calibration_ref": "calibration:energy-E2",
+      "calibration_state": "Valid",
+      "limitations": [
+        "Updated observation; source reliability and agreement with E1 remain separate questions."
+      ]
+    }
+  ],
+  "nonclaims": [
+    "F1 does not mutate F0.",
+    "The new inventory observation does not make all of Supplier B inventory known outside its declared coverage.",
+    "A newer calibrated energy observation does not by itself establish the uniquely true capacity.",
+    "F0 inventory for A/B/C and F1 inventory for D/E have different observation times and must not be combined into a single current total without explicit temporal reconciliation."
+  ],
+  "frontier_cutoff_utc": "2026-06-01T12:20:00Z",
+  "added_sources": [
+    {
+      "source_ref": "source:warehouse-inspection-B-refresh",
+      "source_kind": "warehouse-inspection",
+      "source_scope": "Supplier B facilities D and E; these are the two facility identities outside the declared F0 inventory coverage.",
+      "trust_status": "UnassessedUnderProfile",
+      "source_dependency_status": "Unknown"
+    }
+  ],
+  "added_artifacts": [
+    {
+      "artifact_ref": "artifact:warehouse-inspection-B-refresh-20260601T1210Z",
+      "source_ref": "source:warehouse-inspection-B-refresh",
+      "captured_at_utc": "2026-06-01T12:12:00Z",
+      "media_type": "application/json",
+      "content_digest_ref": "digest:synthetic-warehouse-B-refresh-01",
+      "exact_selector": "$.inventory.available_pallet_positions",
+      "selector_profile": "jsonpath-subset-v1"
+    },
+    {
+      "artifact_ref": "artifact:energy-E1-calibration-refresh-20260601T1215Z",
+      "source_ref": "source:energy-E1",
+      "captured_at_utc": "2026-06-01T12:17:00Z",
+      "media_type": "application/json",
+      "content_digest_ref": "digest:synthetic-energy-E1-refresh-01",
+      "exact_selector": "$.capacity.available_mw",
+      "selector_profile": "jsonpath-subset-v1"
+    },
+    {
+      "artifact_ref": "artifact:energy-E2-refresh-20260601T1218Z",
+      "source_ref": "source:energy-E2",
+      "captured_at_utc": "2026-06-01T12:20:00Z",
+      "media_type": "application/json",
+      "content_digest_ref": "digest:synthetic-energy-E2-refresh-01",
+      "exact_selector": "$.capacity.available_mw",
+      "selector_profile": "jsonpath-subset-v1"
+    }
+  ],
+  "added_coverage_assessments": [
+    {
+      "coverage_ref": "coverage:supplier-B-facilities-D-E-at-F1",
+      "subject_ref": "subject:supplier-B",
+      "scope_ref": "scope:supplier-B-facilities-D-E",
+      "facility_refs_observed": [
+        "subject:supplier-B-facility-D",
+        "subject:supplier-B-facility-E"
+      ],
+      "state": "ObservedCoverageAtF1",
+      "complements_coverage_ref": "coverage:supplier-B-unobserved-facilities",
+      "currentness_relation": "DifferentObservationTime",
+      "aggregate_inference": "NotPermittedWithoutTemporalReconciliation",
+      "limitations": [
+        "D/E are the previously unobserved facilities under F0's registry. This adds a new observation frontier; it does not rewrite the F0 inventory or imply a same-time full-supplier total."
+      ]
+    }
+  ]
+}
