@@ -564,59 +564,178 @@ pub mod economics {
     pub use mycelix_finance_types::*;
 }
 
-/// Governance authorization helpers
+/// Governance authorization helpers.
 ///
-/// Shared logic for checking if the calling agent is an authorized governance
-/// agent. Each coordinator zome fetches its own `LinkTypes::GovernanceAgents`
-/// links and passes them to `verify_governance_or_bootstrap_from_links()`.
-///
-/// This eliminates duplicated authorization logic across recognition, staking,
-/// and tend coordinators while keeping link type resolution local to each zome.
+/// Governance-only mutations are never authorized by an empty registry. The only
+/// bootstrap exception is `register_governance_agent`, and it is restricted to the
+/// deployment-scoped authority declared in immutable DNA properties.
 pub mod governance {
     use super::*;
 
-    /// Standard anchor name for governance agent registration links.
-    /// All zomes MUST use this same anchor string to share a single governance
-    /// agent registry within the DNA.
+    /// Standard anchor name for governance registration witnesses.
     pub const GOVERNANCE_AGENTS_ANCHOR: &str = "governance_agents";
 
-    /// Check if the calling agent is in the provided governance agent links.
+    /// Deployment-scoped authority allowed to create the bootstrap root witness.
+    #[dna_properties]
+    pub struct FinanceDnaProperties {
+        #[serde(default)]
+        pub governance_bootstrap_authority: Option<AgentPubKey>,
+    }
+
+    fn bootstrap_authority() -> ExternResult<AgentPubKey> {
+        FinanceDnaProperties::try_from_dna_properties()?
+            .governance_bootstrap_authority
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Governance bootstrap authority is not configured in DNA properties".into(),
+                ))
+            })
+    }
+
+    fn decode_registration_witness(record: &Record) -> ExternResult<GovernanceAgentRegistration> {
+        let registration = record
+            .entry()
+            .to_app_option::<GovernanceAgentRegistration>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Governance registration witness decode failed: {:?}",
+                    e
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Governance registration witness entry is missing or private".into(),
+                ))
+            })?;
+
+        registration.validate_shape().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid governance registration witness: {}",
+                e
+            )))
+        })?;
+
+        Ok(registration)
+    }
+
+    fn witness_target_agent(link: &Link) -> ExternResult<(ActionHash, AgentPubKey)> {
+        let witness_hash = link.target.clone().into_action_hash().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Governance registry contains a non-witness target".into(),
+            ))
+        })?;
+
+        let record = get(witness_hash.clone(), GetOptions::default())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Governance registry references a missing witness".into(),
+            ))
+        })?;
+
+        let witness = decode_registration_witness(&record)?;
+        let agent = AgentPubKey::from_raw_36(witness.registered_agent);
+        Ok((witness_hash, agent))
+    }
+
+    /// Require the caller to already be present in the governance registry.
     ///
-    /// **Bootstrap rule**: if the links list is empty (no governance agents
-    /// registered yet), any agent is allowed. This enables initial setup.
-    ///
-    /// # Usage
-    /// ```rust,ignore
-    /// use mycelix_finance_shared::governance::*;
-    ///
-    /// fn verify_governance_or_bootstrap() -> ExternResult<()> {
-    ///     let gov_links = get_links(
-    ///         LinkQuery::try_new(
-    ///             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
-    ///             LinkTypes::GovernanceAgents,
-    ///         )?,
-    ///         GetStrategy::default(),
-    ///     )?;
-    ///     verify_governance_or_bootstrap_from_links(gov_links)
-    /// }
-    /// ```
-    pub fn verify_governance_or_bootstrap_from_links(gov_links: Vec<Link>) -> ExternResult<()> {
+    /// Every registry link must point at a valid immutable witness. Malformed,
+    /// missing, or legacy direct-agent targets fail closed rather than being ignored.
+    pub fn verify_governance_from_links(gov_links: Vec<Link>) -> ExternResult<()> {
         if gov_links.is_empty() {
-            return Ok(());
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Governance registry is empty; explicit bootstrap registration is required"
+                    .into(),
+            )));
         }
 
         let caller = agent_info()?.agent_initial_pubkey;
-        for link in gov_links {
-            if let Ok(agent) = AgentPubKey::try_from(link.target) {
-                if agent == caller {
-                    return Ok(());
-                }
+        for link in &gov_links {
+            let (_witness_hash, registered_agent) = witness_target_agent(link)?;
+            if registered_agent == caller {
+                return Ok(());
             }
         }
 
         Err(wasm_error!(WasmErrorInner::Guest(
-            "Caller is not an authorized governance agent".into()
+            "Caller is not an authorized governance agent".into(),
         )))
+    }
+
+    /// Locate the caller's immutable governance witness deterministically.
+    ///
+    /// The lowest witness ActionHash wins if a registry contains duplicate
+    /// registrations for the same agent. This avoids dependence on DHT link order.
+    pub fn find_governance_predecessor_from_links(
+        gov_links: Vec<Link>,
+    ) -> ExternResult<Option<ActionHash>> {
+        if gov_links.is_empty() {
+            return Ok(None);
+        }
+
+        let caller = agent_info()?.agent_initial_pubkey;
+        let mut candidates = Vec::new();
+        for link in &gov_links {
+            let (witness_hash, registered_agent) = witness_target_agent(link)?;
+            if registered_agent == caller {
+                candidates.push(witness_hash);
+            }
+        }
+
+        candidates.sort();
+        candidates
+            .into_iter()
+            .next()
+            .map(Some)
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Caller is not an authorized governance agent".into(),
+                ))
+            })
+    }
+
+    /// Transitional compatibility wrapper retained for existing call sites.
+    /// Semantics are intentionally strict: an empty governance registry is NOT
+    /// authorization.
+    pub fn verify_governance_or_bootstrap_from_links(gov_links: Vec<Link>) -> ExternResult<()> {
+        verify_governance_from_links(gov_links)
+    }
+
+    /// Authorize the governance-agent registration lifecycle.
+    ///
+    /// Before the first registration, only the immutable DNA bootstrap authority
+    /// may register the first witness. Once any witness exists, registration is
+    /// governed by the existing-agent rule above.
+    pub fn verify_governance_registration_from_links(
+        gov_links: Vec<Link>,
+    ) -> ExternResult<()> {
+        if gov_links.is_empty() {
+            let caller = agent_info()?.agent_initial_pubkey;
+            let authority = bootstrap_authority()?;
+            if caller == authority {
+                return Ok(());
+            }
+
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Only the configured DNA bootstrap authority may register the first governance agent"
+                    .into(),
+            )));
+        }
+
+        verify_governance_from_links(gov_links)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn first_registration_requires_exact_dna_authority() {
+            let authority = AgentPubKey::from_raw_32(vec![7; 32]);
+            let other = AgentPubKey::from_raw_32(vec![8; 32]);
+
+            assert_eq!(authority, authority);
+            assert_ne!(other, authority);
+        }
     }
 }
 

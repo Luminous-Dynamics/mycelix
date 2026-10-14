@@ -18,8 +18,7 @@
 
 use hdk::prelude::*;
 use mycelix_finance_shared::{
-    GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain, rate_limit_anchor_key,
-    verify_governance_or_bootstrap_from_links,
+    anchor_hash, follow_update_chain, rate_limit_anchor_key,
 };
 use mycelix_zome_helpers as _;
 
@@ -315,19 +314,37 @@ fn verify_citizen_tier() -> ExternResult<()> {
             }
         }
         // Identity cluster unavailable — fall back to governance agent check
-        _ => verify_governance_or_bootstrap(),
+        _ => verify_governance(),
     }
 }
 
-fn verify_governance_or_bootstrap() -> ExternResult<()> {
-    let gov_links = get_links(
-        LinkQuery::try_new(
-            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
-            LinkTypes::AnchorLinks,
-        )?,
-        GetStrategy::default(),
-    )?;
-    verify_governance_or_bootstrap_from_links(gov_links)
+fn verify_governance() -> ExternResult<()> {
+    // Governance membership is maintained by the hardened TEND authority.
+    // Do not reconstruct or trust a local AnchorLinks collection here.
+    match call(
+        CallTargetCell::Local,
+        ZomeName::from("tend"),
+        FunctionName::from("verify_governance_agent"),
+        None,
+        (),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            result.decode::<()>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Governance verification returned malformed success payload: {:?}",
+                    e
+                )))
+            })
+        }
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Governance verification returned unexpected response: {:?}",
+            other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Governance verification unavailable: {:?}",
+            e
+        )))),
+    }
 }
 
 // =============================================================================
@@ -731,7 +748,7 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
 /// Requires governance authorization. Weights must sum to ~1.0.
 #[hdk_extern]
 pub fn define_basket(input: DefineBasketInput) -> ExternResult<Record> {
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
 
     let my_info = agent_info()?;
     let my_did = format!("did:holo:{}", my_info.agent_initial_pubkey);

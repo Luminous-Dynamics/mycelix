@@ -13,7 +13,9 @@
 use hdk::prelude::*;
 use mycelix_finance_shared::{
     GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain, links_to_records,
-    verify_caller_is_did, verify_governance_or_bootstrap_from_links,
+    verify_caller_is_did, verify_governance_from_links,
+    find_governance_predecessor_from_links,
+    verify_governance_registration_from_links,
 };
 use mycelix_zome_helpers as _;
 use staking_integrity::*;
@@ -21,28 +23,50 @@ use staking_integrity::*;
 /// Anchor for active stakes
 const ACTIVE_STAKES_ANCHOR: &str = "active_stakes";
 
-fn verify_governance_or_bootstrap() -> ExternResult<()> {
+fn verify_governance() -> ExternResult<()> {
     let gov_links = get_links(
         LinkQuery::try_new(
             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
-            LinkTypes::GovernanceAgents,
+            LinkTypes::GovernanceWitnesses,
         )?,
         GetStrategy::default(),
     )?;
-    verify_governance_or_bootstrap_from_links(gov_links)
+    verify_governance_from_links(gov_links)
 }
 
-/// Register a governance agent. Only existing governance agents can register
-/// new ones (or anyone during bootstrap when no agents exist yet).
+fn governance_links() -> ExternResult<Vec<Link>> {
+    Ok(get_links(
+        LinkQuery::try_new(
+            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
+            LinkTypes::GovernanceWitnesses,
+        )?,
+        GetStrategy::default(),
+    )?)
+}
+
+fn verify_governance_registration_authority() -> ExternResult<Option<ActionHash>> {
+    let gov_links = governance_links()?;
+    verify_governance_registration_from_links(gov_links.clone())?;
+    find_governance_predecessor_from_links(gov_links)
+}
+
+/// Register a governance agent by first creating an immutable registration
+/// witness, then indexing that witness in the append-only GovernanceWitnesses registry.
 #[hdk_extern]
 pub fn register_governance_agent(agent: AgentPubKey) -> ExternResult<ActionHash> {
-    verify_governance_or_bootstrap()?;
+    let predecessor = verify_governance_registration_authority()?;
+    let witness = GovernanceAgentRegistration {
+        registered_agent: agent.get_raw_36().to_vec(),
+        predecessor_registration: predecessor.map(|hash| hash.get_raw_36().to_vec()),
+    };
+    let witness_hash = create_entry(&EntryTypes::GovernanceAgentRegistration(witness))?;
     create_link(
         anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
-        agent,
-        LinkTypes::GovernanceAgents,
+        witness_hash.clone(),
+        LinkTypes::GovernanceWitnesses,
         (),
-    )
+    )?;
+    Ok(witness_hash)
 }
 
 /// Compute a 32-byte Blake2b hash from arbitrary bytes.
@@ -457,7 +481,7 @@ pub struct SlashStakeInput {
 /// Restricted to authorized governance agents (or any agent during bootstrap).
 #[hdk_extern]
 pub fn slash_stake(input: SlashStakeInput) -> ExternResult<Record> {
-    verify_governance_or_bootstrap()?;
+    verify_governance()?;
     let now = sys_time()?;
 
     // Serialize and hash evidence
