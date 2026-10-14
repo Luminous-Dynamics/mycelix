@@ -79,9 +79,6 @@
         "country_or_region": {
           "type": "string"
         },
-        "coordinates": {
-          "not": {}
-        }
       }
     },
     "climate": {
