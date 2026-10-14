@@ -36,6 +36,16 @@ jobs:
         with:
           # Report the same commit we actually test, not the default PR merge ref.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Assert report commit matches checked-out source
+        env:
+          EXPECTED_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          if [ "$actual" != "$EXPECTED_SOURCE_COMMIT" ]; then
+            printf 'ERROR: checked-out commit %s differs from expected %s\n' "$actual" "$EXPECTED_SOURCE_COMMIT" >&2
+            exit 1
+          fi
+          printf 'SA_DID_SOURCE_COMMIT=%s\n' "$actual"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
