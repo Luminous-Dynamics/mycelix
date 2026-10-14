@@ -132,7 +132,7 @@ def validate() -> None:
         "maturity", "parent_issue", "markdown_spec", "pilot", "source_ledger",
         "event_model", "job_pathways", "payer_and_job_quality_gate",
         "crime_profitability_controls", "evaluation", "gates", "stop_conditions",
-        "prohibited_capabilities", "synthetic_corpus",
+        "prohibited_capabilities", "synthetic_corpus", "pilot_selection_matrix",
     }, "manifest")
     if manifest["schema"] != EXPECTED_SCHEMA or manifest["schema_version"] != 1:
         fail("manifest schema/version mismatch")
@@ -140,6 +140,23 @@ def validate() -> None:
         fail("manifest must preserve research-only claim ceiling")
     if manifest["markdown_spec"] != "mycelix-workspace/docs/civic-resilience/JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md":
         fail("manifest narrative path drift")
+
+    selection = manifest["pilot_selection_matrix"]
+    exact_keys(selection, {"selection_status", "candidates", "decision_rule", "selected_candidate", "public_citywide_claim_authorized"}, "pilot selection matrix")
+    if selection.get("selection_status") != "NotSelected;PartnerDiscoveryRequired" or selection.get("selected_candidate") is not None:
+        fail("pilot candidate must remain unselected until partner-readiness evidence exists")
+    if selection.get("public_citywide_claim_authorized") is not False:
+        fail("no citywide pilot claim is authorized")
+    candidate_ids = [c.get("candidate_id") for c in selection.get("candidates", []) if isinstance(c, dict)]
+    if candidate_ids != ["water_fault_coordination", "pikitup_cooperative_basic_removal"]:
+        fail("pilot candidate set/order drift")
+    for candidate in selection["candidates"]:
+        if candidate.get("funding_or_contract_confirmed") is not False:
+            fail(f"{candidate['candidate_id']}: do not claim funding/contract")
+    if selection["candidates"][1].get("readiness") != "PartnerDiscoveryOnly":
+        fail("Pikitup option must remain a partner-discovery lead, not a live pilot")
+    if not any("written permissions" in str(rule).lower() for rule in selection["decision_rule"]):
+        fail("pilot selection must require written permissions")
 
     pilot = manifest["pilot"]
     exact_keys(pilot, {
@@ -204,8 +221,14 @@ def validate() -> None:
         fail("Pikitup target literals drift")
     if pikitup_kpi.get("visually_reviewed") is not False:
         fail("do not claim visual review of SDBIP printed page 27")
-    if "No specific open tender" in str(pikitup_kpi.get("prohibited_inference", [])):
-        fail("internal contradictory guard")
+    forbidden_claims = set(pikitup_kpi.get("prohibited_inference", []))
+    if not {
+        "Specific tender or contract is open",
+        "Any supplier/cooperative has been awarded a contract",
+        "Budget or work package is available to Mycelix",
+        "100% outcome has been achieved",
+    }.issubset(forbidden_claims):
+        fail("Pikitup planning KPI must not imply contract, funding, or achieved outcome")
     programme_source = source_by_id["SA-JOBS-3"]
     if programme_source.get("source_kind") != "OfficialPilotLaunchSpeech" or programme_source.get("publication_date") != "2026-05-04":
         fail("Working on Infrastructure launch source identity/date drift")
