@@ -68,7 +68,7 @@ Every event carries:
 
 ### Quantity representation
 
-The interchange profile represents decimal amounts as base-10 strings to avoid loss of precision from binary floating-point serialization. Values must be non-negative and use no exponent notation. Runtime implementations must also enforce domain-specific maximum precision and magnitude.
+The interchange profile represents decimal amounts as canonical base-10 strings to avoid loss of precision from binary floating-point serialization. Values must be non-negative, use no exponent notation, and omit trailing fractional zeroes (`8`, not `8.0`). Runtime implementations must also enforce domain-specific precision, magnitude and package semantics.
 
 A quantity includes:
 - state: planned, forecast, observed, or unknown;
@@ -76,6 +76,8 @@ A quantity includes:
 - unit code;
 - unit code system (UNECE_REC20);
 - exact code-list version.
+
+The H0 fixture validator additionally applies a deliberately small precision policy: `C62` individual counts and `DZN` dozens are whole units in these fixtures; `KGM` and `LTR` quantities allow at most three fractional digits. This is a local test policy, not a universal property of Recommendation 20 and not a substitute for each product profile's commercial-unit rules. A future product profile may introduce package-specific rules such as half-dozen cartons as a distinct sellable unit.
 
 Unknown must not become zero or a nominal value. Planned/forecast amounts must not feed available inventory. The product profile is responsible for permitted units and package semantics: eggs can be listed by individual count (`C62`) or dozen (`DZN`); milk by volume (`LTR`); cheese by weight (`KGM`) or a declared sellable unit; fresh produce commonly by mass or count. These codes are from the pinned UN/CEFACT Recommendation 20 vocabulary; product-specific compatibility still requires validation. Conversions are allowed only with a declared, product-valid conversion. **Never assume one litre equals one kilogram.**
 
