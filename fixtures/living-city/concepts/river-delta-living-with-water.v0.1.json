@@ -1,0 +1,98 @@
+{
+  "schema_version": "living-city-concept/0.1",
+  "concept_id": "river-delta-living-with-water",
+  "title": "River Delta Living With Water",
+  "version": 1,
+  "status": "concept",
+  "place": {
+    "label": "Illustrative river-delta settlement context",
+    "geographic_scope": "region",
+    "geography_status": "illustrative"
+  },
+  "climate": {
+    "profile_status": "unknown",
+    "hazards_to_investigate": [
+      "river and coastal flooding",
+      "storm surge where applicable",
+      "salinity",
+      "erosion",
+      "evacuation access",
+      "sanitation failure"
+    ]
+  },
+  "authorship": {
+    "origin": "working_hypothesis",
+    "contributors": [],
+    "attribution_status": "pending"
+  },
+  "cultural_review": {
+    "status": "not_started",
+    "evidence_refs": [],
+    "notes": "No community endorsement is implied. Local authorship and review are required before cultural claims or implementation."
+  },
+  "design_hypotheses": [
+    {
+      "hypothesis_id": "river-delta-living-with-water-1",
+      "statement": "Flood-compatible open space and restored wetland buffers may reduce exposure where hydrology and land rights support them.",
+      "intended_benefits": [
+        "flood_safety",
+        "biodiversity",
+        "public_space_access"
+      ],
+      "failure_modes": [
+        "displaced livelihoods",
+        "wetland degradation",
+        "false sense of protection",
+        "maintenance failure"
+      ]
+    },
+    {
+      "hypothesis_id": "river-delta-living-with-water-2",
+      "statement": "Critical services on demonstrably safer routes and elevations may improve continuity when supported by hazard data and evacuation planning.",
+      "intended_benefits": [
+        "service_reliability",
+        "flood_safety",
+        "accessibility"
+      ],
+      "failure_modes": [
+        "hazard data gaps",
+        "barriers to evacuation",
+        "unequal protection",
+        "structural failure"
+      ]
+    }
+  ],
+  "evaluation_axes": [
+    "flood_safety",
+    "water_security",
+    "public_space_access",
+    "tenure_security",
+    "biodiversity",
+    "service_reliability",
+    "livelihoods"
+  ],
+  "sources": [
+    {
+      "source_id": "unhabitat-nbs-2025",
+      "title": "Integrating Nature-based Solutions into Urban & Territorial Planning",
+      "url": "https://unhabitat.org/integrating-nature-based-solutions-into-urban-territorial-planning",
+      "use": "methodology",
+      "rights_status": "link_only"
+    },
+    {
+      "source_id": "unhabitat-public-space",
+      "title": "Global Public Space Programme",
+      "url": "https://unhabitat.org/programme/global-public-space-programme",
+      "use": "methodology",
+      "rights_status": "link_only"
+    }
+  ],
+  "rights": {
+    "asset_status": "no_assets",
+    "restricted_knowledge_present": false
+  },
+  "limitations": [
+    "No specific delta, flood return period, elevation model, or local community has been identified.",
+    "Do not interpret this concept as engineering advice or a promise of flood protection."
+  ]
+}
