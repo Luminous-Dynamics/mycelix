@@ -1,0 +1,58 @@
+name: Core Types CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-core-types/**'
+      - '.github/workflows/core-types-ci.yml'
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'crates/mycelix-core-types/**'
+      - '.github/workflows/core-types-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  core-types:
+    name: Core Types (default + serde)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: crates/mycelix-core-types
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-core-types
+
+      - name: Format
+        run: cargo fmt -p mycelix-core-types -- --check
+
+      - name: Check default feature set
+        run: cargo check --all-targets --no-default-features
+
+      - name: Test default feature set
+        run: cargo test --all-targets --no-default-features
+
+      - name: Check serde feature set
+        run: cargo check --all-targets --features serde
+
+      - name: Test serde feature set
+        run: cargo test --all-targets --features serde
+
+      - name: Clippy serde feature set
+        run: cargo clippy --all-targets --features serde -- -D warnings
