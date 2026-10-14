@@ -8,3 +8,5 @@ description = "Unified epistemic classification types — shared between Prism b
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 
+[dev-dependencies]
+serde_json = "1"
