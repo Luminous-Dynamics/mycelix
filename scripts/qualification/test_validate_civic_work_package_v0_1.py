@@ -88,6 +88,34 @@ class CivicWorkPackageTests(unittest.TestCase):
             errors,
         )
 
+    def test_environment_and_closeout_categories_cannot_be_omitted(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        coverage = record["funding"]["cost_breakdown"]["category_coverage"]
+        coverage[:] = [
+            item for item in coverage
+            if item["category"] not in {"environmental_mitigation", "end_of_life_disposal"}
+        ]
+        coverage.append({
+            "category": "other",
+            "disposition": "not_applicable",
+            "rationale": "Duplicate control entry that cannot replace required categories.",
+        })
+        errors = validate_record(record, SCHEMA, "missing environmental and closeout coverage")
+        self.assertIn("CWP_E_COST_COVERAGE_INCOMPLETE", errors)
+
+    def test_paid_role_requires_positive_wage_cost(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        wages = next(
+            item for item in record["funding"]["cost_breakdown"]["cost_items"]
+            if item["category"] == "wages"
+        )
+        wages["amount_minor_units"] = 0
+        total = sum(item["amount_minor_units"] for item in record["funding"]["cost_breakdown"]["cost_items"])
+        record["funding"]["full_period_cost_estimate_minor_units"] = total
+        record["funding"]["committed_amount_minor_units"] = total
+        errors = validate_record(record, SCHEMA, "paid role without wage budget")
+        self.assertIn("CWP_E_PAID_ROLES_WITHOUT_POSITIVE_WAGES", errors)
+
     def test_duplicate_cost_line_ids_are_rejected(self) -> None:
         record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
         items = record["funding"]["cost_breakdown"]["cost_items"]
