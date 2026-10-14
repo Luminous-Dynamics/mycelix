@@ -524,7 +524,7 @@ pub fn VideosPage() -> impl IntoView {
                                             <button
                                                 type="button"
                                                 class="video-card-open"
-                                                aria-label=format!("Open video details: {title}")
+                                                aria-label=format!("Open video details: {title}, by {creator}, {kind}, duration {duration}")
                                                 on:click=move |_| selected_id.set(Some(select_id.clone()))
                                             >
                                                 <span class=format!("video-poster {poster_style}") aria-hidden="true">
@@ -683,20 +683,14 @@ pub fn VideosPage() -> impl IntoView {
                                                         on:loadedmetadata=on_video_loaded
                                                         on:timeupdate=on_video_timeupdate
                                                     >
-                                                        {move || {
-                                                            if let Some(url) = caption_url.get() {
-                                                                view! {
-                                                                    <track kind="captions"
-                                                                        src=url
-                                                                        srclang=caption_language.clone()
-                                                                        label="Captions"
-                                                                        default
-                                                                    />
-                                                                }.into_any()
-                                                            } else {
-                                                                ().into_any()
-                                                            }
-                                                        }}
+                                                        {caption_url.get().map(|url| view! {
+                                                            <track kind="captions"
+                                                                src=url
+                                                                srclang=caption_language.clone()
+                                                                label="Captions"
+                                                                default
+                                                            />
+                                                        })}
                                                         "Your browser does not support HTML video. Use the linked transcript when available."
                                                     </video>
                                                 </div>
