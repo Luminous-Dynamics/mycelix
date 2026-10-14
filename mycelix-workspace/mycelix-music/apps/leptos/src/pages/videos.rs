@@ -14,7 +14,7 @@ use leptos::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlVideoElement;
 
-use crate::app::{DeliveryPreferences, MEDIA_GATEWAY_PREFERENCE_KEY};
+use crate::app::DeliveryPreferences;
 use crate::delivery::{
     delivery_candidates_for_preference, next_candidate_index, DeliveryCandidate,
     MediaAssetManifestV1,
@@ -342,12 +342,14 @@ pub fn VideosPage() -> impl IntoView {
         .iter()
         .map(|kind| {
             let label = (*kind).to_string();
+            let label_for_class = label.clone();
+            let label_for_pressed = label.clone();
             let set_label = label.clone();
             view! {
                 <button
                     type="button"
-                    class=move || if selected_kind.get() == label { "video-filter active" } else { "video-filter" }
-                    aria-pressed=move || selected_kind.get() == label
+                    class=move || if selected_kind.get() == label_for_class { "video-filter active" } else { "video-filter" }
+                    aria-pressed=move || selected_kind.get() == label_for_pressed
                     on:click=move |_| selected_kind.set(set_label.clone())
                 >
                     {kind.to_string()}
@@ -556,30 +558,58 @@ pub fn VideosPage() -> impl IntoView {
                             .map(|candidate| candidate.url.clone())
                         })
                     };
-                    let poster_url = listing_url(
-                        &listing,
-                        "poster",
-                        listing.poster_cid.as_deref(),
-                        preferences.gateway_origins.get().as_deref(),
-                    );
-                    let caption_url = listing_url(
-                        &listing,
-                        "captions",
-                        listing.captions_cid.as_deref(),
-                        preferences.gateway_origins.get().as_deref(),
-                    );
-                    let transcript_url = listing_url(
-                        &listing,
-                        "transcript",
-                        listing.transcript_cid.as_deref(),
-                        preferences.gateway_origins.get().as_deref(),
-                    );
-                    let description_url = listing_url(
-                        &listing,
-                        "visual-description",
-                        listing.visual_description_cid.as_deref(),
-                        preferences.gateway_origins.get().as_deref(),
-                    );
+                    let poster_listing = listing.clone();
+                    let poster_url = move || {
+                        if preferences.loaded.get() {
+                            listing_url(
+                                &poster_listing,
+                                "poster",
+                                poster_listing.poster_cid.as_deref(),
+                                preferences.gateway_origins.get().as_deref(),
+                            )
+                        } else {
+                            None
+                        }
+                    };
+                    let caption_listing = listing.clone();
+                    let caption_url = move || {
+                        if preferences.loaded.get() {
+                            listing_url(
+                                &caption_listing,
+                                "captions",
+                                caption_listing.captions_cid.as_deref(),
+                                preferences.gateway_origins.get().as_deref(),
+                            )
+                        } else {
+                            None
+                        }
+                    };
+                    let transcript_listing = listing.clone();
+                    let transcript_url = move || {
+                        if preferences.loaded.get() {
+                            listing_url(
+                                &transcript_listing,
+                                "transcript",
+                                transcript_listing.transcript_cid.as_deref(),
+                                preferences.gateway_origins.get().as_deref(),
+                            )
+                        } else {
+                            None
+                        }
+                    };
+                    let description_listing = listing.clone();
+                    let description_url = move || {
+                        if preferences.loaded.get() {
+                            listing_url(
+                                &description_listing,
+                                "visual-description",
+                                description_listing.visual_description_cid.as_deref(),
+                                preferences.gateway_origins.get().as_deref(),
+                            )
+                        } else {
+                            None
+                        }
+                    };
                     let chapters = listing.chapters.clone().into_iter().map(|chapter| {
                         let seconds = chapter.start_seconds;
                         let seek = move |_| {
@@ -623,42 +653,65 @@ pub fn VideosPage() -> impl IntoView {
 
                             <div class="video-watch-layout">
                                 <div class="video-main-column">
-                                    {if has_cid {
-                                        view! {
-                                            <div class="video-player-frame">
-                                                <video
-                                                    node_ref=video_node
-                                                    class="video-element"
-                                                    prop:src=move || source_url().unwrap_or_default()
-                                                    poster=poster_url.clone().unwrap_or_default()
-                                                    controls
-                                                    playsinline
-                                                    preload="none"
-                                                    aria-label=title.clone()
-                                                    on:error=on_video_error
-                                                    on:loadedmetadata=on_video_loaded
-                                                    on:timeupdate=on_video_timeupdate
-                                                >
-                                                    {caption_url.as_ref().map(|url| view! {
-                                                        <track kind="captions"
-                                                            src=url.clone()
-                                                            srclang=listing.caption_language.clone().unwrap_or_else(|| "en".into())
-                                                            label="Captions"
-                                                            default
-                                                        />
-                                                    })}
-                                                    "Your browser does not support HTML video. Use the linked transcript when available."
-                                                </video>
-                                            </div>
-                                        }.into_any()
-                                    } else {
-                                        view! {
-                                            <div class=format!("video-player-placeholder {poster_style}") role="note">
-                                                <span class="video-player-placeholder-mark" aria-hidden="true">"▶"</span>
-                                                <h3>"Media source not attached"</h3>
-                                                <p>"This is a UI fixture, not a published video. No network request will be made."</p>
-                                            </div>
-                                        }.into_any()
+                                    {move || {
+                                        if source_url().is_some() {
+                                            let title_for_player = title.clone();
+                                            let caption_language = listing.caption_language.clone().unwrap_or_else(|| "en".into());
+                                            view! {
+                                                <div class="video-player-frame">
+                                                    <video
+                                                        node_ref=video_node
+                                                        class="video-element"
+                                                        prop:src=move || source_url().unwrap_or_default()
+                                                        controls
+                                                        playsinline
+                                                        preload="none"
+                                                        aria-label=title_for_player.clone()
+                                                        on:error=on_video_error
+                                                        on:loadedmetadata=on_video_loaded
+                                                        on:timeupdate=on_video_timeupdate
+                                                    >
+                                                        {move || caption_url().map(|url| view! {
+                                                            <track kind="captions"
+                                                                src=url
+                                                                srclang=caption_language.clone()
+                                                                label="Captions"
+                                                                default
+                                                            />
+                                                        })}
+                                                        "Your browser does not support HTML video. Use the linked transcript when available."
+                                                    </video>
+                                                </div>
+                                            }.into_any()
+                                        } else {
+                                            view! {
+                                                <div class=format!("video-player-placeholder {poster_style}") role="note">
+                                                    <span class="video-player-placeholder-mark" aria-hidden="true">"▶"</span>
+                                                    <h3>{move || {
+                                                        if !has_cid {
+                                                            "Media source not attached"
+                                                        } else if !preferences.loaded.get() {
+                                                            "Loading delivery preferences"
+                                                        } else if delivery_failed.get() {
+                                                            "Video could not be loaded"
+                                                        } else {
+                                                            "No gateway route selected"
+                                                        }
+                                                    }}</h3>
+                                                    <p>{move || {
+                                                        if !has_cid {
+                                                            "This is a UI fixture, not a published video. No network request will be made.".to_string()
+                                                        } else if !preferences.loaded.get() {
+                                                            "The player waits for this browser's saved gateway preference before selecting a source.".to_string()
+                                                        } else if delivery_failed.get() {
+                                                            "Every selected gateway failed. Review Delivery Settings or retry later.".to_string()
+                                                        } else {
+                                                            "Choose an explicit gateway in Delivery Settings before playing this CID-addressed video.".to_string()
+                                                        }
+                                                    }}</p>
+                                                </div>
+                                            }.into_any()
+                                        }
                                     }}
 
                                     <p class="video-delivery-status" role="status">
@@ -694,20 +747,32 @@ pub fn VideosPage() -> impl IntoView {
                                 <aside class="video-watch-sidebar" aria-label="Video accessibility and chapters">
                                     <section class="video-accessibility">
                                         <h3>"Accessibility"</h3>
-                                        {if listing.has_captions() && caption_url.is_some() {
-                                            view! { <p class="video-capability available">"✓ Captions track linked"</p> }.into_any()
-                                        } else {
-                                            view! { <p class="video-capability unavailable">"Captions not provided"</p> }.into_any()
+                                        {move || {
+                                            if !listing.has_captions() {
+                                                view! { <p class="video-capability unavailable">"Captions not provided"</p> }.into_any()
+                                            } else if caption_url().is_some() {
+                                                view! { <p class="video-capability available">"✓ Captions track linked"</p> }.into_any()
+                                            } else {
+                                                view! { <p class="video-capability unavailable">"Captions asset exists, but no trusted route is available"</p> }.into_any()
+                                            }
                                         }}
-                                        {if listing.has_transcript() && transcript_url.is_some() {
-                                            view! { <a class="video-resource-link" href=transcript_url.clone().unwrap_or_default() target="_blank" rel="noopener noreferrer">"Open transcript ↗"</a> }.into_any()
-                                        } else {
-                                            view! { <p class="video-capability unavailable">"Transcript not provided"</p> }.into_any()
+                                        {move || {
+                                            if !listing.has_transcript() {
+                                                view! { <p class="video-capability unavailable">"Transcript not provided"</p> }.into_any()
+                                            } else if let Some(url) = transcript_url() {
+                                                view! { <a class="video-resource-link" href=url target="_blank" rel="noopener noreferrer">"Open transcript ↗"</a> }.into_any()
+                                            } else {
+                                                view! { <p class="video-capability unavailable">"Transcript asset exists, but no trusted route is available"</p> }.into_any()
+                                            }
                                         }}
-                                        {if listing.has_visual_description() && description_url.is_some() {
-                                            view! { <a class="video-resource-link" href=description_url.clone().unwrap_or_default() target="_blank" rel="noopener noreferrer">"Open visual description ↗"</a> }.into_any()
-                                        } else {
-                                            view! { <p class="video-capability unavailable">"Visual description not provided"</p> }.into_any()
+                                        {move || {
+                                            if !listing.has_visual_description() {
+                                                view! { <p class="video-capability unavailable">"Visual description not provided"</p> }.into_any()
+                                            } else if let Some(url) = description_url() {
+                                                view! { <a class="video-resource-link" href=url target="_blank" rel="noopener noreferrer">"Open visual description ↗"</a> }.into_any()
+                                            } else {
+                                                view! { <p class="video-capability unavailable">"Description asset exists, but no trusted route is available"</p> }.into_any()
+                                            }
                                         }}
                                         <p class="video-accessibility-note">"Accessibility assets are separate CID-addressed resources; the catalogue must publish language and format metadata with each one."</p>
                                     </section>
