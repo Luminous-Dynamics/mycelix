@@ -26,7 +26,7 @@
       "minLength": 1
     },
     "schema_version": {
-      "const": "0.2.0"
+      "const": "0.3.0"
     },
     "scope": {
       "type": "object",
@@ -130,7 +130,7 @@
           "enum": [
             "unknown",
             "candidate_found",
-            "officially_confirmed",
+            "official_contact_source_found",
             "conflicted"
           ]
         },
@@ -187,7 +187,8 @@
           "source_uri",
           "observed_on",
           "independence",
-          "claim_scope"
+          "claim_scope",
+          "retrieved_at"
         ],
         "properties": {
           "evidence_id": {
@@ -225,6 +226,11 @@
           },
           "limitations": {
             "type": "string"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When this source material was retrieved; distinct from the observation date or the date asserted by the source."
           }
         }
       }
@@ -382,7 +388,7 @@
           "route": {
             "properties": {
               "status": {
-                "const": "officially_confirmed"
+                "const": "official_contact_source_found"
               }
             }
           }
