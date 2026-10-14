@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_version": 1,
+  "profile_id": "mycelix.security.enclave",
+  "profile_version": "0.1.0",
+  "status": "reference-architecture",
+  "claim_ceiling": "ReferenceModelOnly",
+  "security_domains": [
+    {
+      "id": "E0",
+      "name": "public-development",
+      "handles": [
+        "public"
+      ]
+    },
+    {
+      "id": "E1",
+      "name": "cui-export-controlled",
+      "handles": [
+        "CUI",
+        "export-controlled"
+      ]
+    },
+    {
+      "id": "E2",
+      "name": "classified-secret-reference",
+      "handles": [
+        "SECRET-reference"
+      ]
+    },
+    {
+      "id": "E3",
+      "name": "higher-assurance-compartmented",
+      "handles": [
+        "higher-assurance-reference"
+      ]
+    }
+  ],
+  "non_equivalences": [
+    [
+      "did-control",
+      "host-integrity"
+    ],
+    [
+      "did-control",
+      "personnel-clearance"
+    ],
+    [
+      "identity",
+      "authorization"
+    ],
+    [
+      "capability",
+      "clearance"
+    ],
+    [
+      "reputation",
+      "authorization"
+    ],
+    [
+      "network-membership",
+      "resource-authorization"
+    ],
+    [
+      "attestation",
+      "permanent-authorization"
+    ],
+    [
+      "qualification-evidence",
+      "runtime-authority"
+    ],
+    [
+      "classification-label",
+      "security-enforcement"
+    ]
+  ],
+  "authorization_dimensions": [
+    "subject_identity",
+    "device_posture",
+    "workload_identity",
+    "security_domain",
+    "policy_version",
+    "purpose",
+    "releasability",
+    "export_control",
+    "freshness",
+    "delegation"
+  ],
+  "decision_semantics": {
+    "required_rule": "ALL_REQUIRED_DIMENSIONS_VALID",
+    "on_missing_security_evidence": "DENY_OR_EXPLICIT_INDETERMINATE",
+    "on_stale_security_evidence": "DENY_OR_EXPLICIT_INDETERMINATE",
+    "on_policy_version_mismatch": "DENY",
+    "on_domain_mismatch": "DENY",
+    "on_cross_domain_transfer_without_release_authorization": "DENY"
+  },
+  "domain_isolation": {
+    "shared_dht_across_security_domains": false,
+    "shared_trust_roots_across_security_domains": false,
+    "shared_authorization_cache_across_security_domains": false,
+    "cross_domain_transfer": "independent-cds-or-equivalent-qualified-gateway"
+  },
+  "attestation": {
+    "required_for_protected_profiles": true,
+    "freshness_required": true,
+    "nonce_binding_required": true,
+    "audience_binding_required": true,
+    "workload_measurement_binding_required": true,
+    "verifier_profile_binding_required": true,
+    "attestation_is_authorization": false,
+    "rats_roles": [
+      "attester",
+      "evidence",
+      "verifier",
+      "attestation_result",
+      "relying_party"
+    ],
+    "raw_evidence_is_runtime_authority": false,
+    "attestation_result_is_runtime_authority": false
+  },
+  "crypto": {
+    "algorithm_agility_required": true,
+    "hybrid_pq_migration_supported": true,
+    "signing_encryption_attestation_key_separation_required": true,
+    "hardware_backed_key_custody_target": true,
+    "fips_140_3_validation_required_where_federally_required": true,
+    "approved_algorithm_does_not_imply_module_validation": true
+  },
+  "supply_chain": {
+    "protected_builds": "isolated-or-tightly-allow-listed",
+    "dependency_inputs": "content-pinned-and-auditable",
+    "artifact_provenance_required": true,
+    "independent_rebuild_target": true,
+    "candidate_controlled_qualification_authority": false,
+    "classified_production_build_on_public_github": false
+  },
+  "release_model": {
+    "cross_domain_release_requires": [
+      "source_authorization",
+      "release_decision",
+      "approved_transformation",
+      "destination_admission",
+      "transfer_receipt"
+    ],
+    "mycelix_is_cds": false,
+    "release_receipt_grants_authority": false
+  },
+  "evidence": {
+    "required_classes": [
+      "security-event",
+      "access-decision",
+      "policy-decision",
+      "device-posture",
+      "workload-posture",
+      "credential-lifecycle",
+      "key-lifecycle",
+      "data-movement",
+      "administrative-action",
+      "configuration-change",
+      "artifact-provenance",
+      "incident-response"
+    ],
+    "minimum_binding": [
+      "enclave_profile",
+      "subject",
+      "policy_version",
+      "object_digest_when_applicable",
+      "authorization_basis",
+      "trusted_time_source",
+      "outcome",
+      "predecessor_state",
+      "software_build_identity"
+    ],
+    "evidence_grants_runtime_authority": false
+  },
+  "qualification_status_vocabulary": [
+    "AlreadyQualified",
+    "ImplementedUnqualified",
+    "Designed",
+    "CandidateMapping",
+    "Gap",
+    "OrganizationDecisionRequired",
+    "ContractDecisionRequired",
+    "IndependentAssessorRequired",
+    "NotApplicable"
+  ],
+  "comparative_security": {
+    "blanket_superiority_claim_allowed": false,
+    "comparison_requires": [
+      "same_threat_model",
+      "same_measurement_method",
+      "bounded_system_scope",
+      "exact_implementation_profile",
+      "exact_artifact_identity",
+      "independent_evidence"
+    ],
+    "preferred_outputs": [
+      "compromise_containment",
+      "standing_privilege",
+      "revocation_latency",
+      "cross_domain_exposure",
+      "provenance_completeness",
+      "recovery_correctness",
+      "supply_chain_integrity",
+      "audit_completeness"
+    ]
+  },
+  "reference_controls": {
+    "nist_sp_800_171r3": "https://csrc.nist.gov/pubs/sp/800/171/r3/final",
+    "nist_sp_800_171ar3": "https://csrc.nist.gov/pubs/sp/800/171/a/r3/final",
+    "nist_sp_800_172r3": "https://csrc.nist.gov/pubs/sp/800/172/r3/final",
+    "nist_sp_800_172ar3": "https://csrc.nist.gov/pubs/sp/800/172/a/r3/final",
+    "nist_sp_800_207": "https://csrc.nist.gov/pubs/sp/800/207/final",
+    "fips_140_3": "https://csrc.nist.gov/pubs/fips/140-3/final",
+    "fips_203_ml_kem": "https://csrc.nist.gov/pubs/fips/203/final",
+    "fips_204_ml_dsa": "https://csrc.nist.gov/pubs/fips/204/final",
+    "nsa_zero_trust_guidelines": "https://www.nsa.gov/Press-Room/Press-Releases-Statements/Press-Release-View/Article/4496862/",
+    "dfars_252_204_7021": "https://www.acquisition.gov/dfars/part-252-solicitation-provisions-and-contract-clauses",
+    "dfars_252_204_7012": "https://www.acquisition.gov/dfars/252.204-7012-safeguarding-covered-defense-information-and-cyber-incident-reporting.",
+    "rfc_9334_rats_architecture": "https://www.rfc-editor.org/rfc/rfc9334.html",
+    "tcg_tpm_2_0_library": "https://trustedcomputinggroup.org/resource/tpm-library-specification/"
+  }
+}
