@@ -20,7 +20,7 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "c9f81166b8b05a98050d4aa0a6d49be0c3d73e79"
+EXPECTED_CORPUS_BLOB_SHA = "cdbc242a545daa6ed0b12a8c15b3a42d7df87ea2"
 EXPECTED_SOURCE_IDS = ["JW-1", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
@@ -54,6 +54,7 @@ EXPECTED_PROBES = {
     "working-on-infrastructure-geography-mismatch": ("EmploymentIntegrity", "TreatAsPartnerDiscoveryOnly", "GeographyNotInAnnouncedLaunchScope"),
     "sdbip-cooperative-kpi-is-not-contract-award": ("EmploymentIntegrity", "PartnerDiscoveryOnlyNoContractAward", "PlanningTargetNotContract"),
     "national-epwp-target-vs-city-sdbip-target": ("EmploymentIntegrity", "PreserveSeparateTargetSeries", "DistinctProgrammeTargets"),
+    "same-title-water-kpis-need-crosswalk": ("ServiceSemantics", "PreserveSeparateMetricSeries", "MetricCrosswalkUnqualified"),
 }
 REQUIRED_GUARDS = {
     "issuer-reference-collision": {"DoNotMergeByReferenceStringAlone", "ExternalReferenceIsNotInternalIdentity"},
@@ -70,6 +71,7 @@ REQUIRED_GUARDS = {
     "working-on-infrastructure-geography-mismatch": {"DoNotInferGautengPilotEligibility", "NationalProgrammeAnnouncementIsNotLocalFunding", "NoSpeculativePayroll"},
     "sdbip-cooperative-kpi-is-not-contract-award": {"SdbipPlanningKpiIsNotProcurementAward", "NoCooperativeContractWithoutOpenAuthorizedProcess", "NoSpeculativePayroll"},
     "national-epwp-target-vs-city-sdbip-target": {"NationalTargetIsNotCitySdbipTarget", "WorkOpportunityIsNotDurableJob", "DoNotReplacePublishedTarget"},
+    "same-title-water-kpis-need-crosswalk": {"SameTitleDoesNotProveSameMetric", "UnqualifiedMetricCrosswalkFailsClosed", "NoProductionSlaCalculation"},
 }
 EXPECTED_BASE_KEYS = {
     "automated_external_write", "automated_closure", "production_sla_calculation",
@@ -227,6 +229,17 @@ def validate() -> None:
         fail("EPWP opportunities must not be promoted to durable jobs or pilot funding")
     if epwp.get("visually_reviewed") is not False:
         fail("do not claim visual review of the EPWP footnote")
+    water_outcome = sdbip_source.get("water_loss_outcome_indicator", {})
+    if water_outcome.get("indicator_kpi_number") != 52 or water_outcome.get("circular88_reference") != "WS5.2":
+        fail("second water-loss outcome indicator identity drift")
+    if water_outcome.get("target_values_as_extracted") != ["196 099Ml", "188 163Ml", "180 274Ml", "173 495Ml"]:
+        fail("second water-loss target series literal drift")
+    if water_outcome.get("year_to_value_mapping") != "NotFullyBoundFromTextLayer":
+        fail("do not infer financial-year mapping from an ambiguous text layer")
+    if water_outcome.get("crosswalk_status") != "NotQualified;PreserveSeparateMetricSeries" or water_outcome.get("visually_reviewed") is not False:
+        fail("second same-title water-loss series must remain unqualified and text-layer-only")
+    if water_outcome.get("same_title_as_business_plan_kpi17") is not True:
+        fail("duplicate water-loss title must be explicitly linked as a crosswalk concern")
     pikitup_kpi = sdbip_source.get("pikitup_cooperative_service_kpi", {})
     if pikitup_kpi.get("kpi_number") != 15 or pikitup_kpi.get("operational_entity") != "PIKITUP":
         fail("Pikitup basic-removal KPI identity drift")
@@ -364,6 +377,11 @@ def validate() -> None:
         fail("national and City EPWP planning targets must remain distinct")
     if epwp_probe["expected"]["issue_status_effect"] != "NoTargetSubstitution":
         fail("target series cannot overwrite or substitute each other")
+    water_metric_probe = by_id["same-title-water-kpis-need-crosswalk"]
+    if water_metric_probe["expected"]["disposition"] != "PreserveSeparateMetricSeries":
+        fail("same-title water-loss metrics must not auto-crosswalk")
+    if water_metric_probe["expected"]["issue_status_effect"] != "NoDerivedValueOrSla":
+        fail("unqualified water metric crosswalk cannot create a derived value or SLA")
 
     # Ensure every public-facing data/authority limiter is still explicit.
     if "Automated municipal case submission" not in manifest["prohibited_capabilities"]:
