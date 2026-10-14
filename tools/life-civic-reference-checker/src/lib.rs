@@ -36,7 +36,7 @@ fn git_blob_sha1(relative_path: &str) -> String {
     let path = repo_root().join(relative_path);
     let bytes = fs::read(&path)
         .unwrap_or_else(|error| panic!("failed to hash {}: {error}", path.display()));
-    let header = format!("blob {}\\0", bytes.len());
+    let header = format!("blob {}\0", bytes.len());
     let mut hasher = Sha1::new();
     hasher.update(header.as_bytes());
     hasher.update(&bytes);
