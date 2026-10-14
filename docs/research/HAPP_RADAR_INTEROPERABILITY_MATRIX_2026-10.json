@@ -510,6 +510,12 @@
       "input_condition": "Source code is copied without a pinned revision and compatibility/license review.",
       "expected_disposition": "block_source_reuse",
       "reason": "Architectural learning and source-code reuse are distinct decisions."
+    },
+    {
+      "id": "TEND-F32-EXPORT-001",
+      "input_condition": "Legacy TEND service-hour field (f32) is exported as exact decimal quantity without an approved quantization/precision profile.",
+      "expected_disposition": "block_unqualified_quantity_export",
+      "reason": "Source inspection found TendExchange.hours and cumulative hours are f32. String formatting alone does not make the binary source value exact in the target economic model."
     }
   ],
   "source_register": [
@@ -540,6 +546,13 @@
       "url": "https://happradar.com/projects",
       "observed_on": "2026-10-14",
       "use": "Project discovery only; listing status is not independent validation."
+    },
+    {
+      "id": "mycelix-finance-tend-source",
+      "type": "pinned_source_inspection",
+      "url": "https://github.com/Luminous-Dynamics/mycelix/blob/23742a3802eba2e5211837dc1bff56a9deb1cdc9/mycelix-finance/zomes/tend/integrity/src/lib.rs",
+      "observed_on": "2026-10-14",
+      "use": "Source-level observation: TendExchange.hours, TendBalance.total_provided and total_received are f32; TendBalance.balance is i32. This blocks claims of lossless external time-quantity serialization until a precision/quantization profile is specified. This is not a runtime test."
     }
   ],
   "source_revisions_policy": "Moving branch URLs are discovery links only. The source_revisions field pins the exact commit inspected for each repository as of this snapshot. Compatibility/behavior statements remain source-reported until separately reproduced."
