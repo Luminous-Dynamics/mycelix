@@ -76,13 +76,261 @@
     "status": "committed",
     "currency": "ZAR",
     "price_year": 2026,
-    "committed_amount": 25000,
-    "full_period_cost_estimate": 25000,
     "whole_period_fully_costed": true,
     "commitment_evidence_ref": "evidence:SYNTH-FUNDING-COMMITMENT",
     "funded_period_start": "2026-11-01",
     "funded_period_end": "2027-01-31",
-    "payer_ref": "org:synthetic-payer"
+    "payer_ref": "org:synthetic-payer",
+    "committed_amount_minor_units": 2490000,
+    "full_period_cost_estimate_minor_units": 2490000,
+    "minor_unit_digits": 2,
+    "cost_breakdown": {
+      "cost_items": [
+        {
+          "line_item_id": "cost-wages",
+          "category": "wages",
+          "description": "Paid field work for the synthetic period",
+          "amount_minor_units": 1200000,
+          "basis_method": "quoted_rate",
+          "basis_ref": "basis:SYNTH-WAGES",
+          "source_refs": [
+            "evidence:SYNTH-WAGES"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-supervision",
+          "category": "supervision",
+          "description": "Site supervision and coordination",
+          "amount_minor_units": 200000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-SUPERVISION",
+          "source_refs": [
+            "evidence:SYNTH-SUPERVISION"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-training",
+          "category": "training",
+          "description": "Role induction and training time",
+          "amount_minor_units": 50000,
+          "basis_method": "published_rate",
+          "basis_ref": "basis:SYNTH-TRAINING",
+          "source_refs": [
+            "evidence:SYNTH-TRAINING"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-tools",
+          "category": "tools_equipment",
+          "description": "Tool hire and equipment usage",
+          "amount_minor_units": 150000,
+          "basis_method": "quoted_rate",
+          "basis_ref": "basis:SYNTH-TOOLS",
+          "source_refs": [
+            "evidence:SYNTH-TOOLS_EQUIPMENT"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-ppe",
+          "category": "protective_equipment",
+          "description": "Protective equipment and consumables",
+          "amount_minor_units": 80000,
+          "basis_method": "quoted_rate",
+          "basis_ref": "basis:SYNTH-PPE",
+          "source_refs": [
+            "evidence:SYNTH-PROTECTIVE_EQUIPMENT"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-accessibility",
+          "category": "accessibility",
+          "description": "Access accommodations and reasonable adjustments",
+          "amount_minor_units": 20000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-ACCESSIBILITY",
+          "source_refs": [
+            "evidence:SYNTH-ACCESSIBILITY"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-transport",
+          "category": "transport",
+          "description": "Travel for the defined work period",
+          "amount_minor_units": 100000,
+          "basis_method": "published_rate",
+          "basis_ref": "basis:SYNTH-TRANSPORT",
+          "source_refs": [
+            "evidence:SYNTH-TRANSPORT"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-insurance",
+          "category": "insurance",
+          "description": "Relevant cover allowance pending real review",
+          "amount_minor_units": 50000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-INSURANCE",
+          "source_refs": [
+            "evidence:SYNTH-INSURANCE"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-materials",
+          "category": "materials",
+          "description": "Repair materials and consumables",
+          "amount_minor_units": 300000,
+          "basis_method": "quoted_rate",
+          "basis_ref": "basis:SYNTH-MATERIALS",
+          "source_refs": [
+            "evidence:SYNTH-MATERIALS"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-maintenance",
+          "category": "maintenance",
+          "description": "Equipment and follow-up maintenance reserve",
+          "amount_minor_units": 80000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-MAINTENANCE",
+          "source_refs": [
+            "evidence:SYNTH-MAINTENANCE"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-verification",
+          "category": "independent_verification",
+          "description": "Independent inspection and evidence capture",
+          "amount_minor_units": 100000,
+          "basis_method": "quoted_rate",
+          "basis_ref": "basis:SYNTH-VERIFICATION",
+          "source_refs": [
+            "evidence:SYNTH-INDEPENDENT_VERIFICATION"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-overheads",
+          "category": "administration_overheads",
+          "description": "Recordkeeping and administration overhead",
+          "amount_minor_units": 100000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-OVERHEADS",
+          "source_refs": [
+            "evidence:SYNTH-ADMINISTRATION_OVERHEADS"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-contingency",
+          "category": "contingency",
+          "description": "Explicit contingency allowance",
+          "amount_minor_units": 60000,
+          "basis_method": "contingency_allowance",
+          "basis_ref": "basis:SYNTH-CONTINGENCY",
+          "source_refs": [
+            "evidence:SYNTH-CONTINGENCY"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        }
+      ],
+      "category_coverage": [
+        {
+          "category": "wages",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "supervision",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "training",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "tools_equipment",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "protective_equipment",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "accessibility",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "transport",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "insurance",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "materials",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "maintenance",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "independent_verification",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "administration_overheads",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "contingency",
+          "disposition": "included",
+          "rationale": "Included explicitly as a separately identifiable synthetic cost line."
+        },
+        {
+          "category": "other",
+          "disposition": "not_applicable",
+          "rationale": "Reviewed for the synthetic scope; no separate amount applies, with no real-world inference."
+        }
+      ],
+      "reviewed_by_ref": "person:synthetic-cost-reviewer",
+      "reviewed_at": "2026-10-14T12:06:00Z"
+    }
   },
   "labor_plan": {
     "execution_actor_refs": [],
