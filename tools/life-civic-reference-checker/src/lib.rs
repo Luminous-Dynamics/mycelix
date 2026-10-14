@@ -960,4 +960,26 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
             .any(|claim| claim.as_str().unwrap().contains("proves the local program")),
         "NIJ evidence control must prevent unsupported local causal generalization"
     );
+
+    let robot_scope = by_id
+        .get("MYC-LCA-012")
+        .expect("industrial-versus-service robot scope control missing");
+    assert_eq!(robot_scope["expected"]["status"], "unknown");
+    assert_eq!(
+        robot_scope["expected"]["required_reason_codes"][0],
+        "context_insufficient"
+    );
+    assert!(
+        robot_scope["expected"]["forbidden_claims"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|claim| {
+                claim
+                    .as_str()
+                    .unwrap()
+                    .contains("fully covers a public-access service robot")
+            }),
+        "industrial robot-cell standard must not be generalized to a public-facing service robot"
+    );
 }
