@@ -208,7 +208,7 @@ The service-journey contract deliberately starts with effects disabled and an op
 
 - `received` means a report was recorded, not independently confirmed.
 - `work_reported_complete` plus `provider_attested_complete` means the provider reported the work complete; it does not prove service restoration.
-- `routing_conflict` plus `conflicted` preserves a discrepancy across official sources and requires review.
+- `source_conflict` plus `conflicted` preserves contradictory source claims and requires review; `routing_conflict` is reserved for genuinely conflicting destinations or routing instructions.
 - `verified_resolved` plus `independently_verified_complete` requires independent observation or measurement and completed human review.
 
 The schema and Rust fixture check reject a deliberately invalid case that promotes a provider statement alone to independent verification. The reference workflow cannot submit a real request, authorize a provider action, or close a service case.
