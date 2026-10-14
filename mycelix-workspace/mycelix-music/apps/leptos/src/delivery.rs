@@ -462,7 +462,7 @@ mod tests {
             "https://media.example.org:abc",
             "https://media.example.org:0",
             "https://media.example.org:65536",
-            "https://[::1]:8080",
+            "https://[2001:db8::1]:8080",
             "",
         ] {
             assert_eq!(
