@@ -78,7 +78,7 @@
         },
         "country_or_region": {
           "type": "string"
-        },
+        }
       }
     },
     "climate": {
