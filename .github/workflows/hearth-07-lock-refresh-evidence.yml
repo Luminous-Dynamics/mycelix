@@ -1,0 +1,189 @@
+name: Hearth Holochain 0.7 lock refresh evidence
+
+# Preparatory workflow only. This generates the exact Cargo.lock files needed
+# by the immutable runtime qualification workflow. It does not qualify the
+# commit and never reports a runtime PASS.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Exact 40-character commit SHA whose dependency closure should be generated"
+        required: true
+        type: string
+  push:
+    branches:
+      - chore/hearth-0.7-lock-refresh-evidence
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  refresh:
+    name: Generate Hearth 0.7 Cargo.lock evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Require immutable commit ref
+        shell: bash
+        run: |
+          ref="${{ inputs.ref || github.sha }}"
+          if [[ ! "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "FAIL: lock refresh requires an exact 40-character commit SHA."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Initialize external evidence capsule
+        shell: bash
+        run: |
+          evidence="$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
+          test "$(git rev-parse HEAD)" = "${{ inputs.ref || github.sha }}"
+          printf '%s\n' \
+            "workflow=hearth-07-lock-refresh-evidence" \
+            "requested_ref=${{ inputs.ref || github.sha }}" \
+            "resolved_commit=$(git rev-parse HEAD)" \
+            "qualified_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            "runner_os=$RUNNER_OS" \
+            "runner_image=${ImageOS:-unknown}" \
+            "actions_checkout_sha=3d3c42e5aac5ba805825da76410c181273ba90b1" \
+            "cachix_install_nix_action_sha=8aa03977d8d733052d78f4e008a241fd1dbf36b3" \
+            "actions_upload_artifact_sha=043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" \
+            "workflow_sha=$(git hash-object .github/workflows/hearth-07-lock-refresh-evidence.yml)" \
+            "run_id=$GITHUB_RUN_ID" \
+            "run_attempt=$GITHUB_RUN_ATTEMPT" \
+            > "$evidence"
+
+      - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31.10.6
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Refresh Nix lock closure
+        working-directory: mycelix-workspace/mycelix-hearth
+        timeout-minutes: 30
+        run: |
+          nix flake lock --extra-experimental-features 'nix-command flakes'
+          test -s flake.lock
+          sha256sum flake.lock | tee -a "$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
+
+      - name: Generate Hearth SDK package-lock.json
+        working-directory: mycelix-workspace/mycelix-hearth/sdk-ts
+        timeout-minutes: 15
+        run: |
+          nix develop ../.#ci --command npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          test -s package-lock.json
+
+      - name: Verify Holochain 0.7 source invariants
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: bash tools/verify-holochain-07.sh
+
+      - name: Resolve toolchain
+        working-directory: mycelix-workspace/mycelix-hearth
+        shell: bash
+        run: |
+          nix develop .#ci --command bash -lc '
+            holochain --version
+            hc --version
+            cargo --version
+            rustc --version
+          ' | tee -a "$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
+
+      - name: Generate Hearth Cargo.lock
+        working-directory: mycelix-workspace/mycelix-hearth
+        timeout-minutes: 45
+        run: |
+          nix develop .#ci --command cargo generate-lockfile
+          test -s Cargo.lock
+
+      - name: Validate Hearth Cargo.lock
+        working-directory: mycelix-workspace/mycelix-hearth
+        timeout-minutes: 45
+        run: |
+          nix develop .#ci --command cargo metadata --locked --format-version 1 >/dev/null
+          sha256sum Cargo.lock | tee -a "$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
+
+      - name: Generate dedicated tests Cargo.lock
+        working-directory: mycelix-workspace/mycelix-hearth/tests
+        timeout-minutes: 45
+        run: |
+          nix develop ../.#ci --command cargo generate-lockfile
+          test -s Cargo.lock
+
+      - name: Validate dedicated tests Cargo.lock
+        working-directory: mycelix-workspace/mycelix-hearth/tests
+        timeout-minutes: 45
+        run: |
+          nix develop ../.#ci --command cargo metadata --locked --format-version 1 >/dev/null
+          sha256sum Cargo.lock | tee -a "$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
+
+      - name: Verify generated lockfiles are the only source changes
+        shell: bash
+        run: |
+          mapfile -t changed < <(git status --short | awk '{print $2}')
+          allowed=(
+            "mycelix-workspace/mycelix-hearth/flake.lock"
+            "mycelix-workspace/mycelix-hearth/Cargo.lock"
+            "mycelix-workspace/mycelix-hearth/tests/Cargo.lock"
+            "mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json"
+          )
+          for path in "${changed[@]}"; do
+            case " ${allowed[*]} " in
+              *" $path "*) ;;
+              *) echo "FAIL: unexpected generated source change: $path"; exit 1 ;;
+            esac
+          done
+          for path in "${allowed[@]}"; do
+            if [[ -f "$path" ]]; then
+              echo "LOCK_PRESENT $path"
+            fi
+          done
+          test -s mycelix-workspace/mycelix-hearth/flake.lock
+          test -s mycelix-workspace/mycelix-hearth/Cargo.lock
+          test -s mycelix-workspace/mycelix-hearth/tests/Cargo.lock
+          test -s mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
+
+      - name: Commit generated dependency closure
+        shell: bash
+        env:
+          TARGET_REF: ${{ inputs.ref || github.sha }}
+        run: |
+          branch="hearth-0.7-lock-refresh/$TARGET_REF"
+          git switch -c "$branch"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mycelix-workspace/mycelix-hearth/flake.lock \
+            mycelix-workspace/mycelix-hearth/Cargo.lock \
+            mycelix-workspace/mycelix-hearth/tests/Cargo.lock \
+            mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
+          if git diff --cached --quiet; then
+            echo "No dependency-lock changes were generated."
+            exit 0
+          fi
+          git commit -m "HEARTH-0.7-LOCKS: seal generated dependency closure"
+          generated_commit="$(git rev-parse HEAD)"
+          git push --set-upstream origin "$branch"
+          printf '%s\n' \
+            "generated_branch=$branch" \
+            "generated_commit=$generated_commit" \
+            >> "$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
+
+      - name: Publish lock refresh evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hearth-07-lock-refresh-${{ inputs.ref || github.sha }}
+          path: |
+            ${{ runner.temp }}/hearth-07-lock-refresh-evidence.txt
+            mycelix-workspace/mycelix-hearth/Cargo.lock
+            mycelix-workspace/mycelix-hearth/tests/Cargo.lock
+            mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
+          if-no-files-found: error
+          retention-days: 30
