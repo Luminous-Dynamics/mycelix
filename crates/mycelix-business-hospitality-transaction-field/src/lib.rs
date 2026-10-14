@@ -215,8 +215,9 @@ pub fn evaluate_transaction_hospitality_field(
     let derived_cases = build_derived_cases(request.target_plan, &submissions, actuals)?;
     let overall_scorecard =
         score_derived_cases(&derived_cases).map_err(TransactionFieldError::DerivedScoring)?;
-    let overall_decision = evaluate_forecast_gate(&request.registration.protocol, &overall_scorecard)
-        .map_err(|_| TransactionFieldError::ProtocolGateFailed)?;
+    let overall_decision =
+        evaluate_forecast_gate(&request.registration.protocol, &overall_scorecard)
+            .map_err(|_| TransactionFieldError::ProtocolGateFailed)?;
 
     let forecast_submission_set_digest = submission_set_digest(request.submissions);
     let derived_actual_set_digest = derived_actual_set_digest(&derived_cases);
@@ -235,8 +236,7 @@ pub fn evaluate_transaction_hospitality_field(
             score_derived_cases(&selected).map_err(TransactionFieldError::DerivedScoring)?;
         let selected_digest = derived_case_set_digest(&selected);
         let passed = scorecard.cases >= slice.minimum_cases
-            && scorecard.abstention_bps()
-                <= request.registration.protocol.maximum_abstention_bps
+            && scorecard.abstention_bps() <= request.registration.protocol.maximum_abstention_bps
             && (!request
                 .registration
                 .protocol
@@ -298,8 +298,9 @@ pub fn evaluate_transaction_hospitality_field(
         known_limitations: limitations.clone(),
         evidence_digest: field_evidence_digest,
     };
-    let field_decision = evaluate_field_qualification(&request.registration.field_plan, &field_evidence)
-        .map_err(|_| TransactionFieldError::FieldEvidenceInvalid)?;
+    let field_decision =
+        evaluate_field_qualification(&request.registration.field_plan, &field_evidence)
+            .map_err(|_| TransactionFieldError::FieldEvidenceInvalid)?;
     let decision = if overall_decision == ShadowPromotionDecision::PassShadowGate {
         TransactionQualificationDecision::Field(field_decision)
     } else {
@@ -388,8 +389,12 @@ fn validate_connector_binding(
     if binding != registration.ingress_connector || binding != campaign.connector {
         return Err(TransactionFieldError::ConnectorMismatch);
     }
-    if !campaign.supported_inputs.contains(&projection_spec.source_input)
-        || !descriptor.supported_inputs.contains(&projection_spec.source_input)
+    if !campaign
+        .supported_inputs
+        .contains(&projection_spec.source_input)
+        || !descriptor
+            .supported_inputs
+            .contains(&projection_spec.source_input)
     {
         return Err(TransactionFieldError::ProjectionInputNotDeclared);
     }
@@ -485,17 +490,16 @@ fn build_derived_cases(
         .collect::<BTreeMap<_, _>>();
     let mut cases = Vec::with_capacity(plan.targets.len());
     for (index, planned) in plan.targets.iter().enumerate() {
-        let submission = submissions
-            .get(&planned.target_id)
-            .ok_or_else(|| TransactionFieldError::MissingTargetSubmission {
+        let submission = submissions.get(&planned.target_id).ok_or_else(|| {
+            TransactionFieldError::MissingTargetSubmission {
                 target: planned.target_id.clone(),
-            })?;
-        let actual = actuals
-            .get(&planned.target_id)
-            .cloned()
-            .ok_or_else(|| TransactionFieldError::MissingTargetSubmission {
+            }
+        })?;
+        let actual = actuals.get(&planned.target_id).cloned().ok_or_else(|| {
+            TransactionFieldError::MissingTargetSubmission {
                 target: planned.target_id.clone(),
-            })?;
+            }
+        })?;
         let case = DerivedForecastCase {
             candidate: submission.candidate.clone(),
             baseline: submission.baseline.clone(),
@@ -528,10 +532,7 @@ fn derived_case_belongs_to_slice(
                 == resolved.end_inclusive.local_day_index
                 && resolved.start.weekday >= 5
                 && resolved.end_inclusive.weekday >= 5;
-            let saturday_to_sunday = resolved
-                .start
-                .local_day_index
-                .checked_add(1)
+            let saturday_to_sunday = resolved.start.local_day_index.checked_add(1)
                 == Some(resolved.end_inclusive.local_day_index)
                 && resolved.start.weekday == 5
                 && resolved.end_inclusive.weekday == 6;
@@ -542,9 +543,11 @@ fn derived_case_belongs_to_slice(
             else {
                 return Ok(false);
             };
-            Ok(resolved.start.local_day_index == resolved.end_inclusive.local_day_index
-                && resolved.start.minute_of_day >= start
-                && resolved.end_inclusive.minute_of_day < end)
+            Ok(
+                resolved.start.local_day_index == resolved.end_inclusive.local_day_index
+                    && resolved.start.minute_of_day >= start
+                    && resolved.end_inclusive.minute_of_day < end,
+            )
         }
     }
 }
@@ -560,24 +563,24 @@ fn derive_data_quality(
     }
     let threshold = &registration.field_plan.data_quality[0];
     let conflicting_records = campaign.files.iter().try_fold(0_u64, |total, file| {
-        total.checked_add(
-            file.rejection_counts
-                .get(&ImportRejectionClass::DuplicateSourceEvent)
-                .copied()
-                .unwrap_or(0),
-        )
-        .ok_or(TransactionFieldError::QualityArithmeticOverflow)
+        total
+            .checked_add(
+                file.rejection_counts
+                    .get(&ImportRejectionClass::DuplicateSourceEvent)
+                    .copied()
+                    .unwrap_or(0),
+            )
+            .ok_or(TransactionFieldError::QualityArithmeticOverflow)
     })?;
     // Conservative v0.1 classification: campaign manifests prove the exact maximum ingest delay,
     // but not the exact count of late accepted records. If even one accepted record may exceed the
     // registered delay ceiling, mark the entire accepted set stale rather than undercounting.
-    let stale_records = if campaign.maximum_observed_ingest_delay_ms
-        > threshold.maximum_ingest_delay_ms
-    {
-        campaign.accepted_rows
-    } else {
-        0
-    };
+    let stale_records =
+        if campaign.maximum_observed_ingest_delay_ms > threshold.maximum_ingest_delay_ms {
+            campaign.accepted_rows
+        } else {
+            0
+        };
     let mut evidence = DataQualityEvidence {
         input: sales_input_ref(),
         expected_records: campaign.discovered_rows,
@@ -727,7 +730,10 @@ fn transaction_field_evidence_digest(
     limitations: &BTreeSet<ReferenceId>,
 ) -> Digest32 {
     let mut hasher = Sha256::new();
-    hash_str(&mut hasher, "mycelix:transaction-hospitality-field-evidence:v1");
+    hash_str(
+        &mut hasher,
+        "mycelix:transaction-hospitality-field-evidence:v1",
+    );
     for digest in [
         registration_digest,
         target_plan_digest,
@@ -928,9 +934,13 @@ mod tests {
         }
     }
 
-    fn campaign(adapter: &DelimitedIngressAdapter, file: &CampaignSourceFile) -> ExtractionCampaignManifest {
-        let manifest = diagnose_delimited_import(adapter, file.bytes.as_slice(), file.ingested_at_unix_ms)
-            .unwrap();
+    fn campaign(
+        adapter: &DelimitedIngressAdapter,
+        file: &CampaignSourceFile,
+    ) -> ExtractionCampaignManifest {
+        let manifest =
+            diagnose_delimited_import(adapter, file.bytes.as_slice(), file.ingested_at_unix_ms)
+                .unwrap();
         ExtractionCampaignManifest::from_files(vec![manifest]).unwrap()
     }
 
@@ -983,10 +993,22 @@ mod tests {
             id("forecast-plan:transaction-field:v1"),
             registration.protocol.registered_at_unix_ms,
             vec![
-                PlannedForecastTarget { target_id: id("target:breakfast"), target: target(&metric, BREAKFAST) },
-                PlannedForecastTarget { target_id: id("target:lunch"), target: target(&metric, LUNCH) },
-                PlannedForecastTarget { target_id: id("target:evening"), target: target(&metric, EVENING) },
-                PlannedForecastTarget { target_id: id("target:weekend"), target: target(&metric, WEEKEND) },
+                PlannedForecastTarget {
+                    target_id: id("target:breakfast"),
+                    target: target(&metric, BREAKFAST),
+                },
+                PlannedForecastTarget {
+                    target_id: id("target:lunch"),
+                    target: target(&metric, LUNCH),
+                },
+                PlannedForecastTarget {
+                    target_id: id("target:evening"),
+                    target: target(&metric, EVENING),
+                },
+                PlannedForecastTarget {
+                    target_id: id("target:weekend"),
+                    target: target(&metric, WEEKEND),
+                },
             ],
         )
         .unwrap()
@@ -1032,9 +1054,21 @@ mod tests {
         point: i128,
     ) -> ShadowForecast {
         let value = ForecastValue {
-            point: ScaledValue { mantissa: point, scale: 0, unit: id("unit:count") },
-            lower: ScaledValue { mantissa: point.saturating_sub(1), scale: 0, unit: id("unit:count") },
-            upper: ScaledValue { mantissa: point.saturating_add(1), scale: 0, unit: id("unit:count") },
+            point: ScaledValue {
+                mantissa: point,
+                scale: 0,
+                unit: id("unit:count"),
+            },
+            lower: ScaledValue {
+                mantissa: point.saturating_sub(1),
+                scale: 0,
+                unit: id("unit:count"),
+            },
+            upper: ScaledValue {
+                mantissa: point.saturating_add(1),
+                scale: 0,
+                unit: id("unit:count"),
+            },
         };
         ShadowForecast {
             forecast: ForecastRef(id(id_value)),
@@ -1136,12 +1170,16 @@ mod tests {
         assert_eq!(report.overall_scorecard.cases, 4);
         assert_eq!(report.overall_scorecard.candidate_absolute_error_sum, 0);
         assert!(report.validate_digest());
-        assert!(report
-            .unresolved_limitations
-            .contains(&aggregation_semantic_authority_unverified_ref()));
+        assert!(
+            report
+                .unresolved_limitations
+                .contains(&aggregation_semantic_authority_unverified_ref())
+        );
         assert!(matches!(
             report.decision,
-            TransactionQualificationDecision::Field(FieldQualificationDecision::PassShadowFieldGate)
+            TransactionQualificationDecision::Field(
+                FieldQualificationDecision::PassShadowFieldGate
+            )
         ));
     }
 
