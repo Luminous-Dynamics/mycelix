@@ -1121,7 +1121,29 @@ mod tests {
         assert!(milestone.validate().is_err());
 
         milestone.qualification_scope = Some(valid_qualification_scope());
-        milestone.qualification_scope.as_mut().unwrap().standards_applicability[0].requirement_ids.clear();
+        milestone
+            .qualification_scope
+            .as_mut()
+            .unwrap()
+            .standards_applicability[0]
+            .decision = StandardApplicabilityDecision::Tailored;
+        milestone
+            .qualification_scope
+            .as_mut()
+            .unwrap()
+            .standards_applicability[0]
+            .requirement_ids
+            .clear();
+        assert!(milestone.validate().is_err());
+
+        milestone.qualification_scope = Some(valid_qualification_scope());
+        milestone
+            .qualification_scope
+            .as_mut()
+            .unwrap()
+            .standards_applicability[0]
+            .requirement_ids
+            .push("INAPPROPRIATE-REQUIREMENT".to_string());
         assert!(milestone.validate().is_err());
     }
 
