@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-desci/docs/research/millennium-biology/official-criteria.schema.json",
+  "title": "Mycelix-DeSci Millennium Biology Official Criteria",
+  "type": "object",
+  "required": ["schema", "schema_version", "criteria_generation", "status", "source", "scope", "criteria", "qualification"],
+  "properties": {
+    "schema": { "const": "mycelix.desci.millennium_biology.official_criteria" },
+    "schema_version": { "type": "string" },
+    "criteria_generation": { "type": "string", "pattern": "^DESCI-BIO-001B-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}$" },
+    "status": { "const": "source_bound_historical_snapshot" },
+    "source": {
+      "type": "object",
+      "required": ["publisher", "url", "announcement_url", "publication_date", "retrieved_at", "living_project", "authority", "source_bytes_vendored"],
+      "properties": {
+        "publisher": { "const": "FutureHouse / Edison Scientific" },
+        "url": { "const": "https://millenniumproblems.bio/" },
+        "announcement_url": { "const": "https://www.futurehouse.org/news/millennium-problems-for-biology" },
+        "publication_date": { "const": "2026-09-23" },
+        "retrieved_at": { "type": "string", "format": "date" },
+        "living_project": { "const": true },
+        "authority": { "const": "external_source_only" },
+        "source_bytes_vendored": { "const": false },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "required": ["claim_ceiling", "non_equivalences"],
+      "properties": {
+        "claim_ceiling": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "non_equivalences": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "criteria": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["challenge_id", "ordinal", "title", "source_section", "criterion", "required_conditions", "required_evidence", "partial_success", "explicit_noncriteria"],
+        "properties": {
+          "challenge_id": { "type": "string", "pattern": "^MPB-2026-09-23-(0[1-9]|1[0-2])$" },
+          "ordinal": { "type": "integer", "minimum": 1, "maximum": 12 },
+          "title": { "type": "string", "minLength": 1 },
+          "source_section": { "type": "string", "pattern": "^(0[1-9]|1[0-2])$" },
+          "criterion": { "type": "string", "minLength": 1 },
+          "required_conditions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "required_evidence": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "partial_success": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "required": ["source_defined", "description"],
+                "properties": {
+                  "source_defined": { "const": true },
+                  "description": { "type": "string", "minLength": 1 }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
+          "explicit_noncriteria": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "required": ["source_cross_check", "generation_rules", "adversarial_fixtures"],
+      "properties": {
+        "source_cross_check": {
+          "type": "object",
+          "required": ["checked_against", "checked_at", "result"],
+          "properties": {
+            "checked_against": { "const": "https://millenniumproblems.bio/" },
+            "checked_at": { "type": "string", "format": "date" },
+            "result": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "generation_rules": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "adversarial_fixtures": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
