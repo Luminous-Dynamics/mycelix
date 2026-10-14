@@ -115,17 +115,99 @@ def semantic_errors(record: dict[str, Any]) -> list[str]:
 
     funding = record.get("funding", {})
     commissioning = record.get("commissioning", {})
+    scope_period = record.get("scope", {}).get("period", {})
+    cost_breakdown = funding.get("cost_breakdown", {})
+    cost_items = cost_breakdown.get("cost_items", [])
+    category_coverage = cost_breakdown.get("category_coverage", [])
+    required_cost_categories = {
+        "wages", "supervision", "training", "tools_equipment", "protective_equipment",
+        "accessibility", "transport", "insurance", "materials", "maintenance",
+        "independent_verification", "administration_overheads", "contingency", "other",
+    }
+
+    # Money is represented as integer minor units. Sum and compare exactly—never use
+    # binary floating-point for the cost-coverage decision.
+    line_ids: set[str] = set()
+    costs_by_category: dict[str, int] = {}
+    computed_total = 0
+    scope_start = scope_end = None
+    try:
+        scope_start = date.fromisoformat(scope_period["start_date"]) if scope_period.get("start_date") else None
+        scope_end = date.fromisoformat(scope_period["end_date"]) if scope_period.get("end_date") else None
+    except (TypeError, ValueError):
+        errors.append("CWP_E_INVALID_SCOPE_PERIOD")
+
+    for item in cost_items:
+        line_id = item.get("line_item_id")
+        if not line_id or line_id in line_ids:
+            errors.append("CWP_E_DUPLICATE_COST_ITEM_ID")
+        line_ids.add(line_id)
+        amount_minor = item.get("amount_minor_units")
+        if not isinstance(amount_minor, int) or isinstance(amount_minor, bool) or amount_minor < 0:
+            errors.append("CWP_E_INVALID_COST_AMOUNT")
+            continue
+        computed_total += amount_minor
+        category = item.get("category")
+        costs_by_category[category] = costs_by_category.get(category, 0) + 1
+        try:
+            item_start = date.fromisoformat(item["period_start"])
+            item_end = date.fromisoformat(item["period_end"])
+            if item_end < item_start:
+                errors.append("CWP_E_INVALID_COST_PERIOD")
+            if scope_start and item_start < scope_start or scope_end and item_end > scope_end:
+                errors.append("CWP_E_COST_PERIOD_OUT_OF_SCOPE")
+        except (KeyError, TypeError, ValueError):
+            errors.append("CWP_E_INVALID_COST_PERIOD")
+
+    covered_categories: set[str] = set()
+    for assessment in category_coverage:
+        category = assessment.get("category")
+        if category in covered_categories:
+            errors.append("CWP_E_DUPLICATE_COST_CATEGORY_ASSESSMENT")
+        covered_categories.add(category)
+        line_count = costs_by_category.get(category, 0)
+        disposition = assessment.get("disposition")
+        if disposition == "included" and line_count == 0:
+            errors.append("CWP_E_INCLUDED_CATEGORY_HAS_NO_COST_LINE")
+        if disposition == "not_applicable" and line_count > 0:
+            errors.append("CWP_E_NOT_APPLICABLE_CATEGORY_HAS_COST_LINE")
+    if covered_categories != required_cost_categories:
+        errors.append("CWP_E_COST_COVERAGE_INCOMPLETE")
+
+    estimate = funding.get("full_period_cost_estimate_minor_units")
+    amount = funding.get("committed_amount_minor_units")
+    if isinstance(estimate, int) and not isinstance(estimate, bool):
+        if computed_total != estimate:
+            errors.append("CWP_E_COST_TOTAL_MISMATCH")
+    elif funding.get("whole_period_fully_costed") is True or status in _FUNDED_STATUSES:
+        errors.append("CWP_E_COST_TOTAL_MISSING")
+    if funding.get("whole_period_fully_costed") is True:
+        if covered_categories != required_cost_categories:
+            errors.append("CWP_E_PERIOD_COSTING_INCOMPLETE")
+        if not cost_breakdown.get("reviewed_by_ref") or not cost_breakdown.get("reviewed_at"):
+            errors.append("CWP_E_COST_COVERAGE_REVIEW_MISSING")
     if status in _FUNDED_STATUSES:
-        amount = funding.get("committed_amount")
-        estimate = funding.get("full_period_cost_estimate")
         if funding.get("status") != "committed" or not funding.get("commitment_evidence_ref"):
             errors.append("CWP_E_FUNDING_NOT_COMMITTED")
-        if not isinstance(amount, (int, float)) or isinstance(amount, bool) or not isinstance(estimate, (int, float)) or isinstance(estimate, bool) or amount < estimate:
+        if not isinstance(amount, int) or isinstance(amount, bool) or not isinstance(estimate, int) or isinstance(estimate, bool) or amount < estimate:
             errors.append("CWP_E_COMMITMENT_DOES_NOT_COVER_FULL_PERIOD_COST")
         if funding.get("payer_ref") != commissioning.get("payer_ref") or not funding.get("payer_ref"):
             errors.append("CWP_E_PAYER_REFERENCE_MISMATCH")
         if funding.get("whole_period_fully_costed") is not True:
             errors.append("CWP_E_PERIOD_COSTING_INCOMPLETE")
+        funded_start = funded_end = None
+        try:
+            funded_start = date.fromisoformat(funding["funded_period_start"])
+            funded_end = date.fromisoformat(funding["funded_period_end"])
+            if funded_end < funded_start:
+                errors.append("CWP_E_INVALID_FUNDED_PERIOD")
+            for item in cost_items:
+                item_start = date.fromisoformat(item["period_start"])
+                item_end = date.fromisoformat(item["period_end"])
+                if item_start < funded_start or item_end > funded_end:
+                    errors.append("CWP_E_COST_PERIOD_OUTSIDE_FUNDED_PERIOD")
+        except (KeyError, TypeError, ValueError):
+            errors.append("CWP_E_INVALID_FUNDED_PERIOD")
         for role in record.get("labor_plan", {}).get("roles", []):
             if role.get("paid") is True:
                 cls = role.get("classification", {})
@@ -182,11 +264,6 @@ def semantic_errors(record: dict[str, Any]) -> list[str]:
             errors.append("CWP_E_INVALID_TIMESTAMP")
 
     try:
-        scope_period = record["scope"]["period"]
-        start = date.fromisoformat(scope_period["start_date"]) if scope_period.get("start_date") else None
-        end = date.fromisoformat(scope_period["end_date"]) if scope_period.get("end_date") else None
-        if start and end and end < start:
-            errors.append("CWP_E_INVALID_SCOPE_PERIOD")
         funded_start = date.fromisoformat(funding["funded_period_start"]) if funding.get("funded_period_start") else None
         funded_end = date.fromisoformat(funding["funded_period_end"]) if funding.get("funded_period_end") else None
         if funded_start and funded_end and funded_end < funded_start:
