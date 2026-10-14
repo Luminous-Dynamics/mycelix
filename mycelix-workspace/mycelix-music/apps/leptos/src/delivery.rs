@@ -67,8 +67,9 @@ impl MediaAssetManifestV1 {
 
 /// Deployment-configured gateway origin; HTTPS is required except for loopback.
 ///
-/// Only an operator-controlled build setting should be passed to `parse`;
-/// never accept this value from publication metadata or a provider lease.
+/// Only explicit operator configuration or a listener's local preference
+/// should be passed to `parse`; never accept origins from publication metadata
+/// or provider leases. The parser validates the origin before URL construction.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TrustedGatewayOrigin(String);
 
@@ -303,6 +304,29 @@ pub fn delivery_candidates_from_build_config(
         None => Vec::new(),
     };
     delivery_candidates_with_origins(manifest, &configured_origins)
+}
+
+/// Apply a listener preference before falling back to deployment defaults.
+///
+/// - None: use the operator's explicit deployment pool.
+/// - Some("") or whitespace: deliberately disable gateway delivery.
+/// - Some(list): use only the validated user-specified origins.
+///
+/// Invalid preferences fail closed and never revert to a public gateway.
+pub fn delivery_candidates_for_preference(
+    manifest: &MediaAssetManifestV1,
+    preference: Option<&str>,
+) -> Result<Vec<DeliveryCandidate>, DeliveryPlanError> {
+    match preference {
+        None => delivery_candidates_from_build_config(manifest),
+        Some(value) if value.trim().is_empty() => {
+            delivery_candidates_with_origins(manifest, &[])
+        }
+        Some(value) => {
+            let origins = parse_gateway_origins(value)?;
+            delivery_candidates_with_origins(manifest, &origins)
+        }
+    }
 }
 
 /// Select the next candidate after a failed request without exceeding the
@@ -542,6 +566,42 @@ mod tests {
                 "expected rejection for {cid:?}"
             );
         }
+    }
+
+    #[test]
+    fn custom_listener_preference_overrides_deployment_pool_in_order() {
+        let routes = delivery_candidates_for_preference(
+            &manifest(SAMPLE_CID),
+            Some("http://127.0.0.1:8080,https://mirror.example.org"),
+        )
+        .unwrap();
+        assert_eq!(routes.len(), 2);
+        assert_eq!(routes[0].url, format!("http://127.0.0.1:8080/ipfs/{SAMPLE_CID}"));
+        assert_eq!(routes[1].url, format!("https://mirror.example.org/ipfs/{SAMPLE_CID}"));
+        assert_eq!(routes[0].priority, 0);
+        assert_eq!(routes[1].priority, 1);
+    }
+
+    #[test]
+    fn empty_listener_preference_explicitly_disables_routes() {
+        assert!(delivery_candidates_for_preference(&manifest(SAMPLE_CID), Some(""))
+            .unwrap()
+            .is_empty());
+        assert!(delivery_candidates_for_preference(&manifest(SAMPLE_CID), Some("  "))
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn invalid_listener_preference_fails_closed() {
+        assert_eq!(
+            delivery_candidates_for_preference(
+                &manifest(SAMPLE_CID),
+                Some("http://192.168.1.20:8080"),
+            )
+            .unwrap_err(),
+            DeliveryPlanError::InvalidGatewayOrigin
+        );
     }
 
     #[test]
