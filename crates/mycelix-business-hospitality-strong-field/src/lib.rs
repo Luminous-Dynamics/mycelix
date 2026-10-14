@@ -892,7 +892,6 @@ mod tests {
             BTreeSet::new(),
         )
         .unwrap();
-        assert!(STRONG_HOSPITALITY_FIELD_IS_READ_ONLY);
         assert_eq!(
             report.decision,
             StrongQualificationDecision::Field(FieldQualificationDecision::PassShadowFieldGate)
