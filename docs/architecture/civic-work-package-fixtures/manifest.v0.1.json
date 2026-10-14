@@ -6,13 +6,13 @@
       "path": "docs/architecture/civic-work-package-fixtures/proposed.synthetic.v0.1.json",
       "expect_valid": true,
       "status": "proposed",
-      "git_blob_sha": "1553743565f7d28160f488b971d92fbe12f82baa"
+      "git_blob_sha": "5bf213e8b314157806ad2d57c385d6e68618b272"
     },
     {
       "path": "docs/architecture/civic-work-package-fixtures/authorized.synthetic.v0.1.json",
       "expect_valid": true,
       "status": "authorized",
-      "git_blob_sha": "4ececed24ad5ddfda87a73ab5d7bb1dcad7d522c"
+      "git_blob_sha": "9f176a284be03662d8b901ab0328f3005da15ffd"
     }
   ],
   "required_negative_controls": [
@@ -29,11 +29,13 @@
     "missing-cost-category-assessment",
     "duplicate-cost-item-id",
     "cost-period-out-of-scope",
-    "not-applicable-category-has-cost-line"
+    "not-applicable-category-has-cost-line",
+    "missing-environment-and-closeout-costs",
+    "paid-role-with-zero-wage-cost"
   ],
   "limitations": [
     "Fixtures are synthetic only and must not be used as real contracts or employment evidence.",
     "A valid schema is not evidence of truth, funding, legal compliance, authority, or delivery."
   ],
-  "schema_git_blob_sha": "10de075dd8a422e884178e64d6d80e3699bc68c2"
+  "schema_git_blob_sha": "e939265af66c70ad16f399203853ba1c8284ddbf"
 }
