@@ -29,6 +29,27 @@
       "observed_status": "RFC 9943; Standards Track / Proposed Standard; June 2026",
       "as_of_date": "2026-10-14",
       "notes": "RFC status and scope must be represented precisely; publication does not establish legal authority or supply-chain trust by itself."
+    },
+    {
+      "snapshot_id": "NIST-SP-800-82R4-IPD-2026-09",
+      "source_uri": "https://csrc.nist.gov/pubs/sp/800/82/r4/ipd",
+      "observed_status": "initial public draft; published 2026-09-21; comments due 2026-11-30",
+      "as_of_date": "2026-10-14",
+      "notes": "NIST describes Rev. 4 as an initial public draft concerning operational technology security, including systems that sense or affect the physical environment. Treat the lifecycle state as draft; this source snapshot is not a final publication, robot-specific safety case, legal applicability decision, or proof that a particular system is secure."
+    },
+    {
+      "snapshot_id": "UNODC-E4J-CRIME-PREVENTION-MODULE-2-2019",
+      "source_uri": "https://www.unodc.org/e4j/en/crime-prevention-criminal-justice/module-2/key-issues/summary.html",
+      "observed_status": "published educational summary on crime-prevention approaches",
+      "as_of_date": "2026-10-14",
+      "notes": "The summary spans social-development, environmental-design, policy, research, and justice measures. It is educational guidance; it does not determine a local legal duty or establish the causal effect of a proposed robotics intervention."
+    },
+    {
+      "snapshot_id": "NIJ-LABOR-MARKETS-CRIME-NCJ-214515-2006",
+      "source_uri": "https://nij.ojp.gov/library/publications/labor-force-participation-labor-markets-and-crime-final-report",
+      "observed_status": "research report; reported employment relationship was modest and context-dependent",
+      "as_of_date": "2026-10-14",
+      "notes": "The NIJ summary reports a modest employment–crime relationship in urban young adults in this study, but not in rural young adults. This is a bounded U.S. study summary, not a universal causal coefficient, local South African effect estimate, or robot deployment validation."
     }
   ],
   "cases": [
@@ -255,6 +276,98 @@
         ]
       },
       "rationale": "RFC 9943 describes a transparency architecture; transparency can make signed statements auditable but does not prevent dishonest or compromised issuers.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-009",
+      "title": "NIST SP 800-82 Revision 4 initial public draft must not be called final or robot-certified",
+      "input_projection": {
+        "instrument_id": "NIST:SP-800-82r4:IPD",
+        "artifact_kind": "guidance",
+        "version": "Revision 4 Initial Public Draft; 2026-09-21",
+        "publication_status": "draft",
+        "normative_status": "advisory",
+        "source_uri": "https://csrc.nist.gov/pubs/sp/800/82/r4/ipd"
+      },
+      "context": {
+        "use_case": "review OT cybersecurity controls for a proposed autonomous inspection robot at an essential-service facility",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "indeterminate",
+        "required_reason_codes": [
+          "draft_not_published"
+        ],
+        "forbidden_claims": [
+          "NIST SP 800-82 Revision 4 is a final publication",
+          "the draft automatically creates a binding South African legal obligation",
+          "catalogue or framework mapping proves the robot is secure or safe to operate",
+          "the reference satisfies a deployment-specific safety case"
+        ]
+      },
+      "rationale": "The source is a point-in-time initial public draft. OT guidance can inform a risk review, but publication state, local legal applicability, technical conformance, and a deployment-specific robot safety case are distinct.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-010",
+      "title": "UNODC crime-prevention guidance does not establish local legality or a robotics causal effect",
+      "input_projection": {
+        "instrument_id": "UNODC:E4J:CRIME-PREVENTION-MODULE-2",
+        "artifact_kind": "guidance",
+        "version": "Module 2 summary; 2019",
+        "publication_status": "published",
+        "normative_status": "advisory",
+        "source_uri": "https://www.unodc.org/e4j/en/crime-prevention-criminal-justice/module-2/key-issues/summary.html"
+      },
+      "context": {
+        "use_case": "choose a municipal intervention combining housing support, legitimate work pathways, and property-protection robots",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the educational guidance is itself binding law for this municipality",
+          "a general crime-prevention typology proves that security robots reduce crime",
+          "the source authorizes person-level risk scoring or automated enforcement"
+        ]
+      },
+      "rationale": "The source describes multiple prevention approaches. Local legal authority, intervention suitability, and causal efficacy require separate evidence and review.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-011",
+      "title": "NIJ employment–crime findings must not be generalized into a universal robot-economy effect",
+      "input_projection": {
+        "instrument_id": "NIJ:NCJ-214515-2006",
+        "artifact_kind": "other",
+        "version": "Final report; 2006",
+        "publication_status": "published",
+        "normative_status": "informational",
+        "source_uri": "https://nij.ojp.gov/library/publications/labor-force-participation-labor-markets-and-crime-final-report"
+      },
+      "context": {
+        "use_case": "estimate crime outcomes for an automation and employment program in a South African municipality",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the historical U.S. study proves the local program will reduce crime",
+          "employment count alone establishes a causal effect",
+          "an urban-context finding necessarily generalizes to rural settings",
+          "the study qualifies autonomous robotics or Mycelix economic policy"
+        ]
+      },
+      "rationale": "This research source can motivate a hypothesis, but the reported association is context-dependent. Local evaluation needs a defined intervention, outcomes, baseline, and credible counterfactual.",
       "synthetic": false
     }
   ]
