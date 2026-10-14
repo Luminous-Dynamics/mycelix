@@ -181,27 +181,51 @@ const ORACLE_STATE_ANCHOR: &str = "tend:oracle_state";
 const MAX_VITALITY: u32 = 100;
 const HIBERNATION_YIELD_THRESHOLD: f32 = 1.0; // kWh
 
-/// Calculate the adaptive demurrage rate based on total yield (Loop 3).
-#[hdk_extern]
-pub fn get_adaptive_demurrage_rate(_: ()) -> ExternResult<f64> {
-    let base_rate = 0.02; // 2% annual
-
+fn find_oracle_state() -> ExternResult<Option<(Record, OracleState)>> {
     let links = get_links(
         LinkQuery::try_new(anchor_hash(ORACLE_STATE_ANCHOR)?, LinkTypes::AnchorLinks)?,
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
+    match links.len() {
+        0 => Ok(None),
+        1 => {
+            let action_hash = links[0]
+                .target
+                .clone()
+                .into_action_hash()
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "OracleState index contains an invalid link target".into()
+                )))?;
             let record = follow_update_chain(action_hash)?;
-            if let Some(state) = record.entry().to_app_option::<OracleState>().ok().flatten() {
-                // If yield is low, scale down demurrage (Linear falloff to 0%)
-                if state.total_yield_kwh < HIBERNATION_YIELD_THRESHOLD {
-                    return Ok(
-                        base_rate * (state.total_yield_kwh / HIBERNATION_YIELD_THRESHOLD) as f64
-                    );
-                }
-            }
+            let state = record.entry().to_app_option::<OracleState>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "OracleState deserialization error: {:?}",
+                    e
+                )))
+            })?.ok_or(wasm_error!(WasmErrorInner::Guest(
+                "OracleState index target is not an OracleState entry".into()
+            )))?;
+            Ok(Some((record, state)))
+        }
+        count => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Ambiguous OracleState index: {} roots",
+            count
+        )))),
+    }
+}
+
+/// Calculate the adaptive demurrage rate based on total yield (Loop 3).
+#[hdk_extern]
+pub fn get_adaptive_demurrage_rate(_: ()) -> ExternResult<f64> {
+    let base_rate = 0.02; // 2% annual
+
+    if let Some((_, state)) = find_oracle_state()? {
+        // If yield is low, scale down demurrage (Linear falloff to 0%)
+        if state.total_yield_kwh < HIBERNATION_YIELD_THRESHOLD {
+            return Ok(
+                base_rate * (state.total_yield_kwh / HIBERNATION_YIELD_THRESHOLD) as f64
+            );
         }
     }
 
@@ -210,19 +234,9 @@ pub fn get_adaptive_demurrage_rate(_: ()) -> ExternResult<f64> {
 
 /// Helper: Check if constellation is in metabolic hibernation.
 fn is_in_hibernation() -> ExternResult<bool> {
-    let links = get_links(
-        LinkQuery::try_new(anchor_hash(ORACLE_STATE_ANCHOR)?, LinkTypes::AnchorLinks)?,
-        GetStrategy::default(),
-    )?;
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            if let Some(state) = record.entry().to_app_option::<OracleState>().ok().flatten() {
-                return Ok(state.total_yield_kwh < HIBERNATION_YIELD_THRESHOLD);
-            }
-        }
-    }
-    Ok(false)
+    Ok(find_oracle_state()?
+        .map(|(_, state)| state.total_yield_kwh < HIBERNATION_YIELD_THRESHOLD)
+        .unwrap_or(false))
 }
 
 /// Update the oracle state with total yield (Loop 3).
@@ -239,21 +253,14 @@ pub fn update_oracle_state(input: UpdateOracleInput) -> ExternResult<OracleState
         updated_at: now,
     };
 
-    // [Standard update-or-create logic follows...]
-    let links = get_links(
-        LinkQuery::try_new(anchor_hash(ORACLE_STATE_ANCHOR)?, LinkTypes::AnchorLinks)?,
-        GetStrategy::default(),
-    )?;
-
-    if let Some(link) = links.first() {
-        if let Some(link_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(link_hash)?;
-            update_entry(
-                record.action_address().clone(),
-                &EntryTypes::OracleState(state.clone()),
-            )?;
-            return Ok(state);
-        }
+    // Treat OracleState as a singleton index: update exactly one existing
+    // state, create only when none exists, and reject ambiguity.
+    if let Some((record, _)) = find_oracle_state()? {
+        update_entry(
+            record.action_address().clone(),
+            &EntryTypes::OracleState(state.clone()),
+        )?;
+        return Ok(state);
     }
 
     let hash = create_entry(&EntryTypes::OracleState(state.clone()))?;
@@ -285,24 +292,8 @@ pub fn get_dynamic_tend_limit(_: ()) -> ExternResult<i32> {
 /// Internal: read the current tier from oracle state.
 /// Follows the update chain to get the latest oracle state.
 fn read_current_tier() -> ExternResult<TendLimitTier> {
-    let links = get_links(
-        LinkQuery::try_new(anchor_hash(ORACLE_STATE_ANCHOR)?, LinkTypes::AnchorLinks)?,
-        GetStrategy::default(),
-    )?;
-
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            let state = record.entry().to_app_option::<OracleState>().map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "OracleState deserialization error: {:?}",
-                    e
-                )))
-            })?;
-            if let Some(state) = state {
-                return Ok(state.tier);
-            }
-        }
+    if let Some((_, state)) = find_oracle_state()? {
+        return Ok(state.tier);
     }
 
     // Default to Normal if no oracle state
@@ -313,27 +304,12 @@ fn read_current_tier() -> ExternResult<TendLimitTier> {
 /// Used by bridge coordinator for cross-cluster TEND limit queries.
 #[hdk_extern]
 pub fn get_oracle_state(_: ()) -> ExternResult<OracleStateResponse> {
-    let links = get_links(
-        LinkQuery::try_new(anchor_hash(ORACLE_STATE_ANCHOR)?, LinkTypes::AnchorLinks)?,
-        GetStrategy::default(),
-    )?;
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            let state = record.entry().to_app_option::<OracleState>().map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "OracleState deserialization error: {:?}",
-                    e
-                )))
-            })?;
-            if let Some(state) = state {
-                return Ok(OracleStateResponse {
-                    vitality: state.vitality,
-                    tier_name: format!("{:?}", state.tier),
-                    limit: state.tier.limit(),
-                });
-            }
-        }
+    if let Some((_, state)) = find_oracle_state()? {
+        return Ok(OracleStateResponse {
+            vitality: state.vitality,
+            tier_name: format!("{:?}", state.tier),
+            limit: state.tier.limit(),
+        });
     }
     // Default: Normal state
     Ok(OracleStateResponse {
