@@ -1,0 +1,104 @@
+{
+  "schema": "sup-civ-000d1d0-crypto-profile-registry-v1",
+  "program": "SUP-CIV-000D1D0",
+  "authority": "semantic-profile-boundary-only",
+  "source_audit": {
+    "repository_head": "a85369699099d4c7524e502e531735eed4ab36f4",
+    "workspace_cargo_blob": "9053f6f0e7a09aa88ed4743df81c4cb06066e3bd",
+    "mycelix_crypto_cargo_blob": "e49c9fa098b780d2632a03de499e3b2f74ac91fe",
+    "envelope_rs_blob": "bf7dd16570817fe29bf2f66d4f60a17e66d1ef5c",
+    "hybrid_kem_rs_blob": "b469b16fc51eec39bf9741ec290007409f5d50ea",
+    "pulse_v2_rs_blob": "11bb5f4cb8ce866aa37c75875ed32ffbf04c9fca",
+    "lib_rs_blob": "966589dd6111e193a7b55e6b84fd68521ef8d2d3"
+  },
+  "profiles": [
+    {
+      "id": "MycelixHybridKemV1Experimental",
+      "status": "ExistingExperimental",
+      "owner": "mycelix-crypto/hybrid_kem.rs",
+      "wire_owner": "HybridCiphertext",
+      "primitive_summary": "X25519+ML-KEM-768+HKDF-SHA256+XChaCha20-Poly1305",
+      "storage_profile_qualified": false
+    },
+    {
+      "id": "PulseV2HybridPqcExperimental",
+      "status": "ExistingExperimental",
+      "owner": "mycelix-crypto/pulse_v2.rs",
+      "wire_owner": "external-caller/Pulse",
+      "primitive_summary": "X25519+ML-KEM-768+Pulse-HKDF+AES-256-GCM+caller-canonical-AAD",
+      "storage_profile_qualified": false
+    },
+    {
+      "id": "ProtectedEnvelopeCmsMlKemV1",
+      "status": "EvidenceDefinedRuntimeDeferred",
+      "owner": "protected-envelope evidence line",
+      "wire_owner": "SUP-CIV-000D1B canonical transcript",
+      "primitive_summary": "AES-256-GCM payload + RFC9629/9936 ML-KEM-768 recipient wrapping",
+      "storage_profile_qualified": false
+    }
+  ],
+  "protected_profile_dependencies": [
+    {"id":"SUP-CIV-000D1A","status":"ReferencePendingQualification"},
+    {"id":"SUP-CIV-000D1B","status":"ReferencePendingQualification"},
+    {"id":"SUP-CIV-000D1C1","status":"ReferencePendingQualification"},
+    {"id":"SUP-CIV-000D1C2A1","status":"ReferencePendingQualification"},
+    {"id":"SUP-CIV-000D1C2B1","status":"ReferencePendingQualification"},
+    {"id":"SUP-CIV-000D1C2B2A","status":"ReferencePendingQualification"},
+    {"id":"SUP-CIV-000D1C2B2B0-r2","status":"ReferencePendingQualification"},
+    {"id":"SUP-CIV-000D1C2B2B1","status":"ReferencePendingQualification"}
+  ],
+  "migration_states": [
+    "KnownExistingHybridProfile",
+    "KnownPulseV2Profile",
+    "KnownProtectedEnvelopeCmsMlKemV1",
+    "LegacyEncryptedEnvelopeProfileUnknown",
+    "InvalidOrConflictingProfileEvidence"
+  ],
+  "implementation_modules": [
+    "protected_envelope::profile",
+    "protected_envelope::codec",
+    "protected_envelope::payload",
+    "protected_envelope::recipient",
+    "protected_envelope::interop"
+  ],
+  "no_fallback": [
+    "ProtectedEnvelopeCmsMlKemV1->PulseV2HybridPqcExperimental",
+    "ProtectedEnvelopeCmsMlKemV1->MycelixHybridKemV1Experimental",
+    "ProtectedEnvelopeCmsMlKemV1->classical-only",
+    "ProtectedEnvelopeCmsMlKemV1->plaintext",
+    "unknown-profile->guess-from-length",
+    "legacy-profile-unknown->claim-new-profile"
+  ],
+  "required_non_equivalences": [
+    "AlgorithmId != ProtocolProfile",
+    "EnvelopeFormatVersion != CryptoProfile",
+    "SameMLKEMAlgorithm != SameKDFTranscript",
+    "SameAESGCMAlgorithm != SameAADSemantics",
+    "HybridKemV1 != PulseV2HybridPqc",
+    "PulseV2HybridPqc != ProtectedEnvelopeCmsMlKemV1",
+    "ExistingEnvelopeDecrypts != CivicStorageAdmitted",
+    "LegacyEncryptedEnvelopeWithoutProfile != ProtectedEnvelopeCmsMlKemV1",
+    "SuccessfulLegacyDecrypt != NewProfileQualified",
+    "InteropVectorPass != RuntimeAuthorization",
+    "ProfileAvailable != ProfileAuthorizedForDatum",
+    "CryptoProfileQualified != StorageProfileQualified",
+    "CryptoProfileQualified != ProtectedReadAuthorized"
+  ],
+  "dependency_policy": {
+    "enable_ml_kem_globally": false,
+    "perturb_workspace_aead_resolution": false,
+    "first_runtime_step": "crypto-free-codec-and-profile-types",
+    "ml_kem_runtime_adapter": "isolated-or-feature-gated-until-dependency-convergence-qualified"
+  },
+  "runtime_promotion": "blocked-until-selected-profile-load-bearing-dependencies-have-exact-qualified-evidence",
+  "forbidden_claims": [
+    "upstream-qualification",
+    "runtime-crypto-correctness",
+    "legacy-data-migrated",
+    "storage-profile-qualified",
+    "protected-read-authorized",
+    "recipient-authorized",
+    "legal-compliance",
+    "deployment-readiness"
+  ]
+}
