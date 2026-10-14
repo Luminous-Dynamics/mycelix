@@ -11,8 +11,8 @@ use mycelix_business_campaign_replay::{CampaignReplay, ReplayedObservation};
 use mycelix_business_core::{Digest32, ReferenceId};
 use mycelix_business_forecast_plan::{ForecastPlanError, ForecastTargetPlan};
 use mycelix_business_shadow::{
-    ForecastDisposition, ForecastProtocolError, ForecastQualificationProtocol,
-    ForecastScorecard, ForecastTarget, ScaledValue, ShadowForecast,
+    ForecastDisposition, ForecastProtocolError, ForecastQualificationProtocol, ForecastScorecard,
+    ForecastTarget, ScaledValue, ShadowForecast,
 };
 use sha2::{Digest, Sha256};
 
@@ -425,9 +425,15 @@ impl DerivedForecastCase {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DerivedScoringError {
     InvalidProtocol(ForecastProtocolError),
-    CandidateModelMismatch { index: usize },
-    BaselineModelMismatch { index: usize },
-    CaseOutsideEvaluationWindow { index: usize },
+    CandidateModelMismatch {
+        index: usize,
+    },
+    BaselineModelMismatch {
+        index: usize,
+    },
+    CaseOutsideEvaluationWindow {
+        index: usize,
+    },
     InvalidCase {
         index: usize,
         error: DerivedCaseError,
