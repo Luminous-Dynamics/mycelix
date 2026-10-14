@@ -553,6 +553,8 @@ fn slice_evidence_digest(
     finish_digest(hasher)
 }
 
+// These are the independent, digest-bound evidence components; keep all constituents explicit.
+#[allow(clippy::too_many_arguments)]
 fn field_evidence_digest(
     registration_digest: Digest32,
     campaign_digest: Digest32,
