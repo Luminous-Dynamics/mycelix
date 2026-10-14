@@ -444,7 +444,12 @@ impl HospitalityForecastPilotRegistration {
         let expected_slices = self
             .slices
             .iter()
-            .map(|slice| (slice.slice.clone(), (slice.criterion_digest, slice.minimum_cases)))
+            .map(|slice| {
+                (
+                    slice.slice.clone(),
+                    (slice.criterion_digest, slice.minimum_cases),
+                )
+            })
             .collect::<std::collections::BTreeMap<_, _>>();
         if field_slices != expected_slices {
             return Err(PilotError::SliceSetMismatch);
