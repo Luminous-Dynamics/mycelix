@@ -293,7 +293,8 @@ pub fn verify_exact_case_coverage(
     plan: &ForecastTargetPlan,
     cases: &[ForecastCase],
 ) -> Result<ForecastCoverageEvidence, CoverageError> {
-    plan.validate_against(protocol).map_err(CoverageError::Plan)?;
+    plan.validate_against(protocol)
+        .map_err(CoverageError::Plan)?;
     if cases.len() > u32::MAX as usize {
         return Err(CoverageError::TooManyCases);
     }
