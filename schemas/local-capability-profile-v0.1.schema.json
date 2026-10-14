@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/local-capability-profile-v0.1.schema.json",
+  "title": "Local Capability Profile",
+  "description": "Versioned context input for capability planning. Shape validation is not evidence of factual accuracy, community consent, feasibility, or safety.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "profile_id", "version", "status", "place", "context", "resource_envelope", "capabilities", "priorities", "engagement", "safety_gates", "sources", "limitations"],
+  "properties": {
+    "schema_version": { "const": "local-capability-profile/0.1" },
+    "profile_id": { "type": "string", "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$" },
+    "version": { "type": "integer", "minimum": 1 },
+    "status": { "enum": ["illustrative", "proposed", "researched", "community_reviewed", "pilot_tested", "measured_outcomes", "withdrawn"] },
+    "place": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "scope", "location_precision", "basis"],
+      "properties": {
+        "label": { "type": "string", "minLength": 3 },
+        "scope": { "enum": ["neighborhood", "settlement", "municipality", "region", "bioregion", "generalized_context"] },
+        "location_precision": { "enum": ["not_collected", "generalized", "restricted"] },
+        "basis": { "enum": ["illustrative", "public_data", "community_reported", "co_designed"] },
+        "region_label": { "type": "string", "minLength": 2 }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["settlement_type", "climate_profile"],
+      "properties": {
+        "settlement_type": { "enum": ["dense_urban", "peri_urban", "rural_settled", "remote_rural", "island", "high_altitude", "disaster_disrupted", "mobile_or_seasonal", "generalized_context", "unknown"] },
+        "climate_profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["classification", "basis", "evidence_refs", "hazards_to_investigate"],
+          "properties": {
+            "classification": { "enum": ["unknown", "semi_arid", "tropical_humid", "coastal_island", "cold_high_altitude", "temperate", "mixed_or_variable", "other"] },
+            "basis": { "$ref": "#/$defs/evidenceBasis" },
+            "evidence_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+            "hazards_to_investigate": { "type": "array", "items": { "type": "string", "minLength": 2 } }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "basis": { "const": "unknown" } }, "required": ["basis"] },
+              "then": { "properties": { "classification": { "const": "unknown" }, "evidence_refs": { "maxItems": 0 }, "hazards_to_investigate": { "maxItems": 0 } } }
+            },
+            {
+              "if": { "properties": { "basis": { "enum": ["source_verified", "independently_verified"] } }, "required": ["basis"] },
+              "then": { "properties": { "evidence_refs": { "minItems": 1 } } }
+            }
+          ]
+        }
+      }
+    },
+    "resource_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["electricity", "digital_comms", "cash_access", "manufacturing", "supply_chain", "water_service", "health_access", "transport_access", "knowledge_exchange"],
+      "properties": {
+        "electricity": { "allOf": [{ "$ref": "#/$defs/resourceObservation" }, { "properties": { "value": { "enum": ["unknown", "none_or_unreliable", "intermittent", "community_system", "reliable_grid"] } } }] },
+        "digital_comms": { "allOf": [{ "$ref": "#/$defs/resourceObservation" }, { "properties": { "value": { "enum": ["unknown", "none", "offline_devices", "intermittent_connectivity", "reliable_connectivity"] } } }] },
+        "cash_access": { "allOf": [{ "$ref": "#/$defs/resourceObservation" }, { "properties": { "value": { "enum": ["unknown", "none_or_rare", "scarce_cash", "local_markets", "formal_finance", "institutional_procurement"] } } }] },
+        "manufacturing": { "allOf": [{ "$ref": "#/$defs/resourceObservation" }, { "properties": { "value": { "enum": ["unknown", "hand_tools", "shared_workshop", "local_machine_shop", "industrial_supply_chain"] } } }] },
+        "supply_chain": { "allOf": [{ "$ref": "#/$defs/resourceObservation" }, { "properties": { "value": { "enum": ["unknown", "local_reuse", "seasonal_limited", "road_dependent", "diverse_network"] } } }] },
+        "water_service": { "allOf": [{ "$ref": "#/$defs/resourceObservation" }, { "properties": { "value": { "enum": ["unknown", "no_improved_service", "variable_small_supply", "managed_small_supply", "network_service"] } } }] },
+        "health_access": { "allOf": [{ "$ref": "#/$defs/resourceObservation" }, { "properties": { "value": { "enum": ["unknown", "community_care_only", "periodic_clinical_support", "basic_clinic", "referral_network"] } } }] },
+        "transport_access": { "allOf": [{ "$ref": "#/$defs/resourceObservation" }, { "properties": { "value": { "enum": ["unknown", "walking_or_carry_only", "local_paths", "seasonal_vehicle_access", "road_connected", "multimodal_network"] } } }] },
+        "knowledge_exchange": { "allOf": [{ "$ref": "#/$defs/resourceObservation" }, { "properties": { "value": { "enum": ["unknown", "oral_demonstration", "paper_visuals", "offline_digital", "intermittent_online", "connected_network"] } } }] }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["area", "availability", "basis", "evidence_refs"],
+        "properties": {
+          "area": { "$ref": "#/$defs/capabilityArea" },
+          "availability": { "enum": ["present", "constrained", "absent", "unknown", "not_assessed"] },
+          "basis": { "$ref": "#/$defs/evidenceBasis" },
+          "evidence_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+          "notes": { "type": "string", "maxLength": 1000 }
+        }
+      }
+    },
+    "priorities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["priority_id", "area", "rank", "basis", "evidence_refs"],
+        "properties": {
+          "priority_id": { "type": "string", "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$" },
+          "area": { "$ref": "#/$defs/capabilityArea" },
+          "rank": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "basis": { "enum": ["community_stated", "co_designed", "provisional_hypothesis", "public_mandate"] },
+          "evidence_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+          "notes": { "type": "string", "maxLength": 1000 }
+        }
+      }
+    },
+    "engagement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "authorization_status", "location_handling", "restricted_knowledge_present", "intervention_policy"],
+      "properties": {
+        "mode": { "enum": ["community_requested", "community_co_designed", "public_context_only", "protective_no_contact", "not_applicable"] },
+        "authorization_status": { "enum": ["not_sought", "pending", "granted", "denied", "withdrawn", "not_required"] },
+        "location_handling": { "enum": ["not_collected", "generalized", "restricted"] },
+        "restricted_knowledge_present": { "type": "boolean" },
+        "intervention_policy": { "enum": ["community_authorized", "public_mandate", "no_intervention_without_authorized_request", "not_applicable"] }
+      }
+    },
+    "safety_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["water_safety", "clinical_safety", "structural_safety", "ecological_impact", "legal_authority", "community_consent", "maintenance_owner", "rights_and_attribution", "accessibility", "privacy", "anti_displacement", "repairability"],
+      "properties": {
+        "water_safety": { "$ref": "#/$defs/gateStatus" },
+        "clinical_safety": { "$ref": "#/$defs/gateStatus" },
+        "structural_safety": { "$ref": "#/$defs/gateStatus" },
+        "ecological_impact": { "$ref": "#/$defs/gateStatus" },
+        "legal_authority": { "$ref": "#/$defs/gateStatus" },
+        "community_consent": { "$ref": "#/$defs/gateStatus" },
+        "maintenance_owner": { "$ref": "#/$defs/gateStatus" },
+        "rights_and_attribution": { "$ref": "#/$defs/gateStatus" },
+        "accessibility": { "$ref": "#/$defs/gateStatus" },
+        "privacy": { "$ref": "#/$defs/gateStatus" },
+        "anti_displacement": { "$ref": "#/$defs/gateStatus" },
+        "repairability": { "$ref": "#/$defs/gateStatus" }
+      }
+    },
+    "sources": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/source" } },
+    "limitations": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 3 } }
+  },
+  "$defs": {
+    "evidenceBasis": { "enum": ["unknown", "illustrative", "community_reported", "co_designed", "source_verified", "independently_verified"] },
+    "resourceObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "basis", "evidence_refs"],
+      "properties": {
+        "value": { "type": "string", "minLength": 1 },
+        "basis": { "$ref": "#/$defs/evidenceBasis" },
+        "evidence_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "basis": { "const": "unknown" } }, "required": ["basis"] },
+          "then": { "properties": { "value": { "const": "unknown" }, "evidence_refs": { "maxItems": 0 } } }
+        },
+        {
+          "if": { "properties": { "basis": { "enum": ["source_verified", "independently_verified"] } }, "required": ["basis"] },
+          "then": { "properties": { "evidence_refs": { "minItems": 1 } } }
+        }
+      ]
+    },
+    "capabilityArea": {
+      "enum": ["water_sanitation", "food_security", "shelter_thermal_safety", "healthcare_access", "tools_repair", "local_manufacturing", "energy", "communications", "transport", "learning", "livelihoods", "governance", "care", "ecological_stewardship", "disaster_resilience", "public_space"]
+    },
+    "gateStatus": { "enum": ["not_assessed", "pending", "passed", "failed", "withdrawn", "not_applicable"] },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "title", "url", "use", "rights_status"],
+      "properties": {
+        "source_id": { "type": "string", "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$" },
+        "title": { "type": "string", "minLength": 3 },
+        "url": { "type": "string", "format": "uri" },
+        "use": { "enum": ["methodology", "climate_evidence", "local_evidence", "community_input", "measured_outcome", "design_precedent", "law_or_standard"] },
+        "rights_status": { "enum": ["link_only", "open_license_verified", "permission_required", "restricted", "unknown"] }
+      }
+    }
+  }
+}
