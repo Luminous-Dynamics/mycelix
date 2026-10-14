@@ -54,9 +54,9 @@ const INSTRUMENT_SCHEMA: &str = "schemas/life-civic/standard-instrument.schema.j
 const ASSESSMENT_SCHEMA: &str = "schemas/life-civic/applicability-assessment.schema.json";
 const CORPUS_PATH: &str = "tests/reference/life-civic-standards/cases.json";
 const SERVICE_JOURNEY_SCHEMA: &str = "schemas/life-civic/service-journey-reference.schema.json";
-const SERVICE_JOURNEY_CASES: &str = "tests/reference/life-civic-service/cases.json";
+const SERVICE_JOURNEY_CASES: &str = "tests/reference/life-civic-service/cases-v0.2.0.json";
 const SERVICE_JOURNEY_POSITIVE: &str =
-    "tests/reference/life-civic-service/independently-verified-local-restoration.json";
+    "tests/reference/life-civic-service/independently-verified-local-restoration-v0.2.0.json";
 
 #[test]
 fn corpus_manifest_points_to_existing_versioned_assets() {
@@ -306,9 +306,38 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
 
     let conflict =
         &find_service_fixture(fixtures, "conflicting-official-water-guidance")["instance"];
-    assert_eq!(conflict["route"]["status"], "conflicted");
+    assert_eq!(conflict["case_state"], "source_conflict");
+    assert_eq!(
+        conflict["route"]["status"],
+        "candidate_found",
+        "source-target conflict must not be mislabeled as a route conflict"
+    );
     assert_eq!(conflict["outcome"]["status"], "conflicted");
     assert_eq!(conflict["review_required"], true);
+    assert_eq!(conflict["source_conflicts"].as_array().unwrap().len(), 1);
+    let source_conflict = &conflict["source_conflicts"][0];
+    assert_eq!(source_conflict["status"], "unresolved");
+    assert_eq!(
+        source_conflict["evidence_ids"].as_array().unwrap().len(),
+        2,
+        "source conflict must cite both conflicting claims"
+    );
+    let conflicting_evidence_ids: HashSet<&str> = source_conflict["evidence_ids"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| value.as_str().expect("evidence ID must be a string"))
+        .collect();
+    let actual_evidence_ids: HashSet<&str> = conflict["evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["evidence_id"].as_str().expect("evidence_id must be a string"))
+        .collect();
+    assert!(
+        conflicting_evidence_ids.is_subset(&actual_evidence_ids),
+        "source conflict must point to evidence actually present in the case"
+    );
     assert_eq!(conflict["route"]["source_references"].as_array().unwrap().len(), 3);
 
     let false_verification = &find_service_fixture(
