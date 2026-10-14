@@ -222,8 +222,8 @@ pub fn derive_actuals(
             source_digests.push(source_observation_digest(replayed));
         }
         source_digests.sort_unstable();
-        let source_observation_count = u64::try_from(source_digests.len())
-            .map_err(|_| DerivedActualError::CountOverflow)?;
+        let source_observation_count =
+            u64::try_from(source_digests.len()).map_err(|_| DerivedActualError::CountOverflow)?;
         let source_observation_set_digest = source_set_digest(&source_digests);
         let value = ScaledValue {
             mantissa: sum,
