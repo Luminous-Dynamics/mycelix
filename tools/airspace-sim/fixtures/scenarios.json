@@ -1,0 +1,367 @@
+{
+  "schema": "airspace-replay-scenarios-v1",
+  "status": "synthetic_research_fixture",
+  "authority_ceiling": "planning_simulation_semantics_only",
+  "scenarios": [
+    {
+      "scenario_id": "clear_separation",
+      "description": "Two parallel trajectories remain well outside the synthetic horizontal threshold.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "accept_for_planning_only",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": { "x": 0, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 10000, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": { "x": 0, "y": 100000, "z": 100000 },
+          "velocity_mm_s": { "x": 10000, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine"
+        }
+      ]
+    },
+    {
+      "scenario_id": "crossing_conflict",
+      "description": "Nominal trajectories converge at the same altitude; the conservative envelope flags conflict before the crossing.",
+      "window_start_s": 0,
+      "window_end_s": 20,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "conflict",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 20,
+          "position_at_valid_from_mm": { "x": -100000, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 10000, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 20,
+          "position_at_valid_from_mm": { "x": 0, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        }
+      ]
+    },
+    {
+      "scenario_id": "vertical_separation",
+      "description": "Horizontally coincident trajectories remain outside the synthetic vertical threshold.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "accept_for_planning_only",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": { "x": 0, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": { "x": 0, "y": 0, "z": 1000000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        }
+      ]
+    },
+    {
+      "scenario_id": "uncertainty_expands_conflict",
+      "description": "Uncertainty envelopes trigger a planning conflict even though nominal horizontal distance exceeds the base threshold.",
+      "window_start_s": 0,
+      "window_end_s": 4,
+      "policy": {
+        "horizontal_separation_mm": 5000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "conflict",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": { "x": 0, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 8000,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": { "x": 20000, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 8000,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        }
+      ]
+    },
+    {
+      "scenario_id": "between_sample_crossing",
+      "description": "A fast relative crossing occurs between sample times; the velocity-based conservative expansion catches it.",
+      "window_start_s": 0,
+      "window_end_s": 2,
+      "policy": {
+        "horizontal_separation_mm": 1000,
+        "vertical_separation_mm": 1000,
+        "sample_step_s": 2
+      },
+      "expected_classification": "conflict",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 2,
+          "position_at_valid_from_mm": { "x": -10000, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 10000, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 2,
+          "position_at_valid_from_mm": { "x": 0, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        }
+      ]
+    },
+    {
+      "scenario_id": "frame_mismatch_unresolved",
+      "description": "Coordinates with different reference-frame identities must not be compared as if they shared a frame.",
+      "window_start_s": 0,
+      "window_end_s": 4,
+      "policy": {
+        "horizontal_separation_mm": 5000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "unresolved",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": { "x": 0, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "another-local-frame-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": { "x": 0, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        }
+      ]
+    },
+    {
+      "scenario_id": "time_unqualified_unresolved",
+      "description": "An unqualified clock basis cannot support authoritative space-time comparison.",
+      "window_start_s": 0,
+      "window_end_s": 4,
+      "policy": {
+        "horizontal_separation_mm": 5000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "unresolved",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": false,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": { "x": 0, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": { "x": 100000, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        }
+      ]
+    },
+    {
+      "scenario_id": "expired_intent_rejected",
+      "description": "An intent whose validity ends before the simulation window ends is rejected as stale.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 5000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "reject",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 4,
+          "position_at_valid_from_mm": { "x": 0, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": { "x": 100000, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        }
+      ]
+    },
+    {
+      "scenario_id": "emergency_requires_review",
+      "description": "An emergency-priority intent with no synthetic conflict still requires a competent-authority review.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 5000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "requires_authority_review",
+      "flights": [
+        {
+          "flight_id": "EMERGENCY-A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": { "x": 0, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "emergency"
+        },
+        {
+          "flight_id": "ROUTINE-B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": { "x": 100000, "y": 0, "z": 100000 },
+          "velocity_mm_s": { "x": 0, "y": 0, "z": 0 },
+          "horizontal_uncertainty_mm": 0,
+          "vertical_uncertainty_mm": 0,
+          "priority": "routine"
+        }
+      ]
+    }
+  ]
+}
