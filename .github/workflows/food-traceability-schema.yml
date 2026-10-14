@@ -1,0 +1,44 @@
+name: Food traceability schema contract
+
+on:
+  pull_request:
+    paths:
+      - 'docs/food/**'
+      - 'scripts/validate_food_traceability_schema.py'
+      - '.github/workflows/food-traceability-schema.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/food/**'
+      - 'scripts/validate_food_traceability_schema.py'
+      - '.github/workflows/food-traceability-schema.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: food-traceability-schema-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-food-schema:
+    name: Validate food traceability schema and negative cases
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact tested revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          persist-credentials: false
+      - name: Assert exact tested revision
+        run: test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+      - name: Install pinned JSON Schema validator (no cache)
+        run: |
+          python3 -m venv /tmp/mycelix-food-schema-venv
+          /tmp/mycelix-food-schema-venv/bin/pip install --disable-pip-version-check --no-cache-dir 'jsonschema[format]==4.26.0'
+      - name: Validate schema and adversarial cases
+        run: /tmp/mycelix-food-schema-venv/bin/python scripts/validate_food_traceability_schema.py

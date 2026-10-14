@@ -1,0 +1,30 @@
+{
+  "profile": "mycelix.food-traceability-event.v1",
+  "eventId": "urn:mycelix:food-event:producer-01:eggs-lot-20261012:produced-001",
+  "eventType": "PRODUCED",
+  "eventTime": "2026-10-12T06:00:00+02:00",
+  "recordedAt": "2026-10-12T06:08:00+02:00",
+  "actorRef": "urn:mycelix:producer:producer-01",
+  "siteRef": "urn:mycelix:site:producer-01:packing-area",
+  "subjects": [
+    {
+      "productProfileRef": "urn:mycelix:product-profile:free-range-eggs-v1",
+      "lotRef": "urn:mycelix:food-lot:eggs-20261012-a",
+      "quantity": {
+        "status": "observed",
+        "value": "8",
+        "unitCode": "DZN",
+        "unitCodeSystem": "UNECE_REC20",
+        "unitCodeListVersion": "REC20-REV17-2021"
+      }
+    }
+  ],
+  "evidenceRefs": [
+    {
+      "evidenceRef": "urn:mycelix:evidence:producer-01:eggs-20261012-a:production-record",
+      "evidenceType": "producer_statement",
+      "status": "claimed"
+    }
+  ],
+  "notes": "Synthetic example only. Eight dozen is a producer-recorded quantity, not a food-safety or certification claim."
+}

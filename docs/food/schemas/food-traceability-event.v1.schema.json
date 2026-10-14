@@ -1,0 +1,778 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.org/schemas/food-traceability-event.v1.schema.json",
+  "title": "Mycelix Food Traceability Event V1",
+  "description": "A local-first food traceability envelope with an explicit adapter mapping to GS1 EPCIS 2.0/CBV. Schema validity does not establish food safety or regulatory compliance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "eventId",
+    "eventType",
+    "eventTime",
+    "recordedAt",
+    "actorRef",
+    "siteRef",
+    "subjects"
+  ],
+  "properties": {
+    "profile": {
+      "const": "mycelix.food-traceability-event.v1"
+    },
+    "eventId": {
+      "type": "string",
+      "format": "uri",
+      "minLength": 1,
+      "description": "Stable source-event identity used for idempotency; must not be reused for a different semantic event."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "PLANNED",
+        "FORECASTED",
+        "PRODUCED",
+        "HARVESTED",
+        "TRANSFORMED",
+        "PACKED",
+        "DISPATCHED",
+        "RECEIVED",
+        "STORED",
+        "HANDOFF",
+        "HANDLING_OBSERVED",
+        "RECALLED",
+        "SPOILED",
+        "CORRECTION",
+        "RETRACTION"
+      ]
+    },
+    "eventTime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the source says the event occurred; preserve original timezone offset."
+    },
+    "recordedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this record was accepted by this system. Never overwrite eventTime with ingestion time."
+    },
+    "actorRef": {
+      "type": "string",
+      "format": "uri",
+      "description": "Producer, operator, service, or device identity reference."
+    },
+    "siteRef": {
+      "type": "string",
+      "format": "uri",
+      "description": "Stable site reference. Exact coordinates and private addresses are not required in this public envelope."
+    },
+    "sourceEventRef": {
+      "type": "string",
+      "format": "uri",
+      "description": "Optional source-system event reference."
+    },
+    "subjects": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/lotSubject"
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/lotQuantityRef"
+      },
+      "description": "Input lots for a transformation event."
+    },
+    "outputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/lotQuantityRef"
+      },
+      "description": "Output lots for a transformation event."
+    },
+    "handlingObservations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/handlingObservation"
+      }
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidenceRef"
+      },
+      "description": "References to evidence. An evidence reference or signature is not, by itself, a regulatory approval."
+    },
+    "supersedesEventId": {
+      "type": "string",
+      "format": "uri",
+      "description": "Append-only correction/retraction pointer to the prior event."
+    },
+    "correctionReason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "shipmentRef": {
+      "type": "string",
+      "format": "uri",
+      "description": "Stable reference shared by dispatch/receipt events for one shipment or transport batch."
+    },
+    "originSiteRef": {
+      "type": "string",
+      "format": "uri"
+    },
+    "destinationSiteRef": {
+      "type": "string",
+      "format": "uri"
+    },
+    "forecastMetadata": {
+      "$ref": "#/$defs/forecastMetadata",
+      "description": "Mandatory metadata for FORECASTED events; never a substitute for measured output."
+    }
+  },
+  "$defs": {
+    "quantity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "unitCode",
+        "unitCodeSystem",
+        "unitCodeListVersion"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "planned",
+            "forecast",
+            "observed",
+            "unknown"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]*[1-9])?$",
+          "description": "Canonical non-negative base-10 decimal string; no exponent, sign, NaN, binary-float serialization, or trailing fractional zeros."
+        },
+        "unitCode": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{3}$",
+          "description": "Unit code from the pinned UN/CEFACT Recommendation 20 code list."
+        },
+        "unitCodeSystem": {
+          "const": "UNECE_REC20"
+        },
+        "unitCodeListVersion": {
+          "const": "REC20-REV17-2021",
+          "description": "V1 pins the unit-code vocabulary to UN/CEFACT Recommendation 20 Revision 17 (2021); a vocabulary change requires a versioned profile update."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "unknown"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "value"
+            ]
+          }
+        }
+      ]
+    },
+    "lotSubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "productProfileRef",
+        "lotRef"
+      ],
+      "properties": {
+        "productProfileRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "lotRef": {
+          "type": "string",
+          "format": "uri",
+          "description": "Stable lot reference; product class identity and lot identity must remain distinct."
+        },
+        "quantity": {
+          "$ref": "#/$defs/quantity",
+          "description": "Optional event-specific lot amount; required by event-type conditions where applicable."
+        }
+      }
+    },
+    "lotQuantityRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "productProfileRef",
+        "lotRef",
+        "quantity"
+      ],
+      "properties": {
+        "productProfileRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "lotRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "quantity": {
+          "$ref": "#/$defs/quantity"
+        }
+      }
+    },
+    "handlingObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parameter",
+        "status",
+        "observedAt",
+        "receivedAt",
+        "sensorRef",
+        "calibrationStatus",
+        "unitCode",
+        "unitCodeSystem",
+        "unitCodeListVersion"
+      ],
+      "properties": {
+        "parameter": {
+          "type": "string",
+          "enum": [
+            "temperature",
+            "humidity",
+            "other"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "observed",
+            "missing",
+            "invalid"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+          "description": "Signed base-10 decimal string; required only when status is observed."
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "receivedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sensorRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "calibrationStatus": {
+          "type": "string",
+          "enum": [
+            "current",
+            "expired",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "unitCode": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{3}$"
+        },
+        "unitCodeSystem": {
+          "const": "UNECE_REC20"
+        },
+        "unitCodeListVersion": {
+          "const": "REC20-REV17-2021"
+        },
+        "calibrationRef": {
+          "type": "string",
+          "format": "uri",
+          "description": "Reference to calibration evidence when calibrationStatus is current or expired."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "calibrationStatus": {
+                "enum": [
+                  "current",
+                  "expired"
+                ]
+              }
+            },
+            "required": [
+              "calibrationStatus"
+            ]
+          },
+          "then": {
+            "required": [
+              "calibrationRef"
+            ]
+          }
+        }
+      ]
+    },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidenceRef",
+        "evidenceType",
+        "status"
+      ],
+      "properties": {
+        "evidenceRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "evidenceType": {
+          "type": "string",
+          "enum": [
+            "producer_statement",
+            "sensor_record",
+            "inspection_record",
+            "certificate",
+            "laboratory_result",
+            "other"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "claimed",
+            "verified",
+            "expired",
+            "superseded",
+            "unknown"
+          ]
+        },
+        "verifiedByRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "verificationProcedureRef": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "verified"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "verifiedByRef",
+              "verificationProcedureRef"
+            ]
+          }
+        }
+      ]
+    },
+    "forecastMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "modelRef",
+        "modelVersion",
+        "issuedAt",
+        "horizonStart",
+        "horizonEnd"
+      ],
+      "properties": {
+        "modelRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "modelVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "issuedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "horizonStart": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "horizonEnd": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "PLANNED"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "subjects": {
+            "items": {
+              "properties": {
+                "quantity": {
+                  "properties": {
+                    "status": {
+                      "const": "planned"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "quantity"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "FORECASTED"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "subjects": {
+            "items": {
+              "properties": {
+                "quantity": {
+                  "properties": {
+                    "status": {
+                      "const": "forecast"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "quantity"
+              ]
+            }
+          }
+        },
+        "required": [
+          "forecastMetadata"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "forecastMetadata"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "enum": [
+              "PRODUCED",
+              "HARVESTED",
+              "PACKED",
+              "DISPATCHED",
+              "RECEIVED",
+              "HANDOFF",
+              "SPOILED"
+            ]
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "subjects": {
+            "items": {
+              "properties": {
+                "quantity": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/quantity"
+                    },
+                    {
+                      "properties": {
+                        "status": {
+                          "enum": [
+                            "observed",
+                            "unknown"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "quantity"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "TRANSFORMED"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "required": [
+          "inputs",
+          "outputs"
+        ],
+        "properties": {
+          "inputs": {
+            "items": {
+              "properties": {
+                "quantity": {
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "observed",
+                        "unknown"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "outputs": {
+            "items": {
+              "properties": {
+                "quantity": {
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "observed",
+                        "unknown"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "inputs"
+              ]
+            },
+            {
+              "required": [
+                "outputs"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "HANDLING_OBSERVED"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "required": [
+          "handlingObservations"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "enum": [
+              "CORRECTION",
+              "RETRACTION"
+            ]
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "required": [
+          "supersedesEventId",
+          "correctionReason"
+        ]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "supersedesEventId"
+              ]
+            },
+            {
+              "required": [
+                "correctionReason"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "enum": [
+              "DISPATCHED",
+              "RECEIVED"
+            ]
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "required": [
+          "shipmentRef",
+          "originSiteRef",
+          "destinationSiteRef"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "enum": [
+              "STORED",
+              "RECALLED",
+              "CORRECTION",
+              "RETRACTION"
+            ]
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "subjects": {
+            "items": {
+              "properties": {
+                "quantity": {
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "observed",
+                        "unknown"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
