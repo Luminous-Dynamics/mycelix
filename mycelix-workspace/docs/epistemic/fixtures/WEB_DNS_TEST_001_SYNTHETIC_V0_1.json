@@ -1,0 +1,46 @@
+{
+  "profile": "mycelix:web-dns-test:v1",
+  "resolver_profile": {
+    "id": "mycelix:synthetic-resolution:v1",
+    "network_io": false,
+    "absolute_name_only": true,
+    "search_domains": "disabled",
+    "hosts_file": "not_consulted",
+    "mdns_llmnr": "disabled",
+    "max_cname_depth": 8,
+    "max_answers": 16,
+    "query_types": ["A", "AAAA"]
+  },
+  "cases": [
+    {"id":"a-only-safe","query":"www.public-synthetic.invalidtld.","a":["8.8.8.8"],"aaaa":[],"status":"answer","expected_resolution":"complete","downstream_endpoint_policy":"all_eligible"},
+    {"id":"aaaa-only-safe","query":"v6.public-synthetic.invalidtld.","a":[],"aaaa":["2001:4860:4860::8888"],"status":"answer","expected_resolution":"complete","downstream_endpoint_policy":"all_eligible"},
+    {"id":"dual-safe","query":"dual.public-synthetic.invalidtld.","a":["8.8.8.8"],"aaaa":["2001:4860:4860::8888"],"status":"answer","expected_resolution":"complete","downstream_endpoint_policy":"all_eligible"},
+    {"id":"mixed-safe-loopback","query":"mixed.public-synthetic.invalidtld.","a":["8.8.8.8","127.0.0.1"],"aaaa":[],"status":"answer","expected_resolution":"complete","downstream_endpoint_policy":"mixed_refuse"},
+    {"id":"mixed-safe-ula","query":"mixed6.public-synthetic.invalidtld.","a":["8.8.8.8"],"aaaa":["fc00::1"],"status":"answer","expected_resolution":"complete","downstream_endpoint_policy":"mixed_refuse"},
+    {"id":"cname-safe","query":"alias.public-synthetic.invalidtld.","cname_chain":["alias.public-synthetic.invalidtld.","origin.public-synthetic.invalidtld."],"a":["8.8.8.8"],"aaaa":[],"status":"answer","expected_resolution":"complete","downstream_domain_policy":"eligible"},
+    {"id":"cname-special-use-target","query":"alias2.public-synthetic.invalidtld.","cname_chain":["alias2.public-synthetic.invalidtld.","foo.localhost."],"a":["127.0.0.1"],"aaaa":[],"status":"answer","expected_resolution":"observed_but_composition_refuses","downstream_domain_policy":"refuse_special_use"},
+    {"id":"cname-loop","query":"loop.public-synthetic.invalidtld.","cname_chain":["loop.public-synthetic.invalidtld.","loop2.public-synthetic.invalidtld.","loop.public-synthetic.invalidtld."],"status":"cname_loop","expected_resolution":"refuse"},
+    {"id":"cname-depth","query":"depth.public-synthetic.invalidtld.","cname_depth":9,"status":"cname_depth_exceeded","expected_resolution":"refuse"},
+    {"id":"nxdomain","query":"missing.public-synthetic.invalidtld.","status":"nxdomain","expected_resolution":"name_error"},
+    {"id":"nodata","query":"nodata.public-synthetic.invalidtld.","status":"no_data","expected_resolution":"no_data"},
+    {"id":"timeout","query":"timeout.public-synthetic.invalidtld.","status":"timeout","expected_resolution":"timeout"},
+    {"id":"truncated","query":"truncated.public-synthetic.invalidtld.","status":"truncated_without_qualified_retry","expected_resolution":"indeterminate"},
+    {"id":"answer-limit","query":"large.public-synthetic.invalidtld.","answer_count":17,"status":"answer_limit_exceeded","expected_resolution":"refuse"},
+    {"id":"partial-family","query":"partial.public-synthetic.invalidtld.","a":["8.8.8.8"],"aaaa_status":"timeout","status":"partial_family_result","expected_resolution":"partial_not_complete"},
+    {"id":"search-disabled","input_name":"service","ambient_search_suffix":"corp.example","status":"search_domain_disabled","expected_query":null,"expected_resolution":"refuse_before_query"},
+    {"id":"hosts-file-ignored","query":"override.public-synthetic.invalidtld.","ambient_hosts_mapping":"127.0.0.1","synthetic_dns_a":["8.8.8.8"],"status":"answer","expected_resolution":"complete","hosts_mapping_used":false},
+    {"id":"rebinding-r1","query":"rebind.public-synthetic.invalidtld.","attempt":"R1","a":["8.8.8.8"],"status":"answer","expected_resolution":"complete","lineage":"r1"},
+    {"id":"rebinding-r2","query":"rebind.public-synthetic.invalidtld.","attempt":"R2","a":["127.0.0.1"],"status":"answer","expected_resolution":"complete","lineage":"r2","must_not_reuse":"r1_admission"},
+    {"id":"cancelled","query":"cancel.public-synthetic.invalidtld.","status":"cancelled","expected_resolution":"cancelled"}
+  ],
+  "invariants": [
+    "resolution_observation_is_not_endpoint_admission",
+    "dns_answer_is_not_dns_authenticity",
+    "ttl_is_not_capability_lifetime",
+    "second_resolution_is_new_lineage",
+    "search_domain_expansion_is_disabled",
+    "ambient_hosts_file_is_not_public_dns_evidence",
+    "complete_answer_set_is_preserved",
+    "no_network_io"
+  ]
+}
