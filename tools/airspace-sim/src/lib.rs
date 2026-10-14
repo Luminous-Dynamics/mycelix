@@ -12,6 +12,7 @@ const MAX_SAMPLE_STEP_S: i64 = 3_600;
 const MAX_ABS_POSITION_MM: i64 = 1_000_000_000_000_000;
 const MAX_ABS_VELOCITY_MM_S: i64 = 1_000_000_000;
 const MAX_THRESHOLD_MM: u64 = 1_000_000_000_000_000;
+const MAX_PAIR_SAMPLE_CHECKS: u128 = 5_000_000;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ScenarioSet {
@@ -216,6 +217,24 @@ pub fn evaluate_scenario(scenario: &Scenario) -> SimulationReport {
     }
 
     let pair_total = pair_count(scenario.flights.len());
+    let window_duration = u128::try_from(duration.unwrap_or(0)).unwrap_or(0);
+    let step = u128::try_from(scenario.policy.sample_step_s).unwrap_or(0);
+    let maximum_samples_per_pair = window_duration.div_ceil(step) + 1;
+    let estimated_pair_sample_checks = (pair_total as u128).saturating_mul(maximum_samples_per_pair);
+    if estimated_pair_sample_checks > MAX_PAIR_SAMPLE_CHECKS {
+        return report(
+            scenario,
+            Classification::Reject,
+            scenario.flights.len(),
+            pair_total,
+            0,
+            Vec::new(),
+            vec![format!(
+                "estimated work ({estimated_pair_sample_checks} pair-sample checks) exceeds the fixture budget of {MAX_PAIR_SAMPLE_CHECKS}"
+            )],
+        );
+    }
+
     let mut pair_sample_checks = 0_u64;
     let mut conflicts = Vec::new();
 
@@ -461,6 +480,16 @@ mod tests {
     fn invalid_time_step_is_rejected() {
         let mut scenario = fixture_set().scenarios.remove(0);
         scenario.policy.sample_step_s = 0;
+        assert_eq!(evaluate_scenario(&scenario).classification, Classification::Reject);
+    }
+
+    #[test]
+    fn excessive_pair_sample_work_is_rejected_before_the_loop() {
+        let mut scenario = fixture_set().scenarios.remove(0);
+        scenario.window_end_s = 100_000;
+        for flight in &mut scenario.flights {
+            flight.valid_until_s = 100_000;
+        }
         assert_eq!(evaluate_scenario(&scenario).classification, Classification::Reject);
     }
 
