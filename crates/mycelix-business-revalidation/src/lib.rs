@@ -167,18 +167,9 @@ impl RevalidationEvidence {
 
     fn checked_at_unix_ms(&self) -> u64 {
         match self {
-            Self::ExactFrontier {
-                checked_at_unix_ms,
-                ..
-            }
-            | Self::DependencyWitness {
-                checked_at_unix_ms,
-                ..
-            }
-            | Self::FreshnessOnly {
-                checked_at_unix_ms,
-                ..
-            } => *checked_at_unix_ms,
+            Self::ExactFrontier { checked_at_unix_ms, .. }
+            | Self::DependencyWitness { checked_at_unix_ms, .. }
+            | Self::FreshnessOnly { checked_at_unix_ms, .. } => *checked_at_unix_ms,
         }
     }
 }
@@ -395,9 +386,7 @@ impl ExecutionRevalidationContract {
         for frontier in &coordination.prepared.frontiers.authority {
             if !exact
                 .iter()
-                .any(|(class, expected)| {
-                    *class == FrontierClass::Authority && expected == frontier
-                })
+                .any(|(class, expected)| *class == FrontierClass::Authority && expected == frontier)
             {
                 return Err(RevalidationError::MissingPreparedAuthorityFrontier {
                     domain: frontier.domain.clone(),
