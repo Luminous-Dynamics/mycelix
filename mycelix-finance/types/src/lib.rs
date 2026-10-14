@@ -15,6 +15,9 @@
 
 use serde::{Deserialize, Serialize};
 
+mod fixed_rate;
+pub use fixed_rate::{FixedRate, FixedRateError, MonetaryRounding};
+
 // =============================================================================
 // CURRENCIES
 // =============================================================================
