@@ -8,7 +8,7 @@
   "no_real_case_references": true,
   "no_precise_sensitive_asset_locations": true,
   "intended_use": "Future deterministic G1 validator/evaluator input; this file itself is not executable qualification and does not establish runtime or field behavior.",
-  "expected_probe_count": 16,
+  "expected_probe_count": 17,
   "probes": [
     {
       "id": "issuer-reference-collision",
@@ -466,6 +466,39 @@
         "SdbipPlanningKpiIsNotProcurementAward",
         "NoCooperativeContractWithoutOpenAuthorizedProcess",
         "NoSpeculativePayroll"
+      ]
+    },
+    {
+      "id": "national-epwp-target-vs-city-sdbip-target",
+      "category": "EmploymentIntegrity",
+      "scenario": "The SDBIP footnote lists a national DPWI Phase 5 target apportioned to the City of 9,996 for 2026/27 while the City's own KPI 24 table target is 12,500 opportunities. An integration attempts to substitute one target for the other.",
+      "input": {
+        "national_department_target_apportioned_to_city_2026_27": 9996,
+        "city_sdbip_kpi24_target_2026_27": 12500,
+        "city_sdbip_quarterly_targets_2026_27": [
+          3500,
+          7000,
+          9800,
+          12500
+        ],
+        "work_opportunity_is_durable_job": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "PreserveSeparateTargetSeries",
+        "issue_status_effect": "NoTargetSubstitution",
+        "required_human_review": true,
+        "source_status": "DistinctProgrammeTargets"
+      },
+      "guards": [
+        "NationalTargetIsNotCitySdbipTarget",
+        "WorkOpportunityIsNotDurableJob",
+        "DoNotReplacePublishedTarget"
       ]
     }
   ]
