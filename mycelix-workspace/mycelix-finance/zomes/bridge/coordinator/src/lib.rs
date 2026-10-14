@@ -1485,26 +1485,98 @@ pub fn health_check(_: ()) -> ExternResult<FinanceBridgeHealth> {
 // Phase 1b: Oracle Rate Attestation
 // ---------------------------------------------------------------------------
 
+/// Validate a claimed oracle rate against one finite, positive consensus price.
+fn validate_consensus_rate(claimed_rate: f64, consensus_price: f64) -> ExternResult<()> {
+    use mycelix_finance_types::ORACLE_RATE_TOLERANCE;
+
+    if !consensus_price.is_finite() || consensus_price <= 0.0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Price oracle consensus is invalid or non-finite; refusing collateral issuance".into(),
+        )));
+    }
+
+    if !claimed_rate.is_finite() || claimed_rate <= 0.0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Claimed oracle rate must be a finite positive number".into(),
+        )));
+    }
+
+    let deviation = (claimed_rate - consensus_price).abs() / consensus_price;
+    if deviation > ORACLE_RATE_TOLERANCE {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Oracle rate {:.6} deviates {:.1}% from consensus {:.6} (max {:.0}%).                  Use get_consensus_price to fetch current rate before depositing.",
+            claimed_rate,
+            deviation * 100.0,
+            consensus_price,
+            ORACLE_RATE_TOLERANCE * 100.0
+        ))));
+    }
+
+    Ok(())
+}
+
+fn validate_reserve_consensus_metadata(
+    expected_item: &str,
+    consensus_item: &str,
+    reporter_count: u32,
+    fallback_used: bool,
+    window_start_micros: i64,
+    now_micros: i64,
+) -> ExternResult<()> {
+    const MIN_RESERVE_ORACLE_REPORTERS: u32 = 2;
+
+    if consensus_item.to_lowercase() != expected_item.to_lowercase() {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Price oracle consensus item mismatch: expected {}, got {}; refusing collateral issuance",
+            expected_item, consensus_item
+        ))));
+    }
+
+    if reporter_count < MIN_RESERVE_ORACLE_REPORTERS {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Price oracle consensus has insufficient fresh reporters; refusing collateral issuance"
+                .into(),
+        )));
+    }
+
+    if fallback_used {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Price oracle consensus is degraded/fallback; refusing collateral issuance".into(),
+        )));
+    }
+
+    if window_start_micros > now_micros {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Price oracle consensus window starts in the future; refusing collateral issuance"
+                .into(),
+        )));
+    }
+
+    Ok(())
+}
+
 /// Verify that the claimed oracle rate is within tolerance of consensus.
 ///
-/// Fetches consensus from the price-oracle zome. If the oracle is unreachable
-/// (bootstrap/standalone), accepts the claimed rate with a warning.
+/// The price oracle is an authority-bearing dependency for collateral-backed
+/// issuance. Missing, malformed, or unreachable consensus therefore fails closed.
 fn verify_oracle_rate_against_consensus(
     collateral_type: &str,
     claimed_rate: f64,
 ) -> ExternResult<()> {
-    use mycelix_finance_types::ORACLE_RATE_TOLERANCE;
-
     #[derive(Serialize, Debug)]
     struct GetConsensusInput {
         item: String,
     }
     #[derive(Debug, Deserialize)]
     struct ConsensusResult {
+        item: String,
         median_price: f64,
+        reporter_count: u32,
+        fallback_used: bool,
+        window_start: Timestamp,
     }
 
-    let item = format!("{}_SAP", collateral_type); // e.g., "ETH_SAP", "USDC_SAP"
+    let item = format!("{}_SAP", collateral_type);
 
     match call(
         CallTargetCell::Local,
@@ -1513,37 +1585,34 @@ fn verify_oracle_rate_against_consensus(
         None,
         GetConsensusInput { item },
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => match result.decode::<ConsensusResult>() {
-            Ok(consensus) if consensus.median_price.is_finite() && consensus.median_price > 0.0 => {
-                let deviation =
-                    (claimed_rate - consensus.median_price).abs() / consensus.median_price;
-                if deviation > ORACLE_RATE_TOLERANCE {
-                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                        "Oracle rate {:.6} deviates {:.1}% from consensus {:.6} (max {:.0}%). \
-                             Use get_consensus_price to fetch current rate before depositing.",
-                        claimed_rate,
-                        deviation * 100.0,
-                        consensus.median_price,
-                        ORACLE_RATE_TOLERANCE * 100.0
-                    ))));
-                }
-                Ok(())
-            }
-            _ => {
-                debug!(
-                    "verify_oracle_rate: consensus invalid, accepting claimed rate {:.6}",
-                    claimed_rate
-                );
-                Ok(())
-            }
-        },
-        _ => {
-            debug!(
-                "verify_oracle_rate: price oracle unreachable, accepting claimed rate {:.6}",
-                claimed_rate
-            );
-            Ok(())
+        Ok(ZomeCallResponse::Ok(result)) => {
+            let consensus = result.decode::<ConsensusResult>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Price oracle consensus response is malformed; refusing collateral issuance: {:?}",
+                    e
+                )))
+            })?;
+
+            let expected_item = format!("{}_SAP", collateral_type);
+            let now = sys_time()?;
+            validate_reserve_consensus_metadata(
+                &expected_item,
+                &consensus.item,
+                consensus.reporter_count,
+                consensus.fallback_used,
+                consensus.window_start.as_micros(),
+                now.as_micros(),
+            )?;
+            validate_consensus_rate(claimed_rate, consensus.median_price)
         }
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Price oracle returned non-success response; refusing collateral issuance: {:?}",
+            other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Price oracle is unavailable; refusing collateral issuance: {:?}",
+            e
+        )))),
     }
 }
 
@@ -2689,4 +2758,82 @@ mod tests {
             AssetType::Other("bamboo".into())
         );
     }
+    #[test]
+    fn consensus_rate_exact_match_passes() {
+        assert!(validate_consensus_rate(100.0, 100.0).is_ok());
+    }
+
+    #[test]
+    fn consensus_rate_within_tolerance_passes() {
+        assert!(validate_consensus_rate(
+            100.0
+                * (1.0 + mycelix_finance_types::ORACLE_RATE_TOLERANCE * 0.999),
+            100.0
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn consensus_rate_above_tolerance_fails_closed() {
+        assert!(validate_consensus_rate(
+            100.0 * (1.0 + mycelix_finance_types::ORACLE_RATE_TOLERANCE + 0.0001),
+            100.0
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn non_finite_consensus_fails_closed() {
+        assert!(validate_consensus_rate(100.0, f64::NAN).is_err());
+        assert!(validate_consensus_rate(100.0, f64::INFINITY).is_err());
+        assert!(validate_consensus_rate(100.0, f64::NEG_INFINITY).is_err());
+    }
+
+    #[test]
+    fn non_positive_consensus_fails_closed() {
+        assert!(validate_consensus_rate(100.0, 0.0).is_err());
+        assert!(validate_consensus_rate(100.0, -1.0).is_err());
+    }
+
+    #[test]
+    fn non_finite_claimed_rate_fails_closed() {
+        assert!(validate_consensus_rate(f64::NAN, 100.0).is_err());
+        assert!(validate_consensus_rate(f64::INFINITY, 100.0).is_err());
+    }
+
+    #[test]
+    fn reserve_consensus_valid_metadata_passes() {
+        assert!(validate_reserve_consensus_metadata(
+            "ETH_SAP", "ETH_SAP", 2, false, 1_000, 2_000
+        ).is_ok());
+    }
+
+    #[test]
+    fn reserve_consensus_item_substitution_fails_closed() {
+        assert!(validate_reserve_consensus_metadata(
+            "ETH_SAP", "USDC_SAP", 2, false, 1_000, 2_000
+        ).is_err());
+    }
+
+    #[test]
+    fn reserve_consensus_insufficient_reporters_fails_closed() {
+        assert!(validate_reserve_consensus_metadata(
+            "ETH_SAP", "ETH_SAP", 1, false, 1_000, 2_000
+        ).is_err());
+    }
+
+    #[test]
+    fn reserve_consensus_fallback_fails_closed() {
+        assert!(validate_reserve_consensus_metadata(
+            "ETH_SAP", "ETH_SAP", 2, true, 1_000, 2_000
+        ).is_err());
+    }
+
+    #[test]
+    fn reserve_consensus_future_window_fails_closed() {
+        assert!(validate_reserve_consensus_metadata(
+            "ETH_SAP", "ETH_SAP", 2, false, 3_000, 2_000
+        ).is_err());
+    }
+
 }
