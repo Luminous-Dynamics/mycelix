@@ -469,6 +469,11 @@ done
 grep -Fq "column_name = 'batchGrossMinor'" packages/database/src/accounting-allocation.integration.ts \
   || fail "live allocation regression must prove batch gross authority is not duplicated"
 
+grep -Fq '"node_modules/@mycelix/accounting": {' package-lock.json \
+  || fail "npm lockfile must link the accounting workspace"
+grep -Fq '"packages/accounting": {' package-lock.json \
+  || fail "npm lockfile must include the accounting workspace package record"
+
 if grep -Fq 'git+ssh://' package-lock.json; then
   fail "package lock contains an SSH-only dependency"
 fi
