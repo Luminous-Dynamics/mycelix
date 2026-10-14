@@ -8,7 +8,7 @@
   "no_real_case_references": true,
   "no_precise_sensitive_asset_locations": true,
   "intended_use": "Future deterministic G1 validator/evaluator input; this file itself is not executable qualification and does not establish runtime or field behavior.",
-  "expected_probe_count": 17,
+  "expected_probe_count": 18,
   "probes": [
     {
       "id": "issuer-reference-collision",
@@ -499,6 +499,51 @@
         "NationalTargetIsNotCitySdbipTarget",
         "WorkOpportunityIsNotDurableJob",
         "DoNotReplacePublishedTarget"
+      ]
+    },
+    {
+      "id": "same-title-water-kpis-need-crosswalk",
+      "category": "ServiceSemantics",
+      "scenario": "The SDBIP contains two differently located 'Total water losses' rows: top-level KPI 17 with a 2026/27 target of 200 293Ml and outcome indicator WS5.2/KPI 52 with a separate baseline and target sequence. An adapter assumes the titles identify the same measure and auto-substitutes target values.",
+      "input": {
+        "summary_kpi17": {
+          "printed_page": 28,
+          "target_2026_27": "200 293Ml"
+        },
+        "technical_kpi17": {
+          "printed_page": 58,
+          "formula_units": "Litres per service connection per day",
+          "source_visual_review_recorded_from_prior_pass": true
+        },
+        "outcome_kpi52": {
+          "printed_page": 90,
+          "baseline": "838.77",
+          "target_values": [
+            "196 099Ml",
+            "188 163Ml",
+            "180 274Ml",
+            "173 495Ml"
+          ],
+          "year_mapping_from_text_layer": "NotFullyBound"
+        },
+        "authoritative_crosswalk": "NotQualified"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "PreserveSeparateMetricSeries",
+        "issue_status_effect": "NoDerivedValueOrSla",
+        "required_human_review": true,
+        "source_status": "MetricCrosswalkUnqualified"
+      },
+      "guards": [
+        "SameTitleDoesNotProveSameMetric",
+        "UnqualifiedMetricCrosswalkFailsClosed",
+        "NoProductionSlaCalculation"
       ]
     }
   ]
