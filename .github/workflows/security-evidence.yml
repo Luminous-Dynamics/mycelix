@@ -1,0 +1,29 @@
+name: Mycelix Security Evidence Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  platform-evidence-capture:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact commit
+        uses: actions/checkout@v4
+
+      - name: Validate contract JSON
+        run: python3 -c 'import json, pathlib; p=pathlib.Path("docs/security/mycelix-platform-evidence-capture-v0.1.json"); d=json.loads(p.read_text()); assert d["profile_id"] == "mycelix.security.platform.evidence.capture"; assert len(d["vectors"]) == 22; assert d["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"'
+
+      - name: Compile verifier
+        run: python3 -m py_compile scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py
+
+      - name: Run semantic qualification corpus
+        run: python3 scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py --self-test
+
+      - name: Confirm hardware claim remains bounded
+        run: python3 -c 'p=open("scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py").read(); assert "TPM PLATFORM CAPTURE: NOT EXECUTED" in p; assert "ReferenceModelOnly" in p; assert "tpm2_checkquote" in p'
