@@ -50,6 +50,13 @@
       "observed_status": "research report; reported employment relationship was modest and context-dependent",
       "as_of_date": "2026-10-14",
       "notes": "The NIJ summary reports a modest employment–crime relationship in urban young adults in this study, but not in rural young adults. This is a bounded U.S. study summary, not a universal causal coefficient, local South African effect estimate, or robot deployment validation."
+    },
+    {
+      "snapshot_id": "ISO-10218-2-2025-ROBOT-CELL-SCOPE",
+      "source_uri": "https://www.iso.org/standard/73934.html",
+      "observed_status": "published International Standard; second edition; publication date 2025-02",
+      "as_of_date": "2026-10-14",
+      "notes": "ISO catalogue describes safety requirements for industrial robot applications and robot cells. It lists service robots accessible to the public and law-enforcement uses among exclusions. A published industrial-robot standard cannot be treated as universal coverage for all public-facing or security robots."
     }
   ],
   "cases": [
@@ -368,6 +375,37 @@
         ]
       },
       "rationale": "This research source can motivate a hypothesis, but the reported association is context-dependent. Local evaluation needs a defined intervention, outcomes, baseline, and credible counterfactual.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-012",
+      "title": "Published industrial robot-cell standard must not be overgeneralized to a public-facing service or security robot",
+      "input_projection": {
+        "instrument_id": "ISO:10218-2:2025",
+        "artifact_kind": "standard",
+        "version": "Edition 2; 2025-02",
+        "publication_status": "published",
+        "normative_status": "voluntary_standard",
+        "source_uri": "https://www.iso.org/standard/73934.html"
+      },
+      "context": {
+        "use_case": "assess safety evidence for a public-facing municipal property-protection service robot",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "ISO 10218-2:2025 fully covers a public-access service robot",
+          "conformance to an industrial robot-cell standard proves this public-facing deployment is safe",
+          "the published standard establishes local legal permission for autonomous security intervention",
+          "industrial robot requirements apply universally to all service robots"
+        ]
+      },
+      "rationale": "The official ISO catalogue describes ISO 10218-2:2025 as covering industrial robot applications and robot cells and lists public-access service robots and law-enforcement applications among exclusions. The publication status and industrial scope must be preserved; a different robot category requires separate hazard, standards-applicability, legal, and operational review.",
       "synthetic": false
     }
   ]
