@@ -266,6 +266,7 @@ pub fn VideosPage() -> impl IntoView {
     let resume_seconds = RwSignal::new(HashMap::<String, u64>::new());
     let source_index = RwSignal::new(0usize);
     let delivery_failed = RwSignal::new(false);
+    let player_enabled = RwSignal::new(false);
     let video_node = NodeRef::new();
     let last_saved_bucket = RwSignal::new(0u64);
 
@@ -309,6 +310,7 @@ pub fn VideosPage() -> impl IntoView {
         let _preferences_loaded = preferences.loaded.get();
         source_index.set(0);
         delivery_failed.set(false);
+        player_enabled.set(false);
         last_saved_bucket.set(0);
     });
 
@@ -392,6 +394,21 @@ pub fn VideosPage() -> impl IntoView {
         }
     };
 
+    let on_video_ended = move |_| {
+        if let Some(listing) = selected_video() {
+            resume_seconds.update(|saved| {
+                saved.remove(&listing.id);
+            });
+            if let Some(storage) = web_sys::window()
+                .and_then(|window| window.local_storage().ok().flatten())
+            {
+                let _ = storage.remove_item(&resume_storage_key(&listing.id));
+                let _ = storage.remove_item(LAST_VIDEO_STORAGE_KEY);
+            }
+            last_saved_bucket.set(0);
+        }
+    };
+
     let on_video_timeupdate = move |event: web_sys::Event| {
         let Some(video_element) = event
             .current_target()
@@ -433,6 +450,10 @@ pub fn VideosPage() -> impl IntoView {
                     <span>"Explicit delivery"</span>
                 </div>
             </section>
+
+            <p class="video-network-note" role="note">
+                "Privacy note: visible posters may be fetched from your selected gateway while browsing, so the gateway can observe those CID requests. A video's media request is deferred until you select its card and choose Load player. No viewing history leaves this browser."
+            </p>
 
             {cfg!(feature = "fixtures").then(|| view! {
                 <div class="video-fixture-notice" role="note">
@@ -666,7 +687,7 @@ pub fn VideosPage() -> impl IntoView {
                             <div class="video-watch-layout">
                                 <div class="video-main-column">
                                     {move || {
-                                        if source_url.get().is_some() {
+                                        if player_enabled.get() && source_url.get().is_some() && !delivery_failed.get() {
                                             let title_for_player = title.clone();
                                             let caption_language = listing.caption_language.clone().unwrap_or_else(|| "en".into());
                                             view! {
@@ -677,11 +698,12 @@ pub fn VideosPage() -> impl IntoView {
                                                         prop:src=move || source_url.get().unwrap_or_default()
                                                         controls
                                                         playsinline
-                                                        preload="none"
+                                                        preload="metadata"
                                                         aria-label=title_for_player.clone()
                                                         on:error=on_video_error
                                                         on:loadedmetadata=on_video_loaded
                                                         on:timeupdate=on_video_timeupdate
+                                                        on:ended=on_video_ended
                                                     >
                                                         {caption_url.get().map(|url| view! {
                                                             <track kind="captions"
@@ -717,10 +739,35 @@ pub fn VideosPage() -> impl IntoView {
                                                             "The player waits for this browser's saved gateway preference before selecting a source.".to_string()
                                                         } else if delivery_failed.get() {
                                                             "Every selected gateway failed. Review Delivery Settings or retry later.".to_string()
+                                                        } else if source_url.get().is_none() {
+                                                            "No trusted gateway route is available. Review Delivery Settings or the source CID.".to_string()
                                                         } else {
-                                                            "Choose an explicit gateway in Delivery Settings before playing this CID-addressed video.".to_string()
+                                                            "The source is available by CID. Load the player to allow the selected gateway to receive a media request.".to_string()
                                                         }
                                                     }}</p>
+                                                    {move || {
+                                                        if has_cid && preferences.loaded.get() && source_url.get().is_some() && !delivery_failed.get() && !player_enabled.get() {
+                                                            view! {
+                                                                <button type="button" class="btn btn-primary"
+                                                                    on:click=move |_| player_enabled.set(true)>
+                                                                    "Load player"
+                                                                </button>
+                                                            }.into_any()
+                                                        } else if delivery_failed.get() {
+                                                            view! {
+                                                                <button type="button" class="btn btn-secondary"
+                                                                    on:click=move |_| {
+                                                                        source_index.set(0);
+                                                                        delivery_failed.set(false);
+                                                                        player_enabled.set(false);
+                                                                    }>
+                                                                    "Try again"
+                                                                </button>
+                                                            }.into_any()
+                                                        } else {
+                                                            ().into_any()
+                                                        }
+                                                    }}
                                                 </div>
                                             }.into_any()
                                         }
