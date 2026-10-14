@@ -159,10 +159,7 @@ pub fn validate_staleness_config(config: &StalenessConfig) -> Result<(), SpaceEr
 }
 
 /// Return whether the age-degraded quality satisfies the requested minimum.
-pub fn staleness_quality_is_acceptable(
-    staleness: &TleStaleness,
-    config: &StalenessConfig,
-) -> bool {
+pub fn staleness_quality_is_acceptable(staleness: &TleStaleness, config: &StalenessConfig) -> bool {
     staleness.effective_quality.value() >= config.min_quality
 }
 
@@ -231,13 +228,7 @@ mod staleness_confidence_tests {
     fn confidence_matches_documented_age_curve() {
         let quality = QualityScore::new(80);
         let policy = config(100, 20);
-        for (age_secs, expected) in [
-            (0, 1.0),
-            (100, 0.3),
-            (150, 0.2),
-            (200, 0.1),
-            (500, 0.1),
-        ] {
+        for (age_secs, expected) in [(0, 1.0), (100, 0.3), (150, 0.2), (200, 0.1), (500, 0.1)] {
             let result = compute_staleness_at_age(age_secs, &quality, &policy);
             assert!(
                 (result.confidence - expected).abs() <= 1e-12,
@@ -1267,7 +1258,9 @@ mod tests {
                 screening_volume_km: 5.0,
             };
             let alert = ConjunctionAlert::new_conjunction(&assessment);
-            let recommendation = alert.recommendation.expect("every Pc band carries review guidance");
+            let recommendation = alert
+                .recommendation
+                .expect("every Pc band carries review guidance");
             let lower = recommendation.to_ascii_lowercase();
             assert!(!lower.contains("initiate collision avoidance maneuver"));
             assert!(!lower.contains("immediate action required"));
@@ -1747,86 +1740,6 @@ pub fn requirement_for_agreement_signing() -> CivicRequirement {
 
 // =============================================================================
 // Space consciousness gate (bootstrap-aware)
-// =============================================================================
-
-/// Best-effort civic gate for space operations.
-///
-/// Attempts a cross-role call to the identity cluster to fetch a
-/// `SovereignCredential` (8D). Falls back to bootstrap mode if the identity
-/// cluster is unavailable (standalone space hApp or network bootstrap).
-pub fn gate_space_operation(
-    requirement: &CivicRequirement,
-    action_name: &str,
-) -> hdk::prelude::ExternResult<()> {
-    use hdk::prelude::*;
-    use mycelix_bridge_common::sovereign_gate::{DimensionWeights, SovereignCredential};
-
-    let agent = agent_info()?.agent_initial_pubkey;
-    let did = format!("did:mycelix:{}", agent);
-
-    // Try cross-role call to identity cluster's bridge zome
-    match call(
-        CallTargetCell::OtherRole("identity".into()),
-        ZomeName::new("identity_bridge"),
-        FunctionName::new("issue_sovereign_credential"),
-        None,
-        did,
-    ) {
-        Ok(ZomeCallResponse::Ok(extern_io)) => {
-            match extern_io.decode::<SovereignCredential>() {
-                Ok(cred) => {
-                    let weights = DimensionWeights::governance();
-                    if !cred.profile.meets_requirement(requirement, &weights) {
-                        let tier = cred.profile.tier(&weights);
-                        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                            "Civic gate denied for action '{}': requires {:?} tier, \
-                             agent has {:?}",
-                            action_name, requirement.min_tier, tier
-                        ))));
-                    }
-                    Ok(())
-                }
-                Err(_) => {
-                    // Credential decode failed — bootstrap mode
-                    debug!(
-                        "Space civic gate: credential decode failed, \
-                         bootstrap mode for: {}",
-                        action_name
-                    );
-                    Ok(())
-                }
-            }
-        }
-        Ok(ZomeCallResponse::NetworkError(e)) => {
-            // Identity cluster unreachable — allow in bootstrap mode
-            debug!(
-                "Space civic gate: identity cluster unreachable ({}), \
-                 bootstrap mode for: {}",
-                e, action_name
-            );
-            Ok(())
-        }
-        Ok(_) => {
-            // Unexpected response variant — allow in bootstrap mode
-            debug!(
-                "Space civic gate: unexpected response, \
-                 bootstrap mode for: {}",
-                action_name
-            );
-            Ok(())
-        }
-        Err(_) => {
-            // Zome not found — standalone space hApp without identity cluster
-            debug!(
-                "Space consciousness gate: no identity cluster, \
-                 bootstrap mode for: {}",
-                action_name
-            );
-            Ok(())
-        }
-    }
-}
-
 // =============================================================================
 // Trust Fabric Tests
 // =============================================================================

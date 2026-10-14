@@ -8,13 +8,13 @@
 
 use conjunctions_integrity::*;
 use hdk::prelude::*;
+use mycelix_space_coordinator_gates::gate_space_operation;
 use mycelix_space_shared::{
     AlertPriority, AlertType, ConjunctionAlert, ConjunctionAssessment, ConjunctionDataMessage,
     ManeuverAlert, ManeuverType as SharedManeuverType, PaginatedResponse, PaginationParams,
-    ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp,
-    StalenessAwareAssessment, StalenessConfig, TleWithMetadata,
-    gate_space_operation, requirement_for_conjunction_creation, requirement_for_negotiation,
-    requirement_for_risk_update, validate_staleness_config,
+    ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp, StalenessAwareAssessment,
+    StalenessConfig, TleWithMetadata, requirement_for_conjunction_creation,
+    requirement_for_negotiation, requirement_for_risk_update, validate_staleness_config,
 };
 use orbital_mechanics::conjunction::ConjunctionAnalyzer;
 use orbital_mechanics::propagator::Propagator;
@@ -128,19 +128,23 @@ pub fn create_conjunction_event(input: CreateEventInput) -> ExternResult<ActionH
         .into_wasm_error());
     }
     if !input.compute_details {
-        let expected_risk = mycelix_space_shared::RiskLevel::try_from_pc(input.max_pc).ok_or_else(|| {
-            SpaceError::new(
-                SpaceErrorCode::InvalidProbability,
-                "Cannot derive a screening band from an invalid Pc value",
-            )
-            .into_wasm_error()
-        })?;
+        let expected_risk =
+            mycelix_space_shared::RiskLevel::try_from_pc(input.max_pc).ok_or_else(|| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidProbability,
+                    "Cannot derive a screening band from an invalid Pc value",
+                )
+                .into_wasm_error()
+            })?;
         if convert_risk_level(input.risk_level) != expected_risk {
             return Err(SpaceError::new(
                 SpaceErrorCode::InvalidInput,
                 "Provided risk_level does not match the Pc-only screening band derived from max_pc",
             )
-            .with_context(format!("pc: {}, supplied band: {:?}", input.max_pc, input.risk_level))
+            .with_context(format!(
+                "pc: {}, supplied band: {:?}",
+                input.max_pc, input.risk_level
+            ))
             .into_wasm_error());
         }
     }
@@ -209,13 +213,15 @@ pub fn create_conjunction_event(input: CreateEventInput) -> ExternResult<ActionH
         })?;
 
         let analyzer = ConjunctionAnalyzer::new();
-        let assessment = analyzer.try_assess(&primary_state, &secondary_state).map_err(|e| {
-            SpaceError::new(
-                SpaceErrorCode::InvalidInput,
-                format!("Checked conjunction assessment rejected: {}", e),
-            )
-            .into_wasm_error()
-        })?;
+        let assessment = analyzer
+            .try_assess(&primary_state, &secondary_state)
+            .map_err(|e| {
+                SpaceError::new(
+                    SpaceErrorCode::InvalidInput,
+                    format!("Checked conjunction assessment rejected: {}", e),
+                )
+                .into_wasm_error()
+            })?;
 
         (
             assessment.miss_distance_km,
@@ -320,19 +326,23 @@ pub fn update_conjunction_risk(input: UpdateRiskInput) -> ExternResult<ActionHas
         .with_context(format!("value: {}", input.new_miss_distance_km))
         .into_wasm_error());
     }
-    let expected_risk = mycelix_space_shared::RiskLevel::try_from_pc(input.new_pc).ok_or_else(|| {
-        SpaceError::new(
-            SpaceErrorCode::InvalidProbability,
-            "Cannot derive a screening band from an invalid Pc value",
-        )
-        .into_wasm_error()
-    })?;
+    let expected_risk =
+        mycelix_space_shared::RiskLevel::try_from_pc(input.new_pc).ok_or_else(|| {
+            SpaceError::new(
+                SpaceErrorCode::InvalidProbability,
+                "Cannot derive a screening band from an invalid Pc value",
+            )
+            .into_wasm_error()
+        })?;
     if convert_risk_level(input.new_risk_level) != expected_risk {
         return Err(SpaceError::new(
             SpaceErrorCode::InvalidInput,
             "Provided new_risk_level does not match the Pc-only screening band derived from new_pc",
         )
-        .with_context(format!("pc: {}, supplied band: {:?}", input.new_pc, input.new_risk_level))
+        .with_context(format!(
+            "pc: {}, supplied band: {:?}",
+            input.new_pc, input.new_risk_level
+        ))
         .into_wasm_error());
     }
 
@@ -792,10 +802,10 @@ pub fn screen_conjunction(input: ScreenInput) -> ExternResult<Vec<ConjunctionAss
     })?;
 
     // Delegate to the TLE-based screening function
-    let secondary_tles: Vec<(String, String)> = require_secondary_items(
-        &input.secondary_norad_ids,
-        |id| tle_map.get(&id).map(|t| (t.line1.clone(), t.line2.clone())),
-    )?;
+    let secondary_tles: Vec<(String, String)> =
+        require_secondary_items(&input.secondary_norad_ids, |id| {
+            tle_map.get(&id).map(|t| (t.line1.clone(), t.line2.clone()))
+        })?;
 
     let from_tles_input = ScreenFromTlesInput {
         primary_tle: (
@@ -840,8 +850,7 @@ pub fn screen_conjunction_with_staleness(
     }
 
     // Reject invalid horizons/thresholds before performing network/DHT work.
-    validate_staleness_config(&input.staleness_config)
-        .map_err(|error| error.into_wasm_error())?;
+    validate_staleness_config(&input.staleness_config).map_err(|error| error.into_wasm_error())?;
     validate_screening_parameters(input.hours_ahead, input.pc_threshold)?;
     validate_requested_secondary_ids(input.primary_norad_id, &input.secondary_norad_ids)?;
 
@@ -897,10 +906,12 @@ pub fn screen_conjunction_with_staleness(
     })?;
 
     // Build TLE pairs for screening
-    let secondary_tles: Vec<(String, String)> = require_secondary_items(
-        &input.secondary_norad_ids,
-        |id| meta_map.get(&id).map(|t| (t.line1.clone(), t.line2.clone())),
-    )?;
+    let secondary_tles: Vec<(String, String)> =
+        require_secondary_items(&input.secondary_norad_ids, |id| {
+            meta_map
+                .get(&id)
+                .map(|t| (t.line1.clone(), t.line2.clone()))
+        })?;
 
     let from_tles_input = ScreenFromTlesInput {
         primary_tle: (primary_meta.line1.clone(), primary_meta.line2.clone()),
@@ -1154,7 +1165,10 @@ pub fn screen_conjunction_from_tles(
         let assessment = analyzer.try_assess(&p_state, &s_state).map_err(|e| {
             SpaceError::new(
                 SpaceErrorCode::InvalidInput,
-                format!("Checked conjunction assessment rejected; batch is incomplete: {}", e),
+                format!(
+                    "Checked conjunction assessment rejected; batch is incomplete: {}",
+                    e
+                ),
             )
             .into_wasm_error()
         })?;
@@ -1228,7 +1242,14 @@ mod screening_parameter_tests {
 
     #[test]
     fn screening_limits_reject_non_finite_and_out_of_range_hours() {
-        for hours in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 0.0, -1.0, 720.0001] {
+        for hours in [
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            0.0,
+            -1.0,
+            720.0001,
+        ] {
             assert!(
                 validate_screening_parameters(hours, 0.5).is_err(),
                 "invalid hours_ahead should fail closed: {hours}"
@@ -1372,10 +1393,8 @@ mod screening_target_tests {
 
     #[test]
     fn missing_requested_secondary_makes_lookup_fail_closed() {
-        let available = std::collections::HashMap::from([
-            (40001_u32, "tle-40001"),
-            (40002_u32, "tle-40002"),
-        ]);
+        let available =
+            std::collections::HashMap::from([(40001_u32, "tle-40001"), (40002_u32, "tle-40002")]);
         assert!(
             require_secondary_items(&[40001, 40003], |id| available.get(&id).copied()).is_err()
         );
@@ -1383,13 +1402,10 @@ mod screening_target_tests {
 
     #[test]
     fn lookup_preserves_requested_order_and_count() {
-        let available = std::collections::HashMap::from([
-            (40001_u32, "tle-40001"),
-            (40002_u32, "tle-40002"),
-        ]);
-        let resolved =
-            require_secondary_items(&[40002, 40001], |id| available.get(&id).copied())
-                .expect("all requested targets should resolve");
+        let available =
+            std::collections::HashMap::from([(40001_u32, "tle-40001"), (40002_u32, "tle-40002")]);
+        let resolved = require_secondary_items(&[40002, 40001], |id| available.get(&id).copied())
+            .expect("all requested targets should resolve");
         assert_eq!(resolved, vec!["tle-40002", "tle-40001"]);
     }
 }
@@ -1611,7 +1627,9 @@ pub fn rescreen_conjunction(event_hash: ActionHash) -> ExternResult<ConjunctionE
     })?;
 
     let analyzer = ConjunctionAnalyzer::new();
-    let assessment = analyzer.try_assess(&primary_state, &secondary_state).map_err(|e| {
+    let assessment = analyzer
+        .try_assess(&primary_state, &secondary_state)
+        .map_err(|e| {
             SpaceError::new(
                 SpaceErrorCode::InvalidInput,
                 format!("Checked conjunction assessment rejected: {}", e),

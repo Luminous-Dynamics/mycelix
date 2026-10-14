@@ -6,10 +6,11 @@
 //! Functions for submitting and querying sensor observations.
 
 use hdk::prelude::*;
+use mycelix_space_coordinator_gates::gate_space_operation;
 use mycelix_space_shared::{
     GroundLocation, PaginatedResponse, PaginationParams, QualityScore, SpaceError, SpaceErrorCode,
-    SpaceTimestamp, TrustLevel, gate_space_operation, requirement_for_fusion,
-    requirement_for_observation, validate_latitude, validate_longitude, validate_string_field,
+    SpaceTimestamp, TrustLevel, requirement_for_fusion, requirement_for_observation,
+    validate_latitude, validate_longitude, validate_string_field,
 };
 use observations_integrity::*;
 use orbital_mechanics::covariance::CovarianceMatrix;

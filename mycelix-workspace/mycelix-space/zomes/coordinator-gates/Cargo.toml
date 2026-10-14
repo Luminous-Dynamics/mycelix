@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-space-coordinator-gates"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Coordinator-only Holochain host calls for Mycelix Space"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+mycelix-space-shared = { path = "../shared" }
+mycelix-bridge-common = { path = "../../../crates/mycelix-bridge-common", default-features = false }

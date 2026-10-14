@@ -45,10 +45,16 @@ The checked path therefore uses an **empirical eligibility gate** before emittin
 
 These cutoffs are early engineering filters anchored to the selected cases, not proven global approximation-error bounds. A failed gate yields `ApproximationOutsideReferenceEnvelope` and the caller must represent the event as **inconclusive**. It must not translate rejection into a negligible/low-risk band. The gate will need recalibration as a broader reference set is added.
 
+## Correlated-covariance end-to-end campaign
+
+A second test campaign is now authored in `PC_CORRELATED_REFERENCE_CAMPAIGN.md`. It exercises the public checked assessment path with four synthetic cases containing non-zero 2-D covariance cross terms and a fifth centered-isotropic control checked against the closed-form disk probability. The independent reference integrates the bivariate Gaussian over a circular hard-body region using tensor-product Gauss-Legendre quadrature, and a NumPy verifier regenerates the frozen results. The Rust test separately pins the approximation's expected output and compares it with the integral reference.
+
+This addresses the prior gap between testing the private local-density kernel on diagonal scalar values and exercising state validation, encounter-plane projection, correlated covariance projection, and method identity end-to-end. The new exact-head Rust check has **not yet been observed passing**; this is authored test coverage, not a claim of verified parity. The 0.2% tolerance is restricted to the four frozen synthetic cases and is not a general error bound.
+
 ## Required next qualification steps
 
 1. Add the full NASA CARA Foster/Elrod test vectors and permitted data needed to reconstruct their inputs, with source, version, units, frame, and file hashes.
-2. Build differential tests against an independent implementation for covariance anisotropy, cross-correlation, large hard-body radii, high normalized miss distances, and method-applicability limits.
+2. Run the correlated-covariance integration test on the exact PR head, then expand differential tests to broader correlation, anisotropy, cross-object covariance, large hard-body radii, high normalized miss distances, and method-applicability limits.
 3. Replace the local-density formula with an explicitly named validated method if broader operating coverage is required.
 4. Replace `pc / 10` and `pc * 10` with validated uncertainty treatment, or keep those fields explicitly labelled as heuristic spread values and exclude them from claims of conservative bounds.
 5. Keep PC, data quality, covariance realism, method applicability, and operational decision authority as separate fields in the mission evidence record.

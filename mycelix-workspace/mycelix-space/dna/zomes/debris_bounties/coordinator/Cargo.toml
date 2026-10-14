@@ -15,4 +15,5 @@ serde = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
 debris_bounties_integrity = { path = "../integrity" }
 mycelix-space-shared = { path = "../../../../zomes/shared" }
+mycelix-space-coordinator-gates = { path = "../../../../zomes/coordinator-gates" }
 orbital-mechanics = { path = "../../../../../crates/orbital-mechanics" }
