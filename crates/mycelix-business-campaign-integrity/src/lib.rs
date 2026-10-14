@@ -67,8 +67,12 @@ pub enum IntegrityError {
         source_file_digest: Digest32,
     },
     MissingCampaignFile,
-    Csv { index: usize },
-    Serialization { index: usize },
+    Csv {
+        index: usize,
+    },
+    Serialization {
+        index: usize,
+    },
     DuplicateCampaignSourceEvent {
         source_event_id: ReferenceId,
     },
