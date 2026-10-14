@@ -887,6 +887,55 @@ mod tests {
         );
     }
 
+    fn reservation_fixture(case_id: &str) -> ReservationCoordinationCase {
+        fixture_set()
+            .reservation_cases
+            .into_iter()
+            .find(|case| case.case_id == case_id)
+            .expect("reservation case exists")
+    }
+
+    #[test]
+    fn half_open_reservations_can_be_adjacent_without_conflict() {
+        let case = reservation_fixture("half_open_adjacent_no_conflict");
+        let report = evaluate_reservation_case(&case);
+        assert_eq!(report.actual_outcome, ReservationOutcome::NoConflictInProvidedSnapshot);
+        assert!(report.conflicts.is_empty());
+    }
+
+    #[test]
+    fn partitioned_snapshot_cannot_claim_no_conflict() {
+        let case = reservation_fixture("partitioned_snapshot_degraded");
+        let report = evaluate_reservation_case(&case);
+        assert_eq!(report.actual_outcome, ReservationOutcome::Degraded);
+        assert!(report.authority_ceiling.contains("no reservation grant"));
+    }
+
+    #[test]
+    fn duplicate_reservation_versions_require_explicit_reconciliation() {
+        let case = reservation_fixture("stale_update_duplicate_version_unresolved");
+        let report = evaluate_reservation_case(&case);
+        assert_eq!(report.actual_outcome, ReservationOutcome::Unresolved);
+        assert!(report.errors.contains(&ReservationError::DuplicateReservationId));
+    }
+
+    #[test]
+    fn emergency_claim_does_not_automatically_preempt_a_conflicting_claim() {
+        let case = reservation_fixture("emergency_does_not_preempt_conflict");
+        let report = evaluate_reservation_case(&case);
+        assert_eq!(report.actual_outcome, ReservationOutcome::Conflict);
+        assert_eq!(report.conflicts.len(), 1);
+        assert!(report.reasons.iter().any(|reason| reason.contains("does not automatically preempt")));
+    }
+
+    #[test]
+    fn expired_and_withdrawn_claims_are_not_current_reservations() {
+        for case_id in ["expired_claim_does_not_block", "withdrawn_claim_does_not_block"] {
+            let report = evaluate_reservation_case(&reservation_fixture(case_id));
+            assert_eq!(report.actual_outcome, ReservationOutcome::NoConflictInProvidedSnapshot);
+        }
+    }
+
     #[test]
     fn detects_a_crossing_that_occurs_between_sample_instants() {
         let mut scenario = fixture_set().scenarios
