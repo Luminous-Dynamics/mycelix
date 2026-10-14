@@ -21,7 +21,7 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
 EXPECTED_CORPUS_BLOB_SHA = "1e75f7702e6e3c2e1a44956a9571ad7461c664c7"
-EXPECTED_SOURCE_IDS = ["JW-1", "COJ-1", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2"]
+EXPECTED_SOURCE_IDS = ["JW-1", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
     "InternalServiceIssueId != external reference number",
@@ -163,6 +163,36 @@ def validate() -> None:
         if not isinstance(source.get("source_url"), str) or not source["source_url"].startswith("https://"):
             fail(f"source {source.get('source_id')}: expected HTTPS source URL")
     source_by_id = {s["source_id"]: s for s in manifest["source_ledger"]}
+    sdbip_source = source_by_id["COJ-SDBIP-2026-27"]
+    if sdbip_source.get("source_kind") != "OfficialServiceDeliveryBudgetImplementationPlan" or sdbip_source.get("pdf_page_count") != 151:
+        fail("current-year SDBIP source identity/page count drift")
+    if sdbip_source.get("source_observation_status") != "OfficialPDFTextObserved;PrintedPages28And58VisuallyReviewed":
+        fail("SDBIP source review ceiling drift")
+    if sdbip_source.get("water_loss_kpi", {}).get("kpi_number") != 17:
+        fail("SDBIP water-loss KPI identity drift")
+    water_kpi = sdbip_source["water_loss_kpi"]
+    summary = water_kpi["summary_table"]
+    if summary.get("target_2026_27") != "200 293Ml" or summary.get("quarterly_targets_2026_27") != ["204 270Ml", "203 054Ml", "201 839Ml", "200 293Ml"]:
+        fail("SDBIP water-loss target literal/quarter order drift")
+    if water_kpi.get("summary_unit_vs_definition_status") != "ConflictOrAmbiguityObserved;NoCrosswalkApplied":
+        fail("summary-unit/technical-definition conflict must remain unresolved")
+    if water_kpi.get("production_loss_calculation_authorized") is not False or water_kpi.get("case_level_sla_equivalence_authorized") is not False:
+        fail("annual water-loss KPI cannot authorize production calculations or case SLA equivalence")
+    technical = water_kpi.get("technical_definition", {})
+    if technical.get("source_page_printed") != 58 or "Number of service connections" not in technical.get("formula_text", ""):
+        fail("SDBIP technical formula or printed page pin drift")
+    green = sdbip_source.get("green_economy_job_kpi", {})
+    if green.get("kpi_number") != 55 or green.get("target_2026_27_projects") != 6 or green.get("quarterly_targets_2026_27_projects") != [1, 1, 2, 2]:
+        fail("green-economy project KPI literal drift")
+    if green.get("visually_reviewed") is not False:
+        fail("do not claim visual review of the green-economy table")
+    epwp = sdbip_source.get("epwp_context", {})
+    if epwp.get("city_total_target_work_opportunities") != 50030 or epwp.get("target_2026_27_work_opportunities") != 9996:
+        fail("EPWP work-opportunity target literal drift")
+    if epwp.get("work_opportunity_equals_durable_job") is not False or epwp.get("mycelix_funding_or_eligibility_confirmed") is not False:
+        fail("EPWP opportunities must not be promoted to durable jobs or pilot funding")
+    if epwp.get("visually_reviewed") is not False:
+        fail("do not claim visual review of the EPWP footnote")
     job_source = source_by_id["SA-JOBS-2"]
     if job_source.get("geography_scope") != "South Africa nationally":
         fail("youth employment source must be labelled national, not Johannesburg-specific")
