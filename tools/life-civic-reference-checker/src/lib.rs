@@ -46,6 +46,8 @@ fn git_blob_sha1(relative_path: &str) -> String {
 const INSTRUMENT_SCHEMA: &str = "schemas/life-civic/standard-instrument.schema.json";
 const ASSESSMENT_SCHEMA: &str = "schemas/life-civic/applicability-assessment.schema.json";
 const CORPUS_PATH: &str = "tests/reference/life-civic-standards/cases.json";
+const SERVICE_JOURNEY_SCHEMA: &str = "schemas/life-civic/service-journey-reference.schema.json";
+const SERVICE_JOURNEY_CASES: &str = "tests/reference/life-civic-service/cases.json";
 
 #[test]
 fn corpus_manifest_points_to_existing_versioned_assets() {
@@ -129,6 +131,135 @@ fn corpus_manifest_points_to_existing_versioned_assets() {
             "source snapshot must retain a canonical HTTPS locator"
         );
     }
+}
+
+#[test]
+fn service_journey_manifest_pins_exact_schema_and_case_bytes() {
+    let manifest = read_json("tests/reference/life-civic-service/manifest.json");
+    let cases = read_json(SERVICE_JOURNEY_CASES);
+    assert_eq!(manifest["dataset_id"], cases["dataset_id"]);
+    assert_eq!(manifest["version"], cases["version"]);
+    assert_eq!(manifest["cases_file"].as_str(), Some(SERVICE_JOURNEY_CASES));
+
+    let declared_schemas: HashSet<&str> = manifest["schemas"]
+        .as_array()
+        .expect("service manifest schemas must be an array")
+        .iter()
+        .map(|value| value.as_str().expect("schema path must be a string"))
+        .collect();
+    assert_eq!(
+        declared_schemas,
+        [SERVICE_JOURNEY_SCHEMA].into_iter().collect(),
+        "service manifest must identify the exact service-journey schema"
+    );
+
+    let frozen_inputs = manifest["frozen_inputs"]
+        .as_array()
+        .expect("service manifest frozen_inputs must be an array");
+    assert_eq!(frozen_inputs.len(), 2);
+    let actual_paths: HashSet<&str> = frozen_inputs
+        .iter()
+        .map(|entry| entry["path"].as_str().expect("frozen path must be a string"))
+        .collect();
+    assert_eq!(actual_paths.len(), frozen_inputs.len());
+    let expected_paths: HashSet<&str> =
+        [SERVICE_JOURNEY_SCHEMA, SERVICE_JOURNEY_CASES].into_iter().collect();
+    assert_eq!(actual_paths, expected_paths);
+
+    for entry in frozen_inputs {
+        let path = entry["path"].as_str().expect("frozen path must be a string");
+        let expected = entry["git_blob_sha1"]
+            .as_str()
+            .expect("frozen input Git blob SHA-1 must be a string");
+        assert_eq!(expected.len(), 40, "{path} has malformed Git blob SHA");
+        assert!(
+            expected.bytes().all(|byte| byte.is_ascii_hexdigit()),
+            "{path} has non-hexadecimal Git blob SHA"
+        );
+        assert_eq!(
+            git_blob_sha1(path),
+            expected,
+            "frozen service input changed without updating the manifest: {path}"
+        );
+    }
+}
+
+#[test]
+fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
+    let check = validator(SERVICE_JOURNEY_SCHEMA);
+    let cases = read_json(SERVICE_JOURNEY_CASES);
+    let fixtures = cases["cases"]
+        .as_array()
+        .expect("service reference cases must be an array");
+    assert_eq!(fixtures.len(), 4);
+
+    let mut ids = HashSet::new();
+    for fixture in fixtures {
+        let fixture_id = fixture["fixture_id"]
+            .as_str()
+            .expect("fixture_id must be a string");
+        assert!(ids.insert(fixture_id), "duplicate service fixture: {fixture_id}");
+
+        let expected = fixture["expected_schema_valid"]
+            .as_bool()
+            .expect("expected_schema_valid must be boolean");
+        let instance = &fixture["instance"];
+        assert_eq!(
+            instance["effects"]["mode"],
+            "effects_disabled",
+            "{fixture_id} must keep external effects disabled"
+        );
+        assert_eq!(
+            instance["effects"]["effects_requested"],
+            false,
+            "{fixture_id} must not request an external effect"
+        );
+        assert_eq!(
+            instance["effects"]["external_action_status"],
+            "not_attempted",
+            "{fixture_id} must not claim an external action was attempted"
+        );
+        assert_eq!(
+            check.is_valid(instance),
+            expected,
+            "schema validity mismatch for {fixture_id}"
+        );
+    }
+
+    let find = |id: &str| -> &Value {
+        fixtures
+            .iter()
+            .find(|fixture| fixture["fixture_id"] == id)
+            .unwrap_or_else(|| panic!("missing required service fixture {id}"))
+    };
+
+    let report = &find("water-report-received")["instance"];
+    assert_eq!(report["outcome"]["status"], "unknown");
+    assert_eq!(report["case_state"], "received");
+
+    let provider = &find("provider-reported-complete-not-verified")["instance"];
+    assert_eq!(provider["case_state"], "work_reported_complete");
+    assert_eq!(provider["outcome"]["status"], "provider_attested_complete");
+    assert_eq!(provider["outcome"]["verified_at"], Value::Null);
+
+    let conflict = &find("conflicting-official-water-guidance")["instance"];
+    assert_eq!(conflict["route"]["status"], "conflicted");
+    assert_eq!(conflict["outcome"]["status"], "conflicted");
+    assert_eq!(conflict["review_required"], true);
+    assert_eq!(conflict["route"]["source_references"].as_array().unwrap().len(), 3);
+
+    let false_verification =
+        &find("invalid-verified-outcome-with-provider-evidence-only")["instance"];
+    assert_eq!(false_verification["outcome"]["status"], "independently_verified_complete");
+    assert!(
+        false_verification["evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|evidence| evidence["kind"] != "independent_observation"
+                && evidence["kind"] != "independent_measurement"),
+        "negative control must lack independent evidence"
+    );
 }
 
 #[test]
