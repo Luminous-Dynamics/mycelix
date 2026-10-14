@@ -1077,15 +1077,15 @@ mod tests {
     fn valid_qualification_scope() -> QualificationScope {
         QualificationScope {
             subject_class: "non-crew-critical-structural-coupon".to_string(),
-            environment_id: "vacuum-dust-analog-test-01".to_string(),
+            environment_id: "lunar-surface-qualification-envelope-fixture".to_string(),
             operating_envelope_sha256: "3".repeat(64),
             requirements_baseline_sha256: "4".repeat(64),
             standards_applicability: vec![StandardApplicabilityRecord {
-                standard_id: "ISO 12100".to_string(),
-                edition: "2010".to_string(),
-                decision: StandardApplicabilityDecision::Tailored,
-                rationale: "Terrestrial machinery risk process tailored to the test rig; not a lunar conformity claim.".to_string(),
-                requirement_ids: vec!["RISK-001".to_string()],
+                standard_id: "ISO 10218-2".to_string(),
+                edition: "2025".to_string(),
+                decision: StandardApplicabilityDecision::NotApplicable,
+                rationale: "The declared off-Earth application is excluded by ISO 10218-2:2025; no conformity claim is made for lunar/Martian operations.".to_string(),
+                requirement_ids: Vec::new(),
             }],
         }
     }
