@@ -102,6 +102,16 @@ fn corpus_manifest_points_to_existing_versioned_assets() {
         .as_array()
         .expect("manifest schemas must be an array");
     assert_eq!(schema_paths.len(), 2);
+    let declared_schema_paths: HashSet<&str> = schema_paths
+        .iter()
+        .map(|path| path.as_str().expect("schema path must be a string"))
+        .collect();
+    let expected_schema_paths: HashSet<&str> =
+        [INSTRUMENT_SCHEMA, ASSESSMENT_SCHEMA].into_iter().collect();
+    assert_eq!(
+        declared_schema_paths, expected_schema_paths,
+        "manifest schema list must name the exact pinned contracts"
+    );
     for path in schema_paths {
         let path = path.as_str().expect("schema path must be a string");
         let _ = read_json(path);
