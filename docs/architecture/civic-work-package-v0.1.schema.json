@@ -1190,11 +1190,20 @@
               "source_ref": {
                 "type": "string",
                 "minLength": 3
+              },
+              "route": {
+                "enum": [
+                  "awarded_contract",
+                  "direct_authorized_employment",
+                  "partner_agreement",
+                  "not_required"
+                ]
               }
             },
             "required": [
               "lifecycle_stage",
-              "source_ref"
+              "source_ref",
+              "route"
             ]
           },
           "protections": {
