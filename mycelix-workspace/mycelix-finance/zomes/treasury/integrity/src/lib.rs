@@ -255,9 +255,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     }
                     Ok(ValidateCallbackResult::Valid)
                 }
-                // Anchor → governance-agent pubkey registration (authorizes commons
-                // allocations). Enforcement of who may register lives in the coordinator.
-                LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Valid),
+                // Legacy local roster retained for type compatibility only. It is
+                // explicitly non-authoritative until the canonical cross-hApp
+                // governance proof is wired.
+                LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Invalid(
+                    "GovernanceAgents links are non-authoritative and cannot register Finance governance membership".into(),
+                )),
             }
         }
         FlatOp::RegisterDeleteLink { link_type, .. } => {
