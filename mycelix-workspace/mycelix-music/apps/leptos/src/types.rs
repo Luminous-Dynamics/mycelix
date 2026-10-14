@@ -5,7 +5,10 @@
 //! Mirror types from the music DNA zomes.
 //! These must be serde-compatible with the Holochain entry types.
 
-use crate::delivery::{delivery_candidates_from_build_config, DeliveryCandidate, MediaAssetManifestV1};
+use crate::delivery::{
+    delivery_candidates_from_build_config, delivery_candidates_with_origins,
+    parse_gateway_origins, DeliveryCandidate, DeliveryPlanError, MediaAssetManifestV1,
+};
 use serde::{Deserialize, Serialize};
 
 mod binary_bytes {
@@ -97,21 +100,59 @@ impl Song {
         MediaAssetManifestV1::for_ipfs(self.song_hash.clone(), self.ipfs_cid.clone())
     }
 
-    /// Return currently supported, ordered retrieval routes for this song.
+    /// Return routes from the deployment configuration. Public gateways are
+    /// included only if the operator explicitly configured them.
     pub fn audio_delivery_candidates(&self) -> Vec<DeliveryCandidate> {
-        delivery_candidates_from_build_config(&self.audio_manifest()).unwrap_or_default()
+        self.audio_delivery_candidates_with_preference(None)
+            .unwrap_or_default()
     }
 
-    /// Construct the audio URL for a specific fallback attempt.
+    /// Resolve using an optional browser-local preference. None uses the
+    /// deployment pool; Some("") explicitly disables media routes; a
+    /// non-empty value must be a valid comma-separated origin list.
+    pub fn audio_delivery_candidates_with_preference(
+        &self,
+        preference: Option<&str>,
+    ) -> Result<Vec<DeliveryCandidate>, DeliveryPlanError> {
+        let manifest = self.audio_manifest();
+        match preference {
+            None => delivery_candidates_from_build_config(&manifest),
+            Some(value) if value.trim().is_empty() => {
+                delivery_candidates_with_origins(&manifest, &[])
+            }
+            Some(value) => {
+                let origins = parse_gateway_origins(value)?;
+                delivery_candidates_with_origins(&manifest, &origins)
+            }
+        }
+    }
+
+    /// Construct the audio URL for a specific fallback attempt using the
+    /// deployment default.
     pub fn audio_url_at(&self, source_index: usize) -> Option<String> {
-        self.audio_delivery_candidates()
+        self.audio_url_at_with_preference(source_index, None)
+    }
+
+    /// Construct a URL for a specific user-selected gateway attempt.
+    pub fn audio_url_at_with_preference(
+        &self,
+        source_index: usize,
+        preference: Option<&str>,
+    ) -> Option<String> {
+        self.audio_delivery_candidates_with_preference(preference)
+            .ok()?
             .get(source_index)
             .map(|candidate| candidate.url.clone())
     }
 
-    /// Number of routes available to the player for this catalog CID.
+    /// Number of candidate routes using the deployment default.
     pub fn audio_source_count(&self) -> usize {
-        self.audio_delivery_candidates().len()
+        self.audio_source_count_with_preference(None)
+    }
+
+    pub fn audio_source_count_with_preference(&self, preference: Option<&str>) -> usize {
+        self.audio_delivery_candidates_with_preference(preference)
+            .map_or(0, |candidates| candidates.len())
     }
 
     /// Backwards-compatible first-choice audio URL.
