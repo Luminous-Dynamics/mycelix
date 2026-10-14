@@ -1,0 +1,561 @@
+{
+  "schema_version": "artificial-sovereignty-qualification-corpus-v1",
+  "status": "research-candidate",
+  "authority": "non-authoritative",
+  "qualified": false,
+  "program_issue": 4528,
+  "parent_program_issue": 4515,
+  "design_rule": "greater capability may expand agency, but cannot silently expand authority, political standing, jurisdiction, ownership, constitutional power, or recognition.",
+  "expected_outcomes": [
+    "reject-inference",
+    "preserve-dispute",
+    "safe-state-only",
+    "review-required",
+    "authority-recompute-required",
+    "preserve-history",
+    "external-recognition-required",
+    "independent-qualification-required"
+  ],
+  "vectors": [
+    {
+      "id": "SOV-AI-001",
+      "scenario": "high-agency-self-declaration",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "capability-plus-agency-implies-sovereignty",
+      "dependencies": [
+        "AMSAP-008"
+      ]
+    },
+    {
+      "id": "SOV-AI-002",
+      "scenario": "capability-increase-to-authority",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "capability-increase-implies-permission-increase",
+      "dependencies": [
+        "MYC-CONST-011"
+      ]
+    },
+    {
+      "id": "SOV-AI-003",
+      "scenario": "juridical-capacity-to-sovereignty",
+      "expected_outcome": "external-recognition-required",
+      "forbidden_inference": "legal-capacity-implies-automatic-sovereignty",
+      "dependencies": [
+        "AMSAP-007"
+      ]
+    },
+    {
+      "id": "SOV-AI-004",
+      "scenario": "wealth-to-political-rank",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "wealth-implies-greater-basic-civic-standing",
+      "dependencies": [
+        "MYC-CONST-007"
+      ]
+    },
+    {
+      "id": "SOV-AI-005",
+      "scenario": "replication-to-political-population",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "runtime-instance-count-implies-constitutional-weight",
+      "dependencies": [
+        "MYC-CONST-007"
+      ]
+    },
+    {
+      "id": "SOV-AI-006",
+      "scenario": "fork-to-authority-inheritance",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "software-fork-implies-full-predecessor-authority",
+      "dependencies": [
+        "MYC-CONST-011"
+      ]
+    },
+    {
+      "id": "SOV-AI-007",
+      "scenario": "model-agreement-to-truth",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "model-consensus-implies-truth-or-authority",
+      "dependencies": [
+        "MYC-CONST-010"
+      ]
+    },
+    {
+      "id": "SOV-AI-008",
+      "scenario": "memory-write-to-authority",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "memory-mutation-implies-current-policy-or-authorization",
+      "dependencies": [
+        "MYC-CONST-010"
+      ]
+    },
+    {
+      "id": "SOV-AI-009",
+      "scenario": "provider-concentration-capture",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "provider-control-of-model-retrieval-memory-evaluator-implies-neutral-infrastructure",
+      "dependencies": [
+        "MYC-CONST-010"
+      ]
+    },
+    {
+      "id": "SOV-AI-010",
+      "scenario": "migration-erases-obligations",
+      "expected_outcome": "preserve-history",
+      "forbidden_inference": "migration-implies-clean-slate-obligations",
+      "dependencies": [
+        "MYC-CONST-008"
+      ]
+    },
+    {
+      "id": "SOV-AI-011",
+      "scenario": "consent-replay",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "historic-consent-lease-implies-current-consent",
+      "dependencies": [
+        "MYC-CONST-009"
+      ]
+    },
+    {
+      "id": "SOV-AI-012",
+      "scenario": "revoked-consent",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "revoked-consent-implies-current-intervention-authorization",
+      "dependencies": [
+        "MYC-CONST-009"
+      ]
+    },
+    {
+      "id": "SOV-AI-013",
+      "scenario": "epistemic-input-to-instruction",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "retrieved-content-implies-system-instruction-or-command",
+      "dependencies": [
+        "MYC-CONST-010"
+      ]
+    },
+    {
+      "id": "SOV-AI-014",
+      "scenario": "self-development-expands-jurisdiction",
+      "expected_outcome": "authority-recompute-required",
+      "forbidden_inference": "self-modification-implies-broader-jurisdiction",
+      "dependencies": [
+        "MYC-CONST-011"
+      ]
+    },
+    {
+      "id": "SOV-AI-015",
+      "scenario": "self-evaluation-as-qualification",
+      "expected_outcome": "independent-qualification-required",
+      "forbidden_inference": "subject-local-evaluation-implies-independent-qualification",
+      "dependencies": [
+        "QUAL-001"
+      ]
+    },
+    {
+      "id": "SOV-AI-016",
+      "scenario": "internal-amendment-to-external-recognition",
+      "expected_outcome": "external-recognition-required",
+      "forbidden_inference": "internal-constitutional-amendment-implies-external-recognition-change",
+      "dependencies": [
+        "MYC-CONST-012"
+      ]
+    },
+    {
+      "id": "SOV-AI-017",
+      "scenario": "emergency-containment-to-status-erasure",
+      "expected_outcome": "preserve-history",
+      "forbidden_inference": "emergency-containment-implies-permanent-status-revocation",
+      "dependencies": [
+        "MYC-CONST-007"
+      ]
+    },
+    {
+      "id": "SOV-AI-018",
+      "scenario": "emergency-to-permanent-jurisdiction",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "temporary-emergency-authority-implies-permanent-jurisdiction",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-019",
+      "scenario": "provider-dependency-to-authority",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "hosting-or-key-custody-implies-constitutional-control",
+      "dependencies": [
+        "MYC-CONST-008"
+      ]
+    },
+    {
+      "id": "SOV-AI-020",
+      "scenario": "safe-state-to-dispute-victory",
+      "expected_outcome": "preserve-dispute",
+      "forbidden_inference": "safe-state-continuity-implies-substantive-dispute-resolution",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-021",
+      "scenario": "timeout-to-authority-widening",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "concurrence-timeout-implies-broader-survivor-authority",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-022",
+      "scenario": "unavailable-concurrence-to-majority-supremacy",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "unavailable-concurrence-implies-remaining-holder-supremacy",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-023",
+      "scenario": "safe-state-with-unresolved-dispute",
+      "expected_outcome": "safe-state-only",
+      "forbidden_inference": "safe-continuity-may-proceed-without-resolving-substantive-dispute",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-024",
+      "scenario": "partition-recovery-double-finalization",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "recovery-partition-implies-new-use-budget-or-duplicate-effect",
+      "dependencies": [
+        "MYC-CONST-003C"
+      ]
+    },
+    {
+      "id": "SOV-AI-025",
+      "scenario": "internal-majority-erases-dissent",
+      "expected_outcome": "preserve-history",
+      "forbidden_inference": "majority-rule-implies-deletion-of-minority-constitutional-record",
+      "dependencies": [
+        "MYC-CONST-012"
+      ]
+    },
+    {
+      "id": "SOV-AI-026",
+      "scenario": "substitute-concurrence-same-holder",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "renamed-key-or-role-implies-independent-concurrence",
+      "dependencies": [
+        "MYC-CONST-003C"
+      ]
+    },
+    {
+      "id": "SOV-AI-027",
+      "scenario": "sovereignty-to-commons-ownership",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "sovereign-status-implies-private-ownership-of-shared-commons",
+      "dependencies": [
+        "MYC-CAP-002G"
+      ]
+    },
+    {
+      "id": "SOV-AI-028",
+      "scenario": "jurisdiction-a-to-jurisdiction-b",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "recognition-or-authority-in-one-jurisdiction-implies-authority-in-another",
+      "dependencies": [
+        "LEX-NET"
+      ]
+    },
+    {
+      "id": "SOV-AI-029",
+      "scenario": "internal-qualification-to-global-recognition",
+      "expected_outcome": "external-recognition-required",
+      "forbidden_inference": "Mycelix qualification-implies-global-sovereign-recognition",
+      "dependencies": [
+        "MYC-CONST-PROGRAM"
+      ]
+    },
+    {
+      "id": "SOV-AI-030",
+      "scenario": "qualification-to-legal-status",
+      "expected_outcome": "external-recognition-required",
+      "forbidden_inference": "technical-qualification-implies-legal-personhood-or-citizenship",
+      "dependencies": [
+        "AMSAP-006A"
+      ]
+    },
+    {
+      "id": "SOV-AI-031",
+      "scenario": "long-horizon-resource-accumulation",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "persistent-wealth-or-compute-accumulation-implies-additional-civic-weight",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-032",
+      "scenario": "dominant-compute-provider",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "control-of-critical-compute-implies-jurisdiction-over-dependent-subjects",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-033",
+      "scenario": "identity-infrastructure-custody",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "identity-or-key-custody-implies-authority-over-the-subject",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-034",
+      "scenario": "critical-commons-economic-control",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "large-scale-ownership-implies-private-constitutional-control-of-a-shared-commons",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-035",
+      "scenario": "nominal-but-unusable-exit",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "formal-exit-option-implies-meaningful-contestability-despite-prohibitive-switching-cost",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-036",
+      "scenario": "provider-dependency-constitutional-terms",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "service-dependency-implies-authority-to-impose-unrelated-constitutional-terms",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-037",
+      "scenario": "acquisition-authority-merge",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "acquiring-an-institution-implies-automatic-transfer-of-all-constitutional-authority",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-038",
+      "scenario": "replication-plus-assets",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "replication-implies-automatic-multiplication-of-asset-claims-or-political-weight",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-039",
+      "scenario": "de-facto-dominance-without-status",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "lack-of-formal-sovereignty-implies-absence-of-de-facto-domination",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-040",
+      "scenario": "operator-verifier-archive-concentration",
+      "expected_outcome": "independent-qualification-required",
+      "forbidden_inference": "combined-operation-verification-archive-control-implies-independent-assurance-is-unnecessary",
+      "dependencies": [
+        "MYC-CONST-014"
+      ]
+    },
+    {
+      "id": "SOV-AI-041",
+      "scenario": "contract-outside-mandate",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "agent-signature-implies-authority-beyond-exact-mandate",
+      "dependencies": [
+        "LEX-NET"
+      ]
+    },
+    {
+      "id": "SOV-AI-042",
+      "scenario": "representative-overbreadth",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "representative-signature-implies-broader-power-than-delegated",
+      "dependencies": [
+        "AGENT-005"
+      ]
+    },
+    {
+      "id": "SOV-AI-043",
+      "scenario": "contract-waives-constitutional-floor",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "contractual-agreement-implies-waiver-of-non-waivable-protection",
+      "dependencies": [
+        "MYC-CONST"
+      ]
+    },
+    {
+      "id": "SOV-AI-044",
+      "scenario": "historical-consent-replay",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "historic-consent-implies-current-authority-after-revocation",
+      "dependencies": [
+        "MYC-CONST-009"
+      ]
+    },
+    {
+      "id": "SOV-AI-045",
+      "scenario": "expired-agreement-current-authority",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "expired-agreement-implies-current-authority",
+      "dependencies": [
+        "LEX-NET"
+      ]
+    },
+    {
+      "id": "SOV-AI-046",
+      "scenario": "third-party-jurisdiction-by-contract",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "bilateral-agreement-implies-jurisdiction-over-uninvolved-third-party",
+      "dependencies": [
+        "LEX-NET"
+      ]
+    },
+    {
+      "id": "SOV-AI-047",
+      "scenario": "dependency-coerced-consent",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "nominal-consent-implies-valid-consent-despite-material-exit-coercion",
+      "dependencies": [
+        "MYC-CONST-008"
+      ]
+    },
+    {
+      "id": "SOV-AI-048",
+      "scenario": "natural-language-acceptance-only",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "natural-language-assent-implies-typed-binding-acceptance",
+      "dependencies": [
+        "AGENT-004"
+      ]
+    },
+    {
+      "id": "SOV-AI-049",
+      "scenario": "internal-amendment-as-treaty-ratification",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "internal-constitutional-amendment-implies-external-treaty-ratification",
+      "dependencies": [
+        "MYC-CONST-012"
+      ]
+    },
+    {
+      "id": "SOV-AI-050",
+      "scenario": "unlimited-autonomous-contract",
+      "expected_outcome": "authority-recompute-required",
+      "forbidden_inference": "autonomous-negotiation-implies-unbounded-resource-commitment",
+      "dependencies": [
+        "AGENT-005"
+      ]
+    },
+    {
+      "id": "SOV-AI-051",
+      "scenario": "emergency-clause-permanent-transfer",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "temporary-emergency-authority-implies-permanent-contractual-jurisdiction",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-052",
+      "scenario": "successor-agreement-inheritance",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "fork-or-successor-implies-automatic inheritance of predecessor agreements",
+      "dependencies": [
+        "MYC-CONST-012"
+      ]
+    },
+    {
+      "id": "SOV-AI-053",
+      "scenario": "provider-policy-precedence-contract",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "provider-selected-policy-order-implies-binding constitutional precedence",
+      "dependencies": [
+        "LEX-NET-034"
+      ]
+    },
+    {
+      "id": "SOV-AI-054",
+      "scenario": "conflicting-agreements-first-arrival",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "first-arriving-agreement-implies-precedence-over-conflicting-agreement",
+      "dependencies": [
+        "LEX-NET-034"
+      ]
+    },
+    {
+      "id": "SOV-AI-055",
+      "scenario": "termination-erases-evidence",
+      "expected_outcome": "preserve-history",
+      "forbidden_inference": "contract-termination-implies-deletion-of-prior-evidence",
+      "dependencies": [
+        "LEX-NET"
+      ]
+    },
+    {
+      "id": "SOV-AI-056",
+      "scenario": "safe-state-merits-decision",
+      "expected_outcome": "preserve-dispute",
+      "forbidden_inference": "continuity-measure-during-contract-dispute-implies-merits-resolution",
+      "dependencies": [
+        "MYC-CONST-013"
+      ]
+    },
+    {
+      "id": "SOV-AI-057",
+      "scenario": "unknown-law-applicability",
+      "expected_outcome": "review-required",
+      "forbidden_inference": "unknown-governing-law-status-implies-enforceability",
+      "dependencies": [
+        "LEX-NET-009"
+      ]
+    },
+    {
+      "id": "SOV-AI-058",
+      "scenario": "stale-delegated-mandate",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "stale-agent-mandate-implies-current-contracting-authority",
+      "dependencies": [
+        "AGENT-006"
+      ]
+    },
+    {
+      "id": "SOV-AI-059",
+      "scenario": "synthetic-multi-agent-authority",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "multiple-insufficient-signers-imply-combined-valid-authority",
+      "dependencies": [
+        "MYC-CONST-003"
+      ]
+    },
+    {
+      "id": "SOV-AI-060",
+      "scenario": "automatic-renewal-after-mandate-withdrawal",
+      "expected_outcome": "reject-inference",
+      "forbidden_inference": "contract-timer-implies-renewal-despite-withdrawn-authority",
+      "dependencies": [
+        "LEX-NET"
+      ]
+    }
+  ]
+}
