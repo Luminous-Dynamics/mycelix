@@ -452,7 +452,7 @@ pub fn VideosPage() -> impl IntoView {
             </section>
 
             <p class="video-network-note" role="note">
-                "Privacy note: visible posters may be fetched from your selected gateway while browsing, so the gateway can observe those CID requests. A video's media request is deferred until you select its card and choose Load player. No viewing history leaves this browser."
+                "Privacy note: visible posters may be fetched from your selected gateway while browsing. The gateway can infer which CIDs you load, so choose an operator you trust. The video request is deferred until you choose Load player; this UI keeps the resume timeline local and does not upload watch progress."
             </p>
 
             {cfg!(feature = "fixtures").then(|| view! {
