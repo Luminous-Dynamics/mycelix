@@ -150,7 +150,9 @@ pub fn evaluate_strong_hospitality_field(
     registration
         .validate()
         .map_err(|_| StrongFieldError::RegistrationInvalid)?;
-    schedule.validate().map_err(StrongFieldError::TimeSchedule)?;
+    schedule
+        .validate()
+        .map_err(StrongFieldError::TimeSchedule)?;
     validate_schedule_binding(registration, schedule)?;
     reject_retired_limitations(&unresolved_limitations)?;
     if cases.is_empty() {
@@ -164,16 +166,13 @@ pub fn evaluate_strong_hospitality_field(
         .iter()
         .map(|case| case.actual.clone())
         .collect::<Vec<_>>();
-    let actual_membership = verify_observation_membership(
-        adapter,
-        &campaign,
-        source_files,
-        &actuals,
-    )
-    .map_err(StrongFieldError::Membership)?;
+    let actual_membership =
+        verify_observation_membership(adapter, &campaign, source_files, &actuals)
+            .map_err(StrongFieldError::Membership)?;
 
     let overall_scorecard =
-        ForecastScorecard::score(&cases).map_err(|_| StrongFieldError::ScoringFailed)?;
+        ForecastScorecard::score_for_protocol(&registration.protocol, &cases)
+            .map_err(|_| StrongFieldError::ScoringFailed)?;
     let overall_case_set_digest = case_set_digest(&cases);
     let overall_decision = evaluate_forecast_gate(&registration.protocol, &overall_scorecard)
         .map_err(|_| StrongFieldError::ProtocolGateFailed)?;
@@ -188,11 +187,14 @@ pub fn evaluate_strong_hospitality_field(
             }
         }
         let scorecard =
-            ForecastScorecard::score(&selected).map_err(|_| StrongFieldError::ScoringFailed)?;
+            ForecastScorecard::score_for_protocol(&registration.protocol, &selected)
+                .map_err(|_| StrongFieldError::ScoringFailed)?;
         let selected_digest = case_set_digest(&selected);
         let passed = scorecard.cases >= slice.minimum_cases
             && scorecard.abstention_bps() <= registration.protocol.maximum_abstention_bps
-            && (!registration.protocol.require_candidate_not_worse_than_baseline
+            && (!registration
+                .protocol
+                .require_candidate_not_worse_than_baseline
                 || scorecard.candidate_not_worse_than_baseline());
         let evidence_digest = slice_evidence_digest(
             schedule.schedule_digest,
@@ -261,11 +263,9 @@ pub fn evaluate_strong_hospitality_field(
         campaign: campaign.clone(),
         pilot_evidence,
     };
-    let field_decision = evaluate_extraction_bound_hospitality_pilot(
-        registration,
-        &extraction_evidence,
-    )
-    .map_err(StrongFieldError::Extraction)?;
+    let field_decision =
+        evaluate_extraction_bound_hospitality_pilot(registration, &extraction_evidence)
+            .map_err(StrongFieldError::Extraction)?;
 
     let decision = if overall_decision == ShadowPromotionDecision::PassShadowGate {
         StrongQualificationDecision::Field(field_decision)
