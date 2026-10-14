@@ -591,8 +591,12 @@ mod tests {
         assert_eq!(output.input_lifecycle_transition_case_count, set.lifecycle_transition_cases.len());
         assert!(
             output.all_expectations_match,
-            "mismatched reports: {:#?}",
-            output.reports.iter().filter(|report| !report.expectation_matches).collect::<Vec<_>>()
+            "mismatched traffic reports: {:#?}; mismatched lifecycle reports: {:#?}",
+            output.reports.iter().filter(|report| !report.expectation_matches).collect::<Vec<_>>(),
+            output.lifecycle_transition_reports
+                .iter()
+                .filter(|report| !report.expectation_matches)
+                .collect::<Vec<_>>()
         );
     }
 
