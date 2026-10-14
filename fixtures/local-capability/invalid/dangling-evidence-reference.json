@@ -1,0 +1,132 @@
+{
+  "schema_version": "local-capability-profile/0.1",
+  "profile_id": "dangling-evidence-reference",
+  "version": 1,
+  "status": "illustrative",
+  "place": {
+    "label": "Illustrative semi-arid low-cash context",
+    "scope": "generalized_context",
+    "location_precision": "generalized",
+    "basis": "illustrative"
+  },
+  "context": {
+    "settlement_type": "rural_settled",
+    "climate_profile": {
+      "classification": "semi_arid",
+      "basis": "illustrative",
+      "evidence_refs": [],
+      "hazards_to_investigate": [
+        "water scarcity",
+        "heat extremes",
+        "soil moisture loss",
+        "seasonal access constraints"
+      ]
+    }
+  },
+  "resource_envelope": {
+    "electricity": {
+      "value": "intermittent",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "digital_comms": {
+      "value": "offline_devices",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "cash_access": {
+      "value": "scarce_cash",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "manufacturing": {
+      "value": "hand_tools",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "supply_chain": {
+      "value": "seasonal_limited",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "water_service": {
+      "value": "variable_small_supply",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "health_access": {
+      "value": "periodic_clinical_support",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "transport_access": {
+      "value": "seasonal_vehicle_access",
+      "basis": "illustrative",
+      "evidence_refs": []
+    },
+    "knowledge_exchange": {
+      "value": "paper_visuals",
+      "basis": "illustrative",
+      "evidence_refs": []
+    }
+  },
+  "capabilities": [],
+  "priorities": [
+    {
+      "priority_id": "water-safety",
+      "area": "water_sanitation",
+      "rank": 1,
+      "basis": "provisional_hypothesis",
+      "evidence_refs": [
+        "missing-source"
+      ]
+    },
+    {
+      "priority_id": "food-resilience",
+      "area": "food_security",
+      "rank": 2,
+      "basis": "provisional_hypothesis",
+      "evidence_refs": []
+    },
+    {
+      "priority_id": "tool-repair",
+      "area": "tools_repair",
+      "rank": 3,
+      "basis": "provisional_hypothesis",
+      "evidence_refs": []
+    }
+  ],
+  "engagement": {
+    "mode": "public_context_only",
+    "authorization_status": "not_sought",
+    "location_handling": "generalized",
+    "restricted_knowledge_present": false,
+    "intervention_policy": "no_intervention_without_authorized_request"
+  },
+  "safety_gates": {
+    "water_safety": "not_assessed",
+    "clinical_safety": "not_assessed",
+    "structural_safety": "not_assessed",
+    "ecological_impact": "not_assessed",
+    "legal_authority": "not_assessed",
+    "community_consent": "not_assessed",
+    "maintenance_owner": "not_assessed",
+    "rights_and_attribution": "not_assessed",
+    "accessibility": "not_assessed",
+    "privacy": "not_assessed",
+    "anti_displacement": "not_assessed",
+    "repairability": "not_assessed"
+  },
+  "sources": [
+    {
+      "source_id": "who-small-water-guidelines",
+      "title": "WHO Guidelines for drinking-water quality: small water supplies",
+      "url": "https://www.who.int/publications/i/item/9789240088740",
+      "use": "methodology",
+      "rights_status": "link_only"
+    }
+  ],
+  "limitations": [
+    "Illustrative profile only; no actual place baseline, community consent, deployment authorization, safety approval, or outcome is established."
+  ]
+}
