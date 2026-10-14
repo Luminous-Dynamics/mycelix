@@ -534,7 +534,7 @@ impl BootstrapMilestone {
                             && (qualification.uri != review.uri
                                 || qualification.sha256 != review.sha256)
                     })
-            })
+            }),
         };
         if !valid {
             return Err(ValidationError::new(
