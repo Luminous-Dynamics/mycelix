@@ -88,7 +88,7 @@ def validate_profile(data: Any) -> list[str]:
     if not isinstance(data.get("title"), str) or not data["title"].strip():
         errors.append("title must be a non-empty string")
     maturity = data.get("maturity")
-    if maturity not in MATURITY_VALUES:
+    if not isinstance(maturity, str) or maturity not in MATURITY_VALUES:
         errors.append("maturity must use the closed v1 enum")
     if type(data.get("production_enabled")) is not bool:
         errors.append("production_enabled must be a boolean")
@@ -105,7 +105,7 @@ def validate_profile(data: Any) -> list[str]:
 
     jurisdiction = data.get("jurisdiction")
     if isinstance(jurisdiction, dict):
-        if jurisdiction.get("scope_type") not in JURISDICTION_SCOPES:
+        if not isinstance(jurisdiction.get("scope_type"), str) or jurisdiction.get("scope_type") not in JURISDICTION_SCOPES:
             errors.append("jurisdiction.scope_type must use the closed v1 enum")
         for key in ("code", "name"):
             if not isinstance(jurisdiction.get(key), str) or not jurisdiction[key].strip():
@@ -131,7 +131,7 @@ def validate_profile(data: Any) -> list[str]:
 
     protocol = data.get("protocol")
     if isinstance(protocol, dict):
-        if protocol.get("route_kind") not in ROUTE_KINDS:
+        if not isinstance(protocol.get("route_kind"), str) or protocol.get("route_kind") not in ROUTE_KINDS:
             errors.append("protocol.route_kind must use the closed v1 enum")
         for key in ("name", "version", "verifier_endpoint", "official_specification_url", "official_spec_sha256"):
             if not _is_optional_text(protocol.get(key)):
@@ -165,7 +165,7 @@ def validate_profile(data: Any) -> list[str]:
         for key in ("service_id", "purpose"):
             if not isinstance(service.get(key), str) or not service[key].strip():
                 errors.append(f"service.{key} must be non-empty text")
-        if service.get("lawful_basis_status") not in LAWFUL_BASIS_VALUES:
+        if not isinstance(service.get("lawful_basis_status"), str) or service.get("lawful_basis_status") not in LAWFUL_BASIS_VALUES:
             errors.append("service.lawful_basis_status must use the closed v1 enum")
         if not _is_optional_text(service.get("purpose_grant_id")):
             errors.append("service.purpose_grant_id must be null or non-empty text")
@@ -173,7 +173,12 @@ def validate_profile(data: Any) -> list[str]:
         if not isinstance(claims, list) or not claims or any(not isinstance(v, str) or not v.strip() for v in claims):
             errors.append("service.permitted_claims must be a non-empty array of non-empty strings")
         decisions = service.get("prohibited_decisions")
-        if not isinstance(decisions, list) or len(decisions) != len(REQUIRED_PROHIBITED_DECISIONS) or set(decisions) != REQUIRED_PROHIBITED_DECISIONS:
+        if (
+            not isinstance(decisions, list)
+            or any(not isinstance(value, str) for value in decisions)
+            or len(decisions) != len(REQUIRED_PROHIBITED_DECISIONS)
+            or set(decisions) != REQUIRED_PROHIBITED_DECISIONS
+        ):
             errors.append("service.prohibited_decisions must preserve all non-transferable decision boundaries")
         if service.get("identity_is_not_entitlement_evidence") is not True:
             errors.append("identity_is_not_entitlement_evidence must remain true")
