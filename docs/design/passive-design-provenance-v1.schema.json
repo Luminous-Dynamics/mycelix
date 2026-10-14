@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/passive-design-provenance-v1.json",
+  "title": "Mycelix Passive Design Provenance v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_digest",
+    "passive_contract",
+    "evidence_state",
+    "evidence",
+    "lineage"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "passive-design-provenance-v1"
+    },
+    "artifact_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "passive_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_digest", "input", "output", "mechanism"],
+      "properties": {
+        "contract_digest": { "type": "string", "minLength": 1 },
+        "input": {
+          "enum": [
+            "Mechanical",
+            "Fluidic",
+            "Thermal",
+            "Acoustic",
+            "Electromagnetic",
+            "Optical",
+            "Chemical"
+          ]
+        },
+        "output": {
+          "enum": [
+            "Mechanical",
+            "Fluidic",
+            "Thermal",
+            "Acoustic",
+            "Electromagnetic",
+            "Optical",
+            "Chemical"
+          ]
+        },
+        "mechanism": {
+          "enum": [
+            "Geometry",
+            "MaterialResponse",
+            "PhaseChange",
+            "DistributedTransport",
+            "WaveInteraction",
+            "FieldInteraction",
+            "Hybrid"
+          ]
+        }
+      }
+    },
+    "evidence_state": {
+      "enum": [
+        "Generated",
+        "Simulated",
+        "Verified",
+        "Fabricated",
+        "Measured",
+        "Validated"
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "moving_solid_components",
+        "mechanical_joints",
+        "commanded_actuators",
+        "active_power_w",
+        "requires_external_control"
+      ],
+      "properties": {
+        "moving_solid_components": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mechanical_joints": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "commanded_actuators": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active_power_w": {
+          "type": "number",
+          "minimum": 0
+        },
+        "requires_external_control": {
+          "type": "boolean"
+        },
+        "uses_fluid_motion": {
+          "type": "boolean"
+        },
+        "uses_distributed_deformation": {
+          "type": "boolean"
+        },
+        "uses_phase_change": {
+          "type": "boolean"
+        }
+      }
+    },
+    "solver": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backend": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "configuration_digest": { "type": "string", "minLength": 1 }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method": { "type": "string", "minLength": 1 },
+        "independent": { "type": "boolean" },
+        "result_digest": { "type": "string", "minLength": 1 }
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "instrument": { "type": "string", "minLength": 1 },
+        "conditions_digest": { "type": "string", "minLength": 1 },
+        "result_digest": { "type": "string", "minLength": 1 }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parent_artifact_digests", "transformation"],
+      "properties": {
+        "parent_artifact_digests": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "transformation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

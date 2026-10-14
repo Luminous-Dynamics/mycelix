@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/passive-port-interface-v1.json",
+  "title": "Mycelix Passive Port Interface Provenance v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "artifact_digest", "port_id", "position_mm", "aperture", "outward_normal_unit", "interface_plane", "solver_boundary", "semantic_status", "solver_binding_verified", "physical_transport_unproven"],
+  "properties": {
+    "schema_version": {"const": "passive-port-interface-v1"},
+    "artifact_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "port_id": {"type": "integer", "minimum": 0},
+    "position_mm": {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number"}], "minItems": 3, "maxItems": 3},
+    "aperture": {
+      "type": "object", "additionalProperties": false, "required": ["shape", "radius_mm"],
+      "properties": {"shape": {"const": "Circular"}, "radius_mm": {"type": "number", "exclusiveMinimum": 0}}
+    },
+    "outward_normal_unit": {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number"}], "minItems": 3, "maxItems": 3},
+    "interface_plane": {
+      "type": "object", "additionalProperties": false, "required": ["origin_mm", "normal_unit"],
+      "properties": {
+        "origin_mm": {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number"}], "minItems": 3, "maxItems": 3},
+        "normal_unit": {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number"}], "minItems": 3, "maxItems": 3}
+      }
+    },
+    "solver_boundary": {
+      "type": "object", "additionalProperties": false, "required": ["domain", "id"],
+      "properties": {
+        "domain": {"enum": ["Mechanical", "Fluidic", "Thermal", "Acoustic", "Electromagnetic", "Optical", "Chemical"]},
+        "id": {"type": "integer", "minimum": 0}
+      }
+    },
+    "semantic_status": {"const": "BoundaryInterfaceIntent"},
+    "solver_binding_verified": {"const": false},
+    "physical_transport_unproven": {"const": true},
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  }
+}

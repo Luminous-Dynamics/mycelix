@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/passive-topology-provenance-v1.json",
+  "title": "Mycelix Passive Topology Provenance v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_digest",
+    "semantic_status",
+    "topology"
+  ],
+  "properties": {
+    "artifact_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "semantic_status": {
+      "const": "IntentOnly"
+    },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest",
+        "node_count",
+        "primitive_count",
+        "void_cut_count",
+        "void_node_count",
+        "intersection_count",
+        "transform_count",
+        "max_void_depth"
+      ],
+      "properties": {
+        "digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "node_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "primitive_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "void_cut_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "void_node_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "intersection_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "transform_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_void_depth": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
