@@ -46,6 +46,7 @@ pub struct SeparationPolicy {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FlightIntent {
     pub flight_id: String,
+    pub state: IntentState,
     pub reference_frame: String,
     pub vertical_datum: String,
     pub time_qualified: bool,
@@ -190,6 +191,12 @@ pub fn evaluate_scenario(scenario: &Scenario) -> SimulationReport {
     for flight in &scenario.flights {
         if flight.flight_id.trim().is_empty() {
             reasons.push("flight_id must not be empty".to_owned());
+        }
+        if matches!(flight.state, IntentState::Withdrawn | IntentState::Completed) {
+            reasons.push(format!(
+                "flight intent '{}' is {:?} and cannot be treated as active future intent",
+                flight.flight_id, flight.state
+            ));
         }
         if flight.valid_from_s > scenario.window_start_s
             || flight.valid_until_s < scenario.window_end_s
@@ -496,6 +503,16 @@ mod tests {
             flight.flight_id = format!("LOAD-{index}");
             scenario.flights.push(flight);
         }
+        assert_eq!(evaluate_scenario(&scenario).classification, Classification::Reject);
+    }
+
+    #[test]
+    fn withdrawn_or_completed_intents_are_not_active_future_intents() {
+        let mut scenario = fixture_set().scenarios
+            .into_iter()
+            .find(|item| item.scenario_id == "clear_separation")
+            .expect("clear case exists");
+        scenario.flights[0].state = IntentState::Withdrawn;
         assert_eq!(evaluate_scenario(&scenario).classification, Classification::Reject);
     }
 
