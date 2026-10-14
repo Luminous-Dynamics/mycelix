@@ -198,6 +198,32 @@
           33,
           47
         ]
+      },
+      "pikitup_cooperative_service_kpi": {
+        "kpi_number": 15,
+        "title": "Percentage of known informal settlements receiving basic removal services",
+        "intervention_text_observed": "Decentralised fleet and depot model to expand reach in informal settlements; incorporation of local cooperatives into basic removal services through new service-level contracts.",
+        "baseline_percent": 100,
+        "target_2025_26_percent": 100,
+        "target_2026_27_percent": 100,
+        "quarterly_targets_2026_27_percent": [
+          100,
+          100,
+          100,
+          100
+        ],
+        "operational_entity": "PIKITUP",
+        "source_page_printed": 27,
+        "text_layer_observed": true,
+        "visually_reviewed": false,
+        "allowed_use": "Candidate alternative for a job-first pilot and for partner/procurement discovery",
+        "prohibited_inference": [
+          "Specific tender or contract is open",
+          "Any supplier/cooperative has been awarded a contract",
+          "Budget or work package is available to Mycelix",
+          "100% outcome has been achieved",
+          "Work opportunities equal durable jobs"
+        ]
       }
     },
     {
@@ -673,16 +699,58 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "a18c65b04cf7d40f3f6e360ec7d459ef3c51bd91",
-    "probe_count": 15,
+    "git_blob_sha": "2713cab33f8e3103b36277d39a1c77761a0ff645",
+    "probe_count": 16,
     "synthetic_only": true,
     "qualification_status": "NotRunAfterCorpusV1Revision",
     "authoring_preflight": {
       "json_parse": "Passed",
-      "unique_probe_ids": 15,
+      "unique_probe_ids": 16,
       "all_external_writes_disabled": true,
       "all_automated_closures_disabled": true,
       "all_production_sla_calculations_disabled": true
     }
+  },
+  "pilot_selection_matrix": {
+    "selection_status": "NotSelected;PartnerDiscoveryRequired",
+    "candidates": [
+      {
+        "candidate_id": "water_fault_coordination",
+        "service_owner_candidate": "Johannesburg Water SOC",
+        "rationale": "Directly related to the utility's reported leak detection and pressure-management programme; improves source-preserving triage, inspection coordination and verified repair evidence.",
+        "strongest_evidence": "Official utility source describes existing/planned detection equipment and maintenance-team follow-up.",
+        "key_blockers": [
+          "No authorized telemetry or case API",
+          "No named operator or data-use permission",
+          "Water-loss KPI unit/denominator needs owner clarification"
+        ],
+        "jobs_fit": "Field data quality, maintenance logistics, qualified repair, independent quality assurance, integration engineering",
+        "funding_or_contract_confirmed": false,
+        "readiness": "PartnerDependent"
+      },
+      {
+        "candidate_id": "pikitup_cooperative_basic_removal",
+        "service_owner_candidate": "PIKITUP",
+        "rationale": "City SDBIP KPI 15 explicitly mentions incorporating local cooperatives into basic removal services through new service-level contracts; KPI 55 sets a green-economy project target.",
+        "strongest_evidence": "Official 2026/27 SDBIP text-layer observations of KPI 15 and KPI 55.",
+        "key_blockers": [
+          "No specific open tender or awarded work package identified",
+          "No payer or contract owner confirmed",
+          "Page 27 table not visually reviewed in this pass",
+          "No eligibility or procurement permission established"
+        ],
+        "jobs_fit": "Cooperative route operations, waste collection, sorting/reuse, field service verification, logistics and local enterprise development",
+        "funding_or_contract_confirmed": false,
+        "readiness": "PartnerDiscoveryOnly"
+      }
+    ],
+    "decision_rule": [
+      "Do not select a candidate from public KPI text alone.",
+      "Prefer the candidate with a named operational owner, written data-use permission, a defined work package, a lawful payer/procurement route, usable baseline and independent completion evidence.",
+      "Require a job-quality plan with paid hours, safety, training/credentials, timely payment and 6/12-month retention measures.",
+      "If neither candidate satisfies G2, remain in synthetic/shadow research and do not announce funded positions."
+    ],
+    "selected_candidate": null,
+    "public_citywide_claim_authorized": false
   }
 }
