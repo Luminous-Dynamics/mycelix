@@ -1,0 +1,35 @@
+name: Bootstrap Milestone Contract
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - "mycelix-workspace/crates/mycelix-claim-types/**"
+      - ".github/workflows/bootstrap-milestone-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bootstrap-milestone-contract-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Validate shared milestone schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust and rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/crates/mycelix-claim-types/Cargo.toml -- --check
+
+      - name: Run isolated schema integrity tests
+        run: cargo test --manifest-path mycelix-workspace/crates/mycelix-claim-types/Cargo.toml
