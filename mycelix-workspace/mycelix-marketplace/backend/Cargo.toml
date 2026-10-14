@@ -4,6 +4,7 @@ resolver = "2"
 members = [
   "crates/mycelix_common",
   # Phase 1: Core marketplace zomes (refactored and tested)
+  "zomes/listings/types",
   "zomes/listings/integrity",
   "zomes/listings/coordinator",
   "zomes/reputation/integrity",

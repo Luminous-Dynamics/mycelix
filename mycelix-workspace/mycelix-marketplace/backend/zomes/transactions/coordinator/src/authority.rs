@@ -65,7 +65,7 @@ pub fn project_authorized_resolution(
             protocol_version: decision.resolution.protocol_version,
             selected_head_hash: decision.resolution.selected_head_hash.clone(),
             bound_head_hashes: decision.resolution.head_hashes.clone(),
-            authority: decision.resolution.authority,
+            authority: decision.resolution.authority.clone(),
         };
         match applicable_canonical_index(&decision.resolution, heads)? {
             Some(canonical_index) if decision.resolution.head_hashes == current_hashes => {

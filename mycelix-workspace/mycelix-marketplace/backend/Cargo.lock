@@ -773,6 +773,7 @@ dependencies = [
 name = "listings_integrity"
 version = "0.1.0"
 dependencies = [
+ "listings_types",
  "hdi",
  "hdk_derive",
  "holo_hash",
@@ -782,6 +783,15 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "listings_types"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "serde",
 ]
 
 [[package]]
@@ -1283,6 +1293,7 @@ dependencies = [
 name = "transactions_integrity"
 version = "0.1.0"
 dependencies = [
+ "listings_types",
  "hdi",
  "holochain_serialized_bytes",
  "serde",

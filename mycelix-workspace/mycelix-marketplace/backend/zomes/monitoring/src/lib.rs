@@ -66,12 +66,22 @@ impl MetricEvent {
         agent: Option<AgentPubKey>,
         metadata: Option<String>,
     ) -> ExternResult<Self> {
+        Self::new_at(metric_type, value, agent, metadata, sys_time()?)
+    }
+
+    pub fn new_at(
+        metric_type: MetricType,
+        value: f64,
+        agent: Option<AgentPubKey>,
+        metadata: Option<String>,
+        timestamp: Timestamp,
+    ) -> ExternResult<Self> {
         Ok(Self {
             metric_type,
             value,
             agent,
             metadata,
-            timestamp: sys_time()?,
+            timestamp,
         })
     }
 }
@@ -103,18 +113,40 @@ impl Alert {
         value: f64,
         threshold: f64,
     ) -> ExternResult<Self> {
+        Self::new_at(
+            severity,
+            message,
+            metric_type,
+            value,
+            threshold,
+            sys_time()?,
+        )
+    }
+
+    pub fn new_at(
+        severity: AlertSeverity,
+        message: String,
+        metric_type: MetricType,
+        value: f64,
+        threshold: f64,
+        timestamp: Timestamp,
+    ) -> ExternResult<Self> {
         Ok(Self {
             severity,
             message,
             metric_type,
             value,
             threshold,
-            timestamp: sys_time()?,
+            timestamp,
         })
     }
 
     pub fn byzantine_spike(count: u64) -> ExternResult<Self> {
-        Self::new(
+        Self::byzantine_spike_at(count, sys_time()?)
+    }
+
+    fn byzantine_spike_at(count: u64, timestamp: Timestamp) -> ExternResult<Self> {
+        Self::new_at(
             AlertSeverity::Critical,
             format!(
                 "Byzantine attempt spike detected: {} attempts in last hour",
@@ -123,21 +155,31 @@ impl Alert {
             MetricType::ByzantineAttempt,
             count as f64,
             100.0,
+            timestamp,
         )
     }
 
     pub fn high_dispute_rate(rate: f64) -> ExternResult<Self> {
-        Self::new(
+        Self::high_dispute_rate_at(rate, sys_time()?)
+    }
+
+    fn high_dispute_rate_at(rate: f64, timestamp: Timestamp) -> ExternResult<Self> {
+        Self::new_at(
             AlertSeverity::Warning,
             format!("Dispute rate elevated: {:.1}%", rate * 100.0),
             MetricType::TransactionDisputed,
             rate,
             0.1, // 10% threshold
+            timestamp,
         )
     }
 
     pub fn network_compromised(average_matl: f64) -> ExternResult<Self> {
-        Self::new(
+        Self::network_compromised_at(average_matl, sys_time()?)
+    }
+
+    fn network_compromised_at(average_matl: f64, timestamp: Timestamp) -> ExternResult<Self> {
+        Self::new_at(
             AlertSeverity::Critical,
             format!(
                 "Network average MATL score critically low: {:.2}",
@@ -146,6 +188,7 @@ impl Alert {
             MetricType::MatlScoreUpdated,
             average_matl,
             0.5,
+            timestamp,
         )
     }
 }
@@ -226,6 +269,7 @@ impl MarketplaceMetrics {
         }
 
         // Add to recent events
+        let event_timestamp = event.timestamp.clone();
         self.recent_events.push_back(event);
 
         // Trim if over limit
@@ -234,13 +278,17 @@ impl MarketplaceMetrics {
         }
 
         // Check for anomalies
-        self.check_anomalies()?;
+        self.check_anomalies_at(event_timestamp)?;
 
         Ok(())
     }
 
     /// Check for anomalous patterns and generate alerts
     pub fn check_anomalies(&mut self) -> ExternResult<()> {
+        self.check_anomalies_at(sys_time()?)
+    }
+
+    fn check_anomalies_at(&mut self, timestamp: Timestamp) -> ExternResult<()> {
         // 1. Byzantine attempt spike
         let recent_byzantine = self
             .recent_events
@@ -249,7 +297,7 @@ impl MarketplaceMetrics {
             .count() as u64;
 
         if recent_byzantine > 100 {
-            let alert = Alert::byzantine_spike(recent_byzantine)?;
+            let alert = Alert::byzantine_spike_at(recent_byzantine, timestamp.clone())?;
             self.active_alerts.push(alert);
         }
 
@@ -258,14 +306,14 @@ impl MarketplaceMetrics {
             let dispute_rate = self.disputed_transactions as f64 / self.total_transactions as f64;
             if dispute_rate > 0.1 {
                 // >10%
-                let alert = Alert::high_dispute_rate(dispute_rate)?;
+                let alert = Alert::high_dispute_rate_at(dispute_rate, timestamp.clone())?;
                 self.active_alerts.push(alert);
             }
         }
 
         // 3. Network average MATL too low (under attack)
         if self.average_matl_score < 0.5 && self.matl_score_count > 100 {
-            let alert = Alert::network_compromised(self.average_matl_score)?;
+            let alert = Alert::network_compromised_at(self.average_matl_score, timestamp.clone())?;
             self.active_alerts.push(alert);
         }
 
@@ -424,32 +472,40 @@ pub fn get_active_alerts() -> Vec<Alert> {
 mod tests {
     use super::*;
 
+    fn test_timestamp() -> Timestamp {
+        Timestamp::from_micros(1_000_000)
+    }
+
+    fn event(metric_type: MetricType, value: f64) -> MetricEvent {
+        MetricEvent::new_at(metric_type, value, None, None, test_timestamp()).unwrap()
+    }
+
     #[test]
     fn test_metric_event_creation() {
-        let event = MetricEvent::new(
+        let event = MetricEvent::new_at(
             MetricType::TransactionCreated,
             1.0,
             None,
             Some("test".to_string()),
+            test_timestamp(),
         )
         .unwrap();
 
         assert_eq!(event.metric_type, MetricType::TransactionCreated);
         assert_eq!(event.value, 1.0);
+        assert_eq!(event.timestamp, test_timestamp());
     }
 
     #[test]
     fn test_metrics_recording() {
         let mut metrics = MarketplaceMetrics::default();
 
-        let event1 = MetricEvent::new(MetricType::TransactionCreated, 1.0, None, None).unwrap();
-        metrics.record_event(event1).unwrap();
-
+        metrics.record_event(event(MetricType::TransactionCreated, 1.0)).unwrap();
         assert_eq!(metrics.total_transactions, 1);
 
-        let event2 = MetricEvent::new(MetricType::TransactionCompleted, 1.0, None, None).unwrap();
-        metrics.record_event(event2).unwrap();
-
+        metrics
+            .record_event(event(MetricType::TransactionCompleted, 1.0))
+            .unwrap();
         assert_eq!(metrics.completed_transactions, 1);
     }
 
@@ -457,16 +513,14 @@ mod tests {
     fn test_success_rate_calculation() {
         let mut metrics = MarketplaceMetrics::default();
 
-        // 7 out of 10 completed
         for _ in 0..10 {
-            let event = MetricEvent::new(MetricType::TransactionCreated, 1.0, None, None).unwrap();
-            metrics.record_event(event).unwrap();
+            metrics.record_event(event(MetricType::TransactionCreated, 1.0)).unwrap();
         }
 
         for _ in 0..7 {
-            let event =
-                MetricEvent::new(MetricType::TransactionCompleted, 1.0, None, None).unwrap();
-            metrics.record_event(event).unwrap();
+            metrics
+                .record_event(event(MetricType::TransactionCompleted, 1.0))
+                .unwrap();
         }
 
         assert_eq!(metrics.success_rate(), 0.7);
@@ -476,15 +530,14 @@ mod tests {
     fn test_dispute_rate_calculation() {
         let mut metrics = MarketplaceMetrics::default();
 
-        // 2 out of 10 disputed
         for _ in 0..10 {
-            let event = MetricEvent::new(MetricType::TransactionCreated, 1.0, None, None).unwrap();
-            metrics.record_event(event).unwrap();
+            metrics.record_event(event(MetricType::TransactionCreated, 1.0)).unwrap();
         }
 
         for _ in 0..2 {
-            let event = MetricEvent::new(MetricType::TransactionDisputed, 1.0, None, None).unwrap();
-            metrics.record_event(event).unwrap();
+            metrics
+                .record_event(event(MetricType::TransactionDisputed, 1.0))
+                .unwrap();
         }
 
         assert_eq!(metrics.dispute_rate(), 0.2);
@@ -494,70 +547,70 @@ mod tests {
     fn test_matl_average_calculation() {
         let mut metrics = MarketplaceMetrics::default();
 
-        let scores = vec![0.8, 0.7, 0.9, 0.6];
-
-        for score in scores {
-            let event = MetricEvent::new(MetricType::MatlScoreUpdated, score, None, None).unwrap();
-            metrics.record_event(event).unwrap();
+        for score in [0.8, 0.7, 0.9, 0.6] {
+            metrics
+                .record_event(event(MetricType::MatlScoreUpdated, score))
+                .unwrap();
         }
 
-        // Average should be (0.8 + 0.7 + 0.9 + 0.6) / 4 = 0.75
         assert!((metrics.average_matl_score - 0.75).abs() < 0.01);
     }
 
     #[test]
     fn test_byzantine_spike_alert() {
-        let count = 150;
-        let alert = Alert::byzantine_spike(count).unwrap();
+        let alert = Alert::byzantine_spike_at(150, test_timestamp()).unwrap();
 
         assert_eq!(alert.severity, AlertSeverity::Critical);
         assert!(alert.message.contains("150"));
+        assert_eq!(alert.timestamp, test_timestamp());
     }
 
     #[test]
     fn test_high_dispute_rate_alert() {
-        let alert = Alert::high_dispute_rate(0.15).unwrap();
+        let alert = Alert::high_dispute_rate_at(0.15, test_timestamp()).unwrap();
 
         assert_eq!(alert.severity, AlertSeverity::Warning);
         assert!(alert.message.contains("15"));
+        assert_eq!(alert.timestamp, test_timestamp());
     }
 
     #[test]
     fn test_network_compromised_alert() {
-        let alert = Alert::network_compromised(0.3).unwrap();
+        let alert = Alert::network_compromised_at(0.3, test_timestamp()).unwrap();
 
         assert_eq!(alert.severity, AlertSeverity::Critical);
         assert!(alert.message.contains("0.30"));
+        assert_eq!(alert.timestamp, test_timestamp());
     }
 
     #[test]
     fn test_anomaly_detection() {
         let mut metrics = MarketplaceMetrics::default();
 
-        // Simulate Byzantine attack spike
         for _ in 0..150 {
-            let event = MetricEvent::new(MetricType::ByzantineAttempt, 1.0, None, None).unwrap();
-            metrics.record_event(event).unwrap();
+            metrics
+                .record_event(event(MetricType::ByzantineAttempt, 1.0))
+                .unwrap();
         }
 
-        // Should generate alert
-        assert!(metrics.active_alerts.len() > 0);
+        assert!(!metrics.active_alerts.is_empty());
         assert!(
             metrics
                 .active_alerts
                 .iter()
-                .any(|a| a.severity == AlertSeverity::Critical)
+                .any(|alert| alert.severity == AlertSeverity::Critical)
         );
+        assert_eq!(metrics.active_alerts[0].timestamp, test_timestamp());
     }
 
     #[test]
     fn test_dashboard_generation() {
         let mut metrics = MarketplaceMetrics::default();
 
-        // Add some data
         for _ in 0..10 {
-            let event = MetricEvent::new(MetricType::TransactionCreated, 1.0, None, None).unwrap();
-            metrics.record_event(event).unwrap();
+            metrics
+                .record_event(event(MetricType::TransactionCreated, 1.0))
+                .unwrap();
         }
 
         let dashboard = metrics.get_dashboard();
@@ -582,15 +635,16 @@ mod tests {
 
     #[test]
     fn test_recent_events_size_limit() {
-        let mut metrics = MarketplaceMetrics::new(10); // Max 10 events
+        let mut metrics = MarketplaceMetrics::new(10);
 
-        // Add 20 events
         for i in 0..20 {
-            let event = MetricEvent::new(MetricType::ListingCreated, i as f64, None, None).unwrap();
-            metrics.record_event(event).unwrap();
+            metrics
+                .record_event(event(MetricType::ListingCreated, i as f64))
+                .unwrap();
         }
 
-        // Should only keep last 10
         assert_eq!(metrics.recent_events.len(), 10);
+        assert_eq!(metrics.recent_events.front().unwrap().value, 10.0);
+        assert_eq!(metrics.recent_events.back().unwrap().value, 19.0);
     }
 }
