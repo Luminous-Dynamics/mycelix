@@ -797,7 +797,7 @@ pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResu
     })?;
 
     // Update the running mint cap counter (O(1) for future cap checks)
-    update_mint_cap_counter(input.amount, now)?;
+    update_mint_cap_counter(input.amount, now, &mint_id)?;
 
     // Broadcast mint event via bridge
     if let Err(e) = call(
@@ -884,7 +884,11 @@ fn enforce_annual_mint_cap(new_amount: u64, now: Timestamp) -> ExternResult<()> 
 
 /// Update the on-chain mint cap counter after a successful governance mint.
 /// Called immediately after the SapMintRecord is committed.
-fn update_mint_cap_counter(minted_amount: u64, now: Timestamp) -> ExternResult<()> {
+fn update_mint_cap_counter(
+    minted_amount: u64,
+    now: Timestamp,
+    current_mint_id: &str,
+) -> ExternResult<()> {
     let year_micros: i64 = 365 * 24 * 60 * 60 * 1_000_000;
 
     match find_mint_cap_counter_record()? {
@@ -915,11 +919,28 @@ fn update_mint_cap_counter(minted_amount: u64, now: Timestamp) -> ExternResult<(
             )?;
         }
         None => {
-            // First mint ever — create counter
+            // The counter may be absent on upgraded/legacy state even when prior
+            // governance mints already exist. Reconstruct the observed local
+            // history before creating the counter so the first counter write
+            // cannot silently forget previously-issued SAP.
+            let observed = load_or_bootstrap_mint_cap_counter(now, Some(current_mint_id))?;
+            let cumulative_minted = observed
+                .cumulative_minted
+                .checked_add(minted_amount)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "SAP mint-cap counter cumulative amount overflow".into()
+                )))?;
+            let mint_count = observed
+                .mint_count
+                .checked_add(1)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "SAP mint-cap counter mint count overflow".into()
+                )))?;
+
             let counter = SapMintCapCounterEntry {
-                period_start_micros: now.as_micros() - year_micros + year_micros, // = now
-                cumulative_minted: minted_amount,
-                mint_count: 1,
+                period_start_micros: observed.period_start_micros,
+                cumulative_minted,
+                mint_count,
                 last_updated_micros: now.as_micros(),
             };
             let hash = create_entry(&EntryTypes::SapMintCapCounterEntry(counter))?;
@@ -934,8 +955,14 @@ fn update_mint_cap_counter(minted_amount: u64, now: Timestamp) -> ExternResult<(
     Ok(())
 }
 
-/// Load the existing mint cap counter, or bootstrap from chain scan if none exists.
-fn load_or_bootstrap_mint_cap_counter(now: Timestamp) -> ExternResult<SapMintCapCounter> {
+/// Load the existing mint cap counter, or bootstrap from a local chain scan if none exists.
+///
+/// `exclude_mint_id` is used only by the post-mint counter write because the
+/// current `SapMintRecord` is already on the author's source chain at that point.
+fn load_or_bootstrap_mint_cap_counter(
+    now: Timestamp,
+    exclude_mint_id: Option<&str>,
+) -> ExternResult<SapMintCapCounter> {
     if let Some((_record, entry)) = find_mint_cap_counter_record()? {
         return Ok(entry.into());
     }
@@ -961,6 +988,7 @@ fn load_or_bootstrap_mint_cap_counter(now: Timestamp) -> ExternResult<SapMintCap
         })
         .filter(|m| m.minted_at.as_micros() > cutoff)
         .filter(|m| matches!(m.source, SapMintSource::GovernanceProposal { .. }))
+        .filter(|m| exclude_mint_id != Some(m.id.as_str()))
         .fold((0u64, 0u32), |(acc, cnt), m| {
             (acc.saturating_add(m.amount), cnt.saturating_add(1))
         });
@@ -982,24 +1010,44 @@ fn find_mint_cap_counter_record() -> ExternResult<Option<(Record, SapMintCapCoun
         )?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.last() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        let record = follow_update_chain(hash)?;
-        let entry = record
-            .entry()
-            .to_app_option::<SapMintCapCounterEntry>()
-            .map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "SapMintCapCounterEntry deserialization error: {:?}",
-                    e
-                )))
-            })?;
-        if let Some(entry) = entry {
-            return Ok(Some((record, entry)));
-        }
+
+    if links.is_empty() {
+        return Ok(None);
     }
-    Ok(None)
+    if links.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "MintCapCounterAnchor index is ambiguous; refusing order-dependent counter selection"
+                .into(),
+        )));
+    }
+
+    let hash = links
+        .into_iter()
+        .next()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "MintCapCounterAnchor index unexpectedly empty".into()
+        )))?
+        .target
+        .into_action_hash()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid mint-cap counter link target".into()
+        )))?;
+    let record = follow_update_chain(hash)?;
+    let entry = record
+        .entry()
+        .to_app_option::<SapMintCapCounterEntry>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "SapMintCapCounterEntry deserialization error: {:?}",
+                e
+            )))
+        })?;
+    match entry {
+        Some(entry) => Ok(Some((record, entry))),
+        None => Err(wasm_error!(WasmErrorInner::Guest(
+            "Mint-cap counter link points to a non-counter entry".into()
+        ))),
+    }
 }
 
 fn find_sap_balance_record(member_did: &str) -> ExternResult<Option<(Record, SapBalance)>> {
