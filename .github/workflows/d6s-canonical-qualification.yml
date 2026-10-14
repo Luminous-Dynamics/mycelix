@@ -23,6 +23,7 @@ on:
       - "mycelix-manufacturing/Cargo.toml"
       - "mycelix-manufacturing/Cargo.lock"
       - "mycelix-manufacturing/crates/cos_conformance/**"
+      - "mycelix-manufacturing/crates/manufacturing_common/**"
   workflow_dispatch:
 
 permissions:
