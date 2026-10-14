@@ -80,6 +80,24 @@ pub fn DeliverySettingsPage() -> impl IntoView {
         }
     };
 
+    let preference_summary = move || {
+        match preferences.gateway_origins.get() {
+            None => "Current mode: deployment-configured gateway pool.".to_string(),
+            Some(value) if value.trim().is_empty() => {
+                "Current mode: media delivery disabled for this browser.".to_string()
+            }
+            Some(value) => match parse_gateway_origins(&value) {
+                Ok(origins) => format!(
+                    "Current mode: custom pool with {} unique gateway origin(s).",
+                    origins.len()
+                ),
+                Err(_) => {
+                    "Current mode: saved gateway list is invalid; delivery fails closed.".to_string()
+                }
+            },
+        }
+    };
+
     let use_deployment_defaults = move |_| {
         preferences.gateway_origins.set(None);
         let removed = web_sys::window()
@@ -104,6 +122,7 @@ pub fn DeliverySettingsPage() -> impl IntoView {
             <p class="page-subtitle">
                 "Choose which gateways this browser may contact for music and cover art."
             </p>
+            <p class="help-text" role="status">{preference_summary}</p>
 
             <section class="upload-form" aria-labelledby="gateway-pool-title">
                 <h2 id="gateway-pool-title">"Gateway origin pool"</h2>
