@@ -1117,7 +1117,11 @@ mod tests {
         milestone.qualification_scope = Some(valid_qualification_scope());
         assert!(milestone.validate().is_ok());
 
-        milestone.qualification_scope.as_mut().unwrap().operating_envelope_sha256 = "XYZ".to_string();
+        milestone
+            .qualification_scope
+            .as_mut()
+            .unwrap()
+            .operating_envelope_sha256 = "XYZ".to_string();
         assert!(milestone.validate().is_err());
 
         milestone.qualification_scope = Some(valid_qualification_scope());
