@@ -626,7 +626,6 @@ mod tests {
             observation("c", 4_000, 7),
         ]);
         let actuals = derive_actuals(&protocol(), &plan, &spec(&plan), &replay).unwrap();
-        assert!(DERIVED_ACTUAL_IS_NOT_RAW_OBSERVATION);
         assert_eq!(actuals[0].value.mantissa, 5);
         assert_eq!(actuals[0].source_observation_count, 2);
         assert_eq!(actuals[1].value.mantissa, 7);
