@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: desci-source-rights-\${{ github.event.pull_request.number || github.ref }}
+  group: desci-source-rights-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -28,13 +28,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
-      QUALIFIED_SHA: \${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       MANIFEST_PATH: mycelix-workspace/mycelix-desci/Cargo.toml
     steps:
       - name: Checkout exact qualification subject
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: \${{ env.QUALIFIED_SHA }}
+          ref: ${{ env.QUALIFIED_SHA }}
           persist-credentials: false
 
       - name: Assert exact qualification subject
@@ -80,7 +80,7 @@ jobs:
             echo "desci_manifest_blob=$(git hash-object mycelix-workspace/mycelix-desci/Cargo.toml)"
             echo "desci_lock_sha256=$(sha256sum mycelix-workspace/mycelix-desci/Cargo.lock | cut -d' ' -f1)"
             echo "runner_os=$RUNNER_OS"
-            echo "runner_image=$\${ImageOS:-unknown}"
+            echo "runner_image=${ImageOS:-unknown}"
             echo "rust=$(rustc --version)"
             echo "rust_commit=$(rustc --version --verbose | sed -n 's/^commit-hash: //p')"
             echo "cargo=$(cargo --version)"
@@ -91,6 +91,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: desci-source-rights-\${{ env.QUALIFIED_SHA }}
+          name: desci-source-rights-${{ env.QUALIFIED_SHA }}
           path: desci-source-rights-qualification.txt
           if-no-files-found: error
