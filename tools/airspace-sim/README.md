@@ -18,7 +18,6 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 From the repository root:
 
 ```bash
-cargo fmt --manifest-path tools/airspace-sim/Cargo.toml -- --check
 cargo test --manifest-path tools/airspace-sim/Cargo.toml
 cargo run --manifest-path tools/airspace-sim/Cargo.toml -- --verify
 ```
