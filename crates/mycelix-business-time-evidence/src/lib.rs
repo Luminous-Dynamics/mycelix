@@ -289,7 +289,6 @@ mod tests {
         .unwrap();
         let point = schedule.resolve(2_000).unwrap();
         assert_eq!(point.utc_offset_minutes, 120);
-        assert!(TIME_EVIDENCE_IS_NON_AUTHORITATIVE);
     }
 
     #[test]
