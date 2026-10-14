@@ -1,0 +1,33 @@
+{
+  "dataset_id": "MYC-LIFE-CIVIC-SERVICE-001",
+  "version": "0.1.0",
+  "status": "research_fixture",
+  "cases_file": "tests/reference/life-civic-service/cases.json",
+  "schemas": [
+    "schemas/life-civic/service-journey-reference.schema.json"
+  ],
+  "requires_human_review_for_real_use": true,
+  "frozen_inputs": [
+    {
+      "path": "schemas/life-civic/service-journey-reference.schema.json",
+      "git_blob_sha1": "e683ed0b7ebdd060a7faf1be19812757d7e88d76",
+      "purpose": "effects-disabled service journey schema"
+    },
+    {
+      "path": "tests/reference/life-civic-service/cases.json",
+      "git_blob_sha1": "9bf08da89aeb11a6e37fe992899a6a3c7aa32be6",
+      "purpose": "service lifecycle and negative-control fixtures"
+    }
+  ],
+  "integrity_semantics": "Git blob SHA-1 binds exact repository object bytes to detect accidental or unreviewed drift. It is a Git object identity, not a signature, source-authenticity proof, or independent collision-resistant trust claim.",
+  "claim_ceiling": {
+    "permitted": [
+      "validate schema-level lifecycle and evidence boundaries"
+    ],
+    "prohibited": [
+      "legal determination",
+      "service submission or service closure",
+      "production-readiness or benchmark-pass claims"
+    ]
+  }
+}
