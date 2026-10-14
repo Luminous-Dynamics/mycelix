@@ -28,11 +28,38 @@ fn validator(relative_schema: &str) -> jsonschema::Validator {
         .unwrap_or_else(|error| panic!("could not compile JSON Schema {relative_schema}: {error}"))
 }
 
-const INSTRUMENT_SCHEMA: &str =
-    "schemas/life-civic/standard-instrument.schema.json";
-const ASSESSMENT_SCHEMA: &str =
-    "schemas/life-civic/applicability-assessment.schema.json";
+const INSTRUMENT_SCHEMA: &str = "schemas/life-civic/standard-instrument.schema.json";
+const ASSESSMENT_SCHEMA: &str = "schemas/life-civic/applicability-assessment.schema.json";
 const CORPUS_PATH: &str = "tests/reference/life-civic-standards/cases.json";
+
+#[test]
+fn corpus_manifest_points_to_existing_versioned_assets() {
+    let manifest = read_json("tests/reference/life-civic-standards/manifest.json");
+    let corpus = read_json(CORPUS_PATH);
+    assert_eq!(manifest["corpus_id"], corpus["corpus_id"]);
+    assert_eq!(manifest["version"], corpus["version"]);
+    assert_eq!(manifest["cases_file"].as_str(), Some(CORPUS_PATH));
+
+    let schema_paths = manifest["schemas"]
+        .as_array()
+        .expect("manifest schemas must be an array");
+    assert_eq!(schema_paths.len(), 2);
+    for path in schema_paths {
+        let path = path.as_str().expect("schema path must be a string");
+        let _ = read_json(path);
+    }
+
+    let snapshots = corpus["source_snapshots"]
+        .as_array()
+        .expect("source snapshots must be an array");
+    assert!(snapshots.len() >= 4, "source lifecycle snapshots were lost");
+    for snapshot in snapshots {
+        assert!(
+            snapshot["source_uri"].as_str().is_some_and(|uri| uri.starts_with("https://")),
+            "source snapshot must retain a canonical HTTPS locator"
+        );
+    }
+}
 
 #[test]
 fn both_schemas_are_valid_json_schema_documents() {
@@ -186,13 +213,15 @@ fn corpus_ids_reasons_and_forbidden_claims_are_well_formed() {
     );
 
     let schema = read_json(ASSESSMENT_SCHEMA);
-    let valid_statuses: HashSet<&str> = schema["properties"]["result"]["properties"]["status"]["enum"]
+    let valid_statuses: HashSet<&str> =
+        schema["properties"]["result"]["properties"]["status"]["enum"]
         .as_array()
         .expect("assessment schema must enumerate result statuses")
         .iter()
         .map(|value| value.as_str().expect("status enum must contain strings"))
         .collect();
-    let valid_reasons: HashSet<&str> = schema["properties"]["result"]["properties"]["reason_codes"]["items"]["enum"]
+    let valid_reasons: HashSet<&str> =
+        schema["properties"]["result"]["properties"]["reason_codes"]["items"]["enum"]
         .as_array()
         .expect("assessment schema must enumerate reason codes")
         .iter()
