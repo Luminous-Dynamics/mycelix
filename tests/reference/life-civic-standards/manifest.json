@@ -1,0 +1,37 @@
+{
+  "corpus_id": "MYC-LIFE-CIVIC-APPLICABILITY-001",
+  "version": "0.1.0",
+  "status": "research_fixture",
+  "created_at": "2026-10-14",
+  "purpose": "Adversarial and boundary fixtures for instrument metadata and context-specific applicability. These cases are not legal determinations.",
+  "schemas": [
+    "schemas/life-civic/standard-instrument.schema.json",
+    "schemas/life-civic/applicability-assessment.schema.json"
+  ],
+  "cases_file": "tests/reference/life-civic-standards/cases.json",
+  "requires_human_review_for_real_use": true,
+  "fixture_classes": [
+    "positive_shape",
+    "missing_evidence",
+    "draft_status",
+    "jurisdiction_mismatch",
+    "stale_source",
+    "authority_boundary",
+    "model_law_boundary",
+    "supersession_boundary"
+  ],
+  "claim_ceiling": {
+    "permitted": [
+      "check schema shape and expected dispositions",
+      "detect prohibited inferences",
+      "confirm unknown and indeterminate outcomes remain explicit"
+    ],
+    "prohibited": [
+      "legal advice",
+      "compliance certification",
+      "official endorsement",
+      "current status beyond each recorded source snapshot",
+      "production readiness"
+    ]
+  }
+}
