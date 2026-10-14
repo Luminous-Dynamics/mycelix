@@ -611,6 +611,27 @@ pub fn require_did_is_author(
     ValidateCallbackResult::Valid
 }
 
+/// Check that an identity-bearing entry field matches the signer of the
+/// action that created it.
+///
+/// This is intentionally limited to fields whose domain semantics say that the
+/// committing agent is the actor/claimant (for example Vote.voter or
+/// GratitudeExpression.from_agent). It must not be used for on-behalf-of or
+/// shared-state fields such as a resource borrower or assigned care member.
+pub fn check_claimed_agent_match(
+    claimed: &AgentPubKey,
+    action_author: &AgentPubKey,
+    field: &str,
+) -> ValidateCallbackResult {
+    if claimed != action_author {
+        ValidateCallbackResult::Invalid(format!(
+            "{field} must match the action author"
+        ))
+    } else {
+        ValidateCallbackResult::Valid
+    }
+}
+
 /// Check that the author of a delete-link matches the original link author.
 ///
 /// Returns `ValidateCallbackResult::Valid` if authors match, or
@@ -768,6 +789,26 @@ mod tests {
         "food",
         "transport",
     ];
+
+    #[test]
+    fn claimed_agent_match_accepts_signer() {
+        let agent = fake_agent();
+        assert_eq!(
+            check_claimed_agent_match(&agent, &agent, "Vote.voter"),
+            ValidateCallbackResult::Valid
+        );
+    }
+
+    #[test]
+    fn claimed_agent_match_rejects_forged_identity() {
+        let claimed = fake_agent();
+        let author = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let result = check_claimed_agent_match(&claimed, &author, "Vote.voter");
+        assert_eq!(
+            result,
+            ValidateCallbackResult::Invalid("Vote.voter must match the action author".into())
+        );
+    }
 
     // ---- validate_query_fields ----
 

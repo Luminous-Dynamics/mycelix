@@ -100,75 +100,66 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry {
+        FlatOp::CreateEntry(OpEntry::CreateEntry {
             app_entry,
             action: _,
         }) => match app_entry {
             EntryTypes::Milestone(milestone) => validate_milestone(&milestone),
             EntryTypes::LifeTransition(transition) => validate_transition(&transition),
         },
-        FlatOp::StoreEntry(OpEntry::UpdateEntry {
+        FlatOp::CreateEntry(OpEntry::UpdateEntry {
             app_entry,
-            original_action_hash,
+            action,
             ..
         }) => match app_entry {
             EntryTypes::Milestone(milestone) => {
                 validate_milestone(&milestone)?;
-                validate_milestone_immutable_fields(&milestone, &original_action_hash)
+                validate_milestone_immutable_fields(&milestone, &action.original_action_address)
             }
             EntryTypes::LifeTransition(transition) => {
                 validate_transition(&transition)?;
-                validate_transition_immutable_fields(&transition, &original_action_hash)
+                validate_transition_immutable_fields(&transition, &action.original_action_address)
             }
         },
-        FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterCreateLink {
-            link_type: _,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => {
-            if tag.0.len() > 512 {
+        FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Link(OpLink::CreateLink { action, .. }) => {
+            if action.data.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterDeleteLink { tag, action, .. } => {
-            let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(original_action.action().author(), &action.author);
+        FlatOp::Link(link @ OpLink::DeleteLink {
+            action,
+            original_action,
+            ..
+        }) => {
+            let result = check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
-            if tag.0.len() > 512 {
+            if link.tag().0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
+        FlatOp::Update(OpUpdate::Entry { action, .. }) => {
             let original = must_get_action(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                action.author(),
                 "update",
             ))
         }
-        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(OpDelete { action }) => {
             let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                action.author(),
                 "delete",
             ))
         }
