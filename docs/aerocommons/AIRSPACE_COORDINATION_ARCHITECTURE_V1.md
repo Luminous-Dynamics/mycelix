@@ -20,6 +20,7 @@ Existing aviation work already supplies important building blocks:
 
 - **FAA UTM** describes a cooperative information-sharing ecosystem for low-altitude unmanned aircraft. Flight intent, airspace constraints, and conflict-management services are exchanged through distributed services, complementary to traditional air traffic services.
 - **EU U-space** requires flight authorization, geo-awareness, network identification, and traffic information in designated U-space; weather and conformance services may also apply.
+- **Authorisation lifecycle exchange:** EU U-space rules/guidance describe multi-provider exchange of authorisation changes including `Accepted`, `Activated`, `Withdrawn`, and `Ended`. The prototype uses these state names as a vocabulary reference, while adding its own `Proposed` pre-authorisation planning state; this does not claim protocol or regulatory conformance.
 - **ICAO's UTM framework** emphasizes interoperability with existing ATM, safety of people on the ground, detect-and-avoid, security/environmental risk, and a harmonized but adaptable path toward integration.
 - **NASA's 2025 strategic path-planning flight evaluation** found that tightly constrained flow corridors can leave fewer degrees of freedom for resolving conflicts. This is a warning against treating fixed lanes as the entire solution.
 - **NASA's UAM service-provider simulation** explored demand/capacity balancing, sequencing, scheduling, strategic conflict management, and data exchange.
