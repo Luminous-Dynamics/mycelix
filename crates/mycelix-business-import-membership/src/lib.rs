@@ -215,7 +215,7 @@ pub fn verify_observation_membership(
             _ => {
                 return Err(MembershipError::DuplicateObservationMatch {
                     observation: observation.clone(),
-                })
+                });
             }
         }
     }
