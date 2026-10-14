@@ -33,7 +33,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
       - name: Install pinned validator
         run: python -m pip install --disable-pip-version-check "jsonschema[format]==4.23.0"
       - name: Validate schema, positive fixtures, and negative controls
