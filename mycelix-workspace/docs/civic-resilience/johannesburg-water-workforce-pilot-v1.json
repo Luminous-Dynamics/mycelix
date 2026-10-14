@@ -160,9 +160,7 @@
       "epwp_context": {
         "phase": "Phase 5",
         "phase_period": "2024/25–2028/29",
-        "city_total_target_work_opportunities": 50030,
-        "target_2026_27_work_opportunities": 9996,
-        "observation_scope": "Citywide EPWP planning target reported in SDBIP footnote",
+        "observation_scope": "Two distinct planning series recorded: national DPWI Phase 5 target apportioned to COJ; City's own SDBIP KPI 24 target.",
         "evidence_pages": "Text extraction spans printed pages 32–33",
         "text_layer_observed": true,
         "visually_reviewed": false,
@@ -175,7 +173,33 @@
           "Available placement slots or eligibility",
           "Durable job count",
           "Contract award or programme partnership"
-        ]
+        ],
+        "nationally_set_phase5_target_for_city_work_opportunities": 50030,
+        "nationally_set_target_2026_27_work_opportunities_for_city": 9996,
+        "city_sdbip_kpi24": {
+          "kpi_number": 24,
+          "title": "Number of EPWP work opportunities created City-Wide",
+          "baseline_2024_25": 15724,
+          "target_2025_26": 20000,
+          "target_2026_27": 12500,
+          "quarterly_targets_2026_27": [
+            3500,
+            7000,
+            9800,
+            12500
+          ],
+          "lead_department": "Economic Development",
+          "source_page_printed": 32,
+          "text_layer_observed": true,
+          "visually_reviewed": false,
+          "relation_to_national_target": "City SDBIP target is described as a 25% increment over the national target apportioned to COJ for 2026/27.",
+          "allowed_use": "Keep City operational SDBIP target distinct from nationally set/apportioned Phase 5 target.",
+          "prohibited_inference": [
+            "Target achieved",
+            "Durable jobs equal work opportunities",
+            "Funding or pilot eligibility confirmed"
+          ]
+        }
       },
       "review_limit": {
         "visually_reviewed_printed_pages": [
@@ -699,13 +723,13 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "2713cab33f8e3103b36277d39a1c77761a0ff645",
-    "probe_count": 16,
+    "git_blob_sha": "c9f81166b8b05a98050d4aa0a6d49be0c3d73e79",
+    "probe_count": 17,
     "synthetic_only": true,
     "qualification_status": "NotRunAfterCorpusV1Revision",
     "authoring_preflight": {
       "json_parse": "Passed",
-      "unique_probe_ids": 16,
+      "unique_probe_ids": 17,
       "all_external_writes_disabled": true,
       "all_automated_closures_disabled": true,
       "all_production_sla_calculations_disabled": true
