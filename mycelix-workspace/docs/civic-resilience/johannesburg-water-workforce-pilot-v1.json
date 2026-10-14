@@ -68,15 +68,127 @@
         "2026/27 Final IDP",
         "2025/26 Institutional Service Level Standards Charter"
       ],
-      "linked_2026_27_sdbip_pdf_fetch_status": "TimedOutDuringResearch",
-      "linked_pdf_visual_review_performed": false,
-      "indicators_imported_from_linked_pdf": false,
-      "allowed_use": "Prove index lists documents; guide further source retrieval",
+      "linked_2026_27_sdbip_pdf_fetch_status": "TimedOutOnInitialAttempt;RetrievedOnRetry",
+      "linked_pdf_visual_review_performed": true,
+      "indicators_imported_from_linked_pdf": true,
+      "allowed_use": "Official index and linked artifact identity; detailed observations recorded under COJ-SDBIP-2026-27",
       "prohibited_inference": [
-        "Unretrieved PDF contents",
-        "Current target thresholds or case-level SLA status",
-        "Indicator denominator, clock semantics, or adopted version"
+        "Case-level customer SLA or provider status from an annual outcome KPI",
+        "Reconciliation of the summary-unit and technical-formula ambiguity without owner clarification",
+        "EPWP work opportunity equated with a durable job",
+        "Any Mycelix funding, placement, endorsement, or integration commitment"
+      ],
+      "visual_reviewed_pdf_printed_pages": [
+        28,
+        58
+      ],
+      "text_layer_observed_but_not_visually_reviewed_printed_pages": [
+        32,
+        33,
+        47
       ]
+    },
+    {
+      "source_id": "COJ-SDBIP-2026-27",
+      "issuer": "City of Johannesburg",
+      "source_url": "https://joburg.org.za/documents_/Documents/2026-27_SDBIP.pdf",
+      "source_kind": "OfficialServiceDeliveryBudgetImplementationPlan",
+      "document_title": "SDBIP - Service Delivery and Budget Implementation Plan 2026/27",
+      "fiscal_period": "2026/27",
+      "publication_date": "NotObserved",
+      "pdf_page_count": 151,
+      "source_observation_status": "OfficialPDFTextObserved;PrintedPages28And58VisuallyReviewed",
+      "retrieval_history": {
+        "initial_attempt": "TimedOut",
+        "retry": "Retrieved",
+        "inference_policy": "Initial fetch failure does not imply source absence"
+      },
+      "water_loss_kpi": {
+        "kpi_number": 17,
+        "title": "Total water losses",
+        "summary_table": {
+          "baseline_2024_25": "207 136Ml",
+          "target_2025_26": "204 700Ml",
+          "target_2026_27": "200 293Ml",
+          "quarterly_targets_2026_27": [
+            "204 270Ml",
+            "203 054Ml",
+            "201 839Ml",
+            "200 293Ml"
+          ],
+          "calculation_type": "Cumulative",
+          "reporting_cycle": "Annual",
+          "source_page_printed": 28
+        },
+        "technical_definition": {
+          "text": "Total (apparent and real) losses, expressed in terms of annual volume lost per service connection per day.",
+          "formula_text": "((System input volume - Authorised consumption volume) in m³ × 1000) / (365 × Number of service connections)",
+          "source_page_printed": 58,
+          "visually_reviewed": true
+        },
+        "summary_unit_vs_definition_status": "ConflictOrAmbiguityObserved;NoCrosswalkApplied",
+        "production_loss_calculation_authorized": false,
+        "case_level_sla_equivalence_authorized": false,
+        "policy": "Preserve the literal summary value and technical definition separately. Do not normalize, convert, derive a per-case deadline, or treat this as a repair-response SLA until the responsible metric owner clarifies units/denominator."
+      },
+      "green_economy_job_kpi": {
+        "kpi_number": 55,
+        "title": "Number of green economy projects with measurable job creation",
+        "intervention": "Promotion of the green economy in economic development initiatives",
+        "baseline_2024_25_projects": 2,
+        "target_2025_26_projects": 2,
+        "target_2026_27_projects": 6,
+        "quarterly_targets_2026_27_projects": [
+          1,
+          1,
+          2,
+          2
+        ],
+        "lead_department": "Economic Development",
+        "cluster_lead": "Economic Growth",
+        "supporting_parties": "All departments and entities",
+        "source_page_printed": 47,
+        "text_layer_observed": true,
+        "visually_reviewed": false,
+        "allowed_use": "Candidate reporting crosswalk and partner-discovery context only",
+        "prohibited_inference": [
+          "Six jobs or six paid placements",
+          "Funding or authority for Mycelix",
+          "Evidence that any project has already achieved employment outcomes"
+        ]
+      },
+      "epwp_context": {
+        "phase": "Phase 5",
+        "phase_period": "2024/25–2028/29",
+        "city_total_target_work_opportunities": 50030,
+        "target_2026_27_work_opportunities": 9996,
+        "observation_scope": "Citywide EPWP planning target reported in SDBIP footnote",
+        "evidence_pages": "Text extraction spans printed pages 32–33",
+        "text_layer_observed": true,
+        "visually_reviewed": false,
+        "documented_limit": "The document says projects can range from one day to 24 months and not all qualify for an exit strategy or skills-development programme.",
+        "work_opportunity_equals_durable_job": false,
+        "mycelix_funding_or_eligibility_confirmed": false,
+        "allowed_use": "Avoid duplicating existing programme reporting; define transition, training, paid-hour and 6/12-month retention measures",
+        "prohibited_inference": [
+          "Available budget for this proposed pilot",
+          "Available placement slots or eligibility",
+          "Durable job count",
+          "Contract award or programme partnership"
+        ]
+      },
+      "review_limit": {
+        "visually_reviewed_printed_pages": [
+          28,
+          58
+        ],
+        "text_layer_observed_but_not_visually_reviewed_printed_pages": [
+          32,
+          33,
+          47
+        ],
+        "reason": "Screenshot requests for the EPWP footnote and green-economy KPI pages timed out; those claims remain text-layer-only observations."
+      }
     },
     {
       "source_id": "JW-2",
