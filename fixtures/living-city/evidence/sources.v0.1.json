@@ -14,7 +14,8 @@
       "scope": "city",
       "verification_status": "source_declared",
       "spatial_resolution_m": null,
-      "spatial_resolution_qualifier": "unknown"
+      "spatial_resolution_qualifier": "unknown",
+      "administrative_level": "metropolitan_municipality"
     },
     "temporal_coverage": {
       "start_date": null,
@@ -45,7 +46,8 @@
       "scope": "country",
       "verification_status": "source_declared",
       "spatial_resolution_m": null,
-      "spatial_resolution_qualifier": "not_applicable"
+      "spatial_resolution_qualifier": "not_applicable",
+      "administrative_level": "unknown"
     },
     "temporal_coverage": {
       "start_date": null,
@@ -76,7 +78,8 @@
       "scope": "country",
       "verification_status": "source_declared",
       "spatial_resolution_m": null,
-      "spatial_resolution_qualifier": "not_applicable"
+      "spatial_resolution_qualifier": "not_applicable",
+      "administrative_level": "local_municipality"
     },
     "temporal_coverage": {
       "start_date": null,
@@ -90,6 +93,105 @@
     "limitations": [
       "The SARVA homepage describes a climate-risk product but this catalogue record is not the underlying gridded dataset.",
       "A tool description does not establish an API, a downloadable file, the current model version, or rights to redistribute source data."
+    ]
+  },
+  {
+    "schema_version": "living-city-source/0.1",
+    "source_id": "nccis-climate-projections-page",
+    "title": "Climate Change Projections",
+    "publisher": "National Climate Change Information System (NCCIS)",
+    "resource_kind": "dataset_catalog",
+    "landing_url": "https://nccis.environment.gov.za/climate-information/climate-projections",
+    "published_at": null,
+    "accessed_at": "2026-10-14T22:11:00+02:00",
+    "version_label": "page-version-not-stated",
+    "geographic_coverage": {
+      "label": "South Africa; climate change maps described as national",
+      "scope": "country",
+      "verification_status": "source_declared",
+      "spatial_resolution_m": null,
+      "spatial_resolution_qualifier": "unknown",
+      "administrative_level": "national"
+    },
+    "temporal_coverage": {
+      "start_date": "1971-01-01",
+      "end_date": "2050-12-31"
+    },
+    "reuse": {
+      "status": "unknown",
+      "license_url": null,
+      "review_notes": "This page links to different sources and map products. No dataset-specific reuse license, direct data URL, or download receipt has been verified."
+    },
+    "limitations": [
+      "The page describes a comparison between a 1971-2000 baseline and 2021-2050 projections; one broad coverage window is not a continuous observation period.",
+      "The page does not establish the selected map's metric grid resolution or local street-level accuracy.",
+      "The described maps use a median of six dynamically downscaled GCMs and RCP 4.5/RCP 8.5; details must be confirmed for any downloaded product."
+    ]
+  },
+  {
+    "schema_version": "living-city-source/0.1",
+    "source_id": "greenbook-metroview-profiles",
+    "title": "GreenBook MetroView Profiles",
+    "publisher": "CSIR GreenBook",
+    "resource_kind": "dataset_catalog",
+    "landing_url": "https://greenbook.co.za/tool-landing-page.html",
+    "published_at": null,
+    "accessed_at": "2026-10-14T22:11:00+02:00",
+    "version_label": "page-version-not-stated",
+    "geographic_coverage": {
+      "label": "Selected South African metropolitan municipalities; profile detail reported up to ward level",
+      "scope": "multi-region",
+      "verification_status": "source_declared",
+      "spatial_resolution_m": null,
+      "spatial_resolution_qualifier": "not_applicable",
+      "administrative_level": "ward"
+    },
+    "temporal_coverage": {
+      "start_date": null,
+      "end_date": "2050-12-31"
+    },
+    "reuse": {
+      "status": "unknown",
+      "license_url": null,
+      "review_notes": "The landing page links to interactive profiles. Review the individual profile's data/export terms and citation requirements before copying or redistributing assets."
+    },
+    "limitations": [
+      "The page states that risk profile information is available up to ward level; ward-level administrative detail is not a uniform metric grid size.",
+      "A web profile does not by itself establish an available public API or the licensing of its underlying map layers.",
+      "Current and 2050 profile indicators remain source-reported until the underlying methods, versions and data are reviewed."
+    ]
+  },
+  {
+    "schema_version": "living-city-source/0.1",
+    "source_id": "greenbook-planning-support-listing",
+    "title": "GreenBook Planning Support: Reports, Plans and Maps & Data Packages",
+    "publisher": "CSIR GreenBook",
+    "resource_kind": "dataset_catalog",
+    "landing_url": "https://greenbook.co.za/greenbook-support.html",
+    "published_at": null,
+    "accessed_at": "2026-10-14T22:11:00+02:00",
+    "version_label": "page-version-not-stated",
+    "geographic_coverage": {
+      "label": "Municipal support resources across South Africa; individual package coverage varies",
+      "scope": "country",
+      "verification_status": "source_declared",
+      "spatial_resolution_m": null,
+      "spatial_resolution_qualifier": "not_applicable",
+      "administrative_level": "unknown"
+    },
+    "temporal_coverage": {
+      "start_date": null,
+      "end_date": null
+    },
+    "reuse": {
+      "status": "unknown",
+      "license_url": null,
+      "review_notes": "This page lists reports, adaptation plans, and data packages. Availability and terms must be checked for the specific municipality and asset."
+    },
+    "limitations": [
+      "The visible page layout does not conclusively establish whether a separate downloadable Johannesburg data package is available.",
+      "The index and the MetroView profile page serve different purposes; their content should not be treated as interchangeable.",
+      "This catalog listing is not proof of reuse permission, download availability, or service/API access."
     ]
   }
 ]

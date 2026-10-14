@@ -75,7 +75,8 @@
         "scope",
         "verification_status",
         "spatial_resolution_m",
-        "spatial_resolution_qualifier"
+        "spatial_resolution_qualifier",
+        "administrative_level"
       ],
       "properties": {
         "label": {
@@ -117,6 +118,23 @@
             "not_applicable"
           ],
           "description": "Qualifies the numerical resolution; prevents an approximate value from being presented as exact."
+        },
+        "administrative_level": {
+          "enum": [
+            "national",
+            "province",
+            "district_municipality",
+            "local_municipality",
+            "metropolitan_municipality",
+            "ward",
+            "settlement",
+            "parcel_or_site",
+            "multi_region",
+            "global",
+            "unknown",
+            "not_applicable"
+          ],
+          "description": "Administrative reference scale reported by the source; this is separate from metric spatial resolution."
         }
       }
     },

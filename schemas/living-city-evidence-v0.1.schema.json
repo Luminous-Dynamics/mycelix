@@ -97,7 +97,8 @@
         "spatial_resolution_m",
         "temporal_start",
         "temporal_end",
-        "spatial_resolution_qualifier"
+        "spatial_resolution_qualifier",
+        "administrative_level"
       ],
       "properties": {
         "spatial_scope": {
@@ -145,6 +146,23 @@
             "not_applicable"
           ],
           "description": "Qualifies the numerical resolution; prevents an approximate value from being presented as exact."
+        },
+        "administrative_level": {
+          "enum": [
+            "national",
+            "province",
+            "district_municipality",
+            "local_municipality",
+            "metropolitan_municipality",
+            "ward",
+            "settlement",
+            "parcel_or_site",
+            "multi_region",
+            "global",
+            "unknown",
+            "not_applicable"
+          ],
+          "description": "Administrative level the claim supports; must not imply finer geography than the referenced source supports."
         }
       }
     },

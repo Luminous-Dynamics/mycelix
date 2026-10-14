@@ -18,7 +18,8 @@
     "spatial_resolution_m": 25000,
     "spatial_resolution_qualifier": "approximate",
     "temporal_start": null,
-    "temporal_end": null
+    "temporal_end": null,
+    "administrative_level": "local_municipality"
   },
   "method": {
     "kind": "source_reported",

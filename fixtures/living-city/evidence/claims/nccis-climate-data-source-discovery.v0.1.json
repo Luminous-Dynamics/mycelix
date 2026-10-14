@@ -18,7 +18,8 @@
     "spatial_resolution_m": null,
     "temporal_start": null,
     "temporal_end": null,
-    "spatial_resolution_qualifier": "not_applicable"
+    "spatial_resolution_qualifier": "not_applicable",
+    "administrative_level": "unknown"
   },
   "method": {
     "kind": "source_reported",

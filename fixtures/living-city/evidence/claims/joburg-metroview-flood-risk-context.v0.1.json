@@ -18,7 +18,8 @@
     "spatial_resolution_m": null,
     "temporal_start": null,
     "temporal_end": null,
-    "spatial_resolution_qualifier": "unknown"
+    "spatial_resolution_qualifier": "unknown",
+    "administrative_level": "metropolitan_municipality"
   },
   "method": {
     "kind": "source_reported",

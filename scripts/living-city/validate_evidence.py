@@ -71,11 +71,39 @@ def source_semantic_errors(source: dict) -> list[str]:
     return errors
 
 
+ADMIN_LEVEL_RANK = {
+    "national": 0,
+    "province": 1,
+    "district_municipality": 2,
+    "local_municipality": 3,
+    "metropolitan_municipality": 3,
+    "ward": 4,
+    "settlement": 5,
+    "parcel_or_site": 6,
+}
+
+
 def claim_semantic_errors(claim: dict, sources_by_id: dict, concepts_by_key: dict) -> list[str]:
     errors = []
+    resolved_sources = []
     for ref in claim["source_refs"]:
         if ref not in sources_by_id:
             errors.append(f"{claim['evidence_id']}: unknown source_ref {ref!r}")
+        else:
+            resolved_sources.append(sources_by_id[ref])
+
+    claim_level = claim["coverage"]["administrative_level"]
+    claim_rank = ADMIN_LEVEL_RANK.get(claim_level)
+    source_ranks = [
+        ADMIN_LEVEL_RANK[source["geographic_coverage"]["administrative_level"]]
+        for source in resolved_sources
+        if source["geographic_coverage"]["administrative_level"] in ADMIN_LEVEL_RANK
+    ]
+    if claim_rank is not None and source_ranks and claim_rank > max(source_ranks):
+        errors.append(
+            f"{claim['evidence_id']}: administrative level {claim_level!r} is more granular "
+            "than the most detailed referenced source supports"
+        )
     cref = claim["concept_ref"]
     key = (cref["concept_id"], cref["concept_version"])
     concept = concepts_by_key.get(key)
@@ -200,7 +228,20 @@ def main() -> None:
         fail("mutation: contradictory spatial-resolution qualifier was not rejected")
     print("PASS mutation: approximate/unknown resolution cannot be mislabeled as exact")
 
-    print(f"PASS: {len(by_source)} sources; {len(by_evidence)} claims; concept/source references resolve; 5 targeted mutation controls.")
+    projection_claim = next(
+        claim for claim in claims
+        if claim["evidence_id"] == "nccis-climate-projection-methodology-context-v0-1"
+    )
+    overprecise_admin = copy.deepcopy(projection_claim)
+    overprecise_admin["coverage"]["administrative_level"] = "ward"
+    if not any(
+        "more granular than the most detailed referenced source supports" in error
+        for error in claim_semantic_errors(overprecise_admin, by_source, concepts)
+    ):
+        fail("mutation: unsupported ward-level claim from a national climate source was not rejected")
+    print("PASS mutation: administrative resolution cannot exceed referenced source")
+
+    print(f"PASS: {len(by_source)} sources; {len(by_evidence)} claims; concept/source references resolve; 6 targeted mutation controls.")
 
 
 if __name__ == "__main__":
