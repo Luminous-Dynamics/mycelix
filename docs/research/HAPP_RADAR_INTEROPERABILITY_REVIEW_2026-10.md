@@ -413,5 +413,5 @@ The current SAP types use `u64` micro-unit amounts, but the source itself docume
 
 ### Validation claim ceiling
 
-The corpus JSON was fetched back and parsed. Source-level consistency checks confirm the expected 3 instrument mappings and 12 registered negative controls. Rust source now defines 10 unit tests and a dedicated workflow for formatting, test execution and CLI validation. **Those Rust tests have not been run in this environment** because a Cargo toolchain is unavailable here; CI results on the exact branch head must be inspected before reporting a pass. This does not qualify full ValueFlows conformance, hREA runtime compatibility, DHT validation, settlement, or security.
+The corpus JSON was fetched back and parsed. Source-level consistency checks confirm the expected 3 instrument mappings and 12 registered negative controls. Rust source now defines 13 unit tests and a dedicated workflow for formatting, test execution and CLI validation. **Those Rust tests have not been run in this environment** because a Cargo toolchain is unavailable here; CI results on the exact branch head must be inspected before reporting a pass. This does not qualify full ValueFlows conformance, hREA runtime compatibility, DHT validation, settlement, or security.
 
