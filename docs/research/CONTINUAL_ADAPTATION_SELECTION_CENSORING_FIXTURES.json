@@ -1,0 +1,63 @@
+{
+  "schema": "mycelix.continual-adaptation.selection-censoring-fixtures.v1",
+  "status": "research-fixture-only",
+  "policy_binding": {
+    "git_blob_sha": "24a4ab5584d2377daafd66b0e3dddea1b72c5184"
+  },
+  "protocol": {
+    "campaign_id": "SEL-CENSOR-V1-CAMPAIGN",
+    "time_zero_epoch": "t0",
+    "horizon_epoch": "t2",
+    "expected_attempt_ids": ["a01","a02","a03","a04","a05","a06"],
+    "expected_decision_ids": ["d01","d02","d03","d04","d05","d06","d07","d08","d09"]
+  },
+  "base_case": {
+    "attempts": [
+      {"id":"a01","eligible_at_time_zero":true,"time_zero_epoch":"t0","action":"HOLD","terminal_state":"Completed","observation_at_horizon":true,"censoring_reason":"None","censoring_basis":null,"action_induced_censoring":false,"outcome_dependent_censoring":false,"horizon_completed":true,"failure_is_outcome":false,"observation_end_epoch":"t2"},
+      {"id":"a02","eligible_at_time_zero":true,"time_zero_epoch":"t0","action":"UPDATE","terminal_state":"Completed","observation_at_horizon":true,"censoring_reason":"None","censoring_basis":null,"action_induced_censoring":false,"outcome_dependent_censoring":false,"horizon_completed":true,"failure_is_outcome":false,"observation_end_epoch":"t2"},
+      {"id":"a03","eligible_at_time_zero":true,"time_zero_epoch":"t0","action":"UPDATE","terminal_state":"OutcomeFailure","observation_at_horizon":true,"censoring_reason":"None","censoring_basis":null,"action_induced_censoring":false,"outcome_dependent_censoring":false,"horizon_completed":false,"failure_is_outcome":true,"observation_end_epoch":"t1"},
+      {"id":"a04","eligible_at_time_zero":true,"time_zero_epoch":"t0","action":"HOLD","terminal_state":"AdministrativelyCensored","observation_at_horizon":false,"censoring_reason":"AdministrativeCensoring","censoring_basis":"protocol_horizon","action_induced_censoring":false,"outcome_dependent_censoring":false,"horizon_completed":false,"failure_is_outcome":false,"observation_end_epoch":"t1"},
+      {"id":"a05","eligible_at_time_zero":true,"time_zero_epoch":"t0","action":"UPDATE","terminal_state":"Completed","observation_at_horizon":true,"censoring_reason":"None","censoring_basis":null,"action_induced_censoring":false,"outcome_dependent_censoring":false,"horizon_completed":true,"failure_is_outcome":false,"observation_end_epoch":"t2"},
+      {"id":"a06","eligible_at_time_zero":true,"time_zero_epoch":"t0","action":"HOLD","terminal_state":"OutcomeFailure","observation_at_horizon":true,"censoring_reason":"None","censoring_basis":null,"action_induced_censoring":false,"outcome_dependent_censoring":false,"horizon_completed":false,"failure_is_outcome":true,"observation_end_epoch":"t1"}
+    ],
+    "decision_points": [
+      {"id":"d01","attempt_id":"a01","epoch":"t0","eligible":true,"triggered":true},
+      {"id":"d02","attempt_id":"a02","epoch":"t0","eligible":true,"triggered":true},
+      {"id":"d03","attempt_id":"a03","epoch":"t0","eligible":true,"triggered":true},
+      {"id":"d04","attempt_id":"a04","epoch":"t0","eligible":true,"triggered":true},
+      {"id":"d05","attempt_id":"a05","epoch":"t0","eligible":true,"triggered":true},
+      {"id":"d06","attempt_id":"a06","epoch":"t0","eligible":true,"triggered":true},
+      {"id":"d07","attempt_id":"a01","epoch":"t1","eligible":true,"triggered":false},
+      {"id":"d08","attempt_id":"a02","epoch":"t1","eligible":true,"triggered":true},
+      {"id":"d09","attempt_id":"a03","epoch":"t1","eligible":false,"triggered":false}
+    ],
+    "analysis": {
+      "estimand":"FullEpisodeValue",
+      "selection_rule":"AllEligibleAtTimeZero",
+      "included_attempt_ids":["a01","a02","a03","a04","a05","a06"],
+      "complete_case_filter":false,
+      "classification_timing":"pre_outcome",
+      "adjustment":null,
+      "trigger_denominator_ids":["d01","d02","d03","d04","d05","d06","d07","d08"]
+    }
+  },
+  "cases": [
+    {"case_id":"SCV-001","mutation":[],"expected_verdict":"qualified","reason":"declared full-episode analysis retains every eligible attempt"},
+    {"case_id":"SCV-002","mutation":[["remove_attempt","a03"]],"expected_verdict":"unresolved","reason":"attempt census is incomplete; a terminal outcome was removed"},
+    {"case_id":"SCV-003","mutation":[["set_attempt","a02","terminal_state","ActionTerminated"],["set_attempt","a02","observation_at_horizon",false],["set_attempt","a02","observation_end_epoch","t1"],["set_attempt","a02","censoring_reason","ActionInducedCensoring"],["set_attempt","a02","action_induced_censoring",true],["set_attempt","a02","horizon_completed",false]],"expected_verdict":"unresolved","reason":"UPDATE causes early informative termination without a pre-specified adjustment"},
+    {"case_id":"SCV-004","mutation":[["set_analysis","included_attempt_ids",["a01","a02","a03","a05","a06"]]],"expected_verdict":"unqualified","reason":"complete-case/survivor-style exclusion changes the full-episode population"},
+    {"case_id":"SCV-005","mutation":[["set_analysis","selection_rule","SurvivorsAtHorizon"]],"expected_verdict":"unqualified","reason":"survivor selection is incompatible with FullEpisodeValue"},
+    {"case_id":"SCV-006","mutation":[["set_analysis","estimand","SurvivorConditionalValue"],["set_analysis","selection_rule","SurvivorsAtHorizon"],["set_analysis","included_attempt_ids",["a01","a02","a05"]]],"expected_verdict":"qualified","reason":"survivor-conditional estimand is explicit rather than silently substituted"},
+    {"case_id":"SCV-007","mutation":[["set_analysis","complete_case_filter",true],["set_analysis","included_attempt_ids",["a01","a02","a05"]]],"expected_verdict":"unqualified","reason":"complete-case filter cannot silently become the FullEpisodeValue analysis"},
+    {"case_id":"SCV-008","mutation":[["set_analysis","classification_timing","post_outcome"]],"expected_verdict":"unqualified","reason":"censoring classification is allowed only when frozen before outcomes"},
+    {"case_id":"SCV-009","mutation":[["set_attempt","a04","censoring_reason","InfrastructureCensoring"],["set_attempt","a04","censoring_basis",null]],"expected_verdict":"unresolved","reason":"infrastructure censoring without an explicit predeclared basis is not assumed harmless"},
+    {"case_id":"SCV-010","mutation":[["set_attempt","a04","censoring_reason","InfrastructureCensoring"],["set_attempt","a04","censoring_basis","predeclared_independent"]],"expected_verdict":"qualified","reason":"noninformative infrastructure censoring is allowed only with an explicit basis"},
+    {"case_id":"SCV-011","mutation":[["set_attempt","a02","terminal_state","ActionTerminated"],["set_attempt","a02","observation_at_horizon",false],["set_attempt","a02","observation_end_epoch","t1"],["set_attempt","a02","censoring_reason","ActionInducedCensoring"],["set_attempt","a02","action_induced_censoring",true],["set_attempt","a02","horizon_completed",false],["set_analysis","estimand","CensoringAdjustedValue"],["set_analysis","adjustment",{"method_id":"CCW-RESEARCH-01","weight_policy_id":"WP-01","pre_specified_before_outcomes":false,"frozen":false}]],"expected_verdict":"unresolved","reason":"censoring adjustment declared after observing outcomes remains unresolved"},
+    {"case_id":"SCV-012","mutation":[["set_attempt","a02","terminal_state","ActionTerminated"],["set_attempt","a02","observation_at_horizon",false],["set_attempt","a02","observation_end_epoch","t1"],["set_attempt","a02","censoring_reason","ActionInducedCensoring"],["set_attempt","a02","action_induced_censoring",true],["set_attempt","a02","horizon_completed",false],["set_analysis","estimand","CensoringAdjustedValue"],["set_analysis","adjustment",{"method_id":"CCW-RESEARCH-01","weight_policy_id":"WP-01","pre_specified_before_outcomes":true,"frozen":true}]],"expected_verdict":"qualified","reason":"declared adjustment protocol is frozen before outcomes; actual model adequacy is outside this verifier's claim ceiling"},
+    {"case_id":"SCV-013","mutation":[["remove_decision","d08"]],"expected_verdict":"unresolved","reason":"decision ledger is incomplete, so later decision opportunity accounting is not established"},
+    {"case_id":"SCV-014","mutation":[["set_analysis","trigger_denominator_ids",["d01","d02","d03","d04","d05","d06","d07"]]],"expected_verdict":"unqualified","reason":"eligible later decision point was excluded from the trigger denominator"},
+    {"case_id":"SCV-015","mutation":[["set_attempt","a02","time_zero_epoch","t1"]],"expected_verdict":"unresolved","reason":"time-zero alignment is broken by post-assignment timing"},
+    {"case_id":"SCV-016","mutation":[["set_analysis","complete_case_filter",true]],"expected_verdict":"unqualified","reason":"complete-case filtering is prohibited even when the declared included set is otherwise full"},
+    {"case_id":"SCV-017","mutation":[["set_analysis","selection_rule","MalformedSelectionRule"]],"expected_verdict":"unqualified","reason":"unknown selection rule cannot be silently accepted"}
+  ]
+}
