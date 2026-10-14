@@ -154,4 +154,52 @@ describe('royalty reporting projections', () => {
       }],
     })).toThrow(/reporting currency must be non-empty/);
   });
+
+  it('rejects accessor-backed source and amount fields without invoking getters', () => {
+    let reads = 0;
+    const accessorSource = Object.defineProperty({ ...source }, 'generatedAt', {
+      configurable: true,
+      get() { reads += 1; return source.generatedAt; },
+    });
+    expect(() => exportDdexRoyaltyReportingProjection({
+      profileVersion: 'configured-ddex-profile',
+      source: accessorSource,
+      lines,
+    })).toThrow(/accessor-backed/);
+    expect(reads).toBe(0);
+
+    const accessorAmount = Object.defineProperty({ amountMinor: 1n, currency: 'USD' }, 'amountMinor', {
+      configurable: true,
+      get() { reads += 1; return 1n; },
+    });
+    expect(() => exportDdexRoyaltyReportingProjection({
+      profileVersion: 'configured-ddex-profile',
+      source,
+      lines: [{ ...lines[0]!, amount: accessorAmount as RoyaltyReportingLine['amount'] }],
+    })).toThrow(/accessor-backed/);
+    expect(reads).toBe(0);
+  });
+
+  it('rejects accessor-backed projection contents without invoking getters during verification', () => {
+    const projection = exportDdexRoyaltyReportingProjection({
+      profileVersion: 'configured-ddex-profile',
+      source,
+      lines,
+    });
+    let reads = 0;
+    const accessorSource = Object.defineProperty({ ...projection.source }, 'statementId', {
+      configurable: true,
+      get() { reads += 1; return projection.source.statementId; },
+    });
+    const altered = { ...projection, source: accessorSource };
+    expect(() => assertDdexRoyaltyReportingProjection(altered)).toThrow(/accessor-backed/);
+    expect(reads).toBe(0);
+
+    const accessorRoot = Object.defineProperty({ ...projection }, 'projectionRoot', {
+      configurable: true,
+      get() { reads += 1; return projection.projectionRoot; },
+    });
+    expect(() => assertDdexRoyaltyReportingProjection(accessorRoot)).toThrow(/accessor-backed/);
+    expect(reads).toBe(0);
+  });
 });
