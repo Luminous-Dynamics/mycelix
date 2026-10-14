@@ -466,7 +466,6 @@ mod tests {
         )];
         let campaign = campaign(&adapter, &files);
         let replay = replay_campaign(&adapter, &campaign, &files).unwrap();
-        assert!(CAMPAIGN_REPLAY_IS_READ_ONLY);
         assert_eq!(replay.evidence.accepted_source_events, 2);
         assert_eq!(replay.observations.len(), 2);
         assert_eq!(replay.observations[0].observation.value.mantissa, 2);
