@@ -220,6 +220,10 @@
           "type": "string",
           "format": "uri",
           "description": "Stable lot reference; product class identity and lot identity must remain distinct."
+        },
+        "quantity": {
+          "$ref": "#/$defs/quantity",
+          "description": "Optional event-specific lot amount; required by event-type conditions where applicable."
         }
       }
     },
