@@ -1,0 +1,234 @@
+{
+  "schema": "mycelix.economic-fabric.cross-domain-conformance/v1",
+  "status": "reference",
+  "purpose": "Executable-test corpus for semantic preservation across Integral ITC, COS, Finance, SAP, TEND, MYCEL, fiat/Web3 rails, authorization, finality, reconciliation, and outcome projection.",
+  "claim_ceiling": [
+    "Does not ratify Integral or Finance policy.",
+    "Does not establish legal ownership, legal tender, or economic effectiveness.",
+    "Does not manufacture external settlement finality.",
+    "Does not authorize physical action.",
+    "Foreign recognition never implies local issuance."
+  ],
+  "identity_requirements": [
+    "source_schema",
+    "source_revision",
+    "object_id",
+    "instrument_id",
+    "unit",
+    "scale",
+    "origin",
+    "source_event"
+  ],
+  "positive": [
+    [
+      "CDF-POS-001",
+      "COS observation -> ITC assessment",
+      "observation",
+      "assessment",
+      "preserve source event and origin"
+    ],
+    [
+      "CDF-POS-002",
+      "ITC assessment -> ITC ledger issuance",
+      "assessment",
+      "accounting_event",
+      "preserve assessment lineage and ITC identity"
+    ],
+    [
+      "CDF-POS-003",
+      "ITC ledger -> ITC position",
+      "ledger",
+      "position",
+      "position is derived projection, not source event"
+    ],
+    [
+      "CDF-POS-004",
+      "ITC position -> FRS input",
+      "position",
+      "frs_input",
+      "preserve ITC instrument identity"
+    ],
+    [
+      "CDF-POS-005",
+      "explicit authority -> execution",
+      "authorization",
+      "execution",
+      "authorization evidence is explicit predecessor"
+    ],
+    [
+      "CDF-POS-006",
+      "SAP conservation-preserving transfer",
+      "sap_ledger",
+      "sap_ledger",
+      "debit plus credit preserves instrument and quantity semantics"
+    ],
+    [
+      "CDF-POS-007",
+      "TEND obligation lifecycle",
+      "obligation",
+      "settlement",
+      "retain TEND instrument identity and obligation lineage"
+    ],
+    [
+      "CDF-POS-008",
+      "fiat bridge recognition",
+      "foreign_fiat",
+      "recognition",
+      "foreign instrument remains foreign; recognition is not local mint"
+    ],
+    [
+      "CDF-POS-009",
+      "Web3 bridge recognition",
+      "foreign_web3",
+      "recognition",
+      "chain/instrument identity remains explicit"
+    ],
+    [
+      "CDF-POS-010",
+      "rail evidence -> qualified finality",
+      "rail_evidence",
+      "finality",
+      "provider-qualified evidence required"
+    ],
+    [
+      "CDF-POS-011",
+      "finality -> reconciliation",
+      "finality",
+      "reconciliation",
+      "matched source/destination/fees required"
+    ],
+    [
+      "CDF-POS-012",
+      "execution -> economic outcome projection",
+      "execution",
+      "outcome",
+      "effect receipt required"
+    ],
+    [
+      "CDF-POS-013",
+      "corrected observation -> appended lineage",
+      "correction",
+      "correction",
+      "supersedes reference preserved; history not rewritten"
+    ]
+  ],
+  "negative": [
+    [
+      "CDF-NEG-001",
+      "reputation -> monetary issuance",
+      "reputation",
+      "money",
+      "reject semantic promotion"
+    ],
+    [
+      "CDF-NEG-002",
+      "ITC -> SAP",
+      "itc",
+      "sap",
+      "reject instrument substitution"
+    ],
+    [
+      "CDF-NEG-003",
+      "ITC -> TEND",
+      "itc",
+      "tend",
+      "reject instrument substitution"
+    ],
+    [
+      "CDF-NEG-004",
+      "ITC -> MYCEL reputation",
+      "itc",
+      "mycel_reputation",
+      "reject instrument substitution"
+    ],
+    [
+      "CDF-NEG-005",
+      "credit limit -> ownership",
+      "credit_limit",
+      "ownership",
+      "reject entitlement/ownership promotion"
+    ],
+    [
+      "CDF-NEG-006",
+      "position/balance -> authorization",
+      "position",
+      "authorization",
+      "require explicit authority"
+    ],
+    [
+      "CDF-NEG-007",
+      "accounting acknowledgement -> settlement",
+      "accounting_event",
+      "settlement",
+      "require rail evidence"
+    ],
+    [
+      "CDF-NEG-008",
+      "settlement acknowledgement -> finality",
+      "settlement",
+      "finality",
+      "require qualified finality evidence"
+    ],
+    [
+      "CDF-NEG-009",
+      "foreign recognition -> local issuance",
+      "recognition",
+      "local_issuance",
+      "reject origin collapse"
+    ],
+    [
+      "CDF-NEG-010",
+      "valuation -> unit conversion",
+      "valuation",
+      "quantity",
+      "reject USD valuation changing ITC units"
+    ],
+    [
+      "CDF-NEG-011",
+      "bridged asset -> native asset",
+      "bridge",
+      "native_asset",
+      "retain origin and instrument identity"
+    ],
+    [
+      "CDF-NEG-012",
+      "simulation -> physical execution",
+      "simulation",
+      "physical_execution",
+      "require real authorization and effect evidence"
+    ],
+    [
+      "CDF-NEG-013",
+      "correction -> historical rewrite",
+      "correction",
+      "source_history",
+      "reject mutation without lineage"
+    ],
+    [
+      "CDF-NEG-014",
+      "outcome -> execution",
+      "outcome",
+      "execution",
+      "reject outcome without effect receipt"
+    ],
+    [
+      "CDF-NEG-015",
+      "one-shot payment facade -> silent finality",
+      "payment_facade",
+      "finality",
+      "facade may expose only strongest established state"
+    ]
+  ],
+  "invariants": [
+    "instrument_id is never implicitly substituted",
+    "unit and scale are preserved unless an explicit conversion profile exists",
+    "origin is preserved across recognition and bridging",
+    "authorization is distinct from entitlement",
+    "settlement is distinct from finality",
+    "accounting projection is distinct from source event",
+    "corrections append lineage rather than rewrite history",
+    "mutating intents are idempotent",
+    "reconciliation requires explicit matched evidence",
+    "economic outcome requires an execution/effect receipt"
+  ]
+}

@@ -6,6 +6,9 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod economic_fabric_lifecycle;
+pub mod economic_fabric_corpus;
+pub mod integral_itc_economic_fabric;
 pub mod productive_loop;
 pub mod source_refinement;
 pub mod seam_profile;
