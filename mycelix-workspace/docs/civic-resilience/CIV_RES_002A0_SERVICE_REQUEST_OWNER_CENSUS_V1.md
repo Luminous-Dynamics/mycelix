@@ -102,10 +102,17 @@ This chronology is still **2025/26-only**. It does not establish an adopted 2026
 
 **Evidence limitation:** the official budget-book PDF opened and its extracted text layer exposed section 2.3.4 and the Joburg Water rows on printed page 125. The screenshot/visual-review operation timed out, so no visual-table inspection is claimed. The current-year rows remain provisional for operational use pending visual review, reconciliation against the separately listed 2026/27 SDBIP, confirmation of the currently adopted target, and exact clock semantics. The table is not live data for any individual service issue. Before calculating compliance, bind the source/version, metric definition, effective dates, clock start/stop/pause rules, denominator, exclusions and reopen treatment. For the planned-interruption metric, the exact prescribed duration remains unresolved.
 
+### The 2026/27 SDBIP: “tabling” is not adoption
+
+The official [27–28 May 2026 Budget Meeting notice and index]( https://joburg.org.za/about_/government/Documents/Council-Legislature-2025-2026/COUNCIL-NOTICE-AND-INDEX-BUDGET-MEETING-27-28-MAY-2026.pdf ) lists the 2026/27 Institutional SDBIP as **“TABLING OF THE 2026/27 INSTITUTIONAL SERVICE DELIVERY BUDGET AND IMPLEMENTATION PLAN (SDBIP)”** under the 28 May report index. The index page image and extracted text were reviewed. This establishes the scheduled agenda label and dates, but not whether the item passed, whether the SDBIP was adopted, or which Joburg Water targets were finally approved. The 28 May minutes/final resolution and complete SDBIP target table were not verified in this pass.
+
+Treat the index listing and “tabling” event as provenance only. A meeting notice, final budget-book text, or index link is not a substitute for the decision record, adopted target text, effective period, and service-clock definition. Current 2026/27 adoption and production SLA use remain unqualified.
+
 Official source anchors:
 - City SDBIP / IDP / service standards index: https://joburg.org.za/documents_/Pages/Key%20Documents/SDBIP%20IDP%20and%20Budget/SDBIP-IDP-And-Budget.aspx
 - Final Medium-Term Budget 2026/27–2028/29, section 2.3.4 text layer (printed page 125; screenshot review timed out): https://joburg.org.za/documents_/Documents/2026-27-Final-Medium-Budget-Reports/2026-27-FINAL-BUDGET-BOOK.pdf
 - Official-index-listed 2026/27 SDBIP PDF (opening timed out; not reconciled in this pass): https://joburg.org.za/documents_/Documents/2026-27_SDBIP.pdf
+- City Council Budget Meeting notice/index for 27–28 May 2026 (28 May index, item 2, “TABLING OF THE 2026/27 INSTITUTIONAL SERVICE DELIVERY BUDGET AND IMPLEMENTATION PLAN (SDBIP)”; index-page image reviewed; not an adoption record): https://joburg.org.za/about_/government/Documents/Council-Legislature-2025-2026/COUNCIL-NOTICE-AND-INDEX-BUDGET-MEETING-27-28-MAY-2026.pdf
 - Johannesburg Water customer-facing channel page (water incident email and daily system-status update): https://www.johannesburgwater.co.za/
 - Johannesburg Water Customer Fault Logging link (third-party Forcelink login): https://customer.forcelink.net/joburg_water/login
 - Johannesburg Water Daily Water Notices (published turnaround-time list and logging/contact section): https://www.johannesburgwater.co.za/daily-water-notices/
@@ -244,6 +251,7 @@ The next implementation tranche must remain blocked until:
 - Customer-facing turnaround listings do not establish an adopted SLA clock, and mismatched service categories must not be cross-walked automatically.
 - Conflicting official page variants do not establish which turnaround or contact value is authoritative; crawler observation date is not an effective date.
 - The 2025/26 Institutional SLS Charter was amended by a Council-approved resolution effective from Q3 of FY 2025/26; the exact amended values are not enumerated in the inspected resolution, so do not assume the indexed base charter applied unchanged all year or inherited into 2026/27.
+- A City Council agenda index label of “Tabling” is not proof that the 2026/27 SDBIP was adopted or that final effective-dated water targets are known.
 - Preserve notification, response, attempted restoration, repair/replacement and test-result verbs as different predicates; preserve working-day windows and notice lead times rather than coercing them to resolution SLAs.
 - Existing municipal channels remain available; no new app is required for the census to be useful.
 
