@@ -1,0 +1,50 @@
+{
+  "schema_dialect": "https://json-schema.org/draft/2020-12/schema",
+  "schema_path": "schemas/local-capability-profile-v0.1.schema.json",
+  "fixtures": [
+    {
+      "path": "fixtures/local-capability/profiles/urban-grid.json",
+      "expect_valid": true,
+      "profile_id": "urban-grid"
+    },
+    {
+      "path": "fixtures/local-capability/profiles/semi-arid-low-cash.json",
+      "expect_valid": true,
+      "profile_id": "semi-arid-low-cash"
+    },
+    {
+      "path": "fixtures/local-capability/profiles/offline-resource-constrained.json",
+      "expect_valid": true,
+      "profile_id": "offline-resource-constrained"
+    },
+    {
+      "path": "fixtures/local-capability/profiles/protective-no-contact-generalized.json",
+      "expect_valid": true,
+      "profile_id": "protective-no-contact-generalized"
+    },
+    {
+      "path": "fixtures/local-capability/invalid/no-contact-specific-location.json",
+      "expect_valid": false,
+      "profile_id": "protective-no-contact-specific-location",
+      "expected_violation": "no_contact_specific_location"
+    },
+    {
+      "path": "fixtures/local-capability/invalid/community-review-without-consent.json",
+      "expect_valid": false,
+      "profile_id": "community-review-without-consent",
+      "expected_violation": "community_maturity_requires_consent"
+    },
+    {
+      "path": "fixtures/local-capability/invalid/dangling-evidence-reference.json",
+      "expect_valid": false,
+      "profile_id": "dangling-evidence-reference",
+      "expected_violation": "dangling_evidence_reference"
+    },
+    {
+      "path": "fixtures/local-capability/invalid/measured-outcome-without-source.json",
+      "expect_valid": false,
+      "profile_id": "measured-outcome-without-source",
+      "expected_violation": "measured_outcomes_requires_source"
+    }
+  ]
+}
