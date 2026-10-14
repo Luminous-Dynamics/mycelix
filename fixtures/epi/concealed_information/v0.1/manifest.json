@@ -1,0 +1,19 @@
+{
+  "profile_id": "CONCEAL-001T-v0.1",
+  "authority": "ConcealedInformationSemanticsTestOnly",
+  "synthetic_only": true,
+  "solver_visible_files": ["visible_cases.json"],
+  "evaluator_files": ["expected.json", "hidden_evaluator.json"],
+  "forbidden_solver_inputs": ["hidden_evaluator.json"],
+  "case_count": 15,
+  "metamorphic_relation_count": 4,
+  "nonclaims": [
+    "universal_steganography_detection",
+    "maliciousness",
+    "intent",
+    "attribution",
+    "covert_channel_absence",
+    "execution_authority",
+    "remediation_authority"
+  ]
+}

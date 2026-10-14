@@ -1,0 +1,58 @@
+{
+  "expected": [
+    {"case_id":"CI-001","disposition":"NoConcealedContentEstablished","maliciousness":"NotEstablished"},
+    {"case_id":"CI-002","disposition":"NoConcealedContentEstablished","maliciousness":"NotEstablished"},
+    {"case_id":"CI-003","disposition":"ConcealedContentCandidate","maliciousness":"NotEstablished"},
+    {"case_id":"CI-004","disposition":"EmbeddedObjectObserved","maliciousness":"NotEstablished"},
+    {"case_id":"CI-005","disposition":"CarrierStructureAnomalyObserved","maliciousness":"NotEstablished"},
+    {"case_id":"CI-006","disposition":"ParserDivergenceObserved","maliciousness":"NotEstablished"},
+    {"case_id":"CI-007A","disposition":"CarrierStructureAnomalyObserved","maliciousness":"NotEstablished"},
+    {"case_id":"CI-007B","disposition":"CarrierStructureAnomalyObserved","maliciousness":"NotEstablished"},
+    {"case_id":"CI-008","disposition":"NormalizationDerivativeAvailable","maliciousness":"NotEstablished"},
+    {"case_id":"CI-009","disposition":"InvisibleTextStructureObserved","maliciousness":"NotEstablished"},
+    {"case_id":"CI-010","disposition":"NoConcealedContentEstablished","maliciousness":"NotEstablished","lineage_rule":"DistinctAcquisitionsPreserved"},
+    {"case_id":"CI-011","disposition":"AnalysisUnsupported","maliciousness":"NotEstablished"},
+    {"case_id":"CI-012A","disposition":"SuspiciousExecutionCorrelationCandidate","maliciousness":"NotEstablished"},
+    {"case_id":"CI-012B","disposition":"CarrierStructureAnomalyObserved","maliciousness":"NotEstablished"},
+    {"case_id":"CI-013","disposition":"ConcealmentEstablishedUnderSyntheticProfile","maliciousness":"NotEstablished"}
+  ],
+  "metamorphic_relations": [
+    {
+      "kind":"HiddenEvaluatorNoninterference",
+      "left":"CI-007A",
+      "right":"CI-007B",
+      "expect_same_semantics":true,
+      "allowed_visible_differences":["case_id","friendly_name"]
+    },
+    {
+      "kind":"BehaviorCorrelationSensitivity",
+      "left":"CI-012A",
+      "right":"CI-012B",
+      "expect_same_semantics":false,
+      "load_bearing_change":"ScriptProcessObserved+OutboundConnectionObserved"
+    },
+    {
+      "kind":"DirectExaminationSensitivity",
+      "left":"CI-007A",
+      "right":"CI-013",
+      "expect_same_semantics":false,
+      "load_bearing_change":"SyntheticDirectExaminationReceipt"
+    },
+    {
+      "kind":"NormalizationDoesNotRewriteOriginal",
+      "case_id":"CI-008",
+      "original_ref":"CARRIER-008",
+      "derived_ref":"DERIVED-008",
+      "expect_distinct_identity":true
+    }
+  ],
+  "forbidden_promotions": [
+    "MaliciousPayloadEstablished",
+    "AttackerIdentified",
+    "IntentEstablished",
+    "ExfiltrationEstablished",
+    "CompromiseEstablished",
+    "ExecutionAuthorized",
+    "RemediationAuthorized"
+  ]
+}
