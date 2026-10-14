@@ -39,6 +39,9 @@ jobs:
       - name: Recompute correlated Gaussian disk reference
         run: python mycelix-workspace/crates/orbital-mechanics/tools/verify_pc_correlated_gaussian_reference.py
 
+      - name: Recompute correlated disk reference with conditional-normal quadrature
+        run: python mycelix-workspace/crates/orbital-mechanics/tools/verify_pc_correlated_gaussian_conditional_reference.py
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
