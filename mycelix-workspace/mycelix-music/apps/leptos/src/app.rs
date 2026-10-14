@@ -132,6 +132,16 @@ impl PlayerState {
 }
 
 #[derive(Clone, Debug)]
+/// Browser-local media gateway choice. None means use the deployment's
+/// explicit default pool; Some("") means the listener has disabled media
+/// delivery; Some(list) means use only that validated origin pool.
+#[derive(Clone, Debug)]
+pub struct DeliveryPreferences {
+    pub gateway_origins: RwSignal<Option<String>>,
+}
+
+pub const MEDIA_GATEWAY_PREFERENCE_KEY: &str = "mycelix-media-gateway-origins";
+
 pub struct ThemeState {
     pub valence: RwSignal<f64>,
     pub arousal: RwSignal<f64>,
@@ -157,6 +167,27 @@ pub fn App() -> impl IntoView {
     provide_context(player.clone());
     let theme = ThemeState::new();
     provide_context(theme.clone());
+
+    let delivery_preferences = DeliveryPreferences {
+        gateway_origins: RwSignal::new(None),
+    };
+    provide_context(delivery_preferences.clone());
+
+    // Load per-listener preferences only from this browser's local storage.
+    // Missing/unavailable storage keeps the explicit deployment default.
+    Effect::new(move |_| {
+        let saved = web_sys::window()
+            .and_then(|window| window.local_storage().ok().flatten())
+            .and_then(|storage| {
+                storage
+                    .get_item(MEDIA_GATEWAY_PREFERENCE_KEY)
+                    .ok()
+                    .flatten()
+            });
+        if let Some(saved) = saved {
+            delivery_preferences.gateway_origins.set(Some(saved));
+        }
+    });
 
     Effect::new(move |_| {
         let v = theme.valence.get();
