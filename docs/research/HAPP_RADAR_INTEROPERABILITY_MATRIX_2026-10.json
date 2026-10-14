@@ -1,0 +1,408 @@
+{
+  "schema_version": "1.0.0",
+  "title": "Mycelix / hAppRadar interoperability decision matrix",
+  "observed_on": "2026-10-14",
+  "status": "research_only_not_runtime_qualification",
+  "scope": {
+    "repository": "https://github.com/Luminous-Dynamics/mycelix",
+    "directory": "https://happradar.com/projects",
+    "statement": "Comparative design guidance only. No external project is asserted to be integrated, secure, production-ready, or compatible with the current Mycelix runtime."
+  },
+  "holochain_compatibility_baseline": {
+    "source": "https://developer.holochain.org/resources/compatibility/holochain-0.7/",
+    "target_for_stable_qualification": {
+      "holochain": "0.7.0",
+      "hc_cli": "0.7.0",
+      "hdk": "0.7.0",
+      "hdi": "0.8.0",
+      "javascript_client": "0.21.0",
+      "rust_client": "0.9.0",
+      "lair_keystore": "0.7.1"
+    },
+    "excluded_default_target": {
+      "version_line": "0.8.0-dev",
+      "reason": "Development prerelease is not the stable default qualification target."
+    },
+    "migration_constraints": [
+      "0.6 Action/validation APIs differ from the 0.7 ActionData/FlatOp model.",
+      "0.7 removes tx5/WebRTC and uses Iroh over QUIC.",
+      "There is no built-in 0.6 conductor database migration path; DNA hashes change and 0.7 cannot read 0.6 databases.",
+      "User-data continuity, where required, needs a separately qualified application-level export/import/recovery process."
+    ],
+    "upgrade_guide": "https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/",
+    "repository_baseline_note": "The Mycelix root README observed during this review still describes a 0.6 baseline; subprojects may have independent migration work. Qualification must be per deployable hApp."
+  },
+  "decision_rules": [
+    "A project listing, README claim, build, unit test, API response, signature, or live demo is not by itself proof of production readiness, security, adoption, or DHT validation.",
+    "Use external vocabularies for interoperable facts; preserve Mycelix identity, authorization, monetary-policy, and settlement invariants.",
+    "Every adapter must declare its exact source revision, toolchain tuple, data direction, trust boundary, license-review status, and claim ceiling.",
+    "Unknown, stale, conflicting, unavailable, or unsupported evidence must remain explicit; do not silently coerce it to valid, false, trusted, or settled."
+  ],
+  "projects": [
+    {
+      "id": "hrea",
+      "name": "hREA",
+      "category": "economic_interoperability",
+      "source_urls": [
+        "https://happradar.com/projects/hrea",
+        "https://github.com/h-REA/hREA/blob/sprout/docs/consuming-a-release.md",
+        "https://www.valueflo.ws/specification/all_vf/"
+      ],
+      "useful_capability": "ValueFlows/REA vocabulary and Holochain-backed economic coordination.",
+      "mycelix_domains": [
+        "finance",
+        "commons",
+        "attribution",
+        "supplychain"
+      ],
+      "recommended_mode": "versioned_read_only_export_then_adapter",
+      "priority": "P1",
+      "contract": [
+        "Map resources, commitments, intents, claims and economic events without treating them as interchangeable.",
+        "Preserve exact asset identity, integer quantity and units, issuer/community scope, provenance and correction lineage.",
+        "Imported events do not authorize SAP/TEND mutation or settle an obligation by themselves."
+      ],
+      "blocking_evidence": [
+        "Pinned artifact and license review.",
+        "Exact conductor/HDK/HDI/client/adapter tuple.",
+        "Round-trip and malformed/unknown-field controls.",
+        "Two-agent test on the qualified stack."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false
+    },
+    {
+      "id": "nondominium",
+      "name": "Nondominium",
+      "category": "commons_resource_boundaries",
+      "source_urls": [
+        "https://happradar.com/projects/nondominium",
+        "https://github.com/Sensorica/nondominium/blob/dev/README.md"
+      ],
+      "useful_capability": "Resource-scoped peer networks and private participation receipt patterns.",
+      "mycelix_domains": [
+        "commons",
+        "property",
+        "mutualaid",
+        "attribution"
+      ],
+      "recommended_mode": "architecture_benchmark_before_any_shared_types",
+      "priority": "P1",
+      "contract": [
+        "Group membership or a receipt does not grant authority over another resource/network.",
+        "Compare ownership, participation receipt, resource lifecycle and recovery semantics before defining common types."
+      ],
+      "blocking_evidence": [
+        "Exact branch/artifact/toolchain capture.",
+        "Access-boundary comparison and cross-group negative controls.",
+        "License and source-reuse review."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false
+    },
+    {
+      "id": "moss",
+      "name": "Moss",
+      "category": "composable_collaboration",
+      "source_urls": [
+        "https://happradar.com/projects/moss",
+        "https://github.com/lightningrodlabs/moss/blob/main/README.md"
+      ],
+      "useful_capability": "User-composable collaboration tools and separate private group/tool contexts.",
+      "mycelix_domains": [
+        "pulse",
+        "commons",
+        "governance",
+        "craft"
+      ],
+      "recommended_mode": "ux_and_network_boundary_benchmark",
+      "priority": "P1",
+      "contract": [
+        "Keep modular user experience separate from network isolation.",
+        "A unified deployment must not be the only composition option or default authorization boundary."
+      ],
+      "blocking_evidence": [
+        "Pinned source and license review.",
+        "Prototype tool boundaries and user recovery before claiming interoperability."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false
+    },
+    {
+      "id": "ad4m",
+      "name": "AD4M",
+      "category": "semantic_interoperability",
+      "source_urls": [
+        "https://happradar.com/projects/ad4m",
+        "https://github.com/coasys/ad4m/blob/dev/README.md"
+      ],
+      "useful_capability": "Agent-centric semantic relationships, signed expressions and pluggable language adapters.",
+      "mycelix_domains": [
+        "identity",
+        "knowledge",
+        "attribution",
+        "civic"
+      ],
+      "recommended_mode": "evaluate_exchange_adapter_not_authority_substrate",
+      "priority": "P2",
+      "contract": [
+        "Preserve signer, provenance, schema/language version and interpretation context.",
+        "A signature or semantic relation proves neither truth nor permission to act."
+      ],
+      "blocking_evidence": [
+        "Pinned protocol/version.",
+        "License compatibility review.",
+        "Equivocation, revocation, schema-drift and authorization-boundary tests."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false
+    },
+    {
+      "id": "valichord",
+      "name": "ValiChord",
+      "category": "independent_verification",
+      "source_urls": [
+        "https://happradar.com/projects/valichord",
+        "https://github.com/ValiChord/ValiChord",
+        "https://github.com/ValiChord/ValiChord/blob/main/docs/15_How_a_Validation_Round_Works.md"
+      ],
+      "useful_capability": "Commit/reveal rounds for pre-registered, independently collected evaluations.",
+      "mycelix_domains": [
+        "governance",
+        "knowledge",
+        "desci",
+        "attribution"
+      ],
+      "recommended_mode": "pattern_benchmark_for_blind_evaluation_only",
+      "priority": "P2",
+      "contract": [
+        "Use canonical, versioned, domain-separated preimages and identical encode/hash logic.",
+        "Reject phase violations, mismatches and replay; preserve disagreement.",
+        "Commitment integrity is distinct from truth, competence, quorum legitimacy and Sybil resistance."
+      ],
+      "blocking_evidence": [
+        "Threat model for evaluator collusion and issuer trust.",
+        "Multi-agent tests for tamper, replay, dropout, delay and conflicting outcomes."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false
+    },
+    {
+      "id": "epistemic-resonance",
+      "name": "Epistemic Resonance Protocol",
+      "category": "claims_evidence_critique",
+      "source_urls": [
+        "https://happradar.com/projects/epistemic-happ"
+      ],
+      "useful_capability": "Structured claims, critiques and evidence with visible disagreement.",
+      "mycelix_domains": [
+        "civic",
+        "governance",
+        "media",
+        "knowledge",
+        "justice"
+      ],
+      "recommended_mode": "model_critique_and_evidence_relationships",
+      "priority": "P1",
+      "contract": [
+        "Keep claims, sources, critiques, revisions and dispositions attributable and versioned.",
+        "Do not replace claim evaluation with reputation or collapse disagreement into one consensus value."
+      ],
+      "blocking_evidence": [
+        "Schema and claim-ceiling review.",
+        "Tests for unsupported claims, source changes, retraction and unresolved disagreement."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false
+    },
+    {
+      "id": "hearth",
+      "name": "Hearth",
+      "category": "person_controlled_care",
+      "source_urls": [
+        "https://happradar.com/projects/hearth"
+      ],
+      "useful_capability": "Person-controlled care records and portable care preferences.",
+      "mycelix_domains": [
+        "health",
+        "hearth",
+        "personal",
+        "care"
+      ],
+      "recommended_mode": "ux_and_consent_benchmark_only_until_maturity_review",
+      "priority": "P2",
+      "contract": [
+        "Make consent, delegation, revocation, export and recovery understandable.",
+        "Do not use demo/research installations with real health information."
+      ],
+      "blocking_evidence": [
+        "Current maturity and threat-model review.",
+        "Privacy, retention and interoperability-profile review."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false
+    },
+    {
+      "id": "flowsta-vault",
+      "name": "Flowsta Vault",
+      "category": "local_user_sovereignty",
+      "source_urls": [
+        "https://github.com/WeAreFlowsta/flowsta-vault-app/blob/main/README.md",
+        "https://github.com/WeAreFlowsta/flowsta-vault-app/blob/main/LICENSE"
+      ],
+      "useful_capability": "Local custody, visible action approval, backup and user export/recovery.",
+      "mycelix_domains": [
+        "identity",
+        "personal",
+        "security"
+      ],
+      "recommended_mode": "user_control_and_recovery_benchmark",
+      "priority": "P2",
+      "contract": [
+        "Sensitive actions must be visible, scoped and explicitly approved.",
+        "Recovery/export must not depend on an operator holding the only copy of data or credentials."
+      ],
+      "blocking_evidence": [
+        "Pinned source and dependency/license metadata review.",
+        "Threat model for local bridge, key derivation, backup and restore."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false
+    },
+    {
+      "id": "requests-and-offers",
+      "name": "Requests and Offers",
+      "category": "thin_vertical_workflow",
+      "source_urls": [
+        "https://github.com/happenings-community/requests-and-offers/blob/main/README.md",
+        "https://github.com/happenings-community/requests-and-offers/blob/main/package.json"
+      ],
+      "useful_capability": "Narrow request/offer journey and explicit test-pyramid examples.",
+      "mycelix_domains": [
+        "commons",
+        "finance",
+        "identity",
+        "attribution"
+      ],
+      "recommended_mode": "workflow_scope_benchmark_not_runtime_dependency",
+      "priority": "P1",
+      "contract": [
+        "Prove request → offer → commitment → completion evidence → settlement with cancellation, dispute and recovery.",
+        "Keep claimed, agreed, performed, evidenced and settled states distinct."
+      ],
+      "blocking_evidence": [
+        "Pin exact Holochain/hREA artifacts and client/adapters.",
+        "Real-conductor multi-agent, retry/replay and user-flow tests."
+      ],
+      "compatibility_verified_with_mycelix": false,
+      "runtime_integration_verified": false,
+      "license_reuse_approved": false
+    }
+  ],
+  "adversarial_cases": [
+    {
+      "id": "HC-006-007-DB-001",
+      "input_condition": "A Holochain 0.6 artifact or database is presented as a qualified 0.7 target.",
+      "expected_disposition": "reject_qualification",
+      "reason": "Action model, DNA hashes and conductor database compatibility differ; no built-in migration path exists."
+    },
+    {
+      "id": "VF-AUTH-001",
+      "input_condition": "An imported ValueFlows EconomicEvent directly mutates SAP or TEND.",
+      "expected_disposition": "reject_authority_promotion",
+      "reason": "Interoperable facts are not Mycelix authorization, policy or settlement."
+    },
+    {
+      "id": "VF-MYCEL-002",
+      "input_condition": "MYCEL recognition is exported as a transferable economic balance.",
+      "expected_disposition": "reject_semantic_loss",
+      "reason": "Recognition/reputation is not transferable money."
+    },
+    {
+      "id": "VF-TEND-003",
+      "input_condition": "TEND is translated without exact time units, community scope or zero-sum obligations.",
+      "expected_disposition": "reject_lossy_mapping",
+      "reason": "The adapter must preserve instrument and accounting semantics."
+    },
+    {
+      "id": "RESOURCE-NAMESPACE-001",
+      "input_condition": "Equal resource identifiers from different apps/networks are silently merged.",
+      "expected_disposition": "reject_unbound_identity",
+      "reason": "Cross-network identity requires an explicit binding and provenance."
+    },
+    {
+      "id": "EXT-API-AUTH-001",
+      "input_condition": "External API/GraphQL success is presented as DHT validation or settlement evidence.",
+      "expected_disposition": "reject_claim_ceiling",
+      "reason": "API reachability does not establish validation, authorization or finality."
+    },
+    {
+      "id": "COMMIT-REVEAL-001",
+      "input_condition": "A reveal has a mismatching commitment, reused nonce, duplicate identity or invalid phase.",
+      "expected_disposition": "reject_reveal",
+      "reason": "Reject tamper/replay but do not infer truth from a valid commitment."
+    },
+    {
+      "id": "EPISTEMIC-DISSENT-001",
+      "input_condition": "Conflicting claims or minority verifier results are overwritten or averaged into one truth claim.",
+      "expected_disposition": "preserve_conflict",
+      "reason": "Disagreement is evidence and must remain auditable."
+    },
+    {
+      "id": "EVIDENCE-UNKNOWN-001",
+      "input_condition": "Missing, stale, unavailable or unsupported evidence is silently converted into valid/invalid.",
+      "expected_disposition": "indeterminate_or_policy_bounded_rejection",
+      "reason": "Unknown is distinct from false and must not silently authorize sensitive actions."
+    },
+    {
+      "id": "MATURITY-CLAIM-001",
+      "input_condition": "A build/unit test/listing/demo is presented as multi-agent, audited, production or adoption evidence.",
+      "expected_disposition": "reject_overclaim",
+      "reason": "Maturity dimensions require separate exact-subject evidence."
+    },
+    {
+      "id": "LICENSE-REUSE-001",
+      "input_condition": "Source code is copied without a pinned revision and compatibility/license review.",
+      "expected_disposition": "block_source_reuse",
+      "reason": "Architectural learning and source-code reuse are distinct decisions."
+    }
+  ],
+  "source_register": [
+    {
+      "id": "holochain-compatibility-0.7",
+      "type": "official_compatibility_table",
+      "url": "https://developer.holochain.org/resources/compatibility/holochain-0.7/",
+      "observed_on": "2026-10-14",
+      "use": "Stable compatibility tuple; recheck before artifact qualification."
+    },
+    {
+      "id": "holochain-upgrade-0.6-to-0.7",
+      "type": "official_migration_guide",
+      "url": "https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/",
+      "observed_on": "2026-10-14",
+      "use": "Breaking API/transport changes and no built-in database migration path."
+    },
+    {
+      "id": "valueflows-normative-spec",
+      "type": "normative_specification",
+      "url": "https://www.valueflo.ws/specification/all_vf/",
+      "observed_on": "2026-10-14",
+      "use": "Economic vocabulary, not external authority for Mycelix state."
+    },
+    {
+      "id": "happ-radar-directory",
+      "type": "ecosystem_directory",
+      "url": "https://happradar.com/projects",
+      "observed_on": "2026-10-14",
+      "use": "Project discovery only; listing status is not independent validation."
+    }
+  ]
+}
