@@ -458,7 +458,7 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     for instrument in ["SAP", "TEND", "MYCEL"] {
         fail(
             &mut errors,
-            instruments.contains_key(instrument),
+            instruments.keys().any(|candidate| *candidate == instrument),
             format!("required mapping is missing for {instrument}"),
         );
     }
@@ -523,7 +523,7 @@ fn validate(corpus: &Corpus) -> Vec<String> {
     for id in expected_controls {
         fail(
             &mut errors,
-            control_ids.contains(id),
+            control_ids.iter().any(|registered| *registered == id),
             format!("required negative control is missing: {id}"),
         );
     }
@@ -680,6 +680,46 @@ mod tests {
         amount["required_guards"] = serde_json::json!(["canonical_integer_string"]);
         let errors = check_text(&value.to_string()).expect_err("dropping exact-round-trip guards must fail");
         assert!(errors.iter().any(|error| error.contains("missing required guard")));
+    }
+
+    #[test]
+    fn imported_external_fact_cannot_mark_settlement_final() {
+        let mut value = fixture();
+        value["authority_boundary"]["external_import_may_mark_settlement_final"] = true.into();
+        let errors = check_text(&value.to_string()).expect_err("external import must not finalize settlement");
+        assert!(errors.iter().any(|error| error.contains("external import must not mark settlement final")));
+    }
+
+    #[test]
+    fn provenance_scope_and_correction_lineage_are_required() {
+        for (field, expected_error) in [
+            ("preserves_origin_and_source_event", "must preserve origin/source event"),
+            ("preserves_community_scope", "must preserve community scope"),
+            ("preserves_correction_lineage", "must preserve correction lineage"),
+        ] {
+            let mut value = fixture();
+            let mappings = value["mappings"].as_array_mut().expect("mappings array");
+            let sap = mappings
+                .iter_mut()
+                .find(|mapping| mapping["mycelix_instrument"] == "SAP")
+                .expect("SAP mapping");
+            sap[field] = false.into();
+            let errors = check_text(&value.to_string()).expect_err("lossy mapping must fail");
+            assert!(errors.iter().any(|error| error.contains(expected_error)), "{field}: {errors:?}");
+        }
+    }
+
+    #[test]
+    fn tend_and_sap_instrument_identities_cannot_be_substituted() {
+        let mut value = fixture();
+        let mappings = value["mappings"].as_array_mut().expect("mappings array");
+        let tend = mappings
+            .iter_mut()
+            .find(|mapping| mapping["mycelix_instrument"] == "TEND")
+            .expect("TEND mapping");
+        tend["mycelix_identity"] = "mycelix:SAP".into();
+        let errors = check_text(&value.to_string()).expect_err("TEND/SAP identity substitution must fail");
+        assert!(errors.iter().any(|error| error.contains("unexpected instrument identity")));
     }
 
     #[test]
