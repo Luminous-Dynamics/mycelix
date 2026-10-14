@@ -45,7 +45,8 @@
             "claim_scope": "Community report of absent water supply in synthetic service area.",
             "limitations": "Not independently verified; reports may share a common origin. Synthetic fixture evidence only; the example.invalid URL was not retrieved.",
             "retrieved_at": null,
-            "retrieval_state": "synthetic_fixture"
+            "retrieval_state": "synthetic_fixture",
+            "checked_at": null
           }
         ],
         "outcome": {
@@ -118,7 +119,8 @@
             "claim_scope": "Initial report of interruption.",
             "limitations": "Community report only. Synthetic fixture evidence only; the example.invalid URL was not retrieved.",
             "retrieved_at": null,
-            "retrieval_state": "synthetic_fixture"
+            "retrieval_state": "synthetic_fixture",
+            "checked_at": null
           },
           {
             "evidence_id": "EV-PROVIDER-002",
@@ -129,7 +131,8 @@
             "claim_scope": "Provider states that repair work is complete.",
             "limitations": "No independent observation of restoration is present. Synthetic fixture evidence only; the example.invalid URL was not retrieved.",
             "retrieved_at": null,
-            "retrieval_state": "synthetic_fixture"
+            "retrieval_state": "synthetic_fixture",
+            "checked_at": null
           },
           {
             "evidence_id": "EV-CONTACT-002",
@@ -140,7 +143,8 @@
             "independence": "same_origin",
             "claim_scope": "The official contact page publishes contact information for Johannesburg Water.",
             "limitations": "Identifies an official contact source only; does not prove this is the correct channel for this specific case or establish an applicable legal/service obligation. Source page was inspected at the recorded retrieval time; the rendered page bytes were not independently hashed, so this is not a cryptographic content-integrity claim.",
-            "retrieval_state": "captured"
+            "retrieval_state": "captured",
+            "checked_at": "2026-10-14T19:54:08+02:00"
           }
         ],
         "outcome": {
@@ -214,7 +218,8 @@
             "claim_scope": "The official URL /emergencies/ renders a 'Daily water Notices' heading and lists a 12-hour water-outage turnaround target.",
             "limitations": "Published target is not a guarantee of response, and another official page differs. Source page was inspected at the recorded retrieval time; the rendered page bytes were not independently hashed, so this is not a cryptographic content-integrity claim.",
             "retrieved_at": "2026-10-14T19:54:08+02:00",
-            "retrieval_state": "captured"
+            "retrieval_state": "captured",
+            "checked_at": "2026-10-14T19:54:08+02:00"
           },
           {
             "evidence_id": "EV-OFFICIAL-003B",
@@ -225,7 +230,8 @@
             "claim_scope": "The official daily water notices page lists a 24-hour water-outage turnaround target.",
             "limitations": "Published target is not a guarantee of response, and another official page differs. Source page was inspected at the recorded retrieval time; the rendered page bytes were not independently hashed, so this is not a cryptographic content-integrity claim.",
             "retrieved_at": "2026-10-14T19:54:08+02:00",
-            "retrieval_state": "captured"
+            "retrieval_state": "captured",
+            "checked_at": "2026-10-14T19:54:08+02:00"
           },
           {
             "evidence_id": "EV-OFFICIAL-003C",
@@ -236,7 +242,8 @@
             "claim_scope": "Official contact page is another source for water-incident reporting details.",
             "limitations": "Official pages may differ in update timing; current authoritative route needs review. Source page was inspected at the recorded retrieval time; the rendered page bytes were not independently hashed, so this is not a cryptographic content-integrity claim.",
             "retrieved_at": "2026-10-14T19:54:08+02:00",
-            "retrieval_state": "captured"
+            "retrieval_state": "captured",
+            "checked_at": "2026-10-14T19:54:08+02:00"
           }
         ],
         "outcome": {
@@ -276,6 +283,76 @@
             "resolution_evidence_ids": []
           }
         ]
+      }
+    },
+    {
+      "fixture_id": "unavailable-current-source-requires-review",
+      "expected_schema_valid": true,
+      "instance": {
+        "case_id": "LCSV-WATER-006",
+        "schema_version": "0.3.0",
+        "scope": {
+          "service_class": "water_sanitation",
+          "jurisdiction": "ZA-GP-JHB",
+          "service_area_ref": "synthetic-service-area-006",
+          "urgency": "routine"
+        },
+        "need": {
+          "report_id": "REPORT-SYN-006",
+          "source_kind": "user_report",
+          "reported_on": "2026-10-14",
+          "description": "Synthetic case where a previously referenced official source cannot be re-fetched during the current check.",
+          "personal_data_minimized": true,
+          "privacy_class": "ordinary",
+          "consent_basis_ref": null
+        },
+        "route": {
+          "status": "unknown",
+          "institution_ref": null,
+          "source_references": [],
+          "checked_on": null,
+          "source_evidence_ids": [],
+          "notes": "No current route source was captured; do not rely on a historic claim as current."
+        },
+        "case_state": "human_review_required",
+        "evidence": [
+          {
+            "evidence_id": "EV-UNAVAILABLE-006",
+            "kind": "official_notice",
+            "source_uri": "https://example.invalid/unavailable-source",
+            "observed_on": "2026-10-01",
+            "retrieved_at": null,
+            "checked_at": "2026-10-14T19:54:08+02:00",
+            "retrieval_state": "unavailable",
+            "independence": "unknown",
+            "claim_scope": "Synthetic example of a prior official-source reference that cannot be refreshed.",
+            "limitations": "The example.invalid URI is a test placeholder. This fixture makes no claim that Johannesburg Water or any real official site was unavailable."
+          }
+        ],
+        "source_conflicts": [],
+        "outcome": {
+          "status": "unknown",
+          "summary": "The current source state is unavailable; the previous claim must not be presented as current.",
+          "verification_evidence_ids": [],
+          "verified_at": null
+        },
+        "review_required": true,
+        "review_status": "requested",
+        "effects": {
+          "mode": "effects_disabled",
+          "effects_requested": false,
+          "external_action_status": "not_attempted"
+        },
+        "claim_ceiling": {
+          "permitted_claims": [
+            "A source refresh is unavailable in this synthetic fixture."
+          ],
+          "prohibited_inferences": [
+            "The old claim remains current.",
+            "A real service request has been submitted.",
+            "An unavailable source proves that no service route exists."
+          ]
+        }
       }
     },
     {
@@ -322,7 +399,8 @@
             "claim_scope": "Provider states the repair is complete.",
             "limitations": "No independent observation or measurement exists. Synthetic fixture evidence only; the example.invalid URL was not retrieved.",
             "retrieved_at": null,
-            "retrieval_state": "synthetic_fixture"
+            "retrieval_state": "synthetic_fixture",
+            "checked_at": null
           },
           {
             "evidence_id": "EV-CONTACT-004",
@@ -333,7 +411,8 @@
             "independence": "same_origin",
             "claim_scope": "The official contact page publishes contact information for Johannesburg Water.",
             "limitations": "Identifies an official contact source only; does not prove this is the correct channel for this specific case or establish an applicable legal/service obligation. Source page was inspected at the recorded retrieval time; the rendered page bytes were not independently hashed, so this is not a cryptographic content-integrity claim.",
-            "retrieval_state": "captured"
+            "retrieval_state": "captured",
+            "checked_at": "2026-10-14T19:54:08+02:00"
           }
         ],
         "outcome": {
