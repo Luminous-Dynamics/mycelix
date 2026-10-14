@@ -8,13 +8,17 @@ on:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
 
+# CI jobs only read source; individual jobs receive no write-capable token.
+permissions:
+  contents: read
+
 # Generic branch/PR CI is supersedable: once a newer commit exists on the same
 # PR or ref, completing an older run cannot provide a current merge signal.
 # Exact qualification/evidence workflows intentionally do not inherit this
 # policy and retain their independent, immutable run histories.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -24,6 +28,9 @@ jobs:
   changes:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       commons: ${{ steps.filter.outputs.commons }}
       civic: ${{ steps.filter.outputs.civic }}
@@ -38,43 +45,57 @@ jobs:
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
             commons:
+              - '.github/workflows/ci.yml'
               - 'mycelix-commons/**'
               - 'crates/mycelix-bridge-*/**'
             civic:
+              - '.github/workflows/ci.yml'
               - 'mycelix-civic/**'
               - 'crates/mycelix-bridge-*/**'
             hearth:
+              - '.github/workflows/ci.yml'
               - 'mycelix-hearth/**'
               - 'crates/mycelix-bridge-*/**'
             finance:
+              - '.github/workflows/ci.yml'
               - 'mycelix-finance/**'
               - 'crates/mycelix-bridge-*/**'
             governance:
+              - '.github/workflows/ci.yml'
               - 'mycelix-governance/**'
               - 'crates/mycelix-bridge-*/**'
             identity:
+              - '.github/workflows/ci.yml'
               - 'mycelix-identity/**'
               - 'crates/mycelix-bridge-*/**'
             personal:
+              - '.github/workflows/ci.yml'
               - 'mycelix-personal/**'
               - 'crates/mycelix-bridge-*/**'
             attribution:
+              - '.github/workflows/ci.yml'
               - 'mycelix-attribution/**'
               - 'crates/mycelix-bridge-*/**'
             bridge:
+              - '.github/workflows/ci.yml'
               - 'crates/mycelix-bridge-*/**'
             sdk:
+              - '.github/workflows/ci.yml'
               - 'mycelix-workspace/sdk/**'
               - 'mycelix-workspace/sdk-ts/**'
             prism:
+              - '.github/workflows/ci.yml'
               - 'mycelix-workspace/mycelix-prism/**'
             cos_conformance:
+              - '.github/workflows/ci.yml'
               - 'mycelix-manufacturing/crates/cos_conformance/**'
               - 'mycelix-manufacturing/Cargo.toml'
               - 'mycelix-manufacturing/Cargo.lock'
@@ -86,9 +107,12 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # immutable action commit
+        with:
+          toolchain: stable
           components: rustfmt
       - name: Check formatting
         run: |
@@ -119,11 +143,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # immutable action commit
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: mycelix-manufacturing
       - name: Test COS conformance harness
@@ -139,13 +166,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # immutable action commit
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: mycelix-commons
       - name: Test commons
@@ -157,13 +186,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # immutable action commit
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: mycelix-civic
       - name: Test civic
@@ -175,13 +206,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # immutable action commit
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: mycelix-hearth
       - name: Test hearth
@@ -193,13 +226,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # immutable action commit
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: mycelix-finance
       - name: Test finance
@@ -226,16 +261,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
-      - uses: cachix/install-nix-action@v27
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
         with:
           nix_path: nixpkgs=channel:nixos-unstable
-      - uses: cachix/cachix-action@v15
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
         with:
           name: holochain-ci
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: |
             mycelix-finance
@@ -271,13 +307,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # immutable action commit
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: mycelix-governance
       - name: Test governance
@@ -289,13 +327,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # immutable action commit
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: mycelix-identity
       - name: Test identity
@@ -307,13 +347,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # immutable action commit
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: mycelix-personal
       - name: Test personal
@@ -325,13 +367,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # immutable action commit
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: mycelix-attribution
       - name: Test attribution
@@ -343,13 +387,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # immutable action commit
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: crates/mycelix-bridge-common
       - name: Test bridge-common
@@ -363,23 +409,477 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Nix for the SDK toolchain
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
         with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+          install_url: https://releases.nixos.org/nix/nix-2.35.2/install
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Export and verify the flake-pinned SDK toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix develop ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c '
+            rustc --version | grep -Eq "^rustc 1[.]96[.]0([[:space:]]|$)"
+            cargo --version
+            node --version | grep -Eq "^v24[.]"
+            npm --version
+
+            # Make the exact Nix-provided binaries/env available to following
+            # steps (including rust-cache) without selecting a second toolchain.
+            printf "%s\n" "$PATH" | tr ":" "\n" | grep -E "^/nix/store/[^/]+/bin$" | sort -u >> "$GITHUB_PATH"
+            for name in LIBCLANG_PATH BINDGEN_EXTRA_CLANG_ARGS OPENSSL_DIR OPENSSL_LIB_DIR OPENSSL_INCLUDE_DIR PKG_CONFIG_PATH; do
+              printf "%s=%s\n" "$name" "${!name}" >> "$GITHUB_ENV"
+            done
+          '
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: mycelix-workspace/sdk
       - name: Test Rust SDK
         run: cd mycelix-workspace/sdk && cargo test --workspace
-      - uses: actions/setup-node@v4
+      - name: Audit TypeScript SDK advisories
+        # Advisory lookup is separate from the offline Nix build/test derivation.
+        # Keep npm pinned by the flake; do not run npm ci in the CI working tree.
+        run: nix develop ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c 'cd mycelix-workspace/sdk-ts && npm audit --audit-level=high'
+
+  # Intentionally runs on draft PRs too: it validates the pure SDK flake output
+  # before the full integration matrix is admitted.
+  nix-sdk-shell:
+    name: Verify pure Nix SDK shell
+    if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out exact subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: 20
-      - name: Test TypeScript SDK
-        continue-on-error: true
-        run: cd mycelix-workspace/sdk-ts && npm ci && npm test
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Initialize Nix SDK receipt
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          mkdir -p security-nix-sdk
+          {
+            echo "schema=luminous.nix-sdk-shell-receipt.v1"
+            echo "repository=$GITHUB_REPOSITORY"
+            echo "subject_sha=$SUBJECT_SHA"
+            echo "base_sha=${BASE_SHA:-none}"
+            echo "event_name=$EVENT_NAME"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "flake_nix_sha256=$(sha256sum mycelix-workspace/flake.nix | cut -d ' ' -f1)"
+            echo "flake_lock_sha256=$(sha256sum mycelix-workspace/flake.lock | cut -d ' ' -f1)"
+            echo "rust_toolchain_sha256=$(sha256sum mycelix-workspace/rust-toolchain.toml | cut -d ' ' -f1)"
+            echo "sdk_package_sha256=$(sha256sum mycelix-workspace/sdk-ts/package.json | cut -d ' ' -f1)"
+            echo "sdk_package_lock_sha256=$(sha256sum mycelix-workspace/sdk-ts/package-lock.json | cut -d ' ' -f1)"
+            echo "nix_sdk_status=INCOMPLETE"
+            echo "sdk_ts_nix_build_status=INCOMPLETE"
+            echo "scope_status=INCOMPLETE"
+          } > security-nix-sdk/receipt.txt
+      - name: Determine whether the Nix SDK inputs changed
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          relevant=false
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            relevant=true
+            : > security-nix-sdk/changed-paths.txt
+          elif [[ "$EVENT_NAME" == "push" && ( -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ) ]]; then
+            relevant=true
+            git ls-files > security-nix-sdk/changed-paths.txt
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            git diff --name-only "$BASE_SHA" "$SUBJECT_SHA" > security-nix-sdk/changed-paths.txt
+          else
+            git diff --name-only "$BASE_SHA...$SUBJECT_SHA" > security-nix-sdk/changed-paths.txt
+          fi
+
+          if grep -Eq '^(mycelix-workspace/flake[.]nix|mycelix-workspace/flake[.]lock|mycelix-workspace/rust-toolchain[.]toml|mycelix-workspace/justfile|mycelix-workspace/sdk-ts/.*|mycelix-workspace/scripts/verify_sdk_nix_inputs[.]py|[.]github/workflows/ci[.]yml)$' security-nix-sdk/changed-paths.txt; then
+            relevant=true
+          fi
+          if [[ "$EVENT_NAME" == "workflow_dispatch" || ( "$EVENT_NAME" == "push" && ( -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ) ) ]]; then
+            relevant=true
+          fi
+          if [[ "$relevant" == "true" ]]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            sed -i 's/^scope_status=.*/scope_status=RELEVANT/' security-nix-sdk/receipt.txt
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            sed -i 's/^scope_status=.*/scope_status=SKIPPED_PATHS/' security-nix-sdk/receipt.txt
+            sed -i 's/^nix_sdk_status=.*/nix_sdk_status=SKIPPED_PATHS/' security-nix-sdk/receipt.txt
+            sed -i 's/^sdk_ts_nix_build_status=.*/sdk_ts_nix_build_status=SKIPPED_PATHS/' security-nix-sdk/receipt.txt
+          fi
+          echo "changed_paths_sha256=$(sha256sum security-nix-sdk/changed-paths.txt | cut -d ' ' -f1)" >> security-nix-sdk/receipt.txt
+      - name: Verify SDK lock contract and mutation fixtures
+        if: steps.scope.outputs.relevant == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "sdk_input_contract_verifier_git_blob_sha=$(git hash-object mycelix-workspace/scripts/verify_sdk_nix_inputs.py)"
+            echo "sdk_input_contract_python_path=$(command -v python3)"
+            echo "sdk_input_contract_python_version=$(python3 --version 2>&1)"
+          } >> security-nix-sdk/receipt.txt
+          set +e
+          python3 -m py_compile mycelix-workspace/scripts/verify_sdk_nix_inputs.py
+          compile_status=$?
+          if [[ "$compile_status" -eq 0 ]]; then
+            python3 mycelix-workspace/scripts/verify_sdk_nix_inputs.py --workspace mycelix-workspace --self-test > security-nix-sdk/sdk-input-contract.json 2> security-nix-sdk/sdk-input-contract.stderr.txt
+            status=$?
+          else
+            status="$compile_status"
+            : > security-nix-sdk/sdk-input-contract.json
+            echo "Python compilation failed for verify_sdk_nix_inputs.py" > security-nix-sdk/sdk-input-contract.stderr.txt
+          fi
+          cat security-nix-sdk/sdk-input-contract.json
+          cat security-nix-sdk/sdk-input-contract.stderr.txt >&2
+          echo "sdk_input_contract_exit_code=$status" >> security-nix-sdk/receipt.txt
+          contract_validation_status=1
+          if [[ "$status" -eq 0 ]]; then
+            python3 - security-nix-sdk/sdk-input-contract.json <<'PY'
+          import json
+          import sys
+
+          path = sys.argv[1]
+          with open(path, encoding="utf-8") as handle:
+              report = json.load(handle)
+
+          expected_fixtures = {
+              "malformed_package_json",
+              "malformed_lock_json",
+              "unsafe_package_entry_path",
+              "missing_package_version",
+              "missing_integrity",
+              "weak_integrity_algorithm",
+              "invalid_sha512_digest_length",
+              "missing_resolved_source",
+              "non_https_source",
+              "registry_url_credentials",
+              "source_url_control_character",
+              "unapproved_registry",
+              "manifest_lock_dependency_drift",
+              "manifest_lock_identity_drift",
+              "manifest_lock_peer_dependency_drift",
+              "manifest_lock_peer_metadata_drift",
+              "duplicate_lock_json_key",
+              "non_v3_lockfile",
+              "install_lifecycle_metadata_drift",
+              "unexpected_install_lifecycle_script",
+          }
+          if report.get("schema") != "luminous.mycelix.sdk-nix-input-contract.v1":
+              raise SystemExit("unexpected or missing SDK input-contract schema")
+          if report.get("approved_registry") != "registry.npmjs.org":
+              raise SystemExit("approved npm registry identity changed")
+          if report.get("integrity_coverage_complete") is not True:
+              raise SystemExit("resolved package integrity coverage is not complete")
+          if report.get("resolved_package_count") != report.get("sha512_integrity_count"):
+              raise SystemExit("resolved package count differs from SHA-512 integrity count")
+          if report.get("negative_fixtures_all_rejected") is not True:
+              raise SystemExit("one or more SDK lock-contract mutation fixtures were accepted")
+          fixtures = report.get("negative_fixtures")
+          if not isinstance(fixtures, list):
+              raise SystemExit("negative_fixtures must be an array")
+          names = [item.get("fixture") for item in fixtures if isinstance(item, dict)]
+          if len(names) != len(expected_fixtures) or len(set(names)) != len(names) or set(names) != expected_fixtures:
+              raise SystemExit(f"SDK negative-fixture inventory drift: observed={sorted(names)}")
+          if any(item.get("status") != "PASS_REJECTED" for item in fixtures):
+              raise SystemExit("an SDK negative fixture did not record PASS_REJECTED")
+          print(f"validated_fixture_count={len(fixtures)}")
+          PY
+            contract_validation_status=$?
+          fi
+          set -e
+          echo "sdk_input_contract_validation_exit_code=$contract_validation_status" >> security-nix-sdk/receipt.txt
+          if [[ "$status" -eq 0 && "$contract_validation_status" -eq 0 ]]; then
+            {
+              echo "sdk_input_contract_status=PASS"
+              echo "sdk_input_contract_sha256=$(sha256sum security-nix-sdk/sdk-input-contract.json | cut -d ' ' -f1)"
+              echo "sdk_input_contract_stderr_sha256=$(sha256sum security-nix-sdk/sdk-input-contract.stderr.txt | cut -d ' ' -f1)"
+              echo "sdk_negative_fixture_count=20"
+              echo "sdk_negative_fixture_inventory_status=PASS"
+            } >> security-nix-sdk/receipt.txt
+          else
+            echo "sdk_input_contract_status=FAIL" >> security-nix-sdk/receipt.txt
+            echo "sdk_input_contract_failure=The SDK package/lock contract, exact negative-fixture inventory, or a fixture rejection failed" >> security-nix-sdk/receipt.txt
+            if [[ "$status" -eq 0 ]]; then status=25; fi
+          fi
+          exit "$status"
+      - name: Install Nix
+        if: steps.scope.outputs.relevant == 'true'
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          install_url: https://releases.nixos.org/nix/nix-2.35.2/install
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Evaluate pinned shell in pure mode
+        if: steps.scope.outputs.relevant == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock_before="$(sha256sum mycelix-workspace/flake.lock | cut -d ' ' -f1)"
+          set +e
+          nix develop --no-write-lock-file ./mycelix-workspace#sdk-ci --command bash -euo pipefail -c '
+            rustc --version | grep -Eq "^rustc 1[.]96[.]0([[:space:]]|$)"
+            node --version | grep -Eq "^v24[.]"
+            cargo --version
+            npm --version
+            for tool in rustc cargo node npm; do
+              path="$(command -v "$tool")"
+              case "$path" in
+                /nix/store/*/bin/*) ;;
+                *) echo "FAIL: $tool resolved outside the Nix store: $path" >&2; exit 21 ;;
+              esac
+              printf "%s_path=%s\n" "$tool" "$path"
+            done
+            printf "rustc_version=%s\n" "$(rustc --version)"
+            printf "cargo_version=%s\n" "$(cargo --version)"
+            printf "node_version=%s\n" "$(node --version)"
+            printf "npm_version=%s\n" "$(npm --version)"
+          ' > security-nix-sdk/toolchain.stdout.txt 2> security-nix-sdk/toolchain.stderr.txt
+          status=$?
+          set -e
+          cat security-nix-sdk/toolchain.stdout.txt
+          cat security-nix-sdk/toolchain.stderr.txt >&2
+          lock_after="$(sha256sum mycelix-workspace/flake.lock | cut -d ' ' -f1)"
+          if [[ "$lock_before" != "$lock_after" ]]; then
+            echo "FAIL: flake.lock changed while evaluating the SDK shell" >&2
+            status=22
+          fi
+          {
+            echo "flake_lock_sha256_before=$lock_before"
+            echo "flake_lock_sha256_after=$lock_after"
+            echo "nix_version=$(nix --version 2>&1)"
+            echo "toolchain_exit_code=$status"
+          } >> security-nix-sdk/receipt.txt
+          if [[ "$status" -eq 0 ]]; then
+            sed -i 's/^nix_sdk_status=.*/nix_sdk_status=PASS/' security-nix-sdk/receipt.txt
+            grep -E '^(rustc|cargo|node|npm)_(path|version)=' security-nix-sdk/toolchain.stdout.txt >> security-nix-sdk/receipt.txt
+          else
+            sed -i 's/^nix_sdk_status=.*/nix_sdk_status=FAIL/' security-nix-sdk/receipt.txt
+            echo "failure_reason=Pure flake shell evaluation, tool version, or lock immutability check failed" >> security-nix-sdk/receipt.txt
+          fi
+          exit "$status"
+      - name: Capture recursive SDK derivation graph
+        if: steps.scope.outputs.relevant == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock_before="$(sha256sum mycelix-workspace/flake.lock | cut -d ' ' -f1)"
+          set +e
+          nix derivation show --recursive --no-pretty --no-write-lock-file ./mycelix-workspace#sdk-ts > security-nix-sdk/sdk-derivation-graph.json 2> security-nix-sdk/sdk-derivation-graph.stderr.txt
+          status=$?
+          set -e
+          cat security-nix-sdk/sdk-derivation-graph.stderr.txt >&2
+          lock_after="$(sha256sum mycelix-workspace/flake.lock | cut -d ' ' -f1)"
+          if [[ "$lock_before" != "$lock_after" ]]; then
+            echo "FAIL: flake.lock changed while resolving the SDK derivation graph" >&2
+            status=22
+          fi
+          if [[ "$status" -eq 0 ]]; then
+            set +e
+            graph_summary="$(python3 - security-nix-sdk/sdk-derivation-graph.json <<'PY'
+          import json
+          import sys
+          
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON object key: {key!r}")
+                  result[key] = value
+              return result
+          
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              payload = json.load(handle, object_pairs_hook=reject_duplicate_keys)
+          
+          # Nix 2.34 switched nix derivation show to version-4 JSON:
+          # {"version":4,"derivations":{...}} with inputs.drvs replacing
+          # inputDrvs. Do not silently accept an unrecognized schema.
+          if not isinstance(payload, dict) or payload.get("version") != 4:
+              raise SystemExit("expected Nix derivation JSON format version 4")
+          graph = payload.get("derivations")
+          if not isinstance(graph, dict) or not graph:
+              raise SystemExit("version-4 recursive derivation graph is empty or malformed")
+          if not all(
+              isinstance(key, str) and key.endswith(".drv") and "/" not in key
+              for key in graph
+          ):
+              raise SystemExit("version-4 derivation graph has a malformed derivation key")
+          
+          SDK_ROOT_NAME = "mycelix-sdk-ts-0.6.0"
+
+          def find_sdk_roots(derivations):
+              # In the version-4 nix derivation show schema, package name is
+              # represented under env.name, not at the derivation-record root.
+              return [
+                  (store_path, drv)
+                  for store_path, drv in derivations.items()
+                  if isinstance(drv, dict)
+                  and isinstance(drv.get("env"), dict)
+                  and drv["env"].get("name") == SDK_ROOT_NAME
+              ]
+
+          # Exercise the actual schema predicate against adversarial records:
+          # a fake top-level name must not qualify, and two env.name matches
+          # must be treated as ambiguous by the count check below.
+          fixture_key = "/nix/store/fixture-mycelix-sdk-ts-0.6.0.drv"
+          fixture_graph = {
+              fixture_key: {"env": {"name": SDK_ROOT_NAME}},
+              "/nix/store/top-level-name-only.drv": {"name": SDK_ROOT_NAME},
+          }
+          if [path for path, _drv in find_sdk_roots(fixture_graph)] != [fixture_key]:
+              raise SystemExit("SDK root identity regression: expected only the env.name fixture")
+          if find_sdk_roots({"/nix/store/top-level-name-only.drv": {"name": SDK_ROOT_NAME}}):
+              raise SystemExit("SDK root identity regression: accepted a top-level-only name")
+          duplicate_fixture = dict(fixture_graph)
+          duplicate_fixture["/nix/store/duplicate-sdk-root.drv"] = {"env": {"name": SDK_ROOT_NAME}}
+          if len(find_sdk_roots(duplicate_fixture)) != 2:
+              raise SystemExit("SDK root identity regression: duplicate roots were not detected")
+
+          root_matches = find_sdk_roots(graph)
+          if len(root_matches) != 1:
+              raise SystemExit(f"expected exactly one SDK root derivation; found {len(root_matches)}")
+          root_path, root = root_matches[0]
+          
+          def derivation_inputs(store_path, drv):
+              if not isinstance(drv, dict):
+                  raise SystemExit(f"derivation record is not an object: {store_path}")
+              inputs = drv.get("inputs")
+              if not isinstance(inputs, dict):
+                  raise SystemExit(f"derivation lacks version-4 inputs object: {store_path}")
+              input_drvs = inputs.get("drvs")
+              if not isinstance(input_drvs, dict):
+                  raise SystemExit(f"derivation inputs.drvs is not an object: {store_path}")
+              return input_drvs
+          
+          root_inputs = derivation_inputs(root_path, root)
+          if not root_inputs:
+              raise SystemExit("SDK root derivation has no recorded input derivations")
+          
+          all_input_edges = 0
+          missing_inputs = set()
+          for store_path, drv in graph.items():
+              input_drvs = derivation_inputs(store_path, drv)
+              all_input_edges += len(input_drvs)
+              missing_inputs.update(set(input_drvs) - set(graph))
+          if missing_inputs:
+              raise SystemExit(
+                  "recursive derivation graph omits input derivations: "
+                  + ", ".join(sorted(missing_inputs)[:20])
+              )
+          
+          print("sdk_ts_derivation_json_version=4")
+          print(f"sdk_ts_drv_path={root_path}")
+          print(f"sdk_ts_derivation_count={len(graph)}")
+          print(f"sdk_ts_root_input_derivation_count={len(root_inputs)}")
+          print(f"sdk_ts_transitive_input_edge_count={all_input_edges}")
+          PY
+          )"
+            summary_status=$?
+            set -e
+            if [[ "$summary_status" -ne 0 ]]; then
+              echo "FAIL: recursive SDK derivation graph did not satisfy evidence contract" >&2
+              status=23
+            else
+              printf '%s\n' "$graph_summary" > security-nix-sdk/sdk-derivation-summary.txt
+            fi
+          fi
+          {
+            echo "sdk_ts_derivation_graph_exit_code=$status"
+            echo "sdk_ts_derivation_graph_flake_lock_sha256_before=$lock_before"
+            echo "sdk_ts_derivation_graph_flake_lock_sha256_after=$lock_after"
+          } >> security-nix-sdk/receipt.txt
+          if [[ "$status" -eq 0 ]]; then
+            {
+              echo "sdk_ts_derivation_graph_status=PASS"
+              echo "sdk_ts_derivation_graph_sha256=$(sha256sum security-nix-sdk/sdk-derivation-graph.json | cut -d ' ' -f1)"
+              cat security-nix-sdk/sdk-derivation-summary.txt
+            } >> security-nix-sdk/receipt.txt
+          else
+            echo "sdk_ts_derivation_graph_status=FAIL" >> security-nix-sdk/receipt.txt
+            echo "sdk_ts_derivation_graph_failure=Recursive derivation graph evaluation or identity checks failed" >> security-nix-sdk/receipt.txt
+          fi
+          exit "$status"
+      - name: Build and test SDK with Nix-materialized dependencies
+        if: steps.scope.outputs.relevant == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock_before="$(sha256sum mycelix-workspace/flake.lock | cut -d ' ' -f1)"
+          set +e
+          nix build --no-link --print-out-paths --no-write-lock-file ./mycelix-workspace#sdk-ts > security-nix-sdk/sdk-build.stdout.txt 2> security-nix-sdk/sdk-build.stderr.txt
+          status=$?
+          set -e
+          cat security-nix-sdk/sdk-build.stdout.txt
+          cat security-nix-sdk/sdk-build.stderr.txt >&2
+          lock_after="$(sha256sum mycelix-workspace/flake.lock | cut -d ' ' -f1)"
+          if [[ "$lock_before" != "$lock_after" && "$status" -eq 0 ]]; then
+            echo "FAIL: flake.lock changed while building the SDK" >&2
+            status=22
+          fi
+          output_path=""
+          if [[ "$status" -eq 0 ]]; then
+            output_path="$(tail -n 1 security-nix-sdk/sdk-build.stdout.txt)"
+            case "$output_path" in
+              /nix/store/*) ;;
+              *)
+                echo "FAIL: Nix build did not return an exact store output path: $output_path" >&2
+                status=23
+                ;;
+            esac
+          fi
+          if [[ "$status" -eq 0 ]]; then
+            printf '%s\n' "$output_path" > security-nix-sdk/sdk-output-path.txt
+            set +e
+            nix path-info --json "$output_path" > security-nix-sdk/sdk-output-path-info.json
+            info_status=$?
+            nix path-info --recursive "$output_path" > security-nix-sdk/sdk-closure-paths.txt
+            closure_status=$?
+            set -e
+            if [[ "$info_status" -ne 0 || "$closure_status" -ne 0 ]]; then
+              echo "FAIL: unable to collect Nix output/closure metadata" >&2
+              status=24
+            fi
+          fi
+          {
+            echo "sdk_ts_nix_build_exit_code=$status"
+            echo "sdk_ts_nix_build_flake_lock_sha256_before=$lock_before"
+            echo "sdk_ts_nix_build_flake_lock_sha256_after=$lock_after"
+          } >> security-nix-sdk/receipt.txt
+          if [[ "$status" -eq 0 ]]; then
+            {
+              echo "sdk_ts_nix_build_status=PASS"
+              echo "sdk_ts_output_path=$output_path"
+              echo "sdk_ts_output_path_info_sha256=$(sha256sum security-nix-sdk/sdk-output-path-info.json | cut -d ' ' -f1)"
+              echo "sdk_ts_closure_manifest_sha256=$(sha256sum security-nix-sdk/sdk-closure-paths.txt | cut -d ' ' -f1)"
+            } >> security-nix-sdk/receipt.txt
+          else
+            sed -i 's/^sdk_ts_nix_build_status=.*/sdk_ts_nix_build_status=FAIL/' security-nix-sdk/receipt.txt
+            echo "sdk_ts_nix_build_failure=The Nix SDK derivation, check commands, lock immutability, or output identity failed" >> security-nix-sdk/receipt.txt
+          fi
+          exit "$status"
+      - name: Upload Nix SDK shell evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nix-sdk-shell-${{ github.event.repository.name }}-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_id }}
+          path: security-nix-sdk/
+          if-no-files-found: error
 
   test-prism:
     needs: changes
@@ -387,8 +887,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
       - name: Install system dependencies (winit/vello GUI deps for prism-shell, webkit for prism-tauri)
         run: |
@@ -396,10 +897,11 @@ jobs:
           sudo apt-get install -y \
             libx11-dev libxcursor-dev libxi-dev libxrandr-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev \
             libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev librsvg2-dev libayatana-appindicator3-dev
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # immutable action commit
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: mycelix-workspace
       # `cargo fmt --all` needs full-workspace `cargo metadata`, which
@@ -436,7 +938,9 @@ jobs:
 
   # Summary gate
   ci-pass:
-    if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
+    # Always evaluate admitted non-draft runs, including when an upstream job
+    # was cancelled; the check-results step below rejects cancellation fail-closed.
+    if: always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
     needs:
       - format
       - test-cos-conformance
@@ -451,30 +955,60 @@ jobs:
       - test-attribution
       - test-bridge
       - test-sdk
+      - nix-sdk-shell
       - test-prism
     runs-on: ubuntu-latest
     steps:
       - name: Check results
+        env:
+          FORMAT_RESULT: ${{ needs.format.result }}
+          COS_CONFORMANCE_RESULT: ${{ needs.test-cos-conformance.result }}
+          COMMONS_RESULT: ${{ needs.test-commons.result }}
+          CIVIC_RESULT: ${{ needs.test-civic.result }}
+          HEARTH_RESULT: ${{ needs.test-hearth.result }}
+          FINANCE_RESULT: ${{ needs.test-finance.result }}
+          FINANCE_INTEGRATION_RESULT: ${{ needs.test-finance-integration.result }}
+          GOVERNANCE_RESULT: ${{ needs.test-governance.result }}
+          IDENTITY_RESULT: ${{ needs.test-identity.result }}
+          PERSONAL_RESULT: ${{ needs.test-personal.result }}
+          ATTRIBUTION_RESULT: ${{ needs.test-attribution.result }}
+          BRIDGE_RESULT: ${{ needs.test-bridge.result }}
+          SDK_RESULT: ${{ needs.test-sdk.result }}
+          NIX_SDK_RESULT: ${{ needs.nix-sdk-shell.result }}
+          PRISM_RESULT: ${{ needs.test-prism.result }}
         run: |
-          echo "Format: ${{ needs.format.result }}"
-          echo "COS conformance: ${{ needs.test-cos-conformance.result }}"
-          echo "Commons: ${{ needs.test-commons.result }}"
-          echo "Civic: ${{ needs.test-civic.result }}"
-          echo "Hearth: ${{ needs.test-hearth.result }}"
-          echo "Finance: ${{ needs.test-finance.result }}"
+          echo "Format: $FORMAT_RESULT"
+          echo "COS conformance: $COS_CONFORMANCE_RESULT"
+          echo "Commons: $COMMONS_RESULT"
+          echo "Civic: $CIVIC_RESULT"
+          echo "Hearth: $HEARTH_RESULT"
+          echo "Finance: $FINANCE_RESULT"
           # Reported but not gated below — expected red until the finance
           # zomes/tests are synced from the monorepo. See the job's own comment.
-          echo "Finance Integration (informational): ${{ needs.test-finance-integration.result }}"
-          echo "Governance: ${{ needs.test-governance.result }}"
-          echo "Identity: ${{ needs.test-identity.result }}"
-          echo "Personal: ${{ needs.test-personal.result }}"
-          echo "Attribution: ${{ needs.test-attribution.result }}"
-          echo "Bridge: ${{ needs.test-bridge.result }}"
-          echo "SDK: ${{ needs.test-sdk.result }}"
-          echo "Prism: ${{ needs.test-prism.result }}"
-          if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
-          # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
-            if [ "$result" = "failure" ]; then exit 1; fi
+          echo "Finance Integration (informational): $FINANCE_INTEGRATION_RESULT"
+          echo "Governance: $GOVERNANCE_RESULT"
+          echo "Identity: $IDENTITY_RESULT"
+          echo "Personal: $PERSONAL_RESULT"
+          echo "Attribution: $ATTRIBUTION_RESULT"
+          echo "Bridge: $BRIDGE_RESULT"
+          echo "SDK: $SDK_RESULT"
+          echo "Nix SDK shell: $NIX_SDK_RESULT"
+          echo "Prism: $PRISM_RESULT"
+          # Format is unconditional for admitted CI runs, so anything but
+          # success is a failed aggregate gate (including cancellation).
+          if [[ "$FORMAT_RESULT" != "success" ]]; then
+            echo "Required format gate did not succeed: $FORMAT_RESULT" >&2
+            exit 1
+          fi
+          # Skipped path-filtered jobs are allowed; every other non-success
+          # result (including cancelled/unknown states) fails closed.
+          for result in "$COS_CONFORMANCE_RESULT" "$COMMONS_RESULT" "$CIVIC_RESULT" "$HEARTH_RESULT" "$FINANCE_RESULT" "$GOVERNANCE_RESULT" "$IDENTITY_RESULT" "$PERSONAL_RESULT" "$ATTRIBUTION_RESULT" "$BRIDGE_RESULT" "$SDK_RESULT" "$NIX_SDK_RESULT" "$PRISM_RESULT"; do
+            case "$result" in
+              success|skipped) ;;
+              *)
+                echo "Required CI gate did not succeed: $result" >&2
+                exit 1
+                ;;
+            esac
           done
           echo "All checks passed!"

@@ -28,7 +28,7 @@ jobs:
       QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout exact qualification subject
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.QUALIFIED_SHA }}
           persist-credentials: false
@@ -59,17 +59,16 @@ jobs:
       - name: Assert resolved reference-test dependency graph
         run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
 
-      # D6S qualification is scoped to the D6S reference contracts. The
-      # broader COS workspace contains unrelated suites whose baseline state
-      # must not gate this specific reference qualification.
-      - name: Run D6S canonical integration suites
+      # Run the actual checked-in adversarial conformance target. D6S-specific
+      # claims remain bound to the dedicated independent verifier scripts below;
+      # do not name test targets that do not exist in cos_conformance.
+      - name: Run canonical adversarial conformance suite
         run: >-
           cargo test
           --manifest-path mycelix-manufacturing/Cargo.toml
           --locked
           -p cos_conformance
-          --test d6s_canon_1_golden_vectors
-          --test d6s_canon_2_authority_boundary
+          --test integral_five_system_adversarial
 
       - name: Run independent D6S-CANON-1 verifier
         run: python3 scripts/integral/verify_d6s_canon_1.py
@@ -94,8 +93,8 @@ jobs:
             echo "rust_action_sha=e97e2d8cc328f1b50210efc529dca0028893a2d9"
             echo "rust_action_toolchain=1.96.0"
             echo "rust_expected_version=rustc 1.96.0 (ac68faa20 2026-05-25)"
-            echo "checkout_action_sha=11bd71901bbe5b1630ceea73d27597364c9af683"
-            echo "upload_artifact_action_sha=ea165f8d65b6e75b540449e92b4886f43607fa02"
+            echo "checkout_action_sha=3d3c42e5aac5ba805825da76410c181273ba90b1"
+            echo "upload_artifact_action_sha=cf430e030ddbb5b0abf93d22962f4752f3646cd9"
             echo "rust=$(rustc --version)"
             echo "rust_verbose_commit=$(rustc --version --verbose | sed -n 's/^commit-hash: //p')"
             echo "cargo=$(cargo --version)"
@@ -120,7 +119,7 @@ jobs:
           } | tee d6s-canonical-reference-qualification.txt
 
       - name: Upload qualification record
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: d6s-canonical-reference-${{ env.QUALIFIED_SHA }}
           path: d6s-canonical-reference-qualification.txt
