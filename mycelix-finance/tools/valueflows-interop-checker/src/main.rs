@@ -105,26 +105,85 @@ fn expected_disposition(id: &str) -> Option<&'static str> {
     }
 }
 
-fn expected_mapping(instrument: &str) -> Option<(&'static str, &'static str, bool, &'static [&'static str])> {
+fn expected_mapping(
+    instrument: &str,
+) -> Option<(&'static str, &'static str, &'static str, bool, &'static [&'static str])> {
     match instrument {
         "SAP" => Some((
             "mycelix:SAP",
             "decimal_string_micro_sap",
+            "mycelix:microSAP",
             true,
             &["ResourceSpecification", "EconomicResource", "EconomicEvent"],
         )),
         "TEND" => Some((
             "mycelix:TEND",
             "canonical_integer_tend_units",
+            "mycelix:TEND-hour",
             true,
             &["Commitment", "EconomicEvent"],
         )),
         "MYCEL" => Some((
             "mycelix:MYCEL",
             "none_attestation_only",
+            "not_applicable",
             false,
             &["Claim"],
         )),
+        _ => None,
+    }
+}
+
+fn expected_guards(id: &str) -> Option<&'static [&'static str]> {
+    match id {
+        "VF-AUTH-001" => Some(&[
+            "external_facts_are_authoritative=false",
+            "external_import_may_mutate_sap=false",
+            "external_import_may_mutate_tend=false",
+            "external_import_may_mark_settlement_final=false",
+        ]),
+        "VF-MYCEL-001" => Some(&[
+            "MYCEL.transferable=false",
+            "MYCEL.quantity_encoding=none_attestation_only",
+            "MYCEL.maps_to_authoritative_balance=false",
+        ]),
+        "VF-TEND-001" => Some(&[
+            "TEND.identity_preserved",
+            "TEND.unit_preserved",
+            "no_implicit_TEND_to_SAP_conversion",
+        ]),
+        "VF-AMOUNT-001" => Some(&[
+            "canonical_integer_string",
+            "unit_profile_preserved",
+            "round_trip_exact",
+        ]),
+        "VF-UNIT-001" => Some(&["unit_profile_required", "unit_identity_preserved"]),
+        "VF-SCOPE-001" => Some(&["scope_id_required", "issuer_or_community_scope_preserved"]),
+        "VF-ORIGIN-001" => Some(&[
+            "source_system_required",
+            "source_record_id_required",
+            "source_action_or_event_id_required",
+            "source_revision_or_sequence_required",
+        ]),
+        "VF-REPLAY-001" => Some(&[
+            "source_event_identity_is_idempotency_key",
+            "import_has_no_ledger_mutation_authority",
+        ]),
+        "VF-CORRECTION-001" => Some(&[
+            "original_event_immutable",
+            "correction_references_original",
+            "history_remains_auditable",
+        ]),
+        "VF-UNKNOWN-001" => Some(&[
+            "unknown_is_not_false",
+            "unknown_is_not_settled",
+            "conflicts_are_preserved",
+        ]),
+        "VF-VERSION-001" => Some(&[
+            "ontology_version_and_adapter_profile_separate",
+            "exact_source_commit_pinned",
+            "packaged_artifact_qualification_required",
+        ]),
         _ => None,
     }
 }
@@ -346,7 +405,7 @@ fn validate(corpus: &Corpus) -> Vec<String> {
         }
 
         match expected_mapping(&mapping.mycelix_instrument) {
-            Some((identity, encoding, transferable, entities)) => {
+            Some((identity, encoding, unit_profile, transferable, entities)) => {
                 fail(
                     &mut errors,
                     mapping.mycelix_identity == identity,
@@ -356,6 +415,11 @@ fn validate(corpus: &Corpus) -> Vec<String> {
                     &mut errors,
                     mapping.quantity_encoding == encoding,
                     format!("{} has an unsafe or unexpected quantity encoding", mapping.id),
+                );
+                fail(
+                    &mut errors,
+                    mapping.unit_profile == unit_profile,
+                    format!("{} has an unexpected or lossy unit profile", mapping.id),
                 );
                 fail(
                     &mut errors,
@@ -435,6 +499,18 @@ fn validate(corpus: &Corpus) -> Vec<String> {
                 format!("negative control {} has incorrect expected disposition", control.id),
             ),
             None => errors.push(format!("unknown negative control: {}", control.id)),
+        }
+        match expected_guards(&control.id) {
+            Some(required) => {
+                for guard in required {
+                    fail(
+                        &mut errors,
+                        control.required_guards.iter().any(|candidate| candidate == guard),
+                        format!("negative control {} is missing required guard: {guard}", control.id),
+                    );
+                }
+            }
+            None => errors.push(format!("negative control {} has no registered guard contract", control.id)),
         }
     }
     for id in expected_controls {
@@ -570,6 +646,19 @@ mod tests {
         value["unreviewed_authority_override"] = true.into();
         let errors = check_text(&value.to_string()).expect_err("unknown fields must fail");
         assert!(errors.iter().any(|error| error.contains("invalid corpus JSON/shape")));
+    }
+
+    #[test]
+    fn required_negative_control_guards_cannot_be_removed() {
+        let mut value = fixture();
+        let controls = value["negative_controls"].as_array_mut().expect("controls array");
+        let amount = controls
+            .iter_mut()
+            .find(|control| control["id"] == "VF-AMOUNT-001")
+            .expect("amount control");
+        amount["required_guards"] = serde_json::json!(["canonical_integer_string"]);
+        let errors = check_text(&value.to_string()).expect_err("dropping exact-round-trip guards must fail");
+        assert!(errors.iter().any(|error| error.contains("missing required guard")));
     }
 
     #[test]
