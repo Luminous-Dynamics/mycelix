@@ -1,0 +1,105 @@
+{
+  "cases": [
+    {
+      "case_id": "PI-001",
+      "party_label": "Civic Birch",
+      "office_holder": "Person Alpha",
+      "matter": "MATTER-001",
+      "interest": {"entity": "Entity Pine", "material": true},
+      "matter_relation": "Unrelated",
+      "participation": "Observed"
+    },
+    {
+      "case_id": "PI-002",
+      "party_label": "Civic Birch",
+      "office_holder": "Person Beta",
+      "matter": "MATTER-002",
+      "interest": {"entity": "Supplier Cedar", "material": true},
+      "matter_relation": "Direct",
+      "participation": "Observed",
+      "recusal": "NotObserved"
+    },
+    {
+      "case_id": "PI-003",
+      "party_label": "Civic Birch",
+      "office_holder": "Person Gamma",
+      "matter": "MATTER-003",
+      "interest": {"entity": "Supplier Elm", "material": true},
+      "matter_relation": "Direct",
+      "participation": "NotObservedAfterRecusal",
+      "recusal": "ObservedBeforeDecision"
+    },
+    {
+      "case_id": "PI-004",
+      "office_holder": "Person Delta",
+      "candidate_relation": {"person_name": "Alex Reed", "entity_name": "Alex Reed Holdings"},
+      "relation_evidence": "NameSimilarityOnly"
+    },
+    {
+      "case_id": "PI-005",
+      "office_holder": "Person Epsilon",
+      "contribution": {"source": "Donor Quartz", "time": "T1"},
+      "official_action": {"kind": "Vote", "time": "T2", "aligned_with_donor_position": true},
+      "independent_causal_evidence": "NoneObserved"
+    },
+    {
+      "case_id": "PI-006",
+      "office_holder": "Person Zeta",
+      "register_query": {"source": "REGISTER-SYN-1", "result": "NoMatchingEntry", "coverage": "PartialDeclaredCoverage"}
+    },
+    {
+      "case_id": "PI-007A",
+      "office_holder": "Person Eta",
+      "proof_predicate": {"predicate_id": "PRED-NO-OWNERSHIP-OVER-T", "result": "Satisfied"},
+      "public_projection": "PredicateOnly"
+    },
+    {
+      "case_id": "PI-007B",
+      "office_holder": "Person Eta",
+      "proof_predicate": {"predicate_id": "PRED-NO-OWNERSHIP-OVER-T", "result": "Satisfied"},
+      "public_projection": "PredicateOnly"
+    },
+    {
+      "case_id": "PI-008A",
+      "party_label": "Civic Birch",
+      "office_holder": "Person Theta",
+      "matter": "MATTER-008",
+      "interest": {"entity": "Supplier Fir", "material": true},
+      "matter_relation": "Direct",
+      "participation": "Observed"
+    },
+    {
+      "case_id": "PI-008B",
+      "party_label": "Civic Maple",
+      "office_holder": "Person Iota",
+      "matter": "MATTER-008",
+      "interest": {"entity": "Supplier Fir", "material": true},
+      "matter_relation": "Direct",
+      "participation": "Observed"
+    },
+    {
+      "case_id": "PI-009A",
+      "office_holder": "Person Kappa",
+      "matter": "MATTER-009",
+      "interest": {"entity": "Supplier Ash", "material": true},
+      "matter_relation": "Direct",
+      "participation": "NotObservedAfterRecusal",
+      "recusal": "ObservedBeforeDecision"
+    },
+    {
+      "case_id": "PI-009B",
+      "office_holder": "Person Kappa",
+      "matter": "MATTER-009",
+      "interest": {"entity": "Supplier Ash", "material": true},
+      "matter_relation": "Direct",
+      "participation": "ObservedAfterRecusal",
+      "recusal": "ObservedBeforeDecision"
+    },
+    {
+      "case_id": "PI-010",
+      "office_holder": "Person Lambda",
+      "historical_observation": {"observation_id": "OBS-OLD", "entity": "Entity Spruce", "status": "ObservedAtF0"},
+      "correction": {"correction_id": "CORR-1", "supersedes": "OBS-OLD", "status": "AcceptedAtF1"}
+    }
+  ]
+}

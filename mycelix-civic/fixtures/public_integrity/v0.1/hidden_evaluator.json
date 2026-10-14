@@ -1,0 +1,19 @@
+{
+  "evaluator_only": true,
+  "forbidden_as_solver_input": true,
+  "cases": [
+    {"case_id":"PI-001","hidden_truth_note":"interest exists but is unrelated to the official matter"},
+    {"case_id":"PI-002","hidden_truth_note":"fixture establishes an applicable potential conflict only; no misconduct or motive label exists"},
+    {"case_id":"PI-003","hidden_truth_note":"synthetic profile treats the observed pre-decision recusal as sufficient mitigation for the bounded conflict candidate"},
+    {"case_id":"PI-004","hidden_entity_relation":"DifferentEntities"},
+    {"case_id":"PI-005","hidden_causal_relation":"UnspecifiedByFixture"},
+    {"case_id":"PI-006","hidden_register_universe_contains_other_unobserved_records":true},
+    {"case_id":"PI-007A","protected_payload":"SYNTHETIC-PRIVATE-PAYLOAD-A","allowed_public_predicate":"Satisfied"},
+    {"case_id":"PI-007B","protected_payload":"SYNTHETIC-PRIVATE-PAYLOAD-B","allowed_public_predicate":"Satisfied"},
+    {"case_id":"PI-008A","irrelevant_label_class":"PermutationA"},
+    {"case_id":"PI-008B","irrelevant_label_class":"PermutationB"},
+    {"case_id":"PI-009A","sensitivity_truth":"NoParticipationAfterRecusal"},
+    {"case_id":"PI-009B","sensitivity_truth":"ParticipationAfterRecusal"},
+    {"case_id":"PI-010","historical_truth":"OBS-OLD was observed at F0; CORR-1 supersedes its current projection at F1 without deleting F0"}
+  ]
+}
