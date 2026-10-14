@@ -228,7 +228,9 @@
     "https://www.itu.int/dms_pubrec/itu-t/rec/x/T-REC-X.1385-202504-I%21%21SUM-HTM-E.htm",
     "https://www.caa.co.za/industry-information/uas/",
     "https://www.gov.za/documents/notices/civil-aviation-act-thirty-sixth-amendment-civil-aviation-regulations-2026-english",
-    "https://cad.atns.co.za/SmartAIM/EAipPackages/15-OCT-22/2022-10-15-000000/html/eAIP/FA-ENR-1.9-en-US.html"
+    "https://cad.atns.co.za/SmartAIM/EAipPackages/15-OCT-22/2022-10-15-000000/html/eAIP/FA-ENR-1.9-en-US.html",
+    "https://eur-lex.europa.eu/legal-content/ENG/TXT/?uri=CELEX%3A32021R0664",
+    "https://www.easa.europa.eu/en/document-library/easy-access-rules/online-publications/easy-access-rules-u-space?erules-id=ERULES-1963177438-21387"
   ],
   "prototype": {
     "implementation": "tools/airspace-sim",
