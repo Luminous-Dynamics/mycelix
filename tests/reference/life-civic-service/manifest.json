@@ -10,21 +10,21 @@
   "frozen_inputs": [
     {
       "path": "schemas/life-civic/service-journey-reference.schema.json",
-      "git_blob_sha1": "3401f02958e89b2c527828a7c33d92d89a56b05d",
-      "purpose": "service journey schema v0.3.0; retrieval provenance and evidence-linked official contact status"
+      "git_blob_sha1": "7e2b8b3d963c9c5598c78927121fcf60203591f9",
+      "purpose": "service journey schema v0.3.0; retrieval timestamps, failed refreshes, and evidence-linked official contact status"
     },
     {
       "path": "tests/reference/life-civic-service/cases-v0.3.0.json",
-      "git_blob_sha1": "83646bf0dbdeb0ce7c5991563da48c083ac02804",
-      "purpose": "retrieval-timestamped captured official claims plus explicitly synthetic case evidence"
+      "git_blob_sha1": "8cdff2663b8ea732502c80422492e7ad4bfe655e",
+      "purpose": "captured official source claims, synthetic fixture evidence, an unavailable-source negative control, and service outcome controls"
     },
     {
       "path": "tests/reference/life-civic-service/independently-verified-local-restoration-v0.3.0.json",
-      "git_blob_sha1": "7241eeed6034723d024000e0fda311146fabb8ba",
+      "git_blob_sha1": "e592487f8f58d00d0658e07cf44e7a8e9b059f3f",
       "purpose": "positive control requiring independent evidence scoped to observation point and time"
     }
   ],
-  "integrity_semantics": "Git blob SHA-1 binds exact repository object bytes to detect accidental or unreviewed drift. It is a Git object identity, not a signature, source-authenticity proof, or independent collision-resistant trust claim.",
+  "integrity_semantics": "Git blob SHA-1 binds exact checked-out repository bytes to detect fixture drift. It is not a signature, source authenticity proof, or independent collision-resistance claim. Captured official pages in this fixture were reviewed at 2026-10-14T19:54:08+02:00 but rendered page content was not cryptographically hashed; synthetic example.invalid records are not represented as retrieved sources.",
   "claim_ceiling": {
     "permitted": [
       "validate schema-level lifecycle and evidence boundaries"
