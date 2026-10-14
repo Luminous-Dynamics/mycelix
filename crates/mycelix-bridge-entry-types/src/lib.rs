@@ -177,6 +177,45 @@ impl TryFrom<&Entry> for CachedCredentialEntry {
     }
 }
 
+/// Immutable authorization produced by the finance bridge immediately before a
+/// collateral redemption consumes the corresponding SAP balance.
+///
+/// The bridge coordinator is the only code path that creates this entry. Consumers
+/// must still validate the referenced confirmed deposit independently; this entry is
+/// an addressable witness, not an authority by mere possession of its hash.
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug, SerializedBytes)]
+pub struct SapRedemptionAuthorization {
+    /// Schema version for forward-compatible decoding.
+    #[serde(default = "default_schema_v1")]
+    pub schema_version: u8,
+    /// Stable redemption/deposit identifier.
+    pub redemption_id: String,
+    /// SAP account being debited.
+    pub member_did: String,
+    /// Exact SAP amount authorized for redemption.
+    pub sap_amount: u64,
+    /// Exact confirmed deposit action that supplied the SAP.
+    pub confirmed_deposit_action_hash: ActionHash,
+    /// When this authorization was created.
+    pub created_at: Timestamp,
+}
+
+impl TryFrom<&Entry> for SapRedemptionAuthorization {
+    type Error = WasmError;
+    fn try_from(entry: &Entry) -> Result<Self, Self::Error> {
+        match entry {
+            Entry::App(bytes) => {
+                let sb = SerializedBytes::from(UnsafeBytes::from(bytes.bytes().to_vec()));
+                <Self as TryFrom<SerializedBytes>>::try_from(sb)
+                    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))
+            }
+            _ => Err(wasm_error!(WasmErrorInner::Guest(
+                "Not an app entry".into(),
+            ))),
+        }
+    }
+}
+
 /// Validate a cached credential entry.
 ///
 /// Returns `Ok(())` if valid, or `Err(reason)` if invalid.
