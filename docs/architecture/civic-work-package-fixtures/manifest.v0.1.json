@@ -1,0 +1,28 @@
+{
+  "manifest_version": "civic-work-package-fixture-manifest/0.1",
+  "schema_path": "docs/architecture/civic-work-package-v0.1.schema.json",
+  "fixtures": [
+    {
+      "path": "docs/architecture/civic-work-package-fixtures/proposed.synthetic.v0.1.json",
+      "expect_valid": true,
+      "status": "proposed"
+    },
+    {
+      "path": "docs/architecture/civic-work-package-fixtures/authorized.synthetic.v0.1.json",
+      "expect_valid": true,
+      "status": "authorized"
+    }
+  ],
+  "required_negative_controls": [
+    "missing-funding-commitment-evidence",
+    "unknown-wage-regime-after-funding",
+    "open-tender-treated-as-active",
+    "automated-authorization",
+    "non-monotonic-lifecycle",
+    "provider-self-verification"
+  ],
+  "limitations": [
+    "Fixtures are synthetic only and must not be used as real contracts or employment evidence.",
+    "A valid schema is not evidence of truth, funding, legal compliance, authority, or delivery."
+  ]
+}
