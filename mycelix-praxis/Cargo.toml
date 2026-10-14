@@ -2,6 +2,8 @@
 resolver = "2"
 members = [
   "crates/praxis-core",
+  # Native host adapter only; never add this dependency to guest zomes.
+  "crates/praxis-symthaea-adapter",
   "zomes/learning_zome/integrity",
   "zomes/learning_zome/coordinator",
   "zomes/fl_zome/integrity",

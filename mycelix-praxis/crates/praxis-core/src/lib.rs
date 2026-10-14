@@ -23,12 +23,14 @@ pub mod proof_of_learning;
 pub mod provenance;
 pub mod types;
 pub mod validation;
+pub mod symthaea_advisory;
 
 pub use contracts::*;
 pub use crypto::*;
 pub use errors::*;
 pub use proof_of_learning::*;
 pub use provenance::*;
+pub use symthaea_advisory::*;
 pub use types::*;
 
 /// Current protocol version
