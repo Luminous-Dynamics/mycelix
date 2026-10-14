@@ -1,8 +1,8 @@
 {
   "dataset_id": "MYC-LIFE-CIVIC-SERVICE-001",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "status": "research_fixture",
-  "cases_file": "tests/reference/life-civic-service/cases-v0.3.0.json",
+  "cases_file": "tests/reference/life-civic-service/cases-v0.4.0.json",
   "schemas": [
     "schemas/life-civic/service-journey-reference.schema.json"
   ],
@@ -14,9 +14,9 @@
       "purpose": "service journey schema v0.3.0; retrieval timestamps, failed refreshes, and evidence-linked official contact status"
     },
     {
-      "path": "tests/reference/life-civic-service/cases-v0.3.0.json",
-      "git_blob_sha1": "cb3b5c3886de60c3bce317022b5d760b222ecaa1",
-      "purpose": "captured official source claims, synthetic fixture evidence, an unavailable-source negative control, and service outcome controls"
+      "path": "tests/reference/life-civic-service/cases-v0.4.0.json",
+      "git_blob_sha1": "8674042a1d4d9fe4d8b27cfca759657ace4f07f5",
+      "purpose": "six effects-disabled service fixtures including report/provider/independent verification, source-currentness controls, and cross-utility causality negative control; service schema remains v0.3.0"
     },
     {
       "path": "tests/reference/life-civic-service/independently-verified-local-restoration-v0.3.0.json",
@@ -24,7 +24,7 @@
       "purpose": "positive control requiring independent evidence scoped to observation point and time"
     }
   ],
-  "integrity_semantics": "Git blob SHA-1 binds exact checked-out repository bytes to detect fixture drift. It is not a signature, source authenticity proof, or independent collision-resistance claim. Captured official pages in this fixture were reviewed at 2026-10-14T19:54:08+02:00 but rendered page content was not cryptographically hashed; synthetic example.invalid records are not represented as retrieved sources. Purpose-labelled contact fields should remain separate where the issuer's page gives different stated roles; a difference alone does not prove the channels conflict.",
+  "integrity_semantics": "Git blob SHA-1 binds exact checked-out repository bytes to detect fixture drift. It is not a signature, source authenticity proof, or independent collision-resistance claim. Captured official pages in this fixture were reviewed at 2026-10-14T19:54:08+02:00 but rendered page content was not cryptographically hashed; synthetic example.invalid records are not represented as retrieved sources. Purpose-labelled contact fields should remain separate where the issuer's page gives different stated roles; a difference alone does not prove the channels conflict. Corpus v0.4.0 adds a synthetic cross-utility statement control: a historical public statement is context only, synthetic evidence has null retrieved_at/checked_at and no source digest, and neither incident-level power causality nor current restoration may be inferred.",
   "claim_ceiling": {
     "permitted": [
       "validate schema-level lifecycle and evidence boundaries"
