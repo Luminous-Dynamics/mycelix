@@ -8,9 +8,10 @@
 
 use debris_bounties_integrity::*;
 use hdk::prelude::*;
+use mycelix_space_coordinator_gates::gate_space_operation;
 use mycelix_space_shared::{
     PaginatedResponse, PaginationParams, SpaceError, SpaceErrorCode, SpaceTimestamp,
-    gate_space_operation, requirement_for_bounty_claim, requirement_for_bounty_creation,
+    requirement_for_bounty_claim, requirement_for_bounty_creation,
     requirement_for_bounty_verification, requirement_for_risk_update, validate_string_field,
 };
 

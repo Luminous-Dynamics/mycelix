@@ -11,6 +11,8 @@ members = [
 
     # Shared zome utilities
     "zomes/shared",
+    # Coordinator-only Holochain host calls; never linked into integrity zomes.
+    "zomes/coordinator-gates",
 
     # DNA Zomes - Orbital Objects (catalog of tracked objects)
     "dna/zomes/orbital_objects/integrity",

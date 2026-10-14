@@ -8,11 +8,12 @@
 
 use conjunctions_integrity::*;
 use hdk::prelude::*;
+use mycelix_space_coordinator_gates::gate_space_operation;
 use mycelix_space_shared::{
     AlertPriority, AlertType, ConjunctionAlert, ConjunctionAssessment, ConjunctionDataMessage,
     ManeuverAlert, ManeuverType as SharedManeuverType, PaginatedResponse, PaginationParams,
     ScreenInput, SpaceError, SpaceErrorCode, SpaceSignal, SpaceTimestamp, StalenessAwareAssessment,
-    StalenessConfig, TleWithMetadata, gate_space_operation, requirement_for_conjunction_creation,
+    StalenessConfig, TleWithMetadata, requirement_for_conjunction_creation,
     requirement_for_negotiation, requirement_for_risk_update, validate_staleness_config,
 };
 use orbital_mechanics::conjunction::ConjunctionAnalyzer;

@@ -10,9 +10,10 @@
 //! - Query catalog
 
 use hdk::prelude::*;
+use mycelix_space_coordinator_gates::gate_space_operation;
 use mycelix_space_shared::{
     DataSourceType, QualityScore, SpaceError, SpaceErrorCode, SpaceTimestamp, StalenessConfig,
-    TleWithMetadata, compute_staleness, gate_space_operation, requirement_for_negotiation,
+    TleWithMetadata, compute_staleness, requirement_for_negotiation,
     requirement_for_tle_submission, staleness_quality_is_acceptable, validate_staleness_config,
 };
 use orbital_mechanics::tle::TwoLineElement;
