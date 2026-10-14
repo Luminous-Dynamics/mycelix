@@ -61,6 +61,13 @@ class PortableAdapterProfileTests(unittest.TestCase):
         self.assertTrue(any("requires an identified authority" in e for e in errors))
         self.assertTrue(any("requires reviewed and authorized protocol" in e for e in errors))
 
+    def test_sandbox_maturity_cannot_be_claimed_without_written_authority(self) -> None:
+        changed = copy.deepcopy(self.profile)
+        changed["maturity"] = "sandbox_authorized"
+        errors = validate_portable_adapter_profile.validate_profile(changed)
+        self.assertTrue(any("sandbox_authorized requires written authorization evidence" in e for e in errors))
+        self.assertTrue(any("sandbox_authorized requires legal" in e for e in errors))
+
     def test_synthetic_route_cannot_be_promoted_to_production(self) -> None:
         changed = copy.deepcopy(self.profile)
         changed["maturity"] = "production_authorized"
