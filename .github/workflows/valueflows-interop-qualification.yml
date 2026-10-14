@@ -1,0 +1,44 @@
+name: ValueFlows Interoperability Qualification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/valueflows-interop-qualification.yml"
+      - "mycelix-finance/tests/reference/valueflows-interop/**"
+      - "mycelix-finance/tools/valueflows-interop-checker/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/valueflows-interop-qualification.yml"
+      - "mycelix-finance/tests/reference/valueflows-interop/**"
+      - "mycelix-finance/tools/valueflows-interop-checker/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: valueflows-interop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-read-only-contract:
+    name: validate read-only mapping contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml -- --check
+
+      - name: Run contract and adversarial tests
+        run: cargo test --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml
+
+      - name: Validate checked-in corpus with executable
+        run: cargo run --manifest-path mycelix-finance/tools/valueflows-interop-checker/Cargo.toml
