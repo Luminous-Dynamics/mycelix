@@ -1091,3 +1091,8 @@ h2 { font-size: 1.5rem; margin: 2rem 0 0.5rem; }
     min-height: 42px;
     margin-top: 0.25rem;
 }
+
+.video-chapter:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
