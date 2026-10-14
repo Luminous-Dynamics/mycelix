@@ -101,6 +101,26 @@ class PortableAdapterProfileTests(unittest.TestCase):
         changed["release_gates"]["human_approval_for_exact_release_commit"] = True
         self.assertTrue(any("human release approval cannot be open" in e for e in validate_portable_adapter_profile.validate_profile(changed)))
 
+    def test_unhashable_enum_values_fail_closed_without_crashing(self) -> None:
+        mutations = []
+        changed = copy.deepcopy(self.profile)
+        changed["maturity"] = []
+        mutations.append(changed)
+        changed = copy.deepcopy(self.profile)
+        changed["protocol"]["route_kind"] = {}
+        mutations.append(changed)
+        changed = copy.deepcopy(self.profile)
+        changed["service"]["lawful_basis_status"] = []
+        mutations.append(changed)
+        for mutated in mutations:
+            with self.subTest(maturity=mutated.get("maturity")):
+                self.assertTrue(validate_portable_adapter_profile.validate_profile(mutated))
+
+    def test_non_string_prohibited_decision_value_fails_closed_without_crashing(self) -> None:
+        changed = copy.deepcopy(self.profile)
+        changed["service"]["prohibited_decisions"][0] = {"citizenship": True}
+        self.assertTrue(validate_portable_adapter_profile.validate_profile(changed))
+
     def test_duplicate_json_object_keys_are_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "duplicate JSON object key"):
             json.loads('{"production_enabled": false, "production_enabled": true}', object_pairs_hook=validate_portable_adapter_profile._reject_duplicate_object_keys)
