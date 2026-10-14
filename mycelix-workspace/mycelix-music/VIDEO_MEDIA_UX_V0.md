@@ -6,7 +6,7 @@ This work gives video its own discovery and watch experience rather than treatin
 
 ## Experience principles
 
-1. **Browse before bandwidth.** Search and filter listings; do not autoplay or eagerly load the video stream. Native playback uses `preload="none"` and requires an intentional Play action.
+1. **Browse before bandwidth.** Search and filter listings; never autoplay. CID-backed poster thumbnails may be fetched from the selected gateway while browsing, so that request is disclosed in the UI. The media `src` is not attached until the viewer chooses **Load player**; native controls then require an intentional Play action.
 2. **Watch with context.** The watch panel reserves space for creator attribution, topics, chapters, captions, a transcript, and a visual-description track. Missing access assets are called out rather than silently hidden.
 3. **Resume privately.** Playback position is stored in the current browser's local storage at coarse intervals. It is not published to Holochain, uploaded to a gateway, or synchronized to another device.
 4. **Use only explicit routes.** Content, poster, caption, transcript, and visual-description URLs are derived from CID-addressed resources using the existing resolver. There is no hard-coded public gateway. No media or accessibility URL is constructed until browser-local delivery preferences have loaded.
