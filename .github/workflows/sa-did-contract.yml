@@ -10,6 +10,10 @@ on:
       - "mycelix-identity/sa_did_policy_engine.py"
       - "mycelix-identity/tests/test_sa_did_*.py"
       - "docs/sa-digital-id-interoperability.md"
+      - "docs/africa-digital-public-infrastructure-interoperability.md"
+      - "mycelix-identity/AFRICA_DPI_INTEROP_CONTRACT_V1.json"
+      - "mycelix-identity/validate_africa_dpi_contract.py"
+      - "mycelix-identity/tests/test_africa_dpi_contract.py"
   push:
     branches: [main]
     paths:
@@ -19,6 +23,10 @@ on:
       - "mycelix-identity/sa_did_policy_engine.py"
       - "mycelix-identity/tests/test_sa_did_*.py"
       - "docs/sa-digital-id-interoperability.md"
+      - "docs/africa-digital-public-infrastructure-interoperability.md"
+      - "mycelix-identity/AFRICA_DPI_INTEROP_CONTRACT_V1.json"
+      - "mycelix-identity/validate_africa_dpi_contract.py"
+      - "mycelix-identity/tests/test_africa_dpi_contract.py"
   workflow_dispatch:
 
 permissions:
@@ -53,6 +61,10 @@ jobs:
         run: |
           cd mycelix-identity
           python validate_sa_did_profile.py
+      - name: Validate Africa DPI sovereignty contract
+        run: |
+          cd mycelix-identity
+          python validate_africa_dpi_contract.py
       - name: Execute synthetic policy vectors and write evidence
         run: |
           cd mycelix-identity
@@ -63,6 +75,10 @@ jobs:
         run: |
           cd mycelix-identity
           python -m unittest discover -s tests -p 'test_sa_did_*.py' -v
+      - name: Run Africa DPI contract regression suite
+        run: |
+          cd mycelix-identity
+          python -m unittest discover -s tests -p 'test_africa_dpi_contract.py' -v
       - name: Upload synthetic policy evidence
         if: always()
         uses: actions/upload-artifact@v4
