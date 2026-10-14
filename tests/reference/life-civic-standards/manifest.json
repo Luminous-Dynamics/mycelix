@@ -23,7 +23,9 @@
     "crime_prevention_guidance_scope",
     "employment_crime_evidence_scope",
     "robotics_safety_boundary",
-    "industrial_robot_vs_service_robot_scope"
+    "industrial_robot_vs_service_robot_scope",
+    "official_labour_statistics_scope",
+    "decent_work_measurement_not_normative_threshold"
   ],
   "claim_ceiling": {
     "permitted": [
@@ -42,7 +44,11 @@
       "universal employment-crime effect",
       "cross-jurisdiction generalization without local evidence",
       "universal industrial-robot-standard applicability to public-facing service robots",
-      "robot safety qualification from catalogue membership alone"
+      "robot safety qualification from catalogue membership alone",
+      "using national labour-market statistics as a causal crime coefficient without evidence",
+      "using national statistics as a local service-area baseline without local data",
+      "universal numeric viability thresholds inferred from measurement frameworks",
+      "decent-work indicators presented as proof of crime-reduction efficacy"
     ]
   },
   "frozen_inputs": [
@@ -58,7 +64,7 @@
     },
     {
       "path": "tests/reference/life-civic-standards/cases.json",
-      "git_blob_sha1": "b4f55c446deb344b9932c07396f8870b80b40ac2",
+      "git_blob_sha1": "84b841b8ad1424eb479417a46f80b5b3d0bc9bb7",
       "purpose": "adversarial and lifecycle fixture corpus"
     }
   ],
