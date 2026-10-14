@@ -80,6 +80,48 @@ These are proposed engineering gates, not results already achieved:
 
 The first engineering milestone should not be a new dashboard. It should be a complete, replayable, read-only evidence path on one authorised source, with an explicit “unknown” state whenever the source cannot prove the relevant property. This creates a base from which model and workflow improvements can be compared without confusing a better-looking report with a better operational outcome.
 
+### M1 contract detail: delivery identity, retries, and revisions
+
+This is a provider-neutral acceptance contract to use when a real adapter is authorised. Toast's public contract is a useful reference point, not a proxy for Munch's capabilities: Toast documents a provider-generated webhook Event GUID, signed message bodies, retry-attempt metadata, and endpoint-specific pagination. Its pagination documentation also describes a `409` configuration-change response that requires restarting the query from page one. See [webhook basics](https://doc.toasttab.com/doc/devguide/apiWebhookBasics.html), [message schema](https://doc.toasttab.com/doc/devguide/apiMessageDataSchema.html), [HTTP headers](https://doc.toasttab.com/doc/devguide/apiHttpHeaders.html), [message signing](https://doc.toasttab.com/doc/devguide/apiMessageSigning.html), [retry support](https://doc.toasttab.com/doc/devguide/apiRetrySupport.html), and [pagination](https://doc.toasttab.com/doc/devguide/apiResponseDataPagination.html).
+
+Keep three identities separate:
+
+| Identity | Purpose | Rule |
+|---|---|---|
+| **Delivery/event identity** | Identifies one source-issued event across redelivery attempts | Use the provider's stable event GUID or explicitly documented equivalent, namespaced by provider, environment, subscription/connector and business scope. Never synthesize a vendor event ID and report it as provider-issued. |
+| **Business-object identity and revision** | Identifies the order, line, stock movement, receipt, correction or reversal being described | Preserve source IDs, revision/version/update sequence and parent/reversal links where documented. Different events about one order are not duplicate deliveries merely because their order ID matches. |
+| **Payload identity** | Identifies the exact delivered bytes and the normalized projection | Retain SHA-256 of the exact raw body and a separately versioned digest of the decoded/normalized projection. A digest proves byte identity, not issuer authenticity or source completeness. |
+
+For every delivery, preserve provider and environment, scope, event ID (or explicit absence), event type, provider event time, received time, attempt number when offered, exact raw-body digest, decode/schema version, adapter/config/mapping digest, and authentication-verification result. Keep provider event time, object effective time, provider updated/recorded time and local receive time distinct; never silently collapse them into one `observed_at`.
+
+Apply these deterministic state rules in a durable inbox keyed by the documented event identity:
+
+| Case | Required result |
+|---|---|
+| First-seen identity, valid source authentication where supported, valid scope/schema | Store immutable raw artifact and normalized projection; record lineage before marking the delivery processed. |
+| Same identity + same exact payload digest + same scope | Treat as a duplicate delivery/retry. Return the provider-appropriate success response if applicable, but do not create a second logical event or repeat a downstream effect. |
+| Same identity + different exact payload digest | Emit a payload-substitution/conflict finding and retain evidence of the conflict. Do not silently overwrite, auto-select the latest body, or treat the digest change as a correction. |
+| Different event identity + same business-object identity | Preserve as a separate source event. Classify it as an update, reversal or correction only when the provider's event/version semantics support that classification. |
+| Missing/unstable identity, ambiguous revision semantics, or unavailable required authenticity evidence | Keep the source at its demonstrated qualification level; do not promote it to replay-safe event ingestion based on local heuristics alone. |
+| Invalid signature or scope mismatch when those checks are part of the source contract | Reject or quarantine the delivery and record the reason without retaining secrets in logs. Never create trusted normalized observations from it. |
+
+Attempt number is transport provenance, not a new business event. A redelivery must not become a second sale, movement or waste observation. Conversely, identical payload bytes are not enough to deduplicate two different provider-issued event IDs: two legitimate events can have equal content. If the provider does not document event identity, versioning, correction and deletion semantics, preserve that limitation as `unknown` and do not guess.
+
+For pull/export ingestion, couple the same identity rules to the exact query contract: preserve all page/request and response artifacts, cursor/token chain, scope, time bounds, schema and snapshot/session identity where provided. Detect repeated cursor tokens, broken cursor continuity, inconsistent snapshot identity, count disagreement and unexplained query restarts. A provider-documented restart (for example, Toast's documented 409 behavior) must restart the whole declared query from its first page; do not splice pre-change and post-change pages into an asserted complete snapshot. If the endpoint provides no stable snapshot or terminal/exhaustion proof, report that limit rather than inferring completeness from end-of-file.
+
+**Required replay fixture set before M1 can pass:**
+
+1. Exact duplicate delivery with the same event ID and raw digest; replay twice and prove one logical application.
+2. Same event ID with changed raw bytes; prove conflict retention and no overwrite.
+3. Same order/object ID with distinct event IDs for a documented update, void, refund or reversal; prove historical lineage remains visible.
+4. Retry attempts arriving out of order, plus a duplicate after process restart; prove the durable idempotency decision is stable.
+5. Invalid/missing signature (where applicable), unknown event type, malformed body, missing stable ID and cross-site/scope mismatch; prove fail-closed quarantine or explicit downgrade.
+6. Repeated/branched page token, changed snapshot, count drift and provider-signalled query restart; prove no mixed-snapshot export is labelled complete.
+
+The test oracle is not “the adapter returned success.” It is: one source-issued logical event contributes at most once to each versioned projection; corrections remain inspectable; replay is deterministic; raw evidence is retained; and every trust/completeness limitation remains explicit. No POS, procurement or accounting mutation is enabled by these tests.
+
+## 2B. Event-identity acceptance contract
+
 ## 3. Key discovery gap: data rights and source semantics
 
 The official public pages reviewed do not establish whether an independent developer can obtain the full source records needed for the proposed qualification flow. Do not infer API availability from an API release-notes page, nor infer export completeness from CSV import support.
