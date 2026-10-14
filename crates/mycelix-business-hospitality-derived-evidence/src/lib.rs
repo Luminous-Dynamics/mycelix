@@ -241,8 +241,7 @@ pub fn derive_and_evaluate_hospitality_pilot(
     }
     validate_cases(registration, &cases)?;
 
-    let overall_scorecard =
-        ForecastScorecard::score_for_protocol(&registration.protocol, &cases)
+    let overall_scorecard = ForecastScorecard::score_for_protocol(&registration.protocol, &cases)
         .map_err(|_| DerivedEvidenceError::ScoringFailed)?;
     let overall_case_set_digest = case_set_digest(&cases);
     let overall_decision = evaluate_forecast_gate(&registration.protocol, &overall_scorecard)
@@ -257,9 +256,8 @@ pub fn derive_and_evaluate_hospitality_pilot(
                 selected.push(case.clone());
             }
         }
-        let scorecard =
-            ForecastScorecard::score_for_protocol(&registration.protocol, &selected)
-                .map_err(|_| DerivedEvidenceError::ScoringFailed)?;
+        let scorecard = ForecastScorecard::score_for_protocol(&registration.protocol, &selected)
+            .map_err(|_| DerivedEvidenceError::ScoringFailed)?;
         let selected_digest = case_set_digest(&selected);
         let passed = scorecard.cases >= slice.minimum_cases
             && scorecard.abstention_bps() <= registration.protocol.maximum_abstention_bps
