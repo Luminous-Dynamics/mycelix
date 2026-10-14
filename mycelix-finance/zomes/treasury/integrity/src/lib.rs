@@ -340,7 +340,7 @@ fn validate_create_treasury(
 }
 
 fn validate_update_treasury(
-    _action: Update,
+    action: Update,
     treasury: Treasury,
 ) -> ExternResult<ValidateCallbackResult> {
     if !treasury.reserve_ratio.is_finite()
@@ -351,6 +351,60 @@ fn validate_update_treasury(
             "Reserve ratio must be a finite number between 0 and 1".into(),
         ));
     }
+
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<Treasury>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original Treasury predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original treasury update predecessor is not a Treasury entry".into(),
+        ))
+    })?;
+
+    if original.id != treasury.id
+        || original.name != treasury.name
+        || original.description != treasury.description
+        || original.currency != treasury.currency
+        || original.created != treasury.created
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Treasury identity and immutable configuration cannot change across updates".into(),
+        ));
+    }
+
+    if original.managers != treasury.managers {
+        let author_did = did_for_author(&action.author);
+        if !original.managers.contains(&author_did) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Manager-set changes must be authored by an existing treasury manager".into(),
+            ));
+        }
+
+        let added = treasury
+            .managers
+            .iter()
+            .filter(|m| !original.managers.contains(m))
+            .count();
+        let removed = original
+            .managers
+            .iter()
+            .filter(|m| !treasury.managers.contains(m))
+            .count();
+        if added + removed != 1 {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Manager-set update must add or remove exactly one manager".into(),
+            ));
+        }
+    }
+
+    if treasury.last_updated < original.last_updated {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Treasury last_updated cannot move backwards".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -445,12 +499,96 @@ fn validate_create_allocation(
 }
 
 fn validate_update_allocation(
-    _action: Update,
+    action: Update,
     allocation: Allocation,
 ) -> ExternResult<ValidateCallbackResult> {
     if allocation.amount == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Allocation amount must be positive".into(),
+        ));
+    }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<Allocation>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original Allocation predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original allocation update predecessor is not an Allocation entry".into(),
+        ))
+    })?;
+    if original.id != allocation.id
+        || original.treasury_id != allocation.treasury_id
+        || original.proposal_id != allocation.proposal_id
+        || original.recipient_did != allocation.recipient_did
+        || original.amount != allocation.amount
+        || original.currency != allocation.currency
+        || original.purpose != allocation.purpose
+        || original.created != allocation.created
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Allocation identity and economic terms cannot change across updates".into(),
+        ));
+    }
+    match (&original.status, &allocation.status) {
+        (AllocationStatus::Proposed, AllocationStatus::Proposed)
+        | (AllocationStatus::Proposed, AllocationStatus::Approved)
+        | (AllocationStatus::Proposed, AllocationStatus::Rejected)
+        | (AllocationStatus::Proposed, AllocationStatus::Cancelled)
+        | (AllocationStatus::Approved, AllocationStatus::Executed)
+        | (AllocationStatus::Approved, AllocationStatus::Cancelled) => {}
+        (from, to) if from == to => {}
+        _ => return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid allocation status transition: {:?} -> {:?}",
+            original.status, allocation.status
+        ))),
+    }
+    if allocation.status == AllocationStatus::Executed && allocation.executed.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Executed allocation must record an execution timestamp".into(),
+        ));
+    }
+    if original.executed.is_some() && original.executed != allocation.executed {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Allocation execution timestamp is immutable after execution".into(),
+        ));
+    }
+    if allocation.status != AllocationStatus::Executed && allocation.executed.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Allocation executed timestamp may only be set for Executed status".into(),
+        ));
+    }
+    for prior in &original.approved_by {
+        if !allocation.approved_by.contains(prior) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Allocation approvals cannot be removed by update".into(),
+            ));
+        }
+    }
+    let added_approvals: Vec<&String> = allocation
+        .approved_by
+        .iter()
+        .filter(|approver| !original.approved_by.contains(approver))
+        .collect();
+    if added_approvals.len() > 1 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "An allocation update may append at most one approval".into(),
+        ));
+    }
+    if let Some(added) = added_approvals.first() {
+        let author_did = did_for_author(&action.author);
+        if *added != &author_did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "New allocation approval must equal the update author's DID".into(),
+            ));
+        }
+    }
+    if !matches!(
+        allocation.status,
+        AllocationStatus::Proposed | AllocationStatus::Approved
+    ) && allocation.approved_by != original.approved_by {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Terminal allocation transitions must preserve the approval set".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -493,7 +631,7 @@ fn validate_create_savings_pool(
 }
 
 fn validate_update_savings_pool(
-    _action: Update,
+    action: Update,
     pool: SavingsPool,
 ) -> ExternResult<ValidateCallbackResult> {
     if pool.target_amount == 0 {
@@ -506,9 +644,31 @@ fn validate_update_savings_pool(
             "Yield rate must be a finite non-negative number".into(),
         ));
     }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<SavingsPool>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original SavingsPool predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original savings-pool update predecessor is not a SavingsPool entry".into(),
+        ))
+    })?;
+    if original.id != pool.id
+        || original.treasury_id != pool.treasury_id
+        || original.name != pool.name
+        || original.currency != pool.currency
+        || original.members != pool.members
+        || original.created != pool.created
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SavingsPool identity and immutable configuration cannot change across updates".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate CommonsPool
 /// Validate CommonsPool: reserve ratio must never drop below 25%.
 /// inalienable_reserve / (inalienable_reserve + available_balance) >= 0.25
 /// Exception: total is 0 (empty pool is valid).
@@ -557,7 +717,7 @@ fn validate_create_commons_pool(
 }
 
 fn validate_update_commons_pool(
-    _action: Update,
+    action: Update,
     pool: CommonsPool,
 ) -> ExternResult<ValidateCallbackResult> {
     if !pool.demurrage_exempt {
@@ -565,7 +725,28 @@ fn validate_update_commons_pool(
             "Commons pool must remain demurrage exempt (constitutional requirement)".into(),
         ));
     }
-    validate_commons_pool_reserve_ratio(&pool)
+    validate_commons_pool_reserve_ratio(&pool)?;
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<CommonsPool>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original CommonsPool predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Original commons-pool update predecessor is not a CommonsPool entry".into(),
+        ))
+    })?;
+    if original.id != pool.id
+        || original.dao_did != pool.dao_did
+        || original.demurrage_exempt != pool.demurrage_exempt
+        || original.created_at != pool.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "CommonsPool identity and constitutional configuration cannot change across updates"
+                .into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_compost_receival(

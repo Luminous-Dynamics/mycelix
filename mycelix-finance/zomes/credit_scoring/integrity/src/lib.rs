@@ -177,6 +177,15 @@ fn validate_update_credit_profile(
     action: Update,
     profile: CreditProfile,
 ) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<CreditProfile>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original CreditProfile predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+        "Original CreditProfile predecessor is not a CreditProfile entry".into()
+    )))?;
+
     // Bind updates too. Binding create alone would be incoherent: the update path
     // was the easier hole — `update_matl_score` is a public extern taking an
     // arbitrary `did` AND an arbitrary `matl_score`, so at the DHT level any peer
@@ -209,6 +218,15 @@ fn validate_update_credit_profile(
             "Credit score must be between 0 and 1000".into(),
         ));
     }
+    if original.did != profile.did
+        || profile.account_age_days < original.account_age_days
+        || profile.version <= original.version
+        || profile.last_updated < original.last_updated
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credit profile identity, version, and time provenance must remain consistent across updates".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -227,12 +245,50 @@ fn validate_create_payment_record(
 
 /// Validate payment record update
 fn validate_update_payment_record(
-    _action: Update,
+    action: Update,
     record: PaymentRecord,
 ) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record.entry().to_app_option::<PaymentRecord>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original PaymentRecord predecessor: {e:?}"
+        )))
+    })?.ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+        "Original PaymentRecord predecessor is not a PaymentRecord entry".into()
+    )))?;
+
     if record.amount <= 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Payment amount must be positive".into(),
+        ));
+    }
+    if original.id != record.id
+        || original.profile_did != record.profile_did
+        || original.loan_id != record.loan_id
+        || original.amount != record.amount
+        || original.currency != record.currency
+        || original.due_date != record.due_date
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment record identity and economic terms are immutable across updates".into(),
+        ));
+    }
+    match (&original.status, &record.status) {
+        (PaymentStatus::Pending, PaymentStatus::Pending)
+        | (PaymentStatus::Pending, PaymentStatus::OnTime)
+        | (PaymentStatus::Pending, PaymentStatus::Late)
+        | (PaymentStatus::Pending, PaymentStatus::Missed)
+        | (PaymentStatus::Pending, PaymentStatus::Forgiven)
+        | (a, b) if a == b => {}
+        _ => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Invalid payment-record status transition".into(),
+            ))
+        }
+    }
+    if original.paid_date.is_some() && original.paid_date != record.paid_date {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment paid_date is immutable after being set".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
