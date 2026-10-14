@@ -202,7 +202,16 @@ The first proposed reference artifacts are deliberately non-authoritative and ef
 
 The instrument schema preserves an issuer's exact lifecycle label separately from its coarser categories. This matters for standards tracks and committee-stage drafts, where flattening every item to `published` or `standard` would lose consequential distinctions.
 
-Robot safety standards also need exact scope matching. The official ISO catalogue lists ISO 10218-1:2025 as an industrial-robot standard and ISO 10218-2:2025 as covering industrial robot applications and robot cells. The latter's catalogue description lists public-access service robots and law-enforcement uses among its exclusions. Therefore, a Mycelix record for a published industrial standard must not be presented as proof that a public-facing service/security robot is covered, safe, authorized, or legally deployable. Record the exact edition, scope and exclusions, then route the actual robot category and use case to a qualified safety/legal review. See [ISO 10218-1:2025](https://www.iso.org/standard/73933.html) and [ISO 10218-2:2025](https://www.iso.org/standard/73934.html).
+Robot safety standards also need exact scope matching.
+
+### Labour-market statistics and decent-work measurement are different evidence classes
+
+Statistics South Africa's QLFS Q2 2026 reported a national official unemployment rate of 33.6% and publishes definitions, metadata, and labour-market series. This is authoritative descriptive evidence for its target population and period, but it is not a causal crime coefficient, not a Johannesburg service-area baseline, and not a predictor of individual behaviour. See [Stats SA QLFS Q2 2026](https://www.statssa.gov.za/?PPN=P0211&SCH=74512&page_id=1856).
+
+The ILO's decent-work indicator framework offers a multidimensional way to specify constructs such as earnings, work safety, stability/security, and social protection. It does not establish the prototype's numeric viability gates and does not prove crime-prevention efficacy. See [ILO Decent Work Indicators](https://www.ilo.org/publications/decent-work-indicators-concepts-and-definitions) and the [ILO measurement framework](https://www.ilo.org/resource/ilo-framework-measurement-decent-work).
+
+The associated Symthaea viability fixture keeps those source roles explicit: contextual labour statistics and measurement frameworks are not fed into the crime-event simulator as effect sizes. Its current numeric gates and low/high values are synthetic tests until locally operationalized, reviewed, and validated.
+ The official ISO catalogue lists ISO 10218-1:2025 as an industrial-robot standard and ISO 10218-2:2025 as covering industrial robot applications and robot cells. The latter's catalogue description lists public-access service robots and law-enforcement uses among its exclusions. Therefore, a Mycelix record for a published industrial standard must not be presented as proof that a public-facing service/security robot is covered, safe, authorized, or legally deployable. Record the exact edition, scope and exclusions, then route the actual robot category and use case to a qualified safety/legal review. See [ISO 10218-1:2025](https://www.iso.org/standard/73933.html) and [ISO 10218-2:2025](https://www.iso.org/standard/73934.html).
 
 
 ## Service-journey reference slice
