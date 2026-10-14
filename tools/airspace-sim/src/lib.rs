@@ -86,7 +86,7 @@ pub enum IntentState {
     Accepted,
     Activated,
     Withdrawn,
-    Completed,
+    Ended,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
@@ -259,7 +259,7 @@ pub fn evaluate_scenario(scenario: &Scenario) -> SimulationReport {
         if flight.flight_id.trim().is_empty() {
             reasons.push("flight_id must not be empty".to_owned());
         }
-        if matches!(flight.state, IntentState::Withdrawn | IntentState::Completed) {
+        if matches!(flight.state, IntentState::Withdrawn | IntentState::Ended) {
             reasons.push(format!(
                 "flight intent '{}' is {:?} and cannot be treated as active future intent",
                 flight.flight_id, flight.state
@@ -452,7 +452,7 @@ fn state_transition_allowed(previous: IntentState, next: IntentState) -> bool {
         (previous, next),
         (IntentState::Proposed, IntentState::Accepted | IntentState::Withdrawn)
             | (IntentState::Accepted, IntentState::Activated | IntentState::Withdrawn)
-            | (IntentState::Activated, IntentState::Completed)
+            | (IntentState::Activated, IntentState::Ended)
     )
 }
 
@@ -671,12 +671,12 @@ mod tests {
     }
 
     #[test]
-    fn withdrawn_and_completed_intents_are_not_active_future_intents() {
+    fn withdrawn_and_ended_intents_are_not_active_future_intents() {
         let template = fixture_set().scenarios
             .into_iter()
             .find(|item| item.scenario_id == "clear_separation")
             .expect("clear case exists");
-        for state in [IntentState::Withdrawn, IntentState::Completed] {
+        for state in [IntentState::Withdrawn, IntentState::Ended] {
             let mut scenario = template.clone();
             scenario.flights[0].state = state;
             assert_eq!(evaluate_scenario(&scenario).classification, Classification::Reject);
