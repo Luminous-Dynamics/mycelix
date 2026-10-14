@@ -62,11 +62,22 @@ pub enum ForecastPlanError {
     InvalidEvaluationWindow,
     NoTargets,
     TooManyTargets,
-    InvalidTarget { index: usize },
-    TargetOutsideEvaluationWindow { target: ReferenceId },
-    DuplicateTargetId { target: ReferenceId },
-    DuplicateTargetSemantics { target: ReferenceId },
-    OverlappingTargets { left: ReferenceId, right: ReferenceId },
+    InvalidTarget {
+        index: usize,
+    },
+    TargetOutsideEvaluationWindow {
+        target: ReferenceId,
+    },
+    DuplicateTargetId {
+        target: ReferenceId,
+    },
+    DuplicateTargetSemantics {
+        target: ReferenceId,
+    },
+    OverlappingTargets {
+        left: ReferenceId,
+        right: ReferenceId,
+    },
     ProtocolBindingMismatch,
     NonCanonicalOrder,
     DigestMismatch,
