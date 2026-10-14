@@ -109,6 +109,26 @@ For Johannesburg, the existing [Sol-Atlas civic case ledger PR #109](https://git
 
 Add synthetic negative controls before enabling any such flow: missing payer, uncommitted or insufficient full-period funding, unknown human-reviewed wage classification, stale/cancelled/awarded procurement notice mislabelled as open, unapproved scope, provider self-verification, and a disputed service result incorrectly used to deny wages. None of those conditions may silently advance a work package.
 
+
+### Executable reference contract v0.1 — under qualification
+
+The first Mycelix-owned work-package contract slice is now present on the public branch:
+
+- Schema: [`civic-work-package-v0.1.schema.json`](civic-work-package-v0.1.schema.json).
+- Synthetic proposal and authorized-stage fixtures: [fixture directory](civic-work-package-fixtures/).
+- Fixture manifest with pinned Git blob identities: [`manifest.v0.1.json`](civic-work-package-fixtures/manifest.v0.1.json).
+- Fail-closed schema and semantic validator: [`validate_civic_work_package_v0_1.py`](../../scripts/qualification/validate_civic_work_package_v0_1.py).
+- Adversarial tests: [`test_validate_civic_work_package_v0_1.py`](../../scripts/qualification/test_validate_civic_work_package_v0_1.py).
+- Exact-PR-head workflow: [`civic-work-package-contract.yml`](../../.github/workflows/civic-work-package-contract.yml).
+
+The checker requires full-period committed funding to cover the modeled full-period cost estimate, consistent payer references, human authorization before authorized work, qualified human review for paid-role classification, a procurement/contract stage suitable for announcement and execution, chronological lifecycle transitions with evidence, and reviewer/evidence identity consistency. Its negative controls reject missing funding receipts, unreviewed paid roles, an open tender treated as active work, automated authorization, corrupted lifecycle history, insufficient funding, provider self-verification, and duplicate JSON keys.
+
+The manifest pins the schema and each positive fixture using their Git blob SHA-1 identities; the validator recomputes those Git object hashes against the exact checked-out bytes. The workflow explicitly checks out and tests the pull request head commit, rather than silently qualifying only GitHub's synthetic merge ref. Read the run result for the exact current head before calling the gate passed: queued or pending means unqualified.
+
+This is a reference contract, not yet a production runtime or a cryptographic trust service. The checker does not authenticate issuers or reviewers, verify signatures, fetch source artifacts, interpret South African employment law, establish that a tender is legally valid, or prove that a reported repair happened. Those responsibilities require authenticated adapters, qualified human decisions, and independent evidence.
+
+The design is also grounded in existing external frameworks rather than claiming a novel universal standard: the [Open Contracting Data Standard](https://standard.open-contracting.org/latest/en/) for contract lifecycle data; [W3C PROV-O](https://www.w3.org/TR/prov-o/) for provenance relationships between entities, activities, and responsible agents; [UN-Habitat's people-centred smart-city programme](https://unhabitat.org/programme/people-centred-smart-cities) for human rights, accessibility, inclusion, and community participation; and the [ILO decent-work agenda](https://www.ilo.org/public/english/decent.htm) and [workplace safety guidance](https://www.ilo.org/topics-and-sectors/safety-and-health-work) for worker protections. These are design anchors, not automatic evidence of legal compliance.
+
 ## Boundary interfaces
 
 Prefer small versioned Rust types and adapter traits. These are conceptual signatures, not existing APIs:
