@@ -654,7 +654,9 @@ pub fn VideosPage() -> impl IntoView {
                         };
                         view! {
                             <li>
-                                <button type="button" class="video-chapter" on:click=seek>
+                                <button type="button" class="video-chapter"
+                                    disabled=move || !player_enabled.get() || source_url.get().is_none() || delivery_failed.get()
+                                    on:click=seek>
                                     <span class="video-chapter-time">{format_duration(seconds)}</span>
                                     <span>{chapter.label}</span>
                                 </button>
