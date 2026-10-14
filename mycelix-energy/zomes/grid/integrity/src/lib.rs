@@ -109,10 +109,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 match app_entry {
                     EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                     EntryTypes::EnergyProduction(production) => {
-                        validate_create_energy_production(EntryCreationAction::Create(action), production)
+                        validate_create_energy_production(
+                            EntryCreationAction::Create(action),
+                            production,
+                        )
                     }
                     EntryTypes::EnergyConsumption(consumption) => {
-                        validate_create_energy_consumption(EntryCreationAction::Create(action), consumption)
+                        validate_create_energy_consumption(
+                            EntryCreationAction::Create(action),
+                            consumption,
+                        )
                     }
                     EntryTypes::TradeOffer(offer) => {
                         validate_create_trade_offer(EntryCreationAction::Create(action), offer)
