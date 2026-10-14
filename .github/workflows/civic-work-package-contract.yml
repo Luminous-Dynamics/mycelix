@@ -31,6 +31,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -38,9 +40,11 @@ jobs:
         run: python -m pip install --disable-pip-version-check "jsonschema==4.26.0"
       - name: Print exact revision
         run: |
-          printf 'github.sha=%s\n' "$GITHUB_SHA"
+          expected_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          printf 'event.sha=%s\n' "$GITHUB_SHA"
+          printf 'expected.subject.sha=%s\n' "$expected_sha"
           printf 'checkout.sha=%s\n' "$(git rev-parse HEAD)"
-          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+          test "$expected_sha" = "$(git rev-parse HEAD)"
       - name: Validate schema and positive fixtures
         run: python scripts/qualification/validate_civic_work_package_v0_1.py
       - name: Run adversarial controls
