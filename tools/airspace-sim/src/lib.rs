@@ -20,6 +20,7 @@ pub struct ScenarioSet {
     pub status: String,
     pub authority_ceiling: String,
     pub scenarios: Vec<Scenario>,
+    pub lifecycle_transition_cases: Vec<LifecycleTransitionCase>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -95,6 +96,54 @@ pub enum FlightPriority {
     Emergency,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct IntentLifecycleEvent {
+    pub intent_id: String,
+    pub issuer_id: String,
+    pub trajectory_digest: String,
+    pub time_basis: String,
+    pub sequence: u64,
+    pub event_time_s: i64,
+    pub state: IntentState,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct LifecycleTransitionCase {
+    pub case_id: String,
+    pub previous: IntentLifecycleEvent,
+    pub next: IntentLifecycleEvent,
+    pub expected_outcome: TransitionOutcome,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TransitionOutcome {
+    Accepted,
+    Rejected,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TransitionError {
+    EmptyIdentity,
+    IdentityChanged,
+    TrajectoryDigestChanged,
+    TimeBasisChanged,
+    StaleOrDuplicateSequence,
+    SequenceGap,
+    TimeReversal,
+    IllegalStateTransition,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct LifecycleTransitionReport {
+    pub case_id: String,
+    pub expected_outcome: TransitionOutcome,
+    pub actual_outcome: TransitionOutcome,
+    pub expectation_matches: bool,
+    pub error: Option<TransitionError>,
+}
+
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Classification {
@@ -137,8 +186,10 @@ pub struct ReplayOutput {
     pub schema: &'static str,
     pub status: &'static str,
     pub input_scenario_count: usize,
+    pub input_lifecycle_transition_case_count: usize,
     pub all_expectations_match: bool,
     pub reports: Vec<SimulationReport>,
+    pub lifecycle_transition_reports: Vec<LifecycleTransitionReport>,
 }
 
 const AUTHORITY_CEILING: &str =
@@ -338,13 +389,88 @@ pub fn evaluate_scenario(scenario: &Scenario) -> SimulationReport {
 /// Evaluate a complete versioned fixture and preserve expected classifications.
 pub fn replay_set(set: &ScenarioSet) -> ReplayOutput {
     let reports: Vec<SimulationReport> = set.scenarios.iter().map(evaluate_scenario).collect();
-    let all_expectations_match = reports.iter().all(|item| item.expectation_matches);
+    let lifecycle_transition_reports: Vec<LifecycleTransitionReport> = set
+        .lifecycle_transition_cases
+        .iter()
+        .map(evaluate_lifecycle_transition_case)
+        .collect();
+    let all_expectations_match = reports.iter().all(|item| item.expectation_matches)
+        && lifecycle_transition_reports.iter().all(|item| item.expectation_matches);
     ReplayOutput {
         schema: "airspace-replay-output-v1",
         status: "research_fixture_not_operational",
         input_scenario_count: reports.len(),
+        input_lifecycle_transition_case_count: lifecycle_transition_reports.len(),
         all_expectations_match,
         reports,
+        lifecycle_transition_reports,
+    }
+}
+
+pub fn validate_intent_transition(
+    previous: &IntentLifecycleEvent,
+    next: &IntentLifecycleEvent,
+) -> Result<(), TransitionError> {
+    if previous.intent_id.trim().is_empty()
+        || previous.issuer_id.trim().is_empty()
+        || previous.trajectory_digest.trim().is_empty()
+        || previous.time_basis.trim().is_empty()
+        || next.intent_id.trim().is_empty()
+        || next.issuer_id.trim().is_empty()
+        || next.trajectory_digest.trim().is_empty()
+        || next.time_basis.trim().is_empty()
+    {
+        return Err(TransitionError::EmptyIdentity);
+    }
+
+    if previous.intent_id != next.intent_id || previous.issuer_id != next.issuer_id {
+        return Err(TransitionError::IdentityChanged);
+    }
+    if previous.trajectory_digest != next.trajectory_digest {
+        return Err(TransitionError::TrajectoryDigestChanged);
+    }
+    if previous.time_basis != next.time_basis {
+        return Err(TransitionError::TimeBasisChanged);
+    }
+    if next.sequence <= previous.sequence {
+        return Err(TransitionError::StaleOrDuplicateSequence);
+    }
+    if previous.sequence.checked_add(1) != Some(next.sequence) {
+        return Err(TransitionError::SequenceGap);
+    }
+    if next.event_time_s < previous.event_time_s {
+        return Err(TransitionError::TimeReversal);
+    }
+    if !state_transition_allowed(previous.state, next.state) {
+        return Err(TransitionError::IllegalStateTransition);
+    }
+    Ok(())
+}
+
+fn state_transition_allowed(previous: IntentState, next: IntentState) -> bool {
+    matches!(
+        (previous, next),
+        (IntentState::Proposed, IntentState::Accepted | IntentState::Withdrawn)
+            | (IntentState::Accepted, IntentState::Activated | IntentState::Withdrawn)
+            | (IntentState::Activated, IntentState::Completed)
+    )
+}
+
+fn evaluate_lifecycle_transition_case(
+    case: &LifecycleTransitionCase,
+) -> LifecycleTransitionReport {
+    let validation = validate_intent_transition(&case.previous, &case.next);
+    let actual_outcome = if validation.is_ok() {
+        TransitionOutcome::Accepted
+    } else {
+        TransitionOutcome::Rejected
+    };
+    LifecycleTransitionReport {
+        case_id: case.case_id.clone(),
+        expected_outcome: case.expected_outcome,
+        actual_outcome,
+        expectation_matches: actual_outcome == case.expected_outcome,
+        error: validation.err(),
     }
 }
 
@@ -462,6 +588,7 @@ mod tests {
         let output = replay_set(&set);
         assert_eq!(output.status, "research_fixture_not_operational");
         assert_eq!(output.input_scenario_count, set.scenarios.len());
+        assert_eq!(output.input_lifecycle_transition_case_count, set.lifecycle_transition_cases.len());
         assert!(
             output.all_expectations_match,
             "mismatched reports: {:#?}",
