@@ -196,6 +196,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Check no tracked Finance Python environments
+        run: |
+          set -euo pipefail
+          forbidden="$(git ls-tree -r --name-only HEAD | grep -E '^mycelix-finance/(\.venv|venv|env)(/|$)' || true)"
+          test -z "$forbidden"
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
