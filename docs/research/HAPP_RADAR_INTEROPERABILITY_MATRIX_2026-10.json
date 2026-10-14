@@ -70,7 +70,16 @@
       ],
       "compatibility_verified_with_mycelix": false,
       "runtime_integration_verified": false,
-      "license_reuse_approved": false
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "h-REA/hREA",
+          "ref": "sprout",
+          "sha": "8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4",
+          "committed_at": "2026-09-16T17:49:56Z",
+          "url": "https://github.com/h-REA/hREA/commit/8c99160bbf6c4ffab0b4d05a3edf8ec629c09ab4"
+        }
+      ]
     },
     {
       "id": "nondominium",
@@ -100,7 +109,16 @@
       ],
       "compatibility_verified_with_mycelix": false,
       "runtime_integration_verified": false,
-      "license_reuse_approved": false
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "Sensorica/nondominium",
+          "ref": "dev",
+          "sha": "bbf87941ef0977c38be268b665839aeb72bc5572",
+          "committed_at": "2026-10-08T20:24:31Z",
+          "url": "https://github.com/Sensorica/nondominium/commit/bbf87941ef0977c38be268b665839aeb72bc5572"
+        }
+      ]
     },
     {
       "id": "moss",
@@ -129,7 +147,16 @@
       ],
       "compatibility_verified_with_mycelix": false,
       "runtime_integration_verified": false,
-      "license_reuse_approved": false
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "lightningrodlabs/moss",
+          "ref": "main",
+          "sha": "4a87b935f013491714f347b0c609c391886b969b",
+          "committed_at": "2026-07-23T19:35:29Z",
+          "url": "https://github.com/lightningrodlabs/moss/commit/4a87b935f013491714f347b0c609c391886b969b"
+        }
+      ]
     },
     {
       "id": "ad4m",
@@ -159,7 +186,16 @@
       ],
       "compatibility_verified_with_mycelix": false,
       "runtime_integration_verified": false,
-      "license_reuse_approved": false
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "coasys/ad4m",
+          "ref": "dev",
+          "sha": "b7944f1b4bf081da67ad717ace3ba690ab99a7e1",
+          "committed_at": "2026-10-14T10:39:31Z",
+          "url": "https://github.com/coasys/ad4m/commit/b7944f1b4bf081da67ad717ace3ba690ab99a7e1"
+        }
+      ]
     },
     {
       "id": "valichord",
@@ -190,14 +226,26 @@
       ],
       "compatibility_verified_with_mycelix": false,
       "runtime_integration_verified": false,
-      "license_reuse_approved": false
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "ValiChord/ValiChord",
+          "ref": "main",
+          "sha": "fe45114594f377bb9cd1ecdba798259c83c64567",
+          "committed_at": "2026-09-04T15:13:24Z",
+          "url": "https://github.com/ValiChord/ValiChord/commit/fe45114594f377bb9cd1ecdba798259c83c64567"
+        }
+      ]
     },
     {
       "id": "epistemic-resonance",
       "name": "Epistemic Resonance Protocol",
       "category": "claims_evidence_critique",
       "source_urls": [
-        "https://happradar.com/projects/epistemic-happ"
+        "https://happradar.com/projects/epistemic-resonance-desktop",
+        "https://happradar.com/projects/epistemic-happ",
+        "https://github.com/StateofIntent/epistemic-happ/blob/main/INSTALL.md",
+        "https://github.com/StateofIntent/epistemic-resonance-desktop/releases"
       ],
       "useful_capability": "Structured claims, critiques and evidence with visible disagreement.",
       "mycelix_domains": [
@@ -219,14 +267,43 @@
       ],
       "compatibility_verified_with_mycelix": false,
       "runtime_integration_verified": false,
-      "license_reuse_approved": false
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "StateofIntent/epistemic-happ",
+          "ref": "main",
+          "sha": "c4c1f54dd73e220734bc85585aa172e3b2edfea0",
+          "committed_at": "2026-10-14T09:47:16Z",
+          "url": "https://github.com/StateofIntent/epistemic-happ/commit/c4c1f54dd73e220734bc85585aa172e3b2edfea0"
+        },
+        {
+          "repository": "StateofIntent/epistemic-resonance-desktop",
+          "ref": "main",
+          "sha": "0c866d53685fc07b7eca5db42c8f39609abab466",
+          "committed_at": "2026-10-12T11:59:21Z",
+          "url": "https://github.com/StateofIntent/epistemic-resonance-desktop/commit/0c866d53685fc07b7eca5db42c8f39609abab466"
+        }
+      ],
+      "observed_maturity_and_compatibility": {
+        "checked_on": "2026-10-14",
+        "release": "v0.2.0 desktop packaging release published 2026-10-12",
+        "declared_runtime": "The hAppRadar page describes a standalone desktop app with a built-in Holochain 0.7 conductor, while its structured Holochain-version field is not recorded.",
+        "caveats": [
+          "Desktop release assets are reported as unsigned by the project page.",
+          "INSTALL documentation says peer discovery currently uses Holochain's development bootstrap server.",
+          "The project states data does not survive an incompatible upgrade; do not assume in-place data migration."
+        ],
+        "use_for_mycelix": "Good evidence of a standalone distribution approach and append-only claim/critique/retraction model; not proof of production deployment, independent security review, or stable peer-discovery infrastructure."
+      }
     },
     {
       "id": "hearth",
       "name": "Hearth",
       "category": "person_controlled_care",
       "source_urls": [
-        "https://happradar.com/projects/hearth"
+        "https://happradar.com/projects/hearth",
+        "https://github.com/topeuph-ai/hearth/blob/main/README.md",
+        "https://github.com/topeuph-ai/hearth/releases"
       ],
       "useful_capability": "Person-controlled care records and portable care preferences.",
       "mycelix_domains": [
@@ -247,7 +324,33 @@
       ],
       "compatibility_verified_with_mycelix": false,
       "runtime_integration_verified": false,
-      "license_reuse_approved": false
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "topeuph-ai/hearth",
+          "ref": "main",
+          "sha": "75e2b3e8485a6f9f5be4478986ef6597f48ed5c9",
+          "committed_at": "2026-09-24T16:07:12Z",
+          "url": "https://github.com/topeuph-ai/hearth/commit/75e2b3e8485a6f9f5be4478986ef6597f48ed5c9"
+        }
+      ],
+      "observed_maturity_and_compatibility": {
+        "checked_on": "2026-10-14",
+        "latest_listed_release": "v0.3.4 (published 2026-09-23)",
+        "compatibility_reported_by_happ_radar": {
+          "hdk": "0.7.0",
+          "hdi": "0.8.0",
+          "holochain_client": "0.21.0",
+          "holochain_version": "0.7.0"
+        },
+        "caveats": [
+          "The project's own README describes an early demo and says it should not be relied on for real care records.",
+          "The reviewed project page says stored entries are not encrypted at rest.",
+          "Members admitted to a circle receive plaintext, and leaving removes the local copy only; other circle members retain theirs.",
+          "It explicitly is not a clinical record."
+        ],
+        "use_for_mycelix": "Benchmark person-centred consent and portability UX only; do not import its storage/security model or test with real health data."
+      }
     },
     {
       "id": "flowsta-vault",
@@ -275,13 +378,23 @@
       ],
       "compatibility_verified_with_mycelix": false,
       "runtime_integration_verified": false,
-      "license_reuse_approved": false
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "WeAreFlowsta/flowsta-vault-app",
+          "ref": "main",
+          "sha": "b3788f09d988400422d834d30626425784ef2935",
+          "committed_at": "2026-10-09T09:53:53Z",
+          "url": "https://github.com/WeAreFlowsta/flowsta-vault-app/commit/b3788f09d988400422d834d30626425784ef2935"
+        }
+      ]
     },
     {
       "id": "requests-and-offers",
       "name": "Requests and Offers",
       "category": "thin_vertical_workflow",
       "source_urls": [
+        "https://happradar.com/projects/requests-and-offers",
         "https://github.com/happenings-community/requests-and-offers/blob/main/README.md",
         "https://github.com/happenings-community/requests-and-offers/blob/main/package.json"
       ],
@@ -304,7 +417,31 @@
       ],
       "compatibility_verified_with_mycelix": false,
       "runtime_integration_verified": false,
-      "license_reuse_approved": false
+      "license_reuse_approved": false,
+      "source_revisions": [
+        {
+          "repository": "happenings-community/requests-and-offers",
+          "ref": "main",
+          "sha": "3f936e475db37fd0b6498bf9fc7244478c3d6d0a",
+          "committed_at": "2026-09-16T02:43:36Z",
+          "url": "https://github.com/happenings-community/requests-and-offers/commit/3f936e475db37fd0b6498bf9fc7244478c3d6d0a"
+        }
+      ],
+      "observed_maturity_and_compatibility": {
+        "checked_on": "2026-10-14",
+        "release": "v0.6.0-alpha.1 (hAppRadar lists 2026-09-15)",
+        "compatibility_reported_by_happ_radar": {
+          "hdk": "0.6.1",
+          "hdi": "0.7.1",
+          "holochain_client": "0.20.5",
+          "holochain_release_note": "0.6.0"
+        },
+        "caveats": [
+          "The project explicitly labels itself alpha/not production-ready.",
+          "Its listed compatibility tuple differs from the Holochain 0.7 baseline in this matrix."
+        ],
+        "use_for_mycelix": "Benchmark the narrow user journey and tests, but do not assume an artifact is directly composable with hREA's Holochain 0.7 branch."
+      }
     }
   ],
   "adversarial_cases": [
@@ -404,5 +541,6 @@
       "observed_on": "2026-10-14",
       "use": "Project discovery only; listing status is not independent validation."
     }
-  ]
+  ],
+  "source_revisions_policy": "Moving branch URLs are discovery links only. The source_revisions field pins the exact commit inspected for each repository as of this snapshot. Compatibility/behavior statements remain source-reported until separately reproduced."
 }
