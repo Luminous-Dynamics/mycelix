@@ -430,10 +430,12 @@ impl ForecastScorecard {
         Ok(result)
     }
 
+    #[cfg(test)]
     pub fn candidate_not_worse_than_baseline(&self) -> bool {
         self.candidate_absolute_error_sum <= self.baseline_absolute_error_sum
     }
 
+    #[cfg(test)]
     pub fn abstention_bps(&self) -> u16 {
         if self.cases == 0 {
             return 10_000;
@@ -451,6 +453,7 @@ pub enum ShadowPromotionDecision {
     CandidateWorseThanBaseline,
 }
 
+#[cfg(test)]
 pub fn evaluate_forecast_gate(
     protocol: &ForecastQualificationProtocol,
     scorecard: &ForecastScorecard,
@@ -596,6 +599,7 @@ impl RecommendationScorecard {
         Ok(result)
     }
 
+    #[cfg(test)]
     pub fn useful_or_modified_bps(&self) -> u16 {
         if self.reviewed == 0 {
             return 0;
@@ -613,6 +617,7 @@ pub enum RecommendationPromotionDecision {
     InsufficientUsefulness { actual_bps: u16, required_bps: u16 },
 }
 
+#[cfg(test)]
 pub fn evaluate_recommendation_gate(
     protocol: &RecommendationQualificationProtocol,
     scorecard: &RecommendationScorecard,
