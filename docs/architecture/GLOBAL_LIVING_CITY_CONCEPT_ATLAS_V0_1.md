@@ -192,6 +192,13 @@ Use a Pareto comparison and documented community priorities rather than pretendi
 6. Store source, authorship, permissions, review, and version links through Mycelix records.
 7. Produce an independent manifest with exact revisions, input hashes, licenses, test results, and output hashes.
 
+
+### Fixture manifest and validator semantics
+
+The fixture inventory is machine-readable at `fixtures/living-city/manifest.v0.1.json`. It declares the expected result for each positive and negative fixture and the specific missing-field defect each negative control is meant to exercise. A future test must check that a negative fixture fails for its intended reason, not merely for any error.
+
+JSON Schema Draft 2020-12 treats `format` as annotation by default unless format assertion is explicitly enabled. Therefore a validator must not silently assume that `format: uri` proves source URLs are syntactically valid; enable the relevant format-assertion behavior or add an explicit application-level URI check. Even then, syntactic URI validity does not prove that a source exists, is trustworthy, or grants reuse rights.
+
 ## Acceptance criteria
 
 - [ ] A concept schema is versioned and validated.
