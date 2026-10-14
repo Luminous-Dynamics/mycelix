@@ -95,11 +95,18 @@ class CivicWorkPackageTests(unittest.TestCase):
             item for item in coverage
             if item["category"] not in {"environmental_mitigation", "end_of_life_disposal"}
         ]
-        coverage.append({
-            "category": "other",
-            "disposition": "not_applicable",
-            "rationale": "Duplicate control entry that cannot replace required categories.",
-        })
+        coverage.extend([
+            {
+                "category": "other",
+                "disposition": "not_applicable",
+                "rationale": "Duplicate control entry that cannot replace required categories.",
+            },
+            {
+                "category": "wages",
+                "disposition": "included",
+                "rationale": "Duplicate control entry that cannot replace required categories.",
+            },
+        ])
         errors = validate_record(record, SCHEMA, "missing environmental and closeout coverage")
         self.assertIn("CWP_E_COST_COVERAGE_INCOMPLETE", errors)
 
