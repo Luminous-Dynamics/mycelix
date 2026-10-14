@@ -542,6 +542,126 @@
           "time_basis": "fixture-tai-epoch-v1"
         }
       ]
+    },
+    {
+      "scenario_id": "time_basis_mismatch_unresolved",
+      "description": "The same numeric timestamps in unrelated epochs cannot be compared as a common space-time plan.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "unresolved",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 100000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "unrelated-fixture-epoch-v1"
+        }
+      ]
+    },
+    {
+      "scenario_id": "withdrawn_intent_rejected",
+      "description": "A withdrawn intent cannot be treated as current future traffic.",
+      "window_start_s": 0,
+      "window_end_s": 10,
+      "policy": {
+        "horizontal_separation_mm": 10000,
+        "vertical_separation_mm": 5000,
+        "sample_step_s": 1
+      },
+      "expected_classification": "reject",
+      "flights": [
+        {
+          "flight_id": "A",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 0,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "withdrawn",
+          "time_basis": "fixture-tai-epoch-v1"
+        },
+        {
+          "flight_id": "B",
+          "reference_frame": "fixture-local-enu-v1",
+          "vertical_datum": "fixture-local-millimetres-v1",
+          "time_qualified": true,
+          "valid_from_s": 0,
+          "valid_until_s": 10,
+          "position_at_valid_from_mm": {
+            "x": 0,
+            "y": 100000,
+            "z": 100000
+          },
+          "velocity_mm_s": {
+            "x": 10000,
+            "y": 0,
+            "z": 0
+          },
+          "horizontal_uncertainty_mm": 1000,
+          "vertical_uncertainty_mm": 1000,
+          "priority": "routine",
+          "state": "accepted",
+          "time_basis": "fixture-tai-epoch-v1"
+        }
+      ]
     }
   ]
 }
