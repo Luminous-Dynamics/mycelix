@@ -319,9 +319,7 @@ pub fn source_export_manifest_digest(manifest: &SourceExportManifest) -> Digest3
 /// statement it purports to represent. External authentication must still verify the
 /// exact statement bytes and issuer and must establish that parsing produced this
 /// projection; a digest over caller-supplied fields is not an authenticity proof.
-pub fn provider_coverage_projection_digest(
-    attestation: &ProviderCoverageAttestation,
-) -> Digest32 {
+pub fn provider_coverage_projection_digest(attestation: &ProviderCoverageAttestation) -> Digest32 {
     let mut hasher = Sha256::new();
     hash_text(&mut hasher, "mycelix:provider-coverage-projection:v1");
     hash_ref(&mut hasher, &attestation.attestation_id);
@@ -343,12 +341,12 @@ pub fn provider_coverage_projection_digest(
     finish_digest(hasher)
 }
 
-fn combined_evidence_digest(
-    manifest_digest: &Digest32,
-    projection_digest: &Digest32,
-) -> Digest32 {
+fn combined_evidence_digest(manifest_digest: &Digest32, projection_digest: &Digest32) -> Digest32 {
     let mut hasher = Sha256::new();
-    hash_text(&mut hasher, "mycelix:hospitality-export-completeness-evidence:v1");
+    hash_text(
+        &mut hasher,
+        "mycelix:hospitality-export-completeness-evidence:v1",
+    );
     hash_digest(&mut hasher, manifest_digest);
     hash_digest(&mut hasher, projection_digest);
     finish_digest(hasher)
@@ -779,10 +777,7 @@ mod tests {
         &'static [u8],
     ) {
         let (mut manifest, mut attestation) = fixture();
-        let page_payloads: [&[u8]; 2] = [
-            &b"page-zero-payload"[..],
-            &b"page-one-payload"[..],
-        ];
+        let page_payloads: [&[u8]; 2] = [&b"page-zero-payload"[..], &b"page-one-payload"[..]];
         let statement: &[u8] = b"provider-coverage-statement-v1";
 
         for (page, payload) in manifest.pages.iter_mut().zip(page_payloads.iter()) {
@@ -832,14 +827,25 @@ mod tests {
     #[test]
     fn raw_payload_binding_digest_is_deterministic() {
         let (manifest, attestation, pages, statement) = raw_payload_fixture();
-        let first =
-            assess_export_completeness_with_raw_payloads(&manifest, &attestation, &pages, statement)
-                .unwrap();
-        let second =
-            assess_export_completeness_with_raw_payloads(&manifest, &attestation, &pages, statement)
-                .unwrap();
+        let first = assess_export_completeness_with_raw_payloads(
+            &manifest,
+            &attestation,
+            &pages,
+            statement,
+        )
+        .unwrap();
+        let second = assess_export_completeness_with_raw_payloads(
+            &manifest,
+            &attestation,
+            &pages,
+            statement,
+        )
+        .unwrap();
 
-        assert_eq!(first.raw_payload_binding_digest, second.raw_payload_binding_digest);
+        assert_eq!(
+            first.raw_payload_binding_digest,
+            second.raw_payload_binding_digest
+        );
     }
 
     #[test]
@@ -1116,7 +1122,10 @@ mod tests {
         let (manifest, attestation) = fixture();
         let result = assess_export_completeness(&manifest, &attestation).unwrap();
 
-        assert_eq!(result.manifest_digest, source_export_manifest_digest(&manifest));
+        assert_eq!(
+            result.manifest_digest,
+            source_export_manifest_digest(&manifest)
+        );
         assert_eq!(
             result.provider_coverage_projection_digest,
             provider_coverage_projection_digest(&attestation)
