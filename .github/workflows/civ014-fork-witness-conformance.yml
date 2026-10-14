@@ -1,0 +1,143 @@
+name: CIV-014 Fork-Witness Conformance
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - ".github/workflows/civ014-fork-witness-conformance.yml"
+      - "docs/integral/civ-014-fork-witness-conformance-v1*"
+      - "scripts/integral/verify_civ014_fork_witness_conformance_v1.py"
+  push:
+    branches:
+      - research/civ-014-fork-witness-profile-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civ014-fork-witness-conformance-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Fork-witness reference profile and exact-head Rust tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert exact qualification subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$QUALIFIED_SHA"
+          printf 'qualified_sha=%s\n' "$actual"
+
+      - name: Validate profile JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m json.tool docs/integral/civ-014-fork-witness-conformance-v1.json >/dev/null
+          python3 -m json.tool docs/integral/civ-014-fork-witness-conformance-v1-manifest.json >/dev/null
+
+      - name: Fetch exact pinned producer source
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_commit="$(python3 -c 'import json; print(json.load(open("docs/integral/civ-014-fork-witness-conformance-v1-manifest.json"))["source_adapter_commit"])')"
+          git init symthaea-source
+          git -C symthaea-source fetch --depth=1 https://github.com/Luminous-Dynamics/symthaea.git "$source_commit"
+          git -C symthaea-source checkout --detach FETCH_HEAD
+          actual="$(git -C symthaea-source rev-parse HEAD)"
+          test "$actual" = "$source_commit"
+          printf 'source_commit=%s\n' "$actual"
+
+      - name: Install the pinned producer Rust toolchain
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # immutable action commit
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+
+      - name: Run independent CIV-014 reference checker
+        id: profile
+        env:
+          CIV014_SOURCE_TREE: ${{ github.workspace }}/symthaea-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/integral/verify_civ014_fork_witness_conformance_v1.py | tee civ014-fork-witness-conformance.txt
+
+      - name: Check formatting on the exact producer crate
+        id: rustfmt
+        working-directory: symthaea-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --package symthaea-civ-witness -- --check
+
+      - name: Run exact producer crate tests
+        id: rust_tests
+        if: ${{ always() && steps.profile.outcome == 'success' }}
+        working-directory: symthaea-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --locked -p symthaea-civ-witness --lib
+
+      - name: Emit qualification evidence
+        if: always()
+        env:
+          PROFILE_OUTCOME: ${{ steps.profile.outcome }}
+          RUSTFMT_OUTCOME: ${{ steps.rustfmt.outcome }}
+          RUST_TEST_OUTCOME: ${{ steps.rust_tests.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="docs/integral/civ-014-fork-witness-conformance-v1-manifest.json"
+          source_commit="$(python3 -c 'import json; print(json.load(open("'"$manifest"'"))["source_adapter_commit"])')"
+          {
+            echo "profile=CIV-014 Fork-Witness Conformance v1"
+            echo "status=profile-${PROFILE_OUTCOME}-rustfmt-${RUSTFMT_OUTCOME}-rust-tests-${RUST_TEST_OUTCOME}"
+            echo "profile_step_outcome=${PROFILE_OUTCOME}"
+            echo "rustfmt_step_outcome=${RUSTFMT_OUTCOME}"
+            echo "rust_test_step_outcome=${RUST_TEST_OUTCOME}"
+            echo "qualified_sha=$QUALIFIED_SHA"
+            echo "source_adapter_commit=$source_commit"
+            echo "workflow=$GITHUB_WORKFLOW"
+            echo "workflow_ref=$GITHUB_WORKFLOW_REF"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "runner_os=$RUNNER_OS"
+            echo "runner_image=${ImageOS:-unknown}"
+            echo "python=$(python3 --version)"
+            echo "rustc=$(rustc --version)"
+            echo "cargo=$(cargo --version)"
+            echo "manifest_sha256=$(sha256sum "$manifest" | cut -d' ' -f1)"
+            echo "fixture_git_blob=$(git hash-object docs/integral/civ-014-fork-witness-conformance-v1.json)"
+            echo "checker_git_blob=$(git hash-object scripts/integral/verify_civ014_fork_witness_conformance_v1.py)"
+            echo "spec_git_blob=$(git hash-object docs/integral/civ-014-fork-witness-conformance-v1.md)"
+            echo "workflow_git_blob=$(git hash-object .github/workflows/civ014-fork-witness-conformance.yml)"
+            echo "source_lib_git_blob=$(git -C symthaea-source hash-object crates/domains/symthaea-civ-witness/src/lib.rs)"
+            echo "source_fork_witness_git_blob=$(git -C symthaea-source hash-object crates/domains/symthaea-civ-witness/src/fork_witness.rs)"
+            echo "source_workspace_manifest_git_blob=$(git -C symthaea-source hash-object Cargo.toml)"
+            echo "source_lockfile_git_blob=$(git -C symthaea-source hash-object Cargo.lock)"
+            echo "source_toolchain_git_blob=$(git -C symthaea-source hash-object rust-toolchain.toml)"
+            echo "claim_ceiling=ForkWitnessReferenceConformanceOnly"
+            echo "production_witness=not_qualified"
+          } | tee -a civ014-fork-witness-conformance.txt
+
+      - name: Upload qualification record
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: civ014-fork-witness-profile-${{ env.QUALIFIED_SHA }}
+          path: civ014-fork-witness-conformance.txt

@@ -1,0 +1,870 @@
+{
+  "spec_version": "civ-014-fork-witness-v1",
+  "profile_id": "civ-014-fork-witness-v1",
+  "source_repository": "Luminous-Dynamics/symthaea",
+  "source_adapter_commit": "84cbae9e16823f7947e4ce6adbd20ac9167562df",
+  "encoding": {
+    "digest": "SHA-256",
+    "integer_encoding": "unsigned big-endian",
+    "integer_widths": {
+      "schema_version_bits": 16,
+      "epoch_bits": 64,
+      "event_count_bits": 64,
+      "accepted_generation_bits": 64,
+      "fork_generation_bits": 64
+    },
+    "byte_string_encoding": "u64 byte length, big-endian, followed by raw UTF-8 bytes",
+    "event_domain": "mycelix-civ014-fork-event-v1\\0",
+    "receipt_domain": "mycelix-civ014-fork-receipt-v1\\0",
+    "restore_hard_limit_events": 100000
+  },
+  "claim_ceiling": "ForkWitnessReferenceConformanceOnly",
+  "vectors": [
+    {
+      "id": "FW001-valid-event-at-empty-frontier",
+      "kind": "event",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "expected_outcome": "ValidEvent"
+    },
+    {
+      "id": "FW002-valid-event-chained-to-prior-event",
+      "kind": "event",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 1,
+        "previous_event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "accepted_generation": 5,
+        "accepted_head_digest": "e9f6008de6a5b7ddda0df99dca6152e7c20506d492b0f2b3706571f885ab68b1",
+        "fork_generation": 5,
+        "first_record_digest": "82e76822c8dbec2673182be7e82f57e2c1d18b184bde15c143f90475b1b4a081",
+        "conflicting_record_digest": "a2e71a5960264145abc5b0e8e6a0fde692fcea8fe87315e37a58f71939176475",
+        "event_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238"
+      },
+      "expected_outcome": "ValidEvent"
+    },
+    {
+      "id": "FW003-valid-single-step-append-receipt",
+      "kind": "receipt",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "receipt": {
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "frontier_after_count": 1,
+        "frontier_after_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "receipt_digest": "524596bba26031b85e2a92634f376ad7d2474f4a0ccc0532a51d017bd7fa6217"
+      },
+      "expected_outcome": "ValidReceipt"
+    },
+    {
+      "id": "FW004-receipt-cannot-skip-frontier-count",
+      "kind": "receipt",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "receipt": {
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "frontier_after_count": 2,
+        "frontier_after_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "receipt_digest": "524596bba26031b85e2a92634f376ad7d2474f4a0ccc0532a51d017bd7fa6217"
+      },
+      "expected_outcome": "RejectReceiptShape"
+    },
+    {
+      "id": "FW005-empty-frontier-requires-zero-tail",
+      "kind": "frontier",
+      "frontier": {
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "event_count": 0,
+        "tail_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "expected_outcome": "RejectFrontier"
+    },
+    {
+      "id": "FW006-nonempty-frontier-rejects-zero-tail",
+      "kind": "frontier",
+      "frontier": {
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "event_count": 1,
+        "tail_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expected_outcome": "RejectFrontier"
+    },
+    {
+      "id": "FW007-identical-competing-records-rejected",
+      "kind": "event",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "expected_outcome": "RejectIdenticalCompetitors"
+    },
+    {
+      "id": "FW008-event-digest-tampering-rejected",
+      "kind": "event",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expected_outcome": "RejectEventDigest"
+    },
+    {
+      "id": "FW009-ambiguous-append-readback-is-idempotent",
+      "kind": "ambiguous_append",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "receipt": {
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "frontier_after_count": 1,
+        "frontier_after_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "receipt_digest": "524596bba26031b85e2a92634f376ad7d2474f4a0ccc0532a51d017bd7fa6217"
+      },
+      "response": "AppendIndeterminate",
+      "readback_matches": true,
+      "remote_event_count": 1,
+      "expected_outcome": "ResolveAmbiguousExactlyOnce"
+    },
+    {
+      "id": "FW010-pending-retry-appends-once",
+      "kind": "pending_recovery",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_frontier_count": 0,
+      "remote_frontier_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "remote_event_present": false,
+      "witness_available": true,
+      "expected_outcome": "AppendOnce"
+    },
+    {
+      "id": "FW011-remote-commit-before-local-finalize",
+      "kind": "pending_recovery",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_frontier_count": 1,
+      "remote_frontier_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+      "remote_event_present": true,
+      "remote_event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_receipt": {
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "frontier_after_count": 1,
+        "frontier_after_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "receipt_digest": "524596bba26031b85e2a92634f376ad7d2474f4a0ccc0532a51d017bd7fa6217"
+      },
+      "witness_available": true,
+      "expected_outcome": "FinalizeExistingReceipt"
+    },
+    {
+      "id": "FW012-restore-refuses-missing-payload",
+      "kind": "restore",
+      "log_id": "civ014-profile-log",
+      "witness_epoch": 7,
+      "remote_frontier_before": {
+        "event_count": 1,
+        "tail_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_frontier_after": {
+        "event_count": 1,
+        "tail_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_events": [],
+      "local_frontier_present": false,
+      "local_frontier_count": 0,
+      "local_event_digests": [],
+      "max_events": 10,
+      "hard_limit": 100000,
+      "expected_outcome": "RejectMissingPayload",
+      "expected_local_mutations": 0
+    },
+    {
+      "id": "FW013-restore-refuses-moving-frontier",
+      "kind": "restore",
+      "log_id": "civ014-profile-log",
+      "witness_epoch": 7,
+      "remote_frontier_before": {
+        "event_count": 1,
+        "tail_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_frontier_after": {
+        "event_count": 2,
+        "tail_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238"
+      },
+      "remote_events": [
+        {
+          "event": {
+            "schema_version": 1,
+            "log_id": "civ014-profile-log",
+            "witness_epoch": 7,
+            "previous_event_count": 0,
+            "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+            "accepted_generation": 4,
+            "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+            "fork_generation": 4,
+            "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+            "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+            "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+          },
+          "receipt": {
+            "log_id": "civ014-profile-log",
+            "witness_epoch": 7,
+            "previous_event_count": 0,
+            "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+            "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+            "frontier_after_count": 1,
+            "frontier_after_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+            "receipt_digest": "524596bba26031b85e2a92634f376ad7d2474f4a0ccc0532a51d017bd7fa6217"
+          }
+        }
+      ],
+      "local_frontier_present": false,
+      "local_frontier_count": 0,
+      "local_event_digests": [],
+      "max_events": 10,
+      "hard_limit": 100000,
+      "expected_outcome": "RejectFrontierChanged",
+      "expected_local_mutations": 0
+    },
+    {
+      "id": "FW014-hard-restore-limit-before-remote-read",
+      "kind": "restore",
+      "log_id": "civ014-profile-log",
+      "witness_epoch": 7,
+      "remote_frontier_before": {
+        "event_count": 100001,
+        "tail_digest": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "remote_frontier_after": {
+        "event_count": 100001,
+        "tail_digest": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "remote_events": [],
+      "local_frontier_present": false,
+      "local_frontier_count": 0,
+      "local_event_digests": [],
+      "max_events": "u64::MAX",
+      "hard_limit": 100000,
+      "expected_outcome": "RejectHardRestoreLimit",
+      "expected_local_mutations": 0
+    },
+    {
+      "id": "FW015-caller-restore-limit-before-write",
+      "kind": "restore",
+      "log_id": "civ014-profile-log",
+      "witness_epoch": 7,
+      "remote_frontier_before": {
+        "event_count": 1,
+        "tail_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_frontier_after": {
+        "event_count": 1,
+        "tail_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_events": [],
+      "local_frontier_present": false,
+      "local_frontier_count": 0,
+      "local_event_digests": [],
+      "max_events": 0,
+      "hard_limit": 100000,
+      "expected_outcome": "RejectCallerRestoreLimit",
+      "expected_local_mutations": 0
+    },
+    {
+      "id": "FW016-full-erasure-restores-exact-ordered-prefix",
+      "kind": "restore",
+      "log_id": "civ014-profile-log",
+      "witness_epoch": 7,
+      "remote_frontier_before": {
+        "event_count": 2,
+        "tail_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238"
+      },
+      "remote_frontier_after": {
+        "event_count": 2,
+        "tail_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238"
+      },
+      "remote_events": [
+        {
+          "event": {
+            "schema_version": 1,
+            "log_id": "civ014-profile-log",
+            "witness_epoch": 7,
+            "previous_event_count": 0,
+            "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+            "accepted_generation": 4,
+            "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+            "fork_generation": 4,
+            "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+            "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+            "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+          },
+          "receipt": {
+            "log_id": "civ014-profile-log",
+            "witness_epoch": 7,
+            "previous_event_count": 0,
+            "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+            "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+            "frontier_after_count": 1,
+            "frontier_after_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+            "receipt_digest": "524596bba26031b85e2a92634f376ad7d2474f4a0ccc0532a51d017bd7fa6217"
+          }
+        },
+        {
+          "event": {
+            "schema_version": 1,
+            "log_id": "civ014-profile-log",
+            "witness_epoch": 7,
+            "previous_event_count": 1,
+            "previous_event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+            "accepted_generation": 5,
+            "accepted_head_digest": "e9f6008de6a5b7ddda0df99dca6152e7c20506d492b0f2b3706571f885ab68b1",
+            "fork_generation": 5,
+            "first_record_digest": "82e76822c8dbec2673182be7e82f57e2c1d18b184bde15c143f90475b1b4a081",
+            "conflicting_record_digest": "a2e71a5960264145abc5b0e8e6a0fde692fcea8fe87315e37a58f71939176475",
+            "event_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238"
+          },
+          "receipt": {
+            "log_id": "civ014-profile-log",
+            "witness_epoch": 7,
+            "previous_event_count": 1,
+            "previous_event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+            "event_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238",
+            "frontier_after_count": 2,
+            "frontier_after_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238",
+            "receipt_digest": "5a602e1358c7713a4c1193f3d44f2807865f00ef919ffa640724c10e2d256df4"
+          }
+        }
+      ],
+      "local_frontier_present": false,
+      "local_frontier_count": 0,
+      "local_event_digests": [],
+      "max_events": 10,
+      "hard_limit": 100000,
+      "expected_outcome": "RestoreFullPrefix",
+      "expected_restored_count": 2,
+      "expected_tail_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238",
+      "expected_local_mutations": 2
+    },
+    {
+      "id": "FW017-conflicting-remote-prefix-cannot-overwrite-local",
+      "kind": "restore",
+      "log_id": "civ014-profile-log",
+      "witness_epoch": 7,
+      "remote_frontier_before": {
+        "event_count": 1,
+        "tail_digest": "c44e41cf6ee976a336eb0dfbbcac90f0faee2dcac442d13ca74612fbc25a768c"
+      },
+      "remote_frontier_after": {
+        "event_count": 1,
+        "tail_digest": "c44e41cf6ee976a336eb0dfbbcac90f0faee2dcac442d13ca74612fbc25a768c"
+      },
+      "remote_events": [
+        {
+          "event": {
+            "schema_version": 1,
+            "log_id": "civ014-profile-log",
+            "witness_epoch": 7,
+            "previous_event_count": 0,
+            "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+            "accepted_generation": 4,
+            "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+            "fork_generation": 4,
+            "first_record_digest": "91ebe20578ae99498c701f52803977a022422fcbff2b0953d43d84081711e746",
+            "conflicting_record_digest": "ae453c7e3c6a633af07b962c9af7967b99e40f35689551c6e86f94cac0f9ac45",
+            "event_digest": "c44e41cf6ee976a336eb0dfbbcac90f0faee2dcac442d13ca74612fbc25a768c"
+          },
+          "receipt": {
+            "log_id": "civ014-profile-log",
+            "witness_epoch": 7,
+            "previous_event_count": 0,
+            "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+            "event_digest": "c44e41cf6ee976a336eb0dfbbcac90f0faee2dcac442d13ca74612fbc25a768c",
+            "frontier_after_count": 1,
+            "frontier_after_digest": "c44e41cf6ee976a336eb0dfbbcac90f0faee2dcac442d13ca74612fbc25a768c",
+            "receipt_digest": "b527e2cdaaed41b2391921b7a6232ed433b32132e96841a48bac557bee3e7cf5"
+          }
+        }
+      ],
+      "local_frontier_present": true,
+      "local_frontier_count": 1,
+      "local_event_digests": [
+        "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      ],
+      "max_events": 10,
+      "hard_limit": 100000,
+      "expected_outcome": "RejectLocalPrefixConflict",
+      "expected_local_mutations": 0
+    },
+    {
+      "id": "FW018-remote-behind-local-history-fails-closed",
+      "kind": "restore",
+      "log_id": "civ014-profile-log",
+      "witness_epoch": 7,
+      "remote_frontier_before": {
+        "event_count": 1,
+        "tail_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_frontier_after": {
+        "event_count": 1,
+        "tail_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_events": [
+        {
+          "event": {
+            "schema_version": 1,
+            "log_id": "civ014-profile-log",
+            "witness_epoch": 7,
+            "previous_event_count": 0,
+            "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+            "accepted_generation": 4,
+            "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+            "fork_generation": 4,
+            "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+            "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+            "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+          },
+          "receipt": {
+            "log_id": "civ014-profile-log",
+            "witness_epoch": 7,
+            "previous_event_count": 0,
+            "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+            "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+            "frontier_after_count": 1,
+            "frontier_after_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+            "receipt_digest": "524596bba26031b85e2a92634f376ad7d2474f4a0ccc0532a51d017bd7fa6217"
+          }
+        }
+      ],
+      "local_frontier_present": true,
+      "local_frontier_count": 2,
+      "local_event_digests": [
+        "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238"
+      ],
+      "max_events": 10,
+      "hard_limit": 100000,
+      "expected_outcome": "RejectRemoteBehindLocal",
+      "expected_local_mutations": 0
+    },
+    {
+      "id": "FW019-fork-observation-does-not-advance-accepted-head",
+      "kind": "accepted_head_invariant",
+      "before": {
+        "generation": 4,
+        "digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2"
+      },
+      "after": {
+        "generation": 4,
+        "digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2"
+      },
+      "expected_outcome": "AcceptedHeadUnchanged"
+    },
+    {
+      "id": "FW020-witness-unavailable-preserves-pending",
+      "kind": "pending_recovery",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_frontier_count": 0,
+      "remote_frontier_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "remote_event_present": false,
+      "witness_available": false,
+      "expected_outcome": "PendingNoSuccess"
+    },
+    {
+      "id": "FW021-stale-predecessor-rejects-competing-append",
+      "kind": "append_attempt",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "91ebe20578ae99498c701f52803977a022422fcbff2b0953d43d84081711e746",
+        "conflicting_record_digest": "ae453c7e3c6a633af07b962c9af7967b99e40f35689551c6e86f94cac0f9ac45",
+        "event_digest": "c44e41cf6ee976a336eb0dfbbcac90f0faee2dcac442d13ca74612fbc25a768c"
+      },
+      "remote_frontier_count": 1,
+      "remote_frontier_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+      "expected_outcome": "RejectFrontierConflict"
+    },
+    {
+      "id": "FW022-restore-refuses-missing-receipt",
+      "kind": "restore",
+      "log_id": "civ014-profile-log",
+      "witness_epoch": 7,
+      "remote_frontier_before": {
+        "event_count": 1,
+        "tail_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_frontier_after": {
+        "event_count": 1,
+        "tail_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_events": [
+        {
+          "event": {
+            "schema_version": 1,
+            "log_id": "civ014-profile-log",
+            "witness_epoch": 7,
+            "previous_event_count": 0,
+            "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+            "accepted_generation": 4,
+            "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+            "fork_generation": 4,
+            "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+            "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+            "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+          },
+          "receipt": null
+        }
+      ],
+      "local_frontier_present": false,
+      "local_frontier_count": 0,
+      "local_event_digests": [],
+      "max_events": 10,
+      "hard_limit": 100000,
+      "expected_outcome": "RejectMissingReceipt",
+      "expected_local_mutations": 0
+    },
+    {
+      "id": "FW023-restore-refuses-broken-event-chain",
+      "kind": "restore",
+      "log_id": "civ014-profile-log",
+      "witness_epoch": 7,
+      "remote_frontier_before": {
+        "event_count": 1,
+        "tail_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238"
+      },
+      "remote_frontier_after": {
+        "event_count": 1,
+        "tail_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238"
+      },
+      "remote_events": [
+        {
+          "event": {
+            "schema_version": 1,
+            "log_id": "civ014-profile-log",
+            "witness_epoch": 7,
+            "previous_event_count": 1,
+            "previous_event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+            "accepted_generation": 5,
+            "accepted_head_digest": "e9f6008de6a5b7ddda0df99dca6152e7c20506d492b0f2b3706571f885ab68b1",
+            "fork_generation": 5,
+            "first_record_digest": "82e76822c8dbec2673182be7e82f57e2c1d18b184bde15c143f90475b1b4a081",
+            "conflicting_record_digest": "a2e71a5960264145abc5b0e8e6a0fde692fcea8fe87315e37a58f71939176475",
+            "event_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238"
+          },
+          "receipt": {
+            "log_id": "civ014-profile-log",
+            "witness_epoch": 7,
+            "previous_event_count": 1,
+            "previous_event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+            "event_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238",
+            "frontier_after_count": 2,
+            "frontier_after_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238",
+            "receipt_digest": "5a602e1358c7713a4c1193f3d44f2807865f00ef919ffa640724c10e2d256df4"
+          }
+        }
+      ],
+      "local_frontier_present": false,
+      "local_frontier_count": 0,
+      "local_event_digests": [],
+      "max_events": 10,
+      "hard_limit": 100000,
+      "expected_outcome": "RejectEventChain",
+      "expected_local_mutations": 0
+    },
+    {
+      "id": "FW024-orphaned-local-event-rows-are-corruption",
+      "kind": "restore",
+      "log_id": "civ014-profile-log",
+      "witness_epoch": 7,
+      "remote_frontier_before": {
+        "event_count": 0,
+        "tail_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "remote_frontier_after": {
+        "event_count": 0,
+        "tail_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "remote_events": [],
+      "local_frontier_present": false,
+      "local_frontier_count": 0,
+      "local_event_digests": [
+        "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      ],
+      "max_events": 10,
+      "hard_limit": 100000,
+      "expected_outcome": "RejectCorruptLocalJournal",
+      "expected_local_mutations": 0
+    },
+    {
+      "id": "FW025-receipt-digest-tampering-rejected",
+      "kind": "receipt",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "receipt": {
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "frontier_after_count": 1,
+        "frontier_after_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "receipt_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+      },
+      "expected_outcome": "RejectReceiptDigest"
+    },
+    {
+      "id": "FW026-unavailable-first-lookup-keeps-local-pending",
+      "kind": "pending_before_remote_read",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "witness_available": false,
+      "local_pending_persisted": true,
+      "expected_outcome": "PendingNoSuccess",
+      "expected_local_mutations": 1
+    },
+    {
+      "id": "FW027-historical-retry-after-later-successor-is-idempotent",
+      "kind": "historical_retry",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "receipt": {
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "frontier_after_count": 1,
+        "frontier_after_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "receipt_digest": "524596bba26031b85e2a92634f376ad7d2474f4a0ccc0532a51d017bd7fa6217"
+      },
+      "local_anchored": true,
+      "local_receipt_digest": "524596bba26031b85e2a92634f376ad7d2474f4a0ccc0532a51d017bd7fa6217",
+      "remote_event_present": true,
+      "remote_event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "remote_receipt": {
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "frontier_after_count": 1,
+        "frontier_after_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "receipt_digest": "524596bba26031b85e2a92634f376ad7d2474f4a0ccc0532a51d017bd7fa6217"
+      },
+      "remote_frontier_count": 2,
+      "remote_frontier_digest": "ff71fc91f6c999fcd9a132aeaaf03081766c6168e5db0759495a873005ba2238",
+      "remote_event_at_sequence_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+      "expected_outcome": "ReturnExistingReceipt",
+      "expected_local_mutations": 0
+    },
+    {
+      "id": "FW028-anchored-event-missing-remotely-is-not-replayed",
+      "kind": "historical_retry",
+      "event": {
+        "schema_version": 1,
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_generation": 4,
+        "accepted_head_digest": "1391ea5f8081d3a45b91427ea124868e18d97c6feaf9ec7853abe2521fdbecc2",
+        "fork_generation": 4,
+        "first_record_digest": "fca5592726476efaca0645a16ae973444cd015f2d8463c0dd85ce96c251eea66",
+        "conflicting_record_digest": "b98424dff852c830f0cf224bf09fc19f0c4973d0bd907b3691821e5bb3302af1",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72"
+      },
+      "receipt": {
+        "log_id": "civ014-profile-log",
+        "witness_epoch": 7,
+        "previous_event_count": 0,
+        "previous_event_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "event_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "frontier_after_count": 1,
+        "frontier_after_digest": "a980b608bdd9308ffbdf7ce14995d2078fb62fa3fc14ab5430f54f6830913c72",
+        "receipt_digest": "524596bba26031b85e2a92634f376ad7d2474f4a0ccc0532a51d017bd7fa6217"
+      },
+      "local_anchored": true,
+      "local_receipt_digest": "524596bba26031b85e2a92634f376ad7d2474f4a0ccc0532a51d017bd7fa6217",
+      "remote_event_present": false,
+      "remote_frontier_count": 0,
+      "remote_frontier_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "remote_event_at_sequence_digest": null,
+      "expected_outcome": "RejectRollbackDetected",
+      "expected_local_mutations": 0
+    }
+  ]
+}
