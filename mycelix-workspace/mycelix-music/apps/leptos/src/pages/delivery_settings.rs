@@ -122,7 +122,7 @@ pub fn DeliverySettingsPage() -> impl IntoView {
             <p class="page-subtitle">
                 "Choose which gateways this browser may contact for music and cover art."
             </p>
-            <p class="help-text" role="status">{preference_summary}</p>
+            <p class="help-text" role="status">{move || preference_summary()}</p>
 
             <section class="upload-form" aria-labelledby="gateway-pool-title">
                 <h2 id="gateway-pool-title">"Gateway origin pool"</h2>
