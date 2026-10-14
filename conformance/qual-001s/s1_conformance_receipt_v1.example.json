@@ -1,0 +1,50 @@
+{
+  "schema": "mycelix.qual-001s.s1-conformance-receipt-v1",
+  "profile": "mycelix.qual.static-subject-independence.v0.3",
+  "epoch_id": "epoch-001",
+  "repository_id": 1176351975,
+  "repository_full_name": "Luminous-Dynamics/mycelix",
+  "pull_request_number": 3829,
+  "s0_dispatch_envelope_sha256": "530b9ef0d8c8e13d9ee50931c5187425003c7d2f04e9a988f729a2a0d21ba7df",
+  "s0_authority_observation_sha256": "d4510c894e3a90a7a55291f4a8bb48d135157262cba408ef2699687ff5813644",
+  "dispatch_input_commitment_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "subject_base_sha": "ad042a9aa5b9f95db0abb945b4b67ec184456eb1",
+  "subject_head_sha": "0000000000000000000000000000000000000000",
+  "subject_tree_sha": "0000000000000000000000000000000000000000",
+  "current_verifier_head_sha": "0000000000000000000000000000000000000000",
+  "current_verifier_tree_sha": "0000000000000000000000000000000000000000",
+  "current_verifier_bundle_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "current_verifier_profile": "registered.current-verifier.v1",
+  "proposed_bundle_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "proposed_verifier_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "proposed_gate_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "registered_successor_profile": "mycelix.qual.static-subject-independence.v0.3",
+  "s1_workflow_identity": "refs/heads/main:.github/workflows/qual-001s-s1.yml",
+  "s1_workflow_ref": "refs/heads/main",
+  "s1_workflow_source_commit_sha": "0000000000000000000000000000000000000000",
+  "run_id": 1,
+  "run_attempt": 1,
+  "run_head_sha": "0000000000000000000000000000000000000000",
+  "workflow_event": "workflow_dispatch",
+  "builder_id": "https://example.invalid/qual-001s/builder/v1",
+  "builder_version": {
+    "github_actions": "illustrative",
+    "sandbox": "illustrative"
+  },
+  "harness_source_commit_sha": "0000000000000000000000000000000000000000",
+  "harness_bundle_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "corpus_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "candidate_code_executed": true,
+  "execution_outcome": "OBSERVED",
+  "conformance_outcome": "PASS",
+  "admitted_claims": [
+    "successor_conformance"
+  ],
+  "nonclaims": [
+    "rotation authorization",
+    "rotation adoption",
+    "post-adoption independence",
+    "runtime authority"
+  ],
+  "receipt_sha256": "8f9131ed13beb9da0f7d27443112a8d26c5cc576d159446a0c459b27aff2255e"
+}
