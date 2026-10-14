@@ -15,7 +15,7 @@
     },
     {
       "path": "tests/reference/life-civic-service/cases-v0.2.0.json",
-      "git_blob_sha1": "a8c12f1f8ed2ff5f792eef9038d0afda9f92d9b7",
+      "git_blob_sha1": "a43fb0f2a58bc5ba7209758dc1af0e9f174d5576",
       "purpose": "service lifecycle fixtures including source-conflict distinction"
     },
     {
