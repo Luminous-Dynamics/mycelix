@@ -1,0 +1,33 @@
+name: life-civic-reference-contract
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/life-civic-reference-contract.yml"
+      - "schemas/life-civic/**"
+      - "tests/reference/life-civic-standards/**"
+      - "tools/life-civic-reference-checker/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/life-civic-reference-contract.yml"
+      - "schemas/life-civic/**"
+      - "tests/reference/life-civic-standards/**"
+      - "tools/life-civic-reference-checker/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-reference-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/life-civic-reference-checker/Cargo.toml -- --check
+      - name: Validate schemas and adversarial fixtures
+        run: cargo test --manifest-path tools/life-civic-reference-checker/Cargo.toml
