@@ -20,15 +20,17 @@ Could you point us to the appropriate technical or partnership contact and clari
 
 2. **Available data:** Which objects can be accessed—sales transactions and line items, items/modifiers, discounts/tax, cancellations/voids/refunds, recipe/menu mappings, UOMs, stock movements/counts, purchase orders and Goods Receipt Vouchers? Are both detail rows and aggregate reports available?
 
-3. **Event and correction semantics:** Do records have stable source IDs and distinct event/recorded timestamps? How are edited, refunded, voided, backdated, reopened or corrected records represented? Are changes emitted as separate events, revisions or replacement snapshots?
+3. **Event identity, delivery and correction semantics:** For event/webhook delivery, is there a stable source-issued event GUID or equivalent distinct from the order/line/object ID? Does that identity remain stable across redelivery and retries? Are attempt number, event type, event time and recorded/updated time exposed? Are messages signed, how should a consumer verify the signature against the exact raw body, and what are the documented retry/acknowledgement rules? How are edits, refunds, voids, cancellations, backdated receipts, reopenings, deletions and corrections represented—as separate events, versioned records, tombstones or replacement snapshots? Can an integration retain revision lineage without inferring updates from changed payloads?
 
-4. **Extraction completeness:** For a declared site, query/filter and time interval, are consistent snapshots or export-session IDs available? How does pagination signal exhaustion? Are expected row counts, report-control totals, or a source-issued coverage statement available so that an operator can reconcile an export against the source?
+4. **Extraction completeness and pagination:** For a declared site, query/filter and time interval, are consistent snapshots or export-session IDs available? What exact pagination contract applies to each relevant endpoint (opaque page token, offset/limit, page numbers or links)? How is terminal exhaustion signalled, can cursors repeat or expire, and what should a client do if source data changes during pagination or the server signals a restart/conflict? Are expected row counts, report-control totals, stable query identifiers, or a source-issued coverage statement available so that an operator can reconcile an export against the source?
 
 5. **Evaluation environment:** Is a sandbox or anonymised example export available, ideally with expected row counts and a report/control total? We can start with a small sample and no customer personal data.
 
 6. **Commercial and compliance requirements:** What customer consent, data-processing agreement, purpose limitation, retention/deletion, data residency, support/SLA, usage limits and integration fees would apply?
 
-We are happy to start with the minimum supported interface and explicitly preserve limitations where the source cannot establish completeness. We do not need customer names, phone numbers, card data, biometrics or employee-level attendance for the initial forecasting/ingredient-analysis question.
+We are happy to start with the minimum supported interface and explicitly preserve limitations where the source cannot establish completeness.
+
+For any fields or guarantees not supported, please mark them as unavailable or undocumented; we will treat them as unknown rather than synthesize provider-issued identity, authenticity or completeness. A small anonymised fixture that demonstrates duplicate delivery, a corrected/voided record, and the end-of-pagination behavior would be especially useful. We do not need customer names, phone numbers, card data, biometrics or employee-level attendance for the initial forecasting/ingredient-analysis question.
 
 The first step is simply to understand what Munch supports, what is contractually permitted, and what evidence an authorised export can provide. We would not represent the integration as verified or make savings claims before the data and evaluation protocol are qualified.
 
