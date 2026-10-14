@@ -55,7 +55,9 @@ fn corpus_manifest_points_to_existing_versioned_assets() {
     assert!(snapshots.len() >= 4, "source lifecycle snapshots were lost");
     for snapshot in snapshots {
         assert!(
-            snapshot["source_uri"].as_str().is_some_and(|uri| uri.starts_with("https://")),
+            snapshot["source_uri"]
+                .as_str()
+                .is_some_and(|uri| uri.starts_with("https://")),
             "source snapshot must retain a canonical HTTPS locator"
         );
     }
@@ -215,18 +217,18 @@ fn corpus_ids_reasons_and_forbidden_claims_are_well_formed() {
     let schema = read_json(ASSESSMENT_SCHEMA);
     let valid_statuses: HashSet<&str> =
         schema["properties"]["result"]["properties"]["status"]["enum"]
-        .as_array()
-        .expect("assessment schema must enumerate result statuses")
-        .iter()
-        .map(|value| value.as_str().expect("status enum must contain strings"))
-        .collect();
+            .as_array()
+            .expect("assessment schema must enumerate result statuses")
+            .iter()
+            .map(|value| value.as_str().expect("status enum must contain strings"))
+            .collect();
     let valid_reasons: HashSet<&str> =
         schema["properties"]["result"]["properties"]["reason_codes"]["items"]["enum"]
-        .as_array()
-        .expect("assessment schema must enumerate reason codes")
-        .iter()
-        .map(|value| value.as_str().expect("reason enum must contain strings"))
-        .collect();
+            .as_array()
+            .expect("assessment schema must enumerate reason codes")
+            .iter()
+            .map(|value| value.as_str().expect("reason enum must contain strings"))
+            .collect();
 
     let mut ids = HashSet::new();
     for case in cases {
