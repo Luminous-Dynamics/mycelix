@@ -428,7 +428,10 @@
               "status": {
                 "const": "provider_attested_complete"
               }
-            }
+            },
+            "required": [
+              "status"
+            ]
           },
           "required": [
             "outcome"
@@ -487,7 +490,10 @@
               "status": {
                 "const": "independently_verified_complete"
               }
-            }
+            },
+            "required": [
+              "status"
+            ]
           },
           "required": [
             "outcome"
