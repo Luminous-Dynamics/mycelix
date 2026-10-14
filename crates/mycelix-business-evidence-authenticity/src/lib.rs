@@ -232,9 +232,11 @@ mod tests {
     #[test]
     fn exact_subject_and_issuer_bind() {
         let value = authenticity();
-        assert!(value
-            .binds_subject_and_issuer(Digest32::repeat(1), &id("issuer:provider"))
-            .is_ok());
+        assert!(
+            value
+                .binds_subject_and_issuer(Digest32::repeat(1), &id("issuer:provider"))
+                .is_ok()
+        );
         assert!(matches!(
             value.binds_subject_and_issuer(Digest32::repeat(9), &id("issuer:provider")),
             Err(AuthenticityError::SubjectMismatch)
@@ -244,9 +246,7 @@ mod tests {
     #[test]
     fn epoch_or_revocation_drift_requires_reverification() {
         let value = authenticity();
-        assert!(value
-            .validate_at(1_500, 7, 4, Digest32::repeat(5))
-            .is_ok());
+        assert!(value.validate_at(1_500, 7, 4, Digest32::repeat(5)).is_ok());
         assert!(matches!(
             value.validate_at(1_500, 8, 4, Digest32::repeat(5)),
             Err(AuthenticityError::VerifierEpochChanged { .. })
