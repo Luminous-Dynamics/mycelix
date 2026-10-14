@@ -132,12 +132,11 @@ impl IngressRecord {
                     input: output.input.clone(),
                 });
             }
-            output
-                .observation
-                .validate()
-                .map_err(|_| IngressRecordError::ObservationPayloadDigestMismatch {
+            output.observation.validate().map_err(|_| {
+                IngressRecordError::ObservationPayloadDigestMismatch {
                     input: output.input.clone(),
-                })?;
+                }
+            })?;
             if output.observation.source_system != self.event.witness.source_system {
                 return Err(IngressRecordError::ObservationSourceSystemMismatch {
                     input: output.input.clone(),
@@ -182,10 +181,21 @@ pub enum IngressBatchError {
     AdapterDigestMismatch,
     ZeroBatchDigest,
     EmptyBatch,
-    BatchTooLarge { actual: usize, maximum: u32 },
-    InvalidRecord { index: usize, error: IngressRecordError },
-    DuplicateSourceEvent { source_event_id: ReferenceId },
-    WitnessConflict { index: usize, error: WitnessError },
+    BatchTooLarge {
+        actual: usize,
+        maximum: u32,
+    },
+    InvalidRecord {
+        index: usize,
+        error: IngressRecordError,
+    },
+    DuplicateSourceEvent {
+        source_event_id: ReferenceId,
+    },
+    WitnessConflict {
+        index: usize,
+        error: WitnessError,
+    },
 }
 
 impl IngressBatch {
@@ -375,7 +385,9 @@ mod tests {
             records: vec![record("event:old", 4)],
             batch_digest: Digest32::repeat(7),
         };
-        first.validate_and_register(&descriptor(), &mut registry).unwrap();
+        first
+            .validate_and_register(&descriptor(), &mut registry)
+            .unwrap();
         let before = registry.clone();
 
         let conflict = IngressBatch {
