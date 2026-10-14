@@ -1,0 +1,230 @@
+{
+  "schema": "aerocommons-airspace-coordination-requirements-v1",
+  "status": "design_contract",
+  "qualification_state": "specified_not_executed",
+  "authority_ceiling": "planning_simulation_interoperability_and_evidence_only",
+  "created_for_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5023",
+  "related_work": [
+    "https://github.com/Luminous-Dynamics/mycelix/issues/3638",
+    "https://github.com/Luminous-Dynamics/mycelix/issues/3708"
+  ],
+  "nonclaims": [
+    "flight_authorization",
+    "aircraft_safety",
+    "airworthiness",
+    "certification",
+    "approved_separation_minima",
+    "real_time_air_traffic_control",
+    "physical_truth_from_simulation"
+  ],
+  "invariants": [
+    {
+      "id": "AIR-INV-001",
+      "statement": "A coordination reservation is not flight authorization unless a competent authority explicitly defines and issues it as such.",
+      "hard_gate": true
+    },
+    {
+      "id": "AIR-INV-002",
+      "statement": "A strategy or simulation result cannot replace onboard or approved tactical detect-and-avoid/separation functions.",
+      "hard_gate": true
+    },
+    {
+      "id": "AIR-INV-003",
+      "statement": "A route/trajectory comparison requires qualified spatial reference, vertical datum, time basis, validity interval, and uncertainty semantics.",
+      "hard_gate": true
+    },
+    {
+      "id": "AIR-INV-004",
+      "statement": "Missing, stale, contradictory, or unqualified inputs cannot produce a clear-to-fly classification.",
+      "hard_gate": true
+    },
+    {
+      "id": "AIR-INV-005",
+      "statement": "Reputation, consensus, record validity, or a signed receipt does not prove physical safety, authorization, or certification.",
+      "hard_gate": true
+    },
+    {
+      "id": "AIR-INV-006",
+      "statement": "Safety constraints are non-compensatory; throughput, cost, noise, and fairness cannot trade away a hard safety gate.",
+      "hard_gate": true
+    }
+  ],
+  "classification_vocabulary": [
+    "AcceptForPlanningOnly",
+    "Conflict",
+    "Degraded",
+    "Reject",
+    "Unresolved",
+    "RequiresAuthorityReview"
+  ],
+  "cases": [
+    {
+      "id": "AIR-CASE-001",
+      "name": "stale_flight_intent",
+      "stimulus": "The intent validity interval expires before reservation activation or preflight recheck.",
+      "expected_classification": "Reject",
+      "required_behavior": "Require a refreshed intent and repeat the relevant conflict assessment.",
+      "forbidden_inference": "Historical conflict-free intent remains current after expiry."
+    },
+    {
+      "id": "AIR-CASE-002",
+      "name": "coordinate_frame_or_vertical_datum_mismatch",
+      "stimulus": "Two trajectory inputs use incompatible or unspecified spatial reference systems or vertical datums.",
+      "expected_classification": "Unresolved",
+      "required_behavior": "Require an explicit qualified transformation and preserve transformation provenance before comparison.",
+      "forbidden_inference": "Numerically similar coordinates represent the same physical location."
+    },
+    {
+      "id": "AIR-CASE-003",
+      "name": "unqualified_clock_or_excessive_clock_skew",
+      "stimulus": "Time inputs lack a qualified time basis or exceed the selected profile's permitted skew.",
+      "expected_classification": "Unresolved",
+      "required_behavior": "Do not compare space-time occupancy as authoritative until time qualification is restored.",
+      "forbidden_inference": "Timestamps from different clocks are interchangeable because they share a numeric representation."
+    },
+    {
+      "id": "AIR-CASE-004",
+      "name": "duplicate_or_replayed_reservation",
+      "stimulus": "An authenticated or unauthenticated duplicate message attempts to re-apply an old reservation state.",
+      "expected_classification": "Reject",
+      "required_behavior": "Use version, issuer, validity and replay-protection semantics; preserve the rejected event for audit.",
+      "forbidden_inference": "A valid historical signature makes an expired state current."
+    },
+    {
+      "id": "AIR-CASE-005",
+      "name": "overlapping_trajectory_tubes",
+      "stimulus": "Two current, qualified trajectory envelopes overlap in space and time under the applicable assessment profile.",
+      "expected_classification": "Conflict",
+      "required_behavior": "Do not present the pair as conflict-free; request replanning or a competent operational resolution.",
+      "forbidden_inference": "Nominal centerlines that do not cross prove robust separation."
+    },
+    {
+      "id": "AIR-CASE-006",
+      "name": "emergency_traffic_insertion",
+      "stimulus": "An emergency mission arrives after ordinary reservations have been issued.",
+      "expected_classification": "RequiresAuthorityReview",
+      "required_behavior": "Apply the applicable emergency-priority policy, assess affected reservations and contingencies, and do not prescribe physically impossible maneuvers.",
+      "forbidden_inference": "Emergency priority by itself proves every requested path is feasible or safe."
+    },
+    {
+      "id": "AIR-CASE-007",
+      "name": "communications_loss_or_provider_partition",
+      "stimulus": "Federated providers lose connectivity or cannot reconcile a reservation update.",
+      "expected_classification": "Degraded",
+      "required_behavior": "Use only the prequalified partition/degraded-mode policy; block unsupported new coordination claims and preserve local onboard safety behavior.",
+      "forbidden_inference": "A central service or remote network remains available just because the last response was valid."
+    },
+    {
+      "id": "AIR-CASE-008",
+      "name": "navigation_integrity_degraded",
+      "stimulus": "GNSS spoofing suspicion, sensor disagreement, stale observations, or uncertainty growth invalidates the selected navigation profile.",
+      "expected_classification": "Degraded",
+      "required_behavior": "Mark the capability/intent as degraded and defer the actual contingency to the qualified vehicle and operation profile.",
+      "forbidden_inference": "Network connectivity or a prior route authorization restores physical navigation integrity."
+    },
+    {
+      "id": "AIR-CASE-009",
+      "name": "weather_or_airspace_constraint_changes",
+      "stimulus": "A new weather hazard, temporary restriction, landing-site closure, or protected volume intersects a planned trajectory.",
+      "expected_classification": "Conflict",
+      "required_behavior": "Invalidate affected planning claims and recompute under the new versioned constraints.",
+      "forbidden_inference": "A plan remains valid because its original inputs were valid at submission time."
+    },
+    {
+      "id": "AIR-CASE-010",
+      "name": "non_cooperative_or_untracked_traffic",
+      "stimulus": "Traffic may be present but lacks sufficient qualified intent or tracking data.",
+      "expected_classification": "Unresolved",
+      "required_behavior": "Do not assume empty airspace; use approved traffic-awareness and detect-and-avoid procedures, escalating to the competent operational process where required.",
+      "forbidden_inference": "Unseen traffic is absent traffic."
+    },
+    {
+      "id": "AIR-CASE-011",
+      "name": "infeasible_corridor_without_escape_options",
+      "stimulus": "A corridor constraint leaves no trajectory satisfying the declared vehicle dynamics, uncertainty envelope, and contingency requirements.",
+      "expected_classification": "Reject",
+      "required_behavior": "Report infeasibility or request another route/capacity decision rather than silently weakening the constraint.",
+      "forbidden_inference": "Higher utilization makes an infeasible route acceptable."
+    },
+    {
+      "id": "AIR-CASE-012",
+      "name": "simulation_pass_presented_as_operational_approval",
+      "stimulus": "A successful simulated scenario is submitted as evidence that a real flight or deployed service is authorized/safe.",
+      "expected_classification": "Reject",
+      "required_behavior": "Retain simulation as simulation evidence within its declared model and scenario limits; require the independent operational approval path.",
+      "forbidden_inference": "Simulation success establishes airworthiness, certification, or permission to fly."
+    },
+    {
+      "id": "AIR-CASE-013",
+      "name": "record_or_reputation_used_as_safety_authority",
+      "stimulus": "A valid provenance receipt, quorum, reputation score, or protocol validation is used as the sole basis for a safety/authorization claim.",
+      "expected_classification": "Reject",
+      "required_behavior": "Require the relevant authoritative decision and qualified engineering/operational evidence.",
+      "forbidden_inference": "Protocol integrity or social consensus proves physical safety."
+    },
+    {
+      "id": "AIR-CASE-014",
+      "name": "one_provider_claims_conflicting_authoritative_views",
+      "stimulus": "Federated providers report incompatible active reservations for the same qualified space-time resource without a declared conflict state.",
+      "expected_classification": "Conflict",
+      "required_behavior": "Expose the inconsistency and reconcile under explicit issuer/version/authority rules before presenting a unified current state.",
+      "forbidden_inference": "A merged projection can hide contradictions while remaining authoritative."
+    },
+    {
+      "id": "AIR-CASE-015",
+      "name": "hard_safety_gate_traded_for_throughput",
+      "stimulus": "An optimizer ranks a candidate with a violated hard safety predicate above feasible alternatives due to throughput, cost, or noise score.",
+      "expected_classification": "Reject",
+      "required_behavior": "Apply hard safety predicates before optimization and keep the violated gate visible in the result.",
+      "forbidden_inference": "A favorable aggregate score compensates for a hard safety violation."
+    }
+  ],
+  "evaluation_metrics": [
+    {
+      "id": "AIR-METRIC-001",
+      "name": "hard_safety_gate_violations",
+      "role": "non_compensatory_gate",
+      "notes": "Thresholds must come from the applicable authority and validated operation profile; this contract does not invent universal separation minima."
+    },
+    {
+      "id": "AIR-METRIC-002",
+      "name": "unresolved_or_conflicting_intent_rate",
+      "role": "reported_metric"
+    },
+    {
+      "id": "AIR-METRIC-003",
+      "name": "delay_capacity_and_recovery",
+      "role": "reported_metric"
+    },
+    {
+      "id": "AIR-METRIC-004",
+      "name": "noise_energy_and_ground_exposure",
+      "role": "reported_metric"
+    },
+    {
+      "id": "AIR-METRIC-005",
+      "name": "allocation_access_and_emergency_performance",
+      "role": "reported_metric"
+    },
+    {
+      "id": "AIR-METRIC-006",
+      "name": "partition_cyber_resilience_and_degraded_mode_coverage",
+      "role": "reported_metric"
+    }
+  ],
+  "execution": {
+    "test_runner": null,
+    "target_commit": null,
+    "result": "not_run",
+    "note": "This is an authored requirement corpus, not evidence that tests have executed or passed."
+  },
+  "references": [
+    "https://www.faa.gov/uas/advanced_operations/traffic_management",
+    "https://www.faa.gov/air_traffic/publications/ATpubs/AIM_html/chap11_section_4.html",
+    "https://www.icao.int/safety/UA/Documents/UTM%20Framework%20Edition%204.pdf",
+    "https://www.easa.europa.eu/en/domains/air-traffic-management/u-space",
+    "https://ntrs.nasa.gov/citations/20250003243",
+    "https://ntrs.nasa.gov/citations/20250001367",
+    "https://www.itu.int/dms_pubrec/itu-t/rec/x/T-REC-X.1385-202504-I%21%21SUM-HTM-E.htm"
+  ]
+}
