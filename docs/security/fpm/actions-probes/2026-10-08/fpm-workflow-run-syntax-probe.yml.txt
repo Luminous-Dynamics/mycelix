@@ -1,0 +1,20 @@
+name: FPM workflow_run syntax probe
+
+on:
+  workflow_run:
+    workflows:
+      - "Mycelix CI"
+    types:
+      - completed
+
+permissions: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Confirm workflow_run scheduling
+        run: |
+          set -eu
+          echo "workflow_run syntax probe"

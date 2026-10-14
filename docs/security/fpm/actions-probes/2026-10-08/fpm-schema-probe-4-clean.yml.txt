@@ -1,0 +1,59 @@
+name: FPM trusted schema probe 4 clean
+
+on:
+  push:
+
+# This workflow is intended to live on the protected default branch.
+# The candidate workflow is only an execution-request signal. The fixed
+# qualification procedure is sourced from this workflow on main.
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: fpm-trusted-qualification-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt || 1 }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  FPM_SANDBOX_IMAGE: ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
+  FPM_SYSTEM_CLOSURE_PROFILE: fpm-ubuntu24.04-amd64-rust-1.96.1-v1
+
+jobs:
+  qualify:
+    if: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+      - name: Validate uploaded evidence identity
+        if: false
+        env:
+          ARTIFACT_ID: ${{ steps.upload_evidence.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload_evidence.outputs.artifact-digest }}
+          RECEIPT_SHA256: ${{ steps.receipt.outputs.receipt_sha256 }}
+        run: echo syntax-probe
+      - name: Emit artifact binding index
+        if: false
+        env:
+          ARTIFACT_ID: ${{ steps.upload_evidence.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload_evidence.outputs.artifact-digest }}
+          ARTIFACT_URL: ${{ steps.upload_evidence.outputs.artifact-url }}
+          RECEIPT_SHA256: ${{ steps.receipt.outputs.receipt_sha256 }}
+          SUBJECT_SHA: ${{ steps.source.outputs.candidate_head_sha || steps.preflight.outputs.expected_head_sha || "" }}
+          SUBJECT_TREE_SHA: ${{ steps.source.outputs.candidate_tree_sha || "" }}
+          TRUSTED_POLICY_SHA: ${{ steps.policy.outputs.trusted_policy_sha || "" }}
+          TRUSTED_POLICY_BLOB_SHA: ${{ steps.policy.outputs.trusted_policy_blob_sha || "" }}
+          TRUSTED_RUN_ID: ${{ github.run_id }}
+        run: echo syntax-probe
+      - name: Upload artifact binding index
+        if: false
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fpm-trusted-qualification-index-${{ steps.preflight.outputs.expected_head_sha || github.event.workflow_run.head_sha || github.run_id }}
+          path: ${{ runner.temp }}/fpm-trusted-evidence-${{ github.run_id }}/artifact-binding-index.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Probe sentinel
+        run: echo ok

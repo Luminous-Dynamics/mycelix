@@ -1,0 +1,18 @@
+name: FPM probe upload
+on:
+  push:
+permissions: {}
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: create
+        run: echo hi > out.txt
+      - name: upload
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: probe
+          path: out.txt
+          if-no-files-found: error
+          retention-days: 90

@@ -1,0 +1,20 @@
+name: FPM missing workflow target probe
+
+on:
+  workflow_run:
+    workflows:
+      - "FPM WASM artifact identity"
+    types:
+      - completed
+
+permissions: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Confirm unresolved-target listener
+        run: |
+          set -eu
+          echo "unresolved target probe"

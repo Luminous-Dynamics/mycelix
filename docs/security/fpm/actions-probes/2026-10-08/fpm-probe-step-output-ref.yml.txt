@@ -1,0 +1,14 @@
+name: FPM probe step output ref
+on:
+  push:
+permissions: {}
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: one
+        run: echo "x=y" >> "$GITHUB_OUTPUT"
+      - name: two
+        env:
+          VALUE: ${{ steps.one.outputs.x }}
+        run: echo "$VALUE"

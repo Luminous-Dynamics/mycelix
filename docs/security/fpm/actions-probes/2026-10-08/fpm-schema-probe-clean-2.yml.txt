@@ -1,0 +1,119 @@
+name: FPM trusted schema probe clean 2
+
+on:
+  push:
+
+# This workflow is intended to live on the protected default branch.
+# The candidate workflow is only an execution-request signal. The fixed
+# qualification procedure is sourced from this workflow on main.
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: fpm-trusted-qualification-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt || 1 }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  FPM_SANDBOX_IMAGE: ubuntu@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b
+  FPM_SYSTEM_CLOSURE_PROFILE: fpm-ubuntu24.04-amd64-rust-1.96.1-v1
+
+jobs:
+  qualify:
+    if: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Cargo fmt inside immutable sandbox
+        if: false
+        id: fmt
+        env:
+          SANDBOX_IMAGE: ${{ env.FPM_SANDBOX_IMAGE }}
+          CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid }}
+          CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid }}
+        run: echo syntax-probe
+      - name: Probe hostile-code sandbox boundary
+        if: false
+        id: sandbox_probe
+        env:
+          SANDBOX_IMAGE: ${{ env.FPM_SANDBOX_IMAGE }}
+          CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid }}
+          CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid }}
+        run: echo syntax-probe
+      - name: Cargo test inside immutable offline sandbox
+        if: false
+        id: tests
+        env:
+          SANDBOX_IMAGE: ${{ env.FPM_SANDBOX_IMAGE }}
+          CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid }}
+          CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid }}
+          DEP_CACHE_SHA256: ${{ steps.dependencies.outputs.dependency_cache_sha256 }}
+        run: echo syntax-probe
+      - name: Postflight source and live-PR reconciliation
+        if: false
+        id: postflight
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD_SHA: ${{ steps.preflight.outputs.expected_head_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.preflight.outputs.expected_base_sha }}
+          PR_NUMBER: ${{ steps.preflight.outputs.pr_number }}
+        run: echo syntax-probe
+      - name: Emit canonical qualification receipt
+        if: false
+        id: receipt
+        env:
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          SOURCE_OUTCOME: ${{ steps.source.outcome }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          LOCK_OUTCOME: ${{ steps.lock.outcome }}
+          DEPENDENCIES_OUTCOME: ${{ steps.dependencies.outcome }}
+          SANDBOX_IMAGE_OUTCOME: ${{ steps.sandbox_image.outcome }}
+          SANDBOX_PROBE_OUTCOME: ${{ steps.sandbox_probe.outcome }}
+          FMT_OUTCOME: ${{ steps.fmt.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          POSTFLIGHT_OUTCOME: ${{ steps.postflight.outcome }}
+          PR_NUMBER: ${{ steps.preflight.outputs.pr_number || '' }}
+          SUBJECT_SHA: ${{ steps.source.outputs.candidate_head_sha || steps.preflight.outputs.expected_head_sha || '' }}
+          SUBJECT_TREE_SHA: ${{ steps.source.outputs.candidate_tree_sha || '' }}
+          POSTFLIGHT_HEAD: ${{ steps.postflight.outputs.postflight_head || '' }}
+          POSTFLIGHT_TREE: ${{ steps.postflight.outputs.postflight_tree || '' }}
+          BASE_SHA: ${{ steps.preflight.outputs.expected_base_sha || '' }}
+          TRUSTED_POLICY_SHA: ${{ steps.policy.outputs.trusted_policy_sha || '' }}
+          TRUSTED_POLICY_BLOB_SHA: ${{ steps.policy.outputs.trusted_policy_blob_sha || '' }}
+          TRUSTED_POLICY_REF: ${{ steps.policy.outputs.trusted_policy_ref || '' }}
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+          UPSTREAM_RUN_ATTEMPT: ${{ steps.preflight.outputs.upstream_run_attempt || '' }}
+          UPSTREAM_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+          UPSTREAM_WORKFLOW_PATH: ".github/workflows/fpm-wasm-artifact-identity.yml"
+          UPSTREAM_CONCLUSION: ${{ steps.preflight.outputs.upstream_run_conclusion || '' }}
+          MANIFEST_BLOB_SHA: ${{ steps.source.outputs.candidate_manifest_blob_sha || '' }}
+          LOCK_MODE: ${{ steps.lock.outputs.lock_mode || '' }}
+          LOCK_SHA256: ${{ steps.lock.outputs.lock_sha256 || '' }}
+          RUSTC_VERSION: ${{ steps.toolchain.outputs.rustc_version || '' }}
+          RUSTC_COMMIT: ${{ steps.toolchain.outputs.rustc_commit || '' }}
+          CARGO_VERSION: ${{ steps.toolchain.outputs.cargo_version || '' }}
+          CANDIDATE_UID: ${{ steps.sandbox.outputs.candidate_uid || '' }}
+          CANDIDATE_GID: ${{ steps.sandbox.outputs.candidate_gid || '' }}
+          CANDIDATE_EXECUTION_PROFILE: ${{ steps.sandbox.outputs.candidate_execution_profile || '' }}
+          SANDBOX_IMAGE_DIGEST: ${{ steps.sandbox_image.outputs.sandbox_image_digest || '' }}
+          SANDBOX_PROBE: ${{ steps.sandbox_probe.outputs.sandbox_probe || '' }}
+          DEPENDENCY_CACHE_SHA256: ${{ steps.dependencies.outputs.dependency_cache_sha256 || '' }}
+          SYSTEM_CLOSURE_FILE: ${{ runner.temp }}/fpm-trusted-evidence-${{ github.run_id }}/sandbox-system-closure.tsv
+        run: echo syntax-probe
+      - name: Upload canonical qualification evidence
+        if: false
+        id: upload_evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fpm-trusted-qualification-${{ steps.preflight.outputs.expected_head_sha || github.event.workflow_run.head_sha || github.run_id }}
+          path: ${{ runner.temp }}/fpm-trusted-evidence-${{ github.run_id }}/qualification-receipt.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Probe sentinel
+        run: echo ok
