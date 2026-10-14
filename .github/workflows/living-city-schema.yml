@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: living-city-schema-\${{ github.event.pull_request.number || github.ref }}
+  group: living-city-schema-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
