@@ -159,10 +159,7 @@ pub fn validate_staleness_config(config: &StalenessConfig) -> Result<(), SpaceEr
 }
 
 /// Return whether the age-degraded quality satisfies the requested minimum.
-pub fn staleness_quality_is_acceptable(
-    staleness: &TleStaleness,
-    config: &StalenessConfig,
-) -> bool {
+pub fn staleness_quality_is_acceptable(staleness: &TleStaleness, config: &StalenessConfig) -> bool {
     staleness.effective_quality.value() >= config.min_quality
 }
 
@@ -231,13 +228,7 @@ mod staleness_confidence_tests {
     fn confidence_matches_documented_age_curve() {
         let quality = QualityScore::new(80);
         let policy = config(100, 20);
-        for (age_secs, expected) in [
-            (0, 1.0),
-            (100, 0.3),
-            (150, 0.2),
-            (200, 0.1),
-            (500, 0.1),
-        ] {
+        for (age_secs, expected) in [(0, 1.0), (100, 0.3), (150, 0.2), (200, 0.1), (500, 0.1)] {
             let result = compute_staleness_at_age(age_secs, &quality, &policy);
             assert!(
                 (result.confidence - expected).abs() <= 1e-12,
@@ -1267,7 +1258,9 @@ mod tests {
                 screening_volume_km: 5.0,
             };
             let alert = ConjunctionAlert::new_conjunction(&assessment);
-            let recommendation = alert.recommendation.expect("every Pc band carries review guidance");
+            let recommendation = alert
+                .recommendation
+                .expect("every Pc band carries review guidance");
             let lower = recommendation.to_ascii_lowercase();
             assert!(!lower.contains("initiate collision avoidance maneuver"));
             assert!(!lower.contains("immediate action required"));
