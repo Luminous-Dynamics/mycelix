@@ -21,6 +21,13 @@ fn read_json(relative_path: &str) -> Value {
         .unwrap_or_else(|error| panic!("invalid JSON in {}: {error}", path.display()))
 }
 
+fn find_service_fixture<'a>(fixtures: &'a [Value], id: &str) -> &'a Value {
+    fixtures
+        .iter()
+        .find(|fixture| fixture["fixture_id"] == id)
+        .unwrap_or_else(|| panic!("missing required service fixture {id}"))
+}
+
 fn validator(relative_schema: &str) -> jsonschema::Validator {
     let schema = read_json(relative_schema);
     jsonschema::meta::validate(&schema)
@@ -226,30 +233,27 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
         );
     }
 
-    let find = |id: &str| -> &Value {
-        fixtures
-            .iter()
-            .find(|fixture| fixture["fixture_id"] == id)
-            .unwrap_or_else(|| panic!("missing required service fixture {id}"))
-    };
-
-    let report = &find("water-report-received")["instance"];
+    let report = &find_service_fixture(fixtures, "water-report-received")["instance"];
     assert_eq!(report["outcome"]["status"], "unknown");
     assert_eq!(report["case_state"], "received");
 
-    let provider = &find("provider-reported-complete-not-verified")["instance"];
+    let provider =
+        &find_service_fixture(fixtures, "provider-reported-complete-not-verified")["instance"];
     assert_eq!(provider["case_state"], "work_reported_complete");
     assert_eq!(provider["outcome"]["status"], "provider_attested_complete");
     assert_eq!(provider["outcome"]["verified_at"], Value::Null);
 
-    let conflict = &find("conflicting-official-water-guidance")["instance"];
+    let conflict =
+        &find_service_fixture(fixtures, "conflicting-official-water-guidance")["instance"];
     assert_eq!(conflict["route"]["status"], "conflicted");
     assert_eq!(conflict["outcome"]["status"], "conflicted");
     assert_eq!(conflict["review_required"], true);
     assert_eq!(conflict["route"]["source_references"].as_array().unwrap().len(), 3);
 
-    let false_verification =
-        &find("invalid-verified-outcome-with-provider-evidence-only")["instance"];
+    let false_verification = &find_service_fixture(
+        fixtures,
+        "invalid-verified-outcome-with-provider-evidence-only",
+    )["instance"];
     assert_eq!(false_verification["outcome"]["status"], "independently_verified_complete");
     assert!(
         false_verification["evidence"]
