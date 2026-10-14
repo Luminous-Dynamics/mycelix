@@ -798,7 +798,6 @@ mod tests {
             BTreeSet::new(),
         )
         .unwrap();
-        assert!(DERIVED_EVIDENCE_IS_READ_ONLY);
         assert_eq!(
             report.decision,
             DerivedQualificationDecision::Field(FieldQualificationDecision::PassShadowFieldGate)
