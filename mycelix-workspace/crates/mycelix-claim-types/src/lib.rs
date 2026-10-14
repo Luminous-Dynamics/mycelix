@@ -221,6 +221,7 @@ pub mod bootstrap_milestone;
 pub use bootstrap_milestone::{
     AuthorityBasis, BootstrapMilestone, ClosureStage, DependencyDelta, DependencyDisposition,
     EvidenceKind, EvidenceReference, FailureRecoveryObservation, FailureRecoveryOutcome,
-    FixtureClass, MilestoneDisposition, ResourceStatement, ValidationError,
+    FixtureClass, MilestoneDisposition, QualificationScope, ResourceStatement,
+    StandardApplicabilityDecision, StandardApplicabilityRecord, ValidationError,
     BOOTSTRAP_MILESTONE_SCHEMA_VERSION,
 };
