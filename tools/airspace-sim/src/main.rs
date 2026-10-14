@@ -47,6 +47,12 @@ fn main() -> ExitCode {
         eprintln!("error: unsupported scenario schema '{}'", set.schema);
         return ExitCode::from(2);
     }
+    if set.status != "synthetic_research_fixture"
+        || set.authority_ceiling != "planning_simulation_semantics_only"
+    {
+        eprintln!("error: scenario set must declare the synthetic research authority ceiling");
+        return ExitCode::from(2);
+    }
 
     let output = replay_set(&set);
     match serde_json::to_string_pretty(&output) {
