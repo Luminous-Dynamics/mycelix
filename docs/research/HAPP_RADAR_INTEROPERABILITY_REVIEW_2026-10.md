@@ -357,3 +357,38 @@ The matrix records expected dispositions for high-value failure classes. At mini
 5. **Only then broaden:** consider write-through adapters, blind commit/reveal or multi-domain UI expansion only after the relevant threat model and exact-head evidence pass.
 
 This ordering is intentionally conservative: Mycelix's differentiator should be cross-domain coordination with verifiable authority boundaries, not an unverified claim that it contains more features than other hApps.
+
+
+## Source-pinned project review — 2026-10-14
+
+The JSON matrix now pins **10 inspected source commits across 9 project profiles**. The SHA pins make this snapshot reproducible even when a project’s default branch moves; the corresponding Holochain/HDK/HDI/client fields below are still project- or hAppRadar-reported metadata, not compatibility tests run by Mycelix.
+
+### New product and security findings from current hAppRadar pages
+
+- **Hearth:** the current listing reports HDK 0.7.0, HDI 0.8.0 and client 0.21.0, with release v0.3.4. Its README still describes an early demo, not a clinical record. The listing says entries are not encrypted at rest and that other circle members retain their plaintext copies when one member leaves. Source: https://happradar.com/projects/hearth and the pinned source revision in the JSON matrix.
+
+  **Mycelix lesson:** consent revocation is not retroactive deletion. A recipient may have already read, copied, or retained data. Health and personal-data flows must explain which access can be revoked, what is replicated, what can actually be deleted, and what remains with prior recipients. Never use Hearth's demo with real health data; benchmark the consent/portability problem, not its storage-security model.
+
+- **Epistemic Resonance desktop:** hAppRadar now lists a v0.2.0 standalone desktop release published on 2026-10-12. Its page describes a built-in Holochain 0.7 conductor and a graph of claims, critiques, evidence and retractions, without numeric agent/claim rankings. The same source warns that the packages are unsigned. The project’s INSTALL documentation says peer discovery currently uses Holochain’s development bootstrap server and that data does not survive an incompatible upgrade. Sources: https://happradar.com/projects/epistemic-resonance-desktop, https://happradar.com/projects/epistemic-happ, and https://github.com/StateofIntent/epistemic-happ/blob/main/INSTALL.md.
+
+  **Mycelix lesson:** the packaged-app route reduces installation friction, while its unsigned distributions, development bootstrap and upgrade/data-continuity caveats remain explicit operational risks. Copy the claims/evidence/retraction design ideas, not assumptions that a successful desktop launch means stable discovery, secure updates or preserved data.
+
+- **Requests and Offers:** the current listing identifies the project as alpha/not production-ready and reports HDK 0.6.1, HDI 0.7.1, client 0.20.5, with a 0.6.0 release note; hAppRadar lists v0.6.0-alpha.1. Source: https://happradar.com/projects/requests-and-offers.
+
+  **Mycelix lesson:** its narrow request/offer journey remains a useful scope benchmark, but it is not a drop-in 0.7 DNA dependency merely because hREA has a 0.7 release branch. Keep the workflow idea separate from binary/DNA composition and pin a compatible artifact for any integration experiment.
+
+- **AD4M:** the inspected default-branch commit is dated 2026-10-14. This is fresh source activity, not evidence of compatibility with a specific Mycelix hApp or proof that the current architecture meets Mycelix's trust requirements.
+
+Source revision pins are recorded in [HAPP_RADAR_INTEROPERABILITY_MATRIX_2026-10.json](HAPP_RADAR_INTEROPERABILITY_MATRIX_2026-10.json), with commit URLs for hREA, Nondominium, Moss, AD4M, ValiChord, Hearth, both Epistemic Resonance repositories, Flowsta Vault and Requests and Offers. Branch names remain as provenance labels; the exact SHA is the reproducibility anchor.
+
+### Additional testable privacy controls
+
+The next privacy/interop test fixture should include:
+1. Revoking a recipient's future access does not claim it erased data already copied or replicated to that recipient.
+2. A recipient leaving a group is not reported as erasing other participants' copies.
+3. No clinical or other sensitive record is used in a demo/test environment unless it is synthetic.
+4. An unsigned release and development bootstrap are surfaced as operational-risk metadata, not silently upgraded to trusted distribution or production discovery.
+5. A 0.6 dependency tuple cannot be promoted to a 0.7-compatible DNA based on feature/API similarity.
+6. “Retraction” is represented as a new attributable event, not as proof that prior readers or replicas no longer possess the original claim.
+
+These controls sharpen the intended differentiator: user sovereignty must be visible in the real access, replication, revocation and recovery semantics—not only in policy text or UI language.
