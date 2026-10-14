@@ -216,7 +216,7 @@
     "test_runner": "GitHub Actions: Airspace Replay Research Gate",
     "target_commit": null,
     "result": "not_run",
-    "note": "Source and fixtures have been authored; local cargo/rustc are unavailable in the current execution environment. Update this only from exact-head CI evidence."
+    "note": "Source and fixtures have been authored; local cargo/rustc are unavailable in the current execution environment. Update only from exact-head CI evidence."
   },
   "references": [
     "https://www.faa.gov/uas/advanced_operations/traffic_management",
@@ -243,7 +243,9 @@
       "frame_mismatch_unresolved",
       "time_unqualified_unresolved",
       "expired_intent_rejected",
-      "emergency_requires_review"
+      "emergency_requires_review",
+      "time_basis_mismatch_unresolved",
+      "withdrawn_intent_rejected"
     ],
     "implemented_semantics": [
       "synthetic_pairwise_trajectory_conflict_screen",
@@ -264,7 +266,8 @@
       "validated aircraft dynamics or reachable-set analysis",
       "official jurisdictional separation minima",
       "operational authorization",
-      "full one-to-one executable coverage of all AIR-CASE requirements"
+      "full one-to-one executable coverage of all AIR-CASE requirements",
+      "versioned transition history and reservation/authorization lifecycle state machine"
     ],
     "results_interpretation": "Passing means only that the simplified model matches synthetic fixture expectations; it is not safety, airworthiness, certification, or permission to fly."
   }
