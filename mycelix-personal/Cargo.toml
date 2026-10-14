@@ -4,6 +4,7 @@ members = [
     # Shared crates
     "crates/personal-types",
     "crates/personal-leptos-types",
+    "crates/personal-storage-reconcile",
 
     # Identity vault
     "zomes/identity-vault/integrity",
