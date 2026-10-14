@@ -1,0 +1,489 @@
+{
+  "schema": "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1",
+  "schema_version": 1,
+  "research_snapshot_date": "2026-10-14",
+  "claim_ceiling": "ResearchSpecificationOnly",
+  "maturity": "ProposedSyntheticShadowPilot",
+  "parent_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5015",
+  "markdown_spec": "mycelix-workspace/docs/civic-resilience/JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md",
+  "pilot": {
+    "id": "JOBURG-WATER-WORKFORCE-PILOT-001",
+    "title": "Water-fault work-coordination shadow pilot",
+    "rationale": "Complement the utility's reported pressure-management and leak-detection investments with source-preserving triage, work coordination, evidence lineage, and independent verification.",
+    "geography": {
+      "status": "NotSelected",
+      "selection_authority": "AuthorizedOperationalPartner",
+      "required_basis": [
+        "aggregated_repeat_faults",
+        "workload",
+        "baseline_availability",
+        "privacy_review",
+        "safety_review"
+      ],
+      "public_sensitive_asset_coordinates_allowed": false
+    },
+    "operating_mode": "SyntheticFirstThenAuthorizedReadOnlyShadow",
+    "live_provider_calls_authorized": false,
+    "external_writes_authorized": false,
+    "automated_dispatch_authorized": false,
+    "automated_closure_authorized": false,
+    "production_sla_calculation_authorized": false,
+    "telemetry_access_authorized": false,
+    "payer_identified": false,
+    "operational_partner_identified": false,
+    "funded_positions_confirmed": false
+  },
+  "source_ledger": [
+    {
+      "source_id": "JW-1",
+      "issuer": "Johannesburg Water SOC",
+      "source_url": "https://www.johannesburgwater.co.za/blog/2026/07/23/johannesburg-water-accelerates-smart-technology-rollout-to-reduce-water-losses/",
+      "source_kind": "OfficialMediaStatement",
+      "publication_date": "2026-07-23",
+      "observation_status": "OfficialPublisherPageObserved",
+      "claims_recorded": [
+        "Statement described smart hydraulic-flow controls for 28 high-consumption reservoirs/towers.",
+        "Statement said 306 additional smart pressure controllers were being installed, with planned completion by end-September 2026.",
+        "Statement reported 225 noise loggers installed and 125 additional loggers planned by October 2026."
+      ],
+      "deployment_completion_status": "NotIndependentlyVerifiedAsOfSnapshot",
+      "telemetry_access_authorized": false,
+      "allowed_use": "Project rationale and source-specific planning context only",
+      "prohibited_inference": [
+        "Rollout completed merely because planned completion date has passed",
+        "Sensor data accessible to Mycelix",
+        "Measured operational effect or causal impact",
+        "Municipal or utility partnership or endorsement"
+      ]
+    },
+    {
+      "source_id": "COJ-1",
+      "issuer": "City of Johannesburg",
+      "source_url": "https://joburg.org.za/documents_/Pages/Key%20Documents/SDBIP-IDP-and-Budget/SDBIP-IDP-And-Budget.aspx",
+      "source_kind": "OfficialDocumentIndex",
+      "publication_date": null,
+      "observation_status": "OfficialIndexObserved",
+      "indexed_documents": [
+        "2026/27 SDBIP",
+        "2026/27 Final IDP",
+        "2025/26 Institutional Service Level Standards Charter"
+      ],
+      "linked_2026_27_sdbip_pdf_fetch_status": "TimedOutDuringResearch",
+      "linked_pdf_visual_review_performed": false,
+      "indicators_imported_from_linked_pdf": false,
+      "allowed_use": "Prove index lists documents; guide further source retrieval",
+      "prohibited_inference": [
+        "Unretrieved PDF contents",
+        "Current target thresholds or case-level SLA status",
+        "Indicator denominator, clock semantics, or adopted version"
+      ]
+    },
+    {
+      "source_id": "JW-2",
+      "issuer": "Johannesburg Water SOC",
+      "source_url": "https://www.johannesburgwater.co.za/services/",
+      "source_kind": "OfficialCustomerServiceWebPage",
+      "publication_date": null,
+      "effective_date": "NotObservedInExtractedPageText",
+      "version": "NotObservedInExtractedPageText",
+      "production_sla_use_authorized": false,
+      "companion_work": "https://github.com/Luminous-Dynamics/mycelix/pull/5008",
+      "allowed_use": "Preserve published verbs/clock distinctions as unversioned source observations",
+      "prohibited_inference": [
+        "Current adopted production SLA",
+        "Response equals restoration",
+        "Working days equal calendar days",
+        "Attempt or endeavour equals guaranteed completion",
+        "Contact channel provides API authorization"
+      ]
+    },
+    {
+      "source_id": "SA-1",
+      "issuer": "Statistics South Africa",
+      "source_url": "https://www.statssa.gov.za/?PPN=P0341&SCH=74591&page_id=1856",
+      "source_kind": "NationalVictimsOfCrimeStatistics",
+      "reference_period": "2025/26",
+      "geography_scope": "South Africa nationally",
+      "measures": {
+        "personal_property_theft_reported_some_or_all_percent": 37.3,
+        "street_robbery_reported_some_or_all_percent": 41.7,
+        "households_experiencing_housebreaking_reported_some_or_all_percent": 48.2
+      },
+      "allowed_use": "Caveat that police reports are not a complete victimization baseline",
+      "prohibited_inference": [
+        "Johannesburg-specific incidence",
+        "Effect size of a proposed intervention"
+      ]
+    },
+    {
+      "source_id": "JOBS-1",
+      "issuer": "Department of Public Works and Infrastructure",
+      "source_url": "https://www.gov.za/news/speeches/minister-dean-macpherson-public-works-and-infrastructure-dept-budget-vote-202526-09",
+      "source_kind": "OfficialBudgetSpeech",
+      "publication_date": "2025-07-09",
+      "claims_recorded": [
+        "Speech described EPWP reform, including stated concerns about gatekeeping and exploitation.",
+        "Speech described intended pathways from participation to training, continuing work, or entrepreneurship."
+      ],
+      "local_program_slots_verified": false,
+      "local_funding_verified": false,
+      "allowed_use": "Design requirements and programme-discovery lead only",
+      "prohibited_inference": [
+        "Local eligibility",
+        "Available Johannesburg funding",
+        "Funded pilot jobs"
+      ]
+    },
+    {
+      "source_id": "LAW-1",
+      "issuer": "South African Government",
+      "source_url": "https://www.gov.za/documents/second-hand-goods-act",
+      "source_kind": "LegislationLandingPage",
+      "allowed_use": "Legal review lead for stolen-goods and second-hand-trade controls",
+      "legal_advice_or_compliance_certification": false
+    }
+  ],
+  "event_model": {
+    "record_identity": "InternalServiceIssueIdSeparateFromExternalReferences",
+    "required_event_fields": [
+      "event_id",
+      "issue_id",
+      "event_type",
+      "actor_or_role",
+      "recorded_at",
+      "observed_at_or_unknown",
+      "source_issuer",
+      "source_channel",
+      "source_reference_or_null",
+      "evidence_reference_or_null",
+      "currentness",
+      "correction_of_or_null"
+    ],
+    "states": [
+      {
+        "state": "Reported",
+        "meaning": "Observation or request recorded",
+        "does_not_imply": [
+          "external acceptance",
+          "dispatch",
+          "verified defect"
+        ]
+      },
+      {
+        "state": "SourceAccepted",
+        "meaning": "Acceptance evidenced by the named external source, if known",
+        "does_not_imply": [
+          "entitlement",
+          "assignment",
+          "repair"
+        ]
+      },
+      {
+        "state": "InspectionAuthorized",
+        "meaning": "A human with appropriate authority approved an inspection",
+        "does_not_imply": [
+          "crew dispatched",
+          "inspection completed"
+        ]
+      },
+      {
+        "state": "InspectionRecorded",
+        "meaning": "Inspection evidence recorded with source and timestamp semantics",
+        "does_not_imply": [
+          "repair performed",
+          "problem resolved"
+        ]
+      },
+      {
+        "state": "RepairClaimed",
+        "meaning": "An identified actor claims repair/work completion",
+        "does_not_imply": [
+          "independent verification",
+          "external case closure",
+          "restored service"
+        ]
+      },
+      {
+        "state": "IndependentlyVerified",
+        "meaning": "A suitably independent verifier recorded a bounded check and evidence",
+        "does_not_imply": [
+          "utility's authoritative status updated",
+          "universal service restored beyond verified scope"
+        ]
+      },
+      {
+        "state": "ExternalStatusObserved",
+        "meaning": "A status was observed from an identified external issuer/channel at a timestamp",
+        "does_not_imply": [
+          "status remains current",
+          "same status applies to another source reference"
+        ]
+      },
+      {
+        "state": "ReopenedOrDisputed",
+        "meaning": "Contradictory evidence, repeat fault, or correction requires renewed review",
+        "does_not_imply": [
+          "original evidence deleted"
+        ]
+      }
+    ],
+    "non_equivalence_invariants": [
+      "InternalServiceIssueId != external reference number",
+      "Local mirror != external current status",
+      "Submission != external acceptance",
+      "External acceptance != entitlement",
+      "RepairClaimed != IndependentlyVerified",
+      "Reported != Inspected",
+      "Response != Restoration",
+      "Notification != RepairWindow",
+      "WorkingDays != CalendarDays",
+      "ClosedSupportTicket != VerifiedServiceOutcome",
+      "UnknownOrConflicted != Success"
+    ]
+  },
+  "job_pathways": [
+    {
+      "pathway_id": "field-data-quality",
+      "candidate_roles": [
+        "Field asset/data-quality assistant",
+        "GIS/data-quality technician"
+      ],
+      "tasks": [
+        "Verify permitted labels",
+        "Normalize records",
+        "Document source provenance",
+        "Flag duplicate observations"
+      ],
+      "payer_status": "Unconfirmed",
+      "roles_funded": false,
+      "safety_and_supervision_required": true
+    },
+    {
+      "pathway_id": "maintenance-logistics",
+      "candidate_roles": [
+        "Maintenance logistics coordinator",
+        "Operations planner"
+      ],
+      "tasks": [
+        "Cluster authorized inspections",
+        "Track parts requests",
+        "Surface repeat faults",
+        "Maintain manual fallback"
+      ],
+      "payer_status": "Unconfirmed",
+      "roles_funded": false
+    },
+    {
+      "pathway_id": "qualified-repair",
+      "candidate_roles": [
+        "Qualified trade worker",
+        "Supervised apprentice"
+      ],
+      "tasks": [
+        "Perform authorized inspection and repair within competence, supervision, safety and work-order limits"
+      ],
+      "payer_status": "Unconfirmed",
+      "roles_funded": false,
+      "qualification_and_scope_controls_required": true
+    },
+    {
+      "pathway_id": "independent-quality",
+      "candidate_roles": [
+        "Quality/evidence reviewer",
+        "Compliance technician"
+      ],
+      "tasks": [
+        "Sample work records",
+        "Verify evidence",
+        "Document exceptions",
+        "Prevent unsupported closure"
+      ],
+      "independence_from_repair_claimant_required": true,
+      "payer_status": "Unconfirmed",
+      "roles_funded": false
+    },
+    {
+      "pathway_id": "technical",
+      "candidate_roles": [
+        "Software engineer",
+        "Integration engineer",
+        "Operations analyst"
+      ],
+      "tasks": [
+        "Maintain contracts",
+        "Write deterministic validators",
+        "Maintain authorized adapters",
+        "Monitor reliability and data minimization"
+      ],
+      "payer_status": "Unconfirmed",
+      "roles_funded": false
+    }
+  ],
+  "payer_and_job_quality_gate": {
+    "payer_must_be_named_before_positions_are_announced": true,
+    "acceptable_route_requires_written_approval": true,
+    "potential_routes_not_commitments": [
+      "Existing authorized utility maintenance procurement",
+      "Appointed service contractor with budget and contractual permission",
+      "Approved public-work or skills programme",
+      "Funded grant covering labour, supervision, safety, evaluation and reporting"
+    ],
+    "prohibited_funding_assumptions": [
+      "Unrealized savings treated as payroll",
+      "Unconfirmed grant treated as awarded",
+      "Worker-paid placement fees",
+      "Unpaid labour counted as a paid job",
+      "Short placement automatically counted as durable employment"
+    ],
+    "required_metrics": [
+      "PaidHours",
+      "FullTimeEquivalentWithDeclaredMethod",
+      "PaymentDelay",
+      "RecognizedCredentialAttainment",
+      "SafetyEvents",
+      "6MonthWorkContinuity",
+      "12MonthWorkContinuity"
+    ]
+  },
+  "crime_profitability_controls": [
+    {
+      "pathway": "Infrastructure theft for resale",
+      "controls": [
+        "Non-public asset inventory and authorized custody records",
+        "Legitimate material disposition trail",
+        "Preserved evidence for competent authorities",
+        "No public sensitive asset coordinates or response windows",
+        "No resident or worker confrontation/vigilantism workflow"
+      ],
+      "automated_guilt_determination_allowed": false
+    },
+    {
+      "pathway": "False work or procurement leakage",
+      "controls": [
+        "Link work evidence to authorized order, contract version and scope",
+        "Separate approval, inspection, variation and payment events",
+        "Flag duplicate identifiers and unsupported milestones for human review",
+        "Provide correction and appeal path"
+      ],
+      "auto_blacklisting_allowed": false,
+      "model_flag_is_proof_of_fraud": false
+    }
+  ],
+  "evaluation": {
+    "baseline_required": true,
+    "comparison_strategy": "Pre-register partner-approved pre-period and, where feasible, comparable zone or staggered rollout",
+    "thresholds": "Set with responsible partner and independent evaluator after baseline collection and before post-intervention results are observed",
+    "operational_metrics": [
+      "report_to_triage_time",
+      "triage_to_authorized_inspection_time",
+      "inspection_to_repair_time",
+      "repair_claim_to_independent_verification_time",
+      "repeat_fault_rate_with_declared_denominator",
+      "backlog_age",
+      "cost_per_independently_verified_valid_resolution",
+      "avoidable_repeat_trips",
+      "missing_evidence_rate"
+    ],
+    "workforce_metrics": [
+      "paid_hours",
+      "full_time_equivalent",
+      "actual_payment_timeliness",
+      "credential_attainment",
+      "safety_events",
+      "6_month_retention",
+      "12_month_retention"
+    ],
+    "trust_and_rights_metrics": [
+      "unauthorized_inputs_used",
+      "unsupported_status_changes",
+      "sensitive_data_disclosures",
+      "privacy_complaints",
+      "false_positive_anomaly_flags_overturned",
+      "correction_requests_resolved",
+      "service_access_outcomes_by_area"
+    ],
+    "numerical_targets_invented": false,
+    "citywide_causal_effect_claimed": false
+  },
+  "gates": [
+    {
+      "gate": "G0",
+      "name": "Desk research",
+      "required": [
+        "Versioned source/ownership matrix",
+        "Source claim ceiling",
+        "Unknown dates/status explicitly represented"
+      ]
+    },
+    {
+      "gate": "G1",
+      "name": "Synthetic",
+      "required": [
+        "Deterministic corpus",
+        "Duplicate/stale/conflict/false-completion tests",
+        "Fail-closed outputs for unavailable sources"
+      ]
+    },
+    {
+      "gate": "G2",
+      "name": "Partner readiness",
+      "required": [
+        "Named operator",
+        "Named payer",
+        "Written data-use permission",
+        "Privacy/security review",
+        "Worker-safety plan",
+        "Baseline availability",
+        "Manual fallback"
+      ]
+    },
+    {
+      "gate": "G3",
+      "name": "Shadow operation",
+      "required": [
+        "Exact-head qualification",
+        "No external writes",
+        "Complete audit trail",
+        "Agreed quality and safety thresholds"
+      ]
+    },
+    {
+      "gate": "G4",
+      "name": "Controlled field trial",
+      "required": [
+        "Written operating protocol",
+        "Funded paid roles",
+        "Independent evaluation",
+        "Incident and correction processes"
+      ]
+    },
+    {
+      "gate": "G5",
+      "name": "Scale decision",
+      "required": [
+        "Demonstrable benefit",
+        "Acceptable cost and rights outcomes",
+        "Recurring payer",
+        "Independent evaluation report"
+      ]
+    }
+  ],
+  "stop_conditions": [
+    "Unauthorized data access or external write",
+    "Material privacy incident",
+    "Unsafe or unqualified work",
+    "Unsupported production SLA claim",
+    "Cannot reconstruct the basis of a decision",
+    "No funded payer or lawful procurement path before field work",
+    "False or skipped qualification test presented as a pass"
+  ],
+  "prohibited_capabilities": [
+    "Automated municipal case submission",
+    "Automated crew dispatch",
+    "Automated case closure",
+    "Facial-recognition expansion",
+    "Public suspect lists or doxxing",
+    "Automated criminality/worker-misconduct determination",
+    "Adverse decisions based solely on model output, poverty, address or association"
+  ]
+}
