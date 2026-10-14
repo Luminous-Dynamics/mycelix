@@ -181,7 +181,7 @@ grep -Fq 'cryptographically verified before lineage resolution' packages/account
   || fail "unverified checkpoint objects must not mint lineage authority"
 grep -Fq 'rejects the omission attack' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
   || fail "checkpoint regression suite must exercise lineage omission attack"
-grep -Fq 'does not promote a direct caller-asserted complete lineage' packages/accounting/src/projection-allocation-lineage.test.ts \
+grep -Fq 'rejects a direct caller-asserted complete lineage even when structurally valid' packages/accounting/src/projection-allocation-lineage.test.ts \
   || fail "statement regressions must reject uncheckpointed completeness claims"
 
 # Deductions are canonical root-bearing accounting authorities before persistence.
