@@ -1,7 +1,7 @@
 # Mycelix Media Delivery Fabric — RFC v0.1
 
 **Status:** Proposed architecture; not a deployed service  
-**Reviewed:** 2026-10-13  
+**Reviewed:** 2026-10-14  
 **Scope:** Active public repository, `Luminous-Dynamics/mycelix`  
 **Primary implementation direction:** Rust-first control plane; interoperable HTTP delivery; optional IPFS and Iroh peer paths  
 **Decision requested:** Accept the architectural boundaries and phase gates before implementing a delivery service or paying providers.
