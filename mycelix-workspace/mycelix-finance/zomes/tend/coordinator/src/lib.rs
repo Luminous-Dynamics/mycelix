@@ -17,6 +17,8 @@
 //! Philosophy: All hours are equal. A doctor's hour = a gardener's hour.
 //! This radical equality is the foundation of time banking.
 
+use std::collections::BTreeMap;
+
 use hdk::prelude::*;
 use mycelix_finance_shared::{
     DEFAULT_RATE_LIMIT_PER_MINUTE, GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain,
@@ -3053,13 +3055,50 @@ pub fn get_tend_reputation_input(input: GetBalanceInput) -> ExternResult<f32> {
     Ok(activity_score * 0.05)
 }
 
+fn index_member_balance(
+    balances_by_dao: &mut BTreeMap<String, (ActionHash, TendBalance)>,
+    action_hash: ActionHash,
+    balance: TendBalance,
+    member_did: &str,
+) -> ExternResult<()> {
+    if balance.member_did != member_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Member-to-DAO balance index target is bound to {}, not {}",
+            balance.member_did, member_did
+        ))));
+    }
+
+    match balances_by_dao.entry(balance.dao_did.clone()) {
+        std::collections::btree_map::Entry::Vacant(entry) => {
+            entry.insert((action_hash, balance));
+        }
+        std::collections::btree_map::Entry::Occupied(entry) => {
+            let existing = entry.get().0;
+            if existing != &action_hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Conflicting TEND balance roots indexed for member {} in DAO {}",
+                    member_did,
+                    entry.key()
+                ))));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Forgive a member's TEND balance on exit/death.
 ///
-/// Sets their balance to zero. The community absorbs the micro-imbalance,
-/// proven safe by 40+ years of LETS experience.
-/// Returns the list of (dao_did, forgiven_amount) pairs.
+/// Sets each indexed balance to zero. The community absorbs the
+/// micro-imbalance, proven safe by the existing mutual-credit model.
+/// Returns the deterministic list of (dao_did, forgiven_amount) pairs.
 ///
 /// Restricted to authorized governance agents (or any agent during bootstrap).
+///
+/// SECURITY: The member-to-DAO balance index is authoritative here. We must
+/// never use the invoker's source chain as a proxy for another member's state,
+/// because a governance caller may not have authored the target member's
+/// TendBalance entries.
 #[hdk_extern]
 pub fn forgive_balance(member_did: String) -> ExternResult<Vec<(String, i32)>> {
     verify_governance_or_bootstrap()?;
@@ -3074,46 +3113,59 @@ pub fn forgive_balance(member_did: String) -> ExternResult<Vec<(String, i32)>> {
         )));
     }
 
+    let member_anchor = anchor_hash(&format!("member-daos:{}", member_did))?;
+    let links = get_links(
+        LinkQuery::try_new(member_anchor, LinkTypes::MemberToDaoBalances)?,
+        GetStrategy::default(),
+    )?;
+
+    // Group by DAO so duplicate index links are harmless but conflicting
+    // distinct balance roots for the same DAO fail closed. This prevents an
+    // ambiguous index from being interpreted as multiple authoritative balances.
+    let mut balances_by_dao: BTreeMap<String, (ActionHash, TendBalance)> = BTreeMap::new();
+
+    for link in links {
+        let action_hash = link.target.into_action_hash().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Member-to-DAO balance index target is not an ActionHash".into(),
+            ))
+        })?;
+
+        let record = follow_update_chain(action_hash.clone())?;
+        let balance = record
+            .entry()
+            .to_app_option::<TendBalance>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Indexed TendBalance deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Member-to-DAO balance index target is not a TendBalance entry".into(),
+                ))
+            })?;
+
+        index_member_balance(&mut balances_by_dao, action_hash, balance, &member_did)?;
+    }
+
+    let now = sys_time()?;
     let mut forgiven = Vec::new();
 
-    // NOTE: query() only searches the CALLING AGENT's source chain.
-    // TendBalance entries are authored by the agent who triggered the exchange
-    // (the receiver in confirm_exchange), NOT the governance agent calling this.
-    // This means query() will only find balances if the governance agent also
-    // happened to participate in exchanges. For a proper implementation, we would
-    // need a "member → DAO memberships" link index and use find_balance() per DAO.
-    //
-    // For now, this works when the same agent that created the balances also
-    // calls forgive_balance (e.g., in single-agent test scenarios or when the
-    // member themselves initiates exit via the payments zome).
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::TendBalance,
-        )?))
-        .include_entries(true);
-
-    for record in query(filter)? {
-        if let Some(balance) = record.entry().to_app_option::<TendBalance>().map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "TendBalance deserialization error: {:?}",
-                e
-            )))
-        })? {
-            if balance.member_did == member_did && balance.balance != 0 {
-                let forgiven_amount = balance.balance;
-                let now = sys_time()?;
-                let zeroed = TendBalance {
-                    balance: 0,
-                    last_activity: now,
-                    ..balance.clone()
-                };
-                update_entry(
-                    record.action_address().clone(),
-                    &EntryTypes::TendBalance(zeroed),
-                )?;
-                forgiven.push((balance.dao_did, forgiven_amount));
-            }
+    for (dao_did, (action_hash, balance)) in balances_by_dao {
+        if balance.balance == 0 {
+            continue;
         }
+
+        let forgiven_amount = balance.balance;
+        let zeroed = TendBalance {
+            balance: 0,
+            last_activity: now,
+            ..balance
+        };
+        update_entry(action_hash, &EntryTypes::TendBalance(zeroed))?;
+        forgiven.push((dao_did, forgiven_amount));
     }
 
     Ok(forgiven)
@@ -3315,3 +3367,75 @@ mod tests {
         assert_eq!(activity_dao_did(&request), "did:mycelix:dao-request");
     }
 }
+
+#[cfg(test)]
+mod tend_forgiveness_index_tests {
+    use super::*;
+
+    fn balance(member_did: &str, dao_did: &str) -> TendBalance {
+        TendBalance {
+            member_did: member_did.into(),
+            dao_did: dao_did.into(),
+            balance: 5,
+            total_provided: 5.0,
+            total_received: 0.0,
+            exchange_count: 1,
+            last_activity: Timestamp::from_micros(1_000_000),
+        }
+    }
+
+    #[test]
+    fn forgiveness_index_accepts_exact_member_and_dao_root() {
+        let mut index = BTreeMap::new();
+        let hash = ActionHash::from_raw_36(vec![1; 36]);
+        index_member_balance(&mut index, hash.clone(), balance("did:mycelix:alice", "did:mycelix:dao-a"), "did:mycelix:alice")
+            .unwrap();
+        assert_eq!(index.get("did:mycelix:dao-a").unwrap().0, hash);
+    }
+
+    #[test]
+    fn forgiveness_index_deduplicates_identical_root_targets() {
+        let mut index = BTreeMap::new();
+        let hash = ActionHash::from_raw_36(vec![2; 36]);
+        let entry = balance("did:mycelix:alice", "did:mycelix:dao-a");
+        index_member_balance(&mut index, hash.clone(), entry.clone(), "did:mycelix:alice").unwrap();
+        index_member_balance(&mut index, hash.clone(), entry, "did:mycelix:alice").unwrap();
+        assert_eq!(index.len(), 1);
+        assert_eq!(index.get("did:mycelix:dao-a").unwrap().0, hash);
+    }
+
+    #[test]
+    fn forgiveness_index_rejects_conflicting_roots_for_one_dao() {
+        let mut index = BTreeMap::new();
+        index_member_balance(
+            &mut index,
+            ActionHash::from_raw_36(vec![3; 36]),
+            balance("did:mycelix:alice", "did:mycelix:dao-a"),
+            "did:mycelix:alice",
+        ).unwrap();
+        assert!(
+            index_member_balance(
+                &mut index,
+                ActionHash::from_raw_36(vec![4; 36]),
+                balance("did:mycelix:alice", "did:mycelix:dao-a"),
+                "did:mycelix:alice",
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn forgiveness_index_rejects_wrong_member_binding() {
+        let mut index = BTreeMap::new();
+        assert!(
+            index_member_balance(
+                &mut index,
+                ActionHash::from_raw_36(vec![5; 36]),
+                balance("did:mycelix:bob", "did:mycelix:dao-a"),
+                "did:mycelix:alice",
+            )
+            .is_err()
+        );
+    }
+}
+
