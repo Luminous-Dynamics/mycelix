@@ -52,3 +52,10 @@ To run the focused Rust test with the standalone crate:
 ## Qualification boundary
 
 The test can establish only that the tested implementation reproduces a separately integrated Gaussian disk probability for a small synthetic case set. It does not establish covariance realism, TLE accuracy, cross-object independence in live data, calibration on historical conjunctions, behavior outside the small-disk envelope, flight qualification, or maneuver authority. Continue tracking those items under [Mycelix issue #4973](https://github.com/Luminous-Dynamics/mycelix/issues/4973).
+
+
+### Second, structurally different numerical replay
+
+The campaign now has a second reference calculation in `tools/verify_pc_correlated_gaussian_conditional_reference.py`. Instead of integrating area directly in polar coordinates, it conditions the bivariate normal on its x-coordinate: integrate the marginal density of X over `[-R, R]`, multiplied by the conditional probability that Y lies between `-sqrt(R²-x²)` and `+sqrt(R²-x²)`. This uses the conditional-normal CDF and one-dimensional Gauss–Legendre quadrature at orders 500 and 700, so the numerical path is structurally different from the tensor-product polar-area integral.
+
+For the frozen four-case fixture, the second replay requires the order-to-order relative difference to be at most `5e-9` and the order-700 result to agree with the frozen integral reference within `5e-9` relative error. These are fixture-specific reproduction tolerances, not a general method error bound. Both independent numerical scripts must pass in CI before the numerical-reference portion of this campaign is considered reproduced; Rust end-to-end verification remains a separate gate.
