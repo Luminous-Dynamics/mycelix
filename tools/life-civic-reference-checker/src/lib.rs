@@ -59,6 +59,26 @@ fn corpus_manifest_points_to_existing_versioned_assets() {
         .as_array()
         .expect("manifest frozen_inputs must be an array");
     assert_eq!(frozen_inputs.len(), 3, "all schema/corpus inputs must be pinned");
+    let actual_paths: HashSet<&str> = frozen_inputs
+        .iter()
+        .map(|entry| entry["path"].as_str().expect("frozen path must be a string"))
+        .collect();
+    assert_eq!(
+        actual_paths.len(),
+        frozen_inputs.len(),
+        "frozen input paths must be unique"
+    );
+    let expected_paths: HashSet<&str> = [
+        INSTRUMENT_SCHEMA,
+        ASSESSMENT_SCHEMA,
+        CORPUS_PATH,
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(
+        actual_paths, expected_paths,
+        "manifest must pin the expected schemas and corpus, not unrelated files"
+    );
     for entry in frozen_inputs {
         let path = entry["path"]
             .as_str()
