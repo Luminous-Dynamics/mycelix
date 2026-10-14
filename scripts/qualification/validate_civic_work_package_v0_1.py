@@ -231,6 +231,9 @@ def main() -> int:
         if ROOT.resolve() not in path.parents:
             failures.append(f"MANIFEST_PATH_ESCAPE: {path_text}")
             continue
+        if not path.is_file():
+            failures.append(f'FIXTURE_MISSING: {path_text}')
+            continue
         expected_blob_sha = entry.get('git_blob_sha')
         actual_blob_sha = git_blob_sha(path.read_bytes())
         if actual_blob_sha != expected_blob_sha:
