@@ -230,6 +230,17 @@ grep -Fq 'returns detached, frozen output and canonicalizes identifiers/territor
 grep -Fq 'rejects a non-digest statement source root' packages/accounting/src/interop.test.ts \
   || fail "reporting mapping must reject uncommitted or malformed statement roots"
 
+grep -Fq 'function dataProperty(' packages/accounting/src/interop.ts \
+  || fail "reporting inputs must be read through own data-property descriptors"
+grep -Fq 'must not be accessor-backed' packages/accounting/src/interop.ts \
+  || fail "reporting inputs and verifier snapshots must reject accessor-backed fields"
+grep -Fq 'function snapshotDataTree(' packages/accounting/src/interop.ts \
+  || fail "reporting verifier must hash a detached data-only snapshot"
+grep -Fq 'rejects accessor-backed source and amount fields without invoking getters' packages/accounting/src/interop.test.ts \
+  || fail "reporting regression must reject getter-backed source and amount inputs"
+grep -Fq 'rejects accessor-backed projection contents without invoking getters during verification' packages/accounting/src/interop.test.ts \
+  || fail "reporting verifier regression must reject accessor-backed projection content"
+
 for model in \
   RoyaltyObligationRecord \
   RoyaltyEligibilityObservation \
