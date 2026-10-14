@@ -14,6 +14,9 @@ on:
       - "mycelix-identity/AFRICA_DPI_INTEROP_CONTRACT_V1.json"
       - "mycelix-identity/validate_africa_dpi_contract.py"
       - "mycelix-identity/tests/test_africa_dpi_contract.py"
+      - "mycelix-identity/AFRICA_COUNTRY_RESEARCH_MATRIX_V1.json"
+      - "mycelix-identity/validate_africa_country_research_matrix.py"
+      - "mycelix-identity/tests/test_africa_country_research_matrix.py"
   push:
     branches: [main]
     paths:
@@ -27,6 +30,9 @@ on:
       - "mycelix-identity/AFRICA_DPI_INTEROP_CONTRACT_V1.json"
       - "mycelix-identity/validate_africa_dpi_contract.py"
       - "mycelix-identity/tests/test_africa_dpi_contract.py"
+      - "mycelix-identity/AFRICA_COUNTRY_RESEARCH_MATRIX_V1.json"
+      - "mycelix-identity/validate_africa_country_research_matrix.py"
+      - "mycelix-identity/tests/test_africa_country_research_matrix.py"
   workflow_dispatch:
 
 permissions:
@@ -65,6 +71,10 @@ jobs:
         run: |
           cd mycelix-identity
           python validate_africa_dpi_contract.py
+      - name: Validate Africa country research matrix
+        run: |
+          cd mycelix-identity
+          python validate_africa_country_research_matrix.py
       - name: Execute synthetic policy vectors and write evidence
         run: |
           cd mycelix-identity
@@ -79,6 +89,10 @@ jobs:
         run: |
           cd mycelix-identity
           python -m unittest discover -s tests -p 'test_africa_dpi_contract.py' -v
+      - name: Run Africa country matrix regression suite
+        run: |
+          cd mycelix-identity
+          python -m unittest discover -s tests -p 'test_africa_country_research_matrix.py' -v
       - name: Upload synthetic policy evidence
         if: always()
         uses: actions/upload-artifact@v4
