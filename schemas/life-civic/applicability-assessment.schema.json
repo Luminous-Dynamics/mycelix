@@ -251,9 +251,16 @@
             "minItems": 1
           },
           "human_review": {
+            "required": [
+              "required",
+              "review_status"
+            ],
             "properties": {
               "required": {
                 "const": true
+              },
+              "review_status": {
+                "const": "completed"
               }
             }
           }
