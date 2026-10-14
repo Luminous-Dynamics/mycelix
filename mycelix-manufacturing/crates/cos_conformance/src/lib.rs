@@ -124,7 +124,7 @@ pub fn evaluate_negative(test_id: &str, b: &Bindings, evidence: Option<&Evidence
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Case {
     pub test_id: &'static str,
     pub formal_obligations: &'static [&'static str],
