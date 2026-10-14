@@ -4,10 +4,11 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 
 ## What it does
 
-- Replays versioned, synthetic flight-intent fixtures.
+- Replays eleven versioned, synthetic flight-trajectory fixtures plus thirteen lifecycle-transition fixtures.
 - Uses explicit millimetre / millimetre-per-second integer units and a fixed simulation window.
 - Refuses to compare coordinates across unqualified clocks, incompatible reference frames, or vertical datums.
-- Rejects expired intents and out-of-bounds fixture inputs.
+- Rejects expired, withdrawn, completed, malformed, out-of-bounds, or over-budget flight-intent fixtures.
+- Validates lifecycle transitions against stable intent/issuer/trajectory/time-basis identity, exact successor sequence numbers, monotonic event time, and explicit state-transition rules.
 - Compares horizontal and vertical separation independently.
 - Adds conservative relative-motion margins to the caller-supplied threshold so a potential encounter between sample instants is less likely to be missed.
 - Requires an authority review for an emergency-priority scenario if no geometric conflict has already been found.
