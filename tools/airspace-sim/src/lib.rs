@@ -13,6 +13,8 @@ const MAX_ABS_POSITION_MM: i64 = 1_000_000_000_000_000;
 const MAX_ABS_VELOCITY_MM_S: i64 = 1_000_000_000;
 const MAX_THRESHOLD_MM: u64 = 1_000_000_000_000_000;
 const MAX_PAIR_SAMPLE_CHECKS: u128 = 5_000_000;
+const MAX_RESERVATION_CLAIMS: usize = 300;
+const MAX_RESERVATION_PAIR_CHECKS: usize = 50_000;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ScenarioSet {
@@ -493,6 +495,23 @@ pub fn evaluate_reservation_case(case: &ReservationCoordinationCase) -> Reservat
         );
     }
 
+    let claim_count = case.claims.len();
+    let estimated_pair_checks = claim_count.saturating_mul(claim_count.saturating_sub(1)) / 2;
+    if claim_count > MAX_RESERVATION_CLAIMS
+        || estimated_pair_checks > MAX_RESERVATION_PAIR_CHECKS
+    {
+        return reservation_report(
+            case,
+            ReservationOutcome::Reject,
+            0,
+            Vec::new(),
+            Vec::new(),
+            vec![format!(
+                "reservation snapshot exceeds the bounded fixture budget: claims={claim_count}, pair_checks={estimated_pair_checks}"
+            )],
+        );
+    }
+
     for claim in &case.claims {
         if claim.reservation_id.trim().is_empty()
             || claim.provider_id.trim().is_empty()
@@ -893,6 +912,14 @@ mod tests {
             .into_iter()
             .find(|case| case.case_id == case_id)
             .expect("reservation case exists")
+    }
+
+    #[test]
+    fn oversized_reservation_snapshot_is_rejected_before_pairwise_work() {
+        let mut case = reservation_fixture("concurrent_overlap_conflict");
+        let template = case.claims[0].clone();
+        case.claims.resize(MAX_RESERVATION_CLAIMS + 1, template);
+        assert_eq!(evaluate_reservation_case(&case).actual_outcome, ReservationOutcome::Reject);
     }
 
     #[test]
