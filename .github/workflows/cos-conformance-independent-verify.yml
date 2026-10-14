@@ -33,7 +33,7 @@ jobs:
            github.event.workflow_run.event == 'pull_request' &&
            github.event.workflow_run.pull_requests[0].number != '') }}
     name: Prepare trusted verification target
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -42,8 +42,10 @@ jobs:
     outputs:
       pr_number: ${{ steps.target_binding.outputs.pr_number }}
       expected_head_sha: ${{ steps.target_binding.outputs.expected_head_sha }}
+      expected_base_sha: ${{ steps.target_binding.outputs.expected_base_sha }}
       head_repository: ${{ steps.target_binding.outputs.head_repository }}
       trigger_run_id: ${{ steps.target_binding.outputs.trigger_run_id }}
+      trigger_run_attempt: ${{ steps.target_binding.outputs.trigger_run_attempt }}
       trigger_workflow_id: ${{ steps.target_binding.outputs.trigger_workflow_id }}
       trigger_workflow_path: ${{ steps.target_binding.outputs.trigger_workflow_path }}
       trigger_repository: ${{ steps.target_binding.outputs.trigger_repository }}
@@ -100,7 +102,117 @@ jobs:
           scanned_text = text[:audit_start] + text[audit_end:]
           scanned_lines = scanned_text.splitlines()
 
+          # Every workflow step must have exactly one execution primitive.
+          current_step = []
+          step_primitive_counts = []
+          for row in scanned_lines:
+              if row.startswith("      - name: "):
+                  if current_step:
+                      step_primitive_counts.append((
+                          sum(1 for item in current_step if item.strip().startswith("run:")),
+                          sum(1 for item in current_step if item.strip().startswith("uses:")),
+                      ))
+                  current_step = [row]
+              else:
+                  current_step.append(row)
+          if current_step:
+              step_primitive_counts.append((
+                  sum(1 for item in current_step if item.strip().startswith("run:")),
+                  sum(1 for item in current_step if item.strip().startswith("uses:")),
+              ))
+          assert step_primitive_counts, "no workflow steps discovered"
+          assert all(
+              (run_count + uses_count) == 1
+              for run_count, uses_count in step_primitive_counts
+          ), f"workflow step executor invariant violated: {step_primitive_counts!r}"
+
+          # continue-on-error is used only at explicit evidence-collection /
+          # validation boundaries. Any new use must be consciously classified
+          # rather than silently changing the acceptance theorem.
+          allowed_continue_on_error = {
+              "Test COS conformance harness",
+              "Generate machine-readable report",
+              "Exercise federated external-boundary qualification",
+              "Download raw execution evidence",
+              "Validate live PR binding and raw evidence",
+              "Validate trusted federation semantic manifest against exact candidate head",
+              "Validate machine-readable conformance report",
+          }
+          observed_continue_on_error = set()
+          blocks = []
+          current_block = []
+          for row in scanned_lines:
+              if row.startswith("      - name: "):
+                  if current_block:
+                      blocks.append(current_block)
+                  current_block = [row]
+              else:
+                  current_block.append(row)
+          if current_block:
+              blocks.append(current_block)
+          for block in blocks:
+              block_text = "\n".join(block)
+              if re.search(r"(?m)^        continue-on-error:\s*true\s*$", block_text):
+                  observed_continue_on_error.add(block[0].split(" - name: ", 1)[1])
+              assert not re.search(
+                  r"(?m)^        continue-on-error:\s*(?!true\s*$).+",
+                  block_text,
+              ), f"non-literal continue-on-error policy: {block[0]!r}"
+          assert observed_continue_on_error == allowed_continue_on_error, (
+              "continue-on-error step allowlist drifted: "
+              f"expected={sorted(allowed_continue_on_error)!r} "
+              f"actual={sorted(observed_continue_on_error)!r}"
+          )
+
+
           assert "permissions: {}" in scanned_text
+          assert "strict_json_loads" in scanned_text
+          assert "reject_duplicate_keys" in scanned_text
+          assert "reject_nonstandard_constant" in scanned_text
+          assert "assert_strict_json_rejects_ambiguous_inputs()" in scanned_text
+          assert "expected_envelope_keys" in scanned_text
+          assert "expected_manifest_keys" in scanned_text
+          assert "expected_report_keys" in scanned_text
+          assert "expected_record_keys" in scanned_text
+          assert 'manifest = json.loads(Path("trusted-federation-semantic-manifest.json").read_text())' not in scanned_text
+          assert 'report = json.loads(path.read_text())' not in scanned_text
+          assert 'envelope = json.loads(path.read_text())' not in scanned_text
+          assert 'envelope = json.loads(envelope_bytes.decode("utf-8"))' not in scanned_text
+          assert 'manifest = json.loads(path.read_text())' not in scanned_text
+          assert "json.load(" not in scanned_text
+          assert '"federation_semantic_manifest_outcome": "${{ steps.validate_federation_semantic_manifest.outcome || \'skipped\' }}"' in scanned_text
+          # This trusted source profile deliberately forbids YAML anchors,
+          # aliases, and merge keys. The self-audit reasons over literal
+          # workflow structure, so YAML indirection must not change that graph.
+          yaml_source = re.sub(
+              r"(?ms)^        run: \|\n(?:          .*\n|\n)*?(?=^      - name: |^  [A-Za-z])",
+              "",
+              scanned_text,
+          )
+          anchor_or_alias_with_value = re.compile(
+              r"(?m)^\s*(?:[-]?\s+)?(?:[A-Za-z0-9_.-]+:\s*)[&*][A-Za-z_][A-Za-z0-9_-]*(?:\s|$)"
+          )
+          alias_or_anchor_list_item = re.compile(
+              r"(?m)^\s*-\s+[&*][A-Za-z_][A-Za-z0-9_-]*(?:\s|$)"
+          )
+          merge_key = re.compile(r"(?m)^\s*<<:\s*")
+          assert not anchor_or_alias_with_value.search(yaml_source)
+          assert not alias_or_anchor_list_item.search(yaml_source)
+          assert not merge_key.search(yaml_source)
+
+          yaml_indirection_probe = """
+          name: &anchored_value example
+          env: *anchored_value
+          - &list_anchor example
+          - *list_anchor
+          <<: *merge_source
+          """
+          assert anchor_or_alias_with_value.search(yaml_indirection_probe)
+          assert alias_or_anchor_list_item.search(yaml_indirection_probe)
+          assert merge_key.search(yaml_indirection_probe)
+          assert "id-token: write" not in scanned_text
+          assert "attestations: write" not in scanned_text
+          assert "artifact-metadata: write" not in scanned_text
           assert scanned_text.count("\n    cache-mode: none\n") == 3
           assert ("actions" + "/cache@") not in scanned_text
           assert ("secrets" + ".") not in scanned_text
@@ -108,8 +220,41 @@ jobs:
           assert scanned_text.count("actions/checkout@") == 2
           assert scanned_text.count("persist-credentials: false") == 2
           assert scanned_text.count("digest-mismatch: error") == 1
+          assert len(re.findall(r"^    runs-on: ubuntu-24\.04$", scanned_text, re.MULTILINE)) == 3
+          assert "runs-on: ubuntu-latest" not in scanned_text
+          assert "cargo test --locked -p cos_conformance" in scanned_text
+          assert "cargo run --locked -q -p cos_conformance --bin cos-report" in scanned_text
+          assert "cargo test --locked -p cos_conformance" in scanned_text
+          assert "--exact -- --nocapture" in scanned_text
+          assert "external_verification_statement_wire_shape_is_closed_world_for_v4" in scanned_text
+          assert "evidence/federation-external-boundary-test.log" in scanned_text
+          assert "evidence/trusted-federation-semantic-manifest.json" in scanned_text
+          assert "required_test_fragment_scope" in scanned_text
+          assert "exact_rust_test_function_body_v1" in scanned_text
+          assert "MYCELIX-COS-FEDERATION-TEST-BODY-ATTESTATION-V1" in scanned_text
+          assert "mask_non_code_regions" in scanned_text
+          assert "matching_brace" in scanned_text
+          assert "required_test_fragments" in scanned_text
+          assert "federation::tests::external_verification_statement_wire_shape_is_closed_world_for_v4" in scanned_text
+          assert "federation::tests::external_verification_policy_wire_schema_uses_current_version" in scanned_text
+          assert "federation::tests::external_verification_request_context_binding_is_content_addressed_and_fail_closed" in scanned_text
+          assert "federation::tests::external_verification_profile_and_request_context_composition_is_canonical" in scanned_text
+          assert "evidence/cargo-lock-post-sha256.txt" in scanned_text
+          assert scanned_text.count("      - name: Capture exact dependency lock") == 1
+          assert scanned_text.count("      - name: Write deterministic qualification manifest") == 1
+          assert scanned_text.count("      - name: Validate deterministic qualification manifest") == 1
+          assert "evidence/qualification-manifest-v1.json" in scanned_text
+          assert "MYCELIX-COS-CONFORMANCE-QUALIFICATION-MANIFEST-V1" in scanned_text
           assert scanned_text.count("artifact-ids: ${{ needs.execute.outputs.execution_artifact_id }}") == 1
           assert "actions/artifacts/${EXPECTED_ARTIFACT_ID}" in scanned_text
+          assert "github.run_attempt" in scanned_text
+          assert "cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}-attempt-${{ github.run_attempt }}" in scanned_text
+          assert "cos-conformance-independent-evidence-${{ needs.prepare.outputs.expected_head_sha }}-attempt-${{ github.run_attempt }}" in scanned_text
+          assert "trigger_run_attempt" in scanned_text
+          assert 'assert envelope["trigger_run_attempt"] == 0' in scanned_text
+          assert 'assert manifest["trigger_run_attempt"] == 0' in scanned_text
+          assert "path.is_symlink()" in scanned_text
+          assert "is_relative_to(evidence_root)" in scanned_text
 
           expected = {
               "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
@@ -146,7 +291,9 @@ jobs:
         env:
           PR_NUMBER: ${{ inputs.pr_number || github.event.workflow_run.pull_requests[0].number }}
           EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha || github.event.workflow_run.head_sha }}
+          TRIGGER_BASE_SHA: ${{ github.event.workflow_run.pull_requests[0].base.sha || '' }}
           TRIGGER_RUN_ID: ${{ github.event.workflow_run.id || 0 }}
+          TRIGGER_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt || 0 }}
           TRIGGER_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id || 0 }}
           TRIGGER_WORKFLOW_PATH: ${{ github.event.workflow_run.path || 'manual' }}
           TRIGGER_REPOSITORY: ${{ github.event.workflow_run.repository.full_name || github.repository }}
@@ -160,18 +307,23 @@ jobs:
 
           event = os.environ["TRIGGER_EVENT"]
           run_id = int(os.environ["TRIGGER_RUN_ID"])
+          run_attempt = int(os.environ["TRIGGER_RUN_ATTEMPT"])
           workflow_id = int(os.environ["TRIGGER_WORKFLOW_ID"])
           workflow_path = os.environ["TRIGGER_WORKFLOW_PATH"]
           trigger_repository = os.environ["TRIGGER_REPOSITORY"]
           pr_number = os.environ["PR_NUMBER"]
           head_sha = os.environ["EXPECTED_HEAD_SHA"]
+          trigger_base_sha = os.environ["TRIGGER_BASE_SHA"]
 
           assert event in {"pull_request", "workflow_dispatch"}
+          if event == "pull_request":
+              assert re.fullmatch(r"[0-9a-f]{40}", trigger_base_sha)
           assert re.fullmatch(r"[1-9][0-9]*", pr_number)
           assert re.fullmatch(r"[0-9a-f]{40}", head_sha)
 
           if event == "pull_request":
               assert run_id > 0
+              assert run_attempt > 0
               assert workflow_id == 374065836
               assert workflow_path == ".github/workflows/cos-conformance-evidence.yml"
               assert trigger_repository == os.environ["GITHUB_REPOSITORY"]
@@ -189,9 +341,16 @@ jobs:
             trigger_workflow_id_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.workflow_id')"
             trigger_workflow_path_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.path')"
             trigger_repository_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.repository.full_name')"
-            trigger_pr_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq --arg pr "${PR_NUMBER}" '.pull_requests[] | select((.number|tostring)==$pr) | .head.sha' | head -n 1)"
+            trigger_pr_count="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.pull_requests | length')"
+            test "${trigger_pr_count}" = "1" || {
+              echo "trusted verifier requires exactly one PR association on the trigger run, got ${trigger_pr_count}" >&2
+              exit 1
+            }
+            trigger_pr_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.pull_requests[0].head.sha')"
+            trigger_run_attempt_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.run_attempt')"
             test "${trigger_head_sha}" = "${EXPECTED_HEAD_SHA}"
             test "${trigger_pr_head_sha}" = "${EXPECTED_HEAD_SHA}"
+            test "${trigger_run_attempt_live}" = "${TRIGGER_RUN_ATTEMPT}"
             test "${trigger_event}" = "pull_request"
             test "${trigger_workflow_id_live}" = "374065836"
             test "${trigger_workflow_path_live}" = ".github/workflows/cos-conformance-evidence.yml"
@@ -201,11 +360,16 @@ jobs:
 
 
           actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          actual_base_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')"
           head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
           pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
 
           test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}" || {
             echo "PR head drift: expected ${EXPECTED_HEAD_SHA}, got ${actual_head_sha}" >&2
+            exit 1
+          }
+          test "${actual_base_sha}" = "${TRIGGER_BASE_SHA}" || [[ "${TRIGGER_EVENT}" == "workflow_dispatch" ]] || {
+            echo "PR base drift: expected ${TRIGGER_BASE_SHA}, got ${actual_base_sha}" >&2
             exit 1
           }
           test "${head_repository}" = "${GITHUB_REPOSITORY}" || {
@@ -220,8 +384,10 @@ jobs:
           {
             printf 'pr_number=%s\n' "${PR_NUMBER}"
             printf 'expected_head_sha=%s\n' "${EXPECTED_HEAD_SHA}"
+            printf 'expected_base_sha=%s\n' "${actual_base_sha}"
             printf 'head_repository=%s\n' "${head_repository}"
             printf 'trigger_run_id=%s\n' "${TRIGGER_RUN_ID}"
+            printf 'trigger_run_attempt=%s\n' "${TRIGGER_RUN_ATTEMPT}"
             printf 'trigger_workflow_id=%s\n' "${TRIGGER_WORKFLOW_ID}"
             printf 'trigger_workflow_path=%s\n' "${TRIGGER_WORKFLOW_PATH}"
             printf 'trigger_repository=%s\n' "${TRIGGER_REPOSITORY}"
@@ -232,7 +398,7 @@ jobs:
   execute:
     name: Execute exact PR head
     needs: prepare
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       contents: read
@@ -265,8 +431,17 @@ jobs:
           mkdir -p evidence
           printf '%s\n' "${actual_head_sha}" > evidence/tested-commit-sha.txt
 
+      - name: Capture exact federation source identity
+        run: |
+          set -euo pipefail
+          federation_path="mycelix-manufacturing/crates/cos_conformance/src/federation.rs"
+          federation_blob="$(git rev-parse "HEAD:${federation_path}")"
+          printf '%s\n' "${federation_blob}" > evidence/candidate-federation-git-blob-sha.txt
+          printf '%s\n' "${federation_blob}" | grep -Eq '^[0-9a-f]{40}$'
+
       - name: Capture exact dependency lock
         run: |
+          set -euo pipefail
           if [[ ! -f mycelix-manufacturing/Cargo.lock ]]; then
             echo "Cargo.lock missing from tested revision" >&2
             exit 1
@@ -287,7 +462,7 @@ jobs:
           mkdir -p evidence
           set +e
           cd mycelix-manufacturing
-          cargo test -p cos_conformance 2>&1 | tee ../evidence/cargo-test.log
+          cargo test --locked -p cos_conformance 2>&1 | tee ../evidence/cargo-test.log
           status=${PIPESTATUS[0]}
           printf '%s\n' "${status}" > ../evidence/cargo-test.exit-code
           exit "${status}"
@@ -298,17 +473,64 @@ jobs:
         run: |
           mkdir -p evidence
           cd mycelix-manufacturing
-          cargo run -q -p cos_conformance --bin cos-report > ../evidence/cos-conformance-report.json
+          cargo run --locked -q -p cos_conformance --bin cos-report > ../evidence/cos-conformance-report.json
+
+      - name: Exercise federated external-boundary qualification
+        id: federation_boundary_test
+        continue-on-error: true
+        run: |
+          mkdir -p evidence
+          set -euo pipefail
+          cd mycelix-manufacturing
+          status=0
+          : > ../evidence/federation-external-boundary-test.log
+          : > ../evidence/federation-external-boundary-test-status.tsv
+          for test_name in \
+            federation::tests::external_verification_statement_wire_shape_is_closed_world_for_v4 \
+            federation::tests::external_verification_policy_wire_schema_uses_current_version \
+            federation::tests::external_verification_request_context_binding_is_content_addressed_and_fail_closed \
+            federation::tests::external_verification_profile_and_request_context_composition_is_canonical; do
+            set +e
+            cargo test --locked -p cos_conformance "${test_name}" --exact -- --nocapture 2>&1 | tee -a ../evidence/federation-external-boundary-test.log
+            test_status=${PIPESTATUS[0]}
+            set -e
+            printf '%s\t%s\n' "${test_name}" "${test_status}" >> ../evidence/federation-external-boundary-test-status.tsv
+            if [[ "${test_status}" -ne 0 ]]; then
+              status=1
+            fi
+          done
+          printf '%s\n' "${status}" > ../evidence/federation-external-boundary-test.exit-code
+          exit "${status}"
+
+      - name: Assert dependency lock remained immutable
+        id: lock_integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          initial="$(cat evidence/cargo-lock-sha256.txt)"
+          final="$(sha256sum mycelix-manufacturing/Cargo.lock | awk '{print $1}')"
+          printf '%s\n' "${final}" > evidence/cargo-lock-post-sha256.txt
+          test "${final}" = "${initial}"
 
       - name: Record execution outcomes
         if: always()
         run: |
+          federation_boundary_test_exit_code="null"
+          if [[ -f evidence/federation-external-boundary-test.exit-code ]]; then
+            candidate_federation_exit="$(cat evidence/federation-external-boundary-test.exit-code)"
+            if [[ "${candidate_federation_exit}" =~ ^[0-9]+$ ]]; then
+              federation_boundary_test_exit_code="${candidate_federation_exit}"
+            fi
+          fi
           cat > evidence/execution-outcomes.json <<JSON
           {
             "tested_commit_sha": "${{ steps.target_checkout.outputs.tested_commit_sha || '' }}",
             "target_checkout_outcome": "${{ steps.target_checkout.outcome || 'skipped' }}",
             "conformance_test_outcome": "${{ steps.conformance_test.outcome || 'skipped' }}",
-            "report_generation_outcome": "${{ steps.generate_report.outcome || 'skipped' }}"
+            "report_generation_outcome": "${{ steps.generate_report.outcome || 'skipped' }}",
+            "federation_boundary_test_outcome": "${{ steps.federation_boundary_test.outcome || 'skipped' }}",
+            "federation_boundary_test_exit_code": ${federation_boundary_test_exit_code},
+            "dependency_lock_integrity_outcome": "${{ steps.lock_integrity.outcome || 'skipped' }}"
           }
           JSON
 
@@ -317,7 +539,7 @@ jobs:
         id: execution_artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}
+          name: cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}-attempt-${{ github.run_attempt }}
           path: evidence/
           if-no-files-found: warn
           retention-days: 30
@@ -326,7 +548,7 @@ jobs:
     name: Validate execution from fresh trusted runner
     needs: [prepare, execute]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -349,10 +571,11 @@ jobs:
         env:
           PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
           EXPECTED_HEAD_SHA: ${{ needs.prepare.outputs.expected_head_sha }}
+          EXPECTED_BASE_SHA: ${{ needs.prepare.outputs.expected_base_sha }}
           EXPECTED_HEAD_REPOSITORY: ${{ needs.prepare.outputs.head_repository }}
           EXPECTED_ARTIFACT_ID: ${{ needs.execute.outputs.execution_artifact_id }}
           EXPECTED_ARTIFACT_DIGEST: ${{ needs.execute.outputs.execution_artifact_digest }}
-          EXPECTED_ARTIFACT_NAME: cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}
+          EXPECTED_ARTIFACT_NAME: cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}-attempt-${{ github.run_attempt }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -385,9 +608,11 @@ jobs:
           test "${recorded_digest}" = "${expected_digest}"
 
           actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          actual_base_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')"
           head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
           pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
           test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}"
+          test "${actual_base_sha}" = "${EXPECTED_BASE_SHA}"
           test "${head_repository}" = "${EXPECTED_HEAD_REPOSITORY}"
           test "${head_repository}" = "${GITHUB_REPOSITORY}"
           test "${pull_request_state}" = "open"
@@ -404,6 +629,12 @@ jobs:
           printf '%s\n' "${recorded_lock_sha}" | grep -Eq '^[0-9a-f]{64}$'
           sha256sum -c <(printf '%s  %s\n' "${recorded_lock_sha}" evidence/Cargo.lock)
 
+          test -s evidence/candidate-federation-git-blob-sha.txt
+          checked_out_federation_blob="$(cat evidence/candidate-federation-git-blob-sha.txt)"
+          printf '%s\n' "${checked_out_federation_blob}" | grep -Eq '^[0-9a-f]{40}$'
+          expected_federation_blob="$(gh api "repos/${GITHUB_REPOSITORY}/contents/mycelix-manufacturing/crates/cos_conformance/src/federation.rs?ref=${EXPECTED_HEAD_SHA}" --jq '.sha')"
+          printf '%s\n' "${expected_federation_blob}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${checked_out_federation_blob}" = "${expected_federation_blob}"
           expected_lock_b64="$(gh api "repos/${GITHUB_REPOSITORY}/contents/mycelix-manufacturing/Cargo.lock?ref=${EXPECTED_HEAD_SHA}" --jq '.content' | tr -d '\n')"
           printf '%s' "${expected_lock_b64}" | base64 --decode > expected-Cargo.lock
           cmp -s expected-Cargo.lock evidence/Cargo.lock
@@ -411,6 +642,440 @@ jobs:
           test -s evidence/cos-conformance-report.json
           test -s evidence/cargo-test.log
           test -s evidence/cargo-test.exit-code
+          test -s evidence/cargo-lock-post-sha256.txt
+          test -s evidence/federation-external-boundary-test.log
+          test -s evidence/federation-external-boundary-test.exit-code
+          test -s evidence/federation-external-boundary-test-status.tsv
+          federation_boundary_exit="$(cat evidence/federation-external-boundary-test.exit-code)"
+          printf '%s\n' "${federation_boundary_exit}" | grep -Eq '^[0-9]+$'
+          test "${federation_boundary_exit}" = "0"
+          for expected_test in \
+            "federation::tests::external_verification_statement_wire_shape_is_closed_world_for_v4" \
+            "federation::tests::external_verification_policy_wire_schema_uses_current_version" \
+            "federation::tests::external_verification_request_context_binding_is_content_addressed_and_fail_closed" \
+            "federation::tests::external_verification_profile_and_request_context_composition_is_canonical"; do
+            grep -Eq "^test ${expected_test} .* ok$" evidence/federation-external-boundary-test.log
+            grep -Eq "^${expected_test}[[:space:]]+0$" evidence/federation-external-boundary-test-status.tsv
+          done
+          post_lock_sha="$(cat evidence/cargo-lock-post-sha256.txt)"
+          printf '%s\n' "${post_lock_sha}" | grep -Eq '^[0-9a-f]{64}$'
+          test "${post_lock_sha}" = "${recorded_lock_sha}"
+
+      - name: Validate trusted federation semantic manifest against exact candidate head
+        id: validate_federation_semantic_manifest
+        continue-on-error: true
+        env:
+          EXPECTED_HEAD_SHA: ${{ needs.prepare.outputs.expected_head_sha }}
+          TRUSTED_WORKFLOW_SHA: ${{ needs.prepare.outputs.trusted_workflow_checked_out_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          gh api "repos/${GITHUB_REPOSITORY}/contents/.github/cos/federation-semantic-manifest-v1.json?ref=${TRUSTED_WORKFLOW_SHA}" --jq '.content' | tr -d '\n' | base64 --decode > trusted-federation-semantic-manifest.json
+          cp trusted-federation-semantic-manifest.json evidence/trusted-federation-semantic-manifest.json
+          gh api "repos/${GITHUB_REPOSITORY}/contents/.github/cos/federation-semantic-manifest-v1.json?ref=${TRUSTED_WORKFLOW_SHA}" --jq '.sha' > evidence/trusted-federation-semantic-manifest-blob-sha.txt
+          gh api "repos/${GITHUB_REPOSITORY}/contents/mycelix-manufacturing/crates/cos_conformance/src/federation.rs?ref=${EXPECTED_HEAD_SHA}" --jq '.content' | tr -d '\n' | base64 --decode > candidate-federation.rs
+          gh api "repos/${GITHUB_REPOSITORY}/contents/mycelix-manufacturing/crates/cos_conformance/src/federation.rs?ref=${EXPECTED_HEAD_SHA}" --jq '.sha' > evidence/candidate-federation-blob-sha.txt
+          python - <<'PY'
+          import hashlib
+          import json
+          import re
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      strict_json_loads(payload)
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          assert_strict_json_rejects_ambiguous_inputs()
+
+          manifest = strict_json_loads(Path("trusted-federation-semantic-manifest.json").read_text())
+          source = Path("candidate-federation.rs").read_text()
+          scope = "exact_rust_test_function_body_v1"
+
+          assert manifest["schema"] == "MYCELIX-COS-FEDERATION-SEMANTIC-MANIFEST-V1"
+          assert manifest["candidate_path"] == "mycelix-manufacturing/crates/cos_conformance/src/federation.rs"
+          assert manifest["required_test_fragment_scope"] == scope
+
+          for literal in manifest["required_literals"]:
+              assert literal in source, f"missing trusted federation contract literal: {literal!r}"
+
+          def matching_brace(text, opening):
+              depth = 0
+              mode = "code"
+              raw_hashes = 0
+              block_depth = 0
+              i = opening
+
+              while i < len(text):
+                  c = text[i]
+                  n = text[i + 1] if i + 1 < len(text) else ""
+
+                  if mode == "code":
+                      if c == "/" and n == "/":
+                          mode = "line"
+                          i += 2
+                          continue
+                      if c == "/" and n == "*":
+                          mode = "block"
+                          block_depth = 1
+                          i += 2
+                          continue
+                      if c == "r" or text.startswith("br", i) or text.startswith("rb", i):
+                          j = i + 1
+                          if c == "b":
+                              j += 1
+                          hashes = 0
+                          while j < len(text) and text[j] == "#":
+                              hashes += 1
+                              j += 1
+                          if j < len(text) and text[j] == '"':
+                              mode = "raw"
+                              raw_hashes = hashes
+                              i = j + 1
+                              continue
+                      if c == '"':
+                          mode = "string"
+                          i += 1
+                          continue
+                      if c == "'":
+                          char_match = re.match(r"'(?:\\.|[^'\\\n])'", text[i:])
+                          if char_match:
+                              i += len(char_match.group(0))
+                              continue
+                          # A Rust lifetime such as 'static or 'a is not a char literal.
+                          i += 1
+                          continue
+                      if c == "{":
+                          depth += 1
+                      elif c == "}":
+                          depth -= 1
+                          if depth == 0:
+                              return i + 1
+                      i += 1
+                      continue
+
+                  if mode == "line":
+                      if c == "\n":
+                          mode = "code"
+                      i += 1
+                      continue
+
+                  if mode == "block":
+                      if c == "/" and n == "*":
+                          block_depth += 1
+                          i += 2
+                      elif c == "*" and n == "/":
+                          block_depth -= 1
+                          i += 2
+                          if block_depth == 0:
+                              mode = "code"
+                      else:
+                          i += 1
+                      continue
+
+                  if mode == "string":
+                      if c == "\\":
+                          i += 2
+                      elif c == '"':
+                          mode = "code"
+                          i += 1
+                      else:
+                          i += 1
+                      continue
+
+
+                  if mode == "raw":
+                      if c == '"':
+                          j = i + 1
+                          hashes = 0
+                          while j < len(text) and text[j] == "#":
+                              hashes += 1
+                              j += 1
+                          if hashes == raw_hashes:
+                              mode = "code"
+                              i = j
+                          else:
+                              i += 1
+                      else:
+                          i += 1
+                      continue
+
+              raise AssertionError("unterminated Rust function body")
+
+          def mask_non_code_regions(text):
+              masked = list(text)
+              mode = "code"
+              raw_hashes = 0
+              block_depth = 0
+              i = 0
+
+              def blank(start, end):
+                  for index in range(start, min(end, len(masked))):
+                      if masked[index] != "\n":
+                          masked[index] = " "
+
+              while i < len(text):
+                  c = text[i]
+                  n = text[i + 1] if i + 1 < len(text) else ""
+
+                  if mode == "code":
+                      if c == "/" and n == "/":
+                          blank(i, i + 2)
+                          mode = "line"
+                          i += 2
+                          continue
+                      if c == "/" and n == "*":
+                          blank(i, i + 2)
+                          mode = "block"
+                          block_depth = 1
+                          i += 2
+                          continue
+                      if c == "r" or text.startswith("br", i):
+                          j = i + 1
+                          if c == "b":
+                              j += 1
+                          hashes = 0
+                          while j < len(text) and text[j] == "#":
+                              hashes += 1
+                              j += 1
+                          if j < len(text) and text[j] == '"':
+                              blank(i, j + 1)
+                              mode = "raw"
+                              raw_hashes = hashes
+                              i = j + 1
+                              continue
+                      if c == '"':
+                          blank(i, i + 1)
+                          mode = "string"
+                          i += 1
+                          continue
+                      if c == "'":
+                          char_match = re.match(r"'(?:\\.|[^'\\\n])'", text[i:])
+                          if char_match:
+                              blank(i, i + len(char_match.group(0)))
+                              i += len(char_match.group(0))
+                              continue
+                          # Rust lifetimes remain code; only actual char literals are masked.
+                          i += 1
+                          continue
+                      continue
+
+                  if mode == "line":
+                      if c == "\n":
+                          mode = "code"
+                      else:
+                          masked[i] = " "
+                      i += 1
+                      continue
+
+                  if mode == "block":
+                      if c == "/" and n == "*":
+                          blank(i, i + 2)
+                          block_depth += 1
+                          i += 2
+                      elif c == "*" and n == "/":
+                          blank(i, i + 2)
+                          block_depth -= 1
+                          i += 2
+                          if block_depth == 0:
+                              mode = "code"
+                      else:
+                          if c != "\n":
+                              masked[i] = " "
+                          i += 1
+                      continue
+
+                  if mode == "string":
+                      if c == "\\":
+                          blank(i, min(i + 2, len(text)))
+                          i += 2
+                      elif c == '"':
+                          blank(i, i + 1)
+                          mode = "code"
+                          i += 1
+                      else:
+                          if c != "\n":
+                              masked[i] = " "
+                          i += 1
+                      continue
+
+                  if mode == "raw":
+                      if c == '"':
+                          j = i + 1
+                          hashes = 0
+                          while j < len(text) and text[j] == "#":
+                              hashes += 1
+                              j += 1
+                          blank(i, j)
+                          if hashes == raw_hashes:
+                              mode = "code"
+                              i = j
+                          else:
+                              i += 1
+                      else:
+                          if c != "\n":
+                              masked[i] = " "
+                          i += 1
+                      continue
+
+              assert mode == "code", "unterminated non-code Rust region"
+              return "".join(masked)
+
+          def extract_test_item(text, name):
+              masked = mask_non_code_regions(text)
+              declaration = re.compile(
+                  rf"(?m)^[ \t]*#\[test\][ \t]*\r?\n[ \t]*fn[ \t]+{re.escape(name)}[ \t]*\("
+              )
+              matches = list(declaration.finditer(masked))
+              assert len(matches) == 1, (
+                  f"expected exactly one real #[test] declaration for {name}, got {len(matches)}"
+              )
+
+              fn_start = matches[0].start()
+              fn_open = text.find("{", matches[0].end())
+              assert fn_open >= 0, f"missing function body for {name}"
+              body_end = matching_brace(text, fn_open)
+              return {
+                  "item_start": fn_start,
+                  "body_start": fn_open,
+                  "body_end": body_end,
+                  "item": text[fn_start:body_end],
+                  "body": text[fn_open:body_end],
+              }
+
+          # Self-test the trusted Rust body extractor against braces that commonly defeat
+          # naive source slicing: nested blocks, strings, raw strings, byte strings,
+          # line/block comments, and a decoy function containing the same text.
+          parser_probe = r'''
+          const STRING_DECOY = r#"
+          #[test]
+          fn target() {
+              let trusted = "outside-string";
+          }
+          "#;
+
+          /* 
+          #[test]
+          fn target() {
+              let trusted = "outside-comment";
+          }
+          */
+
+          #[test]
+          fn target() {
+              let normal = "{ not a function terminator }";
+              let raw = r#"{ raw brace }"#;
+              let byte_string = b"{ byte brace }";
+              let byte_raw = br#"{ byte raw brace }"#;
+              let lifetime: &'static str = "lifetime";
+              // } this must remain inside the target body
+              /* { nested /* } */ comment */
+              if true {
+                  let nested = "}";
+                  assert_eq!(nested, "}");
+              }
+              let trusted = "inside";
+          }
+
+          fn decoy() {
+              let trusted = "outside";
+          }
+          '''
+          probe = extract_test_item(parser_probe, "target")
+          assert '"inside"' in probe["body"]
+          assert '"outside"' not in probe["body"]
+          assert "outside-string" not in probe["body"]
+          assert "outside-comment" not in probe["body"]
+          assert "byte raw brace" in probe["body"]
+          assert probe["body"].rstrip().endswith("}")
+          try:
+              extract_test_item(
+                  "#[test]\nfn target() {}\n\n#[test]\nfn target() {}\n",
+                  "target",
+              )
+          except AssertionError:
+              pass
+          else:
+              raise AssertionError("duplicate #[test] declarations were not rejected")
+
+          expected_names = manifest["required_test_names"]
+          fragments_by_name = manifest["required_test_fragments"]
+          assert set(fragments_by_name) == set(expected_names)
+
+          attestations = []
+          for test_name in expected_names:
+              test = extract_test_item(source, test_name)
+              body = test["body"]
+              fragment_offsets = {}
+              for fragment in fragments_by_name[test_name]:
+                  offset = body.find(fragment)
+                  assert offset >= 0, (
+                      f"missing trusted federation test body fragment for {test_name}: {fragment!r}"
+                  )
+                  fragment_offsets[fragment] = offset
+
+              attestations.append(
+                  {
+                      "name": test_name,
+                      "item_start_line": source.count("\n", 0, test["item_start"]) + 1,
+                      "body_start_line": source.count("\n", 0, test["body_start"]) + 1,
+                      "body_end_line": source.count("\n", 0, test["body_end"] - 1) + 1,
+                      "body_sha256": hashlib.sha256(test["body"].encode("utf-8")).hexdigest(),
+                      "required_fragments": fragments_by_name[test_name],
+                      "fragment_offsets_from_body_start": fragment_offsets,
+                  }
+              )
+
+          Path("evidence/federation-test-body-attestation.json").write_text(
+              json.dumps(
+                  {
+                      "schema": "MYCELIX-COS-FEDERATION-TEST-BODY-ATTESTATION-V1",
+                      "fragment_scope": scope,
+                      "candidate_path": manifest["candidate_path"],
+                      "candidate_source_sha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+                      "tests": attestations,
+                  },
+                  indent=2,
+                  sort_keys=True,
+              )
+              + "\n"
+          )
+
+          candidate_blob = Path("evidence/candidate-federation-blob-sha.txt").read_text().strip()
+          checked_out_blob = Path("evidence/candidate-federation-git-blob-sha.txt").read_text().strip()
+          trusted_manifest_blob = Path("evidence/trusted-federation-semantic-manifest-blob-sha.txt").read_text().strip()
+          assert re.fullmatch(r"[0-9a-f]{40}", candidate_blob)
+          assert re.fullmatch(r"[0-9a-f]{40}", checked_out_blob)
+          assert re.fullmatch(r"[0-9a-f]{40}", trusted_manifest_blob)
+          assert candidate_blob == checked_out_blob
+          PY
 
       - name: Validate machine-readable conformance report
         id: validate_report
@@ -422,13 +1087,137 @@ jobs:
 
           path = Path("evidence/cos-conformance-report.json")
           assert path.is_file() and path.stat().st_size > 0
-          report = json.loads(path.read_text())
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      strict_json_loads(payload)
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          assert_strict_json_rejects_ambiguous_inputs()
+
+          report = strict_json_loads(path.read_text())
+          expected_report_keys = {
+              "corpus_id", "case_count", "records",
+              "untested_formal_obligations", "claim_ceiling",
+          }
+          expected_record_keys = {
+              "test_id", "formal_obligations", "expected_negative",
+              "actual_negative", "expected_positive", "actual_positive",
+              "provenance_origin", "temporal_validity", "refinement_status",
+              "claim_ceiling",
+          }
+          assert set(report) == expected_report_keys
+          assert all(set(record) == expected_record_keys for record in report["records"])
           assert report["corpus_id"] == "COS-CONF-001"
           assert report["case_count"] == 32
           assert report["untested_formal_obligations"] == []
           assert report["claim_ceiling"] == "ReferenceModelOnly"
           assert report["claim_scope"].startswith("Semantic conformance of this reference harness only;")
           assert "verified_score" not in json.dumps(report, sort_keys=True)
+
+          # Every literal `run: |` shell block must at least pass Bash syntax
+          # validation. This catches accidental YAML/run-boundary corruption
+          # before the workflow reaches hosted candidate execution.
+          lines = scanned_text.splitlines()
+          run_blocks = []
+          i = 0
+          while i < len(lines):
+              if lines[i].startswith("        run: |"):
+                  body = []
+                  i += 1
+                  while i < len(lines) and (not lines[i].strip() or lines[i].startswith("          ")):
+                      body.append(lines[i][10:] if lines[i].strip() else "")
+                      i += 1
+                  run_blocks.append("\n".join(body) + "\n")
+                  continue
+              i += 1
+
+          assert run_blocks, "no shell run blocks found for syntax audit"
+          import subprocess
+          for index, block in enumerate(run_blocks, start=1):
+              normalized_block = re.sub(r"\$\{\{.*?\}\}", "__GITHUB_EXPRESSION__", block, flags=re.DOTALL)
+              check = subprocess.run(
+                  ["bash", "-n"], input=normalized_block, text=True, capture_output=True
+              )
+              assert check.returncode == 0, (
+                  f"shell syntax failure in run block {index}: {check.stderr.strip()}"
+              )
+
+          # Compile every embedded Python heredoc without executing it. This
+          # closes a distinct syntax boundary that Bash -n cannot see.
+          python_heredoc_count = 0
+          for block_index, block in enumerate(run_blocks, start=1):
+              rows = block.splitlines()
+              i = 0
+              while i < len(rows):
+                  if re.search(r"""python(?:3)?\s+-\s+<<['"]PY['"]""", rows[i]):
+                      python_heredoc_count += 1
+                      python_rows = []
+                      i += 1
+                      terminated = False
+                      while i < len(rows):
+                          if rows[i].strip() == "PY":
+                              terminated = True
+                              break
+                          python_rows.append(rows[i])
+                          i += 1
+                      assert terminated, (
+                          f"unterminated Python heredoc in shell block {block_index}"
+                      )
+                      python_source = "\n".join(python_rows) + "\n"
+                      python_source = re.sub(
+                          r"\$\{\{.*?\}\}", "__GITHUB_EXPRESSION__", python_source, flags=re.DOTALL
+                      )
+                      compile(
+                          python_source,
+                          f"<embedded-python-block-{block_index}-{python_heredoc_count}>",
+                          "exec",
+                      )
+                  i += 1
+          assert python_heredoc_count > 0, "no embedded Python heredocs found"
+
+          # Python heredocs are a controlled source form in this trusted workflow.
+          # Reject any future Python heredoc that uses a different delimiter or
+          # unquoted delimiter, so every Python execution remains inside the
+          # compilation audit above.
+          python_commands = re.findall(
+              r"(?m)\\bpython(?:3)?\\s+-\\s+<<(?P<quote>['\"]?)(?P<delimiter>[A-Za-z_][A-Za-z0-9_]*)\\1",
+              "\\n".join(run_blocks),
+          )
+          assert python_commands, "embedded Python command inventory is empty"
+          assert all(
+              quote == "'" and delimiter == "PY"
+              for quote, delimiter in python_commands
+          ), f"unsupported Python heredoc form: {python_commands!r}"
+          assert len(python_commands) == python_heredoc_count, (
+              f"Python heredoc inventory mismatch: commands={len(python_commands)} "
+              f"compiled={python_heredoc_count}"
+          )
 
           expected = {
               "COS-N-001": (["COS-FV-002", "COS-FV-007"], "Rejected", "Accepted", "Plan/execution semantic conformance only."),
@@ -470,7 +1259,7 @@ jobs:
         run: |
           mkdir -p evidence
           qualification_result="failed"
-          if [[ "${{ needs.execute.result }}" == "success"              && "${{ needs.execute.outputs.target_checkout_outcome }}" == "success"              && "${{ needs.execute.outputs.conformance_test_outcome }}" == "success"              && "${{ needs.execute.outputs.report_generation_outcome }}" == "success"              && "${{ steps.download_execution.outcome }}" == "success"              && "${{ steps.validate_raw.outcome }}" == "success"              && "${{ steps.validate_report.outcome }}" == "success" ]]; then
+          if [[ "${{ needs.execute.result }}" == "success"              && "${{ needs.execute.outputs.target_checkout_outcome }}" == "success"              && "${{ needs.execute.outputs.conformance_test_outcome }}" == "success"              && "${{ needs.execute.outputs.report_generation_outcome }}" == "success"              && "${{ needs.execute.outputs.federation_boundary_test_outcome }}" == "success"              && "${{ steps.validate_federation_semantic_manifest.outcome }}" == "success"              && "${{ needs.execute.outputs.dependency_lock_integrity_outcome }}" == "success"              && "${{ steps.download_execution.outcome }}" == "success"              && "${{ steps.validate_raw.outcome }}" == "success"              && "${{ steps.validate_report.outcome }}" == "success" ]]; then
             qualification_result="passed"
           elif [[ "${{ needs.execute.result }}" == "cancelled"                || "${{ needs.execute.result }}" == "skipped" ]]; then
             qualification_result="not_run"
@@ -483,6 +1272,13 @@ jobs:
               test_exit_code="${candidate_exit}"
             fi
           fi
+          federation_boundary_test_exit_code="null"
+          if [[ -f evidence/federation-external-boundary-test.exit-code ]]; then
+            candidate_federation_exit="$(cat evidence/federation-external-boundary-test.exit-code)"
+            if [[ "${candidate_federation_exit}" =~ ^[0-9]+$ ]]; then
+              federation_boundary_test_exit_code="${candidate_federation_exit}"
+            fi
+          fi
           tested_commit_sha="${{ needs.execute.outputs.tested_commit_sha || '' }}"
           if [[ -z "${tested_commit_sha}" && -f evidence/tested-commit-sha.txt ]]; then
             tested_commit_sha="$(cat evidence/tested-commit-sha.txt)"
@@ -490,6 +1286,22 @@ jobs:
           tested_lock_sha256=""
           if [[ -f evidence/cargo-lock-sha256.txt ]]; then
             tested_lock_sha256="$(cat evidence/cargo-lock-sha256.txt)"
+          fi
+          candidate_federation_blob_sha=""
+          if [[ -f evidence/candidate-federation-blob-sha.txt ]]; then
+            candidate_federation_blob_sha="$(cat evidence/candidate-federation-blob-sha.txt)"
+          fi
+          candidate_federation_git_blob_sha=""
+          if [[ -f evidence/candidate-federation-git-blob-sha.txt ]]; then
+            candidate_federation_git_blob_sha="$(cat evidence/candidate-federation-git-blob-sha.txt)"
+          fi
+          trusted_federation_manifest_blob_sha=""
+          if [[ -f evidence/trusted-federation-semantic-manifest-blob-sha.txt ]]; then
+            trusted_federation_manifest_blob_sha="$(cat evidence/trusted-federation-semantic-manifest-blob-sha.txt)"
+          fi
+          federation_test_body_attestation_sha256=""
+          if [[ -f evidence/federation-test-body-attestation.json ]]; then
+            federation_test_body_attestation_sha256="$(sha256sum evidence/federation-test-body-attestation.json | cut -d" " -f1)"
           fi
 
           cat > evidence/independent-run-envelope.json <<JSON
@@ -499,6 +1311,7 @@ jobs:
             "repository": "${GITHUB_REPOSITORY}",
             "pr_number": "${{ needs.prepare.outputs.pr_number }}",
             "expected_head_sha": "${{ needs.prepare.outputs.expected_head_sha }}",
+            "expected_base_sha": "${{ needs.prepare.outputs.expected_base_sha }}",
             "tested_commit_sha": "${tested_commit_sha}",
             "head_repository": "${{ needs.prepare.outputs.head_repository }}",
             "trusted_workflow_sha": "${{ needs.prepare.outputs.trusted_workflow_sha }}",
@@ -506,7 +1319,12 @@ jobs:
             "trusted_workflow_checked_out_sha": "${{ needs.prepare.outputs.trusted_workflow_checked_out_sha }}",
             "trusted_workflow_file_blob_sha": "${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}",
             "tested_lock_sha256": "${tested_lock_sha256}",
+            "candidate_federation_blob_sha": "${candidate_federation_blob_sha}",
+            "candidate_federation_git_blob_sha": "${candidate_federation_git_blob_sha}",
+            "trusted_federation_manifest_blob_sha": "${trusted_federation_manifest_blob_sha}",
+            "federation_test_body_attestation_sha256": "${federation_test_body_attestation_sha256}",
             "trigger_run_id": ${{ needs.prepare.outputs.trigger_run_id }},
+            "trigger_run_attempt": ${{ needs.prepare.outputs.trigger_run_attempt }},
             "trigger_workflow_id": ${{ needs.prepare.outputs.trigger_workflow_id }},
             "trigger_workflow_path": "${{ needs.prepare.outputs.trigger_workflow_path }}",
             "trigger_repository": "${{ needs.prepare.outputs.trigger_repository }}",
@@ -517,6 +1335,10 @@ jobs:
             "conformance_test_outcome": "${{ needs.execute.outputs.conformance_test_outcome }}",
             "conformance_test_exit_code": ${test_exit_code},
             "report_generation_outcome": "${{ needs.execute.outputs.report_generation_outcome }}",
+            "federation_boundary_test_outcome": "${{ needs.execute.outputs.federation_boundary_test_outcome }}",
+            "federation_semantic_manifest_outcome": "${{ steps.validate_federation_semantic_manifest.outcome || 'skipped' }}",
+            "federation_boundary_test_exit_code": ${federation_boundary_test_exit_code},
+            "dependency_lock_integrity_outcome": "${{ needs.execute.outputs.dependency_lock_integrity_outcome }}",
             "raw_execution_artifact_id": "${{ needs.execute.outputs.execution_artifact_id }}",
             "raw_execution_artifact_digest": "${{ needs.execute.outputs.execution_artifact_digest }}",
             "raw_evidence_download_outcome": "${{ steps.download_execution.outcome }}",
@@ -533,18 +1355,74 @@ jobs:
         if: always()
         run: |
           python - <<'PY'
+          import hashlib
           import json
           import re
           from pathlib import Path
 
           path = Path("evidence/independent-run-envelope.json")
-          envelope = json.loads(path.read_text())
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      strict_json_loads(payload)
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          assert_strict_json_rejects_ambiguous_inputs()
+
+          envelope = strict_json_loads(path.read_text())
+          expected_envelope_keys = {
+              "schema", "claim_ceiling", "repository", "pr_number",
+              "expected_head_sha", "expected_base_sha", "tested_commit_sha",
+              "head_repository", "trusted_workflow_sha", "trusted_workflow_ref",
+              "trusted_workflow_checked_out_sha", "trusted_workflow_file_blob_sha",
+              "tested_lock_sha256", "candidate_federation_blob_sha",
+              "candidate_federation_git_blob_sha", "trusted_federation_manifest_blob_sha",
+              "federation_test_body_attestation_sha256", "trigger_run_id",
+              "trigger_run_attempt", "trigger_workflow_id", "trigger_workflow_path",
+              "trigger_repository", "trigger_event", "trigger_conclusion",
+              "executor_job_result", "target_checkout_outcome",
+              "conformance_test_outcome", "conformance_test_exit_code",
+              "report_generation_outcome", "federation_boundary_test_outcome",
+              "federation_semantic_manifest_outcome", "federation_boundary_test_exit_code",
+              "dependency_lock_integrity_outcome",
+              "raw_execution_artifact_id", "raw_execution_artifact_digest",
+              "raw_evidence_download_outcome", "raw_evidence_validation_outcome",
+              "report_validation_outcome", "run_id", "run_attempt",
+              "qualification_result", "runner_os",
+          }
+          assert set(envelope) == expected_envelope_keys
           sha40 = re.compile(r"^[0-9a-f]{40}$")
           sha64 = re.compile(r"^[0-9a-f]{64}$")
 
           assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2"
           assert envelope["claim_ceiling"] == "ReferenceModelOnly"
           assert sha40.fullmatch(envelope["expected_head_sha"])
+          assert sha40.fullmatch(envelope["expected_base_sha"])
           assert sha40.fullmatch(envelope["tested_commit_sha"])
           assert envelope["expected_head_sha"] == envelope["tested_commit_sha"]
           assert sha40.fullmatch(envelope["trusted_workflow_sha"])
@@ -552,6 +1430,15 @@ jobs:
           assert envelope["trusted_workflow_sha"] == envelope["trusted_workflow_checked_out_sha"]
           assert sha40.fullmatch(envelope["trusted_workflow_file_blob_sha"])
           assert sha64.fullmatch(envelope["tested_lock_sha256"])
+          assert sha40.fullmatch(envelope["candidate_federation_blob_sha"])
+          assert isinstance(envelope["trigger_run_attempt"], int) and envelope["trigger_run_attempt"] >= 1
+          assert sha40.fullmatch(envelope["candidate_federation_git_blob_sha"])
+          assert envelope["candidate_federation_blob_sha"] == envelope["candidate_federation_git_blob_sha"]
+          assert sha40.fullmatch(envelope["trusted_federation_manifest_blob_sha"])
+          assert sha64.fullmatch(envelope["federation_test_body_attestation_sha256"])
+          attestation_path = Path("evidence/federation-test-body-attestation.json")
+          assert attestation_path.is_file() and attestation_path.stat().st_size > 0
+          assert envelope["federation_test_body_attestation_sha256"] == hashlib.sha256(attestation_path.read_bytes()).hexdigest()
           assert envelope["raw_execution_artifact_id"].isdigit()
           assert sha64.fullmatch(envelope["raw_execution_artifact_digest"])
           assert envelope["pr_number"].isdigit()
@@ -563,10 +1450,13 @@ jobs:
               assert envelope["trigger_workflow_id"] == 374065836
               assert envelope["trigger_workflow_path"] == ".github/workflows/cos-conformance-evidence.yml"
               assert envelope["trigger_run_id"] > 0
+              assert envelope["trigger_run_attempt"] >= 1
           else:
+              assert envelope["trigger_event"] == "workflow_dispatch"
               assert envelope["trigger_workflow_id"] == 0
               assert envelope["trigger_workflow_path"] == "manual"
               assert envelope["trigger_run_id"] == 0
+              assert envelope["trigger_run_attempt"] == 0
           assert envelope["qualification_result"] in {"passed", "failed", "not_run"}
           assert envelope["trigger_event"] in {"pull_request", "workflow_dispatch"}
           assert envelope["trigger_conclusion"]
@@ -576,6 +1466,9 @@ jobs:
               "target_checkout_outcome",
               "conformance_test_outcome",
               "report_generation_outcome",
+              "federation_boundary_test_outcome",
+              "federation_semantic_manifest_outcome",
+              "dependency_lock_integrity_outcome",
               "raw_evidence_download_outcome",
               "raw_evidence_validation_outcome",
               "report_validation_outcome",
@@ -583,6 +1476,7 @@ jobs:
               assert envelope[key] in allowed
 
           exit_code = envelope["conformance_test_exit_code"]
+          federation_exit_code = envelope["federation_boundary_test_exit_code"]
           if envelope["conformance_test_outcome"] == "success":
               assert exit_code == 0
           elif envelope["conformance_test_outcome"] == "failure":
@@ -590,11 +1484,26 @@ jobs:
           else:
               assert exit_code is None
 
+          if envelope["federation_boundary_test_outcome"] == "success":
+              assert federation_exit_code == 0
+          elif envelope["federation_boundary_test_outcome"] == "failure":
+              assert isinstance(federation_exit_code, int) and federation_exit_code != 0
+          else:
+              assert federation_exit_code is None
+
           if envelope["qualification_result"] == "passed":
               assert envelope["executor_job_result"] == "success"
               assert envelope["target_checkout_outcome"] == "success"
               assert envelope["conformance_test_outcome"] == "success"
               assert envelope["report_generation_outcome"] == "success"
+              assert envelope["federation_boundary_test_outcome"] == "success"
+              assert federation_exit_code == 0
+              assert envelope["federation_semantic_manifest_outcome"] == "success"
+              assert envelope["dependency_lock_integrity_outcome"] == "success"
+              assert sha40.fullmatch(envelope["candidate_federation_blob_sha"])
+              assert envelope["candidate_federation_blob_sha"] == envelope["candidate_federation_git_blob_sha"]
+              assert sha40.fullmatch(envelope["trusted_federation_manifest_blob_sha"])
+              assert sha64.fullmatch(envelope["federation_test_body_attestation_sha256"])
               assert envelope["raw_evidence_download_outcome"] == "success"
               assert envelope["raw_evidence_validation_outcome"] == "success"
               assert envelope["report_validation_outcome"] == "success"
@@ -607,6 +1516,211 @@ jobs:
               assert envelope["raw_evidence_validation_outcome"] == "success"
           PY
 
+      - name: Write deterministic qualification manifest
+        if: always()
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          evidence = Path("evidence")
+          envelope_path = evidence / "independent-run-envelope.json"
+          assert envelope_path.is_file()
+
+          covered = []
+          evidence_root = evidence.resolve()
+          for path in sorted(evidence.rglob("*")):
+              if path.is_symlink():
+                  raise AssertionError(f"symlink forbidden in evidence tree: {path}")
+              if not path.is_file():
+                  continue
+              resolved = path.resolve()
+              if not resolved.is_relative_to(evidence_root):
+                  raise AssertionError(f"evidence path escapes root: {path}")
+              rel = path.relative_to(evidence).as_posix()
+              if rel in {"qualification-manifest-v1.json", "SHA256SUMS"}:
+                  continue
+              data = path.read_bytes()
+              covered.append(
+                  {
+                      "path": rel,
+                      "sha256": hashlib.sha256(data).hexdigest(),
+                      "size_bytes": len(data),
+                  }
+              )
+
+          envelope_bytes = envelope_path.read_bytes()
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      strict_json_loads(payload)
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          assert_strict_json_rejects_ambiguous_inputs()
+
+          envelope = strict_json_loads(envelope_bytes.decode("utf-8"))
+          manifest = {
+              "schema": "MYCELIX-COS-CONFORMANCE-QUALIFICATION-MANIFEST-V1",
+              "manifest_scope": "validated_independent_evidence_set",
+              "claim_ceiling": envelope["claim_ceiling"],
+              "repository": envelope["repository"],
+              "pr_number": envelope["pr_number"],
+              "expected_head_sha": envelope["expected_head_sha"],
+              "expected_base_sha": envelope["expected_base_sha"],
+              "tested_commit_sha": envelope["tested_commit_sha"],
+              "trusted_workflow_sha": envelope["trusted_workflow_sha"],
+              "trusted_workflow_ref": envelope["trusted_workflow_ref"],
+              "trusted_workflow_file_blob_sha": envelope["trusted_workflow_file_blob_sha"],
+              "trigger_run_id": envelope["trigger_run_id"],
+              "trigger_run_attempt": envelope["trigger_run_attempt"],
+              "trigger_workflow_id": envelope["trigger_workflow_id"],
+              "trigger_workflow_path": envelope["trigger_workflow_path"],
+              "trigger_event": envelope["trigger_event"],
+              "trigger_conclusion": envelope["trigger_conclusion"],
+              "raw_execution_artifact_id": envelope["raw_execution_artifact_id"],
+              "raw_execution_artifact_digest": envelope["raw_execution_artifact_digest"],
+              "run_id": envelope["run_id"],
+              "run_attempt": envelope["run_attempt"],
+              "runner_os": envelope["runner_os"],
+              "candidate_federation_blob_sha": envelope["candidate_federation_blob_sha"],
+              "candidate_federation_git_blob_sha": envelope["candidate_federation_git_blob_sha"],
+              "trusted_federation_manifest_blob_sha": envelope["trusted_federation_manifest_blob_sha"],
+              "federation_test_body_attestation_sha256": envelope["federation_test_body_attestation_sha256"],
+              "qualification_result": envelope["qualification_result"],
+              "independent_run_envelope_sha256": hashlib.sha256(envelope_bytes).hexdigest(),
+              "covered_files": covered,
+          }
+          assert manifest["claim_ceiling"] == "ReferenceModelOnly"
+          assert manifest["expected_head_sha"] == manifest["tested_commit_sha"]
+          assert manifest["candidate_federation_blob_sha"] == manifest["candidate_federation_git_blob_sha"]
+          (evidence / "qualification-manifest-v1.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+          )
+          PY
+
+      - name: Validate deterministic qualification manifest
+        if: always()
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          evidence = Path("evidence")
+          path = evidence / "qualification-manifest-v1.json"
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          def strict_json_loads(text):
+              return json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_keys,
+                  parse_constant=reject_nonstandard_constant,
+              )
+
+          def assert_strict_json_rejects_ambiguous_inputs():
+              for payload in (
+                  '{"duplicate": 1, "duplicate": 2}',
+                  '{"nonstandard": NaN}',
+                  '{"nonstandard": Infinity}',
+                  '{"nonstandard": -Infinity}',
+              ):
+                  try:
+                      strict_json_loads(payload)
+                  except ValueError:
+                      continue
+                  raise AssertionError(f"ambiguous/non-standard JSON accepted: {payload}")
+
+          assert_strict_json_rejects_ambiguous_inputs()
+
+          manifest = strict_json_loads(path.read_text())
+          expected_manifest_keys = {
+              "schema", "manifest_scope", "claim_ceiling", "repository",
+              "pr_number", "expected_head_sha", "expected_base_sha",
+              "tested_commit_sha", "trusted_workflow_sha", "trusted_workflow_ref",
+              "trusted_workflow_file_blob_sha", "trigger_run_id",
+              "trigger_run_attempt", "trigger_workflow_id", "trigger_workflow_path",
+              "trigger_event", "trigger_conclusion", "raw_execution_artifact_id",
+              "raw_execution_artifact_digest", "run_id", "run_attempt", "runner_os",
+              "candidate_federation_blob_sha", "candidate_federation_git_blob_sha",
+              "trusted_federation_manifest_blob_sha",
+              "federation_test_body_attestation_sha256", "qualification_result",
+              "independent_run_envelope_sha256", "covered_files",
+          }
+          assert set(manifest) == expected_manifest_keys
+          assert manifest["schema"] == "MYCELIX-COS-CONFORMANCE-QUALIFICATION-MANIFEST-V1"
+          assert manifest["manifest_scope"] == "validated_independent_evidence_set"
+          assert manifest["claim_ceiling"] == "ReferenceModelOnly"
+          assert manifest["expected_head_sha"] == manifest["tested_commit_sha"]
+          assert manifest["candidate_federation_blob_sha"] == manifest["candidate_federation_git_blob_sha"]
+          assert manifest["raw_execution_artifact_digest"].startswith("sha256:")
+          assert manifest["trigger_workflow_path"]
+          assert isinstance(manifest["trigger_run_attempt"], int) and manifest["trigger_run_attempt"] >= 0
+          assert manifest["trigger_event"] in {"pull_request", "workflow_dispatch"}
+          if manifest["trigger_event"] == "pull_request":
+              assert manifest["trigger_run_id"] > 0
+              assert manifest["trigger_run_attempt"] >= 1
+          else:
+              assert manifest["trigger_run_id"] == 0
+              assert manifest["trigger_run_attempt"] == 0
+          assert manifest["run_attempt"] >= 1
+          envelope_bytes = (evidence / "independent-run-envelope.json").read_bytes()
+          assert manifest["independent_run_envelope_sha256"] == hashlib.sha256(envelope_bytes).hexdigest()
+
+          expected = []
+          for item in sorted(
+              (p for p in evidence.rglob("*") if p.is_file()),
+              key=lambda p: p.relative_to(evidence).as_posix(),
+          ):
+              rel = item.relative_to(evidence).as_posix()
+              if rel in {"qualification-manifest-v1.json", "SHA256SUMS"}:
+                  continue
+              data = item.read_bytes()
+              expected.append(
+                  {
+                      "path": rel,
+                      "sha256": hashlib.sha256(data).hexdigest(),
+                      "size_bytes": len(data),
+                  }
+              )
+          assert manifest["covered_files"] == expected
+          PY
+
           (
             cd evidence
             LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
@@ -617,7 +1731,7 @@ jobs:
         id: evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: cos-conformance-independent-evidence-${{ needs.prepare.outputs.expected_head_sha }}
+          name: cos-conformance-independent-evidence-${{ needs.prepare.outputs.expected_head_sha }}-attempt-${{ github.run_attempt }}
           path: evidence/
           if-no-files-found: error
           retention-days: 30
@@ -627,10 +1741,30 @@ jobs:
         run: |
           result="$(python - <<'PY'
           import json
-          print(json.load(open("evidence/independent-run-envelope.json"))["qualification_result"])
+          from pathlib import Path
+
+          def reject_duplicate_keys(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  result[key] = value
+              return result
+
+          def reject_nonstandard_constant(value):
+              raise ValueError(f"non-standard JSON constant: {value}")
+
+          envelope = json.loads(
+              Path("evidence/independent-run-envelope.json").read_text(),
+              object_pairs_hook=reject_duplicate_keys,
+              parse_constant=reject_nonstandard_constant,
+          )
+          print(envelope["qualification_result"])
           PY
           )"
           test "${result}" = "passed" || {
             echo "independent qualification result: ${result}" >&2
             exit 1
           }
+
+

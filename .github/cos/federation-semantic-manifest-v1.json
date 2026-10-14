@@ -1,0 +1,42 @@
+{
+  "schema": "MYCELIX-COS-FEDERATION-SEMANTIC-MANIFEST-V1",
+  "candidate_path": "mycelix-manufacturing/crates/cos_conformance/src/federation.rs",
+  "required_test_fragment_scope": "exact_rust_test_function_body_v1",
+  "required_literals": [
+    "pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_SCHEMA_VERSION: u16 = 4;",
+    "pub const FEDERATION_STATE_MACHINE_TRACE_EXTERNAL_EVIDENCE_VERIFICATION_STATEMENT_PROFILE: &str =",
+    "\"integral-federation-trace-external-evidence-verification-statement-v4\"",
+    "pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION: u16 = 6;",
+    "pub const FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_PROFILE: &str =",
+    "\"integral-federation-external-verification-trust-policy-v6\"",
+    "request_context_sha256: Option<String>",
+    "pub fn state_machine_trace_external_verification_request_context_sha256(bytes: &[u8]) -> String",
+    "pub fn state_machine_trace_external_evidence_verification_statement_with_request_context(",
+    "pub fn try_new_bound_request_context_sha256("
+  ],
+  "required_test_names": [
+    "external_verification_statement_wire_shape_is_closed_world_for_v4",
+    "external_verification_policy_wire_schema_uses_current_version",
+    "external_verification_request_context_binding_is_content_addressed_and_fail_closed",
+    "external_verification_profile_and_request_context_composition_is_canonical"
+  ],
+  "required_test_fragments": {
+    "external_verification_statement_wire_shape_is_closed_world_for_v4": [
+      "assert_eq!(actual, expected);",
+      "statement.schema_version(),"
+    ],
+    "external_verification_policy_wire_schema_uses_current_version": [
+      "assert_eq!(FEDERATION_EXTERNAL_VERIFICATION_TRUST_POLICY_SCHEMA_VERSION, 6);",
+      "policy.policy_profile(),"
+    ],
+    "external_verification_request_context_binding_is_content_addressed_and_fail_closed": [
+      "RequestContextDigestMismatch",
+      "EmptyRequestContext"
+    ],
+    "external_verification_profile_and_request_context_composition_is_canonical": [
+      "combined.verifier_profile_sha256()",
+      "combined.request_context_sha256()",
+      "combined.statement_sha256(), profile_only.statement_sha256()"
+    ]
+  }
+}
