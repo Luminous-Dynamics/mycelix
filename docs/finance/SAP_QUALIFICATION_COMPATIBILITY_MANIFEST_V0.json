@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "qualification_status": "UNQUALIFIED",
+  "purpose": "Exact implementation/runtime identity for SAP monetary qualification receipts",
+  "repository": {
+    "full_name": "Luminous-Dynamics/mycelix",
+    "base_ref": "main",
+    "observed_commit": "a3e26f44435e83dab153b4e62876c65d09cfed35"
+  },
+  "finance_workspace": {
+    "manifest": "mycelix-finance/Cargo.toml",
+    "hdk": "0.6.1",
+    "hdi": "0.7.1",
+    "holochain_zome_types": "0.6.1",
+    "holochain_integrity_types": "0.6.1",
+    "holo_hash": "0.6.1",
+    "hdk_derive": "0.6.1",
+    "holochain_serialized_bytes": "0.0.57"
+  },
+  "runtime": {
+    "holochain_conductor_version": null,
+    "status": "UNDECLARED_IN_REPOSITORY",
+    "note": "Do not infer conductor/runtime version from HDK/HDI pins."
+  },
+  "toolchain": {
+    "rust_version": null,
+    "status": "UNDECLARED_IN_REPOSITORY"
+  },
+  "dna": {
+    "happ_manifest": "mycelix-finance/happ.yaml",
+    "dna_bundle": "mycelix-finance/dna/mycelix_finance.dna",
+    "dna_hash": null,
+    "status": "BUNDLE_IDENTITY_NOT_RECORDED"
+  },
+  "feature_flags": {
+    "countersigning": {
+      "status": "UNDECLARED",
+      "qualification_rule": "Any qualification claim depending on countersigning must record the exact runtime feature configuration."
+    },
+    "capability_mode": {
+      "status": "APPLICATION_DEPENDENT",
+      "qualification_rule": "Record every capability grant required by the exercised qualification path."
+    }
+  },
+  "qualification_binding": {
+    "required_fields": [
+      "repository.observed_commit",
+      "runtime.holochain_conductor_version",
+      "toolchain.rust_version",
+      "dna.dna_hash",
+      "feature_flags",
+      "qualification_harness_commit"
+    ],
+    "rule": "A reserve qualification receipt is invalid when any required implementation identity is absent or differs from the executed environment."
+  }
+}
