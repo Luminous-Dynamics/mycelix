@@ -127,7 +127,7 @@ Do not use "countries onboarded" as the primary success metric. A single safe, a
 ## Immediate implementation priorities in Mycelix
 
 1. Keep the African DPI invariant contract and country research matrix; they are a regional example, not the global schema.
-2. **Implemented in this PR, awaiting exact-head CI:** a jurisdiction-neutral [portable adapter profile template](../mycelix-identity/PORTABLE_ADAPTER_PROFILE_TEMPLATE_V1.json), [closed-schema validator](../mycelix-identity/validate_portable_adapter_profile.py), and [18 adversarial tests](../mycelix-identity/tests/test_portable_adapter_profile.py). This is a research-only template, not an authorized adapter.
+2. **Implemented in this PR, awaiting exact-head CI:** a jurisdiction-neutral [portable adapter profile template](../mycelix-identity/PORTABLE_ADAPTER_PROFILE_TEMPLATE_V1.json), [closed-schema validator](../mycelix-identity/validate_portable_adapter_profile.py), and [20 adversarial tests](../mycelix-identity/tests/test_portable_adapter_profile.py). This is a research-only template, not an authorized adapter.
 3. Add cross-region reference mappings as research notes only. Do not hard-code EU/ASEAN/IdLAC status into production trust settings.
 4. Preserve exact-head evidence: contract tests must pass on the exact commit before claiming implementation validation.
 5. Create a lightweight synthetic end-to-end service example proving purpose scope, minimal claims, offline fallback and appeal receipt without real identity data.
