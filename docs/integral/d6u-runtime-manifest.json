@@ -1,0 +1,99 @@
+{
+  "profile": "D6U-RUNTIME-1",
+  "kind": "holochain-0.7-authority-boundary-runtime-manifest",
+  "version": 11,
+  "attestation_policy": {
+    "mode": "deferred-to-trusted-builder",
+    "rationale": "The PR-controlled runtime workflow intentionally has no OIDC or attestations write permission; signed provenance must be produced by a trusted default-branch builder that does not execute PR-controlled code."
+  },
+  "substrate": {
+    "holochain": "0.7.0",
+    "hdk": "0.7.0",
+    "hdi": "0.8.0",
+    "rust": "1.96.1",
+    "holochain_serialized_bytes": "0.0.57"
+  },
+  "harness_path": "d6u-runtime-harness",
+  "test_path": "d6u-runtime-harness/tests/d6u_authority_boundary.rs",
+  "qualification_workflow": ".github/workflows/d6u-runtime-qualification.yml",
+  "evidence_verifier_path": "scripts/integral/verify_d6u_runtime_evidence.py",
+  "evidence_record_verifier_path": "scripts/integral/verify_d6u_runtime_record.py",
+  "lock_verifier_path": "scripts/integral/verify_d6u_runtime_lock.py",
+  "supported_reference_cases": [
+    "canonical-payload-accepted",
+    "authorized-semantic-rejection",
+    "wire-signature-invalid",
+    "author-grant",
+    "valid-capability",
+    "wrong-capability",
+    "revoked-capability",
+    "provenance-mismatch",
+    "nonce-replay",
+    "expired-invocation",
+    "wrong-zome",
+    "wrong-function",
+    "wrong-cell",
+    "blocked-provenance"
+  ],
+  "unsupported_reference_cases": [
+    "wire-signature-valid",
+    "nonce-stale",
+    "payload-mutation"
+  ],
+  "evidence_status": "NotExecuted",
+  "claim_ceiling": "ReferenceModelOnly",
+  "dependencies": {
+    "d6s_canon_2_manifest_path": "docs/integral/d6s-canon-2-manifest.json",
+    "d6s_canon_2_manifest_blob_sha": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
+    "d6s_canon_2_fixture_path": "docs/integral/d6s-canon-2-authority-boundary-fixture.json",
+    "d6s_canon_2_fixture_blob_sha": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1",
+    "d6s_canon_1_corpus_sha256": "9d61cdb2e625c13c5813fffb7cceea4af2f93ed60d7d64c068dc6d3f6f6b614d"
+  },
+  "lockfile_policy": {
+    "mode": "generated-on-run-and-captured",
+    "rationale": "Holochain 0.7.0 dependencies include caret-ranged transitive packages; the exact resolved graph is preserved with each runtime evidence artifact."
+  },
+  "evidence_artifact_files": [
+    "d6u-runtime-evidence.txt",
+    "d6u-runtime-test.log",
+    "Cargo.lock"
+  ],
+  "case_outcomes": {
+    "canonical-payload-accepted": "accepted",
+    "authorized-semantic-rejection": "semantic-rejected",
+    "wire-signature-invalid": "authentication-failed",
+    "author-grant": "accepted",
+    "valid-capability": "accepted",
+    "wrong-capability": "authorization-failed",
+    "revoked-capability": "authorization-failed",
+    "provenance-mismatch": "authorization-failed",
+    "nonce-replay": "authorization-failed",
+    "expired-invocation": "authorization-failed",
+    "wrong-zome": "routing-failed",
+    "wrong-function": "routing-failed",
+    "wrong-cell": "routing-failed",
+    "blocked-provenance": "authorization-failed"
+  },
+  "evidence_outcome_classes": [
+    "accepted",
+    "semantic-rejected",
+    "d6s-commitment-mismatch",
+    "authentication-failed",
+    "authorization-failed",
+    "routing-failed"
+  ],
+  "unsupported_reference_case_reasons": {
+    "wire-signature-valid": "The isolated authenticated-but-not-yet-authorized intermediate state is not exposed as a standalone Holochain 0.7 app-interface result.",
+    "nonce-stale": "Holochain 0.7 uses random 256-bit nonces and witnesses Fresh, Duplicate, Expired, or Future; the D6S stale/older-nonce state is not independently reproducible on this substrate.",
+    "payload-mutation": "D6S-CANON-2 defines this as a pre-zome D6S-integrity rejection with zome_reached=false, but Holochain 0.7 has no native invocation-payload D6S commitment gate; the harness retains a probe-local commitment check only as supplemental application evidence."
+  },
+  "supplemental_application_checks": [
+    "probe-local-d6s-commitment-mutation"
+  ],
+  "supplemental_substrate_checks": [
+    "future-expiry-rejection",
+    "wrong-zome-routing",
+    "wrong-function-routing",
+    "wrong-cell-routing"
+  ]
+}
