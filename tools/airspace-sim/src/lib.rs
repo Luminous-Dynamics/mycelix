@@ -21,6 +21,7 @@ pub struct ScenarioSet {
     pub authority_ceiling: String,
     pub scenarios: Vec<Scenario>,
     pub lifecycle_transition_cases: Vec<LifecycleTransitionCase>,
+    pub reservation_cases: Vec<ReservationCoordinationCase>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -146,6 +147,88 @@ pub struct LifecycleTransitionReport {
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+pub enum ProviderSnapshotState {
+    CompleteFresh,
+    Partitioned,
+    StaleOrIncomplete,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ReservationClaim {
+    /// Globally unique within this fixture; duplicate IDs are never last-write-wins.
+    pub reservation_id: String,
+    pub provider_id: String,
+    pub resource_id: String,
+    pub trajectory_digest: String,
+    pub time_basis: String,
+    pub sequence: u64,
+    pub issued_at_s: i64,
+    pub expires_at_s: i64,
+    /// Half-open interval [start_s, end_s), in the declared synthetic time basis.
+    pub start_s: i64,
+    pub end_s: i64,
+    pub state: IntentState,
+    pub priority: FlightPriority,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ReservationCoordinationCase {
+    pub case_id: String,
+    pub now_s: i64,
+    pub snapshot_state: ProviderSnapshotState,
+    pub claims: Vec<ReservationClaim>,
+    pub expected_outcome: ReservationOutcome,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReservationOutcome {
+    NoConflictInProvidedSnapshot,
+    Conflict,
+    Degraded,
+    Reject,
+    Unresolved,
+    RequiresAuthorityReview,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReservationError {
+    EmptyIdentity,
+    InvalidSequence,
+    InvalidInterval,
+    InvalidExpiry,
+    FutureIssuedAt,
+    DuplicateReservationId,
+    TimeBasisMismatch,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReservationConflict {
+    pub reservation_a: String,
+    pub provider_a: String,
+    pub reservation_b: String,
+    pub provider_b: String,
+    pub resource_id: String,
+    pub overlap_start_s: i64,
+    pub overlap_end_s: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReservationCoordinationReport {
+    pub case_id: String,
+    pub actual_outcome: ReservationOutcome,
+    pub expected_outcome: ReservationOutcome,
+    pub expectation_matches: bool,
+    pub active_claim_count: usize,
+    pub conflicts: Vec<ReservationConflict>,
+    pub errors: Vec<ReservationError>,
+    pub reasons: Vec<String>,
+    pub authority_ceiling: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum Classification {
     AcceptForPlanningOnly,
     Conflict,
@@ -187,9 +270,11 @@ pub struct ReplayOutput {
     pub status: &'static str,
     pub input_scenario_count: usize,
     pub input_lifecycle_transition_case_count: usize,
+    pub input_reservation_case_count: usize,
     pub all_expectations_match: bool,
     pub reports: Vec<SimulationReport>,
     pub lifecycle_transition_reports: Vec<LifecycleTransitionReport>,
+    pub reservation_reports: Vec<ReservationCoordinationReport>,
 }
 
 const AUTHORITY_CEILING: &str =
