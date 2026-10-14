@@ -999,6 +999,8 @@ mod tests {
     #[test]
     fn one_artifact_cannot_be_relabelled_as_independent_qualification_review() {
         let mut milestone = valid_milestone();
+        milestone.fixture_class = FixtureClass::PhysicalQualification;
+        milestone.qualification_scope = Some(valid_qualification_scope());
         let qualification = evidence(
             "https://example.invalid/evidence/same-artifact.json",
             EvidenceKind::PhysicalQualificationReport,
@@ -1006,8 +1008,20 @@ mod tests {
         );
         let mut duplicate_review_label = qualification.clone();
         duplicate_review_label.kind = EvidenceKind::IndependentReview;
-        milestone.fixture_class = FixtureClass::PhysicalQualification;
-        milestone.evidence = vec![qualification, duplicate_review_label];
+        milestone.evidence = vec![
+            qualification,
+            duplicate_review_label,
+            evidence(
+                "https://example.invalid/evidence/requirements-traceability.json",
+                EvidenceKind::RequirementsTraceabilityMatrix,
+                '8',
+            ),
+            evidence(
+                "https://example.invalid/evidence/acceptance-test.json",
+                EvidenceKind::AcceptanceTestReport,
+                '9',
+            ),
+        ];
         assert!(milestone.validate().is_err());
     }
 
