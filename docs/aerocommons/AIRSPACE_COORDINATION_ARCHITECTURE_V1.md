@@ -182,7 +182,17 @@ Mycelix may provide audit and provenance receipts, but a distributed trust subst
 - Evaluate noise exposure, access for rural/remote communities and emergency-service reach.
 - Optimize the whole trip across air, ground, rail and other available modes; flying is not automatically best for every origin/destination or payload.
 
-## 11. Qualification plan
+## 11. Jurisdiction-first rollout: South Africa and regional interoperation
+
+A South African pilot should integrate with existing national aviation institutions and published procedures rather than assume airspace coordination starts from zero. The South African AIP's ENR 1.9 section published for 15 October 2022 describes the Central Airspace Management Unit (CAMU) managing air-traffic flow/capacity, flexible use of airspace, weather-related rerouting, and strategic, pre-tactical and tactical flow-management phases. That document is historical reference material, not sufficient proof of current procedures: implementation must check the latest AIP/NOTAMs, ATNS procedures, SACAA requirements and competent-authority approvals at design and deployment time.
+
+SACAA publishes RPAS/UAS guidance, and South African aviation regulations have continued to be amended in 2026. Therefore, jurisdictional requirements must be represented as **versioned, effective-dated policy profiles with authoritative source links**, not hard-coded global rules or facts inferred from old pages. A policy adapter should make the source version, effective interval, jurisdiction, operation class, approving authority and unresolved legal questions inspectable.
+
+For other African states, reuse the protocol semantics while keeping each country's airspace, certification, privacy, security and operator-authorization policies separately governed. Cross-border handoff needs explicit agreement on flight intent, identifiers, data disclosure, time/reference systems, reservation authority, emergency handling and responsibility at FIR/jurisdiction boundaries. Regions with sparse communications or surveillance need stronger onboard contingency requirements and locally appropriate infrastructure assumptions, not a degraded copy of a high-connectivity city model.
+
+The initial target should be **interoperability and decision support alongside existing institutions**, not autonomous control of the national airspace.
+
+## 12. Qualification plan
 
 ### Gate 0 — architecture
 
@@ -204,7 +214,7 @@ Only after independent review, assess real interfaces and failure timing in a pr
 
 Begin in a controlled, low-risk environment with approved participants, independent monitoring, explicit stop conditions and a published incident/near-miss process. Expand only on measured evidence, not simulator throughput alone.
 
-## 12. Evaluation metrics and decision rule
+## 13. Evaluation metrics and decision rule
 
 Report a vector, not one headline score:
 
@@ -220,7 +230,7 @@ Report a vector, not one headline score:
 
 Safety gates are non-compensatory: better throughput or lower cost cannot offset a safety-gate failure. Simulation outcomes describe the tested scenario and model only; they do not certify an aircraft, operational concept or deployed service.
 
-## 13. External references
+## 14. External references
 
 1. FAA, [Unmanned Aircraft System Traffic Management](https://www.faa.gov/uas/advanced_operations/traffic_management).
 2. FAA, [Aeronautical Information Manual: UTM operations](https://www.faa.gov/air_traffic/publications/ATpubs/AIM_html/chap11_section_4.html).
@@ -229,6 +239,9 @@ Safety gates are non-compensatory: better throughput or lower cost cannot offset
 5. NASA, [Flight Evaluation of In-Flight Strategic Path Planning Automation for Future High-Density Operations (2025)](https://ntrs.nasa.gov/citations/20250003243).
 6. NASA, [Provider of Services for Urban Air Mobility Prototype Simulation X5](https://ntrs.nasa.gov/citations/20250001367).
 7. ITU-T, [X.1385: Security requirements and guidelines for telecommunications in an urban air mobility environment](https://www.itu.int/dms_pubrec/itu-t/rec/x/T-REC-X.1385-202504-I%21%21SUM-HTM-E.htm).
+8. SACAA, [Unmanned Aircraft Systems](https://www.caa.co.za/industry-information/uas/).
+9. South African Government, [Civil Aviation Regulations: 36th Amendment (2026)](https://www.gov.za/documents/notices/civil-aviation-act-thirty-sixth-amendment-civil-aviation-regulations-2026-english).
+10. ATNS, [South African AIP ENR 1.9: Air Traffic Flow Management Procedures (edition valid 15 October 2022; historical reference)](https://cad.atns.co.za/SmartAIM/EAipPackages/15-OCT-22/2022-10-15-000000/html/eAIP/FA-ENR-1.9-en-US.html).
 
 ## Change discipline
 
