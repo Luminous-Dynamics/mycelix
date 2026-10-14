@@ -120,7 +120,7 @@ pub fn DeliverySettingsPage() -> impl IntoView {
         <div class="page delivery-settings-page">
             <h1>"Media Delivery Preferences"</h1>
             <p class="page-subtitle">
-                "Choose which gateways this browser may contact for music and cover art."
+                "Choose which gateways this browser may contact for audio playback."
             </p>
             <p class="help-text" role="status">{move || preference_summary()}</p>
 
@@ -128,7 +128,7 @@ pub fn DeliverySettingsPage() -> impl IntoView {
                 <h2 id="gateway-pool-title">"Gateway origin pool"</h2>
                 <p>
                     "Enter up to eight comma-separated origins in preference order. "
-                    "Your browser tries these routes in order. A gateway choice is not proof that the returned bytes match the IPFS CID."
+                    "The player tries these routes in order. A gateway choice is not proof that the returned bytes match the IPFS CID."
                 </p>
                 <div class="dependency-gate" role="note">
                     <strong>"Privacy matters."</strong>
@@ -185,7 +185,8 @@ pub fn DeliverySettingsPage() -> impl IntoView {
 
             <p class="help-text">
                 "Preferences are stored in this browser only; they are not published to Holochain or synchronized to other devices. "
-                "An empty saved list deliberately disables media routes. Clearing the preference uses the deployment's explicitly configured pool."
+                "An empty saved list deliberately disables media routes. Clearing the preference uses the deployment's explicitly configured pool. "
+                "This preference is currently wired to audio playback; cover-art rendering is not yet connected to this resolver."
             </p>
         </div>
     }
