@@ -222,6 +222,35 @@ def main() -> int:
             visit(event_id)
         return sorted(set(errors))
 
+    def downstream_lot_closure(events: list[dict], roots: set[str]) -> set[str]:
+        """Return recall candidates reachable only downstream through transformations."""
+        outputs_by_input: dict[str, set[str]] = {}
+        for event in events:
+            if event.get("eventType") != "TRANSFORMED":
+                continue
+            input_lots = {
+                entry.get("lotRef")
+                for entry in event.get("inputs", [])
+                if isinstance(entry.get("lotRef"), str)
+            }
+            output_lots = {
+                entry.get("lotRef")
+                for entry in event.get("outputs", [])
+                if isinstance(entry.get("lotRef"), str)
+            }
+            for input_lot in input_lots:
+                outputs_by_input.setdefault(input_lot, set()).update(output_lots)
+
+        affected = set(roots)
+        pending = list(roots)
+        while pending:
+            current = pending.pop()
+            for downstream in outputs_by_input.get(current, set()):
+                if downstream not in affected:
+                    affected.add(downstream)
+                    pending.append(downstream)
+        return affected
+
     def valid_batch(name: str, events: list[dict]) -> None:
         nonlocal cases
         cases += 1
@@ -276,6 +305,68 @@ def main() -> int:
     valid("forecast binds model identity, version, and horizon", forecast_example)
     valid("dairy transformation binds observed input and output lots", transformation_example)
     valid("missing cold-chain sample remains explicitly unknown", missing_handling_example)
+
+    transformation_second = copy.deepcopy(transformation_example)
+    transformation_second["eventId"] = "urn:mycelix:food-event:processor-01:cheese-to-packed-cheese-20261012-002"
+    transformation_second["eventTime"] = "2026-10-12T09:00:00+02:00"
+    transformation_second["recordedAt"] = "2026-10-12T09:02:00+02:00"
+    transformation_second["inputs"] = copy.deepcopy(transformation_example["outputs"])
+    transformation_second["outputs"] = [{
+        "productProfileRef": "urn:mycelix:product-profile:cheese-v1",
+        "lotRef": "urn:mycelix:food-lot:cheese-packed-20261012-a",
+        "quantity": {
+            "status": "observed",
+            "value": "3",
+            "unitCode": "KGM",
+            "unitCodeSystem": "UNECE_REC20",
+            "unitCodeListVersion": "REC20-REV17-2021",
+        },
+    }]
+    transformation_second["subjects"] = [{
+        "productProfileRef": "urn:mycelix:product-profile:cheese-v1",
+        "lotRef": "urn:mycelix:food-lot:cheese-packed-20261012-a",
+    }]
+    valid("second transformation creates a distinct downstream lot", transformation_second)
+
+    milk_lot = "urn:mycelix:food-lot:milk-20261012-a"
+    cheese_lot = "urn:mycelix:food-lot:cheese-20261012-a"
+    packed_lot = "urn:mycelix:food-lot:cheese-packed-20261012-a"
+    recall = copy.deepcopy(example)
+    recall["eventId"] = "urn:mycelix:food-event:operator-01:recall-milk-20261012-001"
+    recall["eventType"] = "RECALLED"
+    recall["subjects"] = [{
+        "productProfileRef": "urn:mycelix:product-profile:pasteurized-milk-v1",
+        "lotRef": milk_lot,
+    }]
+    recall["eventTime"] = "2026-10-12T10:00:00+02:00"
+    recall["recordedAt"] = "2026-10-12T10:02:00+02:00"
+    valid("recall identifies input lot without inventing a quantity", recall)
+    valid_batch(
+        "recall source, intermediate cheese and packed descendants form valid event batch",
+        [transformation_example, transformation_second, recall],
+    )
+    affected_lots = downstream_lot_closure(
+        [transformation_example, transformation_second],
+        {milk_lot},
+    )
+    if affected_lots != {milk_lot, cheese_lot, packed_lot}:
+        raise AssertionError(
+            f"recall must reach every downstream lot; expected "
+            f"{sorted({milk_lot, cheese_lot, packed_lot})}, got {sorted(affected_lots)}"
+        )
+    cases += 1
+    print("PASS recall closure: input recall reaches intermediate and packed descendants")
+
+    downstream_from_cheese = downstream_lot_closure(
+        [transformation_example, transformation_second],
+        {cheese_lot},
+    )
+    if downstream_from_cheese != {cheese_lot, packed_lot}:
+        raise AssertionError(
+            "recall traversal must be directed: recalling an output must not propagate backward to its inputs"
+        )
+    cases += 1
+    print("PASS recall negative control: downstream-only traversal does not mark upstream milk")
 
     unknown = copy.deepcopy(example)
     unknown["subjects"][0]["quantity"]["status"] = "unknown"
