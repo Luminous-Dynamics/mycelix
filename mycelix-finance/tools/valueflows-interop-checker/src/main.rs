@@ -435,7 +435,7 @@ fn validate(corpus: &Corpus) -> Vec<String> {
                 for entity in entities {
                     fail(
                         &mut errors,
-                        mapping.valueflows_entities.iter().any(|candidate| candidate == entity),
+                        mapping.valueflows_entities.iter().any(|candidate| candidate.as_str() == *entity),
                         format!("{} is missing required ValueFlows entity {entity}", mapping.id),
                     );
                 }
@@ -512,7 +512,7 @@ fn validate(corpus: &Corpus) -> Vec<String> {
                 for guard in required {
                     fail(
                         &mut errors,
-                        control.required_guards.iter().any(|candidate| candidate == guard),
+                        control.required_guards.iter().any(|candidate| candidate.as_str() == *guard),
                         format!("negative control {} is missing required guard: {guard}", control.id),
                     );
                 }
