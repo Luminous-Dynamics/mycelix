@@ -335,13 +335,15 @@
         "status",
         "currency",
         "price_year",
-        "committed_amount",
-        "full_period_cost_estimate",
         "whole_period_fully_costed",
         "commitment_evidence_ref",
         "funded_period_start",
         "funded_period_end",
-        "payer_ref"
+        "payer_ref",
+        "committed_amount_minor_units",
+        "full_period_cost_estimate_minor_units",
+        "minor_unit_digits",
+        "cost_breakdown"
       ],
       "properties": {
         "status": {
@@ -365,20 +367,6 @@
           ],
           "minimum": 1900,
           "maximum": 2200
-        },
-        "committed_amount": {
-          "type": [
-            "number",
-            "null"
-          ],
-          "minimum": 0
-        },
-        "full_period_cost_estimate": {
-          "type": [
-            "number",
-            "null"
-          ],
-          "minimum": 0
         },
         "whole_period_fully_costed": {
           "type": "boolean"
@@ -410,6 +398,175 @@
             "null"
           ],
           "minLength": 3
+        },
+        "committed_amount_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "full_period_cost_estimate_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "minor_unit_digits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "cost_breakdown": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cost_items",
+            "category_coverage",
+            "reviewed_by_ref",
+            "reviewed_at"
+          ],
+          "properties": {
+            "cost_items": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "line_item_id",
+                  "category",
+                  "description",
+                  "amount_minor_units",
+                  "basis_method",
+                  "basis_ref",
+                  "source_refs",
+                  "period_start",
+                  "period_end"
+                ],
+                "properties": {
+                  "line_item_id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$"
+                  },
+                  "category": {
+                    "enum": [
+                      "wages",
+                      "supervision",
+                      "training",
+                      "tools_equipment",
+                      "protective_equipment",
+                      "accessibility",
+                      "transport",
+                      "insurance",
+                      "materials",
+                      "maintenance",
+                      "independent_verification",
+                      "administration_overheads",
+                      "contingency",
+                      "other"
+                    ]
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 5
+                  },
+                  "amount_minor_units": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "basis_method": {
+                    "enum": [
+                      "quoted_rate",
+                      "published_rate",
+                      "historical_actual",
+                      "expert_estimate",
+                      "contingency_allowance",
+                      "other"
+                    ]
+                  },
+                  "basis_ref": {
+                    "type": "string",
+                    "minLength": 3
+                  },
+                  "source_refs": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "minLength": 3
+                    }
+                  },
+                  "period_start": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "period_end": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                }
+              }
+            },
+            "category_coverage": {
+              "type": "array",
+              "minItems": 14,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "category",
+                  "disposition",
+                  "rationale"
+                ],
+                "properties": {
+                  "category": {
+                    "enum": [
+                      "wages",
+                      "supervision",
+                      "training",
+                      "tools_equipment",
+                      "protective_equipment",
+                      "accessibility",
+                      "transport",
+                      "insurance",
+                      "materials",
+                      "maintenance",
+                      "independent_verification",
+                      "administration_overheads",
+                      "contingency",
+                      "other"
+                    ]
+                  },
+                  "disposition": {
+                    "enum": [
+                      "included",
+                      "not_applicable"
+                    ]
+                  },
+                  "rationale": {
+                    "type": "string",
+                    "minLength": 5
+                  }
+                }
+              }
+            },
+            "reviewed_by_ref": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 3
+            },
+            "reviewed_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          }
         }
       }
     },
@@ -956,14 +1113,6 @@
                 "minimum": 1900,
                 "maximum": 2200
               },
-              "committed_amount": {
-                "type": "number",
-                "exclusiveMinimum": 0
-              },
-              "full_period_cost_estimate": {
-                "type": "number",
-                "minimum": 0
-              },
               "whole_period_fully_costed": {
                 "const": true
               },
@@ -982,19 +1131,61 @@
               "payer_ref": {
                 "type": "string",
                 "minLength": 3
+              },
+              "committed_amount_minor_units": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "full_period_cost_estimate_minor_units": {
+                "type": "number",
+                "minimum": 0
+              },
+              "minor_unit_digits": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4
+              },
+              "cost_breakdown": {
+                "type": "object",
+                "required": [
+                  "cost_items",
+                  "category_coverage",
+                  "reviewed_by_ref",
+                  "reviewed_at"
+                ],
+                "properties": {
+                  "cost_items": {
+                    "type": "array",
+                    "minItems": 1
+                  },
+                  "category_coverage": {
+                    "type": "array",
+                    "minItems": 14
+                  },
+                  "reviewed_by_ref": {
+                    "type": "string",
+                    "minLength": 3
+                  },
+                  "reviewed_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
               }
             },
             "required": [
               "status",
               "currency",
               "price_year",
-              "committed_amount",
-              "full_period_cost_estimate",
+              "committed_amount_minor_units",
+              "full_period_cost_estimate_minor_units",
               "whole_period_fully_costed",
               "commitment_evidence_ref",
               "funded_period_start",
               "funded_period_end",
-              "payer_ref"
+              "payer_ref",
+              "minor_unit_digits",
+              "cost_breakdown"
             ]
           },
           "labor_plan": {
