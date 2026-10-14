@@ -75,25 +75,125 @@ export interface CisacCrdReportingProjection extends ReportingProjectionBase {
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 const REPORTING_ROOT_DOMAIN = 'mycelix-royalty-reporting-projection-v1';
 
-function required(label: string, value: string): string {
+function dataProperty(value: unknown, key: string, owner: string, optional = false): unknown {
+  if (value === null || typeof value !== 'object') {
+    throw new Error(`${owner} must be an object with own data properties`);
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  if (descriptor === undefined) {
+    if (optional) return undefined;
+    throw new Error(`${owner}.${key} must be an own data property`);
+  }
+  if (!Object.prototype.hasOwnProperty.call(descriptor, 'value')) {
+    throw new Error(`${owner}.${key} must not be accessor-backed`);
+  }
+  return descriptor.value;
+}
+
+function snapshotArrayData(value: unknown, label: string): readonly unknown[] {
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length');
+  const length = lengthDescriptor?.value;
+  if (!Number.isSafeInteger(length) || length < 0) {
+    throw new Error(`${label} has an invalid array length`);
+  }
+  if (Object.getOwnPropertySymbols(value).length > 0) {
+    throw new Error(`${label} must not contain symbol properties`);
+  }
+  const names = Object.getOwnPropertyNames(value);
+  if (names.length !== length + 1 || names.some(key =>
+    key !== 'length' && (!/^(0|[1-9][0-9]*)$/.test(key) || Number(key) >= length)
+  )) {
+    throw new Error(`${label} must not contain sparse indices or extra properties`);
+  }
+  const snapshot: unknown[] = [];
+  for (let index = 0; index < length; index += 1) {
+    snapshot.push(dataProperty(value, String(index), `${label}[${index}]`));
+  }
+  return Object.freeze(snapshot);
+}
+
+/**
+ * Copy a projection into a detached data-only tree before hashing. Accessors,
+ * prototypes, symbols, sparse arrays and cycles are rejected so verification
+ * never hashes a different set of values from the ones it validated.
+ */
+function snapshotDataTree(value: unknown, label: string, ancestors = new Set<object>()): unknown {
+  if (value === null || typeof value !== 'object') {
+    if (typeof value === 'function') throw new Error(`${label} must not be a function`);
+    return value;
+  }
+  const objectValue = value as object;
+  if (ancestors.has(objectValue)) throw new Error(`${label} must not contain cycles`);
+  ancestors.add(objectValue);
+  try {
+    if (Array.isArray(value)) {
+      return Object.freeze(snapshotArrayData(value, label).map((entry, index) =>
+        snapshotDataTree(entry, `${label}[${index}]`, ancestors)
+      ));
+    }
+    const prototype = Object.getPrototypeOf(objectValue);
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new Error(`${label} must be a plain data object`);
+    }
+    if (Object.getOwnPropertySymbols(objectValue).length > 0) {
+      throw new Error(`${label} must not contain symbol properties`);
+    }
+    const detached = Object.create(null) as Record<string, unknown>;
+    for (const key of Object.getOwnPropertyNames(objectValue)) {
+      const descriptor = Object.getOwnPropertyDescriptor(objectValue, key);
+      if (descriptor === undefined) {
+        throw new Error(`${label}.${key} must be an own data property`);
+      }
+      if (!Object.prototype.hasOwnProperty.call(descriptor, 'value')) {
+        throw new Error(`${label}.${key} must not be accessor-backed`);
+      }
+      if (!descriptor.enumerable) {
+        throw new Error(`${label}.${key} must be enumerable`);
+      }
+      detached[key] = snapshotDataTree(descriptor.value, `${label}.${key}`, ancestors);
+    }
+    return Object.freeze(detached);
+  } finally {
+    ancestors.delete(objectValue);
+  }
+}
+
+function snapshotProjectionRecord(value: unknown, label: string): Record<string, unknown> {
+  const snapshot = snapshotDataTree(value, label);
+  if (snapshot === null || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    throw new Error(`${label} must be a plain projection object`);
+  }
+  return snapshot as Record<string, unknown>;
+}
+
+function required(label: string, value: unknown): string {
+  if (typeof value !== 'string') throw new Error(`${label} must be a string`);
   const normalized = value.trim();
   if (!normalized) throw new Error(`${label} must be non-empty`);
   return normalized;
 }
 
-function validateSource(source: ReportingProjectionSource): ReportingProjectionSource {
-  const statementId = required('reporting source statementId', source.statementId);
-  const statementCommitmentRoot = source.statementCommitmentRoot;
-  if (!SHA256_HEX.test(statementCommitmentRoot)) {
+function validateSource(sourceInput: unknown): ReportingProjectionSource {
+  const statementId = required(
+    'reporting source statementId',
+    dataProperty(sourceInput, 'statementId', 'reporting source'),
+  );
+  const rootInput = dataProperty(sourceInput, 'statementCommitmentRoot', 'reporting source');
+  if (typeof rootInput !== 'string' || !SHA256_HEX.test(rootInput)) {
     throw new Error('reporting source statementCommitmentRoot must be a lowercase SHA-256 digest');
   }
-  const parsed = Date.parse(source.generatedAt);
+  const generatedAt = required(
+    'reporting source generatedAt',
+    dataProperty(sourceInput, 'generatedAt', 'reporting source'),
+  );
+  const parsed = Date.parse(generatedAt);
   if (!Number.isFinite(parsed)) {
     throw new Error('reporting source generatedAt must be a valid timestamp');
   }
   return Object.freeze({
     statementId,
-    statementCommitmentRoot,
+    statementCommitmentRoot: rootInput as Digest,
     generatedAt: new Date(parsed).toISOString(),
   });
 }
@@ -102,30 +202,39 @@ function validateProfileVersion(profileVersion: string): string {
   return required('external reporting profileVersion', profileVersion);
 }
 
-function normalizedLines(lines: readonly RoyaltyReportingLine[]): readonly RoyaltyReportingLine[] {
-  const normalized = lines.map(line => {
-    const obligationId = required('reporting obligationId', line.obligationId);
-    const workReference = required('reporting workReference', line.workReference);
-    const beneficiaryReference = required('reporting beneficiaryReference', line.beneficiaryReference);
-    if (typeof line.amount?.amountMinor !== 'bigint') {
+function normalizedLines(linesInput: unknown): readonly RoyaltyReportingLine[] {
+  const inputLines = snapshotArrayData(linesInput, 'reporting lines');
+  const normalized = inputLines.map((lineInput, index) => {
+    const label = `reporting line[${index}]`;
+    const obligationId = required('reporting obligationId', dataProperty(lineInput, 'obligationId', label));
+    const workReference = required('reporting workReference', dataProperty(lineInput, 'workReference', label));
+    const beneficiaryReference = required('reporting beneficiaryReference', dataProperty(lineInput, 'beneficiaryReference', label));
+    const amountInput = dataProperty(lineInput, 'amount', label);
+    const amountMinor = dataProperty(amountInput, 'amountMinor', `${label} amount`);
+    if (typeof amountMinor !== 'bigint') {
       throw new Error('reporting royalty amount must use exact bigint minor units');
     }
-    const currency = required('reporting currency', line.amount.currency).toUpperCase();
-    const usageReference = line.usageReference === undefined
+    const currency = required(
+      'reporting currency',
+      dataProperty(amountInput, 'currency', `${label} amount`),
+    ).toUpperCase();
+    const usageInput = dataProperty(lineInput, 'usageReference', label, true);
+    const usageReference = usageInput === undefined
       ? undefined
-      : required('reporting usageReference', line.usageReference);
-    const territory = line.territory === undefined
+      : required('reporting usageReference', usageInput);
+    const territoryInput = dataProperty(lineInput, 'territory', label, true);
+    const territory = territoryInput === undefined
       ? undefined
-      : required('reporting territory', line.territory).toUpperCase();
+      : required('reporting territory', territoryInput).toUpperCase();
     if (territory !== undefined && !/^[A-Z]{2}$/.test(territory)) {
       throw new Error('reporting territory must be a two-letter uppercase code');
     }
-    if (line.amount.amountMinor < 0n) throw new Error('reporting royalty amount must be non-negative');
+    if (amountMinor < 0n) throw new Error('reporting royalty amount must be non-negative');
     return Object.freeze({
       obligationId,
       workReference,
       beneficiaryReference,
-      amount: Object.freeze({ amountMinor: line.amount.amountMinor, currency }),
+      amount: Object.freeze({ amountMinor, currency }),
       ...(usageReference === undefined ? {} : { usageReference }),
       ...(territory === undefined ? {} : { territory }),
     });
@@ -160,8 +269,12 @@ function computeProjectionRoot(
 export function assertDdexRoyaltyReportingProjection(
   projection: DdexRoyaltyReportingProjection,
 ): void {
-  const { projectionRoot, ...payload } = projection;
-  if (!SHA256_HEX.test(projectionRoot) || computeProjectionRoot(payload) !== projectionRoot) {
+  const snapshot = snapshotProjectionRecord(projection, 'DDEX mapping projection');
+  const projectionRoot = snapshot.projectionRoot;
+  const payload = Object.create(null) as Record<string, unknown>;
+  for (const key of Object.keys(snapshot)) if (key !== 'projectionRoot') payload[key] = snapshot[key];
+  if (typeof projectionRoot !== 'string' || !SHA256_HEX.test(projectionRoot) ||
+      computeProjectionRoot(payload as Omit<DdexRoyaltyReportingProjection, 'projectionRoot'>) !== projectionRoot) {
     throw new Error('DDEX mapping projection root does not match its canonical contents');
   }
 }
@@ -169,8 +282,12 @@ export function assertDdexRoyaltyReportingProjection(
 export function assertCisacCrdReportingProjection(
   projection: CisacCrdReportingProjection,
 ): void {
-  const { projectionRoot, ...payload } = projection;
-  if (!SHA256_HEX.test(projectionRoot) || computeProjectionRoot(payload) !== projectionRoot) {
+  const snapshot = snapshotProjectionRecord(projection, 'CISAC CRD mapping projection');
+  const projectionRoot = snapshot.projectionRoot;
+  const payload = Object.create(null) as Record<string, unknown>;
+  for (const key of Object.keys(snapshot)) if (key !== 'projectionRoot') payload[key] = snapshot[key];
+  if (typeof projectionRoot !== 'string' || !SHA256_HEX.test(projectionRoot) ||
+      computeProjectionRoot(payload as Omit<CisacCrdReportingProjection, 'projectionRoot'>) !== projectionRoot) {
     throw new Error('CISAC CRD mapping projection root does not match its canonical contents');
   }
 }
@@ -185,9 +302,12 @@ export function exportDdexRoyaltyReportingProjection(input: {
   source: ReportingProjectionSource;
   lines: readonly RoyaltyReportingLine[];
 }): Readonly<DdexRoyaltyReportingProjection> {
-  const profileVersion = validateProfileVersion(input.profileVersion);
-  const source = validateSource(input.source);
-  const lines = Object.freeze(normalizedLines(input.lines).map(line => Object.freeze({
+  const profileVersion = validateProfileVersion(
+    dataProperty(input, 'profileVersion', 'reporting input') as string,
+  );
+  const source = validateSource(dataProperty(input, 'source', 'reporting input'));
+  const lineInputs = dataProperty(input, 'lines', 'reporting input');
+  const lines = Object.freeze(normalizedLines(lineInputs).map(line => Object.freeze({
     obligationReference: line.obligationId,
     workReference: line.workReference,
     payeeReference: line.beneficiaryReference,
@@ -218,9 +338,12 @@ export function exportCisacCrdReportingProjection(input: {
   source: ReportingProjectionSource;
   lines: readonly RoyaltyReportingLine[];
 }): Readonly<CisacCrdReportingProjection> {
-  const profileVersion = validateProfileVersion(input.profileVersion);
-  const source = validateSource(input.source);
-  const lines = Object.freeze(normalizedLines(input.lines).map(line => Object.freeze({
+  const profileVersion = validateProfileVersion(
+    dataProperty(input, 'profileVersion', 'reporting input') as string,
+  );
+  const source = validateSource(dataProperty(input, 'source', 'reporting input'));
+  const lineInputs = dataProperty(input, 'lines', 'reporting input');
+  const lines = Object.freeze(normalizedLines(lineInputs).map(line => Object.freeze({
     distributionReference: line.obligationId,
     workReference: line.workReference,
     interestedPartyReference: line.beneficiaryReference,
