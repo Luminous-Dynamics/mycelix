@@ -91,7 +91,9 @@ pub enum ReplayError {
     Serialization {
         index: usize,
     },
-    DuplicateCampaignSourceEvent { source_event_id: ReferenceId },
+    DuplicateCampaignSourceEvent {
+        source_event_id: ReferenceId,
+    },
     AcceptedCountMismatch {
         expected: u64,
         actual: u64,
@@ -216,7 +218,9 @@ pub fn replay_campaign(
             .cmp(&right.observation.observed_at_unix_ms)
             .then_with(|| left.input.cmp(&right.input))
             .then_with(|| {
-                left.observation.observation.cmp(&right.observation.observation)
+                left.observation
+                    .observation
+                    .cmp(&right.observation.observation)
             })
     });
     let observation_set_digest = observation_set_digest(&observations);
@@ -264,7 +268,8 @@ fn replay_file(
         let Ok(record) = row else {
             continue;
         };
-        let one_row = serialize_single_record(adapter.config.delimiter, &headers, &record, file_index)?;
+        let one_row =
+            serialize_single_record(adapter.config.delimiter, &headers, &record, file_index)?;
         let Ok(batch) = adapter.parse_batch(one_row.as_slice(), file.ingested_at_unix_ms) else {
             continue;
         };
