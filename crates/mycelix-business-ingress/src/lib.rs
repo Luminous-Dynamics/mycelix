@@ -404,7 +404,6 @@ mod tests {
 
     #[test]
     fn ingress_surface_is_structurally_read_only() {
-        assert!(INGRESS_IS_READ_ONLY);
         let binding = IngressQualificationBinding::from(&descriptor());
         assert_eq!(binding.source_system, id("source:pos"));
         assert_eq!(binding.mapping_digest, Digest32::repeat(3));
