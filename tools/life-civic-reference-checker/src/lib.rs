@@ -54,7 +54,7 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
     let evidence = instance["evidence"]
         .as_array()
         .ok_or_else(|| "evidence must be an array".to_string())?;
-    let mut records: HashMap<String, (String, String, String)> = HashMap::new();
+    let mut records: HashMap<String, (String, String, String, String)> = HashMap::new();
 
     for item in evidence {
         let id = item["evidence_id"]
@@ -72,14 +72,30 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
         if records
             .insert(
                 id.to_string(),
-                (kind.to_string(), independence.to_string(), source_uri.to_string()),
+                (
+                    kind.to_string(),
+                    independence.to_string(),
+                    source_uri.to_string(),
+                    retrieval_state.to_string(),
+                ),
             )
             .is_some()
         {
             return Err(format!("duplicate evidence_id: {id}"));
         }
-        if item["retrieved_at"].as_str().is_none() {
-            return Err(format!("{id} lacks a source retrieval timestamp"));
+        let retrieval_state = item["retrieval_state"]
+            .as_str()
+            .ok_or_else(|| format!("{id} has no retrieval_state"))?;
+        match retrieval_state {
+            "captured" if item["retrieved_at"].as_str().is_some() => {}
+            "synthetic_fixture" | "unavailable" if item["retrieved_at"].is_null() => {}
+            "captured" => {
+                return Err(format!("{id} has captured state but no retrieval timestamp"));
+            }
+            "synthetic_fixture" | "unavailable" => {
+                return Err(format!("{id} must not claim a retrieval timestamp"));
+            }
+            _ => return Err(format!("{id} has an unknown retrieval_state")),
         }
     }
 
@@ -113,7 +129,7 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
             if !unique_ids.insert(id) {
                 return Err(format!("duplicate verification evidence ID: {id}"));
             }
-            let (kind, independence, _source_uri) = records
+            let (kind, independence, _source_uri, _retrieval_state) = records
                 .get(id)
                 .ok_or_else(|| format!("verification evidence ID has no record: {id}"))?;
             if kind != "independent_observation" && kind != "independent_measurement" {
@@ -166,12 +182,17 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
         if !route_id_set.insert(id) {
             return Err(format!("route source evidence ID is duplicated: {id}"));
         }
-        let (kind, _independence, source_uri) = records
+        let (kind, _independence, source_uri, retrieval_state) = records
             .get(id)
             .ok_or_else(|| format!("route source evidence ID has no evidence record: {id}"))?;
         if kind != "official_notice" {
             return Err(format!(
                 "route source evidence {id} must be an official_notice record"
+            ));
+        }
+        if retrieval_state != "captured" {
+            return Err(format!(
+                "route source evidence {id} must be a captured official source"
             ));
         }
         if !route_uris.contains(source_uri.as_str()) {
