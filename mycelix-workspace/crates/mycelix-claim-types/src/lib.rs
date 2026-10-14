@@ -210,3 +210,17 @@ pub struct UnifiedClaim {
     pub created: i64,
     pub version: u32,
 }
+
+// ============================================================================
+// Industrial Bootstrap Provenance
+// ============================================================================
+
+/// Runtime-independent schema for immutable industrial-bootstrap milestone claims.
+pub mod bootstrap_milestone;
+
+pub use bootstrap_milestone::{
+    AuthorityBasis, BootstrapMilestone, ClosureStage, DependencyDelta, DependencyDisposition,
+    EvidenceKind, EvidenceReference, FailureRecoveryObservation, FailureRecoveryOutcome,
+    FixtureClass, MilestoneDisposition, ResourceStatement, ValidationError,
+    BOOTSTRAP_MILESTONE_SCHEMA_VERSION,
+};
