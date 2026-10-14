@@ -1,0 +1,41 @@
+name: Living-City schema validation
+
+on:
+  pull_request:
+    paths:
+      - "schemas/living-city-concept-v0.1.schema.json"
+      - "fixtures/living-city/**"
+      - "scripts/living-city/**"
+      - ".github/workflows/living-city-schema.yml"
+  push:
+    branches: [main]
+    paths:
+      - "schemas/living-city-concept-v0.1.schema.json"
+      - "fixtures/living-city/**"
+      - "scripts/living-city/**"
+      - ".github/workflows/living-city-schema.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: living-city-schema-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate schema and fixture controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned validator
+        run: python -m pip install --disable-pip-version-check "jsonschema[format]==4.23.0"
+      - name: Validate schema, positive fixtures, and negative controls
+        run: python scripts/living-city/validate_fixtures.py
+      - name: Run targeted schema mutation controls
+        run: python scripts/living-city/test_schema_mutations.py
