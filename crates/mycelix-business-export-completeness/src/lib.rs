@@ -436,10 +436,10 @@ pub fn assess_export_completeness(
             }
         }
 
-        if let PageRequestCursor::After(cursor) = page.request_cursor {
-            if is_zero(&cursor) {
-                return Err(ExportCompletenessError::ZeroDigest);
-            }
+        if let PageRequestCursor::After(cursor) = page.request_cursor
+            && is_zero(&cursor)
+        {
+            return Err(ExportCompletenessError::ZeroDigest);
         }
 
         let is_last = index + 1 == manifest.pages.len();
@@ -556,7 +556,7 @@ pub fn assess_export_completeness_with_raw_payloads(
     hash_u64(&mut binding_hasher, raw_page_payloads.len() as u64);
 
     for (page, payload) in manifest.pages.iter().zip(raw_page_payloads) {
-        let raw_digest = sha256_raw_bytes(*payload);
+        let raw_digest = sha256_raw_bytes(payload);
         if raw_digest != page.payload_digest {
             return Err(ExportCompletenessError::RawPagePayloadDigestMismatch {
                 page_ordinal: page.ordinal,
@@ -606,13 +606,13 @@ where
     }
 
     for (page, raw_payload) in manifest.pages.iter().zip(raw_page_payloads) {
-        if sha256_raw_bytes(*raw_payload) != page.payload_digest {
+        if sha256_raw_bytes(raw_payload) != page.payload_digest {
             return Err(ExportCompletenessError::RawPagePayloadDigestMismatch {
                 page_ordinal: page.ordinal,
             });
         }
 
-        let decoded = decode_page(*raw_payload).ok_or(
+        let decoded = decode_page(raw_payload).ok_or(
             ExportCompletenessError::RawPagePayloadDecodeFailed {
                 page_ordinal: page.ordinal,
             },
@@ -781,7 +781,7 @@ mod tests {
         let statement: &[u8] = b"provider-coverage-statement-v1";
 
         for (page, payload) in manifest.pages.iter_mut().zip(page_payloads.iter()) {
-            page.payload_digest = sha256_raw_bytes(*payload);
+            page.payload_digest = sha256_raw_bytes(payload);
         }
         attestation.statement_digest = sha256_raw_bytes(statement);
 
