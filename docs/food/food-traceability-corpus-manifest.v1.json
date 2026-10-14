@@ -3,7 +3,7 @@
   "corpusKind": "synthetic",
   "schema": {
     "path": "docs/food/schemas/food-traceability-event.v1.schema.json",
-    "gitBlobSha1": "e40184d73ea9d94e68fb36d57a7f5021559f1716"
+    "gitBlobSha1": "d9ed405619fe7958e520b5ec7a74e289cb05f330"
   },
   "fixtures": [
     {
