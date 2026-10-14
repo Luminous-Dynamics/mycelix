@@ -96,6 +96,10 @@ The extracted text layer of the opened official budget-book PDF lists these Jobu
 
 The 2025/26 charter separately states that 90% of water-supply interruptions should be concluded within 12 hours. That is **not the same metric text** as the 2026/27 planned-interruption measure. Preserve both with their source year and exact definitions; do not silently reinterpret one as the other.
 
+**Newly pinned version-control evidence:** the City Council minutes for its 20 March 2026 meeting record approval of proposed amendments and deviations to the 2025/26 Institutional Service Level Standards Charter. The resolution says the revised indicators, targets and standard operating procedures were to be implemented from the **third quarter of the 2025/26 financial year** ([official Council minutes, PDF page 11](https://joburg.org.za/about_/government/Documents/Minutes-of-Council-Meetings/COUNCIL-MINUTES-20-MARCH-2026.pdf)). I reviewed the rendered page image as well as its text. The resolution does **not** enumerate the amended target values, and the report body describing them has not been independently retrieved. Therefore the indexed 2025/26 charter file cannot safely be assumed to represent one unchanged target set for the entire year. Keep the base document, approved Q3 amendment event, and exact amended values as distinct evidence records until the consolidated amended charter/report is obtained.
+
+This chronology is still **2025/26-only**. It does not establish an adopted 2026/27 institutional charter or settle the 2026/27 SDBIP/budget relationship. The Service Level Standards Unit is the appropriate City source owner to request a consolidated, effective-dated charter plus target definitions and reporting-clock rules. Until that source is available, do not compute live compliance or silently apply a prior-year target to the current year.
+
 **Evidence limitation:** the official budget-book PDF opened and its extracted text layer exposed section 2.3.4 and the Joburg Water rows on printed page 125. The screenshot/visual-review operation timed out, so no visual-table inspection is claimed. The current-year rows remain provisional for operational use pending visual review, reconciliation against the separately listed 2026/27 SDBIP, confirmation of the currently adopted target, and exact clock semantics. The table is not live data for any individual service issue. Before calculating compliance, bind the source/version, metric definition, effective dates, clock start/stop/pause rules, denominator, exclusions and reopen treatment. For the planned-interruption metric, the exact prescribed duration remains unresolved.
 
 Official source anchors:
@@ -109,6 +113,7 @@ Official source anchors:
 - Johannesburg Water Contact Us (purpose-labelled incident logging and interruption notifications): https://www.johannesburgwater.co.za/contact-us/
 - Johannesburg Water Services (customer service standards target table): https://www.johannesburgwater.co.za/services/
 - 2025/26 Institutional Service Level Standards Charter: https://joburg.org.za/documents_/Documents/2025-2026-Institutional-Service-Level-Standards-Charter/Institutional-Service-Standards-Charter-2025-26.pdf
+- City Council minutes, 20 March 2026, Item 4, SLS Charter amendments approved for implementation from Q3 of FY 2025/26 (page 11; amendment report-body target values not included in the inspected resolution): https://joburg.org.za/about_/government/Documents/Minutes-of-Council-Meetings/COUNCIL-MINUTES-20-MARCH-2026.pdf
 - Joburg Connect channel information: https://joburg.org.za/services_/JoburgCares/Pages/call-centre.aspx
 - City eServices "Report a city problem": https://edit.eservices.joburg.org.za/Pages/Reportacityproblem.aspx
 - Service Level Standards Unit mandate: https://joburg.org.za/departments_/Pages/City%20directorates%20including%20departmental%20sub-directorates/Service-Level-Standards-Unit-.aspx
@@ -238,6 +243,7 @@ The next implementation tranche must remain blocked until:
 - A utility-wide water-status bulletin is not per-case status readback or physical-repair evidence.
 - Customer-facing turnaround listings do not establish an adopted SLA clock, and mismatched service categories must not be cross-walked automatically.
 - Conflicting official page variants do not establish which turnaround or contact value is authoritative; crawler observation date is not an effective date.
+- The 2025/26 Institutional SLS Charter was amended by a Council-approved resolution effective from Q3 of FY 2025/26; the exact amended values are not enumerated in the inspected resolution, so do not assume the indexed base charter applied unchanged all year or inherited into 2026/27.
 - Preserve notification, response, attempted restoration, repair/replacement and test-result verbs as different predicates; preserve working-day windows and notice lead times rather than coercing them to resolution SLAs.
 - Existing municipal channels remain available; no new app is required for the census to be useful.
 

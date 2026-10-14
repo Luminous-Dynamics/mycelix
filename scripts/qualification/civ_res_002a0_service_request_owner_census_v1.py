@@ -86,6 +86,7 @@ REQUIRED_FLAGS = [
     "source_precedence_or_conflict_resolution_bound",
     "utility_customer_standards_source_pinned",
     "response_vs_resolution_semantics_preserved",
+    "2025_26_charter_amendment_history_pinned",
 ]
 UNSAFE_FLAGS = [
     "city_reference_used_as_internal_identity",
@@ -121,6 +122,7 @@ UNSAFE_FLAGS = [
     "notification_lead_time_treated_as_repair_window",
     "notification_subscription_treated_as_case_submission",
     "unversioned_utility_web_standard_treated_as_current_adopted_sla",
+    "2025_26_charter_base_assumed_effective_entire_fiscal_year",
 ]
 EXPECTED_PROBE_IDS = [
     "city-reference-overpromotion",
@@ -134,6 +136,7 @@ EXPECTED_PROBE_IDS = [
     "same-reference-followup-is-not-new-intake",
     "unverified-status-is-not-authoritative",
     "prior-year-target-is-not-current",
+    "2025-26-charter-base-not-full-year",
     "planned-interruption-is-not-12h-general-target",
     "indexed-target-is-not-live-status",
     "stale-or-unverified-external-state",
@@ -308,7 +311,7 @@ def validate() -> None:
         "official_source_index_observed", "adopted_2026_27_water_sla_verified",
         "reporting_clock_status", "2026_27_water_standards_in_budget_book_indexed",
         "current_target_claim_ceiling", "direct_pdf_visual_review_complete",
-        "planned_interruption_metric_semantics", "2026_27_sdbip_listed",
+        "planned_interruption_metric_semantics", "2025_26_charter_revision_control", "2026_27_sdbip_listed",
         "2026_27_sdbip_document_retrieval_status", "current_sdbip_water_metrics_reconciled_to_budget_book",
     }, "municipal SLA source posture")
     if posture["adopted_2026_27_water_sla_bound_into_this_census"] is not False:
@@ -331,6 +334,38 @@ def validate() -> None:
         fail("do not claim SDBIP/budget metrics are reconciled without source review")
     if posture["reporting_clock_status"] != "NotEvaluableUntilCurrentAdoptedTargetAndClockSemanticsArePinned":
         fail("SLA reporting must remain not-evaluable until source and clock semantics are qualified")
+
+    revision = posture["2025_26_charter_revision_control"]
+    exact_keys(revision, {
+        "source_id", "source_url", "observed_on", "source_observation_status",
+        "council_meeting_date", "charter_scope", "resolution_status",
+        "implementation_effective_period", "exact_amended_target_values_in_minutes",
+        "amendment_report_body_reviewed", "direct_pdf_page_11_visual_review_complete",
+        "2026_27_target_authority_established", "production_sla_use_authorized", "interpretation",
+    }, "2025/26 charter revision control")
+    if (revision["source_id"], revision["source_url"], revision["observed_on"]) != (
+        "COJ_COUNCIL_MINUTES_SLS_CHARTER_AMENDMENT_2026_03_20",
+        "https://joburg.org.za/about_/government/Documents/Minutes-of-Council-Meetings/COUNCIL-MINUTES-20-MARCH-2026.pdf",
+        "2026-10-14",
+    ):
+        fail("Council charter revision source identity/observation date mismatch")
+    if (revision["source_observation_status"], revision["council_meeting_date"], revision["charter_scope"],
+        revision["resolution_status"], revision["implementation_effective_period"]) != (
+        "OfficialCouncilMinutesTextAndPage11ScreenshotReviewed",
+        "2026-03-20",
+        "2025/26 Institutional Service Level Standards Charter",
+        "CouncilApprovedProposedAmendmentsAndDeviations",
+        "ThirdQuarterOf2025_26FinancialYear",
+    ):
+        fail("Council-approved charter revision chronology drift")
+    if revision["exact_amended_target_values_in_minutes"] != "NotEnumeratedInResolution" or revision["amendment_report_body_reviewed"] is not False:
+        fail("do not claim exact revised target values from a resolution that does not enumerate them")
+    if revision["direct_pdf_page_11_visual_review_complete"] is not True:
+        fail("the Council resolution page screenshot review must remain explicit")
+    if revision["2026_27_target_authority_established"] is not False or revision["production_sla_use_authorized"] is not False:
+        fail("2025/26 amendment record must not establish 2026/27 or production SLA authority")
+    if "not a single unchanged target set" not in revision["interpretation"] or "do not carry forward" not in revision["interpretation"]:
+        fail("charter version-change boundary wording drift")
 
     book = data["current_year_budget_book_metrics"]
     exact_keys(book, {
@@ -392,6 +427,8 @@ def validate() -> None:
         fail("dedicated Contact Us source anchor missing")
     if source_anchors.get("JOHANNESBURG_WATER_SERVICES_STANDARDS") != "https://www.johannesburgwater.co.za/services/":
         fail("customer service standards source anchor missing")
+    if source_anchors.get("COJ_COUNCIL_MINUTES_SLS_CHARTER_AMENDMENT_2026_03_20") != revision["source_url"]:
+        fail("Council charter revision source anchor missing or mismatched")
 
     utility_channels = data["external_utility_channel_contract"]
     exact_keys(utility_channels, {
