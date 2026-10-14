@@ -85,7 +85,7 @@ describe('settlement allocation persistence replay', () => {
     const persisted = projectSettlementAllocationRecord(withTwo, batch, recovery, [deduction, second]);
     expect(() => verifyPersistedSettlementAllocation({ ...persisted, deductionRoots: [...persisted.deductionRoots].reverse() }, batch, recovery, [deduction, second]))
       .toThrow(/canonically sorted/);
-    expect(() => verifyPersistedSettlementAllocation({ ...persisted, deductionRoots: [persisted.deductionRoots[0], persisted.deductionRoots[0]] }, batch, recovery, [deduction, second]))
+    expect(() => verifyPersistedSettlementAllocation({ ...persisted, deductionRoots: [persisted.deductionRoots[0]!, persisted.deductionRoots[0]!] }, batch, recovery, [deduction, second]))
       .toThrow(/must not contain duplicates/);
     expect(() => verifyPersistedSettlementAllocation({ ...persisted, deductionRoots: ['not-a-digest'] }, batch, recovery, [deduction, second]))
       .toThrow(/lowercase SHA-256 digest/);
