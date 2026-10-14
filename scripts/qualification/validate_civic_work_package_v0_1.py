@@ -120,9 +120,11 @@ def semantic_errors(record: dict[str, Any]) -> list[str]:
     cost_items = cost_breakdown.get("cost_items", [])
     category_coverage = cost_breakdown.get("category_coverage", [])
     required_cost_categories = {
-        "wages", "supervision", "training", "tools_equipment", "protective_equipment",
-        "accessibility", "transport", "insurance", "materials", "maintenance",
-        "independent_verification", "administration_overheads", "contingency", "other",
+        "wages", "employer_statutory_costs", "supervision", "training", "tools_equipment",
+        "protective_equipment", "accessibility", "transport", "insurance", "materials",
+        "maintenance", "independent_verification", "administration_overheads",
+        "community_engagement", "environmental_mitigation", "end_of_life_disposal",
+        "permits_taxes_fees", "contingency", "other",
     }
 
     # Money is represented as integer minor units. Sum and compare exactly—never use
@@ -208,6 +210,9 @@ def semantic_errors(record: dict[str, Any]) -> list[str]:
                     errors.append("CWP_E_COST_PERIOD_OUTSIDE_FUNDED_PERIOD")
         except (KeyError, TypeError, ValueError):
             errors.append("CWP_E_INVALID_FUNDED_PERIOD")
+        paid_roles = [role for role in record.get("labor_plan", {}).get("roles", []) if role.get("paid") is True]
+        if paid_roles and sum(item.get("amount_minor_units", 0) for item in cost_items if item.get("category") == "wages") <= 0:
+            errors.append("CWP_E_PAID_ROLES_WITHOUT_POSITIVE_WAGES")
         for role in record.get("labor_plan", {}).get("roles", []):
             if role.get("paid") is True:
                 cls = role.get("classification", {})
