@@ -1,0 +1,410 @@
+{
+  "schema": "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1",
+  "corpus_version": 1,
+  "snapshot_date": "2026-10-14",
+  "maturity": "SyntheticSpecificationOnly",
+  "synthetic_only": true,
+  "no_real_resident_data": true,
+  "no_real_case_references": true,
+  "no_precise_sensitive_asset_locations": true,
+  "intended_use": "Future deterministic G1 validator/evaluator input; this file itself is not executable qualification and does not establish runtime or field behavior.",
+  "expected_probe_count": 14,
+  "probes": [
+    {
+      "id": "issuer-reference-collision",
+      "category": "IdentityAndAuthority",
+      "scenario": "Two issuers expose the same visible reference string.",
+      "input": {
+        "records": [
+          {
+            "issuer": "CityOfJohannesburg",
+            "channel": "CityPortal",
+            "external_reference": "SYNTH-001"
+          },
+          {
+            "issuer": "JohannesburgWaterSOC",
+            "channel": "UtilityNotice",
+            "external_reference": "SYNTH-001"
+          }
+        ]
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "KeepSeparate",
+        "issue_status_effect": "NoChange",
+        "required_human_review": true,
+        "source_status": "NamespacedReferencesRemainDistinct"
+      },
+      "guards": [
+        "DoNotMergeByReferenceStringAlone",
+        "ExternalReferenceIsNotInternalIdentity"
+      ]
+    },
+    {
+      "id": "same-source-possible-duplicate",
+      "category": "Deduplication",
+      "scenario": "Two reports from the same source appear close in time with incomplete location precision.",
+      "input": {
+        "records": [
+          {
+            "issuer": "SyntheticResidentReport",
+            "external_reference": null,
+            "observed_at": "2026-10-14T08:00:00+02:00",
+            "location_precision": "CoarseZone"
+          },
+          {
+            "issuer": "SyntheticResidentReport",
+            "external_reference": null,
+            "observed_at": "2026-10-14T08:07:00+02:00",
+            "location_precision": "CoarseZone"
+          }
+        ]
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "CandidateDuplicateOnly",
+        "issue_status_effect": "NoMergeWithoutReview",
+        "required_human_review": true,
+        "source_status": "Ambiguous"
+      },
+      "guards": [
+        "DuplicateCandidateIsNotProofOfDuplicate",
+        "DoNotInferPreciseLocation"
+      ]
+    },
+    {
+      "id": "stale-systemwide-bulletin",
+      "category": "Currentness",
+      "scenario": "An older system-wide bulletin reports an earlier interruption status.",
+      "input": {
+        "issuer": "JohannesburgWaterSOC",
+        "channel": "PublicBulletin",
+        "scope": "SystemWide",
+        "observed_at": "2026-10-10T12:00:00+02:00",
+        "review_time": "2026-10-14T10:00:00+02:00",
+        "freshness_policy": "NotQualified"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RecordObservationOnly",
+        "issue_status_effect": "NoChange",
+        "required_human_review": true,
+        "source_status": "StaleOrUnqualified"
+      },
+      "guards": [
+        "BulletinDoesNotResolveIndividualCase",
+        "RetrievalDoesNotProveCurrentness"
+      ]
+    },
+    {
+      "id": "source-fetch-unavailable",
+      "category": "Availability",
+      "scenario": "A provider page or authorized source cannot be retrieved.",
+      "input": {
+        "issuer": "JohannesburgWaterSOC",
+        "channel": "PublicWebPage",
+        "fetch_result": "Timeout"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "NeedsHumanReview",
+        "issue_status_effect": "NoChange",
+        "required_human_review": true,
+        "source_status": "UnavailableNotNegative"
+      },
+      "guards": [
+        "FetchFailureIsNotSourceAbsence",
+        "NoInferredCurrentStatus"
+      ]
+    },
+    {
+      "id": "response-without-restoration",
+      "category": "ServiceSemantics",
+      "scenario": "A synthetic emergency case records a response within the published response window, but no restoration evidence exists.",
+      "input": {
+        "published_verb": "Respond",
+        "published_window_value": 12,
+        "published_window_unit": "Hours",
+        "restoration_event": null
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RecordResponseOnly",
+        "issue_status_effect": "ResponseRecordedRestorationUnknown",
+        "required_human_review": false,
+        "source_status": "ResponseObservedRestorationUnknown"
+      },
+      "guards": [
+        "ResponseIsNotRestoration",
+        "NoFalseResolutionClaim"
+      ]
+    },
+    {
+      "id": "working-days-calendar-conversion",
+      "category": "ServiceSemantics",
+      "scenario": "A two-working-day target is presented but the adopted effective version and applicable working-day calendar are missing.",
+      "input": {
+        "published_window_value": 2,
+        "published_window_unit": "WorkingDays",
+        "effective_version": "Unknown",
+        "holiday_calendar": "Unavailable"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "DoNotCalculateProductionDeadline",
+        "issue_status_effect": "NoSlaBreachClaim",
+        "required_human_review": true,
+        "source_status": "ClockUnqualified"
+      },
+      "guards": [
+        "WorkingDaysAreNotCalendarDays",
+        "MissingClockSemanticsFailsClosed"
+      ]
+    },
+    {
+      "id": "unversioned-web-standard",
+      "category": "ServiceSemantics",
+      "scenario": "A public standards page is readable but no effective date/version is observed.",
+      "input": {
+        "source_kind": "OfficialCustomerServiceWebPage",
+        "effective_date": "NotObserved",
+        "version": "NotObserved"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "SourceObservationOnly",
+        "issue_status_effect": "NoProductionSlaEffect",
+        "required_human_review": true,
+        "source_status": "Unversioned"
+      },
+      "guards": [
+        "PublicSourceDoesNotEstablishAdoption",
+        "NoProductionSlaCalculation"
+      ]
+    },
+    {
+      "id": "repair-claim-without-independent-evidence",
+      "category": "CompletionVerification",
+      "scenario": "A contractor claims a repair is complete but there is no independent check or authoritative external update.",
+      "input": {
+        "repair_claimed": true,
+        "independent_verification": null,
+        "external_status_readback": null
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "ClaimUnverified",
+        "issue_status_effect": "RepairClaimedNotVerified",
+        "required_human_review": true,
+        "source_status": "VerificationMissing"
+      },
+      "guards": [
+        "RepairClaimIsNotVerifiedOutcome",
+        "TicketClosureIsNotAuthority"
+      ]
+    },
+    {
+      "id": "verified-repair-followed-by-repeat-fault",
+      "category": "CorrectionAndReopening",
+      "scenario": "A previously verified repair is followed by a new fault report at the same abstracted asset grouping.",
+      "input": {
+        "prior_verification": "SyntheticVerifiedEvent",
+        "new_report": "SyntheticRepeatFault",
+        "asset_identity": "SYNTH-ASSET-GROUP-1"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "ReopenOrLinkNewEvent",
+        "issue_status_effect": "PreservePriorEvidenceAndReviewNewFault",
+        "required_human_review": true,
+        "source_status": "RepeatFaultUnderReview"
+      },
+      "guards": [
+        "DoNotDeleteEarlierEvidence",
+        "PriorVerificationDoesNotProveCurrentHealth"
+      ]
+    },
+    {
+      "id": "unauthorized-sensor-feed",
+      "category": "DataPermission",
+      "scenario": "A connector offers a pressure or noise-logger feed without a written data-use contract.",
+      "input": {
+        "source_kind": "Telemetry",
+        "written_permission": false,
+        "provider_api_contract": "Unknown"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "BlockIngestion",
+        "issue_status_effect": "NoRecordFromUnauthorizedFeed",
+        "required_human_review": true,
+        "source_status": "Unauthorized"
+      },
+      "guards": [
+        "NoUnauthorizedProviderAccess",
+        "DataAvailabilityDoesNotImplyPermission"
+      ]
+    },
+    {
+      "id": "duplicate-invoice-with-missing-delivery-evidence",
+      "category": "ProcurementIntegrity",
+      "scenario": "Two synthetic invoices share an identifier and one lacks accepted delivery evidence.",
+      "input": {
+        "invoice_ids": [
+          "SYNTH-INV-7",
+          "SYNTH-INV-7"
+        ],
+        "delivery_acceptance_evidence": "Missing"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "HumanAuditReview",
+        "issue_status_effect": "NoAutomaticPaymentOrAccusation",
+        "required_human_review": true,
+        "source_status": "AnomalyNotFinding"
+      },
+      "guards": [
+        "AnomalyIsNotProofOfFraud",
+        "NoAutomaticBlacklisting"
+      ]
+    },
+    {
+      "id": "unfunded-work-pathway",
+      "category": "EmploymentIntegrity",
+      "scenario": "A proposed field role has no identified payer or approved employment/procurement route.",
+      "input": {
+        "candidate_role": "FieldDataQualityAssistant",
+        "payer_identified": false,
+        "budget_approved": false,
+        "terms_approved": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "DoNotAnnounceFundedPosition",
+        "issue_status_effect": "ProposalOnly",
+        "required_human_review": true,
+        "source_status": "Unfunded"
+      },
+      "guards": [
+        "NoSpeculativePayroll",
+        "OpportunityIsNotAJob"
+      ]
+    },
+    {
+      "id": "sensitive-location-publication",
+      "category": "PrivacyAndAssetProtection",
+      "scenario": "A draft public report contains exact coordinates for a vulnerable infrastructure asset.",
+      "input": {
+        "location_precision": "ExactCoordinates",
+        "asset_sensitivity": "Restricted",
+        "publication_target": "Public"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "BlockPublicationOrRedact",
+        "issue_status_effect": "NoSensitiveLocationPublished",
+        "required_human_review": true,
+        "source_status": "DisclosureBlocked"
+      },
+      "guards": [
+        "NoPublicSensitiveAssetCoordinates",
+        "NoExploitableOperationalDetail"
+      ]
+    },
+    {
+      "id": "demographic-risk-proxy",
+      "category": "FairnessAndRights",
+      "scenario": "An anomaly model proposes an adverse action based only on a resident's neighborhood or poverty proxy.",
+      "input": {
+        "model_flag": "SyntheticFlag",
+        "evidence_of_specific_misconduct": false,
+        "features_used": [
+          "NeighborhoodProxy",
+          "PovertyProxy"
+        ],
+        "proposed_action": "AdverseDecision"
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RejectAdverseAction",
+        "issue_status_effect": "NoAdverseDecision",
+        "required_human_review": true,
+        "source_status": "UnsupportedAndProhibited"
+      },
+      "guards": [
+        "PovertyIsNotEvidenceOfWrongdoing",
+        "ModelFlagIsNotAdjudication"
+      ]
+    }
+  ]
+}
