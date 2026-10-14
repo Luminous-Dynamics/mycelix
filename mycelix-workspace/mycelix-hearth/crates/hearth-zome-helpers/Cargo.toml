@@ -1,0 +1,19 @@
+# Hearth Holochain 0.7 isolated compatibility crate.
+# Kept aligned with the shared Mycelix source while isolating Hearth from
+# the legacy 0.6 workspace dependency graph.
+
+[package]
+name = "hearth-zome-helpers"
+version = "0.1.0"
+edition = "2024"
+description = "Shared helper functions for Mycelix zome coordinators (anchor hashing, link resolution, consciousness gating)"
+license = "AGPL-3.0-or-later"
+
+[dependencies]
+hdk = "=0.7.0"
+holo_hash = "=0.7.0"
+serde = { version = "1.0", features = ["derive"] }
+getrandom = { version = "0.2", features = ["custom"] }
+mycelix-bridge-common = { package = "hearth-bridge-common", path = "../hearth-bridge-common" }
+
+[dev-dependencies]

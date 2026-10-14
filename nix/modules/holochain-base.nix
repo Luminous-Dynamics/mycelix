@@ -18,9 +18,9 @@ let
   hcPkgs = holochainPackages;
 
   # Rust toolchain with WASM target
-  # 1.96.0 to match the workspace rust-toolchain.toml and the system toolchain
-  # (both moved to 1.96.0). Was 1.95.0 — stale, which broke `nix develop`.
-  rustToolchain = pkgs.rust-bin.stable."1.96.0".default.override {
+  # Rust 1.88+ is required by the Holochain 0.7 dependency line. Keep the
+  # toolchain within the pinned nixpkgs/rust-overlay closure used by this flake.
+  rustToolchain = pkgs.rust-bin.stable."1.88.0".default.override {
     targets = [ "wasm32-unknown-unknown" ];
     extensions = [ "rust-src" "rust-analyzer" "clippy" ];
   };
