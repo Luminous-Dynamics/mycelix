@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "study_id": "south-africa-microgrid-demo-v1",
+  "case_id": "cloud-evening-outage-8x15m",
+  "region_id": "fixture-region-01",
+  "start_unix_seconds": 1797000000,
+  "interval_seconds": 900,
+  "interval_count": 8,
+  "datasets": [
+    {
+      "dataset_id": "grid-availability",
+      "source_id": "fixtures/energy-study/v1/grid-availability.csv",
+      "content_sha256": "e2644af914db30977766328e715c9b88490e08bffa70fc063d5e183e8b324568",
+      "unit": "boolean/interval",
+      "evidence_class": "scenario"
+    },
+    {
+      "dataset_id": "load-profile",
+      "source_id": "fixtures/energy-study/v1/load-profile.csv",
+      "content_sha256": "5c74575c36abe474ae18b3c899f343365d8a008c4652b40142d02df795b9ddf4",
+      "unit": "kWh/interval",
+      "evidence_class": "scenario"
+    },
+    {
+      "dataset_id": "renewable-generation",
+      "source_id": "fixtures/energy-study/v1/renewable-generation.csv",
+      "content_sha256": "74078f193db2f4dd0af214691ef7031bd9621cf092bf9ee64e143e11bcdc4bb1",
+      "unit": "kWh/interval",
+      "evidence_class": "scenario"
+    }
+  ],
+  "asset_registry_sha256": "cd9f4363e3369cde9b5d49dd7f86e52ecd1adbfad8f8035e2dd126c632035914",
+  "constraints_sha256": "67c963f80abe6d744f1c48e6d23ae5dabd07ab5964da6440265365f4a61205cf",
+  "model": {
+    "model_id": "sol-atlas-microgrid",
+    "repository": "https://github.com/Luminous-Dynamics/sol-atlas-leptos",
+    "git_revision": "739b51d33d549bf6fd9057eb5fcbd947e76a8266",
+    "configuration_sha256": "64434d549b03c1477898e21f780453392767860c54ce1b1ea774137d408d1f42"
+  },
+  "policy": {
+    "policy_id": "priority-dispatch-baseline",
+    "repository": "https://github.com/Luminous-Dynamics/sol-atlas-leptos",
+    "git_revision": "739b51d33d549bf6fd9057eb5fcbd947e76a8266",
+    "configuration_sha256": "d86d4c17bfb27362cf85976799bf79588a94203eac4afacdbd696380dacde80d",
+    "kind": "baseline"
+  }
+}
