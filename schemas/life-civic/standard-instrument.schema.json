@@ -307,6 +307,10 @@
           }
         }
       }
+    },
+    "formal_status_label": {
+      "type": "string",
+      "description": "Exact status wording from the issuer's source (for example, 'Standards Track — Proposed Standard' or a committee lifecycle stage). Keep it separate from this schema's coarse status enums."
     }
   }
 }
