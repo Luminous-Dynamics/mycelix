@@ -10,7 +10,7 @@
   "frozen_inputs": [
     {
       "path": "schemas/life-civic/service-journey-reference.schema.json",
-      "git_blob_sha1": "e683ed0b7ebdd060a7faf1be19812757d7e88d76",
+      "git_blob_sha1": "079a6d35fa2effedded53a85d5bb3be1047f9c0a",
       "purpose": "effects-disabled service journey schema"
     },
     {
