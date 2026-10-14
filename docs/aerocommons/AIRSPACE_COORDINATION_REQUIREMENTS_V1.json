@@ -275,9 +275,9 @@
     "lifecycle_transition_cases": [
       "proposed_to_accepted",
       "accepted_to_activated",
-      "activated_to_completed",
+      "activated_to_ended",
       "proposed_to_withdrawn",
-      "illegal_accepted_to_completed",
+      "illegal_accepted_to_ended",
       "sequence_gap",
       "duplicate_sequence",
       "time_reversal",
