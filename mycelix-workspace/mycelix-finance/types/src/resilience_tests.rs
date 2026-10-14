@@ -204,10 +204,10 @@ mod resilience_tests {
     /// LTV with extreme values.
     #[test]
     fn resilience_ltv_extreme_values() {
-        // Negative LTV (shouldn't happen, but handle gracefully)
+        // Negative LTV is malformed evidence, never a Healthy position.
         assert_eq!(
             CollateralHealthStatus::from_ltv(-1.0),
-            CollateralHealthStatus::Healthy
+            CollateralHealthStatus::Invalid
         );
         // Zero LTV (no obligation)
         assert_eq!(
@@ -226,18 +226,24 @@ mod resilience_tests {
         );
     }
 
-    /// LTV with NaN/Inf (should still return a valid status).
+    /// Malformed numeric LTV values are invalid, not healthy or liquidation evidence.
     #[test]
     fn resilience_ltv_nan_inf() {
-        // NaN: 0.95 < NaN is false, 0.90 < NaN is false, 0.80 < NaN is false
-        // So from_ltv(NaN) = Healthy (all comparisons return false)
-        let status = CollateralHealthStatus::from_ltv(f64::NAN);
-        // NaN behavior: all > comparisons return false, so falls through to Healthy
-        assert_eq!(status, CollateralHealthStatus::Healthy);
+        for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0] {
+            assert_eq!(
+                CollateralHealthStatus::from_ltv(invalid),
+                CollateralHealthStatus::Invalid,
+                "malformed LTV {:?} must fail closed",
+                invalid,
+            );
+        }
 
-        // Infinity: all comparisons true → Liquidation
         assert_eq!(
-            CollateralHealthStatus::from_ltv(f64::INFINITY),
+            CollateralHealthStatus::from_ltv(0.0),
+            CollateralHealthStatus::Healthy
+        );
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(1.0),
             CollateralHealthStatus::Liquidation
         );
     }

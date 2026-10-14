@@ -10,6 +10,9 @@
 
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::CrossClusterNotification;
+use mycelix_finance_types::{
+    compute_diversification_bonus, CollateralAssetClass, CollateralComponent, CollateralHealthStatus,
+};
 
 // =============================================================================
 // STRING LENGTH LIMITS — Prevent DHT bloat attacks
@@ -860,6 +863,19 @@ fn validate_update_covenant(
 // CollateralHealth validation
 // =============================================================================
 
+/// Ratios are recomputed from integer source fields; tolerate only floating-point
+/// representation error, not a caller-supplied classification or valuation.
+fn ltv_values_match(actual: f64, expected: f64) -> bool {
+    actual.is_finite()
+        && expected.is_finite()
+        && (actual - expected).abs() <= 1e-12_f64.max(expected.abs() * 1e-12)
+}
+
+fn ltv_status_matches(ltv: f64, status: &str) -> bool {
+    let expected = CollateralHealthStatus::from_ltv(ltv);
+    expected != CollateralHealthStatus::Invalid && expected.as_str() == status
+}
+
 fn validate_create_collateral_health(
     _action: EntryCreationAction,
     health: CollateralHealth,
@@ -869,17 +885,26 @@ fn validate_create_collateral_health(
             "Collateral ID invalid".into(),
         ));
     }
+    if health.current_value == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Collateral value must be positive; unpriced collateral cannot be classified".into(),
+        ));
+    }
     if !health.ltv_ratio.is_finite() || health.ltv_ratio < 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "LTV ratio must be a finite non-negative number".into(),
         ));
     }
-    let valid_statuses = ["Healthy", "Warning", "MarginCall", "Liquidation"];
-    if !valid_statuses.contains(&health.status.as_str()) {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "Invalid health status: {}. Must be one of: {:?}",
-            health.status, valid_statuses
-        )));
+    let expected_ltv = health.obligation_amount as f64 / health.current_value as f64;
+    if !ltv_values_match(health.ltv_ratio, expected_ltv) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "LTV ratio does not match obligation_amount / current_value".into(),
+        ));
+    }
+    if !ltv_status_matches(health.ltv_ratio, &health.status) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Collateral health status does not match the validated LTV ratio".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -1085,6 +1110,91 @@ fn validate_update_agricultural_asset(
 // MultiCollateralPosition validation
 // =============================================================================
 
+fn validate_multi_collateral_economics(
+    pos: &MultiCollateralPosition,
+) -> Result<(), &'static str> {
+    if pos.components_json.is_empty() || pos.components_json.len() > MAX_COMPONENTS_JSON_LEN {
+        return Err("Components JSON must be non-empty and within size limits");
+    }
+    if pos.aggregate_value == 0 {
+        return Err("Aggregate collateral value must be positive; unpriced positions cannot be classified");
+    }
+    if !pos.diversification_bonus.is_finite()
+        || pos.diversification_bonus < 0.0
+        || pos.diversification_bonus > 0.20
+    {
+        return Err("Diversification bonus must be finite and between 0.0 and 0.20");
+    }
+    if !pos.effective_ltv.is_finite() || pos.effective_ltv < 0.0 {
+        return Err("Effective LTV must be a finite non-negative number");
+    }
+
+    #[derive(Deserialize)]
+    struct ComponentInput {
+        #[serde(rename = "type")]
+        asset_class: CollateralAssetClass,
+        asset_id: String,
+        weight: f64,
+        current_value: u64,
+    }
+    let raw_components: Vec<ComponentInput> = serde_json::from_str(&pos.components_json)
+        .map_err(|_| "Components JSON is invalid")?;
+    if raw_components.is_empty() {
+        return Err("Components must include at least one collateral asset");
+    }
+
+    let mut seen_ids = std::collections::HashSet::new();
+    let mut aggregate_value = 0u64;
+    let mut weight_total = 0.0f64;
+    let mut components = Vec::with_capacity(raw_components.len());
+    for component in raw_components {
+        if component.asset_id.trim().is_empty() || !seen_ids.insert(component.asset_id.clone()) {
+            return Err("Component asset IDs must be non-empty and unique");
+        }
+        if !component.weight.is_finite() || component.weight <= 0.0 || component.weight > 1.0 {
+            return Err("Component weights must be finite and in (0, 1]");
+        }
+        if component.current_value == 0 {
+            return Err("Every collateral component must have a positive valuation");
+        }
+        aggregate_value = aggregate_value
+            .checked_add(component.current_value)
+            .ok_or("Aggregate collateral value overflow")?;
+        weight_total += component.weight;
+        components.push(CollateralComponent {
+            asset_id: component.asset_id,
+            asset_class: component.asset_class,
+            weight: component.weight,
+            current_value: component.current_value,
+        });
+    }
+    if (weight_total - 1.0).abs() > 1e-6 {
+        return Err("Component weights must sum to 1.0");
+    }
+    if aggregate_value != pos.aggregate_value {
+        return Err("Aggregate value does not match the component valuations");
+    }
+    for component in &components {
+        let expected_weight = component.current_value as f64 / aggregate_value as f64;
+        if (component.weight - expected_weight).abs() > 1e-6 {
+            return Err("Component weight must match its share of aggregate value");
+        }
+    }
+
+    let expected_bonus = compute_diversification_bonus(&components);
+    if !ltv_values_match(pos.diversification_bonus, expected_bonus) {
+        return Err("Diversification bonus does not match distinct component asset classes");
+    }
+    let base_ltv = pos.aggregate_obligation as f64 / pos.aggregate_value as f64;
+    let expected_ltv = (base_ltv - expected_bonus).max(0.0);
+    if !ltv_values_match(pos.effective_ltv, expected_ltv) {
+        return Err("Effective LTV does not match aggregate obligation, value, and verified bonus");
+    }
+    if !ltv_status_matches(pos.effective_ltv, &pos.status) {
+        return Err("Multi-collateral status does not match the validated effective LTV");
+    }
+    Ok(())
+}
 fn validate_create_multi_collateral_position(
     _action: EntryCreationAction,
     pos: MultiCollateralPosition,
@@ -1102,18 +1212,8 @@ fn validate_create_multi_collateral_position(
             "Components JSON must be non-empty and within size limits".into(),
         ));
     }
-    if !pos.diversification_bonus.is_finite()
-        || pos.diversification_bonus < 0.0
-        || pos.diversification_bonus > 1.0
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Diversification bonus must be between 0.0 and 1.0".into(),
-        ));
-    }
-    if !pos.effective_ltv.is_finite() || pos.effective_ltv < 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Effective LTV must be a finite non-negative number".into(),
-        ));
+    if let Err(reason) = validate_multi_collateral_economics(&pos) {
+        return Ok(ValidateCallbackResult::Invalid(reason.into()));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -1125,10 +1225,8 @@ fn validate_update_multi_collateral_position(
     if !pos.holder_did.starts_with("did:") || pos.holder_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid("Holder DID invalid".into()));
     }
-    if !pos.effective_ltv.is_finite() || pos.effective_ltv < 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Effective LTV must be a finite non-negative number".into(),
-        ));
+    if let Err(reason) = validate_multi_collateral_economics(&pos) {
+        return Ok(ValidateCallbackResult::Invalid(reason.into()));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -2012,6 +2110,65 @@ mod tests {
     }
 
     #[test]
+    fn test_health_rejects_zero_current_value_even_with_liquidation_sentinel() {
+        let mut h = valid_health();
+        h.current_value = 0;
+        h.ltv_ratio = 999.0;
+        h.status = "Liquidation".into();
+        let result =
+            validate_create_collateral_health(EntryCreationAction::Create(make_create()), h)
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_health_rejects_non_finite_ltv() {
+        for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let mut health = valid_health();
+            health.ltv_ratio = invalid;
+            let result = validate_create_collateral_health(
+                EntryCreationAction::Create(make_create()),
+                health,
+            )
+            .unwrap();
+            assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        }
+    }
+
+    #[test]
+    fn test_health_rejects_persisted_invalid_status_label() {
+        let mut health = valid_health();
+        health.status = "Invalid".into();
+        let result = validate_create_collateral_health(
+            EntryCreationAction::Create(make_create()),
+            health,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_health_rejects_ratio_that_disagrees_with_source_amounts() {
+        let mut h = valid_health();
+        h.ltv_ratio = 0.90;
+        h.status = "MarginCall".into();
+        let result =
+            validate_create_collateral_health(EntryCreationAction::Create(make_create()), h)
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_health_rejects_status_that_disagrees_with_ratio() {
+        let mut h = valid_health();
+        h.status = "Liquidation".into();
+        let result =
+            validate_create_collateral_health(EntryCreationAction::Create(make_create()), h)
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
     fn test_health_rejects_empty_collateral_id() {
         let mut h = valid_health();
         h.collateral_id = "".into();
@@ -2310,10 +2467,10 @@ mod tests {
         MultiCollateralPosition {
             id: "mcp:test:001".into(),
             holder_did: "did:mycelix:alice".into(),
-            components_json: r#"[{"type":"ETH","amount":1000}]"#.into(),
+            components_json: r#"[{"type":"Cryptocurrency","asset_id":"eth-1","weight":1.0,"current_value":100000}]"#.into(),
             aggregate_value: 100_000,
             aggregate_obligation: 50_000,
-            diversification_bonus: 0.05,
+            diversification_bonus: 0.0,
             effective_ltv: 0.5,
             status: "Healthy".into(),
             created_at: ts(1_000_000),
@@ -2329,6 +2486,127 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_zero_aggregate_value() {
+        let mut p = valid_multi_position();
+        p.aggregate_value = 0;
+        p.effective_ltv = 999.0;
+        p.status = "Liquidation".into();
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_unearned_diversification_bonus() {
+        let mut p = valid_multi_position();
+        p.diversification_bonus = 0.05;
+        p.effective_ltv = 0.45;
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_aggregate_value_mismatch() {
+        let mut p = valid_multi_position();
+        p.aggregate_value = 99_999;
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_weights_that_disagree_with_component_values() {
+        let mut p = valid_multi_position();
+        p.components_json = r#"[{"type":"Cryptocurrency","asset_id":"eth-1","weight":0.5,"current_value":90000},{"type":"RealEstate","asset_id":"home-1","weight":0.5,"current_value":10000}]"#.into();
+        p.diversification_bonus = 0.05;
+        p.effective_ltv = 0.45;
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_update_rejects_oversized_components_json() {
+        let mut p = valid_multi_position();
+        p.components_json = " ".repeat(MAX_COMPONENTS_JSON_LEN + 1);
+        let result = validate_update_multi_collateral_position(make_update(), p).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_non_normalized_component_weights() {
+        let mut p = valid_multi_position();
+        p.components_json = r#"[{"type":"Cryptocurrency","asset_id":"eth-1","weight":0.5,"current_value":100000}]"#.into();
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_duplicate_asset_ids() {
+        let mut p = valid_multi_position();
+        p.components_json = r#"[{"type":"Cryptocurrency","asset_id":"eth-1","weight":0.5,"current_value":50000},{"type":"RealEstate","asset_id":"eth-1","weight":0.5,"current_value":50000}]"#.into();
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_unknown_asset_class() {
+        let mut p = valid_multi_position();
+        p.components_json = r#"[{"type":"UnverifiedThing","asset_id":"x","weight":1.0,"current_value":100000}]"#.into();
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_effective_ltv_mismatch() {
+        let mut p = valid_multi_position();
+        p.effective_ltv = 0.55;
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_multi_position_rejects_status_mismatch() {
+        let mut p = valid_multi_position();
+        p.status = "Liquidation".into();
+        let result = validate_create_multi_collateral_position(
+            EntryCreationAction::Create(make_create()),
+            p,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]

@@ -19,7 +19,10 @@ use mycelix_finance_shared::{
     anchor_hash, follow_update_chain, verify_caller_is_did, verify_citizen_tier,
     verify_participant_tier,
 };
-use mycelix_finance_types::{FeeTier, TendLimitTier};
+use mycelix_finance_types::{
+    compute_diversification_bonus, CollateralAssetClass, CollateralComponent,
+    CollateralHealthStatus, FeeTier, TendLimitTier,
+};
 use mycelix_zome_helpers as _;
 
 const FINANCE_HAPP_ID: &str = "mycelix-finance";
@@ -1753,35 +1756,34 @@ pub fn update_collateral_health(input: UpdateCollateralHealthInput) -> ExternRes
     verify_participant_tier()?;
     let now = sys_time()?;
 
-    // Fetch current collateral value from oracle
-    let current_value = fetch_collateral_value(&input.collateral_id);
+    // A missing/unreachable oracle result is unknown evidence, not a zero-valued
+    // asset and not proof of liquidation. Do not persist a health snapshot until
+    // there is a positive, decoded valuation.
+    let current_value = fetch_collateral_value(&input.collateral_id).ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Collateral value unavailable; refusing to classify LTV".into()
+        ))
+    })?;
+    if current_value == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Collateral value is zero; refusing to classify LTV".into()
+        )));
+    }
 
-    let ltv_ratio = if current_value > 0 {
-        input.obligation_amount as f64 / current_value as f64
-    } else {
-        f64::INFINITY
-    };
-
-    // Thresholds match canonical CollateralHealthStatus::from_ltv() in mycelix_finance_types
-    let status = if !ltv_ratio.is_finite() || ltv_ratio > 0.95 {
-        "Liquidation"
-    } else if ltv_ratio > 0.90 {
-        "MarginCall"
-    } else if ltv_ratio > 0.80 {
-        "Warning"
-    } else {
-        "Healthy"
-    };
+    let ltv_ratio = input.obligation_amount as f64 / current_value as f64;
+    let health_status = CollateralHealthStatus::from_ltv(ltv_ratio);
+    if health_status == CollateralHealthStatus::Invalid {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Computed LTV is invalid; refusing to persist collateral health".into()
+        )));
+    }
+    let status = health_status.as_str();
 
     let health = CollateralHealth {
         collateral_id: input.collateral_id.clone(),
         current_value,
         obligation_amount: input.obligation_amount,
-        ltv_ratio: if ltv_ratio.is_finite() {
-            ltv_ratio
-        } else {
-            999.0
-        },
+        ltv_ratio,
         status: status.to_string(),
         computed_at: now,
     };
@@ -1824,8 +1826,9 @@ fn map_wire_asset_type(asset_type: finance_wire_types::AssetType) -> AssetType {
 }
 
 /// Fetch current value for a collateral position from the price oracle.
-/// Falls back to 0 if oracle is unreachable.
-fn fetch_collateral_value(collateral_id: &str) -> u64 {
+/// None means the call failed or its response could not be decoded; callers
+/// must preserve that unknown state rather than substituting zero.
+fn fetch_collateral_value(collateral_id: &str) -> Option<u64> {
     #[derive(Serialize, Debug)]
     struct GetValueInput {
         collateral_id: String,
@@ -1844,15 +1847,22 @@ fn fetch_collateral_value(collateral_id: &str) -> u64 {
             collateral_id: collateral_id.to_string(),
         },
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => {
-            result.decode::<ValueResult>().map(|v| v.value).unwrap_or(0)
-        }
+        Ok(ZomeCallResponse::Ok(result)) => match result.decode::<ValueResult>() {
+            Ok(value) => Some(value.value),
+            Err(error) => {
+                debug!(
+                    "fetch_collateral_value: invalid oracle response for {}: {:?}",
+                    collateral_id, error
+                );
+                None
+            }
+        },
         _ => {
             debug!(
-                "fetch_collateral_value: oracle unreachable for {}, defaulting to 0",
+                "fetch_collateral_value: oracle unreachable for {}",
                 collateral_id
             );
-            0
+            None
         }
     }
 }
@@ -2158,7 +2168,7 @@ pub struct CreateMultiCollateralPositionInput {
 /// Create a multi-collateral position (basket of assets).
 ///
 /// Computes a diversification bonus based on the number of distinct asset types
-/// in the basket. The bonus reduces effective LTV by up to 5%.
+/// in the basket. The bonus reduces effective LTV by up to 20 percentage points.
 #[hdk_extern]
 pub fn create_multi_collateral_position(
     input: CreateMultiCollateralPositionInput,
@@ -2167,50 +2177,99 @@ pub fn create_multi_collateral_position(
     verify_caller_is_did(&input.holder_did)?;
     let now = sys_time()?;
 
-    // Parse components to count distinct types for diversification bonus
-    #[derive(Deserialize)]
-    struct Component {
-        #[serde(rename = "type")]
-        _type: String,
+    // Bound parsing work before deserializing the caller-controlled JSON.
+    if input.components_json.is_empty() || input.components_json.len() > 16_384 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Components JSON must be non-empty and at most 16,384 bytes".into()
+        )));
     }
-    let components: Vec<Component> = serde_json::from_str(&input.components_json).map_err(|e| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "Invalid components JSON: {:?}",
-            e
-        )))
-    })?;
+    if input.aggregate_value == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Aggregate collateral value must be positive; cannot classify an unpriced position".into()
+        )));
+    }
 
-    if components.is_empty() {
+    // Parse a typed basket and derive its economics from the components. Do not
+    // trust caller-supplied aggregate values or a caller-selected diversification
+    // discount: those are validated against the exact stored component manifest.
+    #[derive(Deserialize)]
+    struct ComponentInput {
+        #[serde(rename = "type")]
+        asset_class: CollateralAssetClass,
+        asset_id: String,
+        weight: f64,
+        current_value: u64,
+    }
+    let raw_components: Vec<ComponentInput> = serde_json::from_str(&input.components_json)
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(format!(
+            "Invalid components JSON: {:?}", error
+        ))))?;
+    if raw_components.is_empty() {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Multi-collateral position must have at least one component".into()
         )));
     }
 
-    // Diversification bonus: 1% per distinct asset type, capped at 5%
-    let distinct_types: std::collections::HashSet<&str> =
-        components.iter().map(|c| c._type.as_str()).collect();
-    // Bonus starts from 2nd distinct class: 5% per class, capped at 20%
-    // Matches canonical compute_diversification_bonus() in mycelix_finance_types
-    let bonus_classes = distinct_types.len().saturating_sub(1);
-    let diversification_bonus = (bonus_classes as f64 * 0.05).min(0.20);
+    let mut seen_ids = std::collections::HashSet::new();
+    let mut aggregate_value = 0u64;
+    let mut weight_total = 0.0f64;
+    let mut components = Vec::with_capacity(raw_components.len());
+    for component in raw_components {
+        if component.asset_id.trim().is_empty() || !seen_ids.insert(component.asset_id.clone()) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Component asset IDs must be non-empty and unique".into()
+            )));
+        }
+        if !component.weight.is_finite() || component.weight <= 0.0 || component.weight > 1.0 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Component weights must be finite and in (0, 1]".into()
+            )));
+        }
+        if component.current_value == 0 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Every collateral component must have a positive valuation".into()
+            )));
+        }
+        aggregate_value = aggregate_value.checked_add(component.current_value).ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest("Aggregate collateral value overflow".into()))
+        })?;
+        weight_total += component.weight;
+        components.push(CollateralComponent {
+            asset_id: component.asset_id,
+            asset_class: component.asset_class,
+            weight: component.weight,
+            current_value: component.current_value,
+        });
+    }
+    if (weight_total - 1.0).abs() > 1e-6 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Component weights must sum to 1.0".into()
+        )));
+    }
+    if aggregate_value != input.aggregate_value {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Aggregate value does not match the component valuations".into()
+        )));
+    }
+    for component in &components {
+        let expected_weight = component.current_value as f64 / aggregate_value as f64;
+        if (component.weight - expected_weight).abs() > 1e-6 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Each component weight must match its share of aggregate value".into()
+            )));
+        }
+    }
+    let diversification_bonus = compute_diversification_bonus(&components);
 
-    let base_ltv = if input.aggregate_value > 0 {
-        input.aggregate_obligation as f64 / input.aggregate_value as f64
-    } else {
-        999.0
-    };
+    let base_ltv = input.aggregate_obligation as f64 / input.aggregate_value as f64;
     let effective_ltv = (base_ltv - diversification_bonus).max(0.0);
-
-    // Thresholds match canonical CollateralHealthStatus::from_ltv() in mycelix_finance_types
-    let status = if !effective_ltv.is_finite() || effective_ltv > 0.95 {
-        "Liquidation"
-    } else if effective_ltv > 0.90 {
-        "MarginCall"
-    } else if effective_ltv > 0.80 {
-        "Warning"
-    } else {
-        "Healthy"
-    };
+    let health_status = CollateralHealthStatus::from_ltv(effective_ltv);
+    if health_status == CollateralHealthStatus::Invalid {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Computed effective LTV is invalid; refusing to persist collateral position".into()
+        )));
+    }
+    let status = health_status.as_str();
 
     let position_id = format!("mcp:{}:{}", input.holder_did, now.as_micros());
 

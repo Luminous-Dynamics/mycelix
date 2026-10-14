@@ -172,17 +172,25 @@ fn finance_dna_path() -> PathBuf {
 
 /// Extract a string field from a Record's entry via msgpack deserialization.
 fn extract_entry_field(record: &::holochain::prelude::Record, field: &str) -> Option<String> {
+    fn field_value(value: &serde_json::Value, field: &str) -> Option<String> {
+        let value = value.get(field)?;
+        value
+            .as_str()
+            .map(str::to_owned)
+            .or_else(|| value.is_number().then(|| value.to_string()))
+    }
+
     let entry = record.entry().as_option()?;
     let bytes: Vec<u8> = entry.clone().into();
-    // Holochain entries are msgpack-encoded; try msgpack first, then JSON fallback
+    // Holochain entries are msgpack-encoded; try msgpack first, then JSON fallback.
     if let Ok(value) = rmp_serde::from_slice::<serde_json::Value>(&bytes) {
-        if let Some(s) = value.get(field).and_then(|v| v.as_str()) {
-            return Some(s.to_string());
+        if let Some(result) = field_value(&value, field) {
+            return Some(result);
         }
     }
     if let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) {
-        if let Some(s) = value.get(field).and_then(|v| v.as_str()) {
-            return Some(s.to_string());
+        if let Some(result) = field_value(&value, field) {
+            return Some(result);
         }
     }
     None
@@ -521,9 +529,10 @@ async fn test_collateral_health_computation() {
     let collateral_id =
         extract_entry_field(&collateral_record, "id").expect("Collateral should have 'id'");
 
-    // Compute health with a moderate obligation (oracle returns 0 in
-    // isolated test since price_oracle has no data, so LTV will be Infinity
-    // => Liquidation status)
+    // This fixture does not seed any oracle valuation. The health handler must
+    // refuse to fabricate a zero-value/999-LTV liquidation result from missing
+    // evidence. A successful result is acceptable only if it records a positive
+    // value and an LTV/status recomputed from that exact value.
     let health_input = UpdateCollateralHealthInput {
         collateral_id: collateral_id.clone(),
         obligation_amount: 50_000,
@@ -539,29 +548,50 @@ async fn test_collateral_health_computation() {
 
     match result {
         Ok(record) => {
-            // In isolated test, oracle returns 0 for current value,
-            // so LTV ratio will be 999.0 (the clamped infinity) and
-            // status will be "Liquidation"
-            if let Some(status) = extract_entry_field(&record, "status") {
-                assert!(
-                    status == "Liquidation"
-                        || status == "Healthy"
-                        || status == "Warning"
-                        || status == "MarginCall",
-                    "Health status should be a valid LTV status, got: {}",
-                    status,
-                );
-            }
+            let current_value: u64 = extract_entry_field(&record, "current_value")
+                .expect("successful health snapshot must include current_value")
+                .parse()
+                .expect("current_value must be an integer");
+            assert!(current_value > 0, "unpriced collateral must not be persisted");
+
+            let actual_ltv: f64 = extract_entry_field(&record, "ltv_ratio")
+                .expect("successful health snapshot must include ltv_ratio")
+                .parse()
+                .expect("ltv_ratio must be numeric");
+            let expected_ltv = 50_000.0 / current_value as f64;
+            assert!(
+                (actual_ltv - expected_ltv).abs() <= 1e-12_f64.max(expected_ltv.abs() * 1e-12),
+                "LTV must match obligation/value, got {actual_ltv} expected {expected_ltv}"
+            );
+
+            let expected_status = if expected_ltv > 0.95 {
+                "Liquidation"
+            } else if expected_ltv > 0.90 {
+                "MarginCall"
+            } else if expected_ltv > 0.80 {
+                "Warning"
+            } else {
+                "Healthy"
+            };
+            assert_eq!(
+                extract_entry_field(&record, "status").as_deref(),
+                Some(expected_status),
+                "stored health status must match the validated ratio"
+            );
+            assert_ne!(actual_ltv, 999.0, "the former missing-price sentinel must never be stored");
         }
         Err(e) => {
-            // Expected: consciousness gating may block Participant tier
+            // The test harness may lack participant setup, or the oracle may
+            // correctly refuse to return a valuation. Both are safe failures.
             let err_msg = format!("{:?}", e);
             assert!(
                 err_msg.contains("Participant")
                     || err_msg.contains("DID")
                     || err_msg.contains("identity")
-                    || err_msg.contains("consciousness"),
-                "Expected consciousness gating or DID error, got: {}",
+                    || err_msg.contains("consciousness")
+                    || err_msg.contains("Collateral value unavailable")
+                    || err_msg.contains("Collateral value is zero"),
+                "Expected safe gating or explicit unknown-valuation failure, got: {}",
                 err_msg,
             );
         }
@@ -714,7 +744,7 @@ async fn test_multi_collateral_position() {
 
     let alice_did = format!("did:mycelix:{}", alice.agent_pubkey());
 
-    // 3 distinct asset types -> 3% diversification bonus
+    // 3 distinct asset types -> 10 percentage-point bonus (2 added classes × 5%).
     let components = serde_json::json!([
         {"type": "RealEstate", "asset_id": "prop-001", "weight": 0.5, "current_value": 500_000},
         {"type": "EnergyCertificate", "asset_id": "cert-001", "weight": 0.3, "current_value": 300_000},
@@ -749,12 +779,22 @@ async fn test_multi_collateral_position() {
                     position_id,
                 );
             }
-            // With 3 types: base LTV = 0.5, diversification = 0.03
-            // effective LTV = 0.47 => "Healthy"
+            // With 3 types: base LTV = 0.5, diversification = 0.10
+            // effective LTV = 0.40 => "Healthy".
+            let bonus: f64 = extract_entry_field(&record, "diversification_bonus")
+                .expect("bonus should be recorded")
+                .parse()
+                .expect("bonus should be numeric");
+            let effective_ltv: f64 = extract_entry_field(&record, "effective_ltv")
+                .expect("effective LTV should be recorded")
+                .parse()
+                .expect("effective LTV should be numeric");
+            assert!((bonus - 0.10).abs() < 1e-12);
+            assert!((effective_ltv - 0.40).abs() < 1e-12);
             if let Some(status) = extract_entry_field(&record, "status") {
                 assert_eq!(
                     status, "Healthy",
-                    "Multi-collateral with LTV 0.47 should be Healthy, got: {}",
+                    "Multi-collateral with LTV 0.40 should be Healthy, got: {}",
                     status,
                 );
             }

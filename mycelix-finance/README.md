@@ -107,6 +107,10 @@ mycelix-finance/
 | Critical | +-80 | Vitality 10-20 |
 | Failing | +-120 | Vitality < 10 |
 
+## Collateral valuation safety
+
+The collateral-health and multi-collateral paths reject missing/zero valuations and inconsistent LTV/status or basket arithmetic. See [Collateral Valuation Safety v1](docs/COLLATERAL_VALUATION_SAFETY_V1.md) for the exact guarantees and the remaining valuation-oracle integration boundary. This is not yet proof of authenticated price provenance.
+
 ## Building
 
 ```bash
