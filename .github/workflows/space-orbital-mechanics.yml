@@ -87,4 +87,4 @@ jobs:
         # wasm32-unknown-unknown builds; do not select the browser wasm_js backend.
         env:
           RUSTFLAGS: '--cfg getrandom_backend="custom"'
-        run: cargo check --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p conjunctions_coordinator --target wasm32-unknown-unknown
+        run: cargo build --release --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p conjunctions_coordinator --target wasm32-unknown-unknown
