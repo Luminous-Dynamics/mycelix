@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/feat/economy-atlas-model-registry-v1/docs/economy-atlas/regenerative-indicators.schema.json",
+  "title": "Mycelix Regenerative Indicator Catalog v1",
+  "description": "Candidate indicator definitions and comparison contracts. Contains no observed data and asserts no execution, empirical validation or aggregate score.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "catalog_id",
+    "catalog_status",
+    "qualification",
+    "global_comparison_contract",
+    "missingness_vocabulary",
+    "research_refs",
+    "indicators"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "catalog_id": {
+      "const": "mycelix.regenerative-indicators"
+    },
+    "catalog_status": {
+      "const": "candidate_indicator_definitions"
+    },
+    "qualification": {
+      "type": "object",
+      "required": [
+        "empirical_observations_loaded",
+        "indicators_computed",
+        "independently_validated",
+        "composite_score_enabled"
+      ],
+      "properties": {
+        "empirical_observations_loaded": {
+          "const": false
+        },
+        "indicators_computed": {
+          "const": false
+        },
+        "independently_validated": {
+          "const": false
+        },
+        "composite_score_enabled": {
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "global_comparison_contract": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 10
+      }
+    },
+    "missingness_vocabulary": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "research_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/research_ref"
+      }
+    },
+    "indicators": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/indicator"
+      }
+    }
+  },
+  "$defs": {
+    "research_ref": {
+      "type": "object",
+      "required": [
+        "ref_id",
+        "title",
+        "publisher",
+        "reference_type",
+        "retrieved_on",
+        "url"
+      ],
+      "properties": {
+        "ref_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 3
+        },
+        "publisher": {
+          "type": "string",
+          "minLength": 2
+        },
+        "reference_type": {
+          "type": "string",
+          "minLength": 3
+        },
+        "published_year": {
+          "type": "integer",
+          "minimum": 1900,
+          "maximum": 2100
+        },
+        "retrieved_on": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https://[^\\s]+$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "indicator": {
+      "type": "object",
+      "required": [
+        "indicator_id",
+        "title",
+        "framework_ids",
+        "domain",
+        "indicator_type",
+        "definition",
+        "native_unit",
+        "denominator",
+        "desired_direction",
+        "spatial_scope_required",
+        "temporal_resolution_required",
+        "baseline_and_target",
+        "uncertainty_required",
+        "input_requirements",
+        "comparability_key",
+        "missing_data_rule",
+        "caveats",
+        "research_ref_ids",
+        "status",
+        "observations_loaded",
+        "computed"
+      ],
+      "properties": {
+        "indicator_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 3
+        },
+        "framework_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 3
+        },
+        "indicator_type": {
+          "enum": [
+            "observed",
+            "derived",
+            "observed_or_derived",
+            "observed_or_accounted",
+            "accounting_series",
+            "derived_accounting_series",
+            "network_metric"
+          ]
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 20
+        },
+        "native_unit": {
+          "type": "string",
+          "minLength": 3
+        },
+        "denominator": {
+          "type": "string",
+          "minLength": 3
+        },
+        "desired_direction": {
+          "enum": [
+            "higher_is_better",
+            "lower_is_better",
+            "context_dependent",
+            "target_band",
+            "boundary_ratio",
+            "descriptive_only"
+          ]
+        },
+        "spatial_scope_required": {
+          "type": "string",
+          "minLength": 3
+        },
+        "temporal_resolution_required": {
+          "type": "string",
+          "minLength": 3
+        },
+        "baseline_and_target": {
+          "type": "string",
+          "minLength": 3
+        },
+        "uncertainty_required": {
+          "type": "string",
+          "minLength": 3
+        },
+        "input_requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 2
+          }
+        },
+        "comparability_key": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 2
+          }
+        },
+        "missing_data_rule": {
+          "type": "string",
+          "minLength": 10
+        },
+        "caveats": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 5
+          }
+        },
+        "research_ref_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "const": "candidate_definition"
+        },
+        "observations_loaded": {
+          "const": false
+        },
+        "computed": {
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

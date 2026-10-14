@@ -90,6 +90,11 @@ fn AppInner() -> impl IntoView {
             icon: None,
         },
         NavLink {
+            href: "/atlas",
+            label: "Economy Atlas",
+            icon: Some("◉"),
+        },
+        NavLink {
             href: "/tend",
             label: "TEND",
             icon: Some("🤝"),
@@ -137,6 +142,7 @@ fn AppInner() -> impl IntoView {
                     <EmptyState icon="?" title="Page not found" />
                 }>
                     <Route path=path!("/") view=pages::HomePage />
+                    <Route path=path!("/atlas") view=pages::EconomyAtlasPage />
                     <Route path=path!("/tend") view=pages::TendPage />
                     <Route path=path!("/sap") view=pages::SapPage />
                     <Route path=path!("/mycel") view=pages::MycelPage />

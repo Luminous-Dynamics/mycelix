@@ -1,0 +1,271 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/feat/economy-atlas-model-registry-v1/docs/economy-atlas/model-registry.schema.json",
+  "title": "Mycelix Economy Atlas discovery registry v1",
+  "description": "Schema for the source-pinned Economy Atlas discovery inventory, including separately classified external research/framework references. This v1 schema intentionally forbids asserting execution qualification.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "registry_id",
+    "registry_status",
+    "qualified_for_execution",
+    "generated_from",
+    "status_vocabulary",
+    "models"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "registry_id": {
+      "const": "mycelix.economy-atlas"
+    },
+    "registry_status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "qualified_for_execution": {
+      "const": false
+    },
+    "generated_from": {
+      "type": "object",
+      "required": [
+        "repository",
+        "ref",
+        "note",
+        "pinned_source_snapshots"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string",
+          "minLength": 20
+        },
+        "pinned_source_snapshots": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "status_vocabulary": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "model_id",
+          "title",
+          "domain",
+          "epistemic_status",
+          "execution_status",
+          "source_refs",
+          "limitations"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+([._-][a-z0-9]+)+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "domain": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "epistemic_status": {
+            "enum": [
+              "implemented_source",
+              "paper_reported",
+              "design_only",
+              "conceptual",
+              "discovery_required",
+              "external_framework"
+            ]
+          },
+          "execution_status": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "repository",
+                "path",
+                "ref",
+                "url"
+              ],
+              "properties": {
+                "repository": {
+                  "type": "string",
+                  "pattern": "^[^/]+/[^/]+$"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "ref": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{40}$"
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "validation_findings": {
+            "type": "array",
+            "description": "Optional source-level review findings. These report source-level conditions, not necessarily reachable production paths.",
+            "items": {
+              "type": "object",
+              "required": [
+                "finding_id",
+                "severity",
+                "source_repository",
+                "source_file",
+                "source_commit",
+                "observation",
+                "required_follow_up"
+              ],
+              "properties": {
+                "finding_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "severity": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_repository": {
+                  "type": "string",
+                  "pattern": "^[^/]+/[^/]+$"
+                },
+                "source_file": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_commit": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{40}$"
+                },
+                "observation": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "required_follow_up": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "research_refs": {
+            "type": "array",
+            "description": "External framework, methodology, or research references. These do not count as in-repository implementation source refs.",
+            "items": {
+              "type": "object",
+              "required": [
+                "title",
+                "publisher",
+                "reference_type",
+                "url",
+                "retrieved_on"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "publisher": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reference_type": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "published_year": {
+                  "type": "integer",
+                  "minimum": 1800,
+                  "maximum": 2200
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri",
+                  "pattern": "^https://"
+                },
+                "retrieved_on": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "epistemic_status": {
+                  "const": "external_framework"
+                }
+              },
+              "required": [
+                "epistemic_status"
+              ]
+            },
+            "then": {
+              "required": [
+                "research_refs"
+              ],
+              "properties": {
+                "research_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": true
+}
