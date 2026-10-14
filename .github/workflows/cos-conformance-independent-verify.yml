@@ -15,7 +15,7 @@ on:
         required: true
         type: string
 
-# The verifier is a trusted control plane. PR execution is isolated into its
+# This workflow is main-controlled. PR execution is isolated into its
 # own job; only immutable job outputs and artifact data cross into validation.
 permissions: {}
 
@@ -24,6 +24,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  trigger_boundary:
+    name: Reject unsupported verifier trigger
+    if: >-
+      ${{ github.event_name != 'workflow_dispatch' &&
+          (github.event_name != 'workflow_run' ||
+           github.event.workflow_run.event != 'pull_request' ||
+           github.event.workflow_run.pull_requests[0].number == '') }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Fail closed on unsupported trigger
+        run: |
+          echo "unsupported verifier trigger: event=${{ github.event_name }} upstream_event=${{ github.event.workflow_run.event || 'none' }}" >&2
+          exit 1
+
   prepare:
     # Manual dispatches are explicit targets. Automatic runs only make sense
     # when the upstream Evidence workflow actually ran for a pull request.
@@ -42,11 +57,19 @@ jobs:
     outputs:
       pr_number: ${{ steps.target_binding.outputs.pr_number }}
       expected_head_sha: ${{ steps.target_binding.outputs.expected_head_sha }}
+      live_main_sha: ${{ steps.target_binding.outputs.live_main_sha }}
+      base_sha: ${{ steps.target_binding.outputs.base_sha }}
+      base_ref: ${{ steps.target_binding.outputs.base_ref }}
+      base_repository_id: ${{ steps.target_binding.outputs.base_repository_id }}
+      base_repository: ${{ steps.target_binding.outputs.base_repository }}
+      head_repository_id: ${{ steps.target_binding.outputs.head_repository_id }}
       head_repository: ${{ steps.target_binding.outputs.head_repository }}
       trigger_run_id: ${{ steps.target_binding.outputs.trigger_run_id }}
       trigger_workflow_id: ${{ steps.target_binding.outputs.trigger_workflow_id }}
       trigger_workflow_path: ${{ steps.target_binding.outputs.trigger_workflow_path }}
       trigger_repository: ${{ steps.target_binding.outputs.trigger_repository }}
+      trigger_repository_id: ${{ steps.target_binding.outputs.trigger_repository_id }}
+      trigger_head_repository_id: ${{ steps.target_binding.outputs.trigger_head_repository_id }}
       trigger_event: ${{ steps.target_binding.outputs.trigger_event }}
       trigger_conclusion: ${{ steps.target_binding.outputs.trigger_conclusion }}
       trusted_workflow_sha: ${{ steps.trusted_identity.outputs.trusted_workflow_sha }}
@@ -91,23 +114,29 @@ jobs:
         run: |
           python - <<'PY'
           import re
+          import textwrap
           from pathlib import Path
 
           path = Path(".github/workflows/cos-conformance-independent-verify.yml")
           text = path.read_text()
+
+          python_blocks = re.findall(r"python - <<'PY'\\n([\\s\\S]*?)\\n\\s*PY\\b", text)
+          assert len(python_blocks) >= 13, f"expected embedded Python heredocs, found {len(python_blocks)}"
+          for index, block in enumerate(python_blocks):
+              compile(textwrap.dedent(block), f"<verifier-python-heredoc-{index}>", "exec")
           audit_start = text.index("      - name: Validate immutable verifier action pins")
           audit_end = text.index("\n\n      - name: Validate verification target", audit_start)
           scanned_text = text[:audit_start] + text[audit_end:]
           scanned_lines = scanned_text.splitlines()
 
           assert "permissions: {}" in scanned_text
-          assert scanned_text.count("\n    cache-mode: none\n") == 3
+          assert scanned_text.count("\n    cache-mode: none\n") == 4
           assert ("actions" + "/cache@") not in scanned_text
-          assert ("secrets" + ".") not in scanned_text
+          assert scanned_text.count("secrets.GOVERNANCE_ADMIN_TOKEN") == 1
           assert ("allow-unsafe-pr-checkout" + ": true") not in scanned_text
-          assert scanned_text.count("actions/checkout@") == 2
-          assert scanned_text.count("persist-credentials: false") == 2
-          assert scanned_text.count("digest-mismatch: error") == 1
+          assert scanned_text.count("actions/checkout@") == 3
+          assert scanned_text.count("persist-credentials: false") == 3
+          assert scanned_text.count("digest-mismatch: error") == 2
           assert scanned_text.count("artifact-ids: ${{ needs.execute.outputs.execution_artifact_id }}") == 1
           assert "actions/artifacts/${EXPECTED_ARTIFACT_ID}" in scanned_text
 
@@ -189,6 +218,8 @@ jobs:
             trigger_workflow_id_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.workflow_id')"
             trigger_workflow_path_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.path')"
             trigger_repository_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.repository.full_name')"
+            trigger_repository_id_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.repository.id')"
+            trigger_head_repository_id_live="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq '.head_repository_id')"
             trigger_pr_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${TRIGGER_RUN_ID}" --jq --arg pr "${PR_NUMBER}" '.pull_requests[] | select((.number|tostring)==$pr) | .head.sha' | head -n 1)"
             test "${trigger_head_sha}" = "${EXPECTED_HEAD_SHA}"
             test "${trigger_pr_head_sha}" = "${EXPECTED_HEAD_SHA}"
@@ -196,12 +227,23 @@ jobs:
             test "${trigger_workflow_id_live}" = "374065836"
             test "${trigger_workflow_path_live}" = ".github/workflows/cos-conformance-evidence.yml"
             test "${trigger_repository_live}" = "${GITHUB_REPOSITORY}"
+            test "${trigger_repository_id_live}" = "1176351975"
+            test "${trigger_head_repository_id_live}" = "1176351975"
             test -n "${trigger_head_branch}"
           fi
 
 
+          repository_id="$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.id')"
+          test "${repository_id}" = "1176351975"
+          live_main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/branches/main" --jq '.commit.sha')"
+          printf '%s\n' "${live_main_sha}" | grep -Eq '^[0-9a-f]{40}$'
           actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
           head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
+          head_repository_id="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.id')"
+          base_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')"
+          base_ref="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.ref')"
+          base_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.repo.full_name')"
+          base_repository_id="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.repo.id')"
           pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
 
           test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}" || {
@@ -212,6 +254,23 @@ jobs:
             echo "independent verifier accepts same-repository PR heads only: ${head_repository}" >&2
             exit 1
           }
+          test "${head_repository_id}" = "${repository_id}" || {
+            echo "independent verifier requires the PR head repository id to match this repository: ${head_repository_id}" >&2
+            exit 1
+          }
+          printf '%s\n' "${base_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${base_ref}" = "main" || {
+            echo "independent verifier requires the PR base ref to be main: ${base_ref}" >&2
+            exit 1
+          }
+          test "${base_repository}" = "${GITHUB_REPOSITORY}" || {
+            echo "independent verifier requires the PR base to be this repository: ${base_repository}" >&2
+            exit 1
+          }
+          test "${base_repository_id}" = "${repository_id}" || {
+            echo "independent verifier requires the PR base repository id to match this repository: ${base_repository_id}" >&2
+            exit 1
+          }
           test "${pull_request_state}" = "open" || {
             echo "PR ${PR_NUMBER} is not open: ${pull_request_state}" >&2
             exit 1
@@ -220,14 +279,523 @@ jobs:
           {
             printf 'pr_number=%s\n' "${PR_NUMBER}"
             printf 'expected_head_sha=%s\n' "${EXPECTED_HEAD_SHA}"
+            printf 'live_main_sha=%s\n' "${live_main_sha}"
+            printf 'base_sha=%s\n' "${base_sha}"
+            printf 'base_ref=%s\n' "${base_ref}"
+            printf 'base_repository_id=%s\n' "${base_repository_id}"
+            printf 'base_repository=%s\n' "${base_repository}"
+            printf 'head_repository_id=%s\n' "${head_repository_id}"
             printf 'head_repository=%s\n' "${head_repository}"
             printf 'trigger_run_id=%s\n' "${TRIGGER_RUN_ID}"
             printf 'trigger_workflow_id=%s\n' "${TRIGGER_WORKFLOW_ID}"
             printf 'trigger_workflow_path=%s\n' "${TRIGGER_WORKFLOW_PATH}"
             printf 'trigger_repository=%s\n' "${TRIGGER_REPOSITORY}"
+            if [[ "${TRIGGER_EVENT}" == "pull_request" ]]; then
+              printf 'trigger_repository_id=%s\n' "${trigger_repository_id_live}"
+              printf 'trigger_head_repository_id=%s\n' "${trigger_head_repository_id_live}"
+            else
+              printf 'trigger_repository_id=0\n'
+              printf 'trigger_head_repository_id=0\n'
+            fi
             printf 'trigger_event=%s\n' "${TRIGGER_EVENT}"
             printf 'trigger_conclusion=%s\n' "${TRIGGER_CONCLUSION}"
           } >> "${GITHUB_OUTPUT}"
+
+
+  governance:
+    name: Observe repository governance
+    needs: prepare
+    if: ${{ needs.prepare.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    cache-mode: none
+    outputs:
+      governance_state: ${{ steps.governance.outputs.governance_state }}
+      governance_valid: ${{ steps.governance.outputs.governance_valid }}
+      grants_trusted_verifier_root: ${{ steps.governance.outputs.grants_trusted_verifier_root }}
+      authoritative_admin_observation: ${{ steps.governance.outputs.authoritative_admin_observation }}
+      observation_sha256: ${{ steps.governance.outputs.observation_sha256 }}
+      admin_observation_source: ${{ steps.governance.outputs.admin_observation_source }}
+      governance_artifact_id: ${{ steps.governance_artifact.outputs.artifact-id }}
+      governance_artifact_digest: ${{ steps.governance_artifact.outputs.artifact-digest }}
+    steps:
+      - name: Assert main-controlled verifier
+        env:
+          EXPECTED_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/cos-conformance-independent-verify.yml@refs/heads/main
+          ACTUAL_WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          test "${ACTUAL_WORKFLOW_REF}" = "${EXPECTED_WORKFLOW_REF}" || {
+            echo "untrusted workflow ref: expected ${EXPECTED_WORKFLOW_REF}, got ${ACTUAL_WORKFLOW_REF}" >&2
+            exit 1
+          }
+
+      - name: Checkout trusted verifier revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.trusted_workflow_sha }}
+          clean: true
+          persist-credentials: false
+
+      - name: Capture live repository governance
+        id: governance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GOVERNANCE_ADMIN_TOKEN: ${{ secrets.GOVERNANCE_ADMIN_TOKEN }}
+          TRUSTED_WORKFLOW_SHA: ${{ needs.prepare.outputs.trusted_workflow_sha }}
+          TRUSTED_WORKFLOW_FILE_BLOB_SHA: ${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}
+          EXPECTED_LIVE_MAIN_SHA: ${{ needs.prepare.outputs.live_main_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/governance
+
+          gh api "repos/${GITHUB_REPOSITORY}" > evidence/governance/repository-payload.json
+          gh api "repos/${GITHUB_REPOSITORY}/branches/main" > evidence/governance/branch-payload.json
+          policy_hash="$(python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          policy = json.loads(Path("docs/ci/repository_governance_policy_v1.json").read_text(encoding="utf-8"))
+          print(hashlib.sha256(json.dumps(policy, sort_keys=True, separators=(",", ":")).encode()).hexdigest())
+          PY
+          )"
+
+          if [[ -n "${GOVERNANCE_ADMIN_TOKEN:-}" ]]; then
+            set +e
+            curl -sS \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              -H "Authorization: Bearer ${GOVERNANCE_ADMIN_TOKEN}" \
+              -o evidence/governance/admin-capability-probe-payload.json \
+              -w "%{http_code}" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/rulesets/rule-suites?per_page=1" \
+              > evidence/governance/admin-capability-probe-http-status.txt
+            capability_probe_curl_status=$?
+            set -e
+            test "${capability_probe_curl_status}" -eq 0
+          else
+            printf '[]\n' > evidence/governance/admin-capability-probe-payload.json
+            printf '0\n' > evidence/governance/admin-capability-probe-http-status.txt
+          fi
+
+
+          ruleset_token="${GOVERNANCE_ADMIN_TOKEN:-${GH_TOKEN}}"
+          mkdir -p evidence/governance/rulesets
+          GH_TOKEN="${ruleset_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&targets=branch&per_page=100" \
+            | jq 'add' > evidence/governance/rulesets-index-payload.json
+
+          mapfile -t ruleset_ids < <(jq -r '.[].id' evidence/governance/rulesets-index-payload.json)
+          for ruleset_id in "${ruleset_ids[@]}"; do
+            GH_TOKEN="${ruleset_token}" gh api \
+              "repos/${GITHUB_REPOSITORY}/rulesets/${ruleset_id}?includes_parents=true" \
+              > "evidence/governance/rulesets/${ruleset_id}.json"
+          done
+
+          if ((${#ruleset_ids[@]} == 0)); then
+            printf '[]\n' > evidence/governance/rulesets-payload.json
+          else
+            jq -s '.' evidence/governance/rulesets/*.json > evidence/governance/rulesets-payload.json
+          fi
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          index = json.loads(Path("evidence/governance/rulesets-index-payload.json").read_text())
+          full = json.loads(Path("evidence/governance/rulesets-payload.json").read_text())
+          assert isinstance(index, list)
+          assert isinstance(full, list)
+          index_ids = [entry.get("id") for entry in index]
+          full_ids = [entry.get("id") for entry in full]
+          assert all(isinstance(value, int) for value in index_ids)
+          assert all(isinstance(value, int) for value in full_ids)
+          assert len(index_ids) == len(set(index_ids))
+          assert len(full_ids) == len(set(full_ids))
+          assert set(index_ids) == set(full_ids)
+          for entry in full:
+              assert isinstance(entry.get("bypass_actors"), list)
+              assert isinstance(entry.get("conditions"), dict)
+              assert isinstance(entry.get("rules"), list)
+          PY
+
+          effective_rules_token="${GOVERNANCE_ADMIN_TOKEN:-${GH_TOKEN}}"
+          GH_TOKEN="${effective_rules_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rules/branches/main?per_page=100" \
+            | jq 'add' > evidence/governance/effective-rules-payload.json
+
+          if [[ -n "${GOVERNANCE_ADMIN_TOKEN:-}" ]]; then
+            set +e
+            curl -sS \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              -H "Authorization: Bearer ${GOVERNANCE_ADMIN_TOKEN}" \
+              -o evidence/governance/admin-capability-probe-payload-after.json \
+              -w "%{http_code}" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/rulesets/rule-suites?per_page=1" \
+              > evidence/governance/admin-capability-probe-http-status-after.txt
+            capability_probe_curl_status_after=$?
+            set -e
+            test "${capability_probe_curl_status_after}" -eq 0
+          else
+            printf '[]\n' > evidence/governance/admin-capability-probe-payload-after.json
+            printf '0\n' > evidence/governance/admin-capability-probe-http-status-after.txt
+          fi
+
+
+          protection_token="${GOVERNANCE_ADMIN_TOKEN:-${GH_TOKEN}}"
+          admin_source="repository_administration_secret"
+          if [[ -z "${GOVERNANCE_ADMIN_TOKEN:-}" ]]; then
+            admin_source="github_token"
+          fi
+
+          set +e
+          curl -sS \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            -H "Authorization: Bearer ${protection_token}" \
+            -o evidence/governance/branch-protection-payload.json \
+            -w "%{http_code}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/branches/main/protection" \
+            > evidence/governance/branch-protection-http-status.txt
+          curl_status=$?
+          set -e
+          test "${curl_status}" -eq 0
+
+          gh api "repos/${GITHUB_REPOSITORY}" > evidence/governance/repository-payload-after.json
+          gh api "repos/${GITHUB_REPOSITORY}/branches/main" > evidence/governance/branch-payload-after.json
+          GH_TOKEN="${ruleset_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&targets=branch&per_page=100" \
+            | jq 'add' > evidence/governance/rulesets-index-after-payload.json
+
+          mapfile -t ruleset_ids_after < <(jq -r '.[].id' evidence/governance/rulesets-index-after-payload.json)
+          rm -rf evidence/governance/rulesets-after
+          mkdir -p evidence/governance/rulesets-after
+          for ruleset_id in "${ruleset_ids_after[@]}"; do
+            GH_TOKEN="${ruleset_token}" gh api \
+              "repos/${GITHUB_REPOSITORY}/rulesets/${ruleset_id}?includes_parents=true" \
+              > "evidence/governance/rulesets-after/${ruleset_id}.json"
+          done
+
+          if ((${#ruleset_ids_after[@]} == 0)); then
+            printf '[]\n' > evidence/governance/rulesets-payload-after.json
+          else
+            jq -s '.' evidence/governance/rulesets-after/*.json > evidence/governance/rulesets-payload-after.json
+          fi
+
+          GH_TOKEN="${effective_rules_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rules/branches/main?per_page=100" \
+            | jq 'add' > evidence/governance/effective-rules-payload-after.json
+
+          set +e
+          curl -sS \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            -H "Authorization: Bearer ${protection_token}" \
+            -o evidence/governance/branch-protection-payload-after.json \
+            -w "%{http_code}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/branches/main/protection" \
+            > evidence/governance/branch-protection-http-status-after.txt
+          curl_status_after=$?
+          set -e
+          test "${curl_status_after}" -eq 0
+
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          def load(path):
+              return json.loads(Path(path).read_text(encoding="utf-8"))
+
+          def index_signature(payload):
+              assert isinstance(payload, list)
+              required = ("id", "name", "source_type", "source", "enforcement", "updated_at")
+              entries = []
+              for entry in payload:
+                  assert isinstance(entry, dict)
+                  assert all(key in entry for key in required)
+                  entries.append({key: entry[key] for key in required})
+              return sorted(entries, key=lambda entry: entry["id"])
+
+          def effective_signature(payload):
+              assert isinstance(payload, list)
+              assert all(isinstance(entry, dict) for entry in payload)
+              return sorted(
+                  (json.dumps(entry, sort_keys=True, separators=(",", ":")) for entry in payload)
+              )
+
+          def json_signature(payload):
+              return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+          repository_before = load("evidence/governance/repository-payload.json")
+          repository_after = load("evidence/governance/repository-payload-after.json")
+          for key in ("id", "full_name", "default_branch"):
+              assert repository_before.get(key) == repository_after.get(key), (
+                  f"repository governance drift during observation: {key}"
+              )
+          owner_before = repository_before.get("owner")
+          owner_after = repository_after.get("owner")
+          assert isinstance(owner_before, dict) and isinstance(owner_after, dict), (
+              "repository owner identity is not enumerated in both reads"
+          )
+          for key in ("id", "login", "type"):
+              assert owner_before.get(key) == owner_after.get(key), (
+                  f"repository owner governance drift during observation: {key}"
+              )
+
+          branch_before = load("evidence/governance/branch-payload.json")
+          branch_after = load("evidence/governance/branch-payload-after.json")
+          for key in ("name", "protected"):
+              assert branch_before.get(key) == branch_after.get(key), (
+                  f"branch governance drift during observation: {key}"
+              )
+          branch_commit_before = branch_before.get("commit")
+          branch_commit_after = branch_after.get("commit")
+          assert isinstance(branch_commit_before, dict) and isinstance(branch_commit_after, dict), (
+              "main branch commit identity is not enumerated in both reads"
+          )
+          assert branch_commit_before.get("sha") == branch_commit_after.get("sha"), (
+              "main branch commit changed during governance observation"
+          )
+          assert isinstance(branch_commit_before.get("sha"), str) and re.fullmatch(
+              r"[0-9a-f]{40}", branch_commit_before.get("sha")
+          ), "main branch commit SHA is invalid"
+
+          rulesets_before = load("evidence/governance/rulesets-index-payload.json")
+          rulesets_after = load("evidence/governance/rulesets-index-after-payload.json")
+          assert index_signature(rulesets_before) == index_signature(rulesets_after), (
+              "ruleset index changed during governance observation"
+          )
+
+          full_rulesets_before = load("evidence/governance/rulesets-payload.json")
+          full_rulesets_after = load("evidence/governance/rulesets-payload-after.json")
+          assert json_signature(full_rulesets_before) == json_signature(full_rulesets_after), (
+              "full ruleset objects changed during governance observation"
+          )
+
+          effective_before = load("evidence/governance/effective-rules-payload.json")
+          effective_after = load("evidence/governance/effective-rules-payload-after.json")
+          assert effective_signature(effective_before) == effective_signature(effective_after), (
+              "effective branch rules changed during governance observation"
+          )
+
+          capability_status_before = Path("evidence/governance/admin-capability-probe-http-status.txt").read_text().strip()
+          capability_status_after = Path("evidence/governance/admin-capability-probe-http-status-after.txt").read_text().strip()
+          assert capability_status_before == capability_status_after, (
+              "admin capability observation status changed during governance observation"
+          )
+
+          protection_status_before = Path("evidence/governance/branch-protection-http-status.txt").read_text().strip()
+          protection_status_after = Path("evidence/governance/branch-protection-http-status-after.txt").read_text().strip()
+          assert protection_status_before == protection_status_after, (
+              "classic branch protection HTTP status changed during governance observation"
+          )
+          if protection_status_before == "200":
+              protection_before = load("evidence/governance/branch-protection-payload.json")
+              protection_after = load("evidence/governance/branch-protection-payload-after.json")
+              assert json_signature(protection_before) == json_signature(protection_after), (
+                  "classic branch protection payload changed during governance observation"
+              )
+          PY
+
+          export ADMIN_SOURCE="${admin_source}"
+          export PROTECTION_STATUS="$(cat evidence/governance/branch-protection-http-status.txt)"
+          export POLICY_HASH="${policy_hash}"
+
+          python - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          repository_raw = Path("evidence/governance/repository-payload.json").read_bytes()
+
+          branch_raw = Path("evidence/governance/branch-payload.json").read_bytes()
+          rulesets_index_raw = Path("evidence/governance/rulesets-index-payload.json").read_bytes()
+          rulesets_raw = Path("evidence/governance/rulesets-payload.json").read_bytes()
+          effective_rules_raw = Path("evidence/governance/effective-rules-payload.json").read_bytes()
+          protection_raw = Path("evidence/governance/branch-protection-payload.json").read_bytes()
+          branch = json.loads(branch_raw)
+          rulesets = json.loads(rulesets_raw)
+          effective_rules = json.loads(effective_rules_raw)
+          assert isinstance(rulesets, list)
+          assert isinstance(effective_rules, list)
+
+          protection_status = int(os.environ["PROTECTION_STATUS"])
+          admin_source = os.environ["ADMIN_SOURCE"]
+          capability_status = int(
+              Path("evidence/governance/admin-capability-probe-http-status.txt").read_text().strip()
+          )
+          admin_verified = (
+              admin_source == "repository_administration_secret"
+              and bool(os.environ.get("GOVERNANCE_ADMIN_TOKEN"))
+              and (protection_status == 200 or capability_status == 200)
+          )
+
+          protection = None
+          if protection_status == 200:
+              source = json.loads(protection_raw)
+              review = source.get("required_pull_request_reviews")
+              enforce_admins = source.get("enforce_admins") or {}
+              allow_force_pushes = source.get("allow_force_pushes")
+              allow_deletions = source.get("allow_deletions")
+              bypass = []
+
+              if isinstance(review, dict):
+                  allowances = review.get("bypass_pull_request_allowances") or {}
+                  for actor in allowances.get("users") or []:
+                      bypass.append({"actor_type": "User", "actor_id": actor})
+                  for actor in allowances.get("teams") or []:
+                      bypass.append({"actor_type": "Team", "actor_id": actor})
+                  for actor in allowances.get("apps") or []:
+                      bypass.append({"actor_type": "Integration", "actor_id": actor})
+              if enforce_admins.get("enabled") is not True:
+                  bypass.append({"actor_type": "RepositoryAdministrator"})
+
+              protection = {
+                  "pull_request_required": isinstance(review, dict),
+                  "required_approving_review_count": (
+                      review.get("required_approving_review_count")
+                      if isinstance(review, dict)
+                      else 0
+                  ),
+                  "dismiss_stale_reviews_on_push": (
+                      review.get("dismiss_stale_reviews") is True
+                      if isinstance(review, dict)
+                      else False
+                  ),
+                  "require_last_push_approval": (
+                      review.get("require_last_push_approval") is True
+                      if isinstance(review, dict)
+                      else False
+                  ),
+                  "required_conversation_resolution": (
+                      source.get("required_conversation_resolution") is True
+                  ),
+                  "block_force_push": (
+                      isinstance(allow_force_pushes, dict)
+                      and allow_force_pushes.get("enabled") is False
+                  ),
+                  "block_deletion": (
+                      isinstance(allow_deletions, dict)
+                      and allow_deletions.get("enabled") is False
+                  ),
+                  "bypass_actors": bypass,
+                  "administrator_bypass_prevented": (
+                      enforce_admins.get("enabled") is True
+                  ),
+              }
+
+          repository = json.loads(repository_raw)
+          repo_id = repository.get("id")
+          default_branch = repository.get("default_branch")
+          live_main_sha = branch.get("commit", {}).get("sha")
+          assert isinstance(live_main_sha, str) and re.fullmatch(r"[0-9a-f]{40}", live_main_sha)
+          assert live_main_sha == os.environ["EXPECTED_LIVE_MAIN_SHA"]
+          assert repo_id == 1176351975
+          assert repository.get("full_name") == repo
+          assert isinstance(default_branch, str) and default_branch
+
+          observation = {
+              "schema": "MYCELIX-REPOSITORY-GOVERNANCE-OBSERVATION-V1",
+              "version": 1,
+              "repository": repo,
+              "repository_id": repo_id,
+              "target_ref": "refs/heads/main",
+              "observed_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+              "observer_workflow_sha": os.environ["TRUSTED_WORKFLOW_SHA"],
+              "observer_workflow_file_blob_sha": os.environ["TRUSTED_WORKFLOW_FILE_BLOB_SHA"],
+              "observer_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "default_branch": default_branch,
+              "live_main_sha": live_main_sha,
+              "repository_payload_base64": base64.b64encode(repository_raw).decode(),
+              "repository_payload_sha256": hashlib.sha256(repository_raw).hexdigest(),
+              "rulesets_index_payload_base64": base64.b64encode(rulesets_index_raw).decode(),
+              "rulesets_index_payload_sha256": hashlib.sha256(rulesets_index_raw).hexdigest(),
+              "policy_sha256": os.environ["POLICY_HASH"],
+              "branch_payload_base64": base64.b64encode(branch_raw).decode(),
+              "branch_payload_sha256": hashlib.sha256(branch_raw).hexdigest(),
+              "rulesets_payload_base64": base64.b64encode(rulesets_raw).decode(),
+              "rulesets_payload_sha256": hashlib.sha256(rulesets_raw).hexdigest(),
+              "effective_rules_payload_base64": base64.b64encode(effective_rules_raw).decode(),
+              "effective_rules_payload_sha256": hashlib.sha256(effective_rules_raw).hexdigest(),
+              "branch_protection_payload_base64": base64.b64encode(protection_raw).decode(),
+              "branch_protection_payload_sha256": hashlib.sha256(protection_raw).hexdigest(),
+              "admin_capability_probe": {
+                  "http_status": capability_status,
+              },
+              "admin_capability_payload_base64": base64.b64encode(
+                  Path("evidence/governance/admin-capability-probe-payload.json").read_bytes()
+              ).decode(),
+              "admin_capability_payload_sha256": hashlib.sha256(
+                  Path("evidence/governance/admin-capability-probe-payload.json").read_bytes()
+              ).hexdigest(),
+              "branch": {
+                  "name": branch.get("name"),
+                  "target_ref": "refs/heads/main",
+                  "protected": branch.get("protected"),
+              },
+              "rulesets": {"entries": rulesets},
+              "effective_rules": {"entries": effective_rules},
+              "branch_protection_api": {"http_status": protection_status},
+              "admin_observation": {
+                  "status": "verified" if admin_verified else "unverified",
+                  "source": admin_source,
+                  "protection": protection,
+              },
+          }
+
+          Path("evidence/governance/observation.json").write_text(
+              json.dumps(observation, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          set +e
+          python scripts/validate_repository_governance_observation_v1.py \
+            --observation evidence/governance/observation.json \
+            > evidence/governance/result.json
+          evaluator_status=$?
+          set -e
+          case "${evaluator_status}" in
+            0|2) ;;
+            *) echo "governance evaluator structural failure: ${evaluator_status}" >&2; exit "${evaluator_status}" ;;
+          esac
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(Path("evidence/governance/result.json").read_text())
+          assert result["governance_state"] in {"VERIFIED", "MISMATCH", "UNVERIFIED", "NOT_RUN"}
+          assert isinstance(result["grants_trusted_verifier_root"], bool)
+          assert result["grants_trusted_verifier_root"] is (result["governance_state"] == "VERIFIED")
+          if result["governance_state"] == "NOT_RUN":
+              raise SystemExit("governance observation did not produce a usable predicate result")
+          with open("/tmp/governance.outputs", "w", encoding="utf-8") as out:
+              out.write(f"governance_state={result['governance_state']}\n")
+              out.write(f"governance_valid={'true' if result['valid'] else 'false'}\n")
+              out.write(f"grants_trusted_verifier_root={'true' if result['grants_trusted_verifier_root'] else 'false'}\n")
+              out.write(f"authoritative_admin_observation={'true' if result['authoritative_admin_observation'] else 'false'}\n")
+              out.write(f"admin_observation_source={json.loads(Path('evidence/governance/observation.json').read_text())['admin_observation']['source']}\n")
+          PY
+          observation_sha256="$(sha256sum evidence/governance/observation.json | awk '{print $1}')"
+          {
+            cat /tmp/governance.outputs
+            printf 'observation_sha256=%s\n' "${observation_sha256}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Preserve governance observation
+        if: always()
+        id: governance_artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-conformance-governance-observation-${GITHUB_RUN_ID}
+          path: evidence/governance/
+          if-no-files-found: error
+          retention-days: 30
 
   execute:
     name: Execute exact PR head
@@ -324,7 +892,7 @@ jobs:
 
   validate:
     name: Validate execution from fresh trusted runner
-    needs: [prepare, execute]
+    needs: [prepare, execute, governance]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -342,6 +910,16 @@ jobs:
           artifact-ids: ${{ needs.execute.outputs.execution_artifact_id }}
           digest-mismatch: error
           path: evidence
+
+      - name: Download governance observation
+        id: download_governance
+        continue-on-error: true
+        if: ${{ needs.governance.result == 'success' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.governance.outputs.governance_artifact_id }}
+          digest-mismatch: error
+          path: governance-evidence
 
       - name: Validate live PR binding and raw evidence
         id: validate_raw
@@ -386,10 +964,21 @@ jobs:
 
           actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
           head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
+          actual_base_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')"
+          actual_base_ref="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.ref')"
+          actual_live_main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/branches/main" --jq '.commit.sha')"
+          actual_base_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.repo.full_name')"
           pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
           test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}"
           test "${head_repository}" = "${EXPECTED_HEAD_REPOSITORY}"
           test "${head_repository}" = "${GITHUB_REPOSITORY}"
+          printf '%s\n' "${actual_base_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${actual_base_sha}" = "${{ needs.prepare.outputs.base_sha }}"
+          test "${actual_base_ref}" = "${{ needs.prepare.outputs.base_ref }}"
+          test "${actual_live_main_sha}" = "${{ needs.prepare.outputs.live_main_sha }}"
+          test "${actual_base_ref}" = "main"
+          test "${actual_base_repository}" = "${{ needs.prepare.outputs.base_repository }}"
+          test "${actual_base_repository}" = "${GITHUB_REPOSITORY}"
           test "${pull_request_state}" = "open"
 
           test "${{ needs.execute.result }}" = "success"
@@ -463,6 +1052,1497 @@ jobs:
               assert record["actual_positive"] == expected_positive
               assert record["claim_ceiling"] == case_ceiling
               assert record["refinement_status"] == "ReferenceModelOnly"
+          PY
+
+      - name: Validate governance observation from fresh runner
+        id: validate_governance
+        continue-on-error: true
+        if: ${{ needs.governance.result == 'success' }}
+        env:
+          EXPECTED_GOVERNANCE_STATE: ${{ needs.governance.outputs.governance_state }}
+          EXPECTED_GOVERNANCE_VALID: ${{ needs.governance.outputs.governance_valid }}
+          EXPECTED_GOVERNANCE_GRANT: ${{ needs.governance.outputs.grants_trusted_verifier_root }}
+          EXPECTED_GOVERNANCE_ADMIN: ${{ needs.governance.outputs.authoritative_admin_observation }}
+          EXPECTED_OBSERVATION_SHA256: ${{ needs.governance.outputs.observation_sha256 }}
+          EXPECTED_WORKFLOW_SHA: ${{ needs.prepare.outputs.trusted_workflow_sha }}
+          EXPECTED_WORKFLOW_BLOB_SHA: ${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}
+        run: |
+          set -euo pipefail
+          test -s governance-evidence/observation.json
+          test -s governance-evidence/result.json
+          actual_observation_sha="$(sha256sum governance-evidence/observation.json | awk '{print $1}')"
+          printf '%s\n' "$EXPECTED_OBSERVATION_SHA256" | grep -Eq '^[0-9a-f]{64}        if: always()
+        run: |
+          mkdir -p evidence
+          qualification_result="failed"
+          if [[ "${{ needs.execute.result }}" == "success"              && "${{ needs.execute.outputs.target_checkout_outcome }}" == "success"              && "${{ needs.execute.outputs.conformance_test_outcome }}" == "success"              && "${{ needs.execute.outputs.report_generation_outcome }}" == "success"              && "${{ steps.download_execution.outcome }}" == "success"              && "${{ steps.validate_raw.outcome }}" == "success"              && "${{ steps.validate_report.outcome }}" == "success" ]]; then
+            qualification_result="passed"
+          elif [[ "${{ needs.execute.result }}" == "cancelled"                || "${{ needs.execute.result }}" == "skipped" ]]; then
+            qualification_result="not_run"
+          fi
+
+          test_exit_code="null"
+          if [[ -f evidence/cargo-test.exit-code ]] && [[ "${{ steps.validate_raw.outcome }}" == "success" ]]; then
+            candidate_exit="$(cat evidence/cargo-test.exit-code)"
+            if [[ "${candidate_exit}" =~ ^[0-9]+$ ]]; then
+              test_exit_code="${candidate_exit}"
+            fi
+          fi
+          tested_commit_sha="${{ needs.execute.outputs.tested_commit_sha || '' }}"
+          if [[ -z "${tested_commit_sha}" && -f evidence/tested-commit-sha.txt ]]; then
+            tested_commit_sha="$(cat evidence/tested-commit-sha.txt)"
+          fi
+          tested_lock_sha256=""
+          if [[ -f evidence/cargo-lock-sha256.txt ]]; then
+            tested_lock_sha256="$(cat evidence/cargo-lock-sha256.txt)"
+          fi
+
+          cat > evidence/independent-run-envelope.json <<JSON
+          {
+            "schema": "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2",
+            "claim_ceiling": "ReferenceModelOnly",
+            "repository": "${GITHUB_REPOSITORY}",
+            "pr_number": "${{ needs.prepare.outputs.pr_number }}",
+            "expected_head_sha": "${{ needs.prepare.outputs.expected_head_sha }}",
+            "base_sha": "${{ needs.prepare.outputs.base_sha }}",
+            "live_main_sha": "${{ needs.prepare.outputs.live_main_sha }}",
+            "base_ref": "${{ needs.prepare.outputs.base_ref }}",
+            "base_repository_id": "${{ needs.prepare.outputs.base_repository_id }}",
+            "base_repository": "${{ needs.prepare.outputs.base_repository }}",
+            "head_repository_id": "${{ needs.prepare.outputs.head_repository_id }}",
+            "tested_commit_sha": "${tested_commit_sha}",
+            "head_repository": "${{ needs.prepare.outputs.head_repository }}",
+            "trusted_workflow_sha": "${{ needs.prepare.outputs.trusted_workflow_sha }}",
+            "trusted_workflow_ref": "${{ needs.prepare.outputs.trusted_workflow_ref }}",
+            "trusted_workflow_checked_out_sha": "${{ needs.prepare.outputs.trusted_workflow_checked_out_sha }}",
+            "trusted_workflow_file_blob_sha": "${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}",
+            "tested_lock_sha256": "${tested_lock_sha256}",
+            "trigger_run_id": ${{ needs.prepare.outputs.trigger_run_id }},
+            "trigger_workflow_id": ${{ needs.prepare.outputs.trigger_workflow_id }},
+            "trigger_workflow_path": "${{ needs.prepare.outputs.trigger_workflow_path }}",
+            "trigger_repository": "${{ needs.prepare.outputs.trigger_repository }}",
+            "trigger_repository_id": "${{ needs.prepare.outputs.trigger_repository_id }}",
+            "trigger_head_repository_id": "${{ needs.prepare.outputs.trigger_head_repository_id }}",
+            "trigger_event": "${{ needs.prepare.outputs.trigger_event }}",
+            "trigger_conclusion": "${{ needs.prepare.outputs.trigger_conclusion }}",
+            "governance_job_result": "${{ needs.governance.result }}",
+            "governance_state": "${{ needs.governance.outputs.governance_state || 'NOT_RUN' }}",
+            "governance_valid": "${{ needs.governance.outputs.governance_valid || 'false' }}",
+            "grants_trusted_verifier_root": "${{ needs.governance.outputs.grants_trusted_verifier_root || 'false' }}",
+            "authoritative_admin_observation": "${{ needs.governance.outputs.authoritative_admin_observation || 'false' }}",
+            "admin_observation_source": "${{ needs.governance.outputs.admin_observation_source || 'unavailable' }}",
+            "governance_observation_sha256": "${{ needs.governance.outputs.observation_sha256 || '' }}",
+            "governance_artifact_id": "${{ needs.governance.outputs.governance_artifact_id || '' }}",
+            "governance_artifact_digest": "${{ needs.governance.outputs.governance_artifact_digest || '' }}",
+            "governance_validation_outcome": "${{ steps.validate_governance.outcome || 'skipped' }}",
+            "executor_job_result": "${{ needs.execute.result }}",
+            "target_checkout_outcome": "${{ needs.execute.outputs.target_checkout_outcome }}",
+            "conformance_test_outcome": "${{ needs.execute.outputs.conformance_test_outcome }}",
+            "conformance_test_exit_code": ${test_exit_code},
+            "report_generation_outcome": "${{ needs.execute.outputs.report_generation_outcome }}",
+            "raw_execution_artifact_id": "${{ needs.execute.outputs.execution_artifact_id }}",
+            "raw_execution_artifact_digest": "${{ needs.execute.outputs.execution_artifact_digest }}",
+            "raw_evidence_download_outcome": "${{ steps.download_execution.outcome }}",
+            "raw_evidence_validation_outcome": "${{ steps.validate_raw.outcome }}",
+            "report_validation_outcome": "${{ steps.validate_report.outcome }}",
+            "run_id": ${{ github.run_id }},
+            "run_attempt": ${{ github.run_attempt }},
+            "qualification_result": "${qualification_result}",
+            "runner_os": "${{ runner.os }}"
+          }
+          JSON
+
+      - name: Validate and seal independent evidence
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          path = Path("evidence/independent-run-envelope.json")
+          envelope = json.loads(path.read_text())
+          sha40 = re.compile(r"^[0-9a-f]{40}$")
+          sha64 = re.compile(r"^[0-9a-f]{64}$")
+
+          assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2"
+          assert envelope["claim_ceiling"] == "ReferenceModelOnly"
+          assert sha40.fullmatch(envelope["expected_head_sha"])
+          assert sha40.fullmatch(envelope["base_sha"])
+          assert sha40.fullmatch(envelope["live_main_sha"])
+          assert envelope["base_ref"] == "main"
+          assert str(envelope["base_repository_id"]) == "1176351975"
+          assert str(envelope["head_repository_id"]) == "1176351975"
+          assert sha40.fullmatch(envelope["tested_commit_sha"])
+          assert envelope["expected_head_sha"] == envelope["tested_commit_sha"]
+          assert sha40.fullmatch(envelope["trusted_workflow_sha"])
+          assert sha40.fullmatch(envelope["trusted_workflow_checked_out_sha"])
+          assert envelope["trusted_workflow_sha"] == envelope["trusted_workflow_checked_out_sha"]
+          assert sha40.fullmatch(envelope["trusted_workflow_file_blob_sha"])
+          assert sha64.fullmatch(envelope["tested_lock_sha256"])
+          assert envelope["raw_execution_artifact_id"].isdigit()
+          assert sha64.fullmatch(envelope["raw_execution_artifact_digest"])
+          assert envelope["pr_number"].isdigit()
+          assert envelope["head_repository"] == envelope["repository"]
+          assert envelope["base_repository"] == envelope["repository"]
+          assert isinstance(envelope["trigger_workflow_id"], int) and envelope["trigger_workflow_id"] >= 0
+          assert envelope["trigger_workflow_path"]
+          assert envelope["trigger_repository"] == envelope["repository"]
+          assert str(envelope["trigger_repository_id"]) == ("1176351975" if envelope["trigger_event"] == "pull_request" else "0")
+          assert str(envelope["trigger_head_repository_id"]) == ("1176351975" if envelope["trigger_event"] == "pull_request" else "0")
+          if envelope["trigger_event"] == "pull_request":
+              assert envelope["trigger_workflow_id"] == 374065836
+              assert envelope["trigger_workflow_path"] == ".github/workflows/cos-conformance-evidence.yml"
+              assert envelope["trigger_run_id"] > 0
+          else:
+              assert envelope["trigger_workflow_id"] == 0
+              assert envelope["trigger_workflow_path"] == "manual"
+              assert envelope["trigger_run_id"] == 0
+          assert envelope["qualification_result"] in {"passed", "failed", "not_run"}
+          assert envelope["trigger_event"] in {"pull_request", "workflow_dispatch"}
+          assert envelope["trigger_conclusion"]
+          assert envelope["governance_job_result"] in {"success", "failure", "cancelled", "skipped"}
+          assert envelope["governance_state"] in {"VERIFIED", "MISMATCH", "UNVERIFIED", "NOT_RUN"}
+          assert envelope["governance_valid"] in {"true", "false"}
+          assert envelope["grants_trusted_verifier_root"] in {"true", "false"}
+          assert envelope["authoritative_admin_observation"] in {"true", "false"}
+          assert envelope["governance_validation_outcome"] in {"success", "failure", "cancelled", "skipped"}
+          if envelope["governance_state"] == "VERIFIED":
+              assert envelope["governance_job_result"] == "success"
+              assert envelope["governance_valid"] == "true"
+              assert envelope["grants_trusted_verifier_root"] == "true"
+              assert envelope["authoritative_admin_observation"] == "true"
+              assert envelope["governance_validation_outcome"] == "success"
+              assert re.fullmatch(r"^[0-9a-f]{64}$", envelope["governance_observation_sha256"])
+              assert envelope["governance_artifact_id"].isdigit()
+              assert re.fullmatch(r"^[0-9a-f]{64}$", envelope["governance_artifact_digest"])
+          else:
+              assert envelope["grants_trusted_verifier_root"] == "false"
+          allowed = {"success", "failure", "cancelled", "skipped"}
+          for key in (
+              "executor_job_result",
+              "target_checkout_outcome",
+              "conformance_test_outcome",
+              "report_generation_outcome",
+              "raw_evidence_download_outcome",
+              "raw_evidence_validation_outcome",
+              "report_validation_outcome",
+          ):
+              assert envelope[key] in allowed
+
+          exit_code = envelope["conformance_test_exit_code"]
+          if envelope["conformance_test_outcome"] == "success":
+              assert exit_code == 0
+          elif envelope["conformance_test_outcome"] == "failure":
+              assert isinstance(exit_code, int) and exit_code != 0
+          else:
+              assert exit_code is None
+
+          if envelope["qualification_result"] == "passed":
+              assert envelope["executor_job_result"] == "success"
+              assert envelope["target_checkout_outcome"] == "success"
+              assert envelope["conformance_test_outcome"] == "success"
+              assert envelope["report_generation_outcome"] == "success"
+              assert envelope["raw_evidence_download_outcome"] == "success"
+              assert envelope["raw_evidence_validation_outcome"] == "success"
+              assert envelope["report_validation_outcome"] == "success"
+          elif envelope["qualification_result"] == "not_run":
+              assert envelope["executor_job_result"] in {"cancelled", "skipped"}
+          else:
+              assert envelope["qualification_result"] == "failed"
+
+          if envelope["report_validation_outcome"] == "success":
+              assert envelope["raw_evidence_validation_outcome"] == "success"
+          PY
+
+          (
+            cd evidence
+            LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
+          ) > evidence/SHA256SUMS
+
+      - name: Preserve validated independent evidence
+        if: always()
+        id: evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-conformance-independent-evidence-${{ needs.prepare.outputs.expected_head_sha }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce trusted-root claim ceiling
+        if: always()
+        run: |
+          test "${{ needs.governance.outputs.grants_trusted_verifier_root || 'false' }}" = "false" || test "${{ needs.governance.outputs.governance_state }}" = "VERIFIED"
+
+      - name: Enforce independent qualification result
+        if: always()
+        run: |
+          result="$(python - <<'PY'
+          import json
+          print(json.load(open("evidence/independent-run-envelope.json"))["qualification_result"])
+          PY
+          )"
+          test "${result}" = "passed" || {
+            echo "independent qualification result: ${result}" >&2
+            exit 1
+          }
+
+          test "$actual_observation_sha" = "$EXPECTED_OBSERVATION_SHA256"
+
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          observation = json.loads(Path("governance-evidence/observation.json").read_text())
+          result = json.loads(Path("governance-evidence/result.json").read_text())
+
+          assert observation["repository"] == os.environ["GITHUB_REPOSITORY"]
+          assert observation["target_ref"] == "refs/heads/main"
+          assert re.fullmatch(r"[0-9a-f]{40}", observation["live_main_sha"])
+          assert observation["live_main_sha"] == "${{ needs.prepare.outputs.live_main_sha }}"
+          assert re.fullmatch(r"[0-9a-f]{40}", observation["observer_workflow_sha"])
+          assert observation["observer_workflow_sha"] == os.environ["EXPECTED_WORKFLOW_SHA"]
+          assert re.fullmatch(r"[0-9a-f]{40}", observation["observer_workflow_file_blob_sha"])
+          assert observation["observer_workflow_file_blob_sha"] == os.environ["EXPECTED_WORKFLOW_BLOB_SHA"]
+          assert observation["observer_run_id"] == int(os.environ["GITHUB_RUN_ID"])
+          assert result["governance_state"] == os.environ["EXPECTED_GOVERNANCE_STATE"]
+          assert ("true" if result["valid"] else "false") == os.environ["EXPECTED_GOVERNANCE_VALID"]
+          assert ("true" if result["grants_trusted_verifier_root"] else "false") == os.environ["EXPECTED_GOVERNANCE_GRANT"]
+          assert ("true" if result["authoritative_admin_observation"] else "false") == os.environ["EXPECTED_GOVERNANCE_ADMIN"]
+          assert result["grants_trusted_verifier_root"] is (result["governance_state"] == "VERIFIED")
+          if result["governance_state"] != "VERIFIED":
+              assert result["grants_trusted_verifier_root"] is False
+          PY
+
+      - name: Write independent verification envelope
+        if: always()
+        run: |
+          mkdir -p evidence
+          qualification_result="failed"
+          if [[ "${{ needs.execute.result }}" == "success"              && "${{ needs.execute.outputs.target_checkout_outcome }}" == "success"              && "${{ needs.execute.outputs.conformance_test_outcome }}" == "success"              && "${{ needs.execute.outputs.report_generation_outcome }}" == "success"              && "${{ steps.download_execution.outcome }}" == "success"              && "${{ steps.validate_raw.outcome }}" == "success"              && "${{ steps.validate_report.outcome }}" == "success" ]]; then
+            qualification_result="passed"
+          elif [[ "${{ needs.execute.result }}" == "cancelled"                || "${{ needs.execute.result }}" == "skipped" ]]; then
+            qualification_result="not_run"
+          fi
+
+          test_exit_code="null"
+          if [[ -f evidence/cargo-test.exit-code ]] && [[ "${{ steps.validate_raw.outcome }}" == "success" ]]; then
+            candidate_exit="$(cat evidence/cargo-test.exit-code)"
+            if [[ "${candidate_exit}" =~ ^[0-9]+$ ]]; then
+              test_exit_code="${candidate_exit}"
+            fi
+          fi
+          tested_commit_sha="${{ needs.execute.outputs.tested_commit_sha || '' }}"
+          if [[ -z "${tested_commit_sha}" && -f evidence/tested-commit-sha.txt ]]; then
+            tested_commit_sha="$(cat evidence/tested-commit-sha.txt)"
+          fi
+          tested_lock_sha256=""
+          if [[ -f evidence/cargo-lock-sha256.txt ]]; then
+            tested_lock_sha256="$(cat evidence/cargo-lock-sha256.txt)"
+          fi
+
+          cat > evidence/independent-run-envelope.json <<JSON
+          {
+            "schema": "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2",
+            "claim_ceiling": "ReferenceModelOnly",
+            "repository": "${GITHUB_REPOSITORY}",
+            "pr_number": "${{ needs.prepare.outputs.pr_number }}",
+            "expected_head_sha": "${{ needs.prepare.outputs.expected_head_sha }}",
+            "live_main_sha": "${{ needs.prepare.outputs.live_main_sha }}",
+            "tested_commit_sha": "${tested_commit_sha}",
+            "head_repository": "${{ needs.prepare.outputs.head_repository }}",
+            "trusted_workflow_sha": "${{ needs.prepare.outputs.trusted_workflow_sha }}",
+            "trusted_workflow_ref": "${{ needs.prepare.outputs.trusted_workflow_ref }}",
+            "trusted_workflow_checked_out_sha": "${{ needs.prepare.outputs.trusted_workflow_checked_out_sha }}",
+            "trusted_workflow_file_blob_sha": "${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}",
+            "tested_lock_sha256": "${tested_lock_sha256}",
+            "trigger_run_id": ${{ needs.prepare.outputs.trigger_run_id }},
+            "trigger_workflow_id": ${{ needs.prepare.outputs.trigger_workflow_id }},
+            "trigger_workflow_path": "${{ needs.prepare.outputs.trigger_workflow_path }}",
+            "trigger_repository": "${{ needs.prepare.outputs.trigger_repository }}",
+            "trigger_event": "${{ needs.prepare.outputs.trigger_event }}",
+            "trigger_conclusion": "${{ needs.prepare.outputs.trigger_conclusion }}",
+            "executor_job_result": "${{ needs.execute.result }}",
+            "target_checkout_outcome": "${{ needs.execute.outputs.target_checkout_outcome }}",
+            "conformance_test_outcome": "${{ needs.execute.outputs.conformance_test_outcome }}",
+            "conformance_test_exit_code": ${test_exit_code},
+            "report_generation_outcome": "${{ needs.execute.outputs.report_generation_outcome }}",
+            "raw_execution_artifact_id": "${{ needs.execute.outputs.execution_artifact_id }}",
+            "raw_execution_artifact_digest": "${{ needs.execute.outputs.execution_artifact_digest }}",
+            "raw_evidence_download_outcome": "${{ steps.download_execution.outcome }}",
+            "raw_evidence_validation_outcome": "${{ steps.validate_raw.outcome }}",
+            "report_validation_outcome": "${{ steps.validate_report.outcome }}",
+            "run_id": ${{ github.run_id }},
+            "run_attempt": ${{ github.run_attempt }},
+            "qualification_result": "${qualification_result}",
+            "runner_os": "${{ runner.os }}"
+          }
+          JSON
+
+      - name: Validate and seal independent evidence
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          path = Path("evidence/independent-run-envelope.json")
+          envelope = json.loads(path.read_text())
+          sha40 = re.compile(r"^[0-9a-f]{40}$")
+          sha64 = re.compile(r"^[0-9a-f]{64}$")
+
+          assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2"
+          assert envelope["claim_ceiling"] == "ReferenceModelOnly"
+          assert sha40.fullmatch(envelope["expected_head_sha"])
+          assert sha40.fullmatch(envelope["live_main_sha"])
+          assert sha40.fullmatch(envelope["tested_commit_sha"])
+          assert envelope["expected_head_sha"] == envelope["tested_commit_sha"]
+          assert sha40.fullmatch(envelope["trusted_workflow_sha"])
+          assert sha40.fullmatch(envelope["trusted_workflow_checked_out_sha"])
+          assert envelope["trusted_workflow_sha"] == envelope["trusted_workflow_checked_out_sha"]
+          assert sha40.fullmatch(envelope["trusted_workflow_file_blob_sha"])
+          assert sha64.fullmatch(envelope["tested_lock_sha256"])
+          assert envelope["raw_execution_artifact_id"].isdigit()
+          assert sha64.fullmatch(envelope["raw_execution_artifact_digest"])
+          assert envelope["pr_number"].isdigit()
+          assert envelope["head_repository"] == envelope["repository"]
+          assert isinstance(envelope["trigger_workflow_id"], int) and envelope["trigger_workflow_id"] >= 0
+          assert envelope["trigger_workflow_path"]
+          assert envelope["trigger_repository"] == envelope["repository"]
+          if envelope["trigger_event"] == "pull_request":
+              assert envelope["trigger_workflow_id"] == 374065836
+              assert envelope["trigger_workflow_path"] == ".github/workflows/cos-conformance-evidence.yml"
+              assert envelope["trigger_run_id"] > 0
+          else:
+              assert envelope["trigger_workflow_id"] == 0
+              assert envelope["trigger_workflow_path"] == "manual"
+              assert envelope["trigger_run_id"] == 0
+          assert envelope["qualification_result"] in {"passed", "failed", "not_run"}
+          assert envelope["trigger_event"] in {"pull_request", "workflow_dispatch"}
+          assert envelope["trigger_conclusion"]
+          allowed = {"success", "failure", "cancelled", "skipped"}
+          for key in (
+              "executor_job_result",
+              "target_checkout_outcome",
+              "conformance_test_outcome",
+              "report_generation_outcome",
+              "raw_evidence_download_outcome",
+              "raw_evidence_validation_outcome",
+              "report_validation_outcome",
+          ):
+              assert envelope[key] in allowed
+
+          exit_code = envelope["conformance_test_exit_code"]
+          if envelope["conformance_test_outcome"] == "success":
+              assert exit_code == 0
+          elif envelope["conformance_test_outcome"] == "failure":
+              assert isinstance(exit_code, int) and exit_code != 0
+          else:
+              assert exit_code is None
+
+          if envelope["qualification_result"] == "passed":
+              assert envelope["executor_job_result"] == "success"
+              assert envelope["target_checkout_outcome"] == "success"
+              assert envelope["conformance_test_outcome"] == "success"
+              assert envelope["report_generation_outcome"] == "success"
+              assert envelope["raw_evidence_download_outcome"] == "success"
+              assert envelope["raw_evidence_validation_outcome"] == "success"
+              assert envelope["report_validation_outcome"] == "success"
+          elif envelope["qualification_result"] == "not_run":
+              assert envelope["executor_job_result"] in {"cancelled", "skipped"}
+          else:
+              assert envelope["qualification_result"] == "failed"
+
+          if envelope["report_validation_outcome"] == "success":
+              assert envelope["raw_evidence_validation_outcome"] == "success"
+          PY
+
+          (
+            cd evidence
+            LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
+          ) > evidence/SHA256SUMS
+
+      - name: Preserve validated independent evidence
+        if: always()
+        id: evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-conformance-independent-evidence-${{ needs.prepare.outputs.expected_head_sha }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce independent qualification result
+        if: always()
+        run: |
+          result="$(python - <<'PY'
+          import json
+          print(json.load(open("evidence/independent-run-envelope.json"))["qualification_result"])
+          PY
+          )"
+          test "${result}" = "passed" || {
+            echo "independent qualification result: ${result}" >&2
+            exit 1
+          }
+
+          actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
+          head_repository_id="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.id')"
+          base_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')"
+          base_ref="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.ref')"
+          base_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.repo.full_name')"
+          base_repository_id="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.repo.id')"
+          pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
+
+          test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}" || {
+            echo "PR head drift: expected ${EXPECTED_HEAD_SHA}, got ${actual_head_sha}" >&2
+            exit 1
+          }
+          test "${head_repository}" = "${GITHUB_REPOSITORY}" || {
+            echo "independent verifier accepts same-repository PR heads only: ${head_repository}" >&2
+            exit 1
+          }
+          test "${head_repository_id}" = "${repository_id}" || {
+            echo "independent verifier requires the PR head repository id to match this repository: ${head_repository_id}" >&2
+            exit 1
+          }
+          printf '%s\n' "${base_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${base_ref}" = "main" || {
+            echo "independent verifier requires the PR base ref to be main: ${base_ref}" >&2
+            exit 1
+          }
+          test "${base_repository}" = "${GITHUB_REPOSITORY}" || {
+            echo "independent verifier requires the PR base to be this repository: ${base_repository}" >&2
+            exit 1
+          }
+          test "${base_repository_id}" = "${repository_id}" || {
+            echo "independent verifier requires the PR base repository id to match this repository: ${base_repository_id}" >&2
+            exit 1
+          }
+          test "${pull_request_state}" = "open" || {
+            echo "PR ${PR_NUMBER} is not open: ${pull_request_state}" >&2
+            exit 1
+          }
+
+          {
+            printf 'pr_number=%s\n' "${PR_NUMBER}"
+            printf 'expected_head_sha=%s\n' "${EXPECTED_HEAD_SHA}"
+            printf 'base_sha=%s\n' "${base_sha}"
+            printf 'base_ref=%s\n' "${base_ref}"
+            printf 'base_repository_id=%s\n' "${base_repository_id}"
+            printf 'base_repository=%s\n' "${base_repository}"
+            printf 'head_repository_id=%s\n' "${head_repository_id}"
+            printf 'head_repository=%s\n' "${head_repository}"
+            printf 'trigger_run_id=%s\n' "${TRIGGER_RUN_ID}"
+            printf 'trigger_workflow_id=%s\n' "${TRIGGER_WORKFLOW_ID}"
+            printf 'trigger_workflow_path=%s\n' "${TRIGGER_WORKFLOW_PATH}"
+            printf 'trigger_repository=%s\n' "${TRIGGER_REPOSITORY}"
+            if [[ "${TRIGGER_EVENT}" == "pull_request" ]]; then
+              printf 'trigger_repository_id=%s\n' "${trigger_repository_id_live}"
+              printf 'trigger_head_repository_id=%s\n' "${trigger_head_repository_id_live}"
+            else
+              printf 'trigger_repository_id=0\n'
+              printf 'trigger_head_repository_id=0\n'
+            fi
+            printf 'trigger_event=%s\n' "${TRIGGER_EVENT}"
+            printf 'trigger_conclusion=%s\n' "${TRIGGER_CONCLUSION}"
+          } >> "${GITHUB_OUTPUT}"
+
+
+  governance:
+    name: Observe repository governance
+    needs: prepare
+    if: ${{ needs.prepare.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    cache-mode: none
+    outputs:
+      governance_state: ${{ steps.governance.outputs.governance_state }}
+      governance_valid: ${{ steps.governance.outputs.governance_valid }}
+      grants_trusted_verifier_root: ${{ steps.governance.outputs.grants_trusted_verifier_root }}
+      authoritative_admin_observation: ${{ steps.governance.outputs.authoritative_admin_observation }}
+      observation_sha256: ${{ steps.governance.outputs.observation_sha256 }}
+      admin_observation_source: ${{ steps.governance.outputs.admin_observation_source }}
+      governance_artifact_id: ${{ steps.governance_artifact.outputs.artifact-id }}
+      governance_artifact_digest: ${{ steps.governance_artifact.outputs.artifact-digest }}
+    steps:
+      - name: Assert main-controlled verifier
+        env:
+          EXPECTED_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/cos-conformance-independent-verify.yml@refs/heads/main
+          ACTUAL_WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          test "${ACTUAL_WORKFLOW_REF}" = "${EXPECTED_WORKFLOW_REF}" || {
+            echo "untrusted workflow ref: expected ${EXPECTED_WORKFLOW_REF}, got ${ACTUAL_WORKFLOW_REF}" >&2
+            exit 1
+          }
+
+      - name: Checkout trusted verifier revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.trusted_workflow_sha }}
+          clean: true
+          persist-credentials: false
+
+      - name: Capture live repository governance
+        id: governance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GOVERNANCE_ADMIN_TOKEN: ${{ secrets.GOVERNANCE_ADMIN_TOKEN }}
+          TRUSTED_WORKFLOW_SHA: ${{ needs.prepare.outputs.trusted_workflow_sha }}
+          TRUSTED_WORKFLOW_FILE_BLOB_SHA: ${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/governance
+
+          gh api "repos/${GITHUB_REPOSITORY}" > evidence/governance/repository-payload.json
+          gh api "repos/${GITHUB_REPOSITORY}/branches/main" > evidence/governance/branch-payload.json
+          policy_hash="$(python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          policy = json.loads(Path("docs/ci/repository_governance_policy_v1.json").read_text(encoding="utf-8"))
+          print(hashlib.sha256(json.dumps(policy, sort_keys=True, separators=(",", ":")).encode()).hexdigest())
+          PY
+          )"
+
+          if [[ -n "${GOVERNANCE_ADMIN_TOKEN:-}" ]]; then
+            set +e
+            curl -sS \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              -H "Authorization: Bearer ${GOVERNANCE_ADMIN_TOKEN}" \
+              -o evidence/governance/admin-capability-probe-payload.json \
+              -w "%{http_code}" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/rulesets/rule-suites?per_page=1" \
+              > evidence/governance/admin-capability-probe-http-status.txt
+            capability_probe_curl_status=$?
+            set -e
+            test "${capability_probe_curl_status}" -eq 0
+          else
+            printf '[]\n' > evidence/governance/admin-capability-probe-payload.json
+            printf '0\n' > evidence/governance/admin-capability-probe-http-status.txt
+          fi
+
+
+          ruleset_token="${GOVERNANCE_ADMIN_TOKEN:-${GH_TOKEN}}"
+          mkdir -p evidence/governance/rulesets
+          GH_TOKEN="${ruleset_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&targets=branch&per_page=100" \
+            | jq 'add' > evidence/governance/rulesets-index-payload.json
+
+          mapfile -t ruleset_ids < <(jq -r '.[].id' evidence/governance/rulesets-index-payload.json)
+          for ruleset_id in "${ruleset_ids[@]}"; do
+            GH_TOKEN="${ruleset_token}" gh api \
+              "repos/${GITHUB_REPOSITORY}/rulesets/${ruleset_id}?includes_parents=true" \
+              > "evidence/governance/rulesets/${ruleset_id}.json"
+          done
+
+          if ((${#ruleset_ids[@]} == 0)); then
+            printf '[]\n' > evidence/governance/rulesets-payload.json
+          else
+            jq -s '.' evidence/governance/rulesets/*.json > evidence/governance/rulesets-payload.json
+          fi
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          index = json.loads(Path("evidence/governance/rulesets-index-payload.json").read_text())
+          full = json.loads(Path("evidence/governance/rulesets-payload.json").read_text())
+          assert isinstance(index, list)
+          assert isinstance(full, list)
+          index_ids = [entry.get("id") for entry in index]
+          full_ids = [entry.get("id") for entry in full]
+          assert all(isinstance(value, int) for value in index_ids)
+          assert all(isinstance(value, int) for value in full_ids)
+          assert len(index_ids) == len(set(index_ids))
+          assert len(full_ids) == len(set(full_ids))
+          assert set(index_ids) == set(full_ids)
+          for entry in full:
+              assert isinstance(entry.get("bypass_actors"), list)
+              assert isinstance(entry.get("conditions"), dict)
+              assert isinstance(entry.get("rules"), list)
+          PY
+
+          effective_rules_token="${GOVERNANCE_ADMIN_TOKEN:-${GH_TOKEN}}"
+          GH_TOKEN="${effective_rules_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rules/branches/main?per_page=100" \
+            | jq 'add' > evidence/governance/effective-rules-payload.json
+
+          if [[ -n "${GOVERNANCE_ADMIN_TOKEN:-}" ]]; then
+            set +e
+            curl -sS \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              -H "Authorization: Bearer ${GOVERNANCE_ADMIN_TOKEN}" \
+              -o evidence/governance/admin-capability-probe-payload-after.json \
+              -w "%{http_code}" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/rulesets/rule-suites?per_page=1" \
+              > evidence/governance/admin-capability-probe-http-status-after.txt
+            capability_probe_curl_status_after=$?
+            set -e
+            test "${capability_probe_curl_status_after}" -eq 0
+          else
+            printf '[]\n' > evidence/governance/admin-capability-probe-payload-after.json
+            printf '0\n' > evidence/governance/admin-capability-probe-http-status-after.txt
+          fi
+
+
+          protection_token="${GOVERNANCE_ADMIN_TOKEN:-${GH_TOKEN}}"
+          admin_source="repository_administration_secret"
+          if [[ -z "${GOVERNANCE_ADMIN_TOKEN:-}" ]]; then
+            admin_source="github_token"
+          fi
+
+          set +e
+          curl -sS \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            -H "Authorization: Bearer ${protection_token}" \
+            -o evidence/governance/branch-protection-payload.json \
+            -w "%{http_code}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/branches/main/protection" \
+            > evidence/governance/branch-protection-http-status.txt
+          curl_status=$?
+          set -e
+          test "${curl_status}" -eq 0
+
+          gh api "repos/${GITHUB_REPOSITORY}" > evidence/governance/repository-payload-after.json
+          gh api "repos/${GITHUB_REPOSITORY}/branches/main" > evidence/governance/branch-payload-after.json
+          GH_TOKEN="${ruleset_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&targets=branch&per_page=100" \
+            | jq 'add' > evidence/governance/rulesets-index-after-payload.json
+
+          mapfile -t ruleset_ids_after < <(jq -r '.[].id' evidence/governance/rulesets-index-after-payload.json)
+          rm -rf evidence/governance/rulesets-after
+          mkdir -p evidence/governance/rulesets-after
+          for ruleset_id in "${ruleset_ids_after[@]}"; do
+            GH_TOKEN="${ruleset_token}" gh api \
+              "repos/${GITHUB_REPOSITORY}/rulesets/${ruleset_id}?includes_parents=true" \
+              > "evidence/governance/rulesets-after/${ruleset_id}.json"
+          done
+
+          if ((${#ruleset_ids_after[@]} == 0)); then
+            printf '[]\n' > evidence/governance/rulesets-payload-after.json
+          else
+            jq -s '.' evidence/governance/rulesets-after/*.json > evidence/governance/rulesets-payload-after.json
+          fi
+
+          GH_TOKEN="${effective_rules_token}" gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/rules/branches/main?per_page=100" \
+            | jq 'add' > evidence/governance/effective-rules-payload-after.json
+
+          set +e
+          curl -sS \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            -H "Authorization: Bearer ${protection_token}" \
+            -o evidence/governance/branch-protection-payload-after.json \
+            -w "%{http_code}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/branches/main/protection" \
+            > evidence/governance/branch-protection-http-status-after.txt
+          curl_status_after=$?
+          set -e
+          test "${curl_status_after}" -eq 0
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          def load(path):
+              return json.loads(Path(path).read_text(encoding="utf-8"))
+
+          def index_signature(payload):
+              assert isinstance(payload, list)
+              required = ("id", "name", "source_type", "source", "enforcement", "updated_at")
+              entries = []
+              for entry in payload:
+                  assert isinstance(entry, dict)
+                  assert all(key in entry for key in required)
+                  entries.append({key: entry[key] for key in required})
+              return sorted(entries, key=lambda entry: entry["id"])
+
+          def effective_signature(payload):
+              assert isinstance(payload, list)
+              assert all(isinstance(entry, dict) for entry in payload)
+              return sorted(
+                  (json.dumps(entry, sort_keys=True, separators=(",", ":")) for entry in payload)
+              )
+
+          def json_signature(payload):
+              return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+          repository_before = load("evidence/governance/repository-payload.json")
+          repository_after = load("evidence/governance/repository-payload-after.json")
+          for key in ("id", "full_name", "default_branch"):
+              assert repository_before.get(key) == repository_after.get(key), (
+                  f"repository governance drift during observation: {key}"
+              )
+          owner_before = repository_before.get("owner")
+          owner_after = repository_after.get("owner")
+          assert isinstance(owner_before, dict) and isinstance(owner_after, dict), (
+              "repository owner identity is not enumerated in both reads"
+          )
+          for key in ("id", "login", "type"):
+              assert owner_before.get(key) == owner_after.get(key), (
+                  f"repository owner governance drift during observation: {key}"
+              )
+
+          branch_before = load("evidence/governance/branch-payload.json")
+          branch_after = load("evidence/governance/branch-payload-after.json")
+          for key in ("name", "protected"):
+              assert branch_before.get(key) == branch_after.get(key), (
+                  f"branch governance drift during observation: {key}"
+              )
+
+          rulesets_before = load("evidence/governance/rulesets-index-payload.json")
+          rulesets_after = load("evidence/governance/rulesets-index-after-payload.json")
+          assert index_signature(rulesets_before) == index_signature(rulesets_after), (
+              "ruleset index changed during governance observation"
+          )
+
+          full_rulesets_before = load("evidence/governance/rulesets-payload.json")
+          full_rulesets_after = load("evidence/governance/rulesets-payload-after.json")
+          assert json_signature(full_rulesets_before) == json_signature(full_rulesets_after), (
+              "full ruleset objects changed during governance observation"
+          )
+
+          effective_before = load("evidence/governance/effective-rules-payload.json")
+          effective_after = load("evidence/governance/effective-rules-payload-after.json")
+          assert effective_signature(effective_before) == effective_signature(effective_after), (
+              "effective branch rules changed during governance observation"
+          )
+
+          capability_status_before = Path("evidence/governance/admin-capability-probe-http-status.txt").read_text().strip()
+          capability_status_after = Path("evidence/governance/admin-capability-probe-http-status-after.txt").read_text().strip()
+          assert capability_status_before == capability_status_after, (
+              "admin capability observation status changed during governance observation"
+          )
+
+          protection_status_before = Path("evidence/governance/branch-protection-http-status.txt").read_text().strip()
+          protection_status_after = Path("evidence/governance/branch-protection-http-status-after.txt").read_text().strip()
+          assert protection_status_before == protection_status_after, (
+              "classic branch protection HTTP status changed during governance observation"
+          )
+          if protection_status_before == "200":
+              protection_before = load("evidence/governance/branch-protection-payload.json")
+              protection_after = load("evidence/governance/branch-protection-payload-after.json")
+              assert json_signature(protection_before) == json_signature(protection_after), (
+                  "classic branch protection payload changed during governance observation"
+              )
+          PY
+
+          export ADMIN_SOURCE="${admin_source}"
+          export PROTECTION_STATUS="$(cat evidence/governance/branch-protection-http-status.txt)"
+          export POLICY_HASH="${policy_hash}"
+
+          python - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          repository_raw = Path("evidence/governance/repository-payload.json").read_bytes()
+
+          branch_raw = Path("evidence/governance/branch-payload.json").read_bytes()
+          rulesets_index_raw = Path("evidence/governance/rulesets-index-payload.json").read_bytes()
+          rulesets_raw = Path("evidence/governance/rulesets-payload.json").read_bytes()
+          effective_rules_raw = Path("evidence/governance/effective-rules-payload.json").read_bytes()
+          protection_raw = Path("evidence/governance/branch-protection-payload.json").read_bytes()
+          branch = json.loads(branch_raw)
+          rulesets = json.loads(rulesets_raw)
+          effective_rules = json.loads(effective_rules_raw)
+          assert isinstance(rulesets, list)
+          assert isinstance(effective_rules, list)
+
+          protection_status = int(os.environ["PROTECTION_STATUS"])
+          admin_source = os.environ["ADMIN_SOURCE"]
+          capability_status = int(
+              Path("evidence/governance/admin-capability-probe-http-status.txt").read_text().strip()
+          )
+          admin_verified = (
+              admin_source == "repository_administration_secret"
+              and bool(os.environ.get("GOVERNANCE_ADMIN_TOKEN"))
+              and (protection_status == 200 or capability_status == 200)
+          )
+
+          protection = None
+          if protection_status == 200:
+              source = json.loads(protection_raw)
+              review = source.get("required_pull_request_reviews")
+              enforce_admins = source.get("enforce_admins") or {}
+              allow_force_pushes = source.get("allow_force_pushes")
+              allow_deletions = source.get("allow_deletions")
+              bypass = []
+
+              if isinstance(review, dict):
+                  allowances = review.get("bypass_pull_request_allowances") or {}
+                  for actor in allowances.get("users") or []:
+                      bypass.append({"actor_type": "User", "actor_id": actor})
+                  for actor in allowances.get("teams") or []:
+                      bypass.append({"actor_type": "Team", "actor_id": actor})
+                  for actor in allowances.get("apps") or []:
+                      bypass.append({"actor_type": "Integration", "actor_id": actor})
+              if enforce_admins.get("enabled") is not True:
+                  bypass.append({"actor_type": "RepositoryAdministrator"})
+
+              protection = {
+                  "pull_request_required": isinstance(review, dict),
+                  "required_approving_review_count": (
+                      review.get("required_approving_review_count")
+                      if isinstance(review, dict)
+                      else 0
+                  ),
+                  "dismiss_stale_reviews_on_push": (
+                      review.get("dismiss_stale_reviews") is True
+                      if isinstance(review, dict)
+                      else False
+                  ),
+                  "require_last_push_approval": (
+                      review.get("require_last_push_approval") is True
+                      if isinstance(review, dict)
+                      else False
+                  ),
+                  "required_conversation_resolution": (
+                      source.get("required_conversation_resolution") is True
+                  ),
+                  "block_force_push": (
+                      isinstance(allow_force_pushes, dict)
+                      and allow_force_pushes.get("enabled") is False
+                  ),
+                  "block_deletion": (
+                      isinstance(allow_deletions, dict)
+                      and allow_deletions.get("enabled") is False
+                  ),
+                  "bypass_actors": bypass,
+                  "administrator_bypass_prevented": (
+                      enforce_admins.get("enabled") is True
+                  ),
+              }
+
+          repository = json.loads(repository_raw)
+          repo_id = repository.get("id")
+          default_branch = repository.get("default_branch")
+          assert repo_id == 1176351975
+          assert repository.get("full_name") == repo
+          assert isinstance(default_branch, str) and default_branch
+
+          observation = {
+              "schema": "MYCELIX-REPOSITORY-GOVERNANCE-OBSERVATION-V1",
+              "version": 1,
+              "repository": repo,
+              "repository_id": repo_id,
+              "target_ref": "refs/heads/main",
+              "observed_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+              "observer_workflow_sha": os.environ["TRUSTED_WORKFLOW_SHA"],
+              "observer_workflow_file_blob_sha": os.environ["TRUSTED_WORKFLOW_FILE_BLOB_SHA"],
+              "observer_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "default_branch": default_branch,
+              "repository_payload_base64": base64.b64encode(repository_raw).decode(),
+              "repository_payload_sha256": hashlib.sha256(repository_raw).hexdigest(),
+              "rulesets_index_payload_base64": base64.b64encode(rulesets_index_raw).decode(),
+              "rulesets_index_payload_sha256": hashlib.sha256(rulesets_index_raw).hexdigest(),
+              "policy_sha256": os.environ["POLICY_HASH"],
+              "branch_payload_base64": base64.b64encode(branch_raw).decode(),
+              "branch_payload_sha256": hashlib.sha256(branch_raw).hexdigest(),
+              "rulesets_payload_base64": base64.b64encode(rulesets_raw).decode(),
+              "rulesets_payload_sha256": hashlib.sha256(rulesets_raw).hexdigest(),
+              "effective_rules_payload_base64": base64.b64encode(effective_rules_raw).decode(),
+              "effective_rules_payload_sha256": hashlib.sha256(effective_rules_raw).hexdigest(),
+              "branch_protection_payload_base64": base64.b64encode(protection_raw).decode(),
+              "branch_protection_payload_sha256": hashlib.sha256(protection_raw).hexdigest(),
+              "admin_capability_probe": {
+                  "http_status": capability_status,
+              },
+              "admin_capability_payload_base64": base64.b64encode(
+                  Path("evidence/governance/admin-capability-probe-payload.json").read_bytes()
+              ).decode(),
+              "admin_capability_payload_sha256": hashlib.sha256(
+                  Path("evidence/governance/admin-capability-probe-payload.json").read_bytes()
+              ).hexdigest(),
+              "branch": {
+                  "name": branch.get("name"),
+                  "target_ref": "refs/heads/main",
+                  "protected": branch.get("protected"),
+              },
+              "rulesets": {"entries": rulesets},
+              "effective_rules": {"entries": effective_rules},
+              "branch_protection_api": {"http_status": protection_status},
+              "admin_observation": {
+                  "status": "verified" if admin_verified else "unverified",
+                  "source": admin_source,
+                  "protection": protection,
+              },
+          }
+
+          Path("evidence/governance/observation.json").write_text(
+              json.dumps(observation, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          set +e
+          python scripts/validate_repository_governance_observation_v1.py \
+            --observation evidence/governance/observation.json \
+            > evidence/governance/result.json
+          evaluator_status=$?
+          set -e
+          case "${evaluator_status}" in
+            0|2) ;;
+            *) echo "governance evaluator structural failure: ${evaluator_status}" >&2; exit "${evaluator_status}" ;;
+          esac
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(Path("evidence/governance/result.json").read_text())
+          assert result["governance_state"] in {"VERIFIED", "MISMATCH", "UNVERIFIED", "NOT_RUN"}
+          assert isinstance(result["grants_trusted_verifier_root"], bool)
+          assert result["grants_trusted_verifier_root"] is (result["governance_state"] == "VERIFIED")
+          if result["governance_state"] == "NOT_RUN":
+              raise SystemExit("governance observation did not produce a usable predicate result")
+          with open("/tmp/governance.outputs", "w", encoding="utf-8") as out:
+              out.write(f"governance_state={result['governance_state']}\n")
+              out.write(f"governance_valid={'true' if result['valid'] else 'false'}\n")
+              out.write(f"grants_trusted_verifier_root={'true' if result['grants_trusted_verifier_root'] else 'false'}\n")
+              out.write(f"authoritative_admin_observation={'true' if result['authoritative_admin_observation'] else 'false'}\n")
+              out.write(f"admin_observation_source={json.loads(Path('evidence/governance/observation.json').read_text())['admin_observation']['source']}\n")
+          PY
+          observation_sha256="$(sha256sum evidence/governance/observation.json | awk '{print $1}')"
+          {
+            cat /tmp/governance.outputs
+            printf 'observation_sha256=%s\n' "${observation_sha256}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Preserve governance observation
+        if: always()
+        id: governance_artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-conformance-governance-observation-${GITHUB_RUN_ID}
+          path: evidence/governance/
+          if-no-files-found: error
+          retention-days: 30
+
+  execute:
+    name: Execute exact PR head
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    cache-mode: none
+    outputs:
+      target_checkout_outcome: ${{ steps.target_checkout.outcome }}
+      tested_commit_sha: ${{ steps.target_checkout.outputs.tested_commit_sha }}
+      conformance_test_outcome: ${{ steps.conformance_test.outcome }}
+      report_generation_outcome: ${{ steps.generate_report.outcome }}
+      execution_artifact_id: ${{ steps.execution_artifact.outputs.artifact-id }}
+      execution_artifact_digest: ${{ steps.execution_artifact.outputs.artifact-digest }}
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.expected_head_sha }}
+          submodules: recursive
+          clean: true
+          persist-credentials: false
+
+      - name: Assert exact PR-head checkout
+        id: target_checkout
+        run: |
+          actual_head_sha="$(git rev-parse HEAD)"
+          test "${actual_head_sha}" = "${{ needs.prepare.outputs.expected_head_sha }}" || {
+            echo "PR-head checkout drift: expected ${{ needs.prepare.outputs.expected_head_sha }}, got ${actual_head_sha}" >&2
+            exit 1
+          }
+          printf 'tested_commit_sha=%s\n' "${actual_head_sha}" >> "${GITHUB_OUTPUT}"
+          mkdir -p evidence
+          printf '%s\n' "${actual_head_sha}" > evidence/tested-commit-sha.txt
+
+      - name: Capture exact dependency lock
+        run: |
+          if [[ ! -f mycelix-manufacturing/Cargo.lock ]]; then
+            echo "Cargo.lock missing from tested revision" >&2
+            exit 1
+          fi
+          mkdir -p evidence
+          cp mycelix-manufacturing/Cargo.lock evidence/Cargo.lock
+          sha256sum evidence/Cargo.lock | awk '{print $1}' > evidence/cargo-lock-sha256.txt
+
+      - name: Set up pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # pinned action commit
+        with:
+          toolchain: 1.99.0
+
+      - name: Test COS conformance harness
+        id: conformance_test
+        continue-on-error: true
+        run: |
+          mkdir -p evidence
+          set +e
+          cd mycelix-manufacturing
+          cargo test -p cos_conformance 2>&1 | tee ../evidence/cargo-test.log
+          status=${PIPESTATUS[0]}
+          printf '%s\n' "${status}" > ../evidence/cargo-test.exit-code
+          exit "${status}"
+
+      - name: Generate machine-readable report
+        id: generate_report
+        continue-on-error: true
+        run: |
+          mkdir -p evidence
+          cd mycelix-manufacturing
+          cargo run -q -p cos_conformance --bin cos-report > ../evidence/cos-conformance-report.json
+
+      - name: Record execution outcomes
+        if: always()
+        run: |
+          cat > evidence/execution-outcomes.json <<JSON
+          {
+            "tested_commit_sha": "${{ steps.target_checkout.outputs.tested_commit_sha || '' }}",
+            "target_checkout_outcome": "${{ steps.target_checkout.outcome || 'skipped' }}",
+            "conformance_test_outcome": "${{ steps.conformance_test.outcome || 'skipped' }}",
+            "report_generation_outcome": "${{ steps.generate_report.outcome || 'skipped' }}"
+          }
+          JSON
+
+      - name: Preserve raw PR execution evidence
+        if: always()
+        id: execution_artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30
+
+  validate:
+    name: Validate execution from fresh trusted runner
+    needs: [prepare, execute, governance]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    cache-mode: none
+    steps:
+      - name: Download raw execution evidence
+        id: download_execution
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.execute.outputs.execution_artifact_id }}
+          digest-mismatch: error
+          path: evidence
+
+      - name: Download governance observation
+        id: download_governance
+        continue-on-error: true
+        if: ${{ needs.governance.result == 'success' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.governance.outputs.governance_artifact_id }}
+          digest-mismatch: error
+          path: governance-evidence
+
+      - name: Validate live PR binding and raw evidence
+        id: validate_raw
+        continue-on-error: true
+        env:
+          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ needs.prepare.outputs.expected_head_sha }}
+          EXPECTED_HEAD_REPOSITORY: ${{ needs.prepare.outputs.head_repository }}
+          EXPECTED_ARTIFACT_ID: ${{ needs.execute.outputs.execution_artifact_id }}
+          EXPECTED_ARTIFACT_DIGEST: ${{ needs.execute.outputs.execution_artifact_digest }}
+          EXPECTED_ARTIFACT_NAME: cos-conformance-independent-execution-${{ needs.prepare.outputs.expected_head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          test "${EXPECTED_ARTIFACT_ID}" != ""
+          test "${EXPECTED_ARTIFACT_DIGEST}" != ""
+
+          artifact_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.id')"
+          artifact_name="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.name')"
+          artifact_expired="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.expired')"
+          artifact_size="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.size_in_bytes')"
+          artifact_digest="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.digest')"
+          artifact_run_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.workflow_run.id')"
+          artifact_repository_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.workflow_run.repository_id')"
+          artifact_head_repository_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}" --jq '.workflow_run.head_repository_id')"
+
+          test "${artifact_id}" = "${EXPECTED_ARTIFACT_ID}"
+          test "${artifact_name}" = "${EXPECTED_ARTIFACT_NAME}"
+          test "${artifact_expired}" = "false"
+          test "${artifact_size}" -gt 0
+          test "${artifact_run_id}" = "${GITHUB_RUN_ID}"
+          repository_id="$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.id')"
+          test "${artifact_repository_id}" = "${repository_id}"
+          test "${artifact_head_repository_id}" = "${repository_id}"
+
+          expected_digest="${EXPECTED_ARTIFACT_DIGEST#sha256:}"
+          recorded_digest="${artifact_digest#sha256:}"
+          printf "%s\n" "${expected_digest}" | grep -Eq "^[0-9a-f]{64}$"
+          printf "%s\n" "${recorded_digest}" | grep -Eq "^[0-9a-f]{64}$"
+          test "${recorded_digest}" = "${expected_digest}"
+
+          actual_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          head_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
+          actual_base_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')"
+          actual_base_ref="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.ref')"
+          actual_base_repository="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.repo.full_name')"
+          pull_request_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
+          test "${actual_head_sha}" = "${EXPECTED_HEAD_SHA}"
+          test "${head_repository}" = "${EXPECTED_HEAD_REPOSITORY}"
+          test "${head_repository}" = "${GITHUB_REPOSITORY}"
+          printf '%s\n' "${actual_base_sha}" | grep -Eq '^[0-9a-f]{40}$'
+          test "${actual_base_sha}" = "${{ needs.prepare.outputs.base_sha }}"
+          test "${actual_base_ref}" = "${{ needs.prepare.outputs.base_ref }}"
+          test "${actual_base_ref}" = "main"
+          test "${actual_base_repository}" = "${{ needs.prepare.outputs.base_repository }}"
+          test "${actual_base_repository}" = "${GITHUB_REPOSITORY}"
+          test "${pull_request_state}" = "open"
+
+          test "${{ needs.execute.result }}" = "success"
+          test "${{ needs.execute.outputs.target_checkout_outcome }}" = "success"
+          test "${{ needs.execute.outputs.tested_commit_sha }}" = "${EXPECTED_HEAD_SHA}"
+
+          test -s evidence/tested-commit-sha.txt
+          test "$(cat evidence/tested-commit-sha.txt)" = "${EXPECTED_HEAD_SHA}"
+          test -s evidence/Cargo.lock
+          test -s evidence/cargo-lock-sha256.txt
+          recorded_lock_sha="$(cat evidence/cargo-lock-sha256.txt)"
+          printf '%s\n' "${recorded_lock_sha}" | grep -Eq '^[0-9a-f]{64}$'
+          sha256sum -c <(printf '%s  %s\n' "${recorded_lock_sha}" evidence/Cargo.lock)
+
+          expected_lock_b64="$(gh api "repos/${GITHUB_REPOSITORY}/contents/mycelix-manufacturing/Cargo.lock?ref=${EXPECTED_HEAD_SHA}" --jq '.content' | tr -d '\n')"
+          printf '%s' "${expected_lock_b64}" | base64 --decode > expected-Cargo.lock
+          cmp -s expected-Cargo.lock evidence/Cargo.lock
+
+          test -s evidence/cos-conformance-report.json
+          test -s evidence/cargo-test.log
+          test -s evidence/cargo-test.exit-code
+
+      - name: Validate machine-readable conformance report
+        id: validate_report
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("evidence/cos-conformance-report.json")
+          assert path.is_file() and path.stat().st_size > 0
+          report = json.loads(path.read_text())
+          assert report["corpus_id"] == "COS-CONF-001"
+          assert report["case_count"] == 32
+          assert report["untested_formal_obligations"] == []
+          assert report["claim_ceiling"] == "ReferenceModelOnly"
+          assert report["claim_scope"].startswith("Semantic conformance of this reference harness only;")
+          assert "verified_score" not in json.dumps(report, sort_keys=True)
+
+          expected = {
+              "COS-N-001": (["COS-FV-002", "COS-FV-007"], "Rejected", "Accepted", "Plan/execution semantic conformance only."),
+              "COS-N-002": (["COS-FV-002"], "Rejected", "Accepted", "Planned-vs-consumed evidence separation only."),
+              "COS-N-003": (["COS-FV-003"], "Rejected", "Accepted", "Temporal availability binding only."),
+              "COS-N-004": (["COS-FV-003"], "Rejected", "Accepted", "Machine capability/availability separation only."),
+              "COS-N-005": (["COS-FV-005"], "Stale", "Accepted", "Freshness semantics only."),
+              "COS-N-006": (["COS-FV-004"], "Rejected", "Accepted", "Output qualification boundary only."),
+              "COS-N-007": (["COS-FV-002"], "Rejected", "Accepted", "Single-run/general-capability separation only."),
+              "COS-N-008": (["COS-FV-006"], "Rejected", "Accepted", "Historical failure immutability only."),
+              "COS-N-009": (["COS-FV-009"], "Rejected", "Accepted", "External dependency provenance only."),
+              "COS-N-010": (["COS-FV-008"], "Rejected", "Accepted", "FRS projection/source-observation separation only."),
+              "COS-N-011": (["COS-FV-001"], "Rejected", "Accepted", "Production/ITC projection separation only."),
+              "COS-N-012": (["COS-FV-001"], "Rejected", "Accepted", "ITC/physical-work separation only."),
+              "COS-N-013": (["COS-FV-010"], "Rejected", "Accepted", "Foreign/local provenance separation only."),
+              "COS-N-014": (["COS-FV-008"], "Unauthorized", "Accepted", "Authorization/effect separation only."),
+              "COS-N-015": (["COS-FV-004"], "Rejected", "Accepted", "Distribution/quality separation only."),
+              "COS-N-016": (["COS-FV-001"], "Rejected", "Accepted", "Explicit-denominator arithmetic claim only."),
+          }
+          records = report["records"]
+          assert isinstance(records, list) and len(records) == len(expected)
+          observed_ids = [record["test_id"] for record in records]
+          assert len(observed_ids) == len(set(observed_ids))
+          assert set(observed_ids) == set(expected)
+          for record in records:
+              test_id = record["test_id"]
+              obligations, expected_negative, expected_positive, case_ceiling = expected[test_id]
+              assert record["formal_obligations"] == obligations
+              assert record["expected_negative"] == expected_negative
+              assert record["actual_negative"] == expected_negative
+              assert record["expected_positive"] == expected_positive
+              assert record["actual_positive"] == expected_positive
+              assert record["claim_ceiling"] == case_ceiling
+              assert record["refinement_status"] == "ReferenceModelOnly"
+          PY
+
+      - name: Validate governance observation from fresh runner
+        id: validate_governance
+        continue-on-error: true
+        if: ${{ needs.governance.result == 'success' }}
+        env:
+          EXPECTED_GOVERNANCE_STATE: ${{ needs.governance.outputs.governance_state }}
+          EXPECTED_GOVERNANCE_VALID: ${{ needs.governance.outputs.governance_valid }}
+          EXPECTED_GOVERNANCE_GRANT: ${{ needs.governance.outputs.grants_trusted_verifier_root }}
+          EXPECTED_GOVERNANCE_ADMIN: ${{ needs.governance.outputs.authoritative_admin_observation }}
+          EXPECTED_OBSERVATION_SHA256: ${{ needs.governance.outputs.observation_sha256 }}
+          EXPECTED_WORKFLOW_SHA: ${{ needs.prepare.outputs.trusted_workflow_sha }}
+          EXPECTED_WORKFLOW_BLOB_SHA: ${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}
+        run: |
+          set -euo pipefail
+          test -s governance-evidence/observation.json
+          test -s governance-evidence/result.json
+          actual_observation_sha="$(sha256sum governance-evidence/observation.json | awk '{print $1}')"
+          printf '%s\n' "$EXPECTED_OBSERVATION_SHA256" | grep -Eq '^[0-9a-f]{64}        if: always()
+        run: |
+          mkdir -p evidence
+          qualification_result="failed"
+          if [[ "${{ needs.execute.result }}" == "success"              && "${{ needs.execute.outputs.target_checkout_outcome }}" == "success"              && "${{ needs.execute.outputs.conformance_test_outcome }}" == "success"              && "${{ needs.execute.outputs.report_generation_outcome }}" == "success"              && "${{ steps.download_execution.outcome }}" == "success"              && "${{ steps.validate_raw.outcome }}" == "success"              && "${{ steps.validate_report.outcome }}" == "success" ]]; then
+            qualification_result="passed"
+          elif [[ "${{ needs.execute.result }}" == "cancelled"                || "${{ needs.execute.result }}" == "skipped" ]]; then
+            qualification_result="not_run"
+          fi
+
+          test_exit_code="null"
+          if [[ -f evidence/cargo-test.exit-code ]] && [[ "${{ steps.validate_raw.outcome }}" == "success" ]]; then
+            candidate_exit="$(cat evidence/cargo-test.exit-code)"
+            if [[ "${candidate_exit}" =~ ^[0-9]+$ ]]; then
+              test_exit_code="${candidate_exit}"
+            fi
+          fi
+          tested_commit_sha="${{ needs.execute.outputs.tested_commit_sha || '' }}"
+          if [[ -z "${tested_commit_sha}" && -f evidence/tested-commit-sha.txt ]]; then
+            tested_commit_sha="$(cat evidence/tested-commit-sha.txt)"
+          fi
+          tested_lock_sha256=""
+          if [[ -f evidence/cargo-lock-sha256.txt ]]; then
+            tested_lock_sha256="$(cat evidence/cargo-lock-sha256.txt)"
+          fi
+
+          cat > evidence/independent-run-envelope.json <<JSON
+          {
+            "schema": "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2",
+            "claim_ceiling": "ReferenceModelOnly",
+            "repository": "${GITHUB_REPOSITORY}",
+            "pr_number": "${{ needs.prepare.outputs.pr_number }}",
+            "expected_head_sha": "${{ needs.prepare.outputs.expected_head_sha }}",
+            "base_sha": "${{ needs.prepare.outputs.base_sha }}",
+            "base_ref": "${{ needs.prepare.outputs.base_ref }}",
+            "base_repository_id": "${{ needs.prepare.outputs.base_repository_id }}",
+            "base_repository": "${{ needs.prepare.outputs.base_repository }}",
+            "head_repository_id": "${{ needs.prepare.outputs.head_repository_id }}",
+            "tested_commit_sha": "${tested_commit_sha}",
+            "head_repository": "${{ needs.prepare.outputs.head_repository }}",
+            "trusted_workflow_sha": "${{ needs.prepare.outputs.trusted_workflow_sha }}",
+            "trusted_workflow_ref": "${{ needs.prepare.outputs.trusted_workflow_ref }}",
+            "trusted_workflow_checked_out_sha": "${{ needs.prepare.outputs.trusted_workflow_checked_out_sha }}",
+            "trusted_workflow_file_blob_sha": "${{ needs.prepare.outputs.trusted_workflow_file_blob_sha }}",
+            "tested_lock_sha256": "${tested_lock_sha256}",
+            "trigger_run_id": ${{ needs.prepare.outputs.trigger_run_id }},
+            "trigger_workflow_id": ${{ needs.prepare.outputs.trigger_workflow_id }},
+            "trigger_workflow_path": "${{ needs.prepare.outputs.trigger_workflow_path }}",
+            "trigger_repository": "${{ needs.prepare.outputs.trigger_repository }}",
+            "trigger_repository_id": "${{ needs.prepare.outputs.trigger_repository_id }}",
+            "trigger_head_repository_id": "${{ needs.prepare.outputs.trigger_head_repository_id }}",
+            "trigger_event": "${{ needs.prepare.outputs.trigger_event }}",
+            "trigger_conclusion": "${{ needs.prepare.outputs.trigger_conclusion }}",
+            "governance_job_result": "${{ needs.governance.result }}",
+            "governance_state": "${{ needs.governance.outputs.governance_state || 'NOT_RUN' }}",
+            "governance_valid": "${{ needs.governance.outputs.governance_valid || 'false' }}",
+            "grants_trusted_verifier_root": "${{ needs.governance.outputs.grants_trusted_verifier_root || 'false' }}",
+            "authoritative_admin_observation": "${{ needs.governance.outputs.authoritative_admin_observation || 'false' }}",
+            "admin_observation_source": "${{ needs.governance.outputs.admin_observation_source || 'unavailable' }}",
+            "governance_observation_sha256": "${{ needs.governance.outputs.observation_sha256 || '' }}",
+            "governance_artifact_id": "${{ needs.governance.outputs.governance_artifact_id || '' }}",
+            "governance_artifact_digest": "${{ needs.governance.outputs.governance_artifact_digest || '' }}",
+            "governance_validation_outcome": "${{ steps.validate_governance.outcome || 'skipped' }}",
+            "executor_job_result": "${{ needs.execute.result }}",
+            "target_checkout_outcome": "${{ needs.execute.outputs.target_checkout_outcome }}",
+            "conformance_test_outcome": "${{ needs.execute.outputs.conformance_test_outcome }}",
+            "conformance_test_exit_code": ${test_exit_code},
+            "report_generation_outcome": "${{ needs.execute.outputs.report_generation_outcome }}",
+            "raw_execution_artifact_id": "${{ needs.execute.outputs.execution_artifact_id }}",
+            "raw_execution_artifact_digest": "${{ needs.execute.outputs.execution_artifact_digest }}",
+            "raw_evidence_download_outcome": "${{ steps.download_execution.outcome }}",
+            "raw_evidence_validation_outcome": "${{ steps.validate_raw.outcome }}",
+            "report_validation_outcome": "${{ steps.validate_report.outcome }}",
+            "run_id": ${{ github.run_id }},
+            "run_attempt": ${{ github.run_attempt }},
+            "qualification_result": "${qualification_result}",
+            "runner_os": "${{ runner.os }}"
+          }
+          JSON
+
+      - name: Validate and seal independent evidence
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          path = Path("evidence/independent-run-envelope.json")
+          envelope = json.loads(path.read_text())
+          sha40 = re.compile(r"^[0-9a-f]{40}$")
+          sha64 = re.compile(r"^[0-9a-f]{64}$")
+
+          assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-INDEPENDENT-EVIDENCE-V2"
+          assert envelope["claim_ceiling"] == "ReferenceModelOnly"
+          assert sha40.fullmatch(envelope["expected_head_sha"])
+          assert sha40.fullmatch(envelope["base_sha"])
+          assert envelope["base_ref"] == "main"
+          assert str(envelope["base_repository_id"]) == "1176351975"
+          assert str(envelope["head_repository_id"]) == "1176351975"
+          assert sha40.fullmatch(envelope["tested_commit_sha"])
+          assert envelope["expected_head_sha"] == envelope["tested_commit_sha"]
+          assert sha40.fullmatch(envelope["trusted_workflow_sha"])
+          assert sha40.fullmatch(envelope["trusted_workflow_checked_out_sha"])
+          assert envelope["trusted_workflow_sha"] == envelope["trusted_workflow_checked_out_sha"]
+          assert sha40.fullmatch(envelope["trusted_workflow_file_blob_sha"])
+          assert sha64.fullmatch(envelope["tested_lock_sha256"])
+          assert envelope["raw_execution_artifact_id"].isdigit()
+          assert sha64.fullmatch(envelope["raw_execution_artifact_digest"])
+          assert envelope["pr_number"].isdigit()
+          assert envelope["head_repository"] == envelope["repository"]
+          assert envelope["base_repository"] == envelope["repository"]
+          assert isinstance(envelope["trigger_workflow_id"], int) and envelope["trigger_workflow_id"] >= 0
+          assert envelope["trigger_workflow_path"]
+          assert envelope["trigger_repository"] == envelope["repository"]
+          assert str(envelope["trigger_repository_id"]) == ("1176351975" if envelope["trigger_event"] == "pull_request" else "0")
+          assert str(envelope["trigger_head_repository_id"]) == ("1176351975" if envelope["trigger_event"] == "pull_request" else "0")
+          if envelope["trigger_event"] == "pull_request":
+              assert envelope["trigger_workflow_id"] == 374065836
+              assert envelope["trigger_workflow_path"] == ".github/workflows/cos-conformance-evidence.yml"
+              assert envelope["trigger_run_id"] > 0
+          else:
+              assert envelope["trigger_workflow_id"] == 0
+              assert envelope["trigger_workflow_path"] == "manual"
+              assert envelope["trigger_run_id"] == 0
+          assert envelope["qualification_result"] in {"passed", "failed", "not_run"}
+          assert envelope["trigger_event"] in {"pull_request", "workflow_dispatch"}
+          assert envelope["trigger_conclusion"]
+          assert envelope["governance_job_result"] in {"success", "failure", "cancelled", "skipped"}
+          assert envelope["governance_state"] in {"VERIFIED", "MISMATCH", "UNVERIFIED", "NOT_RUN"}
+          assert envelope["governance_valid"] in {"true", "false"}
+          assert envelope["grants_trusted_verifier_root"] in {"true", "false"}
+          assert envelope["authoritative_admin_observation"] in {"true", "false"}
+          assert envelope["governance_validation_outcome"] in {"success", "failure", "cancelled", "skipped"}
+          if envelope["governance_state"] == "VERIFIED":
+              assert envelope["governance_job_result"] == "success"
+              assert envelope["governance_valid"] == "true"
+              assert envelope["grants_trusted_verifier_root"] == "true"
+              assert envelope["authoritative_admin_observation"] == "true"
+              assert envelope["governance_validation_outcome"] == "success"
+              assert re.fullmatch(r"^[0-9a-f]{64}$", envelope["governance_observation_sha256"])
+              assert envelope["governance_artifact_id"].isdigit()
+              assert re.fullmatch(r"^[0-9a-f]{64}$", envelope["governance_artifact_digest"])
+          else:
+              assert envelope["grants_trusted_verifier_root"] == "false"
+          allowed = {"success", "failure", "cancelled", "skipped"}
+          for key in (
+              "executor_job_result",
+              "target_checkout_outcome",
+              "conformance_test_outcome",
+              "report_generation_outcome",
+              "raw_evidence_download_outcome",
+              "raw_evidence_validation_outcome",
+              "report_validation_outcome",
+          ):
+              assert envelope[key] in allowed
+
+          exit_code = envelope["conformance_test_exit_code"]
+          if envelope["conformance_test_outcome"] == "success":
+              assert exit_code == 0
+          elif envelope["conformance_test_outcome"] == "failure":
+              assert isinstance(exit_code, int) and exit_code != 0
+          else:
+              assert exit_code is None
+
+          if envelope["qualification_result"] == "passed":
+              assert envelope["executor_job_result"] == "success"
+              assert envelope["target_checkout_outcome"] == "success"
+              assert envelope["conformance_test_outcome"] == "success"
+              assert envelope["report_generation_outcome"] == "success"
+              assert envelope["raw_evidence_download_outcome"] == "success"
+              assert envelope["raw_evidence_validation_outcome"] == "success"
+              assert envelope["report_validation_outcome"] == "success"
+          elif envelope["qualification_result"] == "not_run":
+              assert envelope["executor_job_result"] in {"cancelled", "skipped"}
+          else:
+              assert envelope["qualification_result"] == "failed"
+
+          if envelope["report_validation_outcome"] == "success":
+              assert envelope["raw_evidence_validation_outcome"] == "success"
+          PY
+
+          (
+            cd evidence
+            LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
+          ) > evidence/SHA256SUMS
+
+      - name: Preserve validated independent evidence
+        if: always()
+        id: evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cos-conformance-independent-evidence-${{ needs.prepare.outputs.expected_head_sha }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce trusted-root claim ceiling
+        if: always()
+        run: |
+          test "${{ needs.governance.outputs.grants_trusted_verifier_root || 'false' }}" = "false" || test "${{ needs.governance.outputs.governance_state }}" = "VERIFIED"
+
+      - name: Enforce independent qualification result
+        if: always()
+        run: |
+          result="$(python - <<'PY'
+          import json
+          print(json.load(open("evidence/independent-run-envelope.json"))["qualification_result"])
+          PY
+          )"
+          test "${result}" = "passed" || {
+            echo "independent qualification result: ${result}" >&2
+            exit 1
+          }
+
+          test "$actual_observation_sha" = "$EXPECTED_OBSERVATION_SHA256"
+
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          observation = json.loads(Path("governance-evidence/observation.json").read_text())
+          result = json.loads(Path("governance-evidence/result.json").read_text())
+
+          assert observation["repository"] == os.environ["GITHUB_REPOSITORY"]
+          assert observation["target_ref"] == "refs/heads/main"
+          assert re.fullmatch(r"[0-9a-f]{40}", observation["observer_workflow_sha"])
+          assert observation["observer_workflow_sha"] == os.environ["EXPECTED_WORKFLOW_SHA"]
+          assert re.fullmatch(r"[0-9a-f]{40}", observation["observer_workflow_file_blob_sha"])
+          assert observation["observer_workflow_file_blob_sha"] == os.environ["EXPECTED_WORKFLOW_BLOB_SHA"]
+          assert observation["observer_run_id"] == int(os.environ["GITHUB_RUN_ID"])
+          assert result["governance_state"] == os.environ["EXPECTED_GOVERNANCE_STATE"]
+          assert ("true" if result["valid"] else "false") == os.environ["EXPECTED_GOVERNANCE_VALID"]
+          assert ("true" if result["grants_trusted_verifier_root"] else "false") == os.environ["EXPECTED_GOVERNANCE_GRANT"]
+          assert ("true" if result["authoritative_admin_observation"] else "false") == os.environ["EXPECTED_GOVERNANCE_ADMIN"]
+          assert result["grants_trusted_verifier_root"] is (result["governance_state"] == "VERIFIED")
+          if result["governance_state"] != "VERIFIED":
+              assert result["grants_trusted_verifier_root"] is False
           PY
 
       - name: Write independent verification envelope
