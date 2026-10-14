@@ -126,30 +126,29 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(store_entry) => match store_entry {
+        FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::FamilyStory(story) => validate_story(action, story),
-                EntryTypes::StoryCollection(collection) => validate_collection(action, collection),
-                EntryTypes::FamilyTradition(tradition) => validate_tradition(action, tradition),
+                EntryTypes::FamilyStory(story) => validate_story(story),
+                EntryTypes::StoryCollection(collection) => validate_collection(collection),
+                EntryTypes::FamilyTradition(tradition) => validate_tradition(tradition),
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
             },
             OpEntry::UpdateEntry {
-                app_entry,
-                action: _,
-                original_action_hash,
-                original_entry_hash: _,
-            } => match app_entry {
+            app_entry,
+            action,
+            ..
+        } => match app_entry {
                 EntryTypes::FamilyStory(story) => {
                     validate_story_update(&story)?;
-                    validate_story_immutable_fields(&story, &original_action_hash)
+                    validate_story_immutable_fields(&story, &action.original_action_address)
                 }
                 EntryTypes::StoryCollection(collection) => {
                     validate_collection_update(&collection)?;
-                    validate_collection_immutable_fields(&collection, &original_action_hash)
+                    validate_collection_immutable_fields(&collection, &action.original_action_address)
                 }
                 EntryTypes::FamilyTradition(tradition) => {
                     validate_tradition_update(&tradition)?;
-                    validate_tradition_immutable_fields(&tradition, &original_action_hash)
+                    validate_tradition_immutable_fields(&tradition, &action.original_action_address)
                 }
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
                     "Anchor cannot be updated once created".into(),
@@ -157,55 +156,44 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
+            validate_create_link(link_type, &action.data.tag)
+        }
+        FlatOp::Link(link @ OpLink::DeleteLink {
             link_type,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => validate_create_link(link_type, &tag),
-        FlatOp::RegisterDeleteLink {
-            link_type,
-            tag,
             action,
+            original_action,
             ..
-        } => {
-            let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(original_action.action().author(), &action.author);
+        }) => {
+            let result = check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
-            validate_delete_link(link_type, &tag)
+            validate_delete_link(link_type, &link.tag())
         }
-        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
+        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Update(OpUpdate::Entry { action, .. }) => {
             let original = must_get_action(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                action.author(),
                 "update",
             ))
         }
-        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::Delete(OpDelete { action }) => {
             let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                action.author(),
                 "delete",
             ))
         }
     }
 }
 
-fn validate_story(_action: Create, story: FamilyStory) -> ExternResult<ValidateCallbackResult> {
+fn validate_story(story: FamilyStory) -> ExternResult<ValidateCallbackResult> {
     if story.title.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Story title cannot be empty".into(),
@@ -352,7 +340,7 @@ fn validate_tradition_immutable_fields(
 }
 
 fn validate_collection(
-    _action: Create,
+
     collection: StoryCollection,
 ) -> ExternResult<ValidateCallbackResult> {
     if collection.name.is_empty() {
@@ -395,7 +383,7 @@ fn validate_collection_update(
 }
 
 fn validate_tradition(
-    _action: Create,
+
     tradition: FamilyTradition,
 ) -> ExternResult<ValidateCallbackResult> {
     if tradition.name.is_empty() {
@@ -506,22 +494,6 @@ mod tests {
         Timestamp::from_micros(1_000_000)
     }
 
-    fn valid_create_action() -> Create {
-        Create {
-            author: agent_a(),
-            timestamp: valid_timestamp(),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0xAC; 36]),
-            entry_type: EntryType::App(AppEntryDef {
-                entry_index: 0.into(),
-                zome_index: 0.into(),
-                visibility: EntryVisibility::Public,
-            }),
-            entry_hash: EntryHash::from_raw_36(vec![0xAD; 36]),
-            weight: Default::default(),
-        }
-    }
-
     fn valid_story() -> FamilyStory {
         FamilyStory {
             hearth_hash: valid_action_hash(),
@@ -564,8 +536,7 @@ mod tests {
     #[test]
     fn test_valid_story() {
         let story = valid_story();
-        let action = valid_create_action();
-        let result = validate_story(action, story).unwrap();
+        let result = validate_story(story).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -573,8 +544,7 @@ mod tests {
     fn test_story_empty_title_rejected() {
         let mut story = valid_story();
         story.title = "".to_string();
-        let action = valid_create_action();
-        let result = validate_story(action, story).unwrap();
+        let result = validate_story(story).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Story title cannot be empty");
@@ -587,8 +557,7 @@ mod tests {
     fn test_story_title_one_char() {
         let mut story = valid_story();
         story.title = "A".to_string();
-        let action = valid_create_action();
-        let result = validate_story(action, story).unwrap();
+        let result = validate_story(story).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -596,8 +565,7 @@ mod tests {
     fn test_story_title_at_max() {
         let mut story = valid_story();
         story.title = "a".repeat(256);
-        let action = valid_create_action();
-        let result = validate_story(action, story).unwrap();
+        let result = validate_story(story).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -605,8 +573,7 @@ mod tests {
     fn test_story_title_exceeds_max_rejected() {
         let mut story = valid_story();
         story.title = "a".repeat(257);
-        let action = valid_create_action();
-        let result = validate_story(action, story).unwrap();
+        let result = validate_story(story).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Story title must be <= 256 characters");
@@ -619,8 +586,7 @@ mod tests {
     fn test_story_empty_content_allowed() {
         let mut story = valid_story();
         story.content = "".to_string();
-        let action = valid_create_action();
-        let result = validate_story(action, story).unwrap();
+        let result = validate_story(story).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -628,8 +594,7 @@ mod tests {
     fn test_story_content_at_max() {
         let mut story = valid_story();
         story.content = "a".repeat(65536);
-        let action = valid_create_action();
-        let result = validate_story(action, story).unwrap();
+        let result = validate_story(story).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -637,8 +602,7 @@ mod tests {
     fn test_story_content_exceeds_max_rejected() {
         let mut story = valid_story();
         story.content = "a".repeat(65537);
-        let action = valid_create_action();
-        let result = validate_story(action, story).unwrap();
+        let result = validate_story(story).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Story content must be <= 65536 characters");
@@ -653,8 +617,7 @@ mod tests {
         story.media_hashes = (0..20)
             .map(|i| ActionHash::from_raw_36(vec![i as u8; 36]))
             .collect();
-        let action = valid_create_action();
-        let result = validate_story(action, story).unwrap();
+        let result = validate_story(story).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -664,8 +627,7 @@ mod tests {
         story.media_hashes = (0..21)
             .map(|i| ActionHash::from_raw_36(vec![i as u8; 36]))
             .collect();
-        let action = valid_create_action();
-        let result = validate_story(action, story).unwrap();
+        let result = validate_story(story).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Story cannot have more than 20 media attachments");
@@ -678,8 +640,7 @@ mod tests {
     fn test_story_tags_at_max() {
         let mut story = valid_story();
         story.tags = (0..20).map(|i| format!("tag_{i}")).collect();
-        let action = valid_create_action();
-        let result = validate_story(action, story).unwrap();
+        let result = validate_story(story).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -687,8 +648,7 @@ mod tests {
     fn test_story_too_many_tags_rejected() {
         let mut story = valid_story();
         story.tags = (0..21).map(|i| format!("tag_{i}")).collect();
-        let action = valid_create_action();
-        let result = validate_story(action, story).unwrap();
+        let result = validate_story(story).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Story cannot have more than 20 tags");
@@ -711,8 +671,7 @@ mod tests {
         for st in types {
             let mut story = valid_story();
             story.story_type = st;
-            let action = valid_create_action();
-            let result = validate_story(action, story).unwrap();
+                let result = validate_story(story).unwrap();
             assert_eq!(result, ValidateCallbackResult::Valid);
         }
     }
@@ -721,8 +680,7 @@ mod tests {
     fn test_story_unicode_title() {
         let mut story = valid_story();
         story.title = "Abuela's Tamales de Navidad".to_string();
-        let action = valid_create_action();
-        let result = validate_story(action, story).unwrap();
+        let result = validate_story(story).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -731,8 +689,7 @@ mod tests {
     #[test]
     fn test_valid_collection() {
         let collection = valid_collection();
-        let action = valid_create_action();
-        let result = validate_collection(action, collection).unwrap();
+        let result = validate_collection(collection).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -740,8 +697,7 @@ mod tests {
     fn test_collection_empty_name_rejected() {
         let mut collection = valid_collection();
         collection.name = "".to_string();
-        let action = valid_create_action();
-        let result = validate_collection(action, collection).unwrap();
+        let result = validate_collection(collection).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Collection name cannot be empty");
@@ -754,8 +710,7 @@ mod tests {
     fn test_collection_name_at_max() {
         let mut collection = valid_collection();
         collection.name = "a".repeat(256);
-        let action = valid_create_action();
-        let result = validate_collection(action, collection).unwrap();
+        let result = validate_collection(collection).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -763,8 +718,7 @@ mod tests {
     fn test_collection_name_exceeds_max_rejected() {
         let mut collection = valid_collection();
         collection.name = "a".repeat(257);
-        let action = valid_create_action();
-        let result = validate_collection(action, collection).unwrap();
+        let result = validate_collection(collection).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Collection name must be <= 256 characters");
@@ -777,8 +731,7 @@ mod tests {
     fn test_collection_description_at_max() {
         let mut collection = valid_collection();
         collection.description = "a".repeat(4096);
-        let action = valid_create_action();
-        let result = validate_collection(action, collection).unwrap();
+        let result = validate_collection(collection).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -786,8 +739,7 @@ mod tests {
     fn test_collection_description_exceeds_max_rejected() {
         let mut collection = valid_collection();
         collection.description = "a".repeat(4097);
-        let action = valid_create_action();
-        let result = validate_collection(action, collection).unwrap();
+        let result = validate_collection(collection).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Collection description must be <= 4096 characters");
@@ -800,8 +752,7 @@ mod tests {
     fn test_collection_empty_description_allowed() {
         let mut collection = valid_collection();
         collection.description = "".to_string();
-        let action = valid_create_action();
-        let result = validate_collection(action, collection).unwrap();
+        let result = validate_collection(collection).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -810,8 +761,7 @@ mod tests {
     #[test]
     fn test_valid_tradition() {
         let tradition = valid_tradition();
-        let action = valid_create_action();
-        let result = validate_tradition(action, tradition).unwrap();
+        let result = validate_tradition(tradition).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -819,8 +769,7 @@ mod tests {
     fn test_tradition_empty_name_rejected() {
         let mut tradition = valid_tradition();
         tradition.name = "".to_string();
-        let action = valid_create_action();
-        let result = validate_tradition(action, tradition).unwrap();
+        let result = validate_tradition(tradition).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Tradition name cannot be empty");
@@ -833,8 +782,7 @@ mod tests {
     fn test_tradition_name_at_max() {
         let mut tradition = valid_tradition();
         tradition.name = "a".repeat(256);
-        let action = valid_create_action();
-        let result = validate_tradition(action, tradition).unwrap();
+        let result = validate_tradition(tradition).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -842,8 +790,7 @@ mod tests {
     fn test_tradition_name_exceeds_max_rejected() {
         let mut tradition = valid_tradition();
         tradition.name = "a".repeat(257);
-        let action = valid_create_action();
-        let result = validate_tradition(action, tradition).unwrap();
+        let result = validate_tradition(tradition).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Tradition name must be <= 256 characters");
@@ -856,8 +803,7 @@ mod tests {
     fn test_tradition_description_at_max() {
         let mut tradition = valid_tradition();
         tradition.description = "a".repeat(4096);
-        let action = valid_create_action();
-        let result = validate_tradition(action, tradition).unwrap();
+        let result = validate_tradition(tradition).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -865,8 +811,7 @@ mod tests {
     fn test_tradition_description_exceeds_max_rejected() {
         let mut tradition = valid_tradition();
         tradition.description = "a".repeat(4097);
-        let action = valid_create_action();
-        let result = validate_tradition(action, tradition).unwrap();
+        let result = validate_tradition(tradition).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Tradition description must be <= 4096 characters");
@@ -879,8 +824,7 @@ mod tests {
     fn test_tradition_instructions_at_max() {
         let mut tradition = valid_tradition();
         tradition.instructions = "a".repeat(16384);
-        let action = valid_create_action();
-        let result = validate_tradition(action, tradition).unwrap();
+        let result = validate_tradition(tradition).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -888,8 +832,7 @@ mod tests {
     fn test_tradition_instructions_exceeds_max_rejected() {
         let mut tradition = valid_tradition();
         tradition.instructions = "a".repeat(16385);
-        let action = valid_create_action();
-        let result = validate_tradition(action, tradition).unwrap();
+        let result = validate_tradition(tradition).unwrap();
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Tradition instructions must be <= 16384 characters");
@@ -902,8 +845,7 @@ mod tests {
     fn test_tradition_with_season() {
         let mut tradition = valid_tradition();
         tradition.season = Some("Winter Solstice".to_string());
-        let action = valid_create_action();
-        let result = validate_tradition(action, tradition).unwrap();
+        let result = validate_tradition(tradition).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -918,8 +860,7 @@ mod tests {
         for freq in freqs {
             let mut tradition = valid_tradition();
             tradition.frequency = freq;
-            let action = valid_create_action();
-            let result = validate_tradition(action, tradition).unwrap();
+                let result = validate_tradition(tradition).unwrap();
             assert_eq!(result, ValidateCallbackResult::Valid);
         }
     }
@@ -928,8 +869,7 @@ mod tests {
     fn test_tradition_empty_description_allowed() {
         let mut tradition = valid_tradition();
         tradition.description = "".to_string();
-        let action = valid_create_action();
-        let result = validate_tradition(action, tradition).unwrap();
+        let result = validate_tradition(tradition).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -937,8 +877,7 @@ mod tests {
     fn test_tradition_empty_instructions_allowed() {
         let mut tradition = valid_tradition();
         tradition.instructions = "".to_string();
-        let action = valid_create_action();
-        let result = validate_tradition(action, tradition).unwrap();
+        let result = validate_tradition(tradition).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
