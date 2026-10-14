@@ -6,6 +6,13 @@ on:
       - myc-int-demo-d6t-canonical-encoding
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    # This gate consumes only D6S corpus and verifier inputs. Keep unrelated
+    # Space/orbital-mechanics PRs out of a qualification lane they do not modify.
+    # Workflow-only edits can be exercised with workflow_dispatch or the D6S branch.
+    paths:
+      - "mycelix-manufacturing/**"
+      - "docs/integral/d6s-canon-*.json"
+      - "scripts/integral/verify_d6s_canon_*.py"
   workflow_dispatch:
 
 permissions:
