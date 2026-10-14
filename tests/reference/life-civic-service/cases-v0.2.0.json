@@ -177,7 +177,7 @@
             "https://www.johannesburgwater.co.za/contact-us/"
           ],
           "checked_on": "2026-10-14",
-          "notes": "An official contact pathway is a candidate, but the target-time discrepancy is modeled separately as a source-claim conflict."
+          "notes": "The /emergencies/ URL renders a 'Daily water Notices' heading. The disagreement concerns stated turnaround targets, not the identity of the likely service provider or a confirmed routing destination."
         },
         "case_state": "source_conflict",
         "evidence": [
@@ -187,7 +187,7 @@
             "source_uri": "https://www.johannesburgwater.co.za/emergencies/",
             "observed_on": "2026-10-14",
             "independence": "same_origin",
-            "claim_scope": "The official emergency page lists a 12-hour water-outage turnaround target.",
+            "claim_scope": "The official URL /emergencies/ renders a 'Daily water Notices' heading and lists a 12-hour water-outage turnaround target.",
             "limitations": "Published target is not a guarantee of response, and another official page differs."
           },
           {
@@ -242,7 +242,7 @@
               "EV-OFFICIAL-003B"
             ],
             "status": "unresolved",
-            "summary": "One official Johannesburg Water page lists 12 hours and another lists 24 hours. Neither claim is silently selected as the applicable current target.",
+            "summary": "The URL labelled /emergencies/ renders a Daily water Notices heading and lists 12 hours; /daily-water-notices/ lists 24 hours. Neither claim is silently selected as the applicable current target.",
             "resolution_evidence_ids": []
           }
         ]
