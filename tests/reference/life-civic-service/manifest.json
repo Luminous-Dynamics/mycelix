@@ -15,7 +15,7 @@
     },
     {
       "path": "tests/reference/life-civic-service/cases-v0.3.0.json",
-      "git_blob_sha1": "8cdff2663b8ea732502c80422492e7ad4bfe655e",
+      "git_blob_sha1": "66d6c455880fede787e5cd4e10a113a358fb2290",
       "purpose": "captured official source claims, synthetic fixture evidence, an unavailable-source negative control, and service outcome controls"
     },
     {
