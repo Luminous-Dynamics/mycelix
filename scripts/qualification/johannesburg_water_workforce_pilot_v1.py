@@ -268,8 +268,8 @@ def validate() -> None:
         fail("prohibited capability list lost external-write boundary")
     if not any("payer" in str(x).lower() for x in manifest["stop_conditions"]):
         fail("field work must stop without an identified payer")
-    if "No unauthorized provider access" not in manifest["stop_conditions"]:
-        fail("field work must stop on unauthorized provider access")
+    if "Unauthorized data access or external write" not in manifest["stop_conditions"]:
+        fail("field work must stop on unauthorized data access or external writes")
 
     print(
         "JOBURG-WATER-WORKFORCE-PILOT PASS: "
