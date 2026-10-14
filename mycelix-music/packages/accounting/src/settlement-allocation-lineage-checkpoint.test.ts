@@ -17,8 +17,12 @@ import {
   createSettlementAllocationLineageBoundary,
   createSettlementAllocationSuccessorLink,
   resolveSettlementAllocationLineage,
+  type SettlementAllocationSuccessorLink,
 } from './settlement-allocation-lineage.js';
-import { createSettlementAllocationAuthority } from './settlement-allocation.js';
+import {
+  createSettlementAllocationAuthority,
+  type SettlementAllocationAuthority,
+} from './settlement-allocation.js';
 import { SettlementEligibilityCode, type SettlementEpoch } from './settlement.js';
 
 const sourceKeyPair = generateKeyPairSync('ed25519');
