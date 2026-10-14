@@ -218,9 +218,11 @@
           58
         ],
         "additional_text_layer_pages_not_visually_rechecked": [
+          27,
           32,
           33,
-          47
+          47,
+          90
         ]
       },
       "pikitup_cooperative_service_kpi": {
@@ -247,6 +249,32 @@
           "Budget or work package is available to Mycelix",
           "100% outcome has been achieved",
           "Work opportunities equal durable jobs"
+        ]
+      },
+      "water_loss_outcome_indicator": {
+        "indicator_kpi_number": 52,
+        "circular88_reference": "WS5.2",
+        "title": "Total water losses",
+        "source_page_printed": 90,
+        "baseline_2024_25": "838.77",
+        "target_values_as_extracted": [
+          "196 099Ml",
+          "188 163Ml",
+          "180 274Ml",
+          "173 495Ml"
+        ],
+        "table_header_context": "Baseline estimated annual performance 2024/25; target for MTREF (3 years); target for 2029/30 end of term.",
+        "year_to_value_mapping": "NotFullyBoundFromTextLayer",
+        "text_layer_observed": true,
+        "visually_reviewed": false,
+        "same_title_as_business_plan_kpi17": true,
+        "crosswalk_status": "NotQualified;PreserveSeparateMetricSeries",
+        "allowed_use": "Record a second official planning metric candidate and request authoritative definition/period/denominator mapping",
+        "prohibited_inference": [
+          "KPI 52/WS5.2 is identical to KPI 17 solely because the title matches",
+          "First, second, third or final target maps to a specified financial year without confirmation",
+          "Target values can be averaged or substituted automatically",
+          "Any target series is a case-level response/restoration SLA"
         ]
       }
     },
@@ -723,13 +751,13 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "c9f81166b8b05a98050d4aa0a6d49be0c3d73e79",
-    "probe_count": 17,
+    "git_blob_sha": "cdbc242a545daa6ed0b12a8c15b3a42d7df87ea2",
+    "probe_count": 18,
     "synthetic_only": true,
     "qualification_status": "NotRunAfterCorpusV1Revision",
     "authoring_preflight": {
       "json_parse": "Passed",
-      "unique_probe_ids": 17,
+      "unique_probe_ids": 18,
       "all_external_writes_disabled": true,
       "all_automated_closures_disabled": true,
       "all_production_sla_calculations_disabled": true
