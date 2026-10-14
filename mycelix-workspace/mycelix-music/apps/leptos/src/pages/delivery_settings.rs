@@ -12,17 +12,15 @@ use crate::delivery::parse_gateway_origins;
 pub fn DeliverySettingsPage() -> impl IntoView {
     let preferences = expect_context::<DeliveryPreferences>();
     let origins_input = RwSignal::new(String::new());
+    let network_consent = RwSignal::new(false);
     let validation_message = RwSignal::new(String::new());
     let status_message = RwSignal::new(String::new());
 
     // Reflect an existing browser preference when this route is mounted.
     Effect::new(move |_| {
-        origins_input.set(
-            preferences
-                .gateway_origins
-                .get()
-                .unwrap_or_default(),
-        );
+        let saved = preferences.gateway_origins.get();
+        origins_input.set(saved.clone().unwrap_or_default());
+        network_consent.set(saved.is_some_and(|value| !value.trim().is_empty()));
     });
 
     let save_preference = move |_| {
@@ -44,6 +42,14 @@ pub fn DeliverySettingsPage() -> impl IntoView {
             } else {
                 "Applied for this session, but browser storage is unavailable; the preference may not persist after reload.".into()
             });
+            return;
+        }
+
+        if !network_consent.get_untracked() {
+            validation_message.set(
+                "Confirm the gateway privacy notice before saving a custom origin pool.".into(),
+            );
+            status_message.set(String::new());
             return;
         }
 
@@ -127,6 +133,18 @@ pub fn DeliverySettingsPage() -> impl IntoView {
                     <span id="gateway-origin-help" class="help-text">
                         "Example local Kubo gateway: http://127.0.0.1:8080. Non-loopback origins must use HTTPS. Paths, credentials, query strings, and fragments are rejected."
                     </span>
+                </div>
+
+                <div class="form-group">
+                    <label for="gateway-network-consent">
+                        <input
+                            id="gateway-network-consent"
+                            type="checkbox"
+                            prop:checked=move || network_consent.get()
+                            on:change=move |ev| network_consent.set(event_target_checked(&ev))
+                        />
+                        " I understand that selected gateway operators can observe my network address and the requested content identifiers."
+                    </label>
                 </div>
 
                 <div class="form-group">
