@@ -158,9 +158,9 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
                     "verification evidence {id} is not explicitly marked independent"
                 ));
             }
-            if retrieval_state == "unavailable" {
+            if retrieval_state != "captured" {
                 return Err(format!(
-                    "verification evidence {id} is unavailable and cannot substantiate a completed outcome"
+                    "verification evidence {id} must be captured; {retrieval_state} evidence cannot substantiate a completed outcome"
                 ));
             }
         }
@@ -454,10 +454,31 @@ fn scoped_independent_restoration_positive_control_is_accepted() {
     );
     assert_eq!(fixture["expected_schema_valid"], true);
     let instance = &fixture["instance"];
-    assert!(check.is_valid(instance), "valid scoped positive control was rejected");
+    assert!(check.is_valid(instance), "schema-valid synthetic control was rejected");
     assert!(
-        validate_service_claim_semantics(instance).is_ok(),
-        "valid scoped positive control failed cross-field claim semantics"
+        validate_service_claim_semantics(instance).is_err(),
+        "synthetic evidence must not substantiate a real independently verified completion"
+    );
+
+    // This in-memory-only control exercises the captured-evidence path without
+    // changing the repository fixture's honest synthetic provenance label.
+    let mut captured_verification = instance.clone();
+    let captured_evidence = captured_verification["evidence"]
+        .as_array_mut()
+        .expect("evidence must be an array")
+        .iter_mut()
+        .find(|item| item["evidence_id"] == "EV-INDEP-005")
+        .expect("independent evidence must exist");
+    captured_evidence["retrieved_at"] = json!("2026-10-14T19:54:08+02:00");
+    captured_evidence["retrieval_state"] = json!("captured");
+    captured_evidence["checked_at"] = json!("2026-10-14T19:54:08+02:00");
+    captured_evidence["limitations"] = json!(
+        "In-memory semantic test control only; no external independent measurement was retrieved."
+    );
+    assert!(check.is_valid(&captured_verification));
+    assert!(
+        validate_service_claim_semantics(&captured_verification).is_ok(),
+        "captured independent evidence with completed review should satisfy the semantic guard"
     );
     assert_eq!(instance["case_state"], "verified_resolved");
     assert_eq!(
@@ -517,14 +538,14 @@ fn scoped_independent_restoration_positive_control_is_accepted() {
         "a community report must not qualify as independent verification"
     );
 
-    let mut incomplete_review = instance.clone();
+    let mut incomplete_review = captured_verification.clone();
     incomplete_review["review_status"] = json!("requested");
     assert!(
         validate_service_claim_semantics(&incomplete_review).is_err(),
         "independent verification must not pass before human review completes"
     );
 
-    let mut unavailable_verification = instance.clone();
+    let mut unavailable_verification = captured_verification.clone();
     let unavailable_evidence = unavailable_verification["evidence"]
         .as_array_mut()
         .expect("evidence must be an array")
@@ -543,14 +564,14 @@ fn scoped_independent_restoration_positive_control_is_accepted() {
         "unavailable evidence must not substantiate an independently verified completion"
     );
 
-    let mut route_wrong_evidence = instance.clone();
+    let mut route_wrong_evidence = captured_verification.clone();
     route_wrong_evidence["route"]["source_evidence_ids"] = json!(["EV-INDEP-005"]);
     assert!(
         validate_service_claim_semantics(&route_wrong_evidence).is_err(),
         "measurement evidence must not masquerade as official contact-source evidence"
     );
 
-    let mut route_dangling_evidence = instance.clone();
+    let mut route_dangling_evidence = captured_verification.clone();
     route_dangling_evidence["route"]["source_evidence_ids"] = json!(["MISSING-CONTACT-SOURCE"]);
     assert!(
         validate_service_claim_semantics(&route_dangling_evidence).is_err(),
