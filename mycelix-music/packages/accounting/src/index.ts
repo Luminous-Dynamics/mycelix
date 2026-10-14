@@ -16,5 +16,6 @@ export * from './obligation-authority.js';
 export * from './deduction-authority.js';
 export * from './settlement-allocation.js';
 export * from './settlement-allocation-lineage.js';
+export * from './settlement-allocation-lineage-checkpoint.js';
 export * from './persistence-projection.js';
 export * from './persistence-verification.js';

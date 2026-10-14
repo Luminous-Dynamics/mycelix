@@ -78,30 +78,37 @@ grep -Fq 'must conserve batch gross = creator paid + deductions + residual held'
 grep -Fq 'nonzero settlement residual requires residualAuthorityRef' packages/accounting/src/settlement-allocation.ts \
   || fail "nonzero settlement residual must retain authority provenance"
 
-# Statements may consume allocation semantics only through a resolver-minted,
-# complete allocation lineage for the exact statement asOf. Direct allocation
-# input is rejected at runtime even from structurally permissive JS callers.
+# Statements may consume allocation semantics only through a resolver-minted
+# lineage backed by a cryptographically verified source checkpoint for the exact
+# statement asOf. Direct allocation and caller-asserted complete lineage input
+# are both rejected as economic-discharge authority.
 if grep -Fq 'readonly allocation?:' <<<"$statement_settlement"; then
   fail "statement compiler must not accept direct allocation authority"
 fi
 grep -Fq 'readonly allocationLineage?: SettlementAllocationLineageResolution;' <<<"$statement_settlement" \
   || fail "statement settlement evidence must carry allocation lineage rather than direct allocation"
-grep -Fq 'direct settlement allocation evidence is forbidden; provide resolver-minted allocationLineage' packages/accounting/src/projection.ts \
+grep -Fq 'direct settlement allocation evidence is forbidden; provide checkpoint-backed allocationLineage' packages/accounting/src/projection.ts \
   || fail "statement compiler must reject legacy direct allocation evidence at runtime"
-grep -Fq 'requireCanonicalSettlementAllocationHead' packages/accounting/src/projection.ts \
-  || fail "statement compiler must require resolver-minted canonical allocation head"
+grep -Fq 'requireCheckpointBackedSettlementAllocationLineage' packages/accounting/src/projection.ts \
+  || fail "statement compiler must require cryptographically checkpoint-backed allocation lineage"
 grep -Fq 'settlement allocation lineage boundary asOf must equal statement asOf' packages/accounting/src/projection.ts \
   || fail "statement compiler must bind allocation lineage completeness to exact statement asOf"
-grep -Fq "evidenceKind: 'settlement_execution_v5'" packages/accounting/src/projection.ts \
-  || fail "statement settlement commitment must use lineage-aware v5 evidence domain"
+grep -Fq 'settlement allocation checkpoint asOf must equal statement asOf' packages/accounting/src/projection.ts \
+  || fail "statement compiler must bind authenticated checkpoint to exact statement asOf"
+grep -Fq "evidenceKind: 'settlement_execution_v6'" packages/accounting/src/projection.ts \
+  || fail "statement settlement commitment must use checkpoint-aware v6 evidence domain"
 grep -Fq 'allocationLineageRoot: evidence.allocationLineage?.lineageRoot' packages/accounting/src/projection.ts \
   || fail "statement settlement root must commit allocation lineage root"
 grep -Fq 'allocationBoundaryRoot: evidence.allocationLineage?.boundary.boundaryRoot' packages/accounting/src/projection.ts \
   || fail "statement settlement root must commit allocation completeness boundary"
-grep -Fq 'allocationHeadRoot: allocation?.allocationRoot' packages/accounting/src/projection.ts \
-  || fail "statement settlement root must commit canonical allocation head"
-grep -Fq 'obligationSetDischarged: allocation?.obligationSetDischarged' packages/accounting/src/projection.ts \
-  || fail "statement settlement root must derive discharge only from canonical allocation head"
+grep -Fq 'allocationCheckpointRoot: validatedAllocation?.checkpointRoot' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must commit authenticated source checkpoint root"
+grep -Fq 'allocationCheckpointHighWaterMark: validatedAllocation?.checkpointHighWaterMark' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must commit source ingestion high-water mark"
+grep -Fq 'allocationHeadRoot: validatedAllocation?.allocation.allocationRoot' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must commit checkpoint-backed canonical allocation head"
+grep -Fq 'obligationSetDischarged: validatedAllocation?.allocation.obligationSetDischarged' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must derive discharge only from checkpoint-backed canonical head"
 
 # Allocation lineage must be explicit, monotonic, completeness-bound and sealed
 # against structurally fabricated TypeScript resolution objects.
@@ -128,6 +135,55 @@ grep -Fq 'VERIFIED_LINEAGE_RESOLUTIONS.has(resolution as object)' packages/accou
 grep -Fq 'canonical head requires complete source coverage' packages/accounting/src/settlement-allocation-lineage.ts \
   || fail "provisional allocation lineage must never become canonical discharge authority"
 
+# A complete lineage used by statements must be backed by an authenticated source
+# checkpoint that binds the exact observed chain and source ingestion cursor.
+grep -Fq "CHECKPOINT_SIGNATURE_DOMAIN = 'mycelix-accounting-settlement-allocation-lineage-checkpoint-signature-v1" packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "allocation lineage checkpoint signature domain missing"
+grep -Fq "recordType: 'settlement_allocation_lineage_checkpoint_v1'" packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "allocation lineage checkpoint commitment domain missing"
+grep -Fq 'const VERIFIED_CHECKPOINTS = new WeakSet<object>();' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "verified source checkpoints must carry private runtime provenance"
+grep -Fq 'const snapshot = snapshotCheckpoint(checkpoint);' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint signing must snapshot caller input before validating and signing"
+grep -Fq 'const snapshot = snapshotSignedCheckpoint(checkpoint);' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint verification must authenticate one detached input snapshot"
+grep -Fq 'allocationRoots: validateRootSequence(' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "verified checkpoints must snapshot allocation roots before minting runtime provenance"
+grep -Fq 'linkRoots: validateRootSequence(' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "verified checkpoints must snapshot link roots before minting runtime provenance"
+grep -Fq 'reads accessor-backed checkpoint fields only once before verification' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
+  || fail "checkpoint verifier must authenticate one detached input snapshot"
+grep -Fq 'snapshots verified root arrays against post-verification transport mutation' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
+  || fail "checkpoint cryptographic provenance must resist post-verification array mutation"
+grep -Fq 'signed checkpoints own independent immutable root snapshots' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
+  || fail "checkpoint signing must detach frozen root arrays from caller-owned inputs"
+grep -Fq 'const CHECKPOINT_BY_RESOLUTION = new WeakMap<object, SignedSettlementAllocationLineageCheckpoint>();' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint-backed lineage resolutions must retain private checkpoint provenance"
+grep -Fq "privateKey.asymmetricKeyType !== 'ed25519'" packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint signing must require Ed25519"
+grep -Fq "publicKey.asymmetricKeyType !== 'ed25519'" packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint verification must require Ed25519"
+grep -Fq 'checkpoint allocation roots do not match observed lineage' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint replay must reject omitted or extra allocation authority"
+grep -Fq 'checkpoint link roots do not match observed lineage' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint replay must reject omitted or extra successor-link authority"
+grep -Fq 'highWaterMark must be a canonical unsigned integer' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint source cursor must use canonical monotonic representation"
+grep -Fq 'assertCheckpointRootPrefix' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "advancing checkpoints must preserve accepted allocation and link history"
+grep -Fq 'cannot shrink after acceptance' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint advancement must reject omission of previously accepted roots"
+grep -Fq 'rejects a newer checkpoint that omits accepted allocation history' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
+  || fail "checkpoint regression suite must reject post-acceptance lineage omission"
+grep -Fq 'jsonb_array_length("linkRoots") = jsonb_array_length("allocationRoots") - 1' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must enforce allocation/link root cardinality"
+grep -Fq 'cryptographically verified before lineage resolution' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "unverified checkpoint objects must not mint lineage authority"
+grep -Fq 'rejects the omission attack' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
+  || fail "checkpoint regression suite must exercise lineage omission attack"
+grep -Fq 'rejects a direct caller-asserted complete lineage even when structurally valid' packages/accounting/src/projection-allocation-lineage.test.ts \
+  || fail "statement regressions must reject uncheckpointed completeness claims"
+
 # Deductions are canonical root-bearing accounting authorities before persistence.
 grep -Fq "export type StatementDeduction = RoyaltyDeductionAuthority;" packages/accounting/src/projection.ts \
   || fail "statement deduction must be the canonical deduction authority type"
@@ -153,11 +209,44 @@ grep -Fq 'deductionRoot: deduction.deductionRoot' packages/accounting/src/persis
 grep -Fq 'createRoyaltyDeductionAuthority' packages/accounting/src/persistence-verification.ts \
   || fail "deduction replay must reconstruct canonical authority"
 
+# Industry-format adapters are explicit Mycelix mapping projections, not claims
+# of official DDEX/CISAC schema conformance. Bind them to statement evidence.
+grep -Fq "REPORTING_STANDARD_CONFORMANCE = 'mapping_only_not_schema_conformant'" packages/accounting/src/interop.ts \
+  || fail "royalty interoperability exports must explicitly state mapping-only conformance"
+grep -Fq 'statementCommitmentRoot must be a lowercase SHA-256 digest' packages/accounting/src/interop.ts \
+  || fail "external reports must bind a canonical statement commitment root"
+grep -Fq 'projectionRoot: computeProjectionRoot(payload)' packages/accounting/src/interop.ts \
+  || fail "external report mappings must carry a deterministic content commitment"
+grep -Fq 'source_accounting_unit_preserved_no_fx_conversion' packages/accounting/src/interop.ts \
+  || fail "external report mappings must not imply an unsupported currency conversion"
+grep -Fq 'assertDdexRoyaltyReportingProjection' packages/accounting/src/interop.ts \
+  || fail "DDEX mapping output must expose a tamper-detection verifier"
+grep -Fq 'assertCisacCrdReportingProjection' packages/accounting/src/interop.ts \
+  || fail "CISAC CRD mapping output must expose a tamper-detection verifier"
+grep -Fq 'rejects post-export edits using the projection commitment' packages/accounting/src/interop.test.ts \
+  || fail "reporting regression must detect altered exported amounts"
+grep -Fq 'returns detached, frozen output and canonicalizes identifiers/territories' packages/accounting/src/interop.test.ts \
+  || fail "reporting mapping must normalize and freeze outbound records"
+grep -Fq 'rejects a non-digest statement source root' packages/accounting/src/interop.test.ts \
+  || fail "reporting mapping must reject uncommitted or malformed statement roots"
+
+grep -Fq 'function dataProperty(' packages/accounting/src/interop.ts \
+  || fail "reporting inputs must be read through own data-property descriptors"
+grep -Fq 'must not be accessor-backed' packages/accounting/src/interop.ts \
+  || fail "reporting inputs and verifier snapshots must reject accessor-backed fields"
+grep -Fq 'function snapshotDataTree(' packages/accounting/src/interop.ts \
+  || fail "reporting verifier must hash a detached data-only snapshot"
+grep -Fq 'rejects accessor-backed source and amount fields without invoking getters' packages/accounting/src/interop.test.ts \
+  || fail "reporting regression must reject getter-backed source and amount inputs"
+grep -Fq 'rejects accessor-backed projection contents without invoking getters during verification' packages/accounting/src/interop.test.ts \
+  || fail "reporting verifier regression must reject accessor-backed projection content"
+
 for model in \
   RoyaltyObligationRecord \
   RoyaltyEligibilityObservation \
   RoyaltyDeductionRecord \
   SettlementAttemptObservationRecord \
+  SettlementAllocationLineageCheckpointRecord \
   RoyaltyStatementSnapshotRecord
 do
   block=$(sed -n "/^model ${model} {/,/^}/p" packages/database/prisma/schema.prisma)
@@ -171,6 +260,90 @@ done
 
 grep -Fq 'BEFORE UPDATE OR DELETE' packages/database/prisma/accounting-append-only.sql \
   || fail "accounting append-only database trigger must reject UPDATE and DELETE"
+
+# Signed allocation-lineage checkpoints are append-only evidence. Their mutable
+# source cursor is a single guarded head pointer, advanced with SERIALIZABLE CAS.
+grep -Fq 'acceptSettlementAllocationLineageCheckpoint' packages/database/src/accounting-authority.ts \
+  || fail "durable checkpoint acceptance boundary missing"
+grep -Fq 'assertSettlementAllocationLineageCheckpointAdvances' packages/database/src/accounting-authority.ts \
+  || fail "durable checkpoint store must reject replay and rollback"
+grep -Fq "isolationLevel: 'Serializable'" packages/database/src/accounting-authority.ts \
+  || fail "checkpoint cursor and immutable evidence must share a serializable transaction"
+grep -Fq 'settlement_allocation_checkpoint_cursor_guard' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL checkpoint cursor monotonicity trigger missing"
+grep -Fq 'highWaterMark cannot move backwards' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must reject checkpoint source-cursor rollback"
+grep -Fq 'settlement allocation checkpoint cursor cannot be deleted' packages/database/prisma/accounting-append-only.sql \
+  || fail "durable checkpoint cursor must not be deletable"
+grep -Fq 'reject_music_accounting_authority_truncate' packages/database/prisma/accounting-append-only.sql \
+  || fail "checkpoint ledger and cursor must reject TRUNCATE as well as row mutations"
+grep -Fq 'settlement_allocation_checkpoint_cursor_truncate_guard' packages/database/prisma/accounting-append-only.sql \
+  || fail "checkpoint cursor truncate guard missing"
+grep -Fq 'settlement_allocation_checkpoint_evidence_truncate_guard' packages/database/prisma/accounting-append-only.sql \
+  || fail "checkpoint evidence truncate guard missing"
+grep -Fq 'TRUNCATE TABLE "SettlementAllocationLineageCheckpointCursor"' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject cursor truncation"
+grep -Fq 'TRUNCATE TABLE "SettlementAllocationLineageCheckpointRecord"' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject checkpoint evidence truncation"
+grep -Fq 'initial settlement allocation checkpoint cursor revision must equal 1' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must require revision one for a new checkpoint cursor"
+grep -Fq 'checkpoint cursor must reference exact immutable evidence' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL cursor must point to an exact immutable checkpoint row"
+checkpoint_cursor_model=$(sed -n '/^model SettlementAllocationLineageCheckpointCursor {/,/^}/p' packages/database/prisma/schema.prisma)
+grep -Fq 'references: [checkpointRoot], onDelete: Restrict, onUpdate: Restrict' <<<"$checkpoint_cursor_model" \
+  || fail "cursor head must have a restrictive foreign key to immutable checkpoint evidence"
+grep -Fq 'checkpointEvidence SettlementAllocationLineageCheckpointRecord' <<<"$checkpoint_cursor_model" \
+  || fail "checkpoint cursor must declare its evidence relation"
+grep -Fq 'FROM pg_constraint WHERE contype' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live PostgreSQL regression must verify the checkpoint evidence foreign key"
+grep -Fq "checkpointForeignKey[0]?.deleteAction, 'r'" packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "checkpoint evidence FK must restrict deletion"
+grep -Fq "checkpointForeignKey[0]?.updateAction, 'r'" packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "checkpoint evidence FK must restrict updates"
+grep -Fq 'requires a new root and revision + 1' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must reject root replay without a cursor advance"
+grep -Fq '/requires a new root and revision \+ 1/' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must prove root replay rejection"
+grep -Fq 'timestamps cannot move backwards' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject timestamp rollback"
+grep -Fq 'must advance a source cursor or observation coverage' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject no-progress cursor updates"
+grep -Fq 'allocation root history cannot shrink after acceptance' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must reject allocation-root history shrinkage"
+grep -Fq 'allocation root history prefix mismatch' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must preserve exact allocation-root prefixes"
+grep -Fq 'successor-link root history cannot shrink after acceptance' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must reject successor-link history shrinkage"
+grep -Fq 'successor-link root history prefix mismatch' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must preserve exact successor-link root prefixes"
+grep -Fq 'checkpoint:sql:allocation-prefix-rewrite' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject allocation-root history rewrite"
+grep -Fq 'checkpoint:sql:link-prefix-rewrite' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject successor-link history rewrite"
+grep -Fq 'checkpoint:sql:allocation-prefix-shrink' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject allocation history shrinkage"
+grep -Fq 'COLLATE "C"' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL decimal HWM ordering must not depend on database locale collation"
+grep -Fq '9007199254740993' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must retain high-water marks beyond JavaScript safe integers"
+grep -Fq '9007199254740992' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must distinguish adjacent large decimal high-water marks"
+grep -Fq 'checkpoint:sql:missing-evidence' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must reject a cursor without exact evidence"
+grep -Fq 'checkpoint:sql:no-progress' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must exercise the no-progress cursor attack"
+grep -Fq 'allocationRoots: next.allocationRoots' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "idle-source cursor regression must preserve accepted allocation roots"
+grep -Fq 'linkRoots: next.linkRoots' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "idle-source cursor regression must preserve accepted successor-link roots"
+grep -Fq 'checkpoint:sql:idle-observation' packages/database/src/accounting-checkpoint-cursor.integration.ts \
+  || fail "live database regression must allow an observation-only cursor advance"
+grep -Fq 'accounting-checkpoint-cursor.test.ts' packages/database/package.json \
+  || fail "checkpoint store replay/rollback tests must run in qualification"
+grep -Fq 'idle source may advance observation coverage without moving the source high-water mark' packages/database/src/accounting-checkpoint-cursor.test.ts \
+  || fail "checkpoint store regression must permit idle observation-only progress"
+grep -Fq 'accounting-checkpoint-cursor.integration.ts' packages/database/package.json \
+  || fail "checkpoint cursor database guards must run against PostgreSQL"
 grep -Fq 'test:accounting-guards' packages/database/package.json \
   || fail "database package must expose the live append-only guard regression"
 grep -Fq 'postgres:16' ../.github/workflows/music-accounting-persistence.yml \
@@ -295,6 +468,11 @@ for attack in bad-root unsorted duplicate zero-payment residual-no-authority fal
 done
 grep -Fq "column_name = 'batchGrossMinor'" packages/database/src/accounting-allocation.integration.ts \
   || fail "live allocation regression must prove batch gross authority is not duplicated"
+
+grep -Fq '"node_modules/@mycelix/accounting": {' package-lock.json \
+  || fail "npm lockfile must link the accounting workspace"
+grep -Fq '"packages/accounting": {' package-lock.json \
+  || fail "npm lockfile must include the accounting workspace package record"
 
 if grep -Fq 'git+ssh://' package-lock.json; then
   fail "package lock contains an SSH-only dependency"

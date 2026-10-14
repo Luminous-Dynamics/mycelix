@@ -235,8 +235,20 @@ export function projectSettlementObservationRecord(
     ...(supersedesAttemptId === undefined ? {} : { supersedesAttemptId }),
   });
   return Object.freeze({
-    ...committed,
-    ...(settledAmount === undefined ? {} : { settledAmountMinor: settledAmount.amountMinor.toString(10) }),
+    id,
+    attemptId,
+    batchId,
+    obligationSetRoot,
+    eligibilityAsOf,
+    eligibilityEvidenceRoot,
+    state: observation.state,
+    observedAt,
+    ...(railReceiptRef === undefined ? {} : { railReceiptRef }),
+    ...(settledAmount === undefined ? {} : {
+      settledAmountMinor: settledAmount.amountMinor.toString(10),
+      settledCurrency: settledAmount.currency,
+    }),
+    ...(supersedesAttemptId === undefined ? {} : { supersedesAttemptId }),
     observationRoot: singleRecordRoot('settlement_attempt_observation_v3', committed),
   });
 }

@@ -2,7 +2,6 @@
   "name": "@mycelix/database",
   "version": "1.0.0",
   "license": "AGPL-3.0-or-later",
-
   "description": "Database schema and client for Mycelix platform",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -17,8 +16,8 @@
     "db:seed": "tsx src/seed.ts",
     "db:studio": "prisma studio",
     "type-check:accounting-authority": "tsc -p tsconfig.accounting-authority.json",
-    "test:accounting-authority": "tsx --test src/accounting-authority.test.ts src/accounting-allocation-authority.test.ts",
-    "test:accounting-guards": "tsx --test src/accounting-append-only.integration.ts src/accounting-allocation.integration.ts"
+    "test:accounting-authority": "tsx --test src/accounting-authority.test.ts src/accounting-allocation-authority.test.ts src/accounting-checkpoint-cursor.test.ts",
+    "test:accounting-guards": "tsx --test src/accounting-append-only.integration.ts src/accounting-allocation.integration.ts src/accounting-checkpoint-cursor.integration.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.7.0"

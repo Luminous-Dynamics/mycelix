@@ -69,6 +69,231 @@ BEGIN
 END;
 $$;
 
+-- PostgreSQL enforces the immutable checkpoint ledger and monotonic cursor shape.
+-- Ed25519 and source-identity verification occur in the trusted application
+-- boundary before this transaction; these triggers do not implement crypto verification.
+CREATE OR REPLACE FUNCTION unique_sha256_json_array(value jsonb)
+RETURNS boolean
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+  element jsonb;
+  current_value text;
+  seen_values text[] := ARRAY[]::text[];
+BEGIN
+  IF jsonb_typeof(value) <> 'array' THEN
+    RETURN false;
+  END IF;
+  FOR element IN SELECT * FROM jsonb_array_elements(value)
+  LOOP
+    IF jsonb_typeof(element) <> 'string' THEN
+      RETURN false;
+    END IF;
+    current_value := element #>> '{}';
+    IF current_value !~ '^[0-9a-f]{64}$' OR current_value = ANY(seen_values) THEN
+      RETURN false;
+    END IF;
+    seen_values := array_append(seen_values, current_value);
+  END LOOP;
+  RETURN true;
+END;
+$$;
+
+ALTER TABLE "SettlementAllocationLineageCheckpointRecord"
+  DROP CONSTRAINT IF EXISTS settlement_allocation_checkpoint_canonical_shape;
+ALTER TABLE "SettlementAllocationLineageCheckpointRecord"
+  ADD CONSTRAINT settlement_allocation_checkpoint_canonical_shape
+  CHECK (
+    btrim("checkpointId") <> ''
+    AND btrim("sourceRef") <> ''
+    AND btrim("sourceInstanceId") <> ''
+    AND btrim("batchId") <> ''
+    AND "highWaterMark" ~ '^(0|[1-9][0-9]*)$'
+    AND unique_sha256_json_array("allocationRoots")
+    AND unique_sha256_json_array("linkRoots")
+    AND CASE
+      WHEN jsonb_typeof("allocationRoots") = 'array'
+       AND jsonb_typeof("linkRoots") = 'array'
+      THEN jsonb_array_length("allocationRoots") > 0
+       AND jsonb_array_length("linkRoots") = jsonb_array_length("allocationRoots") - 1
+      ELSE false
+    END
+    AND "checkpointRoot" ~ '^[0-9a-f]{64}$'
+    AND btrim("signerKeyId") <> ''
+    AND length("signatureBase64") = 88
+    AND "signatureBase64" ~ '^[A-Za-z0-9+/]{86}==$'
+    AND "observedThrough" >= "asOf"
+  );
+
+ALTER TABLE "SettlementAllocationLineageCheckpointCursor"
+  DROP CONSTRAINT IF EXISTS settlement_allocation_checkpoint_cursor_shape;
+ALTER TABLE "SettlementAllocationLineageCheckpointCursor"
+  ADD CONSTRAINT settlement_allocation_checkpoint_cursor_shape
+  CHECK (
+    btrim("sourceRef") <> ''
+    AND btrim("sourceInstanceId") <> ''
+    AND btrim("batchId") <> ''
+    AND btrim("checkpointId") <> ''
+    AND "checkpointRoot" ~ '^[0-9a-f]{64}$'
+    AND "highWaterMark" ~ '^(0|[1-9][0-9]*)$'
+    AND "revision" >= 1
+    AND "observedThrough" >= "asOf"
+  );
+
+-- Every cursor head must point to immutable evidence inserted in the same
+-- transaction. Updates require revision compare-and-swap and monotonic source
+-- cursor/observation coverage. Deletion is forbidden to prevent a silent reset.
+CREATE OR REPLACE FUNCTION guard_settlement_allocation_checkpoint_cursor()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  evidence "SettlementAllocationLineageCheckpointRecord"%ROWTYPE;
+  previous_evidence "SettlementAllocationLineageCheckpointRecord"%ROWTYPE;
+  root_index integer;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor cannot be deleted'
+      USING ERRCODE = '55000';
+  END IF;
+
+  IF NEW."highWaterMark" !~ '^(0|[1-9][0-9]*)$' THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor highWaterMark is not canonical'
+      USING ERRCODE = '23514';
+  END IF;
+
+  SELECT *
+    INTO evidence
+    FROM "SettlementAllocationLineageCheckpointRecord"
+   WHERE "checkpointRoot" = NEW."checkpointRoot";
+
+  IF NOT FOUND
+     OR evidence."checkpointId" IS DISTINCT FROM NEW."checkpointId"
+     OR evidence."sourceRef" IS DISTINCT FROM NEW."sourceRef"
+     OR evidence."sourceInstanceId" IS DISTINCT FROM NEW."sourceInstanceId"
+     OR evidence."batchId" IS DISTINCT FROM NEW."batchId"
+     OR evidence."asOf" IS DISTINCT FROM NEW."asOf"
+     OR evidence."observedThrough" IS DISTINCT FROM NEW."observedThrough"
+     OR evidence."highWaterMark" IS DISTINCT FROM NEW."highWaterMark" THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor must reference exact immutable evidence'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF TG_OP = 'INSERT' THEN
+    IF NEW."revision" <> 1 THEN
+      RAISE EXCEPTION 'initial settlement allocation checkpoint cursor revision must equal 1'
+        USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NEW."sourceRef" IS DISTINCT FROM OLD."sourceRef"
+     OR NEW."sourceInstanceId" IS DISTINCT FROM OLD."sourceInstanceId"
+     OR NEW."batchId" IS DISTINCT FROM OLD."batchId" THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor identity is immutable'
+      USING ERRCODE = '23514';
+  END IF;
+  IF NEW."revision" <> OLD."revision" + 1
+     OR NEW."checkpointRoot" = OLD."checkpointRoot" THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor requires a new root and revision + 1'
+      USING ERRCODE = '23514';
+  END IF;
+  -- The database repeats the application's anti-omission check at the
+  -- durable cursor boundary. A validly shaped newer checkpoint cannot rewrite
+  -- or drop any allocation/link root already accepted by the previous cursor.
+  SELECT *
+    INTO previous_evidence
+    FROM "SettlementAllocationLineageCheckpointRecord"
+   WHERE "checkpointRoot" = OLD."checkpointRoot";
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor predecessor evidence is missing'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF jsonb_array_length(evidence."allocationRoots")
+       < jsonb_array_length(previous_evidence."allocationRoots") THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor allocation root history cannot shrink after acceptance'
+      USING ERRCODE = '23514';
+  END IF;
+  IF jsonb_array_length(previous_evidence."allocationRoots") > 0 THEN
+    FOR root_index IN 0..jsonb_array_length(previous_evidence."allocationRoots") - 1 LOOP
+      IF (previous_evidence."allocationRoots" -> root_index)
+         IS DISTINCT FROM (evidence."allocationRoots" -> root_index) THEN
+        RAISE EXCEPTION 'settlement allocation checkpoint cursor allocation root history prefix mismatch'
+          USING ERRCODE = '23514';
+      END IF;
+    END LOOP;
+  END IF;
+
+  IF jsonb_array_length(evidence."linkRoots")
+       < jsonb_array_length(previous_evidence."linkRoots") THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor successor-link root history cannot shrink after acceptance'
+      USING ERRCODE = '23514';
+  END IF;
+  IF jsonb_array_length(previous_evidence."linkRoots") > 0 THEN
+    FOR root_index IN 0..jsonb_array_length(previous_evidence."linkRoots") - 1 LOOP
+      IF (previous_evidence."linkRoots" -> root_index)
+         IS DISTINCT FROM (evidence."linkRoots" -> root_index) THEN
+        RAISE EXCEPTION 'settlement allocation checkpoint cursor successor-link root history prefix mismatch'
+          USING ERRCODE = '23514';
+      END IF;
+    END LOOP;
+  END IF;
+
+  IF length(NEW."highWaterMark") < length(OLD."highWaterMark")
+     OR (length(NEW."highWaterMark") = length(OLD."highWaterMark")
+         AND (NEW."highWaterMark" COLLATE "C") < (OLD."highWaterMark" COLLATE "C")) THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor highWaterMark cannot move backwards'
+      USING ERRCODE = '23514';
+  END IF;
+  IF NEW."asOf" < OLD."asOf" OR NEW."observedThrough" < OLD."observedThrough" THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor timestamps cannot move backwards'
+      USING ERRCODE = '23514';
+  END IF;
+  IF NEW."highWaterMark" = OLD."highWaterMark"
+     AND NEW."asOf" = OLD."asOf"
+     AND NEW."observedThrough" = OLD."observedThrough" THEN
+    RAISE EXCEPTION 'settlement allocation checkpoint cursor must advance a source cursor or observation coverage'
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS settlement_allocation_checkpoint_cursor_guard
+  ON "SettlementAllocationLineageCheckpointCursor";
+CREATE TRIGGER settlement_allocation_checkpoint_cursor_guard
+BEFORE INSERT OR UPDATE OR DELETE ON "SettlementAllocationLineageCheckpointCursor"
+FOR EACH ROW EXECUTE FUNCTION guard_settlement_allocation_checkpoint_cursor();
+
+-- TRUNCATE is a separate PostgreSQL operation and does not fire row-level
+-- UPDATE/DELETE guards. Prevent it from resetting either checkpoint evidence or
+-- the accepted cursor, even for a role that has TRUNCATE privilege.
+CREATE OR REPLACE FUNCTION reject_music_accounting_authority_truncate()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION '% is append-only; TRUNCATE is forbidden', TG_TABLE_NAME
+    USING ERRCODE = '55000';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS settlement_allocation_checkpoint_evidence_truncate_guard
+  ON "SettlementAllocationLineageCheckpointRecord";
+CREATE TRIGGER settlement_allocation_checkpoint_evidence_truncate_guard
+BEFORE TRUNCATE ON "SettlementAllocationLineageCheckpointRecord"
+FOR EACH STATEMENT EXECUTE FUNCTION reject_music_accounting_authority_truncate();
+
+DROP TRIGGER IF EXISTS settlement_allocation_checkpoint_cursor_truncate_guard
+  ON "SettlementAllocationLineageCheckpointCursor";
+CREATE TRIGGER settlement_allocation_checkpoint_cursor_truncate_guard
+BEFORE TRUNCATE ON "SettlementAllocationLineageCheckpointCursor"
+FOR EACH STATEMENT EXECUTE FUNCTION reject_music_accounting_authority_truncate();
+
 -- Source eligibility observations may only assert externally observable facts.
 -- Compiler outcomes such as below_threshold and awaiting_eligibility_evidence
 -- are derived projection state and therefore may never enter the evidence log.
@@ -253,6 +478,7 @@ BEGIN
     'RoyaltyEligibilityObservation',
     'RoyaltyDeductionRecord',
     'SettlementAttemptObservationRecord',
+    'SettlementAllocationLineageCheckpointRecord',
     'RoyaltyStatementSnapshotRecord'
   ]
   LOOP

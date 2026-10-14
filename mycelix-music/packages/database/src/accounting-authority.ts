@@ -1,6 +1,13 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import {
+  assertSettlementAllocationLineageCheckpointAdvances,
+  verifySettlementAllocationLineageCheckpoint,
+  type SettlementAllocationLineageCheckpointTrustPolicy,
+  type SignedSettlementAllocationLineageCheckpoint,
+} from '../../accounting/src/settlement-allocation-lineage-checkpoint.js';
+
 /**
  * Append-only creator-accounting persistence boundary.
  *
@@ -318,6 +325,155 @@ async function appendStatement(
   }
 }
 
+interface CheckpointKey {
+  readonly sourceRef: string;
+  readonly sourceInstanceId: string;
+  readonly batchId: string;
+}
+interface CheckpointEvidenceDelegate {
+  findUnique(args: { where: Record<string, unknown> }): Promise<Record<string, unknown> | null>;
+  create(args: { data: Record<string, unknown> }): Promise<Record<string, unknown>>;
+}
+interface CheckpointCursorDelegate {
+  findUnique(args: { where: { sourceRef_sourceInstanceId_batchId: CheckpointKey } }): Promise<Record<string, unknown> | null>;
+  create(args: { data: Record<string, unknown> }): Promise<Record<string, unknown>>;
+  updateMany(args: {
+    where: CheckpointKey & { revision: number; checkpointRoot: string };
+    data: Record<string, unknown>;
+  }): Promise<{ count: number }>;
+}
+interface CheckpointTransactionClient {
+  readonly settlementAllocationLineageCheckpointRecord: unknown;
+  readonly settlementAllocationLineageCheckpointCursor: unknown;
+}
+interface SerializableTransactionRunner {
+  <T>(
+    callback: (transaction: unknown) => Promise<T>,
+    options: { isolationLevel: 'Serializable'; maxWait: number; timeout: number },
+  ): Promise<T>;
+}
+class CheckpointCursorRaceError extends Error {
+  constructor() {
+    super('settlement allocation checkpoint cursor compare-and-swap lost race');
+    this.name = 'CheckpointCursorRaceError';
+  }
+}
+export interface AcceptSettlementAllocationLineageCheckpointInput {
+  readonly checkpoint: SignedSettlementAllocationLineageCheckpoint;
+  readonly trustPolicy: SettlementAllocationLineageCheckpointTrustPolicy;
+}
+export interface AcceptSettlementAllocationLineageCheckpointResult {
+  readonly disposition: 'accepted' | 'replayed';
+  readonly checkpointRoot: string;
+  readonly revision: number;
+}
+function stringValue(label: string, value: unknown): string {
+  if (typeof value !== 'string') throw new Error(label + ' must be a string');
+  return required(label, value);
+}
+function stringArrayValue(label: string, value: unknown): readonly string[] {
+  if (!Array.isArray(value) || !value.every((item) => typeof item === 'string')) {
+    throw new Error(label + ' must be an array of strings');
+  }
+  return Object.freeze(value.map((item, index) => stringValue(label + '[' + index + ']', item)));
+}
+function normalizeSignedCheckpoint(
+  input: SignedSettlementAllocationLineageCheckpoint,
+  policy: SettlementAllocationLineageCheckpointTrustPolicy,
+): Readonly<SignedSettlementAllocationLineageCheckpoint> {
+  const verified = verifySettlementAllocationLineageCheckpoint(input, policy);
+  return Object.freeze({
+    checkpointId: required('checkpointId', verified.checkpointId),
+    sourceRef: required('sourceRef', verified.sourceRef),
+    sourceInstanceId: required('sourceInstanceId', verified.sourceInstanceId),
+    batchId: required('batchId', verified.batchId),
+    asOf: timestamp('checkpoint asOf', verified.asOf).toISOString(),
+    observedThrough: timestamp('checkpoint observedThrough', verified.observedThrough).toISOString(),
+    highWaterMark: required('checkpoint highWaterMark', verified.highWaterMark),
+    allocationRoots: stringArrayValue('checkpoint allocationRoots', verified.allocationRoots),
+    linkRoots: stringArrayValue('checkpoint linkRoots', verified.linkRoots),
+    checkpointRoot: digest('checkpointRoot', verified.checkpointRoot),
+    signerKeyId: required('checkpoint signerKeyId', verified.signerKeyId),
+    signatureBase64: required('checkpoint signatureBase64', verified.signatureBase64),
+  });
+}
+function checkpointFromStoredRow(row: Record<string, unknown>): Readonly<SignedSettlementAllocationLineageCheckpoint> {
+  return Object.freeze({
+    checkpointId: stringValue('stored checkpointId', row.checkpointId),
+    sourceRef: stringValue('stored sourceRef', row.sourceRef),
+    sourceInstanceId: stringValue('stored sourceInstanceId', row.sourceInstanceId),
+    batchId: stringValue('stored batchId', row.batchId),
+    asOf: timestamp('stored checkpoint asOf', row.asOf as Date | string).toISOString(),
+    observedThrough: timestamp('stored checkpoint observedThrough', row.observedThrough as Date | string).toISOString(),
+    highWaterMark: stringValue('stored checkpoint highWaterMark', row.highWaterMark),
+    allocationRoots: stringArrayValue('stored allocationRoots', row.allocationRoots),
+    linkRoots: stringArrayValue('stored linkRoots', row.linkRoots),
+    checkpointRoot: stringValue('stored checkpointRoot', row.checkpointRoot),
+    signerKeyId: stringValue('stored signerKeyId', row.signerKeyId),
+    signatureBase64: stringValue('stored signatureBase64', row.signatureBase64),
+  });
+}
+function checkpointEvidenceData(checkpoint: SignedSettlementAllocationLineageCheckpoint): Record<string, unknown> {
+  return {
+    checkpointId: checkpoint.checkpointId,
+    sourceRef: checkpoint.sourceRef,
+    sourceInstanceId: checkpoint.sourceInstanceId,
+    batchId: checkpoint.batchId,
+    asOf: timestamp('checkpoint asOf', checkpoint.asOf),
+    observedThrough: timestamp('checkpoint observedThrough', checkpoint.observedThrough),
+    highWaterMark: checkpoint.highWaterMark,
+    allocationRoots: [...checkpoint.allocationRoots],
+    linkRoots: [...checkpoint.linkRoots],
+    checkpointRoot: checkpoint.checkpointRoot,
+    signerKeyId: checkpoint.signerKeyId,
+    signatureBase64: checkpoint.signatureBase64,
+  };
+}
+function assertStoredCheckpointExact(
+  stored: Record<string, unknown>,
+  expected: SignedSettlementAllocationLineageCheckpoint,
+): void {
+  if (canonical(checkpointFromStoredRow(stored)) !== canonical(expected)) {
+    throw new Error('stored settlement allocation checkpoint root has conflicting immutable content');
+  }
+}
+function assertCursorMatchesCheckpoint(
+  cursor: Record<string, unknown>,
+  checkpoint: SignedSettlementAllocationLineageCheckpoint,
+): void {
+  const matches =
+    stringValue('cursor checkpointId', cursor.checkpointId) === checkpoint.checkpointId
+    && stringValue('cursor checkpointRoot', cursor.checkpointRoot) === checkpoint.checkpointRoot
+    && stringValue('cursor sourceRef', cursor.sourceRef) === checkpoint.sourceRef
+    && stringValue('cursor sourceInstanceId', cursor.sourceInstanceId) === checkpoint.sourceInstanceId
+    && stringValue('cursor batchId', cursor.batchId) === checkpoint.batchId
+    && stringValue('cursor highWaterMark', cursor.highWaterMark) === checkpoint.highWaterMark
+    && timestamp('cursor asOf', cursor.asOf as Date | string).toISOString() === checkpoint.asOf
+    && timestamp('cursor observedThrough', cursor.observedThrough as Date | string).toISOString() === checkpoint.observedThrough;
+  if (!matches) throw new Error('checkpoint cursor fields disagree with its immutable evidence');
+}
+function checkpointTransactionClient(value: unknown): {
+  evidence: CheckpointEvidenceDelegate;
+  cursor: CheckpointCursorDelegate;
+} {
+  const client = value as Partial<CheckpointTransactionClient> | null;
+  const evidence = client?.settlementAllocationLineageCheckpointRecord as Partial<CheckpointEvidenceDelegate> | undefined;
+  const cursor = client?.settlementAllocationLineageCheckpointCursor as Partial<CheckpointCursorDelegate> | undefined;
+  if (!evidence || typeof evidence.findUnique !== 'function' || typeof evidence.create !== 'function') {
+    throw new Error('settlementAllocationLineageCheckpointRecord Prisma delegate is unavailable; run prisma generate');
+  }
+  if (!cursor || typeof cursor.findUnique !== 'function' || typeof cursor.create !== 'function' || typeof cursor.updateMany !== 'function') {
+    throw new Error('settlementAllocationLineageCheckpointCursor Prisma delegate is unavailable; run prisma generate');
+  }
+  return { evidence: evidence as CheckpointEvidenceDelegate, cursor: cursor as CheckpointCursorDelegate };
+}
+function retryableCheckpointTransactionError(error: unknown): boolean {
+  if (error instanceof CheckpointCursorRaceError) return true;
+  if (typeof error !== 'object' || error === null || !('code' in error)) return false;
+  const code = String((error as { code: unknown }).code);
+  return code === 'P2034' || code === 'P2002' || code === '40001' || code === '23505';
+}
+
 export class AccountingAuthorityStore {
   constructor(private readonly client: AccountingAuthorityPrismaClient) {}
 
@@ -454,6 +610,145 @@ export class AccountingAuthorityStore {
       allocationRoot: digest('settlement allocation allocationRoot', input.allocationRoot),
     };
     return appendAllocation(allocationDelegate(this.client.settlementAllocationRecord), data);
+  }
+
+  /**
+   * Accept a signed checkpoint through a durable, optimistic cursor.
+   *
+   * Evidence insert and cursor advance share one PostgreSQL SERIALIZABLE transaction.
+   * Exact replay of the current head is idempotent; stale/reused identities fail closed.
+   */
+  async acceptSettlementAllocationLineageCheckpoint(
+    input: AcceptSettlementAllocationLineageCheckpointInput,
+  ): Promise<AcceptSettlementAllocationLineageCheckpointResult> {
+    const candidate = normalizeSignedCheckpoint(input.checkpoint, input.trustPolicy);
+    const transactionHost = this.client as unknown as { $transaction?: SerializableTransactionRunner };
+    const runner = transactionHost.$transaction;
+    if (typeof runner !== 'function') {
+      throw new Error('checkpoint acceptance requires Prisma $transaction with SERIALIZABLE isolation');
+    }
+
+    const key: CheckpointKey = Object.freeze({
+      sourceRef: candidate.sourceRef,
+      sourceInstanceId: candidate.sourceInstanceId,
+      batchId: candidate.batchId,
+    });
+    const evidenceData = checkpointEvidenceData(candidate);
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        return await transactionHost.$transaction!(async (rawTransaction) => {
+          const { evidence, cursor } = checkpointTransactionClient(rawTransaction);
+          const current = await cursor.findUnique({
+            where: { sourceRef_sourceInstanceId_batchId: key },
+          });
+          const existingRoot = await evidence.findUnique({
+            where: { checkpointRoot: candidate.checkpointRoot },
+          });
+          const identityWhere = {
+            sourceRef_sourceInstanceId_batchId_checkpointId: {
+              ...key,
+              checkpointId: candidate.checkpointId,
+            },
+          };
+          const existingIdentity = await evidence.findUnique({ where: identityWhere });
+
+          if (
+            existingIdentity
+            && stringValue('stored checkpointRoot', existingIdentity.checkpointRoot) !== candidate.checkpointRoot
+          ) {
+            throw new Error('settlement allocation checkpointId cannot be reused for different checkpoint contents');
+          }
+
+          if (current) {
+            const revision = current.revision;
+            if (typeof revision !== 'number' || !Number.isSafeInteger(revision) || revision < 1) {
+              throw new Error('stored settlement allocation checkpoint cursor revision is invalid');
+            }
+            const currentRoot = stringValue('cursor checkpointRoot', current.checkpointRoot);
+
+            if (currentRoot === candidate.checkpointRoot) {
+              if (!existingRoot) {
+                throw new Error('checkpoint cursor references missing immutable checkpoint evidence');
+              }
+              assertStoredCheckpointExact(existingRoot, candidate);
+              const stored = checkpointFromStoredRow(existingRoot);
+              assertCursorMatchesCheckpoint(current, stored);
+              return Object.freeze({
+                disposition: 'replayed' as const,
+                checkpointRoot: candidate.checkpointRoot,
+                revision,
+              });
+            }
+
+            if (existingRoot) {
+              throw new Error('previously accepted settlement allocation checkpoint is stale and cannot replace the current cursor');
+            }
+            const previousRow = await evidence.findUnique({ where: { checkpointRoot: currentRoot } });
+            if (!previousRow) {
+              throw new Error('checkpoint cursor references missing immutable predecessor evidence');
+            }
+            const previousFromRow = checkpointFromStoredRow(previousRow);
+            assertCursorMatchesCheckpoint(current, previousFromRow);
+            const previous = normalizeSignedCheckpoint(previousFromRow, input.trustPolicy);
+            assertSettlementAllocationLineageCheckpointAdvances(previous, candidate, input.trustPolicy);
+
+            await evidence.create({ data: evidenceData });
+            const updated = await cursor.updateMany({
+              where: {
+                ...key,
+                revision,
+                checkpointRoot: currentRoot,
+              },
+              data: {
+                checkpointId: candidate.checkpointId,
+                checkpointRoot: candidate.checkpointRoot,
+                asOf: timestamp('checkpoint asOf', candidate.asOf),
+                observedThrough: timestamp('checkpoint observedThrough', candidate.observedThrough),
+                highWaterMark: candidate.highWaterMark,
+                revision: revision + 1,
+              },
+            });
+            if (updated.count !== 1) throw new CheckpointCursorRaceError();
+            return Object.freeze({
+              disposition: 'accepted' as const,
+              checkpointRoot: candidate.checkpointRoot,
+              revision: revision + 1,
+            });
+          }
+
+          if (existingRoot || existingIdentity) {
+            throw new Error('checkpoint evidence exists without a durable cursor; refusing to reconstruct trust');
+          }
+
+          await evidence.create({ data: evidenceData });
+          await cursor.create({
+            data: {
+              ...key,
+              checkpointId: candidate.checkpointId,
+              checkpointRoot: candidate.checkpointRoot,
+              asOf: timestamp('checkpoint asOf', candidate.asOf),
+              observedThrough: timestamp('checkpoint observedThrough', candidate.observedThrough),
+              highWaterMark: candidate.highWaterMark,
+              revision: 1,
+            },
+          });
+          return Object.freeze({
+            disposition: 'accepted' as const,
+            checkpointRoot: candidate.checkpointRoot,
+            revision: 1,
+          });
+        }, {
+          isolationLevel: 'Serializable',
+          maxWait: 5000,
+          timeout: 10000,
+        });
+      } catch (error) {
+        if (attempt < 4 && retryableCheckpointTransactionError(error)) continue;
+        throw error;
+      }
+    }
+    throw new Error('checkpoint acceptance exhausted bounded transaction retries');
   }
 
   async appendStatementSnapshot(input: RoyaltyStatementSnapshotRecordInput): Promise<Record<string, unknown>> {
