@@ -214,7 +214,32 @@ fn scoped_independent_restoration_positive_control_is_accepted() {
         instance["outcome"]["status"],
         "independently_verified_complete"
     );
-    assert_eq!(instance["outcome"]["verification_evidence_ids"][0], "EV-INDEP-005");
+    let verification_ids = instance["outcome"]["verification_evidence_ids"]
+        .as_array()
+        .expect("verified outcome must have verification evidence identifiers");
+    assert!(!verification_ids.is_empty());
+    let evidence = instance["evidence"]
+        .as_array()
+        .expect("verified outcome must have evidence records");
+    for reference_id in verification_ids {
+        let reference_id = reference_id
+            .as_str()
+            .expect("verification evidence identifier must be a string");
+        let referenced = evidence
+            .iter()
+            .find(|item| item["evidence_id"] == reference_id)
+            .unwrap_or_else(|| panic!("verification evidence ID has no evidence record: {reference_id}"));
+        assert!(
+            referenced["kind"] == "independent_observation"
+                || referenced["kind"] == "independent_measurement",
+            "verification evidence must refer to an independent observation or measurement"
+        );
+        assert_eq!(
+            referenced["independence"],
+            "independent",
+            "verification evidence must explicitly be independent"
+        );
+    }
     assert_eq!(instance["review_required"], true);
     assert_eq!(instance["review_status"], "completed");
     assert_eq!(instance["effects"]["effects_requested"], false);
