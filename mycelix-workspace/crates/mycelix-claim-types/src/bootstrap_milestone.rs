@@ -1126,6 +1126,30 @@ mod tests {
     }
 
     #[test]
+    fn qualification_scope_round_trips_and_rejects_unknown_fields() {
+        let mut milestone = valid_milestone();
+        milestone.fixture_class = FixtureClass::RelevantEnvironmentTest;
+        milestone.evidence = vec![evidence(
+            "https://example.invalid/evidence/relevant-environment-test.json",
+            EvidenceKind::RelevantEnvironmentTestReport,
+            '5',
+        )];
+        milestone.qualification_scope = Some(valid_qualification_scope());
+        assert!(milestone.validate().is_ok());
+
+        let serialized = serde_json::to_value(&milestone).expect("serialize scoped milestone");
+        let decoded: BootstrapMilestone =
+            serde_json::from_value(serialized.clone()).expect("deserialize scoped milestone");
+        assert_eq!(decoded, milestone);
+        assert!(decoded.validate().is_ok());
+
+        let mut with_unknown_field = serialized;
+        with_unknown_field["qualification_scope"]["unreviewed_scope_override"] =
+            serde_json::Value::Bool(true);
+        assert!(serde_json::from_value::<BootstrapMilestone>(with_unknown_field).is_err());
+    }
+
+    #[test]
     fn physical_qualification_requires_scope_traceability_acceptance_and_independent_review() {
         let mut milestone = valid_milestone();
         milestone.fixture_class = FixtureClass::PhysicalQualification;
