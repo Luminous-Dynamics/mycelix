@@ -10,6 +10,7 @@ mod upload;
 mod gallery;
 mod consciousness;
 mod delivery_settings;
+mod videos;
 
 pub use home::HomePage;
 pub use discover::DiscoverPage;
@@ -19,3 +20,4 @@ pub use upload::UploadPage;
 pub use gallery::GalleryPage;
 pub use consciousness::ConsciousnessPage;
 pub use delivery_settings::DeliverySettingsPage;
+pub use videos::VideosPage;

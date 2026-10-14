@@ -7,6 +7,8 @@ on:
       - "mycelix-workspace/Cargo.toml"
       - "mycelix-workspace/mycelix-music/apps/leptos/Cargo.toml"
       - "mycelix-workspace/mycelix-music/apps/leptos/src/**"
+      - "mycelix-workspace/mycelix-music/apps/leptos/style/**"
+      - "mycelix-workspace/mycelix-music/VIDEO_MEDIA_UX_V0.md"
   push:
     branches: [main]
     paths:
@@ -14,6 +16,8 @@ on:
       - "mycelix-workspace/Cargo.toml"
       - "mycelix-workspace/mycelix-music/apps/leptos/Cargo.toml"
       - "mycelix-workspace/mycelix-music/apps/leptos/src/**"
+      - "mycelix-workspace/mycelix-music/apps/leptos/style/**"
+      - "mycelix-workspace/mycelix-music/VIDEO_MEDIA_UX_V0.md"
 
 permissions:
   contents: read
@@ -36,6 +40,19 @@ jobs:
           -o "$RUNNER_TEMP/mycelix-media-delivery-tests"
       - name: Run the delivery contract tests
         run: "$RUNNER_TEMP/mycelix-media-delivery-tests"
+
+  video-ui-contract-tests:
+    name: Run video UX contract tests on host
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run video UX unit tests
+        run: >-
+          cargo test
+          --manifest-path mycelix-workspace/mycelix-music/apps/leptos/Cargo.toml
+          --no-default-features
+          pages::videos::tests
 
   music-ui-wasm-check:
     name: Compile Music UI for browser WASM

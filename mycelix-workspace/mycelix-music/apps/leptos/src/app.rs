@@ -238,6 +238,7 @@ pub fn App() -> impl IntoView {
                     <Routes fallback=|| view! { <div class="page"><h1>"404 — Page not found"</h1></div> }>
                         <Route path=path!("/") view=ConsciousnessPage />
                         <Route path=path!("/discover") view=DiscoverPage />
+                        <Route path=path!("/videos") view=VideosPage />
                         <Route path=path!("/artist") view=ArtistPage />
                         <Route path=path!("/dashboard") view=DashboardPage />
                         <Route path=path!("/upload") view=UploadPage />
