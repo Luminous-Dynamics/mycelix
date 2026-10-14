@@ -10,17 +10,17 @@
   "frozen_inputs": [
     {
       "path": "schemas/life-civic/service-journey-reference.schema.json",
-      "git_blob_sha1": "07e615ff7568666bfefeecf3939eb4b1d744ce0a",
-      "purpose": "service journey schema v0.3.0; retrieval timestamps and non-authorizing official-source status"
+      "git_blob_sha1": "3401f02958e89b2c527828a7c33d92d89a56b05d",
+      "purpose": "service journey schema v0.3.0; retrieval provenance and evidence-linked official contact status"
     },
     {
       "path": "tests/reference/life-civic-service/cases-v0.3.0.json",
-      "git_blob_sha1": "63646df22efb782578f4bc3bfd8d3ecda864ce8c",
-      "purpose": "retrieval-timestamped lifecycle fixtures and source-claim conflict"
+      "git_blob_sha1": "83646bf0dbdeb0ce7c5991563da48c083ac02804",
+      "purpose": "retrieval-timestamped captured official claims plus explicitly synthetic case evidence"
     },
     {
       "path": "tests/reference/life-civic-service/independently-verified-local-restoration-v0.3.0.json",
-      "git_blob_sha1": "f20cef446322b050883c089cadeb77ec6aa194db",
+      "git_blob_sha1": "7241eeed6034723d024000e0fda311146fabb8ba",
       "purpose": "positive control requiring independent evidence scoped to observation point and time"
     }
   ],
