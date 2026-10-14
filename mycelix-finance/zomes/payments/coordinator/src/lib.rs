@@ -1156,6 +1156,38 @@ fn compute_sap_fee(sender_did: &str, micro_amount: u64) -> ExternResult<u64> {
     Ok(fee)
 }
 
+#[cfg(test)]
+mod sap_debit_arithmetic_tests {
+    use super::*;
+
+    #[test]
+    fn checked_total_debit_accepts_zero_fee_at_maximum() {
+        assert_eq!(
+            checked_total_sap_debit(u64::MAX, 0).unwrap(),
+            u64::MAX
+        );
+    }
+
+    #[test]
+    fn checked_total_debit_rejects_overflow() {
+        assert!(checked_total_sap_debit(u64::MAX, 1).is_err());
+        assert!(checked_total_sap_debit(u64::MAX - 10, 11).is_err());
+    }
+
+    #[test]
+    fn checked_total_debit_accepts_ordinary_amount_and_fee() {
+        assert_eq!(checked_total_sap_debit(1_000_000, 1_000).unwrap(), 1_001_000);
+    }
+}
+
+fn checked_total_sap_debit(principal: u64, fee: u64) -> ExternResult<u64> {
+    principal.checked_add(fee).ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "SAP payment principal plus fee exceeds the u64 balance domain".into(),
+        ))
+    })
+}
+
 fn elapsed_seconds(from: Timestamp, to: Timestamp) -> u64 {
     let from_us = from.as_micros();
     let to_us = to.as_micros();
@@ -1211,7 +1243,7 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         // input.amount is already in micro-SAP (u64)
         // Compute progressive fee based on sender's MYCEL score
         let fee = compute_sap_fee(&input.from_did, input.amount)?;
-        let total_debit = input.amount + fee;
+        let total_debit = checked_total_sap_debit(input.amount, fee)?;
 
         // Debit sender's SAP balance (amount + fee, applies demurrage)
         debit_sap(DebitSapInput {
