@@ -87,8 +87,9 @@ jobs:
           grep -Fq 'getrandom_backend="custom"' .cargo/config.toml
           grep -Fq 'link-args=--import-undefined' .cargo/config.toml
 
-      - name: Compile conjunction coordinator for Holochain WASM
-        # Run inside this workspace so Cargo discovers its local .cargo/config.toml.
-        # That file retains the custom getrandom backend and unresolved host imports.
+      - name: Compile all Space zomes for Holochain WASM
+        # Build from the nested workspace so Cargo discovers its local .cargo/config.toml.
+        # The workspace's default-members explicitly list all five integrity/coordinator
+        # pairs, so the host-import boundary is tested across every affected zome.
         working-directory: mycelix-workspace/mycelix-space
-        run: cargo build --release -p conjunctions_coordinator --target wasm32-unknown-unknown
+        run: cargo build --release --target wasm32-unknown-unknown
