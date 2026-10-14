@@ -11,8 +11,8 @@ use mycelix_business_campaign_replay::{CampaignReplay, ReplayedObservation};
 use mycelix_business_core::{Digest32, ReferenceId};
 use mycelix_business_forecast_plan::{ForecastPlanError, ForecastTargetPlan};
 use mycelix_business_shadow::{
-    ForecastDisposition, ForecastQualificationProtocol, ForecastScorecard, ForecastTarget,
-    ScaledValue, ShadowForecast,
+    ForecastDisposition, ForecastProtocolError, ForecastQualificationProtocol,
+    ForecastScorecard, ForecastTarget, ScaledValue, ShadowForecast,
 };
 use sha2::{Digest, Sha256};
 
@@ -424,6 +424,10 @@ impl DerivedForecastCase {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DerivedScoringError {
+    InvalidProtocol(ForecastProtocolError),
+    CandidateModelMismatch { index: usize },
+    BaselineModelMismatch { index: usize },
+    CaseOutsideEvaluationWindow { index: usize },
     InvalidCase {
         index: usize,
         error: DerivedCaseError,
@@ -431,10 +435,34 @@ pub enum DerivedScoringError {
 }
 
 pub fn score_derived_cases(
+    protocol: &ForecastQualificationProtocol,
     cases: &[DerivedForecastCase],
 ) -> Result<ForecastScorecard, DerivedScoringError> {
-    let mut scorecard = ForecastScorecard::default();
+    protocol
+        .validate()
+        .map_err(DerivedScoringError::InvalidProtocol)?;
+    let mut scorecard = ForecastScorecard {
+        protocol_digest: protocol.protocol_digest,
+        capability: protocol.capability.clone(),
+        cases: 0,
+        candidate_abstentions: 0,
+        candidate_absolute_error_sum: 0,
+        baseline_absolute_error_sum: 0,
+        candidate_interval_hits: 0,
+        candidate_interval_trials: 0,
+    };
     for (index, case) in cases.iter().enumerate() {
+        if case.candidate.model_lineage != protocol.candidate_model_lineage {
+            return Err(DerivedScoringError::CandidateModelMismatch { index });
+        }
+        if case.baseline.model_lineage != protocol.baseline_model_lineage {
+            return Err(DerivedScoringError::BaselineModelMismatch { index });
+        }
+        if case.candidate.target.window_start_unix_ms < protocol.evaluation_start_unix_ms
+            || case.candidate.target.window_end_unix_ms > protocol.evaluation_end_unix_ms
+        {
+            return Err(DerivedScoringError::CaseOutsideEvaluationWindow { index });
+        }
         case.validate()
             .map_err(|error| DerivedScoringError::InvalidCase { index, error })?;
         let actual = case.actual.value.mantissa;
@@ -686,7 +714,7 @@ mod tests {
             ),
             actual,
         };
-        let score = score_derived_cases(&[case]).unwrap();
+        let score = score_derived_cases(&protocol(), &[case]).unwrap();
         assert_eq!(score.candidate_absolute_error_sum, 0);
         assert_eq!(score.baseline_absolute_error_sum, 3);
     }
