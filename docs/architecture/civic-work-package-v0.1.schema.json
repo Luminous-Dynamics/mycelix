@@ -1163,6 +1163,7 @@
         "properties": {
           "status": {
             "enum": [
+              "authorized",
               "announced",
               "active",
               "completion_claimed",
