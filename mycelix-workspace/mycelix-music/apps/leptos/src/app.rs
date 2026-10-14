@@ -131,7 +131,6 @@ impl PlayerState {
     }
 }
 
-#[derive(Clone, Debug)]
 /// Browser-local media gateway choice. None means use the deployment's
 /// explicit default pool; Some("") means the listener has disabled media
 /// delivery; Some(list) means use only that validated origin pool.
@@ -142,6 +141,7 @@ pub struct DeliveryPreferences {
 
 pub const MEDIA_GATEWAY_PREFERENCE_KEY: &str = "mycelix-media-gateway-origins";
 
+#[derive(Clone, Debug)]
 pub struct ThemeState {
     pub valence: RwSignal<f64>,
     pub arousal: RwSignal<f64>,
@@ -235,6 +235,7 @@ pub fn App() -> impl IntoView {
                         <Route path=path!("/dashboard") view=DashboardPage />
                         <Route path=path!("/upload") view=UploadPage />
                         <Route path=path!("/gallery") view=GalleryPage />
+                        <Route path=path!("/settings") view=DeliverySettingsPage />
                         <Route path=path!("/about") view=HomePage />
                     </Routes>
                 </main>
