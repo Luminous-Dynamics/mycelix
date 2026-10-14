@@ -48,6 +48,12 @@ class CivicWorkPackageTests(unittest.TestCase):
         errors = validate_record(record, SCHEMA, "open tender active")
         self.assertTrue(any("lifecycle_stage" in error or "PROCUREMENT_NOT_AUTHORIZED" in error for error in errors), errors)
 
+    def test_open_tender_route_cannot_hide_as_not_applicable(self) -> None:
+        record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
+        record["procurement"].update({"route": "open_tender", "lifecycle_stage": "not_applicable"})
+        errors = validate_record(record, SCHEMA, "open tender route mismatch")
+        self.assertTrue(any("route" in error for error in errors), errors)
+
     def test_automated_authorization_is_rejected(self) -> None:
         record = load_json(FIXTURES / "authorized.synthetic.v0.1.json")
         record["authorization"]["approved_by_human"] = False
