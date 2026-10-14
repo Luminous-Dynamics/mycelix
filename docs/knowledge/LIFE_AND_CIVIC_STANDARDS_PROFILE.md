@@ -189,6 +189,28 @@ Every fixture should define expected outputs and explicit nonclaims. The indepen
 - Publish privacy-preserving service metrics such as time-to-acknowledgement, time-to-resolution, unresolved share, recurrence, accessibility gaps, and the fraction of closures with independent outcome evidence.
 - Treat these as service-quality indicators, not as simplistic rankings of people, workers, or communities.
 
+## Machine-readable reference slice
+
+The first proposed reference artifacts are deliberately non-authoritative and effects-disabled:
+
+- `schemas/life-civic/standard-instrument.schema.json` defines instrument metadata, including exact issuer role, version, lifecycle state, source provenance, access/license limits, mapping gaps, and a claim ceiling.
+- `schemas/life-civic/applicability-assessment.schema.json` defines a context-bound assessment. A result marked `applicable` requires evidence and a completed human review; schema validation alone never qualifies a legal conclusion.
+- `tests/reference/life-civic-standards/manifest.json` and `cases.json` define the reference corpus identity and expected dispositions. These files are test fixtures, not authoritative legal records or benchmark results.
+
+The instrument schema preserves an issuer's exact lifecycle label separately from its coarser categories. This matters for standards tracks and committee-stage drafts, where flattening every item to `published` or `standard` would lose consequential distinctions.
+
+## Checked catalogue observations (2026-10-14)
+
+These examples demonstrate why lifecycle needs to be versioned at the artifact level:
+
+- **ISO 37120:** ISO's catalogue lists `ISO/WD 37120`, Edition 3, as a working draft under development intended to replace ISO 37120:2018. Do not call Edition 3 a published International Standard or certify conformance to the draft. [ISO catalogue entry](https://www.iso.org/standard/90316.html).
+- **ISO 37101:** the published `ISO 37101:2016` entry has a separate Amendment 1:2024, while ISO also lists `ISO/WD 37101` as a working draft intended to replace the 2016 edition. The published edition, amendment, and replacement draft are three distinct lifecycle records until an official change establishes otherwise. [Published edition](https://www.iso.org/standard/61885.html), [Amendment 1:2024](https://www.iso.org/standard/88420.html), [replacement working draft](https://committee.iso.org/standard/91450.html).
+- **WCAG:** the W3C overview identifies WCAG 2.2 as a published W3C Recommendation and notes ISO/IEC 40500:2025. It says a 2026 ISO publication was expected later in 2026; that expectation must not be converted into a confirmed publication without checking the ISO catalogue again. A guideline's publication status also does not itself establish local legal applicability. [W3C WCAG overview](https://www.w3.org/WAI/standards-guidelines/wcag/).
+- **IETF RFC 9943:** the IETF Datatracker identifies this June 2026 document as an Internet Standards Track Proposed Standard. A transparency receipt can establish inclusion of a signed statement in a transparency structure, but it does not establish the statement's truth or make a compromised issuer honest. [RFC 9943](https://datatracker.ietf.org/doc/rfc9943/).
+- **OCDS:** the official documentation identifies the published Open Contracting Data Standard as v1.1.5. A validator's pass establishes a defined structural conformance result, not the truth, completeness, legality, or integrity of the underlying procurement process. [OCDS v1.1.5](https://standard.open-contracting.org/latest/en/).
+
+These are point-in-time source observations, not permanent truth labels. Any operational use needs retrieval timestamps, a currentness policy, retained historical versions, and an explicit unknown/stale result when the latest status cannot be established.
+
 ## References
 
 - SABS, Standards Division and South African National Standards: https://www.sabs.co.za/standards
