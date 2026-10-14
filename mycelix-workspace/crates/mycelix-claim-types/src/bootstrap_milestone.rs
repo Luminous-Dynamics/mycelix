@@ -401,6 +401,14 @@ impl BootstrapMilestone {
                             "resource observation requires measurement evidence",
                         ));
                     }
+                    if matches!(
+                        self.fixture_class,
+                        FixtureClass::SyntheticSoftwareContract | FixtureClass::ModelDerived
+                    ) {
+                        return Err(ValidationError::new(
+                            "synthetic/model-derived claims cannot assert measured resource observations",
+                        ));
+                    }
                 }
                 ResourceStatement::AcceptedInventoryDelta {
                     resource_id,
@@ -703,6 +711,21 @@ mod tests {
             milestone.resource_statements.as_slice(),
             [ResourceStatement::Estimate { .. }]
         ));
+    }
+
+    #[test]
+    fn synthetic_claim_cannot_relabel_a_mass_measurement_as_an_observation() {
+        let mut milestone = valid_milestone();
+        milestone.resource_statements = vec![ResourceStatement::Observation {
+            resource_id: "regolith-simulant".to_string(),
+            quantity_milligrams: 100_000_000,
+            evidence: vec![evidence(
+                "https://example.invalid/evidence/mass-measurement.json",
+                EvidenceKind::MassMeasurement,
+                '8',
+            )],
+        }];
+        assert!(milestone.validate().is_err());
     }
 
     #[test]
