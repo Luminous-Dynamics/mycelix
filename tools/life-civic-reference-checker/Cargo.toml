@@ -1,0 +1,10 @@
+[package]
+name = "mycelix-life-civic-reference-checker"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Independent verifier for the Mycelix life/civic instrument and applicability reference corpus"
+
+[dependencies]
+jsonschema = "0.58.6"
+serde_json = "1.0"
