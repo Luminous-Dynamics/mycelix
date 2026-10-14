@@ -74,13 +74,27 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
             .ok_or_else(|| format!("{id} has no retrieval_state"))?;
 
         match retrieval_state {
-            "captured" if item["retrieved_at"].as_str().is_some() => {}
-            "synthetic_fixture" | "unavailable" if item["retrieved_at"].is_null() => {}
+            "captured"
+                if item["retrieved_at"].as_str().is_some()
+                    && item["checked_at"].as_str().is_some() => {}
+            "synthetic_fixture"
+                if item["retrieved_at"].is_null() && item["checked_at"].is_null() => {}
+            "unavailable"
+                if item["retrieved_at"].is_null() && item["checked_at"].as_str().is_some() => {}
             "captured" => {
-                return Err(format!("{id} has captured state but no retrieval timestamp"));
+                return Err(format!(
+                    "{id} requires both retrieved_at and checked_at timestamps"
+                ));
             }
-            "synthetic_fixture" | "unavailable" => {
-                return Err(format!("{id} must not claim a retrieval timestamp"));
+            "synthetic_fixture" => {
+                return Err(format!(
+                    "{id} synthetic fixture must not claim retrieval or check timestamps"
+                ));
+            }
+            "unavailable" => {
+                return Err(format!(
+                    "{id} unavailable source requires checked_at and null retrieved_at"
+                ));
             }
             _ => return Err(format!("{id} has an unknown retrieval_state")),
         }
@@ -525,7 +539,7 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
     let fixtures = cases["cases"]
         .as_array()
         .expect("service reference cases must be an array");
-    assert_eq!(fixtures.len(), 4);
+    assert_eq!(fixtures.len(), 5);
 
     let mut ids = HashSet::new();
     for fixture in fixtures {
@@ -610,6 +624,18 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
         "source conflict must point to evidence actually present in the case"
     );
     assert_eq!(conflict["route"]["source_references"].as_array().unwrap().len(), 3);
+
+    let unavailable =
+        &find_service_fixture(fixtures, "unavailable-current-source-requires-review")["instance"];
+    assert_eq!(unavailable["case_state"], "human_review_required");
+    assert_eq!(unavailable["outcome"]["status"], "unknown");
+    assert_eq!(unavailable["review_required"], true);
+    assert_eq!(unavailable["evidence"][0]["retrieval_state"], "unavailable");
+    assert_eq!(unavailable["evidence"][0]["retrieved_at"], Value::Null);
+    assert!(
+        unavailable["evidence"][0]["checked_at"].as_str().is_some(),
+        "unavailable source must record the failed refresh attempt time"
+    );
 
     let false_verification = &find_service_fixture(
         fixtures,
