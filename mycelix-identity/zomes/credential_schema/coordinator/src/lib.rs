@@ -9,6 +9,47 @@
 use credential_schema_integrity::*;
 use hdk::prelude::*;
 use mycelix_zome_helpers as _;
+fn verify_did_active(did: &str, operation: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(result) => {
+            let active = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode DID active state for {operation}: {e:?}"
+                )))
+            })?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "DID is not active; refusing {operation}"
+                ))))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _)
+        | ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state authorization failed for {operation}"
+            ))
+        )),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed for {operation}: {err}")
+        ))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state verification failed for {operation} (countersigning: {err})"
+            ))
+        )),
+    }
+}
+
 
 /// Create a deterministic entry hash from a string identifier
 /// This is used for link bases when we need to link from string IDs
@@ -24,9 +65,11 @@ fn string_to_entry_hash(s: &str) -> EntryHash {
 /// Create a new credential schema
 #[hdk_extern]
 pub fn create_schema(schema: CredentialSchema) -> ExternResult<Record> {
-    // Capability guard: only the claimed author can create schemas
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
+    verify_did_active(&caller_did, "credential schema creation")?;
+
+    // Capability guard: only the claimed author can create schemas
     if schema.author != caller_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the claimed author can create schemas".into()
@@ -222,6 +265,7 @@ pub fn update_schema(input: UpdateSchemaInput) -> ExternResult<Record> {
     // Capability guard: only the schema author can update it
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
+    verify_did_active(&caller_did, "credential schema update")?;
     if current_schema.author != caller_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the schema author can update it".into()
@@ -280,8 +324,11 @@ pub struct UpdateSchemaInput {
 /// Endorse a schema
 #[hdk_extern]
 pub fn endorse_schema(input: EndorseSchemaInput) -> ExternResult<Record> {
-    // Capability guard: only the claimed endorser can create endorsements
     let caller = agent_info()?.agent_initial_pubkey;
+    let caller_did = format!("did:mycelix:{}", caller);
+    verify_did_active(&caller_did, "credential schema endorsement")?;
+
+    // Capability guard: only the claimed endorser can create endorsements
     let caller_did = format!("did:mycelix:{}", caller);
     if input.endorser_did != caller_did {
         return Err(wasm_error!(WasmErrorInner::Guest(

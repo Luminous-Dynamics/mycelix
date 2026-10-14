@@ -7,6 +7,7 @@
 //! Updated to use HDI 0.7 patterns with FlatOp validation
 
 use hdi::prelude::*;
+use mycelix_crypto::{AlgorithmId, TaggedPublicKey};
 
 /// DID Document entry type
 #[hdk_entry_helper]
@@ -21,6 +22,16 @@ pub struct DidDocument {
     pub verification_method: Vec<VerificationMethod>,
     /// Authentication methods
     pub authentication: Vec<String>,
+    /// Verification methods authorized to make assertions for this DID.
+    /// W3C Data Integrity proofs using proofPurpose=assertionMethod must
+    /// reference a method listed here.
+    #[serde(
+        rename = "assertionMethod",
+        alias = "assertion_method",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub assertion_method: Vec<String>,
     /// Key agreement methods for encryption (W3C DID Core §5.3.3).
     ///
     /// Each entry is a DID URL fragment (e.g. "#kem-1") referencing a
@@ -91,6 +102,9 @@ pub enum LinkTypes {
     AgentToDid,
     DidToVerificationMethod,
     DidToService,
+    /// Global substrate role advertisements. Separate from a DID document's
+    /// service links because the base is a role anchor rather than the DID.
+    SubstrateRoleToAgent,
     DidHistory,
     DidToDeactivation,
 }
@@ -125,51 +139,110 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            tag,
+            action,
+        } => {
             // Validate tag length to prevent spam/DoS
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
+
             match link_type {
-                LinkTypes::AgentToDid => Ok(ValidateCallbackResult::Valid),
+                LinkTypes::AgentToDid => {
+                    validate_agent_to_did_link(&base_address, &target_address, &action)
+                }
+                LinkTypes::DidToDeactivation => {
+                    validate_did_to_deactivation_link(&base_address, &target_address, &action)
+                }
                 LinkTypes::DidToVerificationMethod => Ok(ValidateCallbackResult::Valid),
                 LinkTypes::DidToService => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::DidHistory => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::DidToDeactivation => Ok(ValidateCallbackResult::Valid),
+                LinkTypes::SubstrateRoleToAgent => {
+                    validate_substrate_role_link(
+                        &base_address,
+                        &target_address,
+                        &action,
+                        &tag,
+                    )
+                }
+                LinkTypes::DidHistory => {
+                    validate_agent_to_did_link(&base_address, &target_address, &action)
+                },
             }
         }
         FlatOp::RegisterDeleteLink {
             original_action,
             action,
+            link_type,
             ..
         } => {
-            // Only the original link creator can delete their links
+            // Only the original link creator can delete their links.
             if action.author != original_action.author {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only the link creator can delete their links".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+
+            // DID history and deactivation are security state. History is
+            // append-only and deactivation is irreversible; neither may be
+            // hidden by deleting its index link.
+            match link_type {
+                LinkTypes::DidHistory | LinkTypes::DidToDeactivation => {
+                    Ok(ValidateCallbackResult::Invalid(
+                        "DID history and deactivation links cannot be deleted".into(),
+                    ))
+                }
+                _ => Ok(ValidateCallbackResult::Valid),
+            }
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterAgentActivity(activity) => match activity {
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::DidDocument),
+                action,
+            } => validate_did_document_chain_uniqueness(action),
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::DidDeactivation),
+                action,
+            } => validate_did_deactivation_chain_uniqueness(action),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
+            match update {
+                OpUpdate::Entry { app_entry, action, .. } => {
+                    let original = must_get_action(action.original_action_address.clone())?;
+                    if *original.action().author() != action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the original entry author can update their entries".into(),
+                        ));
+                    }
+                    match app_entry {
+                        EntryTypes::DidDocument(did_doc) => {
+                            validate_update_did_document(action, did_doc)
+                        }
+                        EntryTypes::DidDeactivation(_) => Ok(ValidateCallbackResult::Invalid(
+                            "DID deactivation records cannot be updated".into(),
+                        )),
+                    }
+                }
+                OpUpdate::PrivateEntry { action, .. }
                 | OpUpdate::Agent { action, .. }
                 | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
-            let original = must_get_action(action.original_action_address.clone())?;
-            if *original.action().author() != action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Only the original entry author can update their entries".into(),
-                ));
+                | OpUpdate::CapGrant { action, .. } => {
+                    let original = must_get_action(action.original_action_address.clone())?;
+                    if *original.action().author() != action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the original entry author can update their entries".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
             }
-            Ok(ValidateCallbackResult::Valid)
         }
         FlatOp::RegisterDelete(OpDelete { action }) => {
             let original = must_get_action(action.deletes_address.clone())?;
@@ -178,9 +251,382 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Only the original entry author can delete their entries".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+
+            let did_document_entry_def: AppEntryDef = UnitEntryTypes::DidDocument
+                .try_into()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Failed to resolve DidDocument entry definition: {e}"
+                    )))
+                })?;
+            let did_deactivation_entry_def: AppEntryDef = UnitEntryTypes::DidDeactivation
+                .try_into()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Failed to resolve DidDeactivation entry definition: {e}"
+                    )))
+                })?;
+
+            match original.action().entry_type() {
+                Some(EntryType::App(entry_def))
+                    if *entry_def == did_document_entry_def
+                        || *entry_def == did_deactivation_entry_def =>
+                {
+                    Ok(ValidateCallbackResult::Invalid(
+                        "DID security entries cannot be deleted".into(),
+                    ))
+                }
+                _ => Ok(ValidateCallbackResult::Valid),
+            }
         }
     }
+}
+
+fn validate_substrate_role_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+    tag: &LinkTag,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_agent = match target_address.clone().into_agent_pub_key() {
+        Some(agent) => agent,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SubstrateRoleToAgent target must be an AgentPubKey".into(),
+            ));
+        }
+    };
+
+    if action.author != target_agent {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SubstrateRoleToAgent link must be authored by the advertised agent".into(),
+        ));
+    }
+
+    if is_did_deactivated_on_chain(action.author.clone(), action.prev_action.clone())? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SubstrateRoleToAgent link cannot be created after DID deactivation".into(),
+        ));
+    }
+
+    let base = base_address.clone().into_entry_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "SubstrateRoleToAgent base must be an EntryHash role anchor".into(),
+        ))
+    })?;
+
+    let role = String::from_utf8(tag.0.clone()).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "SubstrateRoleToAgent tag must contain UTF-8 role metadata".into(),
+        ))
+    })?;
+    if role.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SubstrateRoleToAgent role cannot be empty".into(),
+        ));
+    }
+
+    let expected_anchor = EntryHash::from_raw_32(
+        holo_hash::blake2b_256(format!("substrate:{role}").as_bytes()).to_vec(),
+    );
+    if base != expected_anchor {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SubstrateRoleToAgent base does not match the role tag".into(),
+        ));
+    }
+
+    // A discovery link is valid only when the advertised agent's latest DID
+    // document contains the canonical SubstrateMetadata service for the same
+    // role. This prevents a direct link write from bypassing register_substrate.
+    let latest_action = latest_did_document_action(
+        action.author.clone(),
+        action.prev_action.clone(),
+    )?
+    .ok_or(wasm_error!(WasmErrorInner::Guest(
+        "SubstrateRoleToAgent requires an existing DID document".into()
+    )))?;
+
+    let record = must_get_valid_record(latest_action)?;
+    let did_doc: DidDocument = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Latest DID document could not be decoded".into()
+        )))?;
+
+    let expected_did = format!("did:mycelix:{}", target_agent);
+    if did_doc.id != expected_did || did_doc.controller != target_agent {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SubstrateRoleToAgent requires the target's canonical DID document".into(),
+        ));
+    }
+
+    let expected_service_id = format!("{expected_did}#substrate");
+    let service_matches = did_doc.service.iter().any(|service| {
+        if service.id != expected_service_id || service.type_ != SUBSTRATE_SERVICE_TYPE {
+            return false;
+        }
+        let Ok(metadata) = serde_json::from_str::<serde_json::Value>(&service.service_endpoint) else {
+            return false;
+        };
+        metadata
+            .get("role")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|service_role| service_role == role)
+    });
+
+    if !service_matches {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SubstrateRoleToAgent link requires a matching SubstrateMetadata DID service".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_agent_to_did_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let base_agent = match base_address.clone().into_agent_pub_key() {
+        Some(agent) => agent,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "AgentToDid base must be an AgentPubKey".into(),
+            ));
+        }
+    };
+
+    // Only the owner of an agent namespace may create its canonical DID link.
+    // Without this, an arbitrary agent could create a link from a victim's
+    // AgentPubKey to another valid DID record and hijack resolution.
+    if action.author != base_agent {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToDid link must be authored by the base agent".into(),
+        ));
+    }
+
+    let target_action = match target_address.clone().into_action_hash() {
+        Some(action_hash) => action_hash,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "AgentToDid target must be an ActionHash".into(),
+            ));
+        }
+    };
+
+    let record = must_get_valid_record(target_action)?;
+    let did_doc: DidDocument = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "AgentToDid target must contain a DID document".into(),
+        )))?;
+
+    let expected_did = format!("did:mycelix:{}", base_agent);
+    if did_doc.controller != base_agent || did_doc.id != expected_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToDid target must be the canonical DID for its base agent".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_did_to_deactivation_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let base_agent = match base_address.clone().into_agent_pub_key() {
+        Some(agent) => agent,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "DidToDeactivation base must be an AgentPubKey".into(),
+            ));
+        }
+    };
+
+    if action.author != base_agent {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DidToDeactivation link must be authored by the DID owner".into(),
+        ));
+    }
+
+    let target_action = match target_address.clone().into_action_hash() {
+        Some(action_hash) => action_hash,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "DidToDeactivation target must be an ActionHash".into(),
+            ));
+        }
+    };
+
+    let record = must_get_valid_record(target_action)?;
+    let deactivation: DidDeactivation = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "DidToDeactivation target must contain a deactivation record".into(),
+        )))?;
+
+    let expected_did = format!("did:mycelix:{}", base_agent);
+    if deactivation.did != expected_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DidToDeactivation target must name the base agent's DID".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate the method-specific identifier grammar for `did:mycelix`.
+///
+/// Mycelix currently derives the identifier from the canonical textual form of
+/// a Holochain AgentPubKey. That textual form is ASCII and uses the base64url
+/// alphabet; we therefore reject whitespace, URI delimiters, non-ASCII bytes,
+/// and an empty identifier before any DHT lookup occurs.
+fn validate_mycelix_did_syntax(did: &str) -> Result<(), &'static str> {
+    const PREFIX: &str = "did:mycelix:";
+    let Some(identifier) = did.strip_prefix(PREFIX) else {
+        return Err("DID must start with 'did:mycelix:'");
+    };
+
+    if identifier.is_empty() {
+        return Err("did:mycelix identifier must not be empty");
+    }
+
+    if !identifier.bytes().all(|byte| {
+        byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_'
+    }) {
+        return Err("did:mycelix identifier contains an invalid character");
+    }
+
+    Ok(())
+}
+
+/// Validate one verification method against the DID cryptographic contract.
+fn validate_verification_method(method: &VerificationMethod, did_id: &str) -> Result<AlgorithmId, String> {
+    if method.id.is_empty() || method.id.len() > 256 {
+        return Err("Verification method ID must be 1-256 characters".into());
+    }
+    if method.type_.is_empty() || method.type_.len() > 256 {
+        return Err("Verification method type must be 1-256 characters".into());
+    }
+    if method.controller != did_id {
+        return Err("Verification method controller must equal the DID".into());
+    }
+    if method.public_key_multibase.is_empty() || method.public_key_multibase.len() > 4096 {
+        return Err("Public key multibase must be 1-4096 characters".into());
+    }
+    let tagged = TaggedPublicKey::from_multibase_strict(&method.public_key_multibase)
+        .map_err(|error| format!("Invalid verification method key: {error}"))?;
+    if let Some(declared_code) = method.algorithm {
+        let declared = AlgorithmId::from_u16(declared_code)
+            .ok_or_else(|| format!("Unknown verification method algorithm: {declared_code:#06x}"))?;
+        if declared != tagged.algorithm {
+            return Err(format!(
+                "Verification method algorithm does not match multibase key: declared={}, detected={}",
+                declared.did_verification_method_type(),
+                tagged.algorithm.did_verification_method_type()
+            ));
+        }
+    }
+    let expected_type = tagged.algorithm.did_verification_method_type();
+    let w3c_ed25519_multikey = tagged.algorithm == AlgorithmId::Ed25519 && method.type_ == "Multikey";
+    if method.type_ != expected_type && !w3c_ed25519_multikey {
+        return Err(format!(
+            "Verification method type does not match key algorithm: type={}, algorithm={}",
+            method.type_,
+            expected_type
+        ));
+    }
+    Ok(tagged.algorithm)
+}
+
+fn validate_verification_method_set(did_doc: &DidDocument) -> Result<(), String> {
+    if did_doc.verification_method.is_empty() {
+        return Err("DID must have at least one verification method".into());
+    }
+    let mut algorithms = std::collections::BTreeMap::new();
+    for method in &did_doc.verification_method {
+        let algorithm = validate_verification_method(method, &did_doc.id)?;
+        if algorithms.insert(method.id.as_str(), algorithm).is_some() {
+            return Err("DID verification method IDs must be unique".into());
+        }
+    }
+    for reference in &did_doc.authentication {
+        let algorithm = algorithms.get(reference.as_str()).ok_or_else(|| format!("DID authentication reference '{}' must resolve to a verification method", reference))?;
+        if !algorithm.is_signature_algorithm() {
+            return Err(format!("DID authentication reference '{}' must use a signature algorithm, detected {}", reference, algorithm.did_verification_method_type()));
+        }
+    }
+    for reference in &did_doc.assertion_method {
+        let algorithm = algorithms.get(reference.as_str()).ok_or_else(|| format!("DID assertionMethod reference '{}' must resolve to a verification method", reference))?;
+        if !algorithm.is_signature_algorithm() {
+            return Err(format!("DID assertionMethod reference '{}' must use a signature algorithm, detected {}", reference, algorithm.did_verification_method_type()));
+        }
+    }
+    for reference in &did_doc.key_agreement {
+        let algorithm = algorithms.get(reference.as_str()).ok_or_else(|| format!("DID keyAgreement reference '{}' must resolve to a verification method", reference))?;
+        if !matches!(algorithm, AlgorithmId::MlKem768 | AlgorithmId::MlKem1024) {
+            return Err(format!("DID keyAgreement reference '{}' must use an ML-KEM algorithm, detected {}", reference, algorithm.did_verification_method_type()));
+        }
+    }
+    Ok(())
+}
+/// Enforce one canonical DID document creation per controller.
+///
+/// The canonical DID is derived directly from the committing agent. A second
+/// version-1 document would create an ambiguous genesis state for fallback and
+/// historical resolution, so duplicate creation is rejected on the author's
+/// source chain.
+fn validate_did_document_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current_doc: DidDocument = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "DID document entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+
+    let entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::DidDocument)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior_doc: DidDocument = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "DID document history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior_doc.id == current_doc.id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A canonical did:mycelix DID may only have one document creation".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate DID document creation
@@ -196,15 +642,30 @@ fn require_did_id_matches_author(did_id: &str, author_did: &str) -> ValidateCall
     ValidateCallbackResult::Valid
 }
 
+/// Application security timestamps are subordinate to the signed Holochain
+/// action clock. Future-dated DID state would otherwise allow metadata to claim
+/// authority at a time the protocol action has not reached.
+fn validate_timestamp_not_future(
+    field: &str,
+    value: Timestamp,
+    action_timestamp: Timestamp,
+) -> Result<(), String> {
+    if value > action_timestamp {
+        return Err(format!(
+            "{field} cannot be later than its signed Holochain action timestamp"
+        ));
+    }
+    Ok(())
+}
+
 fn validate_create_did_document(
     action: EntryCreationAction,
     did_doc: DidDocument,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Validate DID format
-    if !did_doc.id.starts_with("did:mycelix:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID must start with 'did:mycelix:'".into(),
-        ));
+    // Validate the complete method-specific identifier grammar before
+    // binding it to the committing agent.
+    if let Err(message) = validate_mycelix_did_syntax(&did_doc.id) {
+        return Ok(ValidateCallbackResult::Invalid(message.into()));
     }
 
     // Validate controller matches author
@@ -228,11 +689,18 @@ fn validate_create_did_document(
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
-    // Validate at least one verification method
-    if did_doc.verification_method.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID must have at least one verification method".into(),
-        ));
+    // Validate the complete cryptographic verification-method set at the
+    // integrity boundary, independent of the coordinator API used.
+    if let Err(message) = validate_verification_method_set(&did_doc) {
+        return Ok(ValidateCallbackResult::Invalid(message.into()));
+    }
+
+    if let Err(message) = validate_timestamp_not_future(
+        "DID created timestamp",
+        did_doc.created,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
 
     // Validate version starts at 1
@@ -245,7 +713,92 @@ fn validate_create_did_document(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn select_latest_action_hash(
+    candidates: impl IntoIterator<Item = (u32, ActionHash)>,
+) -> Option<ActionHash> {
+    candidates
+        .into_iter()
+        .max_by_key(|(seq, _)| *seq)
+        .map(|(_, hash)| hash)
+}
+
+/// Return the latest DID-document action on an author's source chain.
+///
+/// Holochain source-chain ordering is deterministic for validation, while DHT
+/// link traversal is not. This is the canonical ordering primitive for every
+/// integrity rule that needs the current DID document.
+fn latest_did_document_action(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+) -> ExternResult<Option<ActionHash>> {
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    let entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::DidDocument)?);
+
+    let mut candidates = Vec::new();
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type) {
+            continue;
+        }
+        if !matches!(prior_action, Action::Create(_) | Action::Update(_)) {
+            continue;
+        }
+
+        let hash = hdi::hash::hash_action(prior_action.clone())?;
+        candidates.push((prior_action.action_seq(), hash));
+    }
+
+    Ok(select_latest_action_hash(candidates))
+}
+
+/// Validate that a DID update targets the current DID-document state on
+/// the author's source chain rather than a stale ancestor.
+fn validate_did_update_targets_latest(action: &Update) -> ExternResult<ValidateCallbackResult> {
+    match latest_did_document_action(action.author.clone(), action.prev_action.clone())? {
+        Some(latest_hash) if latest_hash == action.original_action_address => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+        Some(_) => Ok(ValidateCallbackResult::Invalid(
+            "DID update must target the latest DID document on the author's source chain".into(),
+        )),
+        None => Ok(ValidateCallbackResult::Invalid(
+            "DID update has no prior canonical DID document".into(),
+        )),
+    }
+}
+
 /// Validate DID document update
+fn is_did_deactivated_on_chain(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+) -> ExternResult<bool> {
+    let expected_did = format!("did:mycelix:{}", author);
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::DidDeactivation)?);
+
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type) {
+            continue;
+        }
+        let Action::Create(create) = prior_action else {
+            continue;
+        };
+        let prior_entry = must_get_entry(create.entry_hash.clone())?;
+        let deactivation: DidDeactivation = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "DID deactivation history entry could not be decoded: {e}"
+            )))
+        })?;
+        if deactivation.did == expected_did {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
 fn validate_update_did_document(
     action: Update,
     did_doc: DidDocument,
@@ -255,6 +808,23 @@ fn validate_update_did_document(
         return Ok(ValidateCallbackResult::Invalid(
             "Only controller can update DID".into(),
         ));
+    }
+
+    // Deactivation is an irreversible authority transition. Once its signed
+    // artifact is on this controller's source chain, no later DID mutation may
+    // reopen key/service authority through a generic update path.
+    if is_did_deactivated_on_chain(action.author.clone(), action.prev_action.clone())? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DID document cannot be updated after deactivation".into(),
+        ));
+    }
+
+    // The original action must be the current canonical DID document state.
+    // This prevents stale-ancestor updates from manufacturing a second branch
+    // of the version sequence.
+    match validate_did_update_targets_latest(&action)? {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
     }
 
     // Fetch original to enforce invariants
@@ -284,18 +854,38 @@ fn validate_update_did_document(
         ));
     }
 
-    // Version must increment
-    if did_doc.version <= original.version {
+    // Version is a method-level monotonic sequence, so every accepted
+    // update must advance exactly one version. This prevents gaps that make
+    // `versionId` selection ambiguous.
+    if did_doc.version != original.version.saturating_add(1) {
         return Ok(ValidateCallbackResult::Invalid(
-            "DID version must increase on update".into(),
+            format!(
+                "DID version must increment exactly by 1 (expected {}, got {})",
+                original.version.saturating_add(1),
+                did_doc.version
+            ),
         ));
     }
 
-    // Updated timestamp must advance
+    // Re-validate cryptographic key structure and relationship roles even when
+    // a generic update path bypasses coordinator-specific key helpers.
+    if let Err(message) = validate_verification_method_set(&did_doc) {
+        return Ok(ValidateCallbackResult::Invalid(message.into()));
+    }
+
+    // Updated timestamp must advance and cannot be future-dated relative
+    // to the signed update action.
     if did_doc.updated <= original.updated {
         return Ok(ValidateCallbackResult::Invalid(
             "DID updated timestamp must advance".into(),
         ));
+    }
+    if let Err(message) = validate_timestamp_not_future(
+        "DID updated timestamp",
+        did_doc.updated,
+        action.timestamp,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
 
     // Must still have at least one verification method
@@ -308,16 +898,60 @@ fn validate_update_did_document(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Enforce one irreversible deactivation artifact per DID on the
+/// controller's source chain. This prevents conflicting deactivation reasons
+/// and timestamp selection from becoming a resolution ambiguity.
+fn validate_did_deactivation_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current: DidDeactivation = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "DID deactivation entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+
+    let entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::DidDeactivation)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior: DidDeactivation = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "DID deactivation history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior.did == current.did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A DID may only have one deactivation artifact".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Validate DID deactivation creation
 fn validate_create_did_deactivation(
     action: EntryCreationAction,
     deactivation: DidDeactivation,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Validate DID format
-    if !deactivation.did.starts_with("did:mycelix:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID must start with 'did:mycelix:'".into(),
-        ));
+    if let Err(message) = validate_mycelix_did_syntax(&deactivation.did) {
+        return Ok(ValidateCallbackResult::Invalid(message.into()));
     }
 
     // Bind the deactivation to its committer -- deactivate_did only ever
@@ -336,6 +970,14 @@ fn validate_create_did_deactivation(
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
+    if let Err(message) = validate_timestamp_not_future(
+        "DID deactivation timestamp",
+        deactivation.deactivated_at,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+
     // Validate reason provided
     if deactivation.reason.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -349,6 +991,232 @@ fn validate_create_did_deactivation(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn did_method_specific_syntax_is_strict() {
+        assert!(validate_mycelix_did_syntax("did:mycelix:uhCAkSELF").is_ok());
+        assert!(validate_mycelix_did_syntax("did:mycelix:").is_err());
+        assert!(validate_mycelix_did_syntax("did:mycelix:abc:def").is_err());
+        assert!(validate_mycelix_did_syntax("did:mycelix:abc#key").is_err());
+        assert!(validate_mycelix_did_syntax("did:mycelix:abc?versionId=1").is_err());
+        assert!(validate_mycelix_did_syntax("did:mycelix:abc def").is_err());
+        assert!(validate_mycelix_did_syntax("did:key:abc").is_err());
+        assert!(validate_mycelix_did_syntax("did:mycelix:abc%20def").is_err());
+    }
+
+    #[test]
+    fn did_method_specific_syntax_accepts_base64url_alphabet() {
+        assert!(validate_mycelix_did_syntax("did:mycelix:uhCAk-_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz").is_ok());
+    }
+
+
+    #[test]
+    fn assertion_method_requires_resolvable_signature_method() {
+        let method = VerificationMethod {
+            id: "did:mycelix:test#keys-1-multikey".into(),
+            type_: "Multikey".into(),
+            controller: "did:mycelix:test".into(),
+            public_key_multibase: "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".into(),
+            algorithm: None,
+        };
+        let mut document = DidDocument {
+            id: "did:mycelix:test".into(),
+            controller: AgentPubKey::from_raw_36(vec![7; 36]),
+            verification_method: vec![method],
+            authentication: vec![],
+            assertion_method: vec!["did:mycelix:test#keys-1-multikey".into()],
+            key_agreement: vec![],
+            service: vec![],
+            created: Timestamp::from_micros(1),
+            updated: Timestamp::from_micros(1),
+            version: 1,
+        };
+        assert!(validate_verification_method_set(&document).is_ok());
+        document.assertion_method = vec!["did:mycelix:test#missing".into()];
+        assert!(validate_verification_method_set(&document).is_err());
+    }
+
+    #[test]
+    fn verification_method_accepts_w3c_ed25519_multikey() {
+        let method = VerificationMethod {
+            id: "did:mycelix:test#keys-1-multikey".into(),
+            type_: "Multikey".into(),
+            controller: "did:mycelix:test".into(),
+            public_key_multibase: "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".into(),
+            algorithm: None,
+        };
+        assert_eq!(
+            validate_verification_method(&method, "did:mycelix:test").unwrap(),
+            AlgorithmId::Ed25519
+        );
+    }
+
+    #[test]
+    fn verification_method_accepts_canonical_ed25519_multibase() {
+        let did = "did:mycelix:uhCAkSELF";
+        let key = TaggedPublicKey::new(AlgorithmId::Ed25519, vec![0x42; 32])
+            .expect("valid Ed25519 fixture")
+            .to_multibase();
+        let method = VerificationMethod {
+            id: format!("{did}#keys-1"),
+            type_: AlgorithmId::Ed25519.did_verification_method_type().into(),
+            controller: did.into(),
+            public_key_multibase: key,
+            algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+        };
+        assert_eq!(
+            validate_verification_method(&method, did),
+            Ok(AlgorithmId::Ed25519)
+        );
+    }
+
+    #[test]
+    fn verification_method_rejects_malformed_multibase() {
+        let did = "did:mycelix:uhCAkSELF";
+        let method = VerificationMethod {
+            id: format!("{did}#keys-1"),
+            type_: AlgorithmId::Ed25519.did_verification_method_type().into(),
+            controller: did.into(),
+            public_key_multibase: "znot-a-valid-key".into(),
+            algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+        };
+        let error = validate_verification_method(&method, did)
+            .expect_err("malformed multibase must be rejected");
+        assert!(error.contains("Invalid verification method key"));
+    }
+
+    #[test]
+    fn verification_method_rejects_declared_algorithm_mismatch() {
+        let did = "did:mycelix:uhCAkSELF";
+        let key = TaggedPublicKey::new(AlgorithmId::Ed25519, vec![0x42; 32])
+            .expect("valid Ed25519 fixture")
+            .to_multibase();
+        let method = VerificationMethod {
+            id: format!("{did}#keys-1"),
+            type_: AlgorithmId::Ed25519.did_verification_method_type().into(),
+            controller: did.into(),
+            public_key_multibase: key,
+            algorithm: Some(AlgorithmId::MlDsa65.as_u16()),
+        };
+        let error = validate_verification_method(&method, did)
+            .expect_err("declared algorithm mismatch must be rejected");
+        assert!(error.contains("does not match multibase key"));
+    }
+
+    #[test]
+    fn verification_method_rejects_type_algorithm_mismatch() {
+        let did = "did:mycelix:uhCAkSELF";
+        let key = TaggedPublicKey::new(AlgorithmId::Ed25519, vec![0x42; 32])
+            .expect("valid Ed25519 fixture")
+            .to_multibase();
+        let method = VerificationMethod {
+            id: format!("{did}#keys-1"),
+            type_: "MlDsa65VerificationKey2024".into(),
+            controller: did.into(),
+            public_key_multibase: key,
+            algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+        };
+        let error = validate_verification_method(&method, did)
+            .expect_err("type/algorithm mismatch must be rejected");
+        assert!(error.contains("type does not match key algorithm"));
+    }
+
+    #[test]
+    fn verification_relationship_rejects_kem_as_authentication() {
+        let did = "did:mycelix:uhCAkSELF";
+        let key = TaggedPublicKey::new(AlgorithmId::MlKem768, vec![0x42; 1184])
+            .expect("valid ML-KEM fixture")
+            .to_multibase();
+        let document = DidDocument {
+            id: did.into(),
+            controller: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            verification_method: vec![VerificationMethod {
+                id: format!("{did}#kem-1"),
+                type_: AlgorithmId::MlKem768.did_verification_method_type().into(),
+                controller: did.into(),
+                public_key_multibase: key,
+                algorithm: Some(AlgorithmId::MlKem768.as_u16()),
+            }],
+            authentication: vec![format!("{did}#kem-1")],
+            assertion_method: vec![],
+            key_agreement: vec![],
+            service: vec![],
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(1),
+            version: 1,
+        };
+        let error = validate_verification_method_set(&document)
+            .expect_err("KEM cannot be used for authentication");
+        assert!(error.contains("signature algorithm"));
+    }
+
+    #[test]
+    fn verification_relationship_rejects_signing_key_as_key_agreement() {
+        let did = "did:mycelix:uhCAkSELF";
+        let key = TaggedPublicKey::new(AlgorithmId::Ed25519, vec![0x42; 32])
+            .expect("valid Ed25519 fixture")
+            .to_multibase();
+        let document = DidDocument {
+            id: did.into(),
+            controller: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            verification_method: vec![VerificationMethod {
+                id: format!("{did}#keys-1"),
+                type_: AlgorithmId::Ed25519.did_verification_method_type().into(),
+                controller: did.into(),
+                public_key_multibase: key,
+                algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+            }],
+            authentication: vec![format!("{did}#keys-1")],
+            assertion_method: vec![],
+            key_agreement: vec![format!("{did}#keys-1")],
+            service: vec![],
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(1),
+            version: 1,
+        };
+        let error = validate_verification_method_set(&document)
+            .expect_err("signing key cannot be used for keyAgreement");
+        assert!(error.contains("ML-KEM algorithm"));
+    }
+
+    #[test]
+    fn latest_did_action_selector_uses_source_chain_sequence() {
+        let first = ActionHash::from_raw_36(vec![1; 36]);
+        let second = ActionHash::from_raw_36(vec![2; 36]);
+
+        assert_eq!(
+            select_latest_action_hash(vec![(4, first.clone()), (5, second.clone())]),
+            Some(second.clone())
+        );
+        assert_eq!(
+            select_latest_action_hash(vec![(5, second.clone()), (4, first)]),
+            Some(second)
+        );
+        assert_eq!(select_latest_action_hash(Vec::new()), None);
+    }
+
+    #[test]
+    fn security_timestamps_cannot_be_future_dated() {
+        let action_timestamp = Timestamp::from_micros(1_000_000);
+        assert!(validate_timestamp_not_future(
+            "DID created timestamp",
+            Timestamp::from_micros(1_000_000),
+            action_timestamp,
+        )
+        .is_ok());
+        assert!(validate_timestamp_not_future(
+            "DID updated timestamp",
+            Timestamp::from_micros(1_000_001),
+            action_timestamp,
+        )
+        .is_err());
+        assert!(validate_timestamp_not_future(
+            "DID deactivation timestamp",
+            Timestamp::from_micros(999_999),
+            action_timestamp,
+        )
+        .is_ok());
+    }
 
     #[test]
     fn did_id_must_match_committing_agent() {
@@ -552,8 +1420,7 @@ mod tests {
                     did,
                     reason: String::new(),
                     deactivated_at: Timestamp::from_micros(0),
-                };
-                prop_assert!(deactivation.reason.is_empty());
+                };                prop_assert!(deactivation.reason.is_empty());
             }
         }
     }
@@ -648,6 +1515,46 @@ mod tests {
             !json.contains("\"service_endpoint\""),
             "Should NOT use snake_case"
         );
+    }
+
+    // =========================================================================
+    // Canonical AgentToDid link binding (P0)
+    // =========================================================================
+
+    #[test]
+    fn forged_agent_to_did_link_is_rejected_before_dht_lookup() {
+        let victim = AgentPubKey::from_raw_36(vec![0u8; 36]);
+        let attacker = AgentPubKey::from_raw_36(vec![1u8; 36]);
+
+        let link = CreateLink {
+            author: attacker,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![2u8; 36]),
+            base_address: victim.clone().into(),
+            target_address: ActionHash::from_raw_36(vec![3u8; 36]).into(),
+            zome_index: ZomeIndex(0),
+            link_type: LinkType::new(0),
+            tag: ().into(),
+            weight: Default::default(),
+        };
+
+        let result = validate_agent_to_did_link(
+            &link.base_address,
+            &link.target_address,
+            &link,
+        )
+        .expect("link validation should return a callback result");
+
+        match result {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(
+                    message.contains("authored by the base agent"),
+                    "expected owner-binding error, got: {message}"
+                );
+            }
+            other => panic!("forged AgentToDid link must be rejected, got {other:?}"),
+        }
     }
 
     // =========================================================================

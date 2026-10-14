@@ -67,7 +67,7 @@ pub fn MfaPage() -> impl IntoView {
                         <h2>{format!("Enrolled Factors ({})", active_count)}</h2>
                         <div class="factor-list">
                             {state.factors.iter().map(|factor| {
-                                let strength = factor.visual_strength(now);
+                                let strength = factor.visual_strength();
                                 let strength_class = if strength > 70.0 { "strength-high" }
                                     else if strength > 30.0 { "strength-medium" }
                                     else { "strength-low" };

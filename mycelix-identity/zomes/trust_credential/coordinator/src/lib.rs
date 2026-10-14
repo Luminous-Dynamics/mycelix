@@ -32,6 +32,50 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     Ok(EntryHash::from_raw_32(hash.to_vec()))
 }
 
+/// Require a DID to be active before authorizing a new trust/attestation action.
+fn verify_did_active(did: &str, operation: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(io) => {
+            let active: bool = io
+                .decode()
+                .map_err(|e| wasm_error!(WasmErrorInner::Serialize(e)))?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "DID is not active; refusing {operation}"
+                ))))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state authorization failed for {operation}")
+        ))),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "DID active-state verification failed for {operation} (network error: {err})"
+        )))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed for {operation} (countersigning: {err})")
+        ))),
+        ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed for {operation} (authentication)")
+        ))),
+    }
+}
+
+/// Require the issuer DID to be active before creating new trust authority.
+fn verify_issuer_did_active(did: &str) -> ExternResult<()> {
+    verify_did_active(did, "trust-credential issuance")
+}
+
+
 /// Issue a new trust credential
 ///
 /// Creates a trust credential with K-Vector commitment and ZKP proof.
@@ -67,6 +111,8 @@ pub fn issue_trust_credential(input: IssueTrustCredentialInput) -> ExternResult<
             "Only the issuer can issue trust credentials".into()
         )));
     }
+
+    verify_issuer_did_active(&input.issuer_did)?;
 
     // Sybil resistance: rate limit credential issuance per issuer.
     // An issuer can create at most one credential per subject per hour.
@@ -340,20 +386,43 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         )));
     }
     // Always the committing agent, never caller-supplied -- otherwise any
-    // agent could present a credential claiming to be its subject (P0
-    // author-binding gap; integrity validation now enforces this too, see
-    // trust_credential integrity's validate_create_presentation).
+    // agent could present a credential claiming to be its subject.
     let subject_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
+
+    verify_did_active(&subject_did, "trust-presentation creation")?;
+
+    // Resolve the source credential to one concrete action. A string credential
+    // ID alone is ambiguous across legacy data; multiple matches fail closed.
+    let mut matching: Vec<Record> = Vec::new();
+    for record in get_subject_credentials(subject_did.clone())? {
+        if let Some(credential) = record
+            .entry()
+            .to_app_option::<TrustCredential>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        {
+            if credential.id == input.credential_id {
+                matching.push(record);
+            }
+        }
+    }
+
+    if matching.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Credential ID is ambiguous or not available to this subject; refusing presentation".into()
+        )));
+    }
+    let credential_action_hash = matching[0].action_address().clone();
 
     let now = sys_time()?;
     let pres_id = format!("pres:{}:{}", subject_did, now.as_micros());
 
     // Generate a nonce for replay protection
-    let nonce = now.as_micros().to_le_bytes().to_vec();
+    let nonce = random_bytes(16)?.into_vec();
 
     let presentation = TrustPresentation {
         id: pres_id.clone(),
         credential_id: input.credential_id.clone(),
+        credential_action_hash: Some(credential_action_hash),
         subject_did,
         disclosed_tier: input.disclosed_tier,
         disclosed_range: input.disclose_range.then_some(input.trust_range),
@@ -430,6 +499,8 @@ pub fn request_attestation(input: RequestAttestationInput) -> ExternResult<Recor
     // requester (P0 author-binding gap; integrity validation now enforces
     // this too, see trust_credential integrity's validate_create_request).
     let requester_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
+
+    verify_did_active(&requester_did, "attestation request creation")?;
 
     let now = sys_time()?;
     let req_id = format!(
@@ -569,6 +640,8 @@ pub fn fulfill_attestation(
             "Only the attestation subject can fulfill the request".into()
         )));
     }
+
+    verify_did_active(&caller_did, "attestation fulfillment")?;
 
     // Check request hasn't expired
     if now > req.expires_at {

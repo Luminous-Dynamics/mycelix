@@ -219,7 +219,8 @@
         "flake-utils": "flake-utils",
         "holonix": "holonix",
         "nixpkgs": "nixpkgs",
-        "rust-overlay": "rust-overlay_2"
+        "rust-overlay": "rust-overlay_2",
+        "repoRoot": "repoRoot"
       }
     },
     "rust-overlay": {
@@ -277,6 +278,18 @@
         "repo": "default",
         "type": "github"
       }
+    },
+    "repoRoot": {
+      "flake": false,
+      "locked": {
+        "path": "..",
+        "type": "path"
+      },
+      "original": {
+        "path": "..",
+        "type": "path"
+      },
+      "parent": []
     }
   },
   "root": "root",

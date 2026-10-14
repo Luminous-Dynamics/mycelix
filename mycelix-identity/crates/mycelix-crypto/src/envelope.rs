@@ -53,6 +53,56 @@ impl TaggedPublicKey {
         format!("z{}", encoded)
     }
 
+    /// Decode from a multibase string, requiring a recognized multicodec prefix.
+    ///
+    /// Unlike from_multibase(), this method intentionally rejects the legacy
+    /// raw-32-byte Ed25519 fallback. Use this for protocol boundaries that
+    /// require algorithm-explicit key material.
+    pub fn from_multibase_strict(s: &str) -> Result<Self, CryptoError> {
+        if s.is_empty() {
+            return Err(CryptoError::InvalidMultibase("empty string".into()));
+        }
+        if !s.starts_with('z') {
+            return Err(CryptoError::InvalidMultibase(format!(
+                "expected 'z' (base58btc) prefix, got '{}'",
+                s.chars().next().unwrap_or('?')
+            )));
+        }
+        let encoded = &s[1..];
+        if encoded.is_empty() {
+            return Err(CryptoError::InvalidMultibase("no data after prefix".into()));
+        }
+        let decoded = bs58::decode(encoded)
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_vec()
+            .map_err(|e| CryptoError::Base58Decode(e.to_string()))?;
+
+        if decoded.len() < 2 {
+            return Err(CryptoError::InvalidMultibase(
+                "multibase key is missing a multicodec prefix".into(),
+            ));
+        }
+
+        let prefix = [decoded[0], decoded[1]];
+        let algorithm = AlgorithmId::from_multicodec_prefix(prefix).ok_or_else(|| {
+            CryptoError::InvalidMultibase("unrecognized multicodec prefix".into())
+        })?;
+        let key_bytes = decoded[2..].to_vec();
+        let expected = algorithm.public_key_size();
+        if expected == 0 || key_bytes.len() != expected {
+            return Err(CryptoError::InvalidKeyLength {
+                algorithm: algorithm.did_verification_method_type(),
+                expected,
+                actual: key_bytes.len(),
+            });
+        }
+
+        Ok(Self {
+            algorithm,
+            key_bytes,
+        })
+    }
+
     /// Decode from a multibase string.
     ///
     /// Accepts:
@@ -341,6 +391,16 @@ mod tests {
         let decoded = TaggedPublicKey::from_multibase(&mb).unwrap();
         assert_eq!(decoded.algorithm, AlgorithmId::Ed25519);
         assert_eq!(decoded.key_bytes, vec![0x42; 32]);
+    }
+
+    #[test]
+    fn tagged_key_strict_rejects_legacy_raw_32_bytes() {
+        let raw = vec![0x42; 32];
+        let encoded = bs58::encode(&raw)
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string();
+        let multibase = format!("z{}", encoded);
+        assert!(TaggedPublicKey::from_multibase_strict(&multibase).is_err());
     }
 
     #[test]

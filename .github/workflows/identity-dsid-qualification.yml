@@ -1,0 +1,521 @@
+name: Identity DSID Qualification
+
+on:
+  push:
+    branches:
+      - feat/sovereign-identity-live-bootstrap
+    paths:
+      - 'mycelix-identity/**'
+      - 'docs/identity/did-mycelix-*.json'
+      - 'docs/identity/did-mycelix-*.md'
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/identity-dsid-qualification.yml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'mycelix-identity/**'
+      - 'docs/identity/did-mycelix-*.json'
+      - 'docs/identity/did-mycelix-*.md'
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/identity-dsid-qualification.yml'
+  workflow_dispatch:
+
+concurrency:
+  # One branch has one authoritative qualification run at a time. Exact-head
+  # checkout below prevents stale canceled runs from becoming evidence for a
+  # newer commit while also collapsing push + PR duplicates.
+  group: identity-dsid-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  DSID_INTEROP_FIXTURE_DIR: ${{ github.workspace }}/interop-fixtures
+  DSID_QUALIFIED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  DSID_QUALIFIED_HEAD_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
+
+jobs:
+  qualify:
+    name: DSID deterministic qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          ref: ${{ env.DSID_QUALIFIED_HEAD_SHA }}
+
+      - name: Assert exact qualified head checkout
+        run: |
+          checked_out="$(git rev-parse HEAD)"
+          test "$checked_out" = "$DSID_QUALIFIED_HEAD_SHA"
+          echo "Qualified head: $DSID_QUALIFIED_HEAD_SHA"
+          echo "Checked out:    $checked_out"
+
+      - name: Validate DID conformance vectors
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path("docs/identity/did-mycelix-conformance-vectors-v0.1.json")
+          corpus = json.loads(path.read_text())
+          assert corpus["schema_version"] == 1
+          assert corpus["method"] == "mycelix"
+
+          expected_ids = {
+              "did_vectors": [
+                  "DID-001", "DID-002", "DID-003", "DID-004",
+                  "DID-005", "DID-006", "DID-007", "DID-008",
+              ],
+              "resolution_vectors": ["RES-001", "RES-002", "RES-003", "RES-004"],
+              "wire_vectors": [
+                  "WIRE-001", "WIRE-002", "WIRE-003",
+                  "WIRE-004", "WIRE-005", "WIRE-006",
+              ],
+              "verification_method_vectors": ["VM-001", "VM-003", "VM-002"],
+              "version_vectors": ["VER-001", "VER-002", "VER-003"],
+              "recovery_vectors": [
+                  "REC-001", "REC-002", "REC-003", "REC-004", "REC-005",
+                  "REC-006", "REC-007", "REC-008", "REC-009", "REC-010",
+                  "REC-011", "REC-012", "REC-013", "RES-006", "RES-005",
+              ],
+              "authority_vectors": ["AUTH-001", "AUTH-002", "AUTH-003", "AUTH-004", "AUTH-005"],
+              "deployment_vectors": ["DEP-001", "DEP-002", "DEP-003"],
+          }
+
+          for section, ids in expected_ids.items():
+              rows = corpus[section]
+              assert [row["id"] for row in rows] == ids, (
+                  f"conformance corpus drift in {section}: "
+                  f"expected exact ordered IDs, got {[row['id'] for row in rows]}"
+              )
+              assert len(rows) == len(ids)
+              assert all(row["id"] for row in rows)
+
+          assert corpus["identifier_scope"]["mode"] == "canonical-production-identity-dna"
+          assert corpus["did_vectors"][0]["expected"] == "accept"
+          assert corpus["did_vectors"][0]["input"].startswith("did:mycelix:")
+          unsupported = next(row for row in corpus["did_vectors"] if row["id"] == "DID-008")
+          assert unsupported["error"] == "METHOD_NOT_SUPPORTED"
+          assert corpus["wire_vectors"][0]["wire_name"] == "verificationMethod"
+          assert corpus["verification_method_vectors"][0]["multicodec"] == "0xed01"
+          assert corpus["version_vectors"][0]["transition"] == "1->2"
+          assert corpus["recovery_vectors"][2]["authority"] == "DHT-derived"
+          PY
+
+      - name: Hash protocol inputs
+        run: |
+          sha256sum docs/identity/did-mycelix-method-v0.1.md > did-mycelix-method-v0.1.sha256
+          sha256sum docs/identity/did-mycelix-conformance-vectors-v0.1.json > did-mycelix-conformance-v0.1.sha256
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Require Nix 2.26+ for parent-tree flake inputs
+        run: |
+          nix --version
+          nix_version="$(nix --version | awk '{print $3}')"
+          nix_major="${nix_version%%.*}"
+          nix_minor="${nix_version#*.}"
+          nix_minor="${nix_minor%%.*}"
+          if (( nix_major < 2 || (nix_major == 2 && nix_minor < 26) )); then
+            echo "Nix $nix_version is too old: parent-tree relative flake inputs require Nix 2.26+."
+            exit 1
+          fi
+
+      - name: Capture qualification runtime versions
+        run: |
+          nix_version="$(nix --version | awk '{print $3}')"
+          cd mycelix-identity
+          node_version="$(nix develop --no-update-lock-file --no-write-lock-file .#ci --command node --version)"
+          npm_version="$(nix develop --no-update-lock-file --no-write-lock-file .#ci --command npm --version)"
+          cargo_version="$(nix develop --no-update-lock-file --no-write-lock-file .#ci --command cargo --version)"
+          hc_version="$(nix develop --no-update-lock-file --no-write-lock-file .#ci --command hc --version)"
+          printf '%s\n' "$nix_version" > "$GITHUB_WORKSPACE/dsid-nix-version.txt"
+          printf '%s\n' "$node_version" > "$GITHUB_WORKSPACE/dsid-node-version.txt"
+          printf '%s\n' "$npm_version" > "$GITHUB_WORKSPACE/dsid-npm-version.txt"
+          printf '%s\n' "$cargo_version" > "$GITHUB_WORKSPACE/dsid-cargo-version.txt"
+          printf '%s\n' "$hc_version" > "$GITHUB_WORKSPACE/dsid-hc-version.txt"
+          sha256sum "$GITHUB_WORKSPACE/mycelix-identity/flake.lock" > "$GITHUB_WORKSPACE/mycelix-identity/flake.lock.sha256"
+          sha256sum "$GITHUB_WORKSPACE/mycelix-identity/Cargo.lock" > "$GITHUB_WORKSPACE/mycelix-identity/Cargo.lock.sha256"
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-identity
+            mycelix-identity/tests
+            mycelix-identity/apps/leptos
+            crates/mycelix-leptos-core
+            crates/mycelix-leptos-client
+
+      - name: Build Identity zomes
+        run: |
+          cd mycelix-identity
+          nix develop --no-update-lock-file --no-write-lock-file .#ci --command \
+            cargo build --locked --release --target wasm32-unknown-unknown --workspace
+
+      - name: Assert qualified lockfiles are unchanged
+        run: |
+          test "$(git diff --numstat -- mycelix-identity/flake.lock mycelix-identity/Cargo.lock | wc -l)" -eq 0
+          git diff --check -- mycelix-identity/flake.lock mycelix-identity/Cargo.lock
+          echo "Qualified Nix and Cargo lockfiles remained unchanged."
+
+      - name: Test Identity integrity invariants
+        run: |
+          cd mycelix-identity
+          cargo test --locked -p did_registry_integrity --lib
+          cargo test --locked -p mfa_integrity --lib
+          cargo test --locked -p recovery_integrity --lib
+          cargo test --locked -p trust_credential_integrity --lib
+          cargo test --locked -p education_integrity --lib
+          cargo test --locked -p credential_schema_integrity --lib
+          cargo test --locked -p name_registry_integrity --lib
+          cargo test --locked -p revocation_integrity --lib
+          cargo test --locked -p web_of_trust_integrity --lib
+          cargo test --locked -p verifiable_credential_integrity --lib
+          cargo test --locked -p verifiable_credential_coordinator --lib
+
+      - name: Pack Identity DNA
+        run: |
+          cd mycelix-identity
+          nix develop --no-update-lock-file --no-write-lock-file .#ci --command hc dna pack dna/
+          test -s dna/mycelix_identity_dna.dna
+          sha256sum dna/mycelix_identity_dna.dna > "$GITHUB_WORKSPACE/dsid-dna.sha256"
+          cat "$GITHUB_WORKSPACE/dsid-dna.sha256"
+
+      - name: Run deterministic DSID laboratory
+        run: |
+          set -o pipefail
+          cd mycelix-identity/tests
+          cargo_args=(--test dsid_lifecycle_lab)
+          if [[ -f Cargo.lock ]]; then
+            cargo_args+=(--locked)
+          fi
+          nix develop --no-update-lock-file --no-write-lock-file ../.#ci --command \
+            cargo test "${cargo_args[@]}" \
+              -- --include-ignored --nocapture --test-threads=1 \
+            | tee "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt"
+
+      - name: Extract and validate evidence
+        run: |
+          grep '^DSID_EVIDENCE ' dsid-lifecycle-evidence.txt | cut -d ' ' -f2- \
+            > dsid-lifecycle-evidence.jsonl
+          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 83
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          rows = [
+              json.loads(line)
+              for line in Path("dsid-lifecycle-evidence.jsonl").read_text().splitlines()
+          ]
+
+          expected_ids = {
+              "DSID-001",
+              "DSID-002",
+              "DSID-003",
+              "DSID-004",
+              "DSID-005",
+              "DSID-006",
+              "DSID-007",
+              "DSID-008",
+              "DSID-009",
+              "DSID-010",
+              "DSID-011",
+              "DSID-012",
+              "DSID-013",
+              "DSID-014",
+              "DSID-015",
+              "DSID-016",
+              "DSID-017",
+              "DSID-018",
+              "DSID-019",
+              "DSID-020",
+              "DSID-021",
+              "DSID-022",
+              "DSID-023",
+              "DSID-024",
+              "DSID-025",
+              "DSID-026",
+              "DSID-027",
+              "DSID-028",
+              "DSID-029",
+              "DSID-030",
+              "DSID-031",
+              "DSID-032",
+              "DSID-033",
+              "DSID-034",
+              "DSID-035",
+              "DSID-036",
+              "DSID-037",
+              "DSID-038",
+              "DSID-039",
+              "DSID-040",
+              "DSID-041",
+              "DSID-042",
+              "DSID-043",
+              "DSID-044",
+              "DSID-045",
+              "DSID-046",
+              "DSID-047",
+              "DSID-048",
+              "DSID-049",
+              "DSID-050",
+              "DSID-051",
+              "DSID-052",
+              "DSID-053",
+              "DSID-054",
+              "DSID-055",
+              "DSID-056",
+              "DSID-057",
+              "DSID-058",
+              "DSID-059",
+              "DSID-060",
+              "DSID-061",
+              "DSID-062",
+              "DSID-063",
+              "DSID-064",
+              "DSID-065",
+              "DSID-066",
+              "DSID-067",
+              "DSID-068",
+              "DSID-069",
+              "DSID-070",
+              "DSID-071",
+              "DSID-072",
+              "DSID-073",
+              "DSID-074",
+              "DSID-075",
+              "DSID-076",
+              "DSID-077",
+              "DSID-078",
+              "DSID-079",
+              "DSID-080",
+              "DSID-081",
+              "DSID-082",
+              "DSID-083",
+          }
+
+          assert len(rows) == len(expected_ids)
+          assert {row["scenario_id"] for row in rows} == expected_ids
+          assert all(row["schema_version"] == 1 for row in rows)
+          assert all(row["pass"] is True for row in rows)
+          assert all(row["dna_hash"] for row in rows)
+          assert len({row["dna_hash"] for row in rows}) == 1
+          assert all(row["commit_sha"] for row in rows)
+          assert len({row["commit_sha"] for row in rows}) == 1
+          assert all(row["agents"] for row in rows)
+          assert all(row["evidence_scope"] in {"record-bound", "absence-bound"} for row in rows)
+
+          for row in rows:
+              if row["evidence_scope"] == "record-bound":
+                  assert row["action_hashes"], f"record-bound scenario missing action hashes: {row['scenario_id']}"
+                  assert row["entry_hashes"], f"record-bound scenario missing entry hashes: {row['scenario_id']}"
+              else:
+                  assert not row["action_hashes"], f"absence-bound scenario has action hashes: {row['scenario_id']}"
+                  assert not row["entry_hashes"], f"absence-bound scenario has entry hashes: {row['scenario_id']}"
+
+          # Evidence order is deliberately irrelevant; the canonical scenario
+          # set is the sorted set of IDs, which is recorded in the manifest.
+          scenario_set = "\n".join(sorted(expected_ids)) + "\n"
+          Path("dsid-scenario-set.txt").write_text(scenario_set)
+
+          fixture_path = Path(os.environ["DSID_INTEROP_FIXTURE_DIR"]) / "mycelix-eddsa-jcs-interop.json"
+          fixture = json.loads(fixture_path.read_text())
+          assert fixture["qualifiedHeadCommit"] == os.environ["DSID_QUALIFIED_HEAD_SHA"]
+          assert fixture["schema_version"] == 1
+          assert fixture["cryptosuite"] == "eddsa-jcs-2022"
+          PY
+
+          sha256sum dsid-lifecycle-evidence.jsonl > dsid-lifecycle-evidence.sha256
+          sha256sum dsid-scenario-set.txt > dsid-scenario-set.sha256
+
+      - name: Run independent Digital Bazaar verification
+        run: |
+          mkdir -p "$RUNNER_TEMP/mycelix-interop"
+          cd "$RUNNER_TEMP/mycelix-interop"
+          nix develop --no-update-lock-file --no-write-lock-file "$GITHUB_WORKSPACE/mycelix-identity#ci" --command npm init -y >/dev/null 2>&1
+          nix develop --no-update-lock-file --no-write-lock-file "$GITHUB_WORKSPACE/mycelix-identity#ci" --command npm install --no-save \
+            @digitalbazaar/vc@7.3.0 \
+            @digitalbazaar/data-integrity@2.5.0 \
+            @digitalbazaar/eddsa-jcs-2022-cryptosuite@1.0.0 \
+            @digitalbazaar/security-document-loader@3.2.0 \
+            @digitalbazaar/credentials-context@3.2.0 \
+            @digitalbazaar/data-integrity-context@2.0.1 \
+            @digitalbazaar/multikey-context@2.0.1 \
+            jsonld-signatures@11.6.0 \
+            --ignore-scripts
+
+          nix develop --no-update-lock-file --no-write-lock-file "$GITHUB_WORKSPACE/mycelix-identity#ci" --command node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const pkg = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const expected = {
+            '@digitalbazaar/vc': '7.3.0',
+            '@digitalbazaar/data-integrity': '2.5.0',
+            '@digitalbazaar/eddsa-jcs-2022-cryptosuite': '1.0.0',
+            '@digitalbazaar/security-document-loader': '3.2.0',
+            '@digitalbazaar/credentials-context': '3.2.0',
+            '@digitalbazaar/data-integrity-context': '2.0.1',
+            '@digitalbazaar/multikey-context': '2.0.1',
+            'jsonld-signatures': '11.6.0',
+          };
+          for(const [name, version] of Object.entries(expected)) {
+            const key = 'node_modules/' + name;
+            const actual = pkg.packages?.[key]?.version;
+            if(actual !== version) {
+              throw new Error(name + ' resolved to ' + (actual ?? 'missing') + ', expected ' + version);
+            }
+          }
+          console.log('Pinned Digital Bazaar dependency set verified.');
+          NODE
+
+          nix develop --no-update-lock-file --no-write-lock-file "$GITHUB_WORKSPACE/mycelix-identity#ci" --command node "$GITHUB_WORKSPACE/mycelix-identity/tests/interop_verify.mjs" \
+            "$GITHUB_WORKSPACE/interop-fixtures/mycelix-eddsa-jcs-interop.json" \
+            | tee "$GITHUB_WORKSPACE/dsid-independent-interop.json"
+          nix develop --no-update-lock-file --no-write-lock-file "$GITHUB_WORKSPACE/mycelix-identity#ci" --command npm list --json --depth=0 > "$GITHUB_WORKSPACE/dsid-independent-interop-packages.json"
+          cp package-lock.json "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.json"
+          sha256sum "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.json"             > "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.sha256"
+          sha256sum "$GITHUB_WORKSPACE/interop-fixtures/mycelix-eddsa-jcs-interop.json" > "$GITHUB_WORKSPACE/dsid-independent-interop-fixture.sha256"
+
+      - name: Build qualification manifest
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          def sha256_file(path):
+              return Path(path).read_text().split()[0]
+
+          def text_file(path):
+              return Path(path).read_text().strip()
+
+          rows = [
+              json.loads(line)
+              for line in Path("dsid-lifecycle-evidence.jsonl").read_text().splitlines()
+          ]
+
+          manifest = {
+              "schema_version": 1,
+              "qualification": "identity-dsid",
+              "workflow_event_commit": os.environ["GITHUB_SHA"],
+              "workflow_event_ref": os.environ["GITHUB_REF"],
+              "execution_commit": os.environ["DSID_QUALIFIED_HEAD_SHA"],
+              "execution_ref": os.environ["DSID_QUALIFIED_HEAD_REF"],
+              "qualified_head_commit": os.environ["DSID_QUALIFIED_HEAD_SHA"],
+              "qualified_head_ref": os.environ["DSID_QUALIFIED_HEAD_REF"],
+              "event": os.environ["GITHUB_EVENT_NAME"],
+              "dna_bundle_sha256": sha256_file("dsid-dna.sha256"),
+              "evidence_sha256": sha256_file("dsid-lifecycle-evidence.sha256"),
+              "scenario_set_sha256": sha256_file("dsid-scenario-set.sha256"),
+              "method_profile_sha256": sha256_file("did-mycelix-method-v0.1.sha256"),
+              "conformance_vectors_sha256": sha256_file("did-mycelix-conformance-v0.1.sha256"),
+              "interop_package_lock_sha256": sha256_file("dsid-independent-interop-package-lock.sha256"),
+              "interop_fixture_sha256": sha256_file("dsid-independent-interop-fixture.sha256"),
+              "flake_lock_sha256": sha256_file("mycelix-identity/flake.lock.sha256"),
+              "cargo_lock_sha256": sha256_file("mycelix-identity/Cargo.lock.sha256"),
+              "nix_version": text_file("dsid-nix-version.txt"),
+              "node_version": text_file("dsid-node-version.txt"),
+              "npm_version": text_file("dsid-npm-version.txt"),
+              "cargo_version": text_file("dsid-cargo-version.txt"),
+              "hc_version": text_file("dsid-hc-version.txt"),
+              "scenario_ids": sorted(row["scenario_id"] for row in rows),
+              "evidence_schema_versions": sorted({row["schema_version"] for row in rows}),
+              "dna_hashes": sorted({row["dna_hash"] for row in rows}),
+              "evidence_commit_shas": sorted({row["commit_sha"] for row in rows}),
+          }
+
+          assert manifest["workflow_event_commit"]
+          assert manifest["workflow_event_ref"]
+          assert manifest["execution_commit"]
+          assert manifest["qualified_head_commit"]
+          assert manifest["execution_commit"] == manifest["qualified_head_commit"]
+          assert manifest["execution_ref"] == manifest["qualified_head_ref"]
+          assert len(manifest["scenario_ids"]) == len(rows)
+          assert manifest["scenario_ids"] == sorted(row["scenario_id"] for row in rows)
+          assert manifest["evidence_schema_versions"] == [1]
+          assert len(manifest["dna_hashes"]) == 1
+          assert len(manifest["evidence_commit_shas"]) == 1
+          assert manifest["evidence_commit_shas"] == [manifest["execution_commit"]]
+
+          Path("identity-dsid-qualification-manifest.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+          )
+          PY
+
+          sha256sum identity-dsid-qualification-manifest.json > identity-dsid-qualification-manifest.sha256
+
+      - name: Upload qualification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-dsid-qualification-${{ github.event.pull_request.head.sha || github.sha }}
+          if-no-files-found: error
+          path: |
+            dsid-lifecycle-evidence.txt
+            dsid-lifecycle-evidence.jsonl
+            dsid-lifecycle-evidence.sha256
+            dsid-scenario-set.txt
+            dsid-scenario-set.sha256
+            dsid-dna.sha256
+            docs/identity/did-mycelix-method-v0.1.md
+            did-mycelix-method-v0.1.sha256
+            docs/identity/did-mycelix-conformance-vectors-v0.1.json
+            did-mycelix-conformance-v0.1.sha256
+            identity-dsid-qualification-manifest.json
+            identity-dsid-qualification-manifest.sha256
+            mycelix-identity/dna/mycelix_identity_dna.dna
+            interop-fixtures/mycelix-eddsa-jcs-interop.json
+            dsid-independent-interop.json
+            dsid-independent-interop-packages.json
+            dsid-independent-interop-package-lock.json
+            dsid-independent-interop-package-lock.sha256
+            dsid-independent-interop-fixture.sha256
+            dsid-nix-version.txt
+            dsid-node-version.txt
+            dsid-npm-version.txt
+            dsid-cargo-version.txt
+            dsid-hc-version.txt
+            mycelix-identity/flake.lock.sha256
+            mycelix-identity/Cargo.lock.sha256
+      - name: Check Identity UI in pinned CI environment
+        run: |
+          cd mycelix-identity
+          cargo_args=(
+            --manifest-path apps/leptos/Cargo.toml
+            --target wasm32-unknown-unknown
+          )
+          if [[ -f apps/leptos/Cargo.lock ]]; then
+            cargo_args+=(--locked)
+          fi
+          nix develop --no-update-lock-file --no-write-lock-file .#ci --command \
+            cargo check "${cargo_args[@]}"
+
+      - name: Remove only generated excluded-workspace lockfiles
+        run: |
+          for path in mycelix-identity/tests/Cargo.lock mycelix-identity/apps/leptos/Cargo.lock; do
+            if ! git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
+              rm -f "$path"
+            fi
+          done
+
+      - name: Assert qualification workspace has no tracked mutation
+        run: |
+          git diff --check
+          git diff --exit-code
+          git diff --cached --exit-code
+          unexpected_tracked="$(git status --porcelain | awk '$1 != "??" {print}')"
+          test -z "$unexpected_tracked"
+

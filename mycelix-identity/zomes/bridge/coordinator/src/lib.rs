@@ -16,6 +16,53 @@ use mycelix_bridge_common::consciousness_profile::{
 };
 use mycelix_bridge_common::{RATE_LIMIT_WINDOW_SECS, check_rate_limit_count};
 use mycelix_zome_helpers as _;
+fn verify_did_active(did: &str, operation: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(result) => {
+            let active = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode DID active state for {operation}: {e:?}"
+                )))
+            })?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "DID is not active; refusing {operation}"
+                ))))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _)
+        | ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state authorization failed for {operation}"
+            ))
+        )),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed for {operation}: {err}")
+        ))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state verification failed for {operation} (countersigning: {err})"
+            ))
+        )),
+    }
+}
+
+fn verify_issuer_active(operation: &str) -> ExternResult<()> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    verify_did_active(&format!("did:mycelix:{}", caller), operation)
+}
+
+
 
 /// Substrate registration metadata.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -152,6 +199,7 @@ pub struct GrantSubstrateAccessInput {
 pub fn grant_external_substrate_access(
     input: GrantSubstrateAccessInput,
 ) -> ExternResult<ActionHash> {
+    verify_issuer_active("external substrate capability grant")?;
     let mut functions: HashSet<(ZomeName, FunctionName)> = HashSet::new();
     functions.insert((zome_info()?.name, "verify_tier_remote".into()));
     functions.insert((zome_info()?.name, "get_agent_profile_remote".into()));
@@ -181,7 +229,9 @@ pub struct VerifyTierInput {
 /// Targeted by satellite hApps via call_remote.
 #[hdk_extern]
 pub fn verify_tier_remote(input: VerifyTierInput) -> ExternResult<ConsciousnessTier> {
+    verify_issuer_active("remote tier verification")?;
     let did = format!("did:mycelix:{}", input.agent);
+    verify_did_active(&did, "remote tier target verification")?;
     let identity_score = 1.0;
     let reputation_score = get_aggregated_reputation(&did)?;
     let community_score = get_community_trust_score(&did)?;
@@ -296,7 +346,9 @@ fn get_predicted_entropy(_did: &str) -> ExternResult<f64> {
 /// Remote-callable wrapper to fetch an agent's full profile.
 #[hdk_extern]
 pub fn get_agent_profile_remote(agent: AgentPubKey) -> ExternResult<ConsciousnessProfile> {
+    verify_issuer_active("remote profile query")?;
     let did = format!("did:mycelix:{}", agent);
+    verify_did_active(&did, "remote profile target query")?;
     let identity_score = 1.0;
     let reputation_score = get_aggregated_reputation(&did)?;
     let community_score = get_community_trust_score(&did)?;
@@ -307,6 +359,62 @@ pub fn get_agent_profile_remote(agent: AgentPubKey) -> ExternResult<Consciousnes
         community: community_score,
         engagement: 0.0,
     })
+}
+
+
+/// Remote-callable wrapper to fetch a canonical DID document for a target agent.
+///
+/// The capability grant exposes this function to satellite hApps. The local
+/// bridge issuer must itself still be active so a deactivated identity
+/// substrate cannot continue asserting current identity state.
+#[hdk_extern]
+pub fn get_did_document_remote(agent: AgentPubKey) -> ExternResult<Option<DidDocumentData>> {
+    verify_issuer_active("remote DID document query")?;
+
+    let did = format!("did:mycelix:{}", agent);
+    verify_did_active(&did, "remote DID document target")?;
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("resolve_did"),
+        None,
+        did,
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(result) => {
+            let record: Option<Record> = result.decode().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode DID document response: {e:?}"
+                )))
+            })?;
+            let Some(record) = record else {
+                return Ok(None);
+            };
+
+            let document: DidDocumentData = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Resolved DID record did not contain a DID document".into()
+                )))?;
+
+            Ok(Some(document))
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _)
+        | ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(
+            WasmErrorInner::Guest("DID document query authorization failed".into())
+        )),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID document query failed (network): {err}")
+        ))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID document query failed (countersigning): {err}"
+            ))
+        )),
+    }
 }
 
 /// API version for this coordinator zome.
@@ -1732,6 +1840,7 @@ pub struct MfaAssuranceLevelResult {
 /// the calling cluster bridge fills it in locally from its own DHT data.
 #[hdk_extern]
 pub fn issue_consciousness_credential(did: String) -> ExternResult<ConsciousnessCredential> {
+    verify_issuer_active("consciousness credential issuance")?;
     enforce_rate_limit("issue_consciousness_credential")?;
     if !did.starts_with("did:mycelix:") {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -1815,6 +1924,7 @@ pub fn get_consciousness_credential(did: String) -> ExternResult<ConsciousnessCr
 pub fn issue_sovereign_credential(
     did: String,
 ) -> ExternResult<sovereign_profile::SovereignCredential> {
+    verify_issuer_active("sovereign credential issuance")?;
     enforce_rate_limit("issue_sovereign_credential")?;
     if !did.starts_with("did:mycelix:") {
         return Err(wasm_error!(WasmErrorInner::Guest(

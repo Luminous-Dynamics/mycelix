@@ -3,18 +3,21 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Verifiable Credential Coordinator Zome
 //!
-//! W3C Verifiable Credentials Data Model 2.0 compliant implementation
+//! Mycelix VC 2.0 application profile with native integrity extensions and W3C
+//! Data Integrity eddsa-jcs-2022 support.
 //! Handles credential issuance, verification, and presentation
 //!
 //! # Cryptographic Signatures
 //!
 //! This implementation uses ed25519 signatures via Holochain's HDK signing API.
-//! Signatures are encoded in multibase format (base58btc with 'z' prefix) as per
-//! W3C Data Integrity EdDSA Cryptosuites v1.0 specification.
+//! Signatures use either the explicit Mycelix native profile or the W3C
+//! Data Integrity eddsa-jcs-2022 profile. The W3C profile uses RFC 8785 JCS,
+//! SHA-256, raw Ed25519 signatures, and base58-btc Multibase.
 
 use hdk::prelude::*;
-use mycelix_crypto::{AlgorithmId, TaggedSignature};
-use mycelix_zome_helpers as _;
+use mycelix_crypto::{AlgorithmId, TaggedPublicKey, TaggedSignature};
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 use verifiable_credential_integrity::*;
 
 /// Mirror type for credential_schema deserialization (cross-zome)
@@ -57,6 +60,104 @@ fn string_to_entry_hash(s: &str) -> EntryHash {
             .chain([0u8; 4])
             .collect::<Vec<u8>>(),
     )
+}
+
+fn verify_did_active(did: &str, operation: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(result) => {
+            let active = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode DID active state for {operation}: {e:?}"
+                )))
+            })?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "DID is not active; refusing {operation}"
+                ))))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _)
+        | ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state authorization failed for {operation}"
+            ))
+        )),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed for {operation}: {err}")
+        ))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state verification failed for {operation} (countersigning: {err})"
+            ))
+        )),
+    }
+}
+
+fn deterministic_request_credential_id(issuer_did: &str, request_id: &str) -> String {
+    // Domain-separate request-bound credential IDs from other identifier
+    // derivation primitives and make the construction versioned.
+    let domain = b"mycelix:vc-request-credential:v1";
+    let mut material =
+        Vec::with_capacity(domain.len() + issuer_did.len() + request_id.len() + 2);
+    material.extend_from_slice(domain);
+    material.push(0);
+    material.extend_from_slice(issuer_did.as_bytes());
+    material.push(0);
+    material.extend_from_slice(request_id.as_bytes());
+    let digest = holo_hash::blake2b_256(&material);
+    format!(
+        "urn:mycelix:request-credential:{}",
+        bs58::encode(digest)
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string()
+    )
+}
+
+fn get_latest_record_strict(action_hash: ActionHash) -> ExternResult<Option<Record>> {
+    let Some(details) = get_details(action_hash, GetOptions::default())? else {
+        return Ok(None);
+    };
+
+    match details {
+        Details::Record(record_details) => match record_details.updates.as_slice() {
+            [] => Ok(Some(record_details.record)),
+            [latest_update] => {
+                get_latest_record_strict(latest_update.action_address().clone())
+            }
+            _ => Err(wasm_error!(WasmErrorInner::Guest(
+                "Ambiguous update chain: multiple competing direct updates exist".into(),
+            ))),
+        },
+        Details::Entry(_) => Ok(None),
+    }
+}
+
+fn records_from_links_latest_strict(links: Vec<Link>) -> ExternResult<Vec<Record>> {
+    let mut records = Vec::new();
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "Invalid link target".into()
+            )))?;
+        let record = get_latest_record_strict(action_hash.clone())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Record not found for link target: {:?}",
+                action_hash
+            )))
+        })?;
+        records.push(record);
+    }
+    Ok(records)
 }
 
 /// Compute cryptographic hash of credential content for signing
@@ -216,6 +317,10 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
     let now = sys_time()?;
     let now_iso = format_timestamp_iso8601(now);
 
+    // Issuance is an authority act. Historical keys must not mint new
+    // credentials after issuer DID deactivation.
+    verify_did_active(&issuer_did, "credential issuance")?;
+
     // Validate claims against schema if a schema is specified
     let schema_validation = validate_claims_against_schema(&input.schema_id, &input.claims)?;
     match &schema_validation {
@@ -252,12 +357,20 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
         }
     }
 
-    // Build credential ID
-    let credential_id = format!(
-        "urn:uuid:{}:{}",
-        issuer_did.replace(":", "-"),
-        now.as_micros()
-    );
+    // Build credential ID. Request-bound issuance supplies a deterministic
+    // request-derived ID; generic issuance retains the historical timestamp ID.
+    let credential_id = input.credential_id.clone().unwrap_or_else(|| {
+        format!(
+            "urn:uuid:{}:{}",
+            issuer_did.replace(":", "-"),
+            now.as_micros()
+        )
+    });
+    if credential_id.is_empty() || credential_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Credential ID must be 1-256 characters".into()
+        )));
+    }
 
     // Calculate expiration if provided
     let valid_until = input.expiration_days.map(|days| {
@@ -270,6 +383,8 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
         id: input.subject_did.clone(),
         claims: input.claims,
     };
+
+    let proof_profile = input.proof_profile.unwrap_or_default();
 
     // Build credential hash for signing
     let mut vc_for_hash = VerifiableCredential {
@@ -305,13 +420,37 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
         proof: CredentialProof {
             proof_type: "DataIntegrityProof".to_string(),
             created: now_iso.clone(),
-            verification_method: format!("{}#keys-1", issuer_did),
+            verification_method: match proof_profile {
+                CredentialProofProfile::MycelixBlake2bEd25519 => {
+                    format!("{}#keys-1", issuer_did)
+                }
+                CredentialProofProfile::W3cEddsaJcs2022 => {
+                    format!("{}#keys-1-multikey", issuer_did)
+                }
+            },
             proof_purpose: "assertionMethod".to_string(),
             proof_value: String::new(), // Will be filled
-            cryptosuite: Some(AlgorithmId::Ed25519.cryptosuite().to_string()),
-            algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+            cryptosuite: Some(match proof_profile {
+                CredentialProofProfile::MycelixBlake2bEd25519 => {
+                    "mycelix-blake2b-ed25519-2026".to_string()
+                }
+                CredentialProofProfile::W3cEddsaJcs2022 => "eddsa-jcs-2022".to_string(),
+            }),
+            algorithm: match proof_profile {
+                CredentialProofProfile::MycelixBlake2bEd25519 => {
+                    Some(AlgorithmId::Ed25519.as_u16())
+                }
+                CredentialProofProfile::W3cEddsaJcs2022 => None,
+            },
             challenge: None,
             domain: None,
+            proof_context: match proof_profile {
+                CredentialProofProfile::W3cEddsaJcs2022 => Some(vec![
+                    W3C_CREDENTIALS_V2.to_string(),
+                    W3C_DATA_INTEGRITY.to_string(),
+                ]),
+                CredentialProofProfile::MycelixBlake2bEd25519 => None,
+            },
         },
         mycelix_schema_id: input.schema_id.clone(),
         mycelix_created: now,
@@ -319,7 +458,7 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
 
     // Sign credential with agent's ed25519 key
     // This creates a real cryptographic signature using HDK's sign_raw
-    let signature_value = sign_credential(&vc_for_hash)?;
+    let signature_value = sign_credential(&vc_for_hash, proof_profile)?;
     vc_for_hash.proof.proof_value = signature_value;
 
     let vc = vc_for_hash;
@@ -366,6 +505,23 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
     )))
 }
 
+/// Credential proof profile used when creating new credentials.
+///
+/// MycelixBlake2bEd25519 is retained for legacy compatibility. New
+/// request-bound credentials use the W3C eddsa-jcs-2022 profile,
+/// implemented with RFC 8785 JCS and SHA-256.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CredentialProofProfile {
+    MycelixBlake2bEd25519,
+    W3cEddsaJcs2022,
+}
+
+impl Default for CredentialProofProfile {
+    fn default() -> Self {
+        Self::W3cEddsaJcs2022
+    }
+}
+
 /// Input for issuing a credential
 #[derive(Serialize, Deserialize, Debug)]
 pub struct IssueCredentialInput {
@@ -379,6 +535,10 @@ pub struct IssueCredentialInput {
     pub credential_types: Vec<String>,
     /// Optional issuer name
     pub issuer_name: Option<String>,
+    /// Optional deterministic credential identifier. Omitted callers retain
+    /// the historical timestamp-based identifier.
+    #[serde(default)]
+    pub credential_id: Option<String>,
     /// Expiration in days (None = no expiration)
     pub expiration_days: Option<u32>,
     /// Whether to enable revocation
@@ -388,6 +548,11 @@ pub struct IssueCredentialInput {
     /// silently skipping validation. Default: false (backward-compatible).
     #[serde(default)]
     pub strict_schema: bool,
+    /// Optional cryptographic proof profile. Omitted values default to the
+    /// W3C eddsa-jcs-2022 profile; callers must opt into the legacy Mycelix
+    /// profile explicitly.
+    #[serde(default)]
+    pub proof_profile: Option<CredentialProofProfile>,
 }
 
 /// Verify a credential
@@ -407,27 +572,148 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
 
     let now = sys_time()?;
     let mut errors = Vec::new();
+    let mut format_check_passed = true;
+    let mut proof_signature_passed = false;
+    let mut proof_purpose_passed = false;
 
-    // Check expiration using ISO 8601 parsing (fail-closed)
-    if let Some(valid_until) = &credential.valid_until {
-        match parse_iso8601_expired(valid_until, now) {
-            ExpirationStatus::Expired => {
-                errors.push("Credential has expired".to_string());
-            }
-            ExpirationStatus::ParseError => {
-                errors.push(format!(
-                    "Credential expiration date unparseable (fail-closed): '{}'",
-                    valid_until
-                ));
-            }
-            ExpirationStatus::Valid => {}
+    // Validate the full validity window using the issuer-declared temporal
+    // semantics. New entries are checked again here so legacy records cannot
+    // bypass verifier-side validity simply because they predate integrity rules.
+    let valid_from = match parse_iso8601_to_micros(&credential.valid_from) {
+        Some(micros) => Some(Timestamp::from_micros(micros)),
+        None => {
+            format_check_passed = false;
+            errors.push(format!(
+                "Credential validFrom unparseable (fail-closed): '{}'",
+                credential.valid_from
+            ));
+            None
         }
+    };
+    if let Some(valid_from) = valid_from {
+        if now < valid_from {
+            errors.push("Credential is not yet valid".to_string());
+        }
+
+        if let Some(valid_until) = &credential.valid_until {
+            match parse_iso8601_to_micros(valid_until) {
+                Some(micros) => {
+                    let valid_until = Timestamp::from_micros(micros);
+                    if valid_from > valid_until {
+                        format_check_passed = false;
+                        errors.push("Credential validity interval is inverted".to_string());
+                    } else if now > valid_until {
+                        errors.push("Credential has expired".to_string());
+                    }
+                }
+                None => {
+                    format_check_passed = false;
+                    errors.push(format!(
+                        "Credential validUntil unparseable (fail-closed): '{}'",
+                        valid_until
+                    ));
+                },
+            }
+        }
+    }
+
+    if let Ok(response) = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        credential.issuer.did().to_string(),
+    ) {
+        let active = match response {
+            ZomeCallResponse::Ok(result) => result.decode::<bool>().unwrap_or(false),
+            _ => false,
+        };
+        if !active {
+            errors.push("Issuer DID is not active".to_string());
+        }
+    } else {
+        // Availability of the issuer DID registry is required for current-state
+        // verification; do not silently treat an unavailable registry as active.
+        errors.push("Issuer DID activity could not be established".to_string());
+    }
+
+    // The declared verification method must be controlled by the same DID
+    // whose AgentPubKey is used to verify the signature. Without this check,
+    // proof metadata could name an unrelated DID while the cryptographic
+    // verifier silently uses the issuer DID instead.
+    if !proof_verification_method_matches_did(
+        &credential.proof.verification_method,
+        credential.issuer.did(),
+    ) {
+        format_check_passed = false;
+        errors.push("Proof verification method does not belong to issuer DID".to_string());
+    } else if let Ok(issuer_pubkey) =
+        AgentPubKey::try_from(credential.issuer.did().strip_prefix("did:mycelix:").unwrap_or("").to_string())
+    {
+        match call(
+            CallTargetCell::Local,
+            ZomeName::new("did_registry"),
+            FunctionName::new("resolve_did"),
+            None,
+            credential.issuer.did().to_string(),
+        ) {
+            Ok(ZomeCallResponse::Ok(result)) => match result.decode::<Option<Record>>() {
+                Ok(Some(did_record)) => {
+                    match did_record.entry().to_app_option::<DidDocumentProofMirror>() {
+                        Ok(Some(did_doc)) => {
+                            match canonical_agent_ed25519_multibase(&issuer_pubkey) {
+                                Ok(expected_multibase)
+                                    if validate_current_assertion_method_binding(
+                                        &did_doc,
+                                        credential.issuer.did(),
+                                        &credential.proof.verification_method,
+                                        &expected_multibase,
+                                    ) => {}
+                                _ => {
+                                    format_check_passed = false;
+                                    errors.push(
+                                        "Proof verification method is not currently authorized by issuer DID assertionMethod"
+                                            .to_string(),
+                                    );
+                                }
+                            }
+                        }
+                        _ => {
+                            format_check_passed = false;
+                            errors.push(
+                                "Issuer DID document could not be decoded for assertion authorization"
+                                    .to_string(),
+                            );
+                        }
+                    }
+                }
+                Ok(None) => {
+                    format_check_passed = false;
+                    errors.push("Issuer DID could not be resolved for assertion authorization".to_string());
+                }
+                Err(e) => {
+                    format_check_passed = false;
+                    errors.push(format!(
+                        "Issuer DID resolution decode failed for assertion authorization: {e:?}"
+                    ));
+                }
+            },
+            Ok(_) | Err(_) => {
+                format_check_passed = false;
+                errors.push(
+                    "Issuer DID assertion authorization could not be established".to_string(),
+                );
+            }
+        }
+    } else {
+        format_check_passed = false;
+        errors.push("Issuer DID cannot be converted to its AgentPubKey".to_string());
     }
 
     // Verify ed25519 signature using HDK
     match verify_credential_signature(&credential) {
         Ok(true) => {
-            // Signature is valid
+            proof_signature_passed = true;
         }
         Ok(false) => {
             errors.push("Proof signature verification failed".to_string());
@@ -438,12 +724,15 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
     }
 
     // Check proof purpose
-    if credential.proof.proof_purpose != "assertionMethod" {
+    if credential.proof.proof_purpose == "assertionMethod" {
+        proof_purpose_passed = true;
+    } else {
         errors.push("Invalid proof purpose".to_string());
     }
 
     // Check issuer DID format
     if !credential.issuer.did().starts_with("did:") {
+        format_check_passed = false;
         errors.push("Invalid issuer DID".into());
     }
 
@@ -465,17 +754,33 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
         }
     }
 
+    let mut checks_passed = Vec::with_capacity(3);
+    if format_check_passed {
+        checks_passed.push("format".to_string());
+    }
+    if proof_signature_passed {
+        checks_passed.push("proof_signature".to_string());
+    }
+    if proof_purpose_passed {
+        checks_passed.push("proof_purpose".to_string());
+    }
+
     Ok(VerificationResult {
         credential_id,
         valid: errors.is_empty(),
-        checks_passed: vec![
-            "format".to_string(),
-            "proof_signature".to_string(),
-            "proof_purpose".to_string(),
-        ],
+        checks_passed,
         errors,
         verified_at: now,
     })
+}
+
+/// Check that a proof's verification-method DID is the same DID whose
+/// AgentPubKey is used for cryptographic verification.
+fn proof_verification_method_matches_did(verification_method: &str, did: &str) -> bool {
+    let method_did = verification_method
+        .split_once('#')
+        .map_or(verification_method, |(base, _)| base);
+    method_did == did && !verification_method.is_empty()
 }
 
 /// Result of credential verification
@@ -510,25 +815,37 @@ pub fn get_credential(credential_id: String) -> ExternResult<Option<Record>> {
         GetStrategy::default(),
     )?;
 
+    let mut selected: Option<(ActionHash, Record)> = None;
     for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get(action_hash, GetOptions::default())? {
+        if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
             // The link base is a hash of the ID string, so confirm the entry
-            // really carries the requested ID before returning it.
+            // really carries the requested ID before considering it.
             if let Some(vc) = record
                 .entry()
                 .to_app_option::<VerifiableCredential>()
                 .ok()
                 .flatten()
             {
-                if vc.id == credential_id {
-                    return Ok(Some(record));
+                if vc.id != credential_id {
+                    continue;
+                }
+
+                if let Some((existing_hash, _)) = selected.as_ref() {
+                    if existing_hash != &action_hash {
+                        return Err(wasm_error!(WasmErrorInner::Guest(
+                            "Ambiguous credential ID: multiple distinct credentials exist".into(),
+                        )));
+                    }
+                } else {
+                    selected = Some((action_hash, record));
                 }
             }
         }
     }
-    Ok(None)
+
+    Ok(selected.map(|(_, record)| record))
 }
 
 /// Get credentials issued by a DID
@@ -596,6 +913,7 @@ pub fn get_credentials_for_subject(subject_did: String) -> ExternResult<Vec<Reco
 pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Record> {
     let agent_info = agent_info()?;
     let holder_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    verify_did_active(&holder_did, "derived credential creation")?;
     let now = sys_time()?;
     let now_iso = format_timestamp_iso8601(now);
 
@@ -623,6 +941,59 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         }
     }
 
+    // A presentation is a new signed authorization artifact. A deactivated
+    // holder may remain auditable but cannot mint a new presentation.
+    verify_did_active(&holder_did, "presentation creation")?;
+
+    let did_response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("resolve_did"),
+        None,
+        holder_did.clone(),
+    )?;
+    let did_record = match did_response {
+        ZomeCallResponse::Ok(result) => result.decode::<Option<Record>>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode holder DID resolution: {e:?}"
+            )))
+        })?,
+        _ => None,
+    }
+    .ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Holder DID could not be resolved for presentation creation".into()
+    )))?;
+    let did_doc: DidDocumentProofMirror = did_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Resolved holder DID record contained no DID document".into()
+        )))?;
+    let holder_pubkey = AgentPubKey::try_from(
+        holder_did
+            .strip_prefix("did:mycelix:")
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Holder DID is not a did:mycelix identifier".into()
+            )))?
+            .to_string(),
+    )
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+        "Holder DID public key is invalid: {e:?}"
+    ))))?;
+    let multikey_method = format!("{}#keys-1-multikey", holder_did);
+    let expected_multibase = canonical_agent_ed25519_multibase(&holder_pubkey)?;
+    if !validate_w3c_authentication_method_binding(
+        &did_doc,
+        &holder_did,
+        &multikey_method,
+        &expected_multibase,
+    ) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Holder DID does not currently authorize its canonical Multikey for authentication".into()
+        )));
+    }
+
     // Gather credentials
     let mut credentials = Vec::new();
     for cred_id in &input.credential_ids {
@@ -645,47 +1016,28 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         now.as_micros()
     );
 
-    // Create presentation proof with real ed25519 signature
-    // Hash the presentation content for signing
-    let mut presentation_data = presentation_id.as_bytes().to_vec();
-    presentation_data.extend(holder_did.as_bytes());
-    for cred in &credentials {
-        presentation_data.extend(cred.id.as_bytes());
-    }
-    if let Some(challenge) = &input.challenge {
-        presentation_data.extend(challenge.as_bytes());
-    }
-    if let Some(domain) = &input.domain {
-        presentation_data.extend(domain.as_bytes());
-    }
-
-    // Sign with agent's ed25519 key
-    let signature = sign_raw(agent_info.agent_initial_pubkey.clone(), presentation_data)?;
-    let tagged_sig = TaggedSignature::new(AlgorithmId::Ed25519, signature.as_ref().to_vec())
-        .map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Signature tagging error: {}",
-                e
-            )))
-        })?;
-
+    // Create a standards-conformant W3C Data Integrity proof.
+    // The proof configuration includes the presentation @context as required
+    // by eddsa-jcs-2022, while the credential references remain embedded.
+    let presentation_context = vec![
+        W3C_CREDENTIALS_V2.to_string(),
+        W3C_DATA_INTEGRITY.to_string(),
+    ];
     let proof = CredentialProof {
         proof_type: "DataIntegrityProof".to_string(),
         created: now_iso.clone(),
-        verification_method: format!("{}#keys-1", holder_did),
+        verification_method: format!("{}#keys-1-multikey", holder_did),
         proof_purpose: "authentication".to_string(),
-        proof_value: tagged_sig.to_multibase(),
-        cryptosuite: Some(AlgorithmId::Ed25519.cryptosuite().to_string()),
-        algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+        proof_value: String::new(),
+        cryptosuite: Some("eddsa-jcs-2022".to_string()),
+        algorithm: None,
         challenge: input.challenge.clone(),
         domain: input.domain.clone(),
+        proof_context: Some(presentation_context.clone()),
     };
 
-    let vp = VerifiablePresentation {
-        context: vec![
-            W3C_CREDENTIALS_V2.to_string(),
-            W3C_DATA_INTEGRITY.to_string(),
-        ],
+    let mut vp = VerifiablePresentation {
+        context: presentation_context,
         id: presentation_id,
         presentation_type: vec!["VerifiablePresentation".to_string()],
         holder: holder_did.clone(),
@@ -693,6 +1045,10 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         proof,
         mycelix_created: now,
     };
+
+    let hash_data = eddsa_jcs_hash_data_for_presentation(&vp)?;
+    let signature = sign_raw(agent_info.agent_initial_pubkey.clone(), hash_data)?;
+    vp.proof.proof_value = encode_raw_ed25519_multibase(signature.as_ref())?;
 
     let action_hash = create_entry(&EntryTypes::VerifiablePresentation(vp))?;
 
@@ -748,6 +1104,29 @@ pub fn verify_presentation(
     let mut errors = Vec::new();
     let mut credential_results = Vec::new();
 
+    // A presentation is a current statement by its holder, so a holder DID
+    // that has since been deactivated must fail current-state verification.
+    let holder_active_response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        vp.holder.clone(),
+    )?;
+    match holder_active_response {
+        ZomeCallResponse::Ok(result) => {
+            let holder_active = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode holder DID active state: {e:?}"
+                )))
+            })?;
+            if !holder_active {
+                errors.push("Holder DID is not active".to_string());
+            }
+        }
+        _ => errors.push("Holder DID active state could not be established".to_string()),
+    }
+
     // 1. Verify proof purpose
     if vp.proof.proof_purpose != "authentication" {
         errors.push("Presentation proof purpose must be 'authentication'".to_string());
@@ -792,71 +1171,206 @@ pub fn verify_presentation(
         );
     }
 
-    // 3. Verify holder's proof signature
+    // 3. Verify holder's proof signature.
     let holder_pubkey_str = vp.holder.strip_prefix("did:mycelix:");
     if let Some(pubkey_str) = holder_pubkey_str {
         if let Ok(holder_pubkey) = AgentPubKey::try_from(pubkey_str.to_string()) {
-            // Reconstruct the signed data (mirrors create_presentation).
-            // Use the values stored IN the proof, not from the verifier's input,
-            // since these are what was actually signed.
-            let mut presentation_data = vp.id.as_bytes().to_vec();
-            presentation_data.extend(vp.holder.as_bytes());
-            for cred in &vp.verifiable_credential {
-                presentation_data.extend(cred.id.as_bytes());
-            }
-            if let Some(challenge) = &vp.proof.challenge {
-                presentation_data.extend(challenge.as_bytes());
-            }
-            if let Some(domain) = &vp.proof.domain {
-                presentation_data.extend(domain.as_bytes());
-            }
+            if vp.proof.cryptosuite.as_deref() == Some("eddsa-jcs-2022") {
+                if vp.proof.proof_type != "DataIntegrityProof"
+                    || vp.proof.algorithm.is_some()
 
-            // Try TaggedSignature first, then legacy
-            match TaggedSignature::from_multibase(&vp.proof.proof_value) {
-                Ok(tagged_sig) => {
-                    if tagged_sig.algorithm == AlgorithmId::Ed25519
-                        && tagged_sig.signature_bytes.len() == 64
-                    {
-                        let sig = Signature::from(
-                            <[u8; 64]>::try_from(tagged_sig.signature_bytes.as_slice())
-                                .unwrap_or([0u8; 64]),
-                        );
-                        match verify_signature(holder_pubkey, sig, presentation_data) {
-                            Ok(true) => {}
-                            Ok(false) => errors
-                                .push("Holder proof signature verification failed".to_string()),
-                            Err(e) => {
-                                errors.push(format!("Holder signature verification error: {:?}", e))
-                            }
+                {
+                    errors.push(
+                        "W3C presentation proof configuration is invalid".to_string(),
+                    );
+                } else if vp.proof.created.parse::<Timestamp>().is_err() {
+                    errors.push(
+                        "W3C presentation proof created value is not a valid RFC3339 timestamp"
+                            .to_string(),
+                    );
+                } else if vp.proof.created.parse::<Timestamp>().ok() > Some(now) {
+                    errors.push(
+                        "W3C presentation proof created value is in the future".to_string(),
+                    );
+                } else {
+                    let response = call(
+                        CallTargetCell::Local,
+                        ZomeName::new("did_registry"),
+                        FunctionName::new("resolve_did"),
+                        None,
+                        vp.holder.clone(),
+                    )?;
+                    let did_record = match response {
+                        ZomeCallResponse::Ok(result) => result
+                            .decode::<Option<Record>>()
+                            .map_err(|e| {
+                                wasm_error!(WasmErrorInner::Guest(format!(
+                                    "Failed to decode holder DID resolution: {e:?}"
+                                )))
+                            })?,
+                        _ => None,
+                    };
+
+                    if let Some(did_record) = did_record {
+                        let did_doc: DidDocumentProofMirror = did_record
+                            .entry()
+                            .to_app_option()
+                            .map_err(|e| {
+                                wasm_error!(WasmErrorInner::Guest(e.to_string()))
+                            })?
+                            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                                "Resolved holder DID record contained no DID document".into()
+                            )))?;
+                        let expected_multibase =
+                            canonical_agent_ed25519_multibase(&holder_pubkey)?;
+                        if !validate_w3c_authentication_method_binding(
+                            &did_doc,
+                            &vp.holder,
+                            &vp.proof.verification_method,
+                            &expected_multibase,
+                        ) {
+                            errors.push(
+                                "Presentation proof verification method is not authorized by the holder DID authentication relationship"
+                                    .to_string(),
+                            );
                         }
                     } else {
-                        errors.push(format!(
-                            "Unsupported presentation proof algorithm: {:?}",
-                            tagged_sig.algorithm
-                        ));
+                        errors.push(
+                            "Holder DID could not be resolved for W3C presentation verification"
+                                .to_string(),
+                        );
+                    }
+
+                    if !vp
+                        .proof
+                        .verification_method
+                        .starts_with(&format!("{}#", vp.holder))
+                    {
+                        errors.push(
+                            "Presentation proof verification method does not belong to holder DID"
+                                .to_string(),
+                        );
+                    }
+
+                    if !vp.proof.proof_value.starts_with('z') {
+                        errors.push(
+                            "W3C presentation proofValue must use base58-btc Multibase".to_string(),
+                        );
+                    } else {
+                        match bs58::decode(&vp.proof.proof_value[1..])
+                            .with_alphabet(bs58::Alphabet::BITCOIN)
+                            .into_vec()
+                        {
+                            Ok(bytes) if bytes.len() == 64 => {
+                                let sig = Signature::from(
+                                    <[u8; 64]>::try_from(bytes.as_slice()).unwrap_or([0u8; 64]),
+                                );
+                                match eddsa_jcs_hash_data_for_presentation(&vp) {
+                                    Ok(hash_data) => match verify_signature(
+                                        holder_pubkey,
+                                        sig,
+                                        hash_data,
+                                    ) {
+                                        Ok(true) => {}
+                                        Ok(false) => errors.push(
+                                            "Holder W3C JCS proof signature verification failed"
+                                                .to_string(),
+                                        ),
+                                        Err(e) => errors.push(format!(
+                                            "Holder W3C JCS signature verification error: {:?}",
+                                            e
+                                        )),
+                                    },
+                                    Err(e) => errors.push(format!(
+                                        "Could not construct W3C JCS presentation hash: {:?}",
+                                        e
+                                    )),
+                                }
+                            }
+                            Ok(_) => errors.push(
+                                "W3C presentation proofValue must decode to 64 Ed25519 bytes"
+                                    .to_string(),
+                            ),
+                            Err(e) => errors.push(format!(
+                                "Invalid W3C presentation proofValue encoding: {}",
+                                e
+                            )),
+                        }
                     }
                 }
-                Err(_) => {
-                    // Legacy multibase fallback
-                    if let Some(sig_bytes) = multibase_decode(&vp.proof.proof_value) {
-                        if sig_bytes.len() == 64 {
+            } else {
+                // Legacy Mycelix presentation profile retained for old records.
+                if !proof_verification_method_matches_did(
+                    &vp.proof.verification_method,
+                    &vp.holder,
+                ) {
+                    errors.push(
+                        "Presentation proof verification method does not belong to holder DID"
+                            .to_string(),
+                    );
+                }
+
+                let mut presentation_data = vp.id.as_bytes().to_vec();
+                presentation_data.extend(vp.holder.as_bytes());
+                for cred in &vp.verifiable_credential {
+                    presentation_data.extend(cred.id.as_bytes());
+                }
+                if let Some(challenge) = &vp.proof.challenge {
+                    presentation_data.extend(challenge.as_bytes());
+                }
+                if let Some(domain) = &vp.proof.domain {
+                    presentation_data.extend(domain.as_bytes());
+                }
+
+                match TaggedSignature::from_multibase(&vp.proof.proof_value) {
+                    Ok(tagged_sig) => {
+                        if tagged_sig.algorithm == AlgorithmId::Ed25519
+                            && tagged_sig.signature_bytes.len() == 64
+                        {
                             let sig = Signature::from(
-                                <[u8; 64]>::try_from(sig_bytes.as_slice()).unwrap_or([0u8; 64]),
+                                <[u8; 64]>::try_from(tagged_sig.signature_bytes.as_slice())
+                                    .unwrap_or([0u8; 64]),
                             );
                             match verify_signature(holder_pubkey, sig, presentation_data) {
                                 Ok(true) => {}
                                 Ok(false) => errors.push(
-                                    "Holder proof signature verification failed (legacy)"
-                                        .to_string(),
+                                    "Holder proof signature verification failed".to_string(),
                                 ),
-                                Err(e) => errors
-                                    .push(format!("Holder signature verification error: {:?}", e)),
+                                Err(e) => errors.push(format!(
+                                    "Holder signature verification error: {:?}",
+                                    e
+                                )),
                             }
                         } else {
-                            errors.push("Invalid holder signature length".to_string());
+                            errors.push(format!(
+                                "Unsupported presentation proof algorithm: {:?}",
+                                tagged_sig.algorithm
+                            ));
                         }
-                    } else {
-                        errors.push("Could not decode holder proof signature".to_string());
+                    }
+                    Err(_) => {
+                        if let Some(sig_bytes) = multibase_decode(&vp.proof.proof_value) {
+                            if sig_bytes.len() == 64 {
+                                let sig = Signature::from(
+                                    <[u8; 64]>::try_from(sig_bytes.as_slice()).unwrap_or([0u8; 64]),
+                                );
+                                match verify_signature(holder_pubkey, sig, presentation_data) {
+                                    Ok(true) => {}
+                                    Ok(false) => errors.push(
+                                        "Holder proof signature verification failed (legacy)"
+                                            .to_string(),
+                                    ),
+                                    Err(e) => errors.push(format!(
+                                        "Holder signature verification error: {:?}",
+                                        e
+                                    )),
+                                }
+                            } else {
+                                errors.push("Invalid holder signature length".to_string());
+                            }
+                        } else {
+                            errors.push("Could not decode holder proof signature".to_string());
+                        }
                     }
                 }
             }
@@ -902,20 +1416,34 @@ pub fn verify_presentation(
             }
         }
 
-        // Check expiration (fail-closed)
-        if let Some(valid_until) = &cred.valid_until {
-            match parse_iso8601_expired(valid_until, now) {
-                ExpirationStatus::Expired => {
-                    cred_errors.push("Credential expired".to_string());
+        // Validate the full validity window for each contained credential.
+        match parse_iso8601_to_micros(&cred.valid_from) {
+            Some(micros) => {
+                let valid_from = Timestamp::from_micros(micros);
+                if now < valid_from {
+                    cred_errors.push("Credential not yet valid".to_string());
                 }
-                ExpirationStatus::ParseError => {
-                    cred_errors.push(format!(
-                        "Credential expiration date unparseable (fail-closed): '{}'",
-                        valid_until
-                    ));
+                if let Some(valid_until) = &cred.valid_until {
+                    match parse_iso8601_to_micros(valid_until) {
+                        Some(until_micros) => {
+                            let valid_until = Timestamp::from_micros(until_micros);
+                            if valid_from > valid_until {
+                                cred_errors.push("Credential validity interval is inverted".to_string());
+                            } else if now > valid_until {
+                                cred_errors.push("Credential expired".to_string());
+                            }
+                        }
+                        None => cred_errors.push(format!(
+                            "Credential expiration date unparseable (fail-closed): '{}'",
+                            valid_until
+                        )),
+                    }
                 }
-                ExpirationStatus::Valid => {}
             }
+            None => cred_errors.push(format!(
+                "Credential validFrom unparseable (fail-closed): '{}'",
+                cred.valid_from
+            )),
         }
 
         let cred_valid = cred_errors.is_empty();
@@ -1092,6 +1620,7 @@ fn generate_merkle_proof(
 pub fn create_derived_credential(input: CreateDerivedInput) -> ExternResult<Record> {
     let agent_info = agent_info()?;
     let holder_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    verify_did_active(&holder_did, "derived credential creation")?;
     let now = sys_time()?;
 
     // Get original credential
@@ -1194,12 +1723,46 @@ pub fn create_derived_credential(input: CreateDerivedInput) -> ExternResult<Reco
         holder_signature: holder_signature.as_ref().to_vec(),
     };
 
-    // Calculate expiration
-    let expires = input.expires_hours.map(|hours| {
-        Timestamp::from_micros(now.as_micros() as i64 + (hours as i64 * 3600 * 1_000_000))
-    });
+    // Derived credentials may never outlive their source credential.
+    // With no requested expiry, inherit the source credential's expiry when one
+    // exists; with a requested expiry, clamp it to the source expiry.
+    let requested_expires = match input.expires_hours {
+        Some(hours) => {
+            let duration = (hours as i64)
+                .checked_mul(3600)
+                .and_then(|seconds| seconds.checked_mul(1_000_000))
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Derived credential expiration duration overflow".into()
+                )))?;
+            let micros = now
+                .as_micros()
+                .checked_add(duration)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Derived credential expiration timestamp overflow".into()
+                )))?;
+            Some(Timestamp::from_micros(micros))
+        }
+        None => None,
+    };
+    let source_expires = match original_vc.valid_until.as_deref() {
+        Some(value) => Some(Timestamp::from_micros(
+            parse_iso8601_to_micros(value).ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Original credential validUntil is not parseable: {value}"
+                )))
+            })?,
+        )),
+        None => None,
+    };
+    let expires = match (requested_expires, source_expires) {
+        (Some(requested), Some(source)) => Some(std::cmp::min(requested, source)),
+        (Some(requested), None) => Some(requested),
+        (None, Some(source)) => Some(source),
+        (None, None) => None,
+    };
 
     let derived = DerivedCredential {
+        original_credential_action: original_record.action_address().clone(),
         original_credential_id: input.credential_id.clone(),
         original_issuer: original_vc.issuer.did().to_string(),
         holder: holder_did,
@@ -1280,11 +1843,12 @@ pub fn verify_derived_credential(
         }
     }
 
-    // Fetch original credential
-    let original_record = match get_credential(derived.original_credential_id.clone())? {
+    // Resolve the exact source ActionHash pinned into the derived credential.
+    // This avoids trusting a mutable/non-unique human-readable ID for lineage.
+    let original_record = match get(derived.original_credential_action.clone(), GetOptions::default())? {
         Some(rec) => rec,
         None => {
-            errors.push("Original credential not found".to_string());
+            errors.push("Pinned original credential action could not be resolved".to_string());
             return Ok(DerivedVerificationResult {
                 valid: false,
                 errors,
@@ -1301,13 +1865,40 @@ pub fn verify_derived_credential(
             "Invalid original credential".into()
         )))?;
 
-    // Verify the original credential hash matches
+    // The derived credential is meaningful only for the exact original
+    // issuer/subject it claims to derive from.
+    if derived.original_issuer != original_vc.issuer.did() {
+        errors.push("Derived credential original issuer does not match source credential".to_string());
+    }
+    if derived.holder != original_vc.credential_subject.id {
+        errors.push("Derived credential holder does not match source credential subject".to_string());
+    }
+    if derived.derived_content.id != derived.holder {
+        errors.push("Derived credential subject ID does not match holder".to_string());
+    }
+
+    // Verify the original credential hash matches.
     let recomputed_hash = compute_credential_hash(&original_vc);
     if recomputed_hash != derived.derivation_proof.original_credential_hash {
         errors.push("Original credential hash does not match derivation proof".to_string());
     }
 
-    // Verify the original credential's own signature
+    // A derived credential may never extend the source credential's validity.
+    if let Some(source_until) = original_vc.valid_until.as_deref() {
+        match parse_iso8601_to_micros(source_until) {
+            Some(source_micros) => {
+                let source_until = Timestamp::from_micros(source_micros);
+                if derived.expires.is_none() {
+                    errors.push("Derived credential must inherit the source credential expiration".to_string());
+                } else if derived.expires > Some(source_until) {
+                    errors.push("Derived credential expiration exceeds source credential expiration".to_string());
+                }
+            }
+            None => errors.push("Source credential validUntil is not parseable".to_string()),
+        }
+    }
+
+    // Verify the original credential's own signature.
     match verify_credential_signature(&original_vc) {
         Ok(true) => {
             original_issuer_verified = true;
@@ -1320,15 +1911,46 @@ pub fn verify_derived_credential(
         }
     }
 
-    // Verify selected claims are a subset of the original
+    // Verify the selected claims are an exact subset of the original
+    // content represented by the derived credential; duplicates and extra
+    // derived claims are invalid.
     let original_claims = &original_vc.credential_subject.claims;
-    for claim_key in &derived.selected_claims {
-        if original_claims.get(claim_key).is_none() {
-            errors.push(format!(
-                "Claim '{}' not present in original credential",
-                claim_key
-            ));
+    match (
+        original_claims.as_object(),
+        derived.derived_content.claims.as_object(),
+    ) {
+        (Some(original_obj), Some(derived_obj)) => {
+            for (i, claim_key) in derived.selected_claims.iter().enumerate() {
+                if derived.selected_claims.iter().skip(i + 1).any(|other| other == claim_key) {
+                    errors.push(format!("Claim '{}' appears more than once in selected_claims", claim_key));
+                    continue;
+                }
+                match (original_obj.get(claim_key), derived_obj.get(claim_key)) {
+                    (Some(original_value), Some(derived_value)) if original_value == derived_value => {}
+                    (None, _) => errors.push(format!(
+                        "Claim '{}' not present in original credential",
+                        claim_key
+                    )),
+                    (Some(_), None) => errors.push(format!(
+                        "Claim '{}' not present in derived credential",
+                        claim_key
+                    )),
+                    (Some(_), Some(_)) => errors.push(format!(
+                        "Derived claim '{}' does not match the original credential",
+                        claim_key
+                    )),
+                }
+            }
+            for key in derived_obj.keys() {
+                if !derived.selected_claims.iter().any(|selected| selected == key) {
+                    errors.push(format!(
+                        "Derived credential contains unselected claim '{}'",
+                        key
+                    ));
+                }
+            }
         }
+        _ => errors.push("Original and derived credential claims must be JSON objects".to_string()),
     }
 
     // Verify Merkle proofs if present
@@ -1425,6 +2047,50 @@ pub fn verify_derived_credential(
         errors.push("Invalid holder DID format".to_string());
     }
 
+    // A derived credential inherits the source credential's current trust
+    // state. A valid historical signature is insufficient if the source is
+    // outside its validity window or its issuer DID is no longer active.
+    let now = sys_time()?;
+    match parse_iso8601_to_micros(&original_vc.valid_from) {
+        Some(valid_from_micros) => {
+            let valid_from = Timestamp::from_micros(valid_from_micros);
+            if now < valid_from {
+                errors.push("Original credential is not yet valid".to_string());
+            }
+        }
+        None => errors.push("Original credential validFrom is unparseable".to_string()),
+    }
+    if let Some(valid_until) = original_vc.valid_until.as_deref() {
+        match parse_iso8601_to_micros(valid_until) {
+            Some(valid_until_micros) => {
+                let valid_until = Timestamp::from_micros(valid_until_micros);
+                if now > valid_until {
+                    errors.push("Original credential has expired".to_string());
+                }
+            }
+            None => errors.push("Original credential validUntil is unparseable".to_string()),
+        }
+    }
+
+    match call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        original_vc.issuer.did().to_string(),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => match result.decode::<bool>() {
+            Ok(true) => {}
+            Ok(false) => errors.push("Original credential issuer DID is not active".to_string()),
+            Err(e) => errors.push(format!(
+                "Original credential issuer DID active state could not be decoded: {e:?}"
+            )),
+        },
+        Ok(_) | Err(_) => errors.push(
+            "Original credential issuer DID active state could not be established".to_string(),
+        ),
+    }
+
     // Check original credential revocation status
     let revocation_status = check_credential_revocation_status(&derived.original_credential_id)?;
     match revocation_status {
@@ -1453,6 +2119,7 @@ pub fn verify_derived_credential(
 pub fn request_credential(input: RequestCredentialInput) -> ExternResult<Record> {
     let agent_info = agent_info()?;
     let requester_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    verify_did_active(&requester_did, "credential request creation")?;
     let now = sys_time()?;
 
     let request_id = format!(
@@ -1472,6 +2139,7 @@ pub fn request_credential(input: RequestCredentialInput) -> ExternResult<Record>
         status: RequestStatus::Pending,
         created: now,
         updated: now,
+        issued_credential: None,
     };
 
     let action_hash = create_entry(&EntryTypes::CredentialRequest(request))?;
@@ -1512,6 +2180,78 @@ pub struct RequestCredentialInput {
     pub evidence: Option<Vec<CredentialEvidence>>,
 }
 
+/// Input for canonical credential-request lookup.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetCredentialRequestInput {
+    pub issuer_did: String,
+    pub request_id: String,
+}
+
+/// Resolve a credential request by the issuer's DHT index and follow its update chain.
+///
+/// The issuer DID is explicit because the request ID alone is not a globally
+/// derivable locator. Distinct current records claiming the same request ID
+/// are treated as an integrity ambiguity rather than arbitrarily selecting one.
+#[hdk_extern]
+pub fn get_credential_request(
+    input: GetCredentialRequestInput,
+) -> ExternResult<Option<Record>> {
+    if input.issuer_did.is_empty() || input.issuer_did.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Issuer DID must be 1-256 characters".into(),
+        )));
+    }
+    if input.request_id.is_empty() || input.request_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Request ID must be 1-256 characters".into(),
+        )));
+    }
+
+    let issuer_hash = string_to_entry_hash(&input.issuer_did);
+    let links = get_links(
+        LinkQuery::try_new(issuer_hash, LinkTypes::IssuerToRequest)?,
+        GetStrategy::default(),
+    )?;
+
+    let mut selected: Option<(ActionHash, Record)> = None;
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "Invalid credential request link target".into(),
+            )))?;
+
+        let Some(record) = get_latest_record_strict(action_hash.clone())? else {
+            continue;
+        };
+        let Some(req) = record
+            .entry()
+            .to_app_option::<CredentialRequest>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Issuer request index contains a non-request record".into(),
+            )));
+        };
+
+        if req.id != input.request_id {
+            continue;
+        }
+
+        if let Some((existing_hash, _)) = selected.as_ref() {
+            if existing_hash != &action_hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous credential request ID: multiple distinct current requests exist"
+                        .into(),
+                )));
+            }
+        } else {
+            selected = Some((action_hash, record));
+        }
+    }
+
+    Ok(selected.map(|(_, record)| record))
+}
+
 /// Get pending requests for an issuer
 #[hdk_extern]
 pub fn get_pending_requests(issuer_did: String) -> ExternResult<Vec<Record>> {
@@ -1522,24 +2262,32 @@ pub fn get_pending_requests(issuer_did: String) -> ExternResult<Vec<Record>> {
     )?;
 
     let mut requests = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get(action_hash, GetOptions::default())? {
-            if let Some(req) = record
-                .entry()
-                .to_app_option::<CredentialRequest>()
-                .ok()
-                .flatten()
-            {
-                if matches!(
-                    req.status,
-                    RequestStatus::Pending | RequestStatus::UnderReview
-                ) {
-                    requests.push(record);
-                }
-            }
+    let mut seen = std::collections::HashSet::new();
+    for record in records_from_links_latest_strict(links)? {
+        let Some(req) = record
+            .entry()
+            .to_app_option::<CredentialRequest>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Credential request index contains a non-request record".into()
+            )));
+        };
+
+        if !matches!(
+            req.status,
+            RequestStatus::Pending | RequestStatus::UnderReview
+        ) {
+            continue;
         }
+
+        if !seen.insert(req.id.clone()) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Ambiguous pending credential request index: duplicate request ID".into()
+            )));
+        }
+
+        requests.push(record);
     }
     Ok(requests)
 }
@@ -1547,48 +2295,91 @@ pub fn get_pending_requests(issuer_did: String) -> ExternResult<Vec<Record>> {
 /// Update credential request status
 #[hdk_extern]
 pub fn update_request_status(input: UpdateRequestStatusInput) -> ExternResult<Record> {
-    // Capability guard: only the target issuer can approve/reject requests
+    // Only the target issuer may publish a request status transition.
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
+    let issuer_hash = string_to_entry_hash(&caller_did);
 
-    // Find the request
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::CredentialRequest,
-        )?))
-        .include_entries(true);
+    // Requests are authored by the requester, so a source-chain query from the
+    // issuer can never reliably find them. Resolve through the issuer index
+    // instead, then follow the Holochain update chain to the current record.
+    let links = get_links(
+        LinkQuery::try_new(issuer_hash, LinkTypes::IssuerToRequest)?,
+        GetStrategy::default(),
+    )?;
 
-    // Find the latest version of this request (update_entry appends newer versions)
-    let mut found_record: Option<Record> = None;
-    let mut found_req: Option<CredentialRequest> = None;
-    for record in query(filter)? {
-        if let Some(req) = record
-            .entry()
-            .to_app_option::<CredentialRequest>()
-            .ok()
-            .flatten()
-        {
-            if req.id == input.request_id {
-                found_req = Some(req);
-                found_record = Some(record);
+    let mut request_action: Option<ActionHash> = None;
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "Invalid credential request link target".into(),
+            )))?;
+
+        if let Some(record) = get_latest_record_strict(action_hash.clone())? {
+            let Some(req) = record
+                .entry()
+                .to_app_option::<CredentialRequest>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            else {
+                continue;
+            };
+
+            if req.id != input.request_id {
+                continue;
+            }
+
+            if req.issuer_did != caller_did {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Credential request index returned a request for a different issuer".into(),
+                )));
+            }
+
+            if let Some(existing) = request_action.as_ref() {
+                if existing != &action_hash {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Ambiguous credential request ID: multiple distinct requests exist".into(),
+                    )));
+                }
+            } else {
+                request_action = Some(action_hash);
             }
         }
     }
 
-    let (record, req) = match (found_record, found_req) {
-        (Some(r), Some(q)) => (r, q),
-        _ => {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Request not found".into()
-            )));
-        }
-    };
+    let request_action = request_action.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Request not found".into()
+    )))?;
+
+    let record = get_latest_record_strict(request_action)?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Credential request record not found".into()
+    )))?;
+
+    let req: CredentialRequest = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Credential request entry is invalid".into()
+        )))?;
 
     if req.issuer_did != caller_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the target issuer can update request status".into()
         )));
     }
+
+    // Issued is proof-carrying state. It must name the exact credential that
+    // fulfilled the approved request; callers must use issue_credential_for_request.
+    if input.new_status == RequestStatus::Approved {
+        verify_did_active(&caller_did, "credential request approval")?;
+    }
+
+    if input.new_status == RequestStatus::Issued {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Use issue_credential_for_request to transition an approved request to Issued".into()
+        )));
+    }
+
     let now = sys_time()?;
     let updated_req = CredentialRequest {
         status: input.new_status,
@@ -1604,6 +2395,173 @@ pub fn update_request_status(input: UpdateRequestStatusInput) -> ExternResult<Re
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find updated request".into()
     )))
+}
+
+fn credential_claims_satisfy_request(
+    requested: &serde_json::Value,
+    issued: &serde_json::Value,
+) -> bool {
+    match (requested.as_object(), issued.as_object()) {
+        (Some(requested), Some(issued)) => requested
+            .iter()
+            .all(|(key, value)| issued.get(key) == Some(value)),
+        _ => requested == issued,
+    }
+}
+
+/// Issue a credential that is cryptographically bound to an approved request.
+///
+/// The request itself remains requester-authored; only its target issuer may
+/// invoke this function. The request's issuer, subject, and schema become
+/// authoritative inputs for credential construction, and the request's Issued
+/// state stores the exact credential ActionHash.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IssueCredentialForRequestInput {
+    pub request_id: String,
+    pub claims: serde_json::Value,
+    pub credential_types: Vec<String>,
+    pub issuer_name: Option<String>,
+    pub expiration_days: Option<u32>,
+    pub enable_revocation: bool,
+    #[serde(default)]
+    pub strict_schema: bool,
+}
+
+#[hdk_extern]
+pub fn issue_credential_for_request(
+    input: IssueCredentialForRequestInput,
+) -> ExternResult<Record> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    let caller_did = format!("did:mycelix:{}", caller);
+    verify_did_active(&caller_did, "credential issuance for approved request")?;
+    let issuer_hash = string_to_entry_hash(&caller_did);
+
+    let links = get_links(
+        LinkQuery::try_new(issuer_hash, LinkTypes::IssuerToRequest)?,
+        GetStrategy::default(),
+    )?;
+
+    let mut request_record: Option<Record> = None;
+    let mut request_action: Option<ActionHash> = None;
+    let mut request: Option<CredentialRequest> = None;
+
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "Invalid credential request link target".into(),
+            )))?;
+
+        let Some(record) = get_latest_record_strict(action_hash.clone())? else {
+            continue;
+        };
+        let Some(req) = record
+            .entry()
+            .to_app_option::<CredentialRequest>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Credential request index contains an invalid request record".into(),
+            )));
+        };
+
+        if req.id != input.request_id {
+            continue;
+        }
+        if req.issuer_did != caller_did {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Credential request issuer does not match the committing agent".into(),
+            )));
+        }
+
+        if let Some(existing) = request_action.as_ref() {
+            if existing != &action_hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous credential request ID: multiple current request records exist".into(),
+                )));
+            }
+            continue;
+        }
+
+        request_action = Some(action_hash);
+        request_record = Some(record);
+        request = Some(req);
+    }
+
+    let record = request_record.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Approved credential request not found".into()
+    )))?;
+    let req = request.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Approved credential request could not be decoded".into()
+    )))?;
+
+    if req.status != RequestStatus::Approved {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only an Approved credential request can be fulfilled".into(),
+        )));
+    }
+    if req.issued_credential.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Credential request already has an issued credential".into(),
+        )));
+    }
+    let deterministic_id = deterministic_request_credential_id(&caller_did, &req.id);
+    if !credential_claims_satisfy_request(&req.provided_claims, &input.claims) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Issued credential claims must fulfill the claims supplied in the credential request".into(),
+        )));
+    }
+
+    let credential_record = match get_credential(deterministic_id.clone())? {
+        Some(existing) => existing,
+        None => {
+            let issue_input = IssueCredentialInput {
+                subject_did: req.requester_did.clone(),
+                schema_id: req.schema_id.clone(),
+                claims: input.claims,
+                credential_types: input.credential_types,
+                issuer_name: input.issuer_name,
+                expiration_days: input.expiration_days,
+                enable_revocation: input.enable_revocation,
+                strict_schema: input.strict_schema,
+                credential_id: Some(deterministic_id.clone()),
+                proof_profile: Some(CredentialProofProfile::W3cEddsaJcs2022),
+            };
+            match issue_credential(issue_input) {
+                Ok(record) => record,
+                Err(first_error) => get_credential(deterministic_id.clone())?
+                    .ok_or(first_error)?,
+            }
+        }
+    };
+
+    let credential: VerifiableCredential = credential_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Issued credential record could not be decoded".into(),
+        )))?;
+    let credential_action_hash = credential_record.action_address().clone();
+
+    // The request update carries the credential ActionHash. The integrity zome
+    // independently dereferences it and verifies issuer, subject, and schema.
+    let updated = CredentialRequest {
+        status: RequestStatus::Issued,
+        updated: sys_time()?,
+        issued_credential: Some(credential_action_hash),
+        ..req
+    };
+
+    let _updated_request = update_entry(
+        record.action_address().clone(),
+        &EntryTypes::CredentialRequest(updated),
+    )?;
+
+    get(credential_action_hash, GetOptions::default())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest(
+            "Could not retrieve the issued credential after binding it to the request".into(),
+        )),
+    )
 }
 
 /// Input for updating request status
@@ -1629,6 +2587,113 @@ pub fn get_my_credentials(_: ()) -> ExternResult<Vec<Record>> {
     get_credentials_for_subject(my_did)
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CredentialView {
+    pub id: String,
+    pub subject_did: String,
+    pub issuer_did: String,
+    pub credential_type: Vec<String>,
+    pub claims: serde_json::Value,
+    pub issued_at: i64,
+    pub expires_at: Option<i64>,
+    pub valid_from: String,
+    pub valid_until: Option<String>,
+    pub revoked: bool,
+    pub schema_id: Option<String>,
+}
+
+fn credential_view(record: &Record, revoked: bool) -> ExternResult<CredentialView> {
+    let credential: VerifiableCredential = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Credential record did not contain a VerifiableCredential".into()
+        )))?;
+
+    Ok(CredentialView {
+        id: credential.id,
+        subject_did: credential.credential_subject.id,
+        issuer_did: credential.issuer.did().to_string(),
+        credential_type: credential.credential_type,
+        claims: credential.credential_subject.claims,
+        issued_at: credential.mycelix_created.as_micros() / 1_000_000,
+        expires_at: None,
+        valid_from: credential.valid_from,
+        valid_until: credential.valid_until,
+        revoked,
+        schema_id: (!credential.mycelix_schema_id.is_empty())
+            .then_some(credential.mycelix_schema_id),
+    })
+}
+
+fn records_to_credential_views(records: Vec<Record>) -> ExternResult<Vec<CredentialView>> {
+    let ids = records
+        .iter()
+        .map(|record| {
+            let credential: VerifiableCredential = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Credential record did not contain a VerifiableCredential".into()
+                )))?;
+            Ok(credential.id)
+        })
+        .collect::<ExternResult<Vec<_>>>()?;
+
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // The revocation zome caps a single batch at 100 IDs. Chunk here so a
+    // legitimate identity with more than 100 credentials remains readable
+    // without weakening the fail-closed revocation rule.
+    let mut statuses = Vec::with_capacity(ids.len());
+    for chunk in ids.chunks(100) {
+        statuses.extend(batch_check_credential_revocation_status(chunk)?);
+    }
+
+    if statuses.len() != records.len() {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Revocation batch returned {} results for {} credentials",
+            statuses.len(),
+            records.len()
+        ))));
+    }
+
+    records
+        .iter()
+        .zip(statuses.iter())
+        .map(|(record, status)| {
+            let revoked = matches!(
+                status,
+                CredentialRevocationStatus::Revoked(_)
+                    | CredentialRevocationStatus::Suspended(_, _)
+                    | CredentialRevocationStatus::Unknown
+            );
+            credential_view(record, revoked)
+        })
+        .collect()
+}
+
+/// Return held credentials as browser-safe projections. Raw Holochain Records
+/// and cryptographic proof envelopes never cross this API boundary.
+#[hdk_extern]
+pub fn get_my_credentials_view(_: ()) -> ExternResult<Vec<CredentialView>> {
+    let agent_info = agent_info()?;
+    let my_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    records_to_credential_views(get_credentials_for_subject(my_did)?)
+}
+
+/// Return issued credentials as browser-safe projections.
+#[hdk_extern]
+pub fn get_my_issued_credentials_view(_: ()) -> ExternResult<Vec<CredentialView>> {
+    let agent_info = agent_info()?;
+    let my_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    records_to_credential_views(get_credentials_issued_by(my_did)?)
+}
+
 // =============================================================================
 // PRE-SIGNED CREDENTIAL ISSUANCE (for PQC/hybrid proofs created off-chain)
 // =============================================================================
@@ -1643,21 +2708,23 @@ pub struct IssueCredentialWithProofInput {
     pub credential: VerifiableCredential,
 }
 
-/// Issue a credential with a pre-signed proof (PQC or hybrid).
+/// Issue a credential with a pre-signed proof that the WASM integrity boundary
+/// can verify locally.
 ///
-/// This extern accepts a fully-formed VerifiableCredential whose `proof.proof_value`
-/// was produced off-chain by a PQC-capable signer. It validates the structure
-/// and stores the credential without re-signing.
-///
-/// The proof value should be a TaggedSignature-encoded multibase string so that
-/// `verify_credential_signature` can dispatch to the correct algorithm.
+/// The current admission boundary supports legacy Mycelix Ed25519 proofs and the
+/// W3C eddsa-jcs-2022 profile. PQC/hybrid proofs remain intentionally blocked here:
+/// the WASM verifier cannot independently establish their full cryptographic validity.
 #[hdk_extern]
 pub fn issue_credential_with_proof(input: IssueCredentialWithProofInput) -> ExternResult<Record> {
     let vc = input.credential;
 
-    // Capability guard: only the claimed issuer can submit pre-signed credentials
+    // Capability guard: only the claimed issuer can submit pre-signed credentials.
+    // Deactivation is terminal for new issuance even when the historical key
+    // remains cryptographically valid.
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
+    verify_did_active(&caller_did, "pre-signed credential issuance")?;
+
     if vc.issuer.did() != caller_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the claimed issuer can submit pre-signed credentials".into()
@@ -1687,6 +2754,16 @@ pub fn issue_credential_with_proof(input: IssueCredentialWithProofInput) -> Exte
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Pre-signed credential must have a non-empty proof value".into()
         )));
+    }
+
+    match vc.proof.cryptosuite.as_deref() {
+        None | Some("mycelix-blake2b-ed25519-2026") | Some("eddsa-jcs-2022") => {}
+        Some(suite) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Pre-signed credential cryptosuite '{}' is not independently verifiable in the WASM admission boundary",
+                suite
+            ))));
+        }
     }
 
     // Validate that the proof value is parseable as a tagged signature
@@ -1946,19 +3023,28 @@ fn parse_tz_offset(s: &str) -> Option<i64> {
     if rest.len() == 4 && !rest.contains(':') {
         let hours: i64 = rest[0..2].parse().ok()?;
         let minutes: i64 = rest[2..4].parse().ok()?;
+        if hours > 23 || minutes > 59 {
+            return None;
+        }
         return Some(sign * (hours * 3600 + minutes * 60));
     }
 
     // Handle "+05:30" format
-    if rest.len() >= 5 && rest.chars().nth(2) == Some(':') {
+    if rest.len() == 5 && rest.as_bytes()[2] == b':' {
         let hours: i64 = rest[0..2].parse().ok()?;
         let minutes: i64 = rest[3..5].parse().ok()?;
+        if hours > 23 || minutes > 59 {
+            return None;
+        }
         return Some(sign * (hours * 3600 + minutes * 60));
     }
 
     // Handle "+05" format (hours only)
     if rest.len() == 2 {
         let hours: i64 = rest.parse().ok()?;
+        if hours > 23 {
+            return None;
+        }
         return Some(sign * hours * 3600);
     }
 
@@ -2179,8 +3265,127 @@ pub fn verify_selective_disclosure(
 }
 
 #[cfg(test)]
+#[test]
+fn w3c_assertion_binding_rejects_wrong_controller_key() {
+    let method = DidVerificationMethodProofMirror {
+        id: "did:mycelix:issuer#keys-1-multikey".into(),
+        type_: "Multikey".into(),
+        controller: "did:mycelix:other".into(),
+        public_key_multibase: "zKey".into(),
+    };
+    let doc = DidDocumentProofMirror {
+        id: "did:mycelix:issuer".into(),
+        verification_method: vec![method],
+        authentication: vec![],
+        assertion_method: vec!["did:mycelix:issuer#keys-1-multikey".into()],
+    };
+    assert!(!validate_w3c_assertion_method_binding(
+        &doc,
+        "did:mycelix:issuer",
+        "did:mycelix:issuer#keys-1-multikey",
+        "zKey",
+    ));
+}
+
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_credential_proof_profile_is_w3c_jcs() {
+        assert_eq!(
+            CredentialProofProfile::default(),
+            CredentialProofProfile::W3cEddsaJcs2022
+        );
+    }
+
+    #[test]
+    fn runtime_jcs_proof_value_requires_raw_base58btc_ed25519() {
+        let valid = encode_raw_ed25519_multibase(&[7u8; 64]).unwrap();
+        let decoded = decode_raw_jcs_signature(&valid).unwrap();
+        assert_eq!(decoded, [7u8; 64]);
+
+        assert!(decode_raw_jcs_signature("mnot-base58btc").is_err());
+        assert!(decode_raw_jcs_signature("z123").is_err());
+    }
+
+    #[test]
+    fn eddsa_jcs_hash_matches_w3c_1_1_vector() {
+        // W3C Data Integrity EdDSA Cryptosuites v1.1, Examples 30-36.
+        // Example 36 is proofConfigHash || transformedDocumentHash.
+        let document = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "id": "urn:uuid:58172aac-d8ba-11ed-83dd-0b3aef56cc33",
+            "type": ["VerifiableCredential", "AlumniCredential"],
+            "name": "Alumni Credential",
+            "description": "A minimum viable example of an Alumni Credential.",
+            "issuer": "https://vc.example/issuers/5678",
+            "validFrom": "2023-01-01T00:00:00Z",
+            "credentialSubject": {
+                "id": "did:example:abcdefgh",
+                "alumniOf": "The School of Examples"
+            }
+        });
+        let proof_config = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2023-02-24T23:36:38Z",
+            "verificationMethod": "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+            "proofPurpose": "assertionMethod"
+        });
+
+        let hash_data = eddsa_jcs_hash_data_from_values(document, proof_config)
+            .expect("W3C 1.1 JCS vector must canonicalize");
+
+        let hex = hash_data
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+
+        assert_eq!(
+            &hex[..64],
+            "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db"
+        );
+        assert_eq!(
+            &hex[64..],
+            "59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19"
+        );
+        assert_eq!(
+            hex,
+            "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19"
+        );
+    }
+
+
+    #[test]
+    fn proof_verification_method_must_bind_to_did() {
+        assert!(proof_verification_method_matches_did(
+            "did:mycelix:issuer#keys-1",
+            "did:mycelix:issuer"
+        ));
+        assert!(proof_verification_method_matches_did(
+            "did:mycelix:holder#key-7",
+            "did:mycelix:holder"
+        ));
+        assert!(proof_verification_method_matches_did(
+            "did:mycelix:issuer",
+            "did:mycelix:issuer"
+        ));
+        assert!(!proof_verification_method_matches_did(
+            "did:mycelix:other#keys-1",
+            "did:mycelix:issuer"
+        ));
+        assert!(!proof_verification_method_matches_did(
+            "#keys-1",
+            "did:mycelix:issuer"
+        ));
+    }
 
     // --- is_leap_year ---
 
@@ -2260,6 +3465,20 @@ mod tests {
     fn tz_offset_hours_only() {
         assert_eq!(parse_tz_offset("+05"), Some(5 * 3600));
         assert_eq!(parse_tz_offset("-08"), Some(-8 * 3600));
+    }
+
+    #[test]
+    fn tz_offset_rejects_out_of_range_components() {
+        assert_eq!(parse_tz_offset("+24"), None);
+        assert_eq!(parse_tz_offset("+23:60"), None);
+        assert_eq!(parse_tz_offset("+24:00"), None);
+        assert_eq!(parse_tz_offset("+05:30:00"), None);
+    }
+
+    #[test]
+    fn iso8601_rejects_unknown_timezone_suffix() {
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00FOO").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00UTC").is_none());
     }
 
     #[test]
@@ -2418,6 +3637,7 @@ mod tests {
                 algorithm: None,
                 challenge: None,
                 domain: None,
+                proof_context: None,
             },
             mycelix_schema_id: "mycelix:schema:test:v1".into(),
             mycelix_created: Timestamp::from_micros(0),
@@ -2426,6 +3646,42 @@ mod tests {
         let hash2 = compute_credential_hash(&vc);
         assert_eq!(hash1, hash2, "Hash must be deterministic");
         assert_eq!(hash1.len(), 32, "BLAKE2b-256 produces 32 bytes");
+    }
+
+    #[test]
+    fn eddsa_jcs_hash_matches_w3c_published_vector() {
+        let credential = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "id": "urn:uuid:58172aac-d8ba-11ed-83dd-0b3aef56cc33",
+            "type": ["VerifiableCredential", "AlumniCredential"],
+            "name": "Alumni Credential",
+            "description": "A minimum viable example of an Alumni Credential.",
+            "issuer": "https://vc.example/issuers/5678",
+            "validFrom": "2023-01-01T00:00:00Z",
+            "credentialSubject": {
+                "id": "did:example:abcdefgh",
+                "alumniOf": "The School of Examples"
+            }
+        });
+
+        let proof_options = serde_json::json!({
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2023-02-24T23:36:38Z",
+            "verificationMethod": "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+            "proofPurpose": "assertionMethod"
+        });
+
+        let hash_data = eddsa_jcs_hash_data_from_values(credential, proof_options).unwrap();
+        let expected = concat!(
+            "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db",
+            "59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19"
+        );
+        let actual = hash_data.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        assert_eq!(actual, expected);
     }
 
     #[test]
@@ -2453,6 +3709,7 @@ mod tests {
                 algorithm: None,
                 challenge: None,
                 domain: None,
+                proof_context: None,
             },
             mycelix_schema_id: "mycelix:schema:test:v1".into(),
             mycelix_created: Timestamp::from_micros(0),
@@ -2863,28 +4120,305 @@ mod tests {
     }
 }
 
+/// Build the 64-byte hashData input required by W3C eddsa-jcs-2022.
+///
+/// The unsecured credential is the credential with its proof property removed.
+/// The proof configuration contains the proof fields except proofValue, plus
+/// the proof-level @context when present. Both are JCS canonicalized (RFC 8785),
+/// SHA-256 hashed, and concatenated as proofConfigHash || documentHash.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct DidVerificationMethodProofMirror {
+    id: String,
+    #[serde(rename = "type", alias = "type_")]
+    type_: String,
+    controller: String,
+    #[serde(rename = "publicKeyMultibase", alias = "public_key_multibase")]
+    public_key_multibase: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct DidDocumentProofMirror {
+    id: String,
+    #[serde(rename = "verificationMethod", alias = "verification_method")]
+    verification_method: Vec<DidVerificationMethodProofMirror>,
+    #[serde(default)]
+    authentication: Vec<String>,
+    #[serde(rename = "assertionMethod", alias = "assertion_method", default)]
+    assertion_method: Vec<String>,
+}
+
+fn canonical_agent_ed25519_multibase(agent_pub_key: &AgentPubKey) -> ExternResult<String> {
+    let raw = agent_pub_key.get_raw_36();
+    if raw.len() != 36 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Unexpected AgentPubKey raw length while deriving DID Multikey".into(),
+        )));
+    }
+    TaggedPublicKey::new(AlgorithmId::Ed25519, raw[4..].to_vec())
+        .map(|key| key.to_multibase())
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to encode canonical DID Multikey: {e}"
+        ))))
+}
+
+
+fn validate_w3c_authentication_method_binding(
+    did_doc: &DidDocumentProofMirror,
+    holder_did: &str,
+    verification_method: &str,
+    expected_multibase: &str,
+) -> bool {
+    if did_doc.id != holder_did
+        || !did_doc
+            .authentication
+            .iter()
+            .any(|reference| reference == verification_method)
+    {
+        return false;
+    }
+
+    let Some(method) = did_doc
+        .verification_method
+        .iter()
+        .find(|method| method.id == verification_method)
+    else {
+        return false;
+    };
+
+    method.controller == holder_did
+        && method.type_ == "Multikey"
+        && method.public_key_multibase == expected_multibase
+}
+
+fn validate_current_assertion_method_binding(
+    did_doc: &DidDocumentProofMirror,
+    issuer_did: &str,
+    verification_method: &str,
+    expected_multibase: &str,
+) -> bool {
+    if did_doc.id != issuer_did
+        || !did_doc
+            .assertion_method
+            .iter()
+            .any(|reference| reference == verification_method)
+    {
+        return false;
+    }
+
+    let Some(method) = did_doc
+        .verification_method
+        .iter()
+        .find(|method| method.id == verification_method)
+    else {
+        return false;
+    };
+
+    method.controller == issuer_did && method.public_key_multibase == expected_multibase
+}
+
+fn validate_w3c_assertion_method_binding(
+    did_doc: &DidDocumentProofMirror,
+    issuer_did: &str,
+    verification_method: &str,
+    expected_multibase: &str,
+) -> bool {
+    if did_doc.id != issuer_did
+        || !did_doc
+            .assertion_method
+            .iter()
+            .any(|reference| reference == verification_method)
+    {
+        return false;
+    }
+
+    let Some(method) = did_doc
+        .verification_method
+        .iter()
+        .find(|method| method.id == verification_method)
+    else {
+        return false;
+    };
+
+    method.controller == issuer_did
+        && method.type_ == "Multikey"
+        && method.public_key_multibase == expected_multibase
+}
+
+fn eddsa_jcs_hash_data_from_values(
+    mut unsecured: Value,
+    mut proof_config: Value,
+) -> ExternResult<Vec<u8>> {
+    let document_context = unsecured
+        .get("@context")
+        .cloned()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "JCS secured document must contain an @context".into()
+        )))?;
+
+    let proof_config_map = proof_config.as_object_mut().ok_or(wasm_error!(
+        WasmErrorInner::Guest("JCS proof configuration must serialize to a JSON object".into())
+    ))?;
+
+    if let Some(proof_context) = proof_config_map.get("@context").cloned() {
+        let document_values = document_context.as_array().ok_or(wasm_error!(
+            WasmErrorInner::Guest("JCS document @context must be an array".into())
+        ))?;
+        let proof_values = proof_context.as_array().ok_or(wasm_error!(
+            WasmErrorInner::Guest("JCS proof @context must be an array".into())
+        ))?;
+        if proof_values.is_empty()
+            || proof_values.len() > document_values.len()
+            || document_values[..proof_values.len()] != proof_values[..]
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "JCS proof @context must be an ordered prefix of the document @context".into()
+            )));
+        }
+        unsecured
+            .as_object_mut()
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "JCS secured document must serialize to an object".into()
+            )))?
+            .insert("@context".into(), proof_context);
+    }
+
+    let canonical_document = serde_json_canonicalizer::to_vec(&unsecured).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "JCS document canonicalization failed: {e}"
+        )))
+    })?;
+    let canonical_proof_config = serde_json_canonicalizer::to_vec(&proof_config).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "JCS proof configuration canonicalization failed: {e}"
+        )))
+    })?;
+    let transformed_document_hash = Sha256::digest(&canonical_document);
+    let proof_config_hash = Sha256::digest(&canonical_proof_config);
+    let mut hash_data = Vec::with_capacity(64);
+    hash_data.extend_from_slice(&proof_config_hash);
+    hash_data.extend_from_slice(&transformed_document_hash);
+    Ok(hash_data)
+}
+
+fn eddsa_jcs_hash_data_for_presentation(
+    vp: &VerifiablePresentation,
+) -> ExternResult<Vec<u8>> {
+    let mut unsecured = serde_json::to_value(vp).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Presentation JSON serialization failed: {e}"
+        )))
+    })?;
+    let unsecured_map = unsecured.as_object_mut().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Presentation must serialize to a JSON object".into())
+    ))?;
+    unsecured_map.remove("proof");
+
+    let proof_value = serde_json::to_value(&vp.proof).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Presentation proof JSON serialization failed: {e}"
+        )))
+    })?;
+    let mut proof_config = proof_value.as_object().cloned().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Presentation proof must serialize to a JSON object".into())
+    ))?;
+    proof_config.remove("proofValue");
+
+    eddsa_jcs_hash_data_from_values(unsecured, Value::Object(proof_config))
+}
+
+fn eddsa_jcs_hash_data(vc: &VerifiableCredential) -> ExternResult<Vec<u8>> {
+    let mut unsecured = serde_json::to_value(vc).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Credential JSON serialization failed: {e}"
+        )))
+    })?;
+    let unsecured_map = unsecured.as_object_mut().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Credential must serialize to a JSON object".into())
+    ))?;
+    unsecured_map.remove("proof");
+
+    let proof_value = serde_json::to_value(&vc.proof).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Proof JSON serialization failed: {e}"
+        )))
+    })?;
+    let mut proof_config = proof_value.as_object().cloned().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Credential proof must serialize to a JSON object".into())
+    ))?;
+    proof_config.remove("proofValue");
+
+    eddsa_jcs_hash_data_from_values(unsecured, Value::Object(proof_config))
+}
+fn decode_raw_jcs_signature(value: &str) -> ExternResult<[u8; 64]> {
+    if !value.starts_with('z') || value.len() <= 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "W3C JCS proofValue must use base58-btc Multibase (z prefix)".into()
+        )));
+    }
+    let decoded = bs58::decode(&value[1..])
+        .with_alphabet(bs58::Alphabet::BITCOIN)
+        .into_vec()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid proofValue base58-btc payload: {e}"
+            )))
+        })?;
+    <[u8; 64]>::try_from(decoded.as_slice()).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "W3C JCS proofValue must decode to exactly 64 Ed25519 bytes".into()
+        ))
+    })
+}
+
+/// Encode a raw Ed25519 signature as base58-btc Multibase, as required by
+/// W3C Data Integrity EdDSA cryptosuites.
+fn encode_raw_ed25519_multibase(signature: &[u8]) -> ExternResult<String> {
+    if signature.len() != 64 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Ed25519 signature must be exactly 64 bytes, got {}",
+            signature.len()
+        ))));
+    }
+    let encoded = bs58::encode(signature)
+        .with_alphabet(bs58::Alphabet::BITCOIN)
+        .into_string();
+    Ok(format!("z{encoded}"))
+}
+
 /// Sign credential content using the agent's ed25519 key
 ///
 /// This uses Holochain's HDK sign_raw which performs ed25519 signing
 /// with the agent's cryptographic identity. The result is a
 /// `TaggedSignature`-aware multibase string that includes the algorithm
 /// multicodec prefix so verifiers can detect the algorithm.
-fn sign_credential(vc: &VerifiableCredential) -> ExternResult<String> {
-    // Compute canonical hash of credential content
-    let content_hash = compute_credential_hash(vc);
+fn sign_credential(
+    vc: &VerifiableCredential,
+    profile: CredentialProofProfile,
+) -> ExternResult<String> {
+    let hash_data = match profile {
+        CredentialProofProfile::MycelixBlake2bEd25519 => compute_credential_hash(vc),
+        CredentialProofProfile::W3cEddsaJcs2022 => eddsa_jcs_hash_data(vc)?,
+    };
 
-    // Sign with agent's ed25519 key via HDK
-    let signature = sign_raw(agent_info()?.agent_initial_pubkey, content_hash.clone())?;
+    let signature = sign_raw(agent_info()?.agent_initial_pubkey, hash_data)?;
 
-    // Wrap in TaggedSignature for algorithm-tagged multibase encoding
-    let tagged =
-        TaggedSignature::new(AlgorithmId::Ed25519, signature.as_ref().to_vec()).map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Signature tagging error: {}",
-                e
-            )))
-        })?;
-    Ok(tagged.to_multibase())
+    match profile {
+        CredentialProofProfile::MycelixBlake2bEd25519 => {
+            let tagged =
+                TaggedSignature::new(AlgorithmId::Ed25519, signature.as_ref().to_vec()).map_err(
+                    |e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "Signature tagging error: {}",
+                            e
+                        )))
+                    },
+                )?;
+            Ok(tagged.to_multibase())
+        }
+        CredentialProofProfile::W3cEddsaJcs2022 => {
+            encode_raw_ed25519_multibase(signature.as_ref())
+        }
+    }
 }
 
 /// Verify a credential signature with algorithm dispatch.
@@ -2892,8 +4426,8 @@ fn sign_credential(vc: &VerifiableCredential) -> ExternResult<String> {
 /// Parses the proof value as a `TaggedSignature` to detect the algorithm,
 /// then dispatches:
 /// - Ed25519 → HDK verify_signature
-/// - Hybrid → verify the Ed25519 component (PQC verification requires native)
-/// - Pure PQC → structural accept in WASM (real verification off-chain)
+/// - Hybrid/Pure PQC → fail closed in WASM because full PQC verification is
+///   unavailable here; native/off-chain verification must establish validity.
 ///
 /// Falls back to legacy 64-byte raw Ed25519 for old credentials.
 fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> {
@@ -2913,8 +4447,87 @@ fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> 
         )))
     })?;
 
-    // Compute expected content hash
+    // Standards-conformant W3C eddsa-jcs-2022 verification uses raw 64-byte
+    // Ed25519 signatures encoded directly as base58-btc Multibase.
+    if vc.proof.cryptosuite.as_deref() == Some("eddsa-jcs-2022") {
+        let response = call(
+            CallTargetCell::Local,
+            ZomeName::new("did_registry"),
+            FunctionName::new("resolve_did"),
+            None,
+            issuer_did.to_string(),
+        )?;
+
+        let did_record = match response {
+            ZomeCallResponse::Ok(result) => result.decode::<Option<Record>>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode issuer DID resolution: {e:?}"
+                )))
+            })?,
+            _ => None,
+        }
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Issuer DID could not be resolved for W3C proof verification".into()
+        )))?;
+
+        let did_doc: DidDocumentProofMirror = did_record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Resolved issuer DID record contained no DID document".into()
+            )))?;
+
+        let expected_multibase = canonical_agent_ed25519_multibase(&pubkey)?;
+        if !validate_w3c_assertion_method_binding(
+            &did_doc,
+            issuer_did,
+            &vc.proof.verification_method,
+            &expected_multibase,
+        ) {
+            return Ok(false);
+        }
+
+        if vc.proof.proof_type != "DataIntegrityProof"
+            || vc.proof.algorithm.is_some()
+        {
+            return Ok(false);
+        }
+
+        let proof_created = vc.proof.created.parse::<Timestamp>().map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "W3C JCS proof created value is not a valid timestamp".into()
+            ))
+        })?;
+        if proof_created > sys_time()? {
+            return Ok(false);
+        }
+
+        if let Some(proof_context) = vc.proof.proof_context.as_ref() {
+            if proof_context.is_empty()
+                || proof_context.len() > vc.context.len()
+                || vc.context[..proof_context.len()] != proof_context[..]
+            {
+                return Ok(false);
+            }
+        }
+
+        let signature = Signature::from(decode_raw_jcs_signature(
+            &vc.proof.proof_value
+        )?);
+
+        return verify_signature(pubkey, signature, eddsa_jcs_hash_data(vc)?);
+    }
+
+    // Compute expected content hash for the native/legacy Mycelix profile.
     let content_hash = compute_credential_hash(vc);
+
+    // Legacy credentials with no cryptosuite and explicitly-native credentials
+    // use the Mycelix BLAKE2b payload format. Unsupported explicit suites fail closed.
+    match vc.proof.cryptosuite.as_deref() {
+        None | Some("mycelix-blake2b-ed25519-2026") => {}
+        Some(_) => return Ok(false),
+    }
 
     // Try to parse as TaggedSignature (algorithm-aware multibase)
     match TaggedSignature::from_multibase(&vc.proof.proof_value) {
@@ -2936,29 +4549,17 @@ fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> 
                     );
                     verify_signature(pubkey, sig, content_hash)
                 }
-                AlgorithmId::HybridEd25519MlDsa65 => {
-                    // Verify Ed25519 component; PQC component verified off-chain
-                    let ed_bytes = tagged_sig.ed25519_component().ok_or_else(|| {
-                        wasm_error!(WasmErrorInner::Guest(
-                            "Hybrid signature missing Ed25519 component".into()
-                        ))
-                    })?;
-                    if ed_bytes.len() != 64 {
-                        return Ok(false);
-                    }
-                    let sig = Signature::from(<[u8; 64]>::try_from(ed_bytes).map_err(|_| {
-                        wasm_error!(WasmErrorInner::Guest("Invalid Ed25519 component".into()))
-                    })?);
-                    verify_signature(pubkey, sig, content_hash)
-                }
-                AlgorithmId::MlDsa65
+                AlgorithmId::HybridEd25519MlDsa65
+                | AlgorithmId::MlDsa65
                 | AlgorithmId::MlDsa87
                 | AlgorithmId::SlhDsaSha2_128s
                 | AlgorithmId::SlhDsaShake128s => {
-                    // Pure PQC: WASM cannot verify, accept structurally.
-                    // Real verification happens via CLI/SDK (off-chain).
-                    let expected_size = tagged_sig.algorithm.signature_size();
-                    Ok(tagged_sig.signature_bytes.len() == expected_size)
+                    // SECURITY: Do not claim cryptographic validity when the
+                    // WASM runtime cannot fully verify the declared algorithm.
+                    // Hybrid verification requires the PQC component too; pure
+                    // PQC verification is also unavailable here. Native/off-chain
+                    // verification is required before accepting these credentials.
+                    Ok(false)
                 }
                 _ => {
                     // Non-signature algorithm used as signature → reject
