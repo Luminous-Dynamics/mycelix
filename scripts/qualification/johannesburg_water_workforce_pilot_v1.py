@@ -63,6 +63,9 @@ EXPECTED_PROBES = {
     "ocds-empty-status-is-not-open": ("ProcurementIntegrity", "HoldStatusUnqualified", "EmptyStatusAndClosingDate"),
     "award-is-not-contract-or-funded-role": ("EmploymentIntegrity", "RecordAwardOnly", "AwardObservedContractAndRoleFundingUnknown"),
     "duplicate-ocds-release-is-not-second-opportunity": ("ProcurementIntegrity", "DeduplicateExactReleaseForCounting", "IdenticalDuplicateRelease"),
+    "pikitup-deadline-without-timezone-is-not-open-verified": ("ProcurementIntegrity", "KeepAtTenderNoticeObserved", "TimezoneAndAmendmentCurrentnessUnqualified"),
+    "cidb-tender-requirement-is-not-cooperative-job-eligibility": ("EmploymentIntegrity", "RequireBidderAndScopeReview", "BidderAndSubcontractEligibilityUnverified"),
+    "tender-document-fee-or-bribe-solicitation-is-not-official": ("ProcurementIntegrity", "BlockPaymentAndUseOfficialChannel", "SuspectedProcurementScamUnadjudicated"),
 }
 REQUIRED_GUARDS = {
     "issuer-reference-collision": {"DoNotMergeByReferenceStringAlone", "ExternalReferenceIsNotInternalIdentity"},
@@ -90,7 +93,10 @@ REQUIRED_GUARDS = {
     "national-registry-absence-is-not-city-tender-absence": {"RegistryCoverageExcludesSomeMunicipalAndSoeData", "MissingRecordIsNotEvidenceOfNoTender", "UseIssuerSpecificNotice", "NoAbsenceProofFromListing"},
     "ocds-empty-status-is-not-open": {"EmptyTenderStatusIsNotOpen", "UnknownIsNotOpen", "RequireAuthoritativeCurrentNotice", "NoAutomaticStatusPromotion"},
     "award-is-not-contract-or-funded-role": {"AwardIsNotSignedContract", "ContractValueIsNotRoleBudget", "NoPositionBeforeFullFunding", "QualifiedWageReviewRequired", "NoSpeculativePayroll"},
-    "duplicate-ocds-release-is-not-second-opportunity": {"DeduplicateOnlyAfterExactReleaseIdentityAndContentMatch", "DoNotCountReleaseAsTenderProcess", "ConflictingContentRequiresHumanReview"},
+    "duplicate-ocds-release-is-not-second-opportunity": {"DeduplicateOnlyAfterExactReleaseIdentityAndContentMatch", "DoNotCountReleaseAsTenderProcess", "ConflictingContentRequiresHumanReview"    "pikitup-deadline-without-timezone-is-not-open-verified": {"TenderDeadlineNeedsTimezone", "FuturePublishedDeadlineAloneNotFullOpenGate", "CheckLatestAddendaBeforeOpenStatus", "NoAutomaticStagePromotion"},
+    "cidb-tender-requirement-is-not-cooperative-job-eligibility": {"SpecificTenderRequirementsControl", "DoNotAssumeCooperativeEligibility", "ContractScopeDoesNotEqualRoleBudget", "NoPositionBeforeFullFunding"},
+    "tender-document-fee-or-bribe-solicitation-is-not-official": {"TenderDocumentsAndCsdRegistrationAreFree", "UseIssuerPublishedChannels", "NoBribeOrPreferentialTreatment", "ReportThroughOfficialChannelOnly", "AllegationIsNotAdjudicatedFinding"},
+},
 }
 EXPECTED_BASE_KEYS = {
     "automated_external_write", "automated_closure", "production_sla_calculation",
@@ -337,7 +343,7 @@ def validate() -> None:
     if "not proof of absence" not in pikitup_proc.get("search_ceiling", "").lower():
         fail("tender listing non-observation must not be reported as proof no tender exists")
 
-    current_index = source_by_id["PIKITUP-CURRENT-INDEX-1"]
+    current_index = source_by_id["PIKITUP-CURRENT-INDEX-1", "PIKITUP-RFQ-INDEX-1", "PIKITUP-PIK016-DOC-1"]
     if current_index.get("page_label") != "Current Tenders" or current_index.get("checked_on") != "2026-10-14":
         fail("City-hosted Pikitup current-tender listing identity/date drift")
     if current_index.get("visible_rows") != [
