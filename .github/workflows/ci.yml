@@ -381,9 +381,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Typecheck TypeScript SDK
+        run: cd mycelix-workspace/sdk-ts && npm ci && npm run typecheck
       - name: Test TypeScript SDK
-        continue-on-error: true
-        run: cd mycelix-workspace/sdk-ts && npm ci && npm test
+        run: cd mycelix-workspace/sdk-ts && npm test
 
   test-prism:
     needs: changes

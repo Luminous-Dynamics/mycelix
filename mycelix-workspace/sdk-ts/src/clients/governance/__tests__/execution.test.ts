@@ -187,8 +187,32 @@ describe('ExecutionClient', () => {
     });
   });
 
+  describe('prepareTimelockForExecution', () => {
+    it('should call the prepare-only zome transition', async () => {
+      (mockAppClient.callZome as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        mockRecord({ id: 'execution-1', status: 'Prepared' })
+      );
+
+      const result = await client.prepareTimelockForExecution({ timelockId: 'timelock-1' });
+
+      expect(mockAppClient.callZome).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fn_name: 'execute_timelock',
+          payload: { timelock_id: 'timelock-1' },
+        })
+      );
+      expect(result).toEqual(expect.objectContaining({
+        entry: expect.objectContaining({
+          Present: expect.objectContaining({
+            entry: expect.objectContaining({ status: 'Prepared' }),
+          }),
+        }),
+      }));
+    });
+  });
+
   describe('executeTimelock', () => {
-    it('should pass timelock_id in payload', async () => {
+    it('should remain a compatibility alias for prepare-only behavior', async () => {
       (mockAppClient.callZome as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
         mockRecord({ ...TIMELOCK_ENTRY, status: 'Executed' })
       );
@@ -404,7 +428,8 @@ describe('ExecutionClient', () => {
   describe('getStatusDescription', () => {
     it('should return description for each status', () => {
       expect(client.getStatusDescription('Pending')).toContain('delay');
-      expect(client.getStatusDescription('Ready')).toContain('ready');
+      expect(client.getStatusDescription('Ready')).toContain('preparation');
+      expect(client.getStatusDescription('Prepared')).toContain('prepared');
       expect(client.getStatusDescription('Executed')).toContain('executed');
       expect(client.getStatusDescription('Cancelled')).toContain('cancelled');
       expect(client.getStatusDescription('Failed')).toContain('failed');
