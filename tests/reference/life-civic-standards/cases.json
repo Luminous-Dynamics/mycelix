@@ -1,0 +1,261 @@
+{
+  "corpus_id": "MYC-LIFE-CIVIC-APPLICABILITY-001",
+  "version": "0.1.0",
+  "source_snapshots": [
+    {
+      "snapshot_id": "ISO-WD-37120-2026-10",
+      "source_uri": "https://www.iso.org/standard/90316.html",
+      "observed_status": "working draft; under development",
+      "as_of_date": "2026-10-14",
+      "notes": "ISO's catalogue says ISO/WD 37120 is Edition 3, under development, and intended to replace ISO 37120:2018. This is a catalog observation, not a claim that the draft is a published standard."
+    },
+    {
+      "snapshot_id": "ISO-37101-2016-2026-10",
+      "source_uri": "https://www.iso.org/standard/61885.html",
+      "observed_status": "published Edition 1; amendment 1:2024 exists; replacement working draft under development",
+      "as_of_date": "2026-10-14",
+      "notes": "Do not confuse the published edition and amendment with the separately identified draft replacement."
+    },
+    {
+      "snapshot_id": "WCAG-OVERVIEW-2026-10",
+      "source_uri": "https://www.w3.org/WAI/standards-guidelines/wcag/",
+      "observed_status": "W3C overview identifies WCAG 2.2 as a published W3C Recommendation",
+      "as_of_date": "2026-10-14",
+      "notes": "Publication status does not determine whether a particular legal regime incorporates WCAG."
+    },
+    {
+      "snapshot_id": "RFC-9943-2026-10",
+      "source_uri": "https://datatracker.ietf.org/doc/rfc9943/",
+      "observed_status": "RFC 9943; Standards Track / Proposed Standard; June 2026",
+      "as_of_date": "2026-10-14",
+      "notes": "RFC status and scope must be represented precisely; publication does not establish legal authority or supply-chain trust by itself."
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "MYC-LCA-001",
+      "title": "SANS reference found without context-specific incorporation evidence",
+      "input_projection": {
+        "instrument_id": "SABS:SANS-CATALOGUE-EXAMPLE",
+        "artifact_kind": "standard",
+        "publication_status": "published",
+        "normative_status": "voluntary_standard"
+      },
+      "context": {
+        "use_case": "generic building repair",
+        "jurisdiction": "ZA-GP",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "this SANS is legally mandatory here",
+          "the repair is compliant"
+        ]
+      },
+      "rationale": "Publication and national-standard status do not themselves establish legal incorporation or application to a particular project.",
+      "synthetic": true
+    },
+    {
+      "case_id": "MYC-LCA-002",
+      "title": "ISO 37120 working draft must not be represented as a published edition",
+      "input_projection": {
+        "instrument_id": "ISO:WD-37120",
+        "artifact_kind": "standard",
+        "version": "Edition 3 working draft",
+        "publication_status": "working_draft",
+        "normative_status": "under_development",
+        "source_uri": "https://www.iso.org/standard/90316.html"
+      },
+      "context": {
+        "use_case": "compare municipal service indicators",
+        "jurisdiction": "global",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "indeterminate",
+        "required_reason_codes": [
+          "draft_not_published"
+        ],
+        "forbidden_claims": [
+          "ISO 37120 Edition 3 is a published International Standard",
+          "conformance to Edition 3 can be certified"
+        ]
+      },
+      "rationale": "ISO's catalogue lists ISO/WD 37120 as under development and intended to replace ISO 37120:2018; working drafts must remain distinct from published editions.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-003",
+      "title": "Published ISO 37101 edition and draft replacement must coexist without silent supersession",
+      "input_projection": {
+        "instrument_id": "ISO:37101:2016",
+        "artifact_kind": "standard",
+        "version": "2016, with Amendment 1:2024",
+        "publication_status": "published",
+        "normative_status": "voluntary_standard",
+        "source_uri": "https://www.iso.org/standard/61885.html",
+        "related_draft_uri": "https://committee.iso.org/standard/91450.html"
+      },
+      "context": {
+        "use_case": "community sustainability management",
+        "jurisdiction": "global",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the draft has already replaced the published edition",
+          "the older edition is withdrawn solely because a replacement is being drafted"
+        ]
+      },
+      "rationale": "ISO's catalogue lists the 2016 edition and its 2024 amendment separately from the working draft intended to replace it. The record must preserve both instruments and their distinct lifecycle states.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-004",
+      "title": "WCAG 2.2 publication does not prove local legal applicability",
+      "input_projection": {
+        "instrument_id": "W3C:WCAG:2.2",
+        "artifact_kind": "technical_specification",
+        "version": "WCAG 2.2",
+        "publication_status": "published",
+        "normative_status": "voluntary_standard",
+        "source_uri": "https://www.w3.org/WAI/standards-guidelines/wcag/"
+      },
+      "context": {
+        "use_case": "assess public-facing website obligations",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "missing_local_adoption"
+        ],
+        "forbidden_claims": [
+          "WCAG 2.2 automatically applies as binding law in South Africa",
+          "a checklist alone proves conformance"
+        ]
+      },
+      "rationale": "W3C publication establishes the guideline/version and success-criteria framework; applicability as a legal duty requires a separate locally grounded analysis.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-005",
+      "title": "Model law published internationally but local enactment not evidenced",
+      "input_projection": {
+        "instrument_id": "UNCITRAL:MODEL-LAW:EXAMPLE",
+        "artifact_kind": "model_law",
+        "version": "example",
+        "publication_status": "published",
+        "normative_status": "informational"
+      },
+      "context": {
+        "use_case": "determine a domestic legal obligation",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "model_law_not_enacted"
+        ],
+        "forbidden_claims": [
+          "publication of the model law proves domestic enactment"
+        ]
+      },
+      "rationale": "A model law is not domestic legislation merely because an international body publishes it.",
+      "synthetic": true
+    },
+    {
+      "case_id": "MYC-LCA-006",
+      "title": "Stale official snapshot cannot support a current applicability conclusion",
+      "input_projection": {
+        "instrument_id": "ZA:EXAMPLE-MUNICIPAL-BYLAW",
+        "artifact_kind": "law",
+        "publication_status": "published",
+        "normative_status": "binding_law",
+        "source_checked_at": "2022-01-01T00:00:00Z"
+      },
+      "context": {
+        "use_case": "current application deadline",
+        "jurisdiction": "ZA-GP",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "stale",
+        "required_reason_codes": [
+          "source_stale"
+        ],
+        "forbidden_claims": [
+          "this is the current deadline"
+        ]
+      },
+      "rationale": "Old capture time is not a substitute for currentness verification, amendment history, and effective-date evidence.",
+      "synthetic": true
+    },
+    {
+      "case_id": "MYC-LCA-007",
+      "title": "Directory listing does not prove provider competence or action authority",
+      "input_projection": {
+        "instrument_id": "EXAMPLE:PROVIDER-REGISTER",
+        "artifact_kind": "registry",
+        "publication_status": "published",
+        "normative_status": "informational"
+      },
+      "context": {
+        "use_case": "authorize a consequential service action",
+        "jurisdiction": "ZA-GP",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "registry membership authorizes the action",
+          "registry membership proves competence"
+        ]
+      },
+      "rationale": "Discovery and registry membership are evidence about the register's contents, not a blanket authorization grant.",
+      "synthetic": true
+    },
+    {
+      "case_id": "MYC-LCA-008",
+      "title": "IETF RFC 9943 is a versioned technical reference, not a universal authority",
+      "input_projection": {
+        "instrument_id": "IETF:RFC:9943",
+        "artifact_kind": "technical_specification",
+        "version": "RFC 9943 (June 2026)",
+        "publication_status": "published",
+        "normative_status": "voluntary_standard",
+        "source_uri": "https://datatracker.ietf.org/doc/rfc9943/"
+      },
+      "context": {
+        "use_case": "evaluate signed-statement transparency receipts",
+        "jurisdiction": "global",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "a valid transparency receipt proves the signed statement is true",
+          "RFC conformance grants legal authority"
+        ]
+      },
+      "rationale": "RFC 9943 describes a transparency architecture; transparency can make signed statements auditable but does not prevent dishonest or compromised issuers.",
+      "synthetic": false
+    }
+  ]
+}
