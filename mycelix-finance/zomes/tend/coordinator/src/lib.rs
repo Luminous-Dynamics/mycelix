@@ -576,7 +576,10 @@ fn get_or_create_hearth_balance(
 }
 
 /// Verify that a member belongs to a hearth via cross-zome call to hearth zome.
-/// Falls through (allows) if hearth zome is unreachable (bootstrap/standalone mode).
+///
+/// Hearth membership is authorization for a monetary TEND mutation. Any
+/// unavailable, malformed, or unexpected authority result therefore fails
+/// closed; standalone mode must not implicitly authorize membership.
 fn verify_hearth_membership(member_did: &str, hearth_did: &str) -> ExternResult<()> {
     #[derive(Serialize, Debug)]
     struct MembershipQuery {
@@ -595,39 +598,29 @@ fn verify_hearth_membership(member_did: &str, hearth_did: &str) -> ExternResult<
         },
     ) {
         Ok(ZomeCallResponse::Ok(result)) => {
-            match result.decode::<bool>() {
-                Ok(true) => Ok(()),
-                Ok(false) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            let is_member = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Hearth membership response was malformed for {}@{}: {:?}",
+                    member_did, hearth_did, e
+                )))
+            })?;
+            if is_member {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
                     "{} is not a member of hearth {}",
                     member_did, hearth_did
-                )))),
-                Err(e) => {
-                    // SECURITY NOTE: Decode error falls through permissively to support
-                    // bootstrap/standalone mode where hearth zome schema may differ.
-                    debug!(
-                        "verify_hearth_membership: decode error for {}@{}: {:?}, allowing (bootstrap/standalone)",
-                        member_did, hearth_did, e
-                    );
-                    Ok(())
-                }
+                ))))
             }
         }
-        Ok(other) => {
-            // SECURITY NOTE: Hearth zome unreachable/unauthorized — allow in bootstrap/standalone mode.
-            debug!(
-                "verify_hearth_membership: hearth_bridge returned {:?} for {}@{}, allowing (bootstrap/standalone)",
-                other, member_did, hearth_did
-            );
-            Ok(())
-        }
-        Err(e) => {
-            // SECURITY NOTE: Hearth zome unreachable — allow in bootstrap/standalone mode.
-            debug!(
-                "verify_hearth_membership: hearth_bridge unreachable for {}@{}: {:?}, allowing (bootstrap/standalone)",
-                member_did, hearth_did, e
-            );
-            Ok(())
-        }
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Hearth membership authority returned an unexpected response for {}@{}: {:?}",
+            member_did, hearth_did, other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Hearth membership authority unavailable for {}@{}: {:?}",
+            member_did, hearth_did, e
+        )))),
     }
 }
 
