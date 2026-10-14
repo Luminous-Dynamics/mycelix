@@ -241,7 +241,9 @@ impl ControlTotalStatement {
         &self,
         contract: &ControlReconciliationContract,
     ) -> Result<(), StatementError> {
-        contract.validate().map_err(StatementError::InvalidContract)?;
+        contract
+            .validate()
+            .map_err(StatementError::InvalidContract)?;
         if self.contract_digest != contract.contract_digest {
             return Err(StatementError::ContractMismatch);
         }
