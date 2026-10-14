@@ -777,7 +777,8 @@ mod tests {
             let relative_error = (approximation - reference_pc).abs() / reference_pc;
             assert!(
                 relative_error <= 0.01,
-                "{name}: local-density approximation relative error {relative_error:.4%} exceeded the 1% envelope for this selected case"
+                "{name}: local-density approximation relative error {:.4}% exceeded the 1% envelope for this selected case",
+                relative_error * 100.0
             );
         }
     }
@@ -790,8 +791,8 @@ mod tests {
     #[test]
     fn small_disk_reference_envelope_rejects_large_disk_relative_to_uncertainty() {
         let miss = nalgebra::Vector2::new(-3.8872073 / 1000.0, 0.1591646 / 1000.0);
-        let sigma_x = 1.4101830 / 1000.0;
-        let sigma_y = 114.2585190 / 1000.0;
+        let sigma_x: f64 = 1.4101830 / 1000.0;
+        let sigma_y: f64 = 114.2585190 / 1000.0;
         let covariance = Matrix2::new(sigma_x.powi(2), 0.0, 0.0, sigma_y.powi(2));
         let radius_km = 15.0 / 1000.0;
         let analyzer = ConjunctionAnalyzer::new();
@@ -811,8 +812,8 @@ mod tests {
     #[test]
     fn checked_assessment_rejects_out_of_envelope_reference_case() {
         let epoch = Utc::now();
-        let sigma_x_km = 1.4101830 / 1000.0;
-        let sigma_y_km = 114.2585190 / 1000.0;
+        let sigma_x_km: f64 = 1.4101830 / 1000.0;
+        let sigma_y_km: f64 = 114.2585190 / 1000.0;
         let mut covariance = CovarianceMatrix::diagonal([
             sigma_x_km.powi(2),
             sigma_y_km.powi(2),
