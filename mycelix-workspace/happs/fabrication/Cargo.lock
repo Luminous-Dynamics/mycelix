@@ -1292,6 +1292,7 @@ dependencies = [
  "hdk",
  "serde",
  "serde_json",
+ "sha2",
  "verification_integrity",
 ]
 
