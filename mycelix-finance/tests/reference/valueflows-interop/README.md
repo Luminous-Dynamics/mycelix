@@ -22,7 +22,7 @@ The dedicated GitHub Actions workflow runs the same checks when the contract, ch
 
 - **Export-only:** an imported external event never authorizes a Mycelix SAP/TEND/MYCEL balance mutation or sets settlement final.
 - **SAP:** exact integer micro-unit quantity, canonical base-10 string and named unit profile. Do not pass authoritative quantity through binary floating point.
-- **TEND:** retain exact TEND identity, unit meaning, counterparties, community scope and zero-sum obligation context; no implicit TEND-to-SAP conversion.
+- **TEND:** current `TendExchange.hours` and cumulative hour fields are `f32` while balances are integer-valued. Lossless numeric export is therefore **blocked** until a versioned quantization/precision profile, error bound and round-trip tests are approved. Preserve TEND identity, unit meaning, counterparties, community scope and zero-sum obligation context; no implicit TEND-to-SAP conversion.
 - **MYCEL:** export an attributable, scoped claim/attestation only. It is not a transferable currency or a spendable balance.
 - **Identity and provenance:** source system, record ID, action/event ID, revision/sequence, scope, asset identity and claim ceiling are part of the envelope contract.
 - **Corrections:** append a correction referencing the original event; never rewrite the original event's history.
