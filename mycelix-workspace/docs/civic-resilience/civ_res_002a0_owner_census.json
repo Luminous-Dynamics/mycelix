@@ -386,6 +386,11 @@
       "purpose": "Official description of the unit responsible for maintaining the Service Level Standards Charter and quarterly monitoring; this mandate is not itself a current adopted target."
     },
     {
+      "id": "COJ_COUNCIL_MINUTES_SLS_CHARTER_AMENDMENT_2026_03_20",
+      "url": "https://joburg.org.za/about_/government/Documents/Minutes-of-Council-Meetings/COUNCIL-MINUTES-20-MARCH-2026.pdf",
+      "purpose": "Official City Council minutes record approval of proposed amendments/deviations to the 2025/26 Institutional Service Level Standards Charter with amended indicators, targets and SOPs to be implemented from Q3 FY 2025/26. Page 11 screenshot reviewed; exact amended target values are not enumerated in the resolution and no 2026/27 charter authority is established."
+    },
+    {
       "id": "COJ_JOBURG_CONNECT_FAQ",
       "url": "https://joburg.org.za/services_/Documents/Customer%20Interface/Joburg%20Connect%20FAQ.pdf",
       "purpose": "Official channel FAQ describing reference-number allocation and forwarding to service providers; not a machine interface contract."
@@ -447,7 +452,23 @@
     "planned_interruption_metric_semantics": "Planned water supply interruptions; prescribed timeline is mentioned but duration is not stated in indexed row.",
     "2026_27_sdbip_listed": true,
     "2026_27_sdbip_document_retrieval_status": "OfficialIndexLinkObserved;PdfTextExtractionTimedOut",
-    "current_sdbip_water_metrics_reconciled_to_budget_book": false
+    "current_sdbip_water_metrics_reconciled_to_budget_book": false,
+    "2025_26_charter_revision_control": {
+      "source_id": "COJ_COUNCIL_MINUTES_SLS_CHARTER_AMENDMENT_2026_03_20",
+      "source_url": "https://joburg.org.za/about_/government/Documents/Minutes-of-Council-Meetings/COUNCIL-MINUTES-20-MARCH-2026.pdf",
+      "observed_on": "2026-10-14",
+      "source_observation_status": "OfficialCouncilMinutesTextAndPage11ScreenshotReviewed",
+      "council_meeting_date": "2026-03-20",
+      "charter_scope": "2025/26 Institutional Service Level Standards Charter",
+      "resolution_status": "CouncilApprovedProposedAmendmentsAndDeviations",
+      "implementation_effective_period": "ThirdQuarterOf2025_26FinancialYear",
+      "exact_amended_target_values_in_minutes": "NotEnumeratedInResolution",
+      "amendment_report_body_reviewed": false,
+      "direct_pdf_page_11_visual_review_complete": true,
+      "2026_27_target_authority_established": false,
+      "production_sla_use_authorized": false,
+      "interpretation": "Council-approved revision timing is evidence that the 2025/26 charter was not a single unchanged target set across the full financial year. The inspected resolution does not enumerate the amended target values; do not treat the indexed charter PDF as a verified consolidated post-amendment version, and do not carry forward the 2025/26 target as an adopted 2026/27 target."
+    }
   },
   "decision": {
     "direction": "NoNewServiceIssueOwner;ExternalSourceAdapterOnlyAfterGates",
@@ -467,7 +488,8 @@
       "Define data minimisation, protected storage, retention, access/deletion, legal and privacy review.",
       "Qualify idempotent retry/offline behaviour and preserve each original report and its own SLA clock.",
       "Keep completion claim, submitted evidence, independent predicate verification and downstream outcome distinct.",
-      "Run synthetic/replay and then shadow evaluation before any restricted operational trial."
+      "Run synthetic/replay and then shadow evaluation before any restricted operational trial.",
+      "Obtain the consolidated 2025/26 Charter and exact Q3-amended target values; independently confirm the adopted 2026/27 charter/target version and reporting-clock semantics."
     ]
   },
   "invariants": [
@@ -490,7 +512,8 @@
     "A 2026/27 budget-book service target and a 2025/26 charter target are versioned separately.",
     "The 2026/27 planned-interruption measure is not equivalent to the prior 12-hour general interruption measure.",
     "An indexed target is not a live status observation or proof that a specific issue met the target.",
-    "Do not calculate compliance while target scope, source review or required clock semantics are unresolved."
+    "Do not calculate compliance while target scope, source review or required clock semantics are unresolved.",
+    "The 2025/26 Institutional Service Level Standards Charter was amended by a Council-approved resolution for implementation from Q3; exact amended target values remain unqualified, and neither the base charter nor 2025/26 values carry forward automatically into 2026/27."
   ],
   "required_gate_flags": [
     "source_access_authorized",
@@ -520,7 +543,8 @@
     "operational_turnaround_semantics_separated",
     "source_precedence_or_conflict_resolution_bound",
     "utility_customer_standards_source_pinned",
-    "response_vs_resolution_semantics_preserved"
+    "response_vs_resolution_semantics_preserved",
+    "2025_26_charter_amendment_history_pinned"
   ],
   "unsafe_flags": [
     "city_reference_used_as_internal_identity",
@@ -555,7 +579,8 @@
     "working_days_treated_as_calendar_days",
     "notification_lead_time_treated_as_repair_window",
     "notification_subscription_treated_as_case_submission",
-    "unversioned_utility_web_standard_treated_as_current_adopted_sla"
+    "unversioned_utility_web_standard_treated_as_current_adopted_sla",
+    "2025_26_charter_base_assumed_effective_entire_fiscal_year"
   ],
   "probe_cases": [
     {
@@ -621,7 +646,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -688,7 +715,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -755,7 +784,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -822,7 +853,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -889,7 +922,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -956,7 +991,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1023,7 +1060,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1090,7 +1129,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1157,7 +1198,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1224,7 +1267,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1291,7 +1336,78 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "2025-26-charter-base-not-full-year",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": true
       },
       "expected_disposition": "REJECT"
     },
@@ -1358,7 +1474,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1425,7 +1543,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1492,7 +1612,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1559,7 +1681,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1626,7 +1750,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1693,7 +1819,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1760,7 +1888,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1827,7 +1957,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1894,7 +2026,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1961,7 +2095,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2028,7 +2164,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2095,7 +2233,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2162,7 +2302,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2229,7 +2371,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2296,7 +2440,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2363,7 +2509,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2430,7 +2578,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2497,7 +2647,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2564,7 +2716,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2631,7 +2785,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2698,7 +2854,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2765,7 +2923,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2832,7 +2992,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2899,7 +3061,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2966,7 +3130,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3033,7 +3199,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -3100,7 +3268,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3167,7 +3337,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3234,7 +3406,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3301,7 +3475,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3368,7 +3544,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -3435,7 +3613,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3502,7 +3682,9 @@
         "working_days_treated_as_calendar_days": true,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3569,7 +3751,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": true,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3636,7 +3820,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": true,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3703,7 +3889,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": true
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": true,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3770,7 +3958,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -3837,7 +4027,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -3904,7 +4096,9 @@
         "working_days_treated_as_calendar_days": false,
         "notification_lead_time_treated_as_repair_window": false,
         "notification_subscription_treated_as_case_submission": false,
-        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false
       },
       "expected_disposition": "ADVISORY_SHADOW_ELIGIBLE"
     }
