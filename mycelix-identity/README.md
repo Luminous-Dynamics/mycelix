@@ -98,6 +98,13 @@ The Africa work is one application of a broader reusable model. See [portable so
 
 The shared principle is **standards and conformance are reusable; trust, legal permission, assurance mapping and service purpose are not transferable by default**. Each deployment needs its own authority, privacy and security review, operational agreement, fallback and release approval tied to the exact build.
 
+A reusable, jurisdiction-neutral starting point is now available as a deliberately unqualified template:
+- [Portable adapter profile template](PORTABLE_ADAPTER_PROFILE_TEMPLATE_V1.json)
+- [Closed-schema and release-gate validator](validate_portable_adapter_profile.py)
+- [Adversarial contract tests](tests/test_portable_adapter_profile.py)
+
+The template starts with no authority, protocol endpoint, issuer, trust metadata, or authorization, and keeps all 12 release gates closed. From this directory, run `python3 validate_portable_adapter_profile.py` and `python3 -m unittest discover -s tests -p 'test_portable_adapter_profile.py' -v`. The validator is a structural guard; it does not authenticate written approvals or independently verify credentials.
+
 ## African Digital Public Infrastructure interoperability
 
 A continent-level contract defines the governance boundaries for interoperating independently governed national systems:
