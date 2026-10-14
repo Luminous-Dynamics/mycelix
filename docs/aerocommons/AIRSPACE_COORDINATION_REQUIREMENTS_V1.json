@@ -216,7 +216,7 @@
     "test_runner": "GitHub Actions: Airspace Replay Research Gate",
     "target_commit": null,
     "result": "not_run",
-    "note": "Scenario and lifecycle-transition fixtures are authored. Tool-side independent checks are not Rust execution; update only from exact-head CI evidence."
+    "note": "Traffic, lifecycle, and reservation snapshot fixtures are authored. Independent tool-side expectation checks are not Rust execution; update this only from exact-head GitHub Actions evidence."
   },
   "references": [
     "https://www.faa.gov/uas/advanced_operations/traffic_management",
@@ -233,7 +233,7 @@
   "prototype": {
     "implementation": "tools/airspace-sim",
     "language": "Rust",
-    "status": "initial_replay_and_transition_harness_authored",
+    "status": "initial_traffic_lifecycle_and_reservation_snapshot_replay_authored",
     "fixture_scenarios": [
       "clear_separation",
       "crossing_conflict",
@@ -258,10 +258,17 @@
       "bounded_pair_sample_work",
       "expected_vs_actual_fixture_replay",
       "deterministic_intent_state_transition_validation",
-      "issuer_trajectory_digest_time_basis_and_monotonic_sequence_binding"
+      "issuer_trajectory_digest_time_basis_and_monotonic_sequence_binding",
+      "provider_reservation_snapshot_pairwise_overlap_screen",
+      "half_open_resource_time_intervals",
+      "expired_withdrawn_and_ended_reservation_claims_are_not_current",
+      "duplicate_reservation_ids_remain_unresolved_without_last_writer_wins",
+      "stale_or_partitioned_snapshot_cannot_yield_no_conflict",
+      "emergency_reservation_does_not_automatically_preempt_conflict",
+      "bounded_reservation_claim_and_pairwise_work"
     ],
     "not_yet_implemented": [
-      "provider federation and reservation reconciliation",
+      "networked provider federation, authenticated peer exchange, and replicated snapshot/event-log reconciliation",
       "dynamic airspace constraint update replay",
       "weather or terrain modeling",
       "non_cooperative traffic modeling",
@@ -269,7 +276,11 @@
       "official jurisdictional separation minima",
       "operational authorization",
       "full one-to-one executable coverage of all AIR-CASE requirements",
-      "federated reservation and flight-authorization lifecycle reconciliation"
+      "competent-authority reservation allocation and flight-authorization lifecycle integration",
+      "capacity-aware scheduling, sequencing, and fairness across resource pools",
+      "authoritative provider identity/signature verification and trust-root governance",
+      "versioned reservation update stream with explicit cross-provider causal ordering and partition merge policy",
+      "dynamic airspace-constraint and weather-change invalidation replay"
     ],
     "results_interpretation": "Passing means only that the simplified model matches synthetic fixture expectations; it is not safety, airworthiness, certification, or permission to fly.",
     "lifecycle_transition_cases": [
@@ -286,6 +297,35 @@
       "time_basis_changed",
       "withdrawn_terminal",
       "empty_digest"
-    ]
+    ],
+    "reservation_cases": [
+      "concurrent_overlap_conflict",
+      "half_open_adjacent_no_conflict",
+      "different_resource_no_conflict",
+      "expired_claim_does_not_block",
+      "withdrawn_claim_does_not_block",
+      "partitioned_snapshot_degraded",
+      "stale_snapshot_degraded",
+      "stale_update_duplicate_version_unresolved",
+      "incompatible_time_bases_unresolved",
+      "emergency_claim_requires_review",
+      "emergency_does_not_preempt_conflict",
+      "malformed_interval_rejected",
+      "future_issued_claim_unresolved",
+      "recovered_complete_snapshot_no_conflict"
+    ],
+    "reservation_semantics": {
+      "interval_semantics": "half_open_[start_s,end_s)",
+      "conflict_key": "same_resource_id_and_overlapping_interval_under_same_time_basis",
+      "snapshot_claim": "complete_fresh_is_synthetic_input_and_not_independent_network_evidence",
+      "duplicate_ids": "unresolved_no_last_writer_wins",
+      "incomplete_snapshot": "degraded_if_no_known_conflict; never no_conflict",
+      "emergency": "does_not_automatically_preempt_existing_claim",
+      "work_bounds": {
+        "max_claims": 300,
+        "max_pair_checks": 50000
+      },
+      "authority_ceiling": "snapshot conflict assessment only; not reservation allocation or flight authorization"
+    }
   }
 }
