@@ -123,6 +123,9 @@ pub struct EvidenceReference {
     pub uri: String,
     /// Lowercase SHA-256 digest of the referenced artifact bytes.
     pub sha256: String,
+    /// Stable asserted producer/reviewer principal ID; not authenticated here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issuer_id: Option<String>,
     /// Declared artifact type; not a truth or trust score.
     pub kind: EvidenceKind,
 }
@@ -134,7 +137,16 @@ impl EvidenceReference {
         if self.uri.chars().any(char::is_whitespace) {
             return Err(ValidationError::new("evidence.uri must not contain whitespace"));
         }
-        validate_sha256("evidence.sha256", &self.sha256)
+        validate_sha256("evidence.sha256", &self.sha256)?;
+        if let Some(issuer_id) = &self.issuer_id {
+            validate_nonempty("evidence.issuer_id", issuer_id)?;
+            if issuer_id.chars().any(char::is_whitespace) {
+                return Err(ValidationError::new(
+                    "evidence.issuer_id must not contain whitespace",
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -596,6 +608,13 @@ impl BootstrapMilestone {
             }
             validate_nonempty("failure.failure_class", &observation.failure_class)?;
             validate_evidence_list_allow_empty(&observation.evidence)?;
+            if observation.outcome != FailureRecoveryOutcome::NotRun
+                && observation.evidence.is_empty()
+            {
+                return Err(ValidationError::new(
+                    "an executed failure/recovery outcome requires supporting evidence",
+                ));
+            }
             if observation.outcome == FailureRecoveryOutcome::Recovered
                 && observation.recovery_duration_milliseconds.is_none()
             {
@@ -644,16 +663,26 @@ impl BootstrapMilestone {
             }
             FixtureClass::OperationalMeasured => has(EvidenceKind::OperationalMeasurement),
             FixtureClass::PhysicalQualification => {
+                let has_distinct_identified_review = self.evidence.iter().any(|qualification| {
+                    if qualification.kind != EvidenceKind::PhysicalQualificationReport {
+                        return false;
+                    }
+                    let Some(qualification_issuer) = qualification.issuer_id.as_deref() else {
+                        return false;
+                    };
+                    self.evidence.iter().any(|review| {
+                        review.kind == EvidenceKind::IndependentReview
+                            && review.uri != qualification.uri
+                            && review.sha256 != qualification.sha256
+                            && review
+                                .issuer_id
+                                .as_deref()
+                                .is_some_and(|review_issuer| review_issuer != qualification_issuer)
+                    })
+                });
                 has(EvidenceKind::RequirementsTraceabilityMatrix)
                     && has(EvidenceKind::AcceptanceTestReport)
-                    && self.evidence.iter().any(|qualification| {
-                        qualification.kind == EvidenceKind::PhysicalQualificationReport
-                            && self.evidence.iter().any(|review| {
-                                review.kind == EvidenceKind::IndependentReview
-                                    && (qualification.uri != review.uri
-                                        || qualification.sha256 != review.sha256)
-                            })
-                    })
+                    && has_distinct_identified_review
             },
         };
         if !valid {
@@ -765,6 +794,7 @@ mod tests {
         EvidenceReference {
             uri: uri.to_string(),
             sha256: std::iter::repeat_n(digest_byte, 64).collect(),
+            issuer_id: None,
             kind,
         }
     }
@@ -959,6 +989,31 @@ mod tests {
         milestone.failure_recovery[0].outcome = FailureRecoveryOutcome::Recovered;
         assert!(milestone.validate().is_err());
         milestone.failure_recovery[0].recovery_duration_milliseconds = Some(10);
+        milestone.failure_recovery[0].evidence.push(evidence(
+            "https://example.invalid/evidence/recovery-report.json",
+            EvidenceKind::TestReport,
+            'a',
+        ));
+        assert!(milestone.validate().is_ok());
+    }
+
+    #[test]
+    fn executed_failure_recovery_outcomes_require_supporting_evidence() {
+        let mut milestone = valid_milestone();
+        milestone.failure_recovery[0].outcome = FailureRecoveryOutcome::Detected;
+        milestone.failure_recovery[0].evidence.clear();
+        assert!(milestone.validate().is_err());
+
+        milestone.failure_recovery[0].evidence.push(evidence(
+            "https://example.invalid/evidence/detection-report.json",
+            EvidenceKind::TestReport,
+            'b',
+        ));
+        assert!(milestone.validate().is_ok());
+
+        milestone.failure_recovery[0].outcome = FailureRecoveryOutcome::NotRun;
+        milestone.failure_recovery[0].recovery_duration_milliseconds = None;
+        milestone.failure_recovery[0].evidence.clear();
         assert!(milestone.validate().is_ok());
     }
 
@@ -1180,17 +1235,21 @@ mod tests {
         let mut milestone = valid_milestone();
         milestone.fixture_class = FixtureClass::PhysicalQualification;
         milestone.qualification_scope = Some(valid_qualification_scope());
+        let mut qualification = evidence(
+            "https://example.invalid/evidence/qualification.json",
+            EvidenceKind::PhysicalQualificationReport,
+            '6',
+        );
+        qualification.issuer_id = Some("qualification-team:fixture".to_string());
+        let mut independent_review = evidence(
+            "https://example.invalid/evidence/independent-review.json",
+            EvidenceKind::IndependentReview,
+            '7',
+        );
+        independent_review.issuer_id = Some("independent-assurance-team:fixture".to_string());
         milestone.evidence = vec![
-            evidence(
-                "https://example.invalid/evidence/qualification.json",
-                EvidenceKind::PhysicalQualificationReport,
-                '6',
-            ),
-            evidence(
-                "https://example.invalid/evidence/independent-review.json",
-                EvidenceKind::IndependentReview,
-                '7',
-            ),
+            qualification,
+            independent_review,
             evidence(
                 "https://example.invalid/evidence/requirements-traceability.json",
                 EvidenceKind::RequirementsTraceabilityMatrix,
@@ -1204,6 +1263,23 @@ mod tests {
         ];
         assert!(milestone.validate().is_ok());
 
+        let valid_qualification_evidence = milestone.evidence.clone();
+        milestone.evidence[1].issuer_id =
+            Some("qualification-team:fixture".to_string());
+        assert!(
+            milestone.validate().is_err(),
+            "reviewer identity must differ from the qualification issuer"
+        );
+
+        milestone.evidence = valid_qualification_evidence.clone();
+        milestone.evidence[1].sha256 = milestone.evidence[0].sha256.clone();
+        assert!(
+            milestone.validate().is_err(),
+            "review must be a distinct content-addressed artifact"
+        );
+
+        milestone.evidence = valid_qualification_evidence;
+        assert!(milestone.validate().is_ok());
         milestone.evidence.retain(|item| item.kind != EvidenceKind::RequirementsTraceabilityMatrix);
         assert!(milestone.validate().is_err());
 
