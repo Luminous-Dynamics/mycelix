@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "status": "research_fixture",
   "created_at": "2026-10-14",
-  "purpose": "Adversarial and boundary fixtures for instrument metadata and context-specific applicability. These cases are not legal determinations.",
+  "purpose": "Adversarial and boundary fixtures for instrument metadata, context-specific applicability, and evidence-claim scope across life/civic domains. These cases are not legal determinations or empirical impact results.",
   "schemas": [
     "schemas/life-civic/standard-instrument.schema.json",
     "schemas/life-civic/applicability-assessment.schema.json"
@@ -18,7 +18,11 @@
     "stale_source",
     "authority_boundary",
     "model_law_boundary",
-    "supersession_boundary"
+    "supersession_boundary",
+    "ot_security_draft_lifecycle",
+    "crime_prevention_guidance_scope",
+    "employment_crime_evidence_scope",
+    "robotics_safety_boundary"
   ],
   "claim_ceiling": {
     "permitted": [
@@ -31,7 +35,11 @@
       "compliance certification",
       "official endorsement",
       "current status beyond each recorded source snapshot",
-      "production readiness"
+      "production readiness",
+      "robot or intervention safety qualification",
+      "causal crime-prevention efficacy",
+      "universal employment-crime effect",
+      "cross-jurisdiction generalization without local evidence"
     ]
   },
   "frozen_inputs": [
@@ -47,7 +55,7 @@
     },
     {
       "path": "tests/reference/life-civic-standards/cases.json",
-      "git_blob_sha1": "6fef3b6248c528ea58bf96113e88ba840b9c5a72",
+      "git_blob_sha1": "e8d7488406b1e573b087af4308f5289f8005edbe",
       "purpose": "adversarial and lifecycle fixture corpus"
     }
   ],
