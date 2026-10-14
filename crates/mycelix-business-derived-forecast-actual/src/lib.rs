@@ -241,8 +241,11 @@ pub fn derive_actuals(
             source_observation_set_digest,
         );
         let actual = EvaluationActualRef(
-            ReferenceId::new(format!("evaluation-actual:sha256:{}", hex_digest(identity_digest)))
-                .expect("generated evaluation actual id is canonical"),
+            ReferenceId::new(format!(
+                "evaluation-actual:sha256:{}",
+                hex_digest(identity_digest)
+            ))
+            .expect("generated evaluation actual id is canonical"),
         );
         let mut derived = DerivedMetricActual {
             actual,
@@ -269,7 +272,11 @@ impl DerivedMetricActual {
         spec: &ActualProjectionSpec,
         replay: &CampaignReplay,
     ) -> Result<(), DerivedActualError> {
-        let Some(planned) = plan.targets.iter().find(|item| item.target_id == self.target_id) else {
+        let Some(planned) = plan
+            .targets
+            .iter()
+            .find(|item| item.target_id == self.target_id)
+        else {
             return Err(DerivedActualError::DigestMismatch);
         };
         if self.target != planned.target
@@ -292,7 +299,10 @@ fn source_observation_digest(value: &ReplayedObservation) -> Digest32 {
     let mut hasher = Sha256::new();
     hash_str(&mut hasher, "mycelix:evaluation-source-observation:v1");
     hash_str(&mut hasher, value.input.as_str());
-    hash_str(&mut hasher, value.observation.observation.as_ref_id().as_str());
+    hash_str(
+        &mut hasher,
+        value.observation.observation.as_ref_id().as_str(),
+    );
     hash_str(&mut hasher, value.observation.source_system.as_str());
     hash_str(&mut hasher, value.observation.source_event_id.as_str());
     hasher.update(value.observation.source_payload_digest.0);
