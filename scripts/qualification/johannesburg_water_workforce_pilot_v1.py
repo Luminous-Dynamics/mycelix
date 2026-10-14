@@ -20,8 +20,8 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "cdbc242a545daa6ed0b12a8c15b3a42d7df87ea2"
-EXPECTED_SOURCE_IDS = ["JW-1", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3"]
+EXPECTED_CORPUS_BLOB_SHA = "3f97bb82b1fd8655d880c468ab75627f99a46496"
+EXPECTED_SOURCE_IDS = ["JW-1", "JW-3", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
     "InternalServiceIssueId != external reference number",
@@ -55,6 +55,7 @@ EXPECTED_PROBES = {
     "sdbip-cooperative-kpi-is-not-contract-award": ("EmploymentIntegrity", "PartnerDiscoveryOnlyNoContractAward", "PlanningTargetNotContract"),
     "national-epwp-target-vs-city-sdbip-target": ("EmploymentIntegrity", "PreserveSeparateTargetSeries", "DistinctProgrammeTargets"),
     "same-title-water-kpis-need-crosswalk": ("ServiceSemantics", "PreserveSeparateMetricSeries", "MetricCrosswalkUnqualified"),
+    "planned-controller-rollout-date-is-not-completion": ("Currentness", "KeepRolloutStatusUnverified", "RolloutCompletionNotObserved"),
 }
 REQUIRED_GUARDS = {
     "issuer-reference-collision": {"DoNotMergeByReferenceStringAlone", "ExternalReferenceIsNotInternalIdentity"},
@@ -72,6 +73,7 @@ REQUIRED_GUARDS = {
     "sdbip-cooperative-kpi-is-not-contract-award": {"SdbipPlanningKpiIsNotProcurementAward", "NoCooperativeContractWithoutOpenAuthorizedProcess", "NoSpeculativePayroll"},
     "national-epwp-target-vs-city-sdbip-target": {"NationalTargetIsNotCitySdbipTarget", "WorkOpportunityIsNotDurableJob", "DoNotReplacePublishedTarget"},
     "same-title-water-kpis-need-crosswalk": {"SameTitleDoesNotProveSameMetric", "UnqualifiedMetricCrosswalkFailsClosed", "NoProductionSlaCalculation"},
+    "planned-controller-rollout-date-is-not-completion": {"PlannedCompletionDateIsNotEvidenceOfCompletion", "NoLaterConfirmationMeansUnknown", "SourceSearchScopeMustBeRecorded"},
 }
 EXPECTED_BASE_KEYS = {
     "automated_external_write", "automated_closure", "production_sla_calculation",
@@ -188,6 +190,17 @@ def validate() -> None:
         if not isinstance(source.get("source_url"), str) or not source["source_url"].startswith("https://"):
             fail(f"source {source.get('source_id')}: expected HTTPS source URL")
     source_by_id = {s["source_id"]: s for s in manifest["source_ledger"]}
+    rollout_source = source_by_id["JW-1"]
+    if rollout_source.get("planned_completion_window") != "EndOfSeptember2026":
+        fail("Johannesburg Water rollout plan date drift")
+    recheck = rollout_source.get("currentness_recheck", {})
+    if recheck.get("status") != "NotIndependentlyVerified" or recheck.get("absence_of_notice_means_completion_false") is not False:
+        fail("rollout currentness must remain unverified without treating missing notice as non-completion")
+    recent_notice = source_by_id["JW-3"]
+    if recent_notice.get("source_kind") != "OfficialSystemUpdateNotice" or recent_notice.get("publication_date") != "2026-10-06":
+        fail("later water-system notice source identity/date drift")
+    if recent_notice.get("smart_controller_rollout_completion_status_in_this_notice") != "NotObserved":
+        fail("do not infer rollout completion from unrelated operational notices")
     sdbip_source = source_by_id["COJ-SDBIP-2026-27"]
     if sdbip_source.get("source_kind") != "OfficialServiceDeliveryBudgetImplementationPlan" or sdbip_source.get("pdf_page_count") != 151:
         fail("current-year SDBIP source identity/page count drift")
@@ -382,6 +395,11 @@ def validate() -> None:
         fail("same-title water-loss metrics must not auto-crosswalk")
     if water_metric_probe["expected"]["issue_status_effect"] != "NoDerivedValueOrSla":
         fail("unqualified water metric crosswalk cannot create a derived value or SLA")
+    rollout_probe = by_id["planned-controller-rollout-date-is-not-completion"]
+    if rollout_probe["expected"]["disposition"] != "KeepRolloutStatusUnverified":
+        fail("a passed planned completion date cannot establish rollout completion")
+    if rollout_probe["expected"]["issue_status_effect"] != "NoCompletionClaim":
+        fail("unknown rollout completion must not be promoted to a completion claim")
 
     # Ensure every public-facing data/authority limiter is still explicit.
     if "Automated municipal case submission" not in manifest["prohibited_capabilities"]:
