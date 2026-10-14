@@ -522,4 +522,53 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
                     .contains("proves the signed statement is true")
             })
     );
+
+    let nist_draft = by_id.get("MYC-LCA-009").expect("NIST OT draft control missing");
+    assert_eq!(nist_draft["expected"]["status"], "indeterminate");
+    assert_eq!(
+        nist_draft["expected"]["required_reason_codes"][0],
+        "draft_not_published"
+    );
+    assert!(
+        nist_draft["expected"]["forbidden_claims"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|claim| claim.as_str().unwrap().contains("is a final publication")),
+        "NIST draft control must forbid promoting the initial public draft to final"
+    );
+
+    let unodc_guidance = by_id
+        .get("MYC-LCA-010")
+        .expect("UNODC prevention-guidance scope control missing");
+    assert_eq!(unodc_guidance["expected"]["status"], "unknown");
+    assert_eq!(
+        unodc_guidance["expected"]["required_reason_codes"][0],
+        "context_insufficient"
+    );
+    assert!(
+        unodc_guidance["expected"]["forbidden_claims"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|claim| claim.as_str().unwrap().contains("reduces crime")),
+        "UNODC guidance control must not imply a robot intervention has a proven effect"
+    );
+
+    let nij_evidence = by_id
+        .get("MYC-LCA-011")
+        .expect("NIJ employment-crime scope control missing");
+    assert_eq!(nij_evidence["expected"]["status"], "unknown");
+    assert_eq!(
+        nij_evidence["expected"]["required_reason_codes"][0],
+        "context_insufficient"
+    );
+    assert!(
+        nij_evidence["expected"]["forbidden_claims"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|claim| claim.as_str().unwrap().contains("proves the local program")),
+        "NIJ evidence control must prevent unsupported local causal generalization"
+    );
 }
