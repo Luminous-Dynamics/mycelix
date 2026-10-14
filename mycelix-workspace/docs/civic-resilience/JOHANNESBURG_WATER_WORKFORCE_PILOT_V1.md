@@ -152,6 +152,14 @@ Before announcing a position, record the legal employer/contracting entity, writ
 
 The City procurement hub links current bids, RFQs, canceled bids, awards and entity procurement. The City-hosted Pikitup “Current Tenders” listing, checked 14 October 2026, showed rows for PIK259/17 (fire-equipment servicing) and PIK255/17 (four-drone supply) but exposed no publication date, closing date or lifecycle status beside those rows. I do not infer a date from the `/17` suffix. Separately, the Pikitup tender index reviewed in this pass exposed mixed lifecycle-stage examples, including a June 2026 cancellation and April/May 2026 awards alongside older advertised/closed notices. No tender-specific open cooperative/basic-removal work package was captured in the pages inspected. This bounded non-observation is **not** proof that no opportunity exists and is not a complete procurement audit.
 
+### A real issuer-published notice found during discovery (not a selected pilot)
+
+Pikitup's official [RFQ listing](https://pikitup.co.za/rfq/) and linked [PIK 016/2026-27 bid document](https://pikitup.co.za/wp-content/uploads/PIK-016-2026-27-APPOINTMENT-OF-A-CONTRACTOR-WITH-A-CIDB-GRADING-OF-1GB-OR-HIGHER-TO-DO-GENERAL-REPAIRS-AT-ROBINSON-DEEP_-002reviewed-October.pdf) were inspected on 14 October 2026. The document describes general repairs at Robinson Deep Landfill Site, asks for CIDB grade **1GB or higher**, states a formal written price-quotation band above R2,000 up to R750,000 including VAT, and gives a closing date/time of **19 October 2026, 11:00**. It says no briefing meeting is required and lists CSD, tax and other bidder compliance requirements.
+
+This is a real maintenance-procurement discovery lead, but it is **not** a basic-removal/cooperative tender or a Mycelix job. The document/listing does not explicitly state a timezone, and the latest addenda/corrigenda and live status must be rechecked before any reliance. It therefore stays at `TenderNoticeObserved`, not `TenderOpenVerified`. No cooperative eligibility, subcontract route, contract award, role budget, or funded position is inferred. The PDF text layer was available, but screenshot rendering timed out in this pass; that visual-review limitation is recorded.
+
+The same official document warns that bid documents and Central Supplier Database registration are free, and advises bidders to use issuer-published channels and reject bribes or paid promises of preferential treatment. Mycelix should surface those official safeguards as contextual warnings, not accept payments, contact suppliers, place bids, or automatically accuse a person. A report or anomaly is not an adjudicated finding.
+
 ### Reuse the procurement standard, but do not trust missing fields
 
 South Africa's National Treasury Transparency Portal publishes monthly bulk and API data in Open Contracting Data Standard (OCDS) formats. The OCDS joins tendering, award, contract and implementation evidence through a contracting-process identifier (OCID). This is a strong interoperability starting point for Mycelix: reuse the stage vocabulary and source-linking rather than inventing another procurement lifecycle. It is not proof that Mycelix conforms to OCDS today, nor is the standard an e-procurement system.
@@ -283,3 +291,5 @@ If these questions cannot be answered, remain in synthetic/shadow research. Do n
 13. National Treasury, OCPO Transparency Portal data user guide: https://data.etenders.gov.za/Home/LearnMore
 14. National Treasury procurement dataset coverage and quality profile: https://data.open-contracting.org/en/publication/143
 15. Open Contracting Data Standard v1.1.5, lifecycle model: https://standard.open-contracting.org/latest/en/primer/how/
+16. Pikitup issuer RFQ listing (checked 14 October 2026): https://pikitup.co.za/rfq/
+17. Pikitup official PIK 016/2026-27 bid document (text-layer observed; screenshot fetch timed out): https://pikitup.co.za/wp-content/uploads/PIK-016-2026-27-APPOINTMENT-OF-A-CONTRACTOR-WITH-A-CIDB-GRADING-OF-1GB-OR-HIGHER-TO-DO-GENERAL-REPAIRS-AT-ROBINSON-DEEP_-002reviewed-October.pdf

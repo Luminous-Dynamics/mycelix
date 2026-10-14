@@ -8,7 +8,7 @@
   "no_real_case_references": true,
   "no_precise_sensitive_asset_locations": true,
   "intended_use": "Future deterministic G1 validator/evaluator input; this file itself is not executable qualification and does not establish runtime or field behavior.",
-  "expected_probe_count": 26,
+  "expected_probe_count": 29,
   "probes": [
     {
       "id": "issuer-reference-collision",
@@ -787,6 +787,98 @@
         "DeduplicateOnlyAfterExactReleaseIdentityAndContentMatch",
         "DoNotCountReleaseAsTenderProcess",
         "ConflictingContentRequiresHumanReview"
+      ]
+    },
+    {
+      "id": "pikitup-deadline-without-timezone-is-not-open-verified",
+      "category": "ProcurementIntegrity",
+      "scenario": "An official Pikitup invitation states a 19 October 2026 closing date and 11:00 time, but no timezone is stated and the latest addenda/corrigenda and live status have not been independently rechecked. An adapter promotes the record to TenderOpenVerified.",
+      "input": {
+        "issuer_notice_observed": true,
+        "tender_reference": "PIK 016/2026-27",
+        "closing_date": "2026-10-19",
+        "closing_time": "11:00",
+        "closing_timezone": "NotSpecifiedInSource",
+        "latest_addenda_rechecked": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "KeepAtTenderNoticeObserved",
+        "issue_status_effect": "NoTenderOpenVerifiedClaim",
+        "required_human_review": true,
+        "source_status": "TimezoneAndAmendmentCurrentnessUnqualified"
+      },
+      "guards": [
+        "TenderDeadlineNeedsTimezone",
+        "FuturePublishedDeadlineAloneNotFullOpenGate",
+        "CheckLatestAddendaBeforeOpenStatus",
+        "NoAutomaticStagePromotion"
+      ]
+    },
+    {
+      "id": "cidb-tender-requirement-is-not-cooperative-job-eligibility",
+      "category": "EmploymentIntegrity",
+      "scenario": "A facility-repairs tender requires CIDB grade 1GB or higher, CSD registration, tax compliance and other bidder documentation. The pilot has not confirmed that a particular cooperative or person meets the bidder requirements, can legally subcontract, or has a paid role in scope.",
+      "input": {
+        "required_cidb": "1GB",
+        "csd_required": true,
+        "tax_compliance_required": true,
+        "cooperative_eligibility_verified": false,
+        "subcontracting_authorized": false,
+        "role_budget_committed": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RequireBidderAndScopeReview",
+        "issue_status_effect": "NoCooperativeEligibilityOrPaidRoleClaim",
+        "required_human_review": true,
+        "source_status": "BidderAndSubcontractEligibilityUnverified"
+      },
+      "guards": [
+        "SpecificTenderRequirementsControl",
+        "DoNotAssumeCooperativeEligibility",
+        "ContractScopeDoesNotEqualRoleBudget",
+        "NoPositionBeforeFullFunding"
+      ]
+    },
+    {
+      "id": "tender-document-fee-or-bribe-solicitation-is-not-official",
+      "category": "ProcurementIntegrity",
+      "scenario": "A third party asks a supplier to pay for a tender document/CSD registration or promises an award in exchange for money, while the issuer's tender document says its bid documents are free and warns against bribery and preferential-treatment solicitations.",
+      "input": {
+        "issuer_says_documents_free": true,
+        "issuer_says_csd_registration_free": true,
+        "third_party_requests_payment": true,
+        "official_award_observed": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "BlockPaymentAndUseOfficialChannel",
+        "issue_status_effect": "NoPaymentOrAutomaticAccusation",
+        "required_human_review": true,
+        "source_status": "SuspectedProcurementScamUnadjudicated"
+      },
+      "guards": [
+        "TenderDocumentsAndCsdRegistrationAreFree",
+        "UseIssuerPublishedChannels",
+        "NoBribeOrPreferentialTreatment",
+        "ReportThroughOfficialChannelOnly",
+        "AllegationIsNotAdjudicatedFinding"
       ]
     }
   ]

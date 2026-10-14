@@ -20,7 +20,7 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "7df8e060ea48bf0a50b16fb921ee299eb75d6fc9"
+EXPECTED_CORPUS_BLOB_SHA = "a5a1ad647accd693c8cbccff7da63970aae90131"
 EXPECTED_SOURCE_IDS = ["JW-1", "JW-3", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3", "SA-WAGE-2026-1", "COJ-PROC-1", "PIKITUP-PROC-1", "PIKITUP-CURRENT-INDEX-1", "SA-TREASURY-OCDS-REGISTRY-1", "SA-ETENDER-PORTAL-1", "OCDS-STANDARD-1"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
@@ -66,6 +66,9 @@ EXPECTED_PROBES = {
 }
 REQUIRED_GUARDS = {
     "issuer-reference-collision": {"DoNotMergeByReferenceStringAlone", "ExternalReferenceIsNotInternalIdentity"},
+    "same-source-possible-duplicate": {"CandidateDuplicateIsNotProofOfDuplicate", "DoNotInferPreciseLocation"},
+    "unversioned-web-standard": {"PublicSourceDoesNotEstablishAdoption", "NoProductionSlaCalculation"},
+    "verified-repair-followed-by-repeat-fault": {"DoNotDeleteEarlierEvidence", "PriorVerificationDoesNotProveCurrentHealth"},
     "stale-systemwide-bulletin": {"BulletinDoesNotResolveIndividualCase", "RetrievalDoesNotProveCurrentness"},
     "source-fetch-unavailable": {"FetchFailureIsNotSourceAbsence", "NoInferredCurrentStatus"},
     "response-without-restoration": {"ResponseIsNotRestoration", "NoFalseResolutionClaim"},
@@ -317,7 +320,7 @@ def validate() -> None:
         fail("paid-work integrity gate is missing mandatory role/funding/cost controls")
 
     procurement = manifest["procurement_discovery_gate"]
-    if procurement.get("source_ids") != ["COJ-PROC-1", "PIKITUP-PROC-1", "PIKITUP-CURRENT-INDEX-1", "SA-TREASURY-OCDS-REGISTRY-1", "SA-ETENDER-PORTAL-1", "OCDS-STANDARD-1"] or procurement.get("listing_page_alone_proves_open_opportunity") is not False:
+    if procurement.get("source_ids") != ["COJ-PROC-1", "PIKITUP-PROC-1", "PIKITUP-CURRENT-INDEX-1", "SA-TREASURY-OCDS-REGISTRY-1", "SA-ETENDER-PORTAL-1", "OCDS-STANDARD-1", "PIKITUP-RFQ-INDEX-1", "PIKITUP-PIK016-DOC-1"] or procurement.get("listing_page_alone_proves_open_opportunity") is not False:
         fail("procurement discovery sources or landing-page authority limit drift")
     if procurement.get("current_finding") != "NoMatchingOpenBasicRemovalOrCooperativeWorkPackageIdentifiedInInspectedListings;NotProofOfAbsence":
         fail("bounded procurement non-observation must not become proof of absence")
@@ -368,6 +371,28 @@ def validate() -> None:
     lifecycle = manifest["procurement_evidence_lifecycle"]
     if lifecycle.get("standard_source_id") != "OCDS-STANDARD-1" or lifecycle.get("national_registry_source_id") != "SA-TREASURY-OCDS-REGISTRY-1":
         fail("procurement evidence ladder source pins drift")
+    leads = lifecycle.get("research_leads", [])
+    if len(leads) != 1:
+        fail("expected exactly one bounded real-world procurement discovery lead")
+    lead = leads[0]
+    if lead.get("source_ids") != ["PIKITUP-RFQ-INDEX-1", "PIKITUP-PIK016-DOC-1"] or lead.get("evidence_stage") != "TenderNoticeObserved":
+        fail("PIKITUP PIK016 discovery lead source/stage drift")
+    if lead.get("closing_date_as_published") != "2026-10-19" or lead.get("closing_time_as_published") != "11:00":
+        fail("PIK016 closing-date/time observation drift")
+    if lead.get("closing_timezone") != "NotSpecifiedInSource" or lead.get("open_status_verified") is not False:
+        fail("PIK016 must not be over-promoted to verified-open without timezone and currentness review")
+    if lead.get("minimum_cidb_grading") != "1GB" or lead.get("basic_removal_or_cooperative_scope") is not False:
+        fail("PIK016 scope/eligibility must not be conflated with cooperative/basic-removal work")
+    if lead.get("role_funding_confirmed") is not False or lead.get("mycelix_or_cooperative_eligibility_assessed") is not False or lead.get("award_or_signed_contract_observed") is not False:
+        fail("procurement discovery lead must not imply award, employer, or funded role")
+    rfq = source_by_id["PIKITUP-RFQ-INDEX-1"]
+    if rfq.get("checked_on") != "2026-10-14" or rfq.get("listing_entry", {}).get("tender_reference") != "PIK 016/2026-2027":
+        fail("issuer-hosted RFQ index source/date/reference drift")
+    tender_doc = source_by_id["PIKITUP-PIK016-DOC-1"]
+    if tender_doc.get("minimum_cidb_grading") != "1GB" or tender_doc.get("closing_timezone") != "NotSpecifiedInSource" or tender_doc.get("role_funding_or_mycelix_eligibility_confirmed") is not False:
+        fail("tender document eligibility/timezone authority limits drift")
+    if not {"Bid/RFQ documents are issued free of charge", "No payment is required for Central Supplier Database registration", "Bidders are warned against bribery and promises of preferential treatment"}.issubset(set(tender_doc.get("anti_fraud_instructions_observed", []))):
+        fail("official Pikitup anti-fraud safeguards missing from source record")
     expected_lifecycle_stages = ["IndexOnly", "TenderNoticeObserved", "TenderOpenVerified", "AwardObserved", "ContractObserved", "RoleFundingCommitted", "PaidWorkVerified"]
     if [stage.get("stage") for stage in lifecycle.get("stages", [])] != expected_lifecycle_stages:
         fail("procurement evidence lifecycle stage order drift")
@@ -497,6 +522,15 @@ def validate() -> None:
         fail("same-title water-loss metrics must not auto-crosswalk")
     if water_metric_probe["expected"]["issue_status_effect"] != "NoDerivedValueOrSla":
         fail("unqualified water metric crosswalk cannot create a derived value or SLA")
+    timezone_tender_probe = by_id["pikitup-deadline-without-timezone-is-not-open-verified"]
+    if timezone_tender_probe["expected"]["disposition"] != "KeepAtTenderNoticeObserved" or timezone_tender_probe["expected"]["issue_status_effect"] != "NoTenderOpenVerifiedClaim":
+        fail("specific Pikitup notice must stay below verified-open stage until timezone/currentness gates pass")
+    cidb_probe = by_id["cidb-tender-requirement-is-not-cooperative-job-eligibility"]
+    if cidb_probe["expected"]["disposition"] != "RequireBidderAndScopeReview" or cidb_probe["expected"]["issue_status_effect"] != "NoCooperativeEligibilityOrPaidRoleClaim":
+        fail("tender eligibility cannot be assumed for a cooperative or paid role")
+    scam_probe = by_id["tender-document-fee-or-bribe-solicitation-is-not-official"]
+    if scam_probe["expected"]["disposition"] != "BlockPaymentAndUseOfficialChannel" or scam_probe["expected"]["criminality_conclusion"] != "None":
+        fail("procurement scam safeguards must block payment without automatic accusation")
     registry_absence_probe = by_id["national-registry-absence-is-not-city-tender-absence"]
     if registry_absence_probe["expected"]["disposition"] != "ContinueIssuerSpecificDiscovery" or registry_absence_probe["expected"]["issue_status_effect"] != "NoNoTenderOrNoOpportunityClaim":
         fail("missing National Treasury registry record cannot establish absence of a local opportunity")

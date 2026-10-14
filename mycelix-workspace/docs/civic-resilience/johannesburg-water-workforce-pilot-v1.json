@@ -622,6 +622,73 @@
         "Every publisher has complete or well-formed records",
         "A title is a sufficient process identity"
       ]
+    },
+    {
+      "source_id": "PIKITUP-RFQ-INDEX-1",
+      "issuer": "Pikitup Johannesburg SOC Limited",
+      "source_url": "https://pikitup.co.za/rfq/",
+      "source_kind": "OfficialIssuerProcurementListing",
+      "checked_on": "2026-10-14",
+      "observation_status": "OfficialIssuerListingObserved",
+      "listing_entry": {
+        "tender_reference": "PIK 016/2026-2027",
+        "title": "Appointment of a contractor with a CIDB grading of 1GB or higher to do general repairs at Robinson Deep Landfill Site",
+        "published_closing_date": "2026-10-19",
+        "published_closing_time": "11:00",
+        "timezone": "NotSpecifiedInListing",
+        "source_document_url": "https://pikitup.co.za/wp-content/uploads/PIK-016-2026-27-APPOINTMENT-OF-A-CONTRACTOR-WITH-A-CIDB-GRADING-OF-1GB-OR-HIGHER-TO-DO-GENERAL-REPAIRS-AT-ROBINSON-DEEP_-002reviewed-October.pdf"
+      },
+      "relevant_to_basic_removal_cooperative_scope": false,
+      "allowed_use": "Evidence that a specific maintenance procurement lead can be discovered through the issuer's own tender index; follow the linked bid document and recheck currentness/addenda.",
+      "prohibited_inference": [
+        "Tender is automatically suitable for a cooperative or the Mycelix pilot",
+        "Every local worker or cooperative satisfies CIDB, CSD, tax and other bidder requirements",
+        "The notice proves a signed award, a subcontract or any funded Mycelix role",
+        "The listing proves status after the checked snapshot",
+        "The date/time has a timezone not stated by the source"
+      ]
+    },
+    {
+      "source_id": "PIKITUP-PIK016-DOC-1",
+      "issuer": "Pikitup Johannesburg SOC Limited",
+      "source_url": "https://pikitup.co.za/wp-content/uploads/PIK-016-2026-27-APPOINTMENT-OF-A-CONTRACTOR-WITH-A-CIDB-GRADING-OF-1GB-OR-HIGHER-TO-DO-GENERAL-REPAIRS-AT-ROBINSON-DEEP_-002reviewed-October.pdf",
+      "source_kind": "OfficialBidInvitationDocument",
+      "checked_on": "2026-10-14",
+      "publication_date": "NotObserved",
+      "tender_reference": "PIK 016/2026-27",
+      "title": "Appointment of a contractor with a CIDB grading of 1GB or higher to do general repairs at Robinson Deep Landfill Site",
+      "document_type": "FormalWrittenPriceQuotation",
+      "procurement_value_band_as_written": "Above R2,000 up to R750,000 including VAT",
+      "closing_date": "2026-10-19",
+      "closing_time": "11:00",
+      "closing_timezone": "NotSpecifiedInSource",
+      "briefing_meeting": "None",
+      "minimum_cidb_grading": "1GB",
+      "bidder_compliance_items_observed": [
+        "Central Supplier Database registration",
+        "Tax compliance",
+        "MBD and other mandatory returnable declarations/forms",
+        "Municipal rates, taxes and municipal service charges declaration/evidence",
+        "Submission of the original bound hard-copy bid in the specified Pikitup tender box"
+      ],
+      "anti_fraud_instructions_observed": [
+        "Bid/RFQ documents are issued free of charge",
+        "No payment is required for Central Supplier Database registration",
+        "Only bids officially published on the Pikitup website or notice board are considered",
+        "Bidders are warned against bribery and promises of preferential treatment"
+      ],
+      "pdf_extraction_status": "TextLayerObserved;ScreenshotAttemptsTimedOut",
+      "open_status_assessment": "Specific issuer invitation observed with a published future deadline at check date; do not promote to TenderOpenVerified until timezone semantics, most recent addenda/corrigenda and live status are rechecked.",
+      "role_funding_or_mycelix_eligibility_confirmed": false,
+      "allowed_use": "A time-bounded procurement evidence test and potential lead for a suitably qualified construction contractor; revalidate before any reliance.",
+      "prohibited_inference": [
+        "Mycelix or any specific cooperative is eligible",
+        "General repairs tender is a basic-removal work package",
+        "Tender notice is a signed contract or guaranteed award",
+        "Tender value is budget allocated to workforce roles",
+        "Anyone must pay for bid documents, CSD registration, or a promised award",
+        "No PDF screenshot means source is absent"
+      ]
     }
   ],
   "event_model": {
@@ -992,8 +1059,8 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "7df8e060ea48bf0a50b16fb921ee299eb75d6fc9",
-    "probe_count": 26,
+    "git_blob_sha": "a5a1ad647accd693c8cbccff7da63970aae90131",
+    "probe_count": 29,
     "synthetic_only": true,
     "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",
     "authoring_preflight": {
@@ -1054,7 +1121,9 @@
       "PIKITUP-CURRENT-INDEX-1",
       "SA-TREASURY-OCDS-REGISTRY-1",
       "SA-ETENDER-PORTAL-1",
-      "OCDS-STANDARD-1"
+      "OCDS-STANDARD-1",
+      "PIKITUP-RFQ-INDEX-1",
+      "PIKITUP-PIK016-DOC-1"
     ],
     "required_notice_record_fields": [
       "issuer_and_tender_id",
@@ -1243,6 +1312,39 @@
       "automated_award_or_contract_claim_authorized": false,
       "automated_criminality_or_corruption_conclusion_authorized": false,
       "public_personal_data_or_sensitive_commercial_details_required": false
-    }
+    },
+    "research_leads": [
+      {
+        "process_id": {
+          "issuer": "Pikitup Johannesburg SOC Limited",
+          "issuer_tender_id": "PIK 016/2026-27",
+          "ocid": "NotObserved"
+        },
+        "source_ids": [
+          "PIKITUP-RFQ-INDEX-1",
+          "PIKITUP-PIK016-DOC-1"
+        ],
+        "evidence_stage": "TenderNoticeObserved",
+        "snapshot_checked_on": "2026-10-14",
+        "closing_date_as_published": "2026-10-19",
+        "closing_time_as_published": "11:00",
+        "closing_timezone": "NotSpecifiedInSource",
+        "open_status_verified": false,
+        "open_status_blocker": [
+          "Timezone not explicit in document/listing",
+          "Most recent addenda/corrigenda and status need recheck before any action"
+        ],
+        "title": "General repairs at Robinson Deep Landfill Site; CIDB grade 1GB or higher",
+        "work_classification": "Facility maintenance/construction",
+        "basic_removal_or_cooperative_scope": false,
+        "minimum_cidb_grading": "1GB",
+        "published_value_band": "Above R2,000 up to R750,000 including VAT",
+        "role_funding_confirmed": false,
+        "mycelix_or_cooperative_eligibility_assessed": false,
+        "award_or_signed_contract_observed": false,
+        "suggested_use": "Manual discovery/qualification demonstration only; not a selected pilot, bid recommendation, employer, contract or job",
+        "anti_fraud_safeguard": "Bid documents and CSD registration should not require payment; ignore/report bribery or paid-preferential-treatment solicitations through official channels without automatically accusing a named person."
+      }
+    ]
   }
 }
