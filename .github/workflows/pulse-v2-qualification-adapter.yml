@@ -1,0 +1,59 @@
+name: Pulse V2 Qualification Adapter
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/**"
+      - "mycelix-workspace/mycelix-pulse/crates/pulse-social-types/**"
+      - ".github/workflows/pulse-v2-qualification-adapter.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/**"
+      - "mycelix-workspace/mycelix-pulse/crates/pulse-social-types/**"
+      - ".github/workflows/pulse-v2-qualification-adapter.yml"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  qualification-adapter:
+    name: V2 qualification adapter
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace
+
+      - name: Format
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml -p mail_messages -- --check
+
+      - name: Check qualification adapter
+        run: |
+          cargo check --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml -p mail_messages
+
+      - name: Test qualification adapter
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml -p mail_messages
+
+      - name: Clippy
+        run: |
+          cargo clippy --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml -p mail_messages --all-targets -- -D warnings
+
+      - name: Checkout immutability
+        if: always()
+        run: |
+          git diff --exit-code
+          git status --short

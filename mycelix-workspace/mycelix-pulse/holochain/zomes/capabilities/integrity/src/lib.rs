@@ -58,6 +58,20 @@ pub enum MailboxAccessType {
     Custom(String),
 }
 
+/// Protocol role of a capability when evaluating future delivery entitlement.
+///
+/// This is intentionally descriptive only. Existing capability records are not
+/// delivery-completeness witnesses, and V2 qualification must not infer
+/// entitlement from these fields until Pulse defines an authoritative binding.
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DeliveryEntitlementScopeV1 {
+    /// Entitlement applies to a direct recipient relationship.
+    DirectRecipient,
+    /// Entitlement applies to a named thread.
+    Thread { thread_id: String },
+}
+
 /// Granular permissions
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq, Default)]
