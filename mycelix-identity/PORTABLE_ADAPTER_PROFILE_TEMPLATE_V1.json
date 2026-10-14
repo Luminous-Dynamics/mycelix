@@ -38,7 +38,9 @@
     "purpose": "Demonstrate purpose-bound proof handling using synthetic inputs only; never decide an entitlement.",
     "lawful_basis_status": "not_assessed",
     "purpose_grant_id": null,
-    "permitted_claims": ["synthetic_subject_reference"],
+    "permitted_claims": [
+      "synthetic_subject_reference"
+    ],
     "prohibited_decisions": [
       "citizenship",
       "residency_or_migration_permission",
@@ -91,8 +93,8 @@
     "human_approval_for_exact_release_commit": false
   },
   "nonclaims": [
-    "This synthetic template is not a national identity profile, implementation certification, legal determination, or production authorization.",
-    "No authority, endpoint, protocol, issuer, trust anchor, cryptographic verification, or external permission is implied by this template.",
+    "This profile is not a legal determination and does not itself grant identity, eligibility, entitlement, or execution authority.",
+    "A profile does not imply external permission or certify that referenced endpoints, issuers, or protocols are live.",
     "Test results and hashes are reproducibility evidence, not a digital signature or proof of trusted execution."
   ]
 }
