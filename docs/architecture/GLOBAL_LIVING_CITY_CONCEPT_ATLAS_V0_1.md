@@ -4,6 +4,26 @@ Status: design proposal; concept portfolio and evaluation framework.
 Purpose: build a global, culturally grounded library of beautiful, ecologically responsive, socially useful urban futures that can inspire communities and progressively connect to evidence-backed planning.
 Scope: reference concepts first; Johannesburg is the first validation context for the shared technical workflow, not the template every city must copy.
 
+
+## Implementation progress — 2026-10-14
+
+The first data-contract slice now exists on this branch:
+
+- Schema: `schemas/living-city-concept-v0.1.schema.json` (JSON Schema Draft 2020-12).
+- Valid concept fixtures: Johannesburg / Highveld, an illustrative hot-arid context, and an illustrative river-delta context under `fixtures/living-city/concepts/`.
+- Deliberately invalid fixtures under `fixtures/living-city/invalid/`: missing climate provenance, missing cultural-review status, and missing source-rights metadata.
+- Fixtures intentionally contain no precise coordinates, personal records, or cultural knowledge presented as community-authorized.
+
+**Verification boundary:** these files have been committed, but this documentation/fixture change is not yet an automated schema-validation pass. The next gate is a repository-native validator that proves all valid fixtures are accepted and all negative controls are rejected. Until that gate runs against an exact revision, do not report the fixtures as validated.
+
+### Research anchors for the first implementation
+
+- UN-Habitat, [Integrating Nature-based Solutions into Urban & Territorial Planning](https://unhabitat.org/integrating-nature-based-solutions-into-urban-territorial-planning) (2025): supports evaluating green-blue infrastructure across landscape, city, and neighborhood scales, with governance and distributional impacts considered.
+- UN-Habitat, [Global Public Space Programme](https://unhabitat.org/programme/global-public-space-programme): supports treating connected, inclusive, safe, accessible public space as urban infrastructure, not decoration.
+- UN-Habitat, [Urban Indicators Database guidance](https://data.unhabitat.org/pages/guidance): provides candidate measurement families for public-space access, tenure, basic services, transport, and participation. These indicators should be adopted only when their definitions and data coverage fit the specific pilot.
+
+These sources are methodological anchors, not evidence that any particular fixture is locally accurate or that a proposed intervention will work.
+
 ## North star
 
 Create many distinct urban futures, not a single global style. Each concept should express the relationship between place, climate, culture, materials, public life, ecology, infrastructure, and local aspirations. The atlas is a learning library, not a ranking of cultures or a claim that an outside designer can define a community's identity.
