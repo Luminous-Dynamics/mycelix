@@ -204,7 +204,7 @@ The instrument schema preserves an issuer's exact lifecycle label separately fro
 
 ## Service-journey reference slice
 
-The service-journey v0.3.0 contract deliberately starts with effects disabled and an opaque, purpose-scoped service-area reference. Each evidence item records `observed_on` separately from `retrieved_at`, so an asserted event date cannot be mistaken for the time the source was retrieved. Its route vocabulary uses `official_contact_source_found` rather than implying the whole service route has been conclusively validated. It separates the state of the case from the evidential status of the claimed outcome:
+The service-journey v0.3.0 contract deliberately starts with effects disabled and an opaque, purpose-scoped service-area reference. It distinguishes `observed_on` from `retrieved_at` and `retrieval_state`: captured official pages carry a retrieval timestamp, while synthetic `example.invalid` fixtures have `retrieval_state=synthetic_fixture` and `retrieved_at=null`. This avoids representing synthetic records as real source retrievals. The `official_contact_source_found` route state requires evidence IDs that resolve to captured `official_notice` records at a URI listed in the route's source references; it still does not mean that the route is legally or operationally confirmed. It separates the state of the case from the evidential status of the claimed outcome:
 
 - `received` means a report was recorded, not independently confirmed.
 - `work_reported_complete` plus `provider_attested_complete` means the provider reported the work complete; it does not prove service restoration.
