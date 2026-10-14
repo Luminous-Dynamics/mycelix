@@ -89,6 +89,8 @@ REQUIRED_FLAGS = [
     "2025_26_charter_amendment_history_pinned",
     "2026_27_council_sdbip_agenda_source_pinned",
     "sdbip_tabling_vs_adoption_semantics_preserved",
+    "2025_26_sdbip_midyear_report_source_pinned",
+    "sdbip_midyear_report_scope_separated_from_charter_review",
 ]
 UNSAFE_FLAGS = [
     "city_reference_used_as_internal_identity",
@@ -126,6 +128,7 @@ UNSAFE_FLAGS = [
     "unversioned_utility_web_standard_treated_as_current_adopted_sla",
     "2025_26_charter_base_assumed_effective_entire_fiscal_year",
     "sdbip_tabled_treated_as_adopted",
+    "sdbip_midyear_report_treated_as_charter_amendment",
 ]
 EXPECTED_PROBE_IDS = [
     "city-reference-overpromotion",
@@ -141,6 +144,7 @@ EXPECTED_PROBE_IDS = [
     "prior-year-target-is-not-current",
     "2025-26-charter-base-not-full-year",
     "sdbip-tabling-is-not-adoption",
+    "sdbip-report-is-not-charter-report",
     "planned-interruption-is-not-12h-general-target",
     "indexed-target-is-not-live-status",
     "stale-or-unverified-external-state",
@@ -315,7 +319,7 @@ def validate() -> None:
         "official_source_index_observed", "adopted_2026_27_water_sla_verified",
         "reporting_clock_status", "2026_27_water_standards_in_budget_book_indexed",
         "current_target_claim_ceiling", "direct_pdf_visual_review_complete",
-        "planned_interruption_metric_semantics", "2025_26_charter_revision_control", "2026_27_sdbip_agenda_control", "2026_27_sdbip_listed",
+        "planned_interruption_metric_semantics", "2025_26_charter_revision_control", "2026_27_sdbip_agenda_control", "2025_26_sdbip_midyear_report_scope_control", "2026_27_sdbip_listed",
         "2026_27_sdbip_document_retrieval_status", "current_sdbip_water_metrics_reconciled_to_budget_book",
     }, "municipal SLA source posture")
     if posture["adopted_2026_27_water_sla_bound_into_this_census"] is not False:
@@ -404,6 +408,51 @@ def validate() -> None:
     if "not proof of approval/adoption" not in agenda["interpretation"] or "were not verified" not in agenda["interpretation"]:
         fail("SDBIP tabling/adoption boundary wording drift")
 
+    report_scope = posture["2025_26_sdbip_midyear_report_scope_control"]
+    exact_keys(report_scope, {
+        "source_id", "source_url", "observed_on", "source_observation_status", "report_title",
+        "report_objective_scope", "council_minutes_source_id", "council_minutes_url",
+        "council_minutes_date", "council_item_number", "council_item_scope",
+        "council_item3_resolution", "separate_charter_item_number", "separate_charter_item_scope",
+        "separate_charter_item4_resolution", "item4_charter_report_body_retrieved",
+        "report_visual_review_complete", "exact_item4_amended_charter_values_retrieved",
+        "sdbip_targets_crosswalked_to_charter", "production_sla_use_authorized", "interpretation",
+    }, "2025/26 SDBIP mid-year report scope control")
+    if (report_scope["source_id"], report_scope["source_url"], report_scope["observed_on"]) != (
+        "COJ_SDBIP_MIDYEAR_DEVIATION_REPORT_2025_26",
+        "https://joburg.org.za/documents_/Documents/Final-Deviation-Report-2025-26.pdf",
+        "2026-10-14",
+    ):
+        fail("SDBIP mid-year report source identity/observation date mismatch")
+    if (report_scope["source_observation_status"], report_scope["council_minutes_source_id"],
+        report_scope["council_minutes_url"], report_scope["council_minutes_date"],
+        report_scope["council_item_number"], report_scope["separate_charter_item_number"]) != (
+        "OfficialPDFTextLayerReviewedScreenshotFetchTimedOut",
+        "COJ_COUNCIL_MINUTES_SLS_CHARTER_AMENDMENT_2026_03_20",
+        "https://joburg.org.za/about_/government/Documents/Minutes-of-Council-Meetings/COUNCIL-MINUTES-20-MARCH-2026.pdf",
+        "2026-03-20", 3, 4,
+    ):
+        fail("SDBIP Item 3 vs SLS Charter Item 4 source separation drift")
+    if report_scope["report_title"] != "2025/26 MID-YEAR REVIEW OF THE INSTITUTIONAL SERVICE DELIVERY AND BUDGET IMPLEMENTATION PLAN (SDBIP), DEPARTMENTAL AND MUNICIPAL ENTITIES’ BUSINESS PLANS":
+        fail("SDBIP mid-year report title drift")
+    if report_scope["report_objective_scope"] != "Institutional SDBIP amendments Annexure A; municipal-entity business-plan amendments Annexure B; departmental SDBIP amendments Annexure C; Circular 88 indicator amendments Annexure D":
+        fail("SDBIP report scope mapping drift")
+    if report_scope["council_item3_resolution"] != "Approved; Q3 implementation across SDBIPs, entity business plans and section 57 scorecards":
+        fail("Item 3 Council resolution/effective period drift")
+    if report_scope["council_item_scope"] != "2025/26 Mid-Year Review of the Institutional SDBIP, departmental and municipal entities’ business plans":
+        fail("Item 3 scope/title drift")
+    if report_scope["separate_charter_item_scope"] != "2025/2026 Institutional SDBIP Mid-Year Service Level Standards Review (Deviation and Adjustment)":
+        fail("Item 4 Charter review scope/title drift")
+    if report_scope["separate_charter_item4_resolution"] != "Separately approved; Charter indicators, targets and standard operating procedures implemented from Q3":
+        fail("Item 4 separate resolution/effective period drift")
+    for key in ("item4_charter_report_body_retrieved", "report_visual_review_complete",
+                "exact_item4_amended_charter_values_retrieved", "sdbip_targets_crosswalked_to_charter",
+                "production_sla_use_authorized"):
+        if report_scope[key] is not False:
+            fail(f"do not overclaim recovered Item 4 Charter report/effective values: {key}")
+    if "not the separate Item 4" not in report_scope["interpretation"] or "without an explicit official mapping" not in report_scope["interpretation"]:
+        fail("Item 3/Item 4 separation safety wording drift")
+
     book = data["current_year_budget_book_metrics"]
     exact_keys(book, {
         "source_id", "source_url", "source_section", "source_page", "effective_period",
@@ -468,6 +517,10 @@ def validate() -> None:
         fail("customer service standards source anchor missing")
     if source_anchors.get("COJ_COUNCIL_MINUTES_SLS_CHARTER_AMENDMENT_2026_03_20") != revision["source_url"]:
         fail("Council charter revision source anchor missing or mismatched")
+    if source_anchors.get("COJ_SDBIP_MIDYEAR_DEVIATION_REPORT_2025_26") != report_scope["source_url"]:
+        fail("2025/26 SDBIP mid-year report source anchor missing or mismatched")
+    if source_anchors.get("COJ_COUNCIL_MINUTES_SLS_CHARTER_AMENDMENT_2026_03_20") != report_scope["council_minutes_url"]:
+        fail("Item 3/Item 4 separation must be grounded to the same Council minutes")
 
     utility_channels = data["external_utility_channel_contract"]
     exact_keys(utility_channels, {

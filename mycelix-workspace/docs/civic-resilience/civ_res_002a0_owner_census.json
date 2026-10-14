@@ -396,6 +396,11 @@
       "purpose": "Official City Council minutes record approval of proposed amendments/deviations to the 2025/26 Institutional Service Level Standards Charter with amended indicators, targets and SOPs to be implemented from Q3 FY 2025/26. Page 11 screenshot reviewed; exact amended target values are not enumerated in the resolution and no 2026/27 charter authority is established."
     },
     {
+      "id": "COJ_SDBIP_MIDYEAR_DEVIATION_REPORT_2025_26",
+      "url": "https://joburg.org.za/documents_/Documents/Final-Deviation-Report-2025-26.pdf",
+      "purpose": "Official City index-linked Final Deviation Report; text layer identifies the document as the 2025/26 Institutional SDBIP mid-year review and describes its proposed SDBIP/business-plan/Circular 88 annexures. This corresponds to Council Item 3, separately listed from Item 4's Institutional SLS Charter review. Text was inspected; screenshot fetch timed out. Do not use it as Item 4's missing Charter report body."
+    },
+    {
       "id": "COJ_JOBURG_CONNECT_FAQ",
       "url": "https://joburg.org.za/services_/Documents/Customer%20Interface/Joburg%20Connect%20FAQ.pdf",
       "purpose": "Official channel FAQ describing reference-number allocation and forwarding to service providers; not a machine interface contract."
@@ -490,6 +495,29 @@
       "sdbip_adoption_established_by_notice": false,
       "production_sla_use_authorized": false,
       "interpretation": "The notice establishes scheduled agenda wording and dates only. “Tabling” is not proof of approval/adoption; the 28 May minutes/final resolution and SDBIP target table were not verified in this pass. Keep SDBIP listing, tabling, adoption, target values and effective period as distinct evidence events."
+    },
+    "2025_26_sdbip_midyear_report_scope_control": {
+      "source_id": "COJ_SDBIP_MIDYEAR_DEVIATION_REPORT_2025_26",
+      "source_url": "https://joburg.org.za/documents_/Documents/Final-Deviation-Report-2025-26.pdf",
+      "observed_on": "2026-10-14",
+      "source_observation_status": "OfficialPDFTextLayerReviewedScreenshotFetchTimedOut",
+      "report_title": "2025/26 MID-YEAR REVIEW OF THE INSTITUTIONAL SERVICE DELIVERY AND BUDGET IMPLEMENTATION PLAN (SDBIP), DEPARTMENTAL AND MUNICIPAL ENTITIES’ BUSINESS PLANS",
+      "report_objective_scope": "Institutional SDBIP amendments Annexure A; municipal-entity business-plan amendments Annexure B; departmental SDBIP amendments Annexure C; Circular 88 indicator amendments Annexure D",
+      "council_minutes_source_id": "COJ_COUNCIL_MINUTES_SLS_CHARTER_AMENDMENT_2026_03_20",
+      "council_minutes_url": "https://joburg.org.za/about_/government/Documents/Minutes-of-Council-Meetings/COUNCIL-MINUTES-20-MARCH-2026.pdf",
+      "council_minutes_date": "2026-03-20",
+      "council_item_number": 3,
+      "council_item_scope": "2025/26 Mid-Year Review of the Institutional SDBIP, departmental and municipal entities’ business plans",
+      "council_item3_resolution": "Approved; Q3 implementation across SDBIPs, entity business plans and section 57 scorecards",
+      "separate_charter_item_number": 4,
+      "separate_charter_item_scope": "2025/2026 Institutional SDBIP Mid-Year Service Level Standards Review (Deviation and Adjustment)",
+      "separate_charter_item4_resolution": "Separately approved; Charter indicators, targets and standard operating procedures implemented from Q3",
+      "item4_charter_report_body_retrieved": false,
+      "report_visual_review_complete": false,
+      "exact_item4_amended_charter_values_retrieved": false,
+      "sdbip_targets_crosswalked_to_charter": false,
+      "production_sla_use_authorized": false,
+      "interpretation": "This is the Item 3 SDBIP/business-plan mid-year report, not the separate Item 4 Institutional Service Level Standards Charter report. Council approved both as distinct items, each with Q3 implementation, but the Item 4 report body and exact amended Charter values remain unresolved. Do not silently equate SDBIP Annexure targets with Charter values without an explicit official mapping."
     }
   },
   "decision": {
@@ -512,7 +540,8 @@
       "Keep completion claim, submitted evidence, independent predicate verification and downstream outcome distinct.",
       "Run synthetic/replay and then shadow evaluation before any restricted operational trial.",
       "Obtain the consolidated 2025/26 Charter and exact Q3-amended target values; independently confirm the adopted 2026/27 charter/target version and reporting-clock semantics.",
-      "Retrieve and inspect the 27–28 May 2026 budget-meeting minutes/final resolution and the complete 2026/27 SDBIP; bind SDBIP tabling, adoption, target text, and effective date as separate evidence events."
+      "Retrieve and inspect the 27–28 May 2026 budget-meeting minutes/final resolution and the complete 2026/27 SDBIP; bind SDBIP tabling, adoption, target text, and effective date as separate evidence events.",
+      "Retrieve the body of the separate Council Item 4 Institutional Service Level Standards Charter deviation/adjustment report and its exact approved target/SOP amendments; do not substitute the Item 3 SDBIP mid-year review report."
     ]
   },
   "invariants": [
@@ -537,7 +566,8 @@
     "An indexed target is not a live status observation or proof that a specific issue met the target.",
     "Do not calculate compliance while target scope, source review or required clock semantics are unresolved.",
     "The 2025/26 Institutional Service Level Standards Charter was amended by a Council-approved resolution for implementation from Q3; exact amended target values remain unqualified, and neither the base charter nor 2025/26 values carry forward automatically into 2026/27.",
-    "A City Council agenda/index label of “Tabling” is not evidence that the SDBIP was adopted, nor that final Joburg Water target values and effective dates are known."
+    "A City Council agenda/index label of “Tabling” is not evidence that the SDBIP was adopted, nor that final Joburg Water target values and effective dates are known.",
+    "The 2025/26 Institutional SDBIP mid-year review (Council Item 3) and Institutional Service Level Standards Charter review (Council Item 4) are separately approved decisions; target values from the Item 3 report must not be treated as Item 4 Charter amendments without an explicit official mapping."
   ],
   "required_gate_flags": [
     "source_access_authorized",
@@ -570,7 +600,9 @@
     "response_vs_resolution_semantics_preserved",
     "2025_26_charter_amendment_history_pinned",
     "2026_27_council_sdbip_agenda_source_pinned",
-    "sdbip_tabling_vs_adoption_semantics_preserved"
+    "sdbip_tabling_vs_adoption_semantics_preserved",
+    "2025_26_sdbip_midyear_report_source_pinned",
+    "sdbip_midyear_report_scope_separated_from_charter_review"
   ],
   "unsafe_flags": [
     "city_reference_used_as_internal_identity",
@@ -607,7 +639,8 @@
     "notification_subscription_treated_as_case_submission",
     "unversioned_utility_web_standard_treated_as_current_adopted_sla",
     "2025_26_charter_base_assumed_effective_entire_fiscal_year",
-    "sdbip_tabled_treated_as_adopted"
+    "sdbip_tabled_treated_as_adopted",
+    "sdbip_midyear_report_treated_as_charter_amendment"
   ],
   "probe_cases": [
     {
@@ -678,7 +711,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -750,7 +786,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -822,7 +861,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -894,7 +936,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -966,7 +1011,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1038,7 +1086,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1110,7 +1161,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1182,7 +1236,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1254,7 +1311,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1326,7 +1386,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1398,7 +1461,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1470,7 +1536,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": true,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1542,7 +1611,85 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": true
+        "sdbip_tabled_treated_as_adopted": true,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "sdbip-report-is-not-charter-report",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false,
+        "2025_26_charter_amendment_history_pinned": true,
+        "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
+        "2026_27_council_sdbip_agenda_source_pinned": true,
+        "sdbip_tabling_vs_adoption_semantics_preserved": true,
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": true
       },
       "expected_disposition": "REJECT"
     },
@@ -1614,7 +1761,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1686,7 +1836,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1758,7 +1911,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1830,7 +1986,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1902,7 +2061,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1974,7 +2136,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2046,7 +2211,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2118,7 +2286,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2190,7 +2361,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2262,7 +2436,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2334,7 +2511,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2406,7 +2586,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2478,7 +2661,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2550,7 +2736,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2622,7 +2811,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2694,7 +2886,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2766,7 +2961,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2838,7 +3036,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2910,7 +3111,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2982,7 +3186,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3054,7 +3261,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -3126,7 +3336,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3198,7 +3411,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3270,7 +3486,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3342,7 +3561,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3414,7 +3636,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -3486,7 +3711,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3558,7 +3786,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3630,7 +3861,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3702,7 +3936,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3774,7 +4011,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -3846,7 +4086,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3918,7 +4161,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3990,7 +4236,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -4062,7 +4311,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -4134,7 +4386,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "REJECT"
     },
@@ -4206,7 +4461,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -4278,7 +4536,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -4350,7 +4611,10 @@
         "2025_26_charter_base_assumed_effective_entire_fiscal_year": false,
         "2026_27_council_sdbip_agenda_source_pinned": true,
         "sdbip_tabling_vs_adoption_semantics_preserved": true,
-        "sdbip_tabled_treated_as_adopted": false
+        "sdbip_tabled_treated_as_adopted": false,
+        "2025_26_sdbip_midyear_report_source_pinned": true,
+        "sdbip_midyear_report_scope_separated_from_charter_review": true,
+        "sdbip_midyear_report_treated_as_charter_amendment": false
       },
       "expected_disposition": "ADVISORY_SHADOW_ELIGIBLE"
     }
