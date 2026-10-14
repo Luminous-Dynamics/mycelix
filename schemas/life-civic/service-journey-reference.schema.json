@@ -199,7 +199,8 @@
           "independence",
           "claim_scope",
           "retrieved_at",
-          "retrieval_state"
+          "retrieval_state",
+          "checked_at"
         ],
         "properties": {
           "evidence_id": {
@@ -253,6 +254,14 @@
               "unavailable"
             ],
             "description": "Whether the referenced source was actually retrieved for this record or exists only as synthetic test data."
+          },
+          "checked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Time a retrieval was attempted. Null for synthetic fixtures that were never fetched."
           }
         },
         "allOf": [
@@ -269,10 +278,15 @@
             },
             "then": {
               "required": [
-                "retrieved_at"
+                "retrieved_at",
+                "checked_at"
               ],
               "properties": {
                 "retrieved_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "checked_at": {
                   "type": "string",
                   "format": "date-time"
                 }
@@ -283,10 +297,7 @@
             "if": {
               "properties": {
                 "retrieval_state": {
-                  "enum": [
-                    "synthetic_fixture",
-                    "unavailable"
-                  ]
+                  "const": "synthetic_fixture"
                 }
               },
               "required": [
@@ -297,6 +308,35 @@
               "properties": {
                 "retrieved_at": {
                   "type": "null"
+                },
+                "checked_at": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "retrieval_state": {
+                  "const": "unavailable"
+                }
+              },
+              "required": [
+                "retrieval_state"
+              ]
+            },
+            "then": {
+              "required": [
+                "checked_at"
+              ],
+              "properties": {
+                "retrieved_at": {
+                  "type": "null"
+                },
+                "checked_at": {
+                  "type": "string",
+                  "format": "date-time"
                 }
               }
             }
