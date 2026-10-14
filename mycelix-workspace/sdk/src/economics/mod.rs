@@ -13,7 +13,22 @@
 
 pub mod commons;
 pub mod decay_garden;
+pub mod economic_os;
+pub mod impact;
+pub mod integrity_gate;
+pub mod jurisdiction_pack;
+pub mod action_lifecycle;
+pub mod execution_receipt;
+pub mod execution_reconciliation;
+pub mod action_finalization;
+pub mod finalization_certificate;
+pub mod substrate;
 pub mod metabolic_oracle;
+pub mod policy_analysis;
+pub mod policy_context;
+pub mod policy_observation;
+pub mod scenario;
+pub mod policy_profile;
 pub mod poc;
 pub mod recognition;
 
@@ -22,11 +37,55 @@ pub use decay_garden::{
     calculate_demurrage, CompostAllocation, CompostDistribution, CompostEvent, DemurrageConfig,
 };
 pub use metabolic_oracle::{
-    MetabolicOracle, MetabolicState, PolicyAdjustment, PolicyBounds, TendLimitTier, VitalityIndex,
+    GovernedPolicyAdjustment, MetabolicOracle, MetabolicState, PolicyAdjustment, PolicyBounds,
+    TendLimitTier, VitalityIndex,
 };
+pub use economic_os::EconomicOsEnvelope;
+pub use jurisdiction_pack::{
+    EconomicJurisdictionPack, EconomicOsCapability, InteroperabilityGuarantee,
+};
+pub use policy_analysis::{EconomicAnalysisBinding, EconomicPolicyAnalysis};
+pub use policy_context::{EconomicPolicyContext, EconomicPolicyContextRole};
+pub use policy_observation::{
+    EconomicObservation, EconomicObservationBinding, EconomicObservationSignal,
+    EconomicObservationSnapshot,
+};
+pub use scenario::{EconomicPolicyScenario, EconomicScenarioBinding, EconomicScenarioKind};
+pub use policy_profile::{EconomicOsOperation, EconomicPolicyProfile};
 pub use poc::{
     calculate_mycel_score, jubilee_normalize, GamingDetection, GamingRecommendation,
     MycelCalculation, MycelComponent, MycelScore,
+};
+pub use impact::{
+    AttributionBasis, ImpactAttribution, ImpactDirection, ImpactExposure, ImpactGateDecision,
+    ImpactLedger, ImpactStatus, ObligationStatus, RestorationObligation, SubstrateImpact,
+};
+pub use integrity_gate::{
+    EconomicActionScope, EconomicIntegrityAssessment, EconomicIntegrityDecision,
+    EconomicIntegrityGate, ScopedEconomicIntegrityAssessment,
+};
+pub use action_lifecycle::{
+    stage_transition_allowed, EconomicActionChangeKind, EconomicActionLifecycle,
+    EconomicActionRevision, EconomicActionStage,
+};
+pub use execution_receipt::{
+    EconomicExecutionKind, EconomicExecutionLedger, EconomicExecutionReceipt,
+};
+pub use execution_reconciliation::{
+    EconomicExecutionConstraint, EconomicExecutionReconciliation,
+    EconomicExecutionReconciliationLedger, ExecutionConformance,
+};
+pub use action_finalization::{
+    EconomicActionFinalizationGate, EconomicFinalizationAssessment,
+    EconomicFinalizationDecision,
+};
+pub use finalization_certificate::{
+    EconomicFinalizationCertificate, EconomicFinalizationLedger,
+};
+pub use substrate::{
+    BoundaryDirection, DistributionPurpose, GateDecision, SubstrateAccount, SubstrateBoundary,
+    SubstrateDimension, SubstrateEvent, SubstrateEventKind, SubstrateLedger, SubstrateReport,
+    SubstrateState,
 };
 pub use recognition::{
     calculate_recognition_score, ContributionType, RecognitionConfig, RecognitionEvent,
@@ -207,6 +266,7 @@ mod tests {
         // Balance at exempt floor — no decay
         member.sap_balance = 1_000;
         let effective = member.effective_sap_balance(&config, one_year);
+        // Balance at exempt floor — no decay
         assert_eq!(effective, 1_000);
 
         // Balance above exempt floor — decays
