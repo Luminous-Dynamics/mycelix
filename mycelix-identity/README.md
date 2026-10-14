@@ -92,6 +92,12 @@ use mycelix_identity::did_registry::get_did_document;
 let did_doc = get_did_document(agent_pub_key)?;
 ```
 
+## Portable sovereign interoperability across regions
+
+The Africa work is one application of a broader reusable model. See [portable sovereign interoperability framework](../docs/portable-sovereign-interoperability-framework.md) for the proposed core/region/national/service profile split and a comparison of EU EUDI Wallet, ASEAN digital-ID interoperability priorities and Latin American/Caribbean IdLAC. It argues for adapting to published regional frameworks, not launching a competing identity scheme or assuming cross-border legal equivalence.
+
+The shared principle is **standards and conformance are reusable; trust, legal permission, assurance mapping and service purpose are not transferable by default**. Each deployment needs its own authority, privacy and security review, operational agreement, fallback and release approval tied to the exact build.
+
 ## African Digital Public Infrastructure interoperability
 
 A continent-level contract defines the governance boundaries for interoperating independently governed national systems:
