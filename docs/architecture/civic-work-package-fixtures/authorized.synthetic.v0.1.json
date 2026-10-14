@@ -81,8 +81,8 @@
     "funded_period_start": "2026-11-01",
     "funded_period_end": "2027-01-31",
     "payer_ref": "org:synthetic-payer",
-    "committed_amount_minor_units": 2490000,
-    "full_period_cost_estimate_minor_units": 2490000,
+    "committed_amount_minor_units": 2610000,
+    "full_period_cost_estimate_minor_units": 2610000,
     "minor_unit_digits": 2,
     "cost_breakdown": {
       "cost_items": [
@@ -254,6 +254,71 @@
           ],
           "period_start": "2026-11-01",
           "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-statutory",
+          "category": "employer_statutory_costs",
+          "description": "Employer statutory costs and required contributions",
+          "amount_minor_units": 50000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-STATUTORY",
+          "source_refs": [
+            "evidence:SYNTH-EMPLOYER_STATUTORY_COSTS"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-community",
+          "category": "community_engagement",
+          "description": "Community participation, notices and feedback sessions",
+          "amount_minor_units": 20000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-COMMUNITY",
+          "source_refs": [
+            "evidence:SYNTH-COMMUNITY_ENGAGEMENT"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-environment",
+          "category": "environmental_mitigation",
+          "description": "Site protection, waste controls and environmental mitigation",
+          "amount_minor_units": 25000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-ENVIRONMENT",
+          "source_refs": [
+            "evidence:SYNTH-ENVIRONMENTAL_MITIGATION"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-end-life",
+          "category": "end_of_life_disposal",
+          "description": "Safe removal and disposal at work-package close-out",
+          "amount_minor_units": 15000,
+          "basis_method": "published_rate",
+          "basis_ref": "basis:SYNTH-DISPOSAL",
+          "source_refs": [
+            "evidence:SYNTH-END_OF_LIFE_DISPOSAL"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
+        },
+        {
+          "line_item_id": "cost-permits",
+          "category": "permits_taxes_fees",
+          "description": "Permits, applicable taxes and administrative fees",
+          "amount_minor_units": 10000,
+          "basis_method": "expert_estimate",
+          "basis_ref": "basis:SYNTH-PERMITS",
+          "source_refs": [
+            "evidence:SYNTH-PERMITS_TAXES_FEES"
+          ],
+          "period_start": "2026-11-01",
+          "period_end": "2027-01-31"
         }
       ],
       "category_coverage": [
@@ -326,6 +391,31 @@
           "category": "other",
           "disposition": "not_applicable",
           "rationale": "Reviewed for the synthetic scope; no separate amount applies, with no real-world inference."
+        },
+        {
+          "category": "employer_statutory_costs",
+          "disposition": "included",
+          "rationale": "Included explicitly in the synthetic whole-period cost review; not a real-world price claim."
+        },
+        {
+          "category": "community_engagement",
+          "disposition": "included",
+          "rationale": "Included explicitly in the synthetic whole-period cost review; not a real-world price claim."
+        },
+        {
+          "category": "environmental_mitigation",
+          "disposition": "included",
+          "rationale": "Included explicitly in the synthetic whole-period cost review; not a real-world price claim."
+        },
+        {
+          "category": "end_of_life_disposal",
+          "disposition": "included",
+          "rationale": "Included explicitly in the synthetic whole-period cost review; not a real-world price claim."
+        },
+        {
+          "category": "permits_taxes_fees",
+          "disposition": "included",
+          "rationale": "Included explicitly in the synthetic whole-period cost review; not a real-world price claim."
         }
       ],
       "reviewed_by_ref": "person:synthetic-cost-reviewer",
