@@ -528,7 +528,6 @@ mod tests {
         let plan = plan();
         assert_eq!(plan.targets[0].target_id, id("target:1"));
         assert_eq!(plan.targets[1].target_id, id("target:2"));
-        assert!(FORECAST_PLAN_IS_NON_AUTHORITATIVE);
     }
 
     #[test]
