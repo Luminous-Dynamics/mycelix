@@ -54,6 +54,31 @@
         "Sensor data accessible to Mycelix",
         "Measured operational effect or causal impact",
         "Municipal or utility partnership or endorsement"
+      ],
+      "planned_completion_window": "EndOfSeptember2026",
+      "currentness_recheck": {
+        "checked_on": "2026-10-14",
+        "additional_official_notice_source_id": "JW-3",
+        "result": "NoExplicitRolloutCompletionConfirmationObservedInTheSpecificNoticeReviewed",
+        "status": "NotIndependentlyVerified",
+        "absence_of_notice_means_completion_false": false
+      }
+    },
+    {
+      "source_id": "JW-3",
+      "issuer": "Johannesburg Water SOC",
+      "source_url": "https://www.johannesburgwater.co.za/blog/2026/10/06/system-updates-6-october-2026/",
+      "source_kind": "OfficialSystemUpdateNotice",
+      "publication_date": "2026-10-06",
+      "observation_status": "OfficialNoticePageObserved",
+      "extracted_content_scope": "Operational system update/interruption notices",
+      "smart_controller_rollout_completion_status_in_this_notice": "NotObserved",
+      "allowed_use": "Record a recent official notice checked during rollout-currentness research",
+      "prohibited_inference": [
+        "This notice confirms all 306 controllers were installed",
+        "A missing completion statement proves the rollout is incomplete",
+        "A passed planned completion date proves completion",
+        "Mycelix has telemetry or provider access"
       ]
     },
     {
@@ -751,13 +776,13 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "cdbc242a545daa6ed0b12a8c15b3a42d7df87ea2",
-    "probe_count": 18,
+    "git_blob_sha": "3f97bb82b1fd8655d880c468ab75627f99a46496",
+    "probe_count": 19,
     "synthetic_only": true,
     "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",
     "authoring_preflight": {
       "json_parse": "Passed",
-      "unique_probe_ids": 18,
+      "unique_probe_ids": 19,
       "all_external_writes_disabled": true,
       "all_automated_closures_disabled": true,
       "all_production_sla_calculations_disabled": true
