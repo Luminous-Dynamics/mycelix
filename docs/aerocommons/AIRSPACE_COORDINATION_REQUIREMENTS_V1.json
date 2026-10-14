@@ -216,7 +216,7 @@
     "test_runner": "GitHub Actions: Airspace Replay Research Gate",
     "target_commit": null,
     "result": "not_run",
-    "note": "Scenario and transition fixtures are authored. A tool-side independent check is not Rust execution; update this only from exact-head CI evidence."
+    "note": "Scenario and lifecycle-transition fixtures are authored. Tool-side independent checks are not Rust execution; update only from exact-head CI evidence."
   },
   "references": [
     "https://www.faa.gov/uas/advanced_operations/traffic_management",
@@ -233,7 +233,7 @@
   "prototype": {
     "implementation": "tools/airspace-sim",
     "language": "Rust",
-    "status": "initial_replay_harness_authored",
+    "status": "initial_replay_and_transition_harness_authored",
     "fixture_scenarios": [
       "clear_separation",
       "crossing_conflict",
