@@ -238,7 +238,7 @@ fn checked_assessment_matches_correlated_gaussian_disk_reference() {
             / case.expected_pc_integral_reference;
         assert!(
             integral_relative_error <= fixture.comparison.relative_tolerance,
-            "{}: production Pc differs from independent Gaussian-disk integral by {:.5}%, tolerance is {:.3}%; actual={actual_pc:.16e}, reference={:.16e}",
+            "{}: production Pc differs from independent Gaussian-disk integral by {:.5}%, tolerance is {:.3}%; actual={:.16e}, reference={:.16e}",
             case.case_id,
             integral_relative_error * 100.0,
             fixture.comparison.relative_tolerance * 100.0,
