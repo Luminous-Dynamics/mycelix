@@ -392,3 +392,26 @@ The next privacy/interop test fixture should include:
 6. “Retraction” is represented as a new attributable event, not as proof that prior readers or replicas no longer possess the original claim.
 
 These controls sharpen the intended differentiator: user sovereignty must be visible in the real access, replication, revocation and recovery semantics—not only in policy text or UI language.
+
+
+## Executable read-only ValueFlows contract — 2026-10-14
+
+The research now includes a reference corpus and an isolated Rust contract checker inside the AGPL-licensed Finance cluster:
+
+- Corpus: `mycelix-finance/tests/reference/valueflows-interop/mapping-corpus-v1.json`
+- Contract/readme: `mycelix-finance/tests/reference/valueflows-interop/README.md`
+- Checker: `mycelix-finance/tools/valueflows-interop-checker/`
+- Path-scoped workflow: `.github/workflows/valueflows-interop-qualification.yml`
+
+The checker is intentionally not an adapter and has no authority to change balances. It fails closed on unqualified source/ontology version claims, direct external authority promotion, lost identity/scope/provenance, MYCEL transferability, unsafe quantity encodings, missing correction lineage, changed negative-control dispositions, unknown fields and removed required guards. It includes regression tests that mutate the corpus to confirm these contract violations are rejected.
+
+### Source-level quantity finding: TEND export remains blocked
+
+Inspection of the pinned Mycelix source found `TendExchange.hours: f32`, `TendBalance.total_provided: f32`, and `TendBalance.total_received: f32`, while `TendBalance.balance` is `i32`. TEND describes 1 TEND as one hour of service, but its event-hour fields are binary floating point. Therefore the contract now marks lossless TEND numeric export as blocked until a versioned quantization/precision profile, tolerated error bound, and round-trip tests are defined. Formatting an `f32` into a decimal string does not make its economic semantics exact.
+
+The current SAP types use `u64` micro-unit amounts, but the source itself documents that `SapBalance.justified_by` is threaded through and not yet enforced by integrity validation. Consequently, the proposed export mapping does not promote external facts to authoritative SAP balances, and this fixture does not establish source-ledger conservation.
+
+### Validation claim ceiling
+
+The corpus JSON was fetched back and parsed. Source-level consistency checks confirm the expected 3 instrument mappings and 12 registered negative controls. Rust source now defines 10 unit tests and a dedicated workflow for formatting, test execution and CLI validation. **Those Rust tests have not been run in this environment** because a Cargo toolchain is unavailable here; CI results on the exact branch head must be inspected before reporting a pass. This does not qualify full ValueFlows conformance, hREA runtime compatibility, DHT validation, settlement, or security.
+
