@@ -9,6 +9,17 @@
 use hdi::prelude::*;
 use serde::{Deserialize, Serialize};
 
+mod decision_participation;
+mod self_governance;
+
+pub use self_governance::{
+    SelfGovernanceDecisionKind, SelfGovernanceEnvelope, SelfGovernanceReversibility,
+    SelfGovernanceVisibility,
+};
+
+pub use decision_participation::{DecisionParticipation, DecisionReconsideration};
+
+
 // ============================================================================
 // Hearth Types
 // ============================================================================
