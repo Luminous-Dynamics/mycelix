@@ -536,6 +536,92 @@
         "Treat two unrelated equipment/service tenders as a basic-removal or cooperative work package"
       ],
       "search_ceiling": "The page listing was inspected, not every linked notice or all City/Pikitup procurement channels. Missing date/status on the listing means unqualified, not closed or open. The /17 suffix is not independently interpreted as a date."
+    },
+    {
+      "source_id": "SA-TREASURY-OCDS-REGISTRY-1",
+      "issuer": "Open Contracting Partnership registry, National Treasury of South Africa dataset",
+      "source_url": "https://data.open-contracting.org/en/publication/143",
+      "source_kind": "NationalProcurementDatasetCoverageAndQualityProfile",
+      "checked_on": "2026-10-14",
+      "dataset_date_range": "2017-02 through 2026-09",
+      "last_retrieved_by_registry": "2026-09-20",
+      "procurement_process_identifier_prefix": "ocds-9t57fa",
+      "publication_formats": [
+        "JSON",
+        "CSV",
+        "Excel"
+      ],
+      "coverage_limit": "The published registry explicitly says municipal governments and state-owned entities are excluded unless they voluntarily share data; it is not a complete record of all South African procurement processes.",
+      "known_quality_issues": [
+        "A few duplicate releases with identical release IDs and content",
+        "Empty tender/status values",
+        "Empty arrays and invalid placeholder values in some fields",
+        "Awards without sufficient structured details to assume contract/payment state"
+      ],
+      "allowed_use": "Additional discovery and source-linked cross-check only; prefer specific issuer notice and authoritative addenda/status for a current tender.",
+      "prohibited_inference": [
+        "No registry record means no Johannesburg or Pikitup tender exists",
+        "Registry coverage includes every municipal or state-owned-entity procurement",
+        "A tender object proves award, signed contract, funding, work availability or payment",
+        "An empty or invalid tender status means Open",
+        "A duplicate release means a second independent opportunity"
+      ]
+    },
+    {
+      "source_id": "SA-ETENDER-PORTAL-1",
+      "issuer": "National Treasury, Office of the Chief Procurement Officer",
+      "source_url": "https://data.etenders.gov.za/Home/LearnMore",
+      "source_kind": "OfficialProcurementDataPublicationPolicy",
+      "checked_on": "2026-10-14",
+      "description": "Transparency Portal data user guide for procurement data published using the Open Contracting Data Standard.",
+      "stated_process_identifier": "OCID (Open Contracting ID)",
+      "stated_ocid_prefix": "ocds-9t57fa",
+      "publication_options": [
+        "Monthly bulk JSON",
+        "Monthly bulk CSV",
+        "Excel",
+        "Versioned JSON REST API"
+      ],
+      "stated_data_use_goal": "More transparent procurement, fairer competition, accountability and service delivery.",
+      "limit": "Published-data coverage and field completeness still need to be checked for each process; this policy page is not itself tender-specific evidence.",
+      "allowed_use": "Research and possible future read-only discovery adapter after versioned API, scope and source-currentness review.",
+      "prohibited_inference": [
+        "Publication policy is proof of a specific active tender",
+        "API access grants any separate authority to apply, bid, contact a buyer or alter records",
+        "Public data excludes every form of personal or commercially sensitive risk"
+      ]
+    },
+    {
+      "source_id": "OCDS-STANDARD-1",
+      "issuer": "Open Contracting Partnership",
+      "source_url": "https://standard.open-contracting.org/latest/en/primer/how/",
+      "source_kind": "OpenProcurementDataStandardDocumentation",
+      "standard_version_observed": "1.1.5",
+      "documented_stages": [
+        "Tender",
+        "Award",
+        "Contract",
+        "Implementation"
+      ],
+      "documented_fields_or_evidence": [
+        "Tender notices",
+        "Specifications",
+        "Important dates",
+        "Award details",
+        "Signed contracts",
+        "Amendments",
+        "Payments",
+        "Progress updates",
+        "Completion or termination"
+      ],
+      "process_join_key": "OCID",
+      "allowed_use": "Use stage vocabulary and source linking to separate claims across the procurement lifecycle; record original issuer IDs and document links.",
+      "prohibited_inference": [
+        "The standard is itself an e-procurement system or legal authority",
+        "A later lifecycle field can be inferred from an earlier-stage object",
+        "Every publisher has complete or well-formed records",
+        "A title is a sufficient process identity"
+      ]
     }
   ],
   "event_model": {
@@ -906,8 +992,8 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "804aee9abbe26f756c54e01b224befeec38e0d66",
-    "probe_count": 22,
+    "git_blob_sha": "329c291ecfaf5d725f1fca3f5882980346e0f56b",
+    "probe_count": 26,
     "synthetic_only": true,
     "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",
     "authoring_preflight": {
@@ -965,7 +1051,10 @@
     "source_ids": [
       "COJ-PROC-1",
       "PIKITUP-PROC-1",
-      "PIKITUP-CURRENT-INDEX-1"
+      "PIKITUP-CURRENT-INDEX-1",
+      "SA-TREASURY-OCDS-REGISTRY-1",
+      "SA-ETENDER-PORTAL-1",
+      "OCDS-STANDARD-1"
     ],
     "required_notice_record_fields": [
       "issuer_and_tender_id",
@@ -996,6 +1085,164 @@
       "rule": "Listing heading + identifier is not evidence of current open status. The /17 suffix is not independently interpreted as a date.",
       "relevant_work_package_observed": false,
       "status": "NoticeSpecificCurrentnessRequired"
+    }
+  },
+  "procurement_evidence_lifecycle": {
+    "version": 1,
+    "standard_source_id": "OCDS-STANDARD-1",
+    "national_registry_source_id": "SA-TREASURY-OCDS-REGISTRY-1",
+    "portal_policy_source_id": "SA-ETENDER-PORTAL-1",
+    "process_identity_rule": "Use OCID when published; otherwise use a source-issuer-namespaced tender identifier. Title similarity is not identity.",
+    "stages": [
+      {
+        "stage": "IndexOnly",
+        "claim_ceiling": "DiscoveryLeadOnly",
+        "minimum_evidence": [
+          "index_or_search_url",
+          "checked_at"
+        ],
+        "does_not_prove": [
+          "specific current notice",
+          "open status",
+          "eligible scope",
+          "funding",
+          "award",
+          "contract",
+          "payment"
+        ]
+      },
+      {
+        "stage": "TenderNoticeObserved",
+        "claim_ceiling": "NoticeObservedNotNecessarilyOpen",
+        "minimum_evidence": [
+          "issuer_and_tender_id",
+          "specific_notice_url",
+          "published_at_or_unknown",
+          "source_status_as_published",
+          "scope_and_geography_or_unknown",
+          "source_checked_at"
+        ],
+        "does_not_prove": [
+          "still open",
+          "award",
+          "signed contract",
+          "role funding"
+        ]
+      },
+      {
+        "stage": "TenderOpenVerified",
+        "claim_ceiling": "SpecificTenderOpenAtCheckedTime",
+        "minimum_evidence": [
+          "specific_notice_url",
+          "issuer_and_tender_id",
+          "authoritative_open_status",
+          "closing_at_and_timezone",
+          "latest_known_corrigenda_or_addenda_reviewed",
+          "eligibility_checked",
+          "checked_at"
+        ],
+        "does_not_prove": [
+          "award",
+          "contract",
+          "funding",
+          "paid placement"
+        ]
+      },
+      {
+        "stage": "AwardObserved",
+        "claim_ceiling": "AwardClaimOnly",
+        "minimum_evidence": [
+          "issuer_award_notice_or_register",
+          "tender_process_identifier",
+          "supplier_identity_from_authoritative_record",
+          "award_date_or_unknown",
+          "source_checked_at"
+        ],
+        "does_not_prove": [
+          "signed_contract",
+          "specific work order",
+          "funded role",
+          "payment"
+        ]
+      },
+      {
+        "stage": "ContractObserved",
+        "claim_ceiling": "ContractEvidenceOnly",
+        "minimum_evidence": [
+          "signed_contract_or_authoritative_contract_register",
+          "parties",
+          "scope",
+          "effective_period",
+          "value_or_explicitly_unknown",
+          "amendments_checked"
+        ],
+        "does_not_prove": [
+          "a proposed role is in scope",
+          "funding allocated to each role",
+          "payment made"
+        ]
+      },
+      {
+        "stage": "RoleFundingCommitted",
+        "claim_ceiling": "RoleFundingEvidenceOnly",
+        "minimum_evidence": [
+          "named_legal_employer_or_authorized_contracting_entity",
+          "written_role_scope",
+          "named_payer_and_budget_holder",
+          "committed_full_period_budget",
+          "lawful_worker_classification_and_rate_basis",
+          "payroll_route_and_payment_terms",
+          "safety_and_supervision_budget",
+          "checked_at"
+        ],
+        "does_not_prove": [
+          "worker has actually been paid"
+        ]
+      },
+      {
+        "stage": "PaidWorkVerified",
+        "claim_ceiling": "BoundedPaymentEvidenceOnly",
+        "minimum_evidence": [
+          "authorized_payment_or_payroll_evidence",
+          "period_and_amount",
+          "privacy_preserving_worker_confirmation_or_auditable_receipt",
+          "exception_and_correction_path"
+        ],
+        "does_not_prove": [
+          "retention",
+          "durable employment",
+          "worker satisfaction",
+          "service outcome"
+        ]
+      }
+    ],
+    "state_transition_policy": {
+      "automatic_stage_promotion_authorized": false,
+      "missing_fields": "Keep the lowest supported state; record Unknown/Unobserved rather than infer.",
+      "conflicting_sources": "Preserve both observations and require a qualified human to resolve; never overwrite source evidence silently.",
+      "alternate_lawful_routes": "Where procurement is through an incumbent or non-tender route, record the route-specific legal and funding authority; do not force every route into an open-tender path.",
+      "role_funding_is_distinct_from_contract_value": true,
+      "award_is_not_contract": true,
+      "contract_is_not_payment": true,
+      "payment_is_not_durable_employment": true
+    },
+    "national_registry_coverage_gate": {
+      "municipal_and_state_owned_entity_records_may_be_missing_unless_voluntarily_shared": true,
+      "absence_from_registry_proves_no_opportunity": false,
+      "prefer_issuer_specific_notice_and_current_addenda": true,
+      "keep_checked_at_and_source_snapshot": true
+    },
+    "known_data_quality_gate": {
+      "empty_tender_status_may_be_treated_as_open": false,
+      "duplicate_identical_release_counts_as_second_opportunity": false,
+      "conflicting_same_release_identity_is_silently_overwritten": false,
+      "invalid_placeholders_are_authority": false
+    },
+    "privacy_and_integrity": {
+      "automated_bidding_or_supplier_contact_authorized": false,
+      "automated_award_or_contract_claim_authorized": false,
+      "automated_criminality_or_corruption_conclusion_authorized": false,
+      "public_personal_data_or_sensitive_commercial_details_required": false
     }
   }
 }

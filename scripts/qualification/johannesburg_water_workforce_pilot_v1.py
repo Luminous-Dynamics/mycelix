@@ -20,8 +20,8 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "804aee9abbe26f756c54e01b224befeec38e0d66"
-EXPECTED_SOURCE_IDS = ["JW-1", "JW-3", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3", "SA-WAGE-2026-1", "COJ-PROC-1", "PIKITUP-PROC-1", "PIKITUP-CURRENT-INDEX-1"]
+EXPECTED_CORPUS_BLOB_SHA = "329c291ecfaf5d725f1fca3f5882980346e0f56b"
+EXPECTED_SOURCE_IDS = ["JW-1", "JW-3", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3", "SA-WAGE-2026-1", "COJ-PROC-1", "PIKITUP-PROC-1", "PIKITUP-CURRENT-INDEX-1", "SA-TREASURY-OCDS-REGISTRY-1", "SA-ETENDER-PORTAL-1", "OCDS-STANDARD-1"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
     "InternalServiceIssueId != external reference number",
@@ -59,6 +59,10 @@ EXPECTED_PROBES = {
     "unknown-wage-regime-cannot-default-to-epwp": ("EmploymentIntegrity", "BlockPositionUntilWageReview", "EmploymentClassificationUnqualified"),
     "mixed-stage-tender-index-is-not-open-work": ("ProcurementIntegrity", "PartnerDiscoveryOnlyNoOpenNotice", "TenderStatusNotQualified"),
     "current-tender-header-without-dated-notice": ("ProcurementIntegrity", "RequireNoticeSpecificCurrentness", "ListingOnlyCurrentnessUnqualified"),
+    "national-registry-absence-is-not-city-tender-absence": ("ProcurementIntegrity", "ContinueIssuerSpecificDiscovery", "NationalRegistryCoverageIncomplete"),
+    "ocds-empty-status-is-not-open": ("ProcurementIntegrity", "HoldStatusUnqualified", "EmptyStatusAndClosingDate"),
+    "award-is-not-contract-or-funded-role": ("EmploymentIntegrity", "RecordAwardOnly", "AwardObservedContractAndRoleFundingUnknown"),
+    "duplicate-ocds-release-is-not-second-opportunity": ("ProcurementIntegrity", "DeduplicateExactReleaseForCounting", "IdenticalDuplicateRelease"),
 }
 REQUIRED_GUARDS = {
     "issuer-reference-collision": {"DoNotMergeByReferenceStringAlone", "ExternalReferenceIsNotInternalIdentity"},
@@ -80,6 +84,10 @@ REQUIRED_GUARDS = {
     "unknown-wage-regime-cannot-default-to-epwp": {"WageRegimeRequiresQualifiedClassification", "EPWPRateIsNotDefaultForUnknownStatus", "NoSpeculativePayroll", "NoPositionBeforeFullFunding"},
     "mixed-stage-tender-index-is-not-open-work": {"TenderLandingPageIsDiscoveryOnly", "CaptureNoticeStageAndClosingDate", "NoAbsenceProofFromListing", "NoContractWithoutAwardAndAuthority", "NoSpeculativePayroll"},
     "current-tender-header-without-dated-notice": {"CurrentTendersHeadingDoesNotProveOpenStatus", "TenderIdSuffixIsNotDateEvidence", "RecordTenderScopeAndLifecycleFromNotice", "NoOpportunityFromUnrelatedTender", "NoAbsenceProofFromListing"},
+    "national-registry-absence-is-not-city-tender-absence": {"RegistryCoverageExcludesSomeMunicipalAndSoeData", "MissingRecordIsNotEvidenceOfNoTender", "UseIssuerSpecificNotice", "NoAbsenceProofFromListing"},
+    "ocds-empty-status-is-not-open": {"EmptyTenderStatusIsNotOpen", "UnknownIsNotOpen", "RequireAuthoritativeCurrentNotice", "NoAutomaticStatusPromotion"},
+    "award-is-not-contract-or-funded-role": {"AwardIsNotSignedContract", "ContractValueIsNotRoleBudget", "NoPositionBeforeFullFunding", "QualifiedWageReviewRequired", "NoSpeculativePayroll"},
+    "duplicate-ocds-release-is-not-second-opportunity": {"DeduplicateOnlyAfterExactReleaseIdentityAndContentMatch", "DoNotCountReleaseAsTenderProcess", "ConflictingContentRequiresHumanReview"},
 }
 EXPECTED_BASE_KEYS = {
     "automated_external_write", "automated_closure", "production_sla_calculation",
@@ -145,7 +153,7 @@ def validate() -> None:
         "event_model", "job_pathways", "payer_and_job_quality_gate",
         "crime_profitability_controls", "evaluation", "gates", "stop_conditions",
         "prohibited_capabilities", "synthetic_corpus", "pilot_selection_matrix",
-        "procurement_discovery_gate",
+        "procurement_discovery_gate", "procurement_evidence_lifecycle",
     }, "manifest")
     if manifest["schema"] != EXPECTED_SCHEMA or manifest["schema_version"] != 1:
         fail("manifest schema/version mismatch")
@@ -309,7 +317,7 @@ def validate() -> None:
         fail("paid-work integrity gate is missing mandatory role/funding/cost controls")
 
     procurement = manifest["procurement_discovery_gate"]
-    if procurement.get("source_ids") != ["COJ-PROC-1", "PIKITUP-PROC-1", "PIKITUP-CURRENT-INDEX-1"] or procurement.get("listing_page_alone_proves_open_opportunity") is not False:
+    if procurement.get("source_ids") != ["COJ-PROC-1", "PIKITUP-PROC-1", "PIKITUP-CURRENT-INDEX-1", "SA-TREASURY-OCDS-REGISTRY-1", "SA-ETENDER-PORTAL-1", "OCDS-STANDARD-1"] or procurement.get("listing_page_alone_proves_open_opportunity") is not False:
         fail("procurement discovery sources or landing-page authority limit drift")
     if procurement.get("current_finding") != "NoMatchingOpenBasicRemovalOrCooperativeWorkPackageIdentifiedInInspectedListings;NotProofOfAbsence":
         fail("bounded procurement non-observation must not become proof of absence")
@@ -344,6 +352,37 @@ def validate() -> None:
     if current_obs.get("source_id") != "PIKITUP-CURRENT-INDEX-1" or current_obs.get("lifecycle_status_or_closing_date_visible") is not False or current_obs.get("relevant_work_package_observed") is not False:
         fail("procurement current-index observation must require notice-specific currentness")
 
+    treasury_registry = source_by_id["SA-TREASURY-OCDS-REGISTRY-1"]
+    if treasury_registry.get("dataset_date_range") != "2017-02 through 2026-09" or treasury_registry.get("last_retrieved_by_registry") != "2026-09-20":
+        fail("National Treasury OCDS registry snapshot date range/currentness drift")
+    if treasury_registry.get("procurement_process_identifier_prefix") != "ocds-9t57fa":
+        fail("National Treasury OCID prefix drift")
+    if "municipal governments and state-owned entities are excluded unless they voluntarily share data" not in treasury_registry.get("coverage_limit", ""):
+        fail("registry coverage limitation must be explicit")
+    if not {"Empty tender/status values", "A few duplicate releases with identical release IDs and content"}.issubset(set(treasury_registry.get("known_quality_issues", []))):
+        fail("registry status/duplicate-release data-quality risks must be explicit")
+    ocds_standard = source_by_id["OCDS-STANDARD-1"]
+    if ocds_standard.get("documented_stages") != ["Tender", "Award", "Contract", "Implementation"] or ocds_standard.get("process_join_key") != "OCID":
+        fail("OCDS lifecycle vocabulary/identity record drift")
+
+    lifecycle = manifest["procurement_evidence_lifecycle"]
+    if lifecycle.get("standard_source_id") != "OCDS-STANDARD-1" or lifecycle.get("national_registry_source_id") != "SA-TREASURY-OCDS-REGISTRY-1":
+        fail("procurement evidence ladder source pins drift")
+    expected_lifecycle_stages = ["IndexOnly", "TenderNoticeObserved", "TenderOpenVerified", "AwardObserved", "ContractObserved", "RoleFundingCommitted", "PaidWorkVerified"]
+    if [stage.get("stage") for stage in lifecycle.get("stages", [])] != expected_lifecycle_stages:
+        fail("procurement evidence lifecycle stage order drift")
+    transition_policy = lifecycle.get("state_transition_policy", {})
+    if transition_policy.get("automatic_stage_promotion_authorized") is not False or transition_policy.get("role_funding_is_distinct_from_contract_value") is not True or transition_policy.get("award_is_not_contract") is not True or transition_policy.get("contract_is_not_payment") is not True:
+        fail("procurement evidence stages may not be automatically promoted or conflated")
+    coverage_gate = lifecycle.get("national_registry_coverage_gate", {})
+    if coverage_gate.get("absence_from_registry_proves_no_opportunity") is not False or coverage_gate.get("municipal_and_state_owned_entity_records_may_be_missing_unless_voluntarily_shared") is not True:
+        fail("National Treasury registry absence must remain inconclusive for City/utility discovery")
+    quality_gate = lifecycle.get("known_data_quality_gate", {})
+    if quality_gate.get("empty_tender_status_may_be_treated_as_open") is not False or quality_gate.get("duplicate_identical_release_counts_as_second_opportunity") is not False or quality_gate.get("conflicting_same_release_identity_is_silently_overwritten") is not False:
+        fail("OCDS data-quality failures must not create open tenders or overwrite conflicts")
+    privacy_gate = lifecycle.get("privacy_and_integrity", {})
+    if privacy_gate.get("automated_bidding_or_supplier_contact_authorized") is not False or privacy_gate.get("automated_criminality_or_corruption_conclusion_authorized") is not False:
+        fail("procurement discovery cannot authorize bidding/contact or automated accusation")
     job_source = source_by_id["SA-JOBS-2"]
     if job_source.get("geography_scope") != "South Africa nationally":
         fail("youth employment source must be labelled national, not Johannesburg-specific")
@@ -458,6 +497,18 @@ def validate() -> None:
         fail("same-title water-loss metrics must not auto-crosswalk")
     if water_metric_probe["expected"]["issue_status_effect"] != "NoDerivedValueOrSla":
         fail("unqualified water metric crosswalk cannot create a derived value or SLA")
+    registry_absence_probe = by_id["national-registry-absence-is-not-city-tender-absence"]
+    if registry_absence_probe["expected"]["disposition"] != "ContinueIssuerSpecificDiscovery" or registry_absence_probe["expected"]["issue_status_effect"] != "NoNoTenderOrNoOpportunityClaim":
+        fail("missing National Treasury registry record cannot establish absence of a local opportunity")
+    empty_status_probe = by_id["ocds-empty-status-is-not-open"]
+    if empty_status_probe["expected"]["disposition"] != "HoldStatusUnqualified" or empty_status_probe["expected"]["issue_status_effect"] != "NoOpenTenderClaim":
+        fail("empty OCDS tender status must not be interpreted as open")
+    award_probe = by_id["award-is-not-contract-or-funded-role"]
+    if award_probe["expected"]["disposition"] != "RecordAwardOnly" or award_probe["expected"]["issue_status_effect"] != "NoFundedPositionOrContractClaim":
+        fail("award observation must not imply signed contract or funded role")
+    duplicate_release_probe = by_id["duplicate-ocds-release-is-not-second-opportunity"]
+    if duplicate_release_probe["expected"]["disposition"] != "DeduplicateExactReleaseForCounting" or duplicate_release_probe["expected"]["issue_status_effect"] != "NoArtificialOpportunityOrVolumeIncrease":
+        fail("duplicate procurement release must not inflate opportunity counts")
     current_tender_probe = by_id["current-tender-header-without-dated-notice"]
     if current_tender_probe["expected"]["disposition"] != "RequireNoticeSpecificCurrentness" or current_tender_probe["expected"]["issue_status_effect"] != "NoOpenTenderOrWorkPackageClaim":
         fail("current-tenders page heading cannot establish an open eligible opportunity")

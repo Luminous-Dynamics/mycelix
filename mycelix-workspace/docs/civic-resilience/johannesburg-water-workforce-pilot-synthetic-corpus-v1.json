@@ -672,6 +672,122 @@
         "NoOpportunityFromUnrelatedTender",
         "NoAbsenceProofFromListing"
       ]
+    },
+    {
+      "id": "national-registry-absence-is-not-city-tender-absence",
+      "category": "ProcurementIntegrity",
+      "scenario": "The National Treasury/OCDS registry contains no matching tender for a City or Pikitup work package. The published registry coverage profile says municipal and state-owned-entity data may be absent unless entities voluntarily share records.",
+      "input": {
+        "registry_match": false,
+        "municipal_or_soe_coverage_complete": false,
+        "issuer_specific_search_complete": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "ContinueIssuerSpecificDiscovery",
+        "issue_status_effect": "NoNoTenderOrNoOpportunityClaim",
+        "required_human_review": true,
+        "source_status": "NationalRegistryCoverageIncomplete"
+      },
+      "guards": [
+        "RegistryCoverageExcludesSomeMunicipalAndSoeData",
+        "MissingRecordIsNotEvidenceOfNoTender",
+        "UseIssuerSpecificNotice",
+        "NoAbsenceProofFromListing"
+      ]
+    },
+    {
+      "id": "ocds-empty-status-is-not-open",
+      "category": "ProcurementIntegrity",
+      "scenario": "A discovered OCDS record contains an empty or invalid tender.status and no verifiable closing date. An adapter attempts to map the empty status to Open so the item appears available.",
+      "input": {
+        "tender_status": "",
+        "closing_at": null,
+        "registry_record_found": true
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "HoldStatusUnqualified",
+        "issue_status_effect": "NoOpenTenderClaim",
+        "required_human_review": true,
+        "source_status": "EmptyStatusAndClosingDate"
+      },
+      "guards": [
+        "EmptyTenderStatusIsNotOpen",
+        "UnknownIsNotOpen",
+        "RequireAuthoritativeCurrentNotice",
+        "NoAutomaticStatusPromotion"
+      ]
+    },
+    {
+      "id": "award-is-not-contract-or-funded-role",
+      "category": "EmploymentIntegrity",
+      "scenario": "An authoritative award notice names a supplier, but no signed contract, role-specific budget allocation, lawful worker classification, or payroll/payment route is evidenced.",
+      "input": {
+        "award_notice_observed": true,
+        "signed_contract_observed": false,
+        "role_budget_committed": false,
+        "worker_classification": "Unknown",
+        "payroll_route": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "RecordAwardOnly",
+        "issue_status_effect": "NoFundedPositionOrContractClaim",
+        "required_human_review": true,
+        "source_status": "AwardObservedContractAndRoleFundingUnknown"
+      },
+      "guards": [
+        "AwardIsNotSignedContract",
+        "ContractValueIsNotRoleBudget",
+        "NoPositionBeforeFullFunding",
+        "QualifiedWageReviewRequired",
+        "NoSpeculativePayroll"
+      ]
+    },
+    {
+      "id": "duplicate-ocds-release-is-not-second-opportunity",
+      "category": "ProcurementIntegrity",
+      "scenario": "The National Treasury dataset contains two byte-identical releases with the same release ID and content. A counter increments the number of independent tenders by two.",
+      "input": {
+        "release_ids_equal": true,
+        "content_hashes_equal": true,
+        "tender_process_ocid": "ocds-9t57fa-example",
+        "count_before": 1,
+        "count_after_attempted_increment": 2
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "DeduplicateExactReleaseForCounting",
+        "issue_status_effect": "NoArtificialOpportunityOrVolumeIncrease",
+        "required_human_review": true,
+        "source_status": "IdenticalDuplicateRelease"
+      },
+      "guards": [
+        "DeduplicateOnlyAfterExactReleaseIdentityAndContentMatch",
+        "DoNotCountReleaseAsTenderProcess",
+        "ConflictingContentRequiresHumanReview"
+      ]
     }
   ]
 }

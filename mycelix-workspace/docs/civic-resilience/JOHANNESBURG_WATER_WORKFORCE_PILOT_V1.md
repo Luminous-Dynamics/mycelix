@@ -152,6 +152,14 @@ Before announcing a position, record the legal employer/contracting entity, writ
 
 The City procurement hub links current bids, RFQs, canceled bids, awards and entity procurement. The City-hosted Pikitup “Current Tenders” listing, checked 14 October 2026, showed rows for PIK259/17 (fire-equipment servicing) and PIK255/17 (four-drone supply) but exposed no publication date, closing date or lifecycle status beside those rows. I do not infer a date from the `/17` suffix. Separately, the Pikitup tender index reviewed in this pass exposed mixed lifecycle-stage examples, including a June 2026 cancellation and April/May 2026 awards alongside older advertised/closed notices. No tender-specific open cooperative/basic-removal work package was captured in the pages inspected. This bounded non-observation is **not** proof that no opportunity exists and is not a complete procurement audit.
 
+### Reuse the procurement standard, but do not trust missing fields
+
+South Africa's National Treasury Transparency Portal publishes monthly bulk and API data in Open Contracting Data Standard (OCDS) formats. The OCDS joins tendering, award, contract and implementation evidence through a contracting-process identifier (OCID). This is a strong interoperability starting point for Mycelix: reuse the stage vocabulary and source-linking rather than inventing another procurement lifecycle. It is not proof that Mycelix conforms to OCDS today, nor is the standard an e-procurement system.
+
+A crucial coverage limit: the National Treasury registry profile says municipal governments and state-owned entities may be absent unless they voluntarily share procurement data. Its dataset profile spans February 2017–September 2026, was last retrieved by that registry on 20 September 2026, and documents duplicate releases, empty `tender/status` values and other incomplete/invalid fields. So registry absence cannot rule out a City/Pikitup opportunity; an empty status cannot become “open”; and an identical duplicate release cannot inflate tender counts.
+
+Use an evidence ladder rather than one boolean called “opportunity”: **index observed → specific notice observed → open status verified at a checked time → award observed → contract evidenced → role-specific funding committed → payment evidenced**. Each stage needs its own source record and minimum evidence. Do not automatically promote between stages. In particular, an award is not a signed contract, a contract value is not a role budget, and a signed contract is not proof a worker has been paid. An incumbent or other lawful contracting route can be represented, but its authority and funding evidence must be recorded on its own terms.
+
 For every candidate opportunity, follow the index to the individual notice and capture the tender ID, issuer, latest amendments/Q&A, lifecycle status, closing date and timezone, scope/geography, cooperative/supplier eligibility, budget/funding authority, award or signed contract evidence, named payer and payment terms. An annual SDBIP target, a page labeled “Current Tenders,” or an older award is not a currently open, eligible or funded work package. Keep the Pikitup candidate at partner-discovery-only until authoritative notice and payer evidence exist.
 
 
@@ -272,3 +280,6 @@ If these questions cannot be answered, remain in synthetic/shadow research. Do n
 10. City of Johannesburg, Tenders and Quotations procurement hub (checked 14 October 2026): https://joburg.org.za/work_/Pages/Work%20in%20Joburg/Tenders%20and%20Quotations/Tenders-and-Quotations.aspx
 11. Pikitup, Tenders index (checked 14 October 2026): https://pikitup.co.za/tenders/
 12. City of Johannesburg-hosted Pikitup “Current Tenders” listing (checked 14 October 2026): https://joburg.org.za/work_/Pages/Work%20in%20Joburg/Tenders%20and%20Quotations/Links/Pikitup%20Tenders/Current-Tenders.aspx
+13. National Treasury, OCPO Transparency Portal data user guide: https://data.etenders.gov.za/Home/LearnMore
+14. National Treasury procurement dataset coverage and quality profile: https://data.open-contracting.org/en/publication/143
+15. Open Contracting Data Standard v1.1.5, lifecycle model: https://standard.open-contracting.org/latest/en/primer/how/
