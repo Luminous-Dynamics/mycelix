@@ -1981,9 +1981,26 @@ pub struct WithdrawFromHearthInput {
 }
 
 /// Get a hearth's SAP pool with effective balance after demurrage.
+///
+/// This is observational only: an absent pool returns a zero/default projection
+/// and does not create an entry or index link.
 #[hdk_extern]
 pub fn get_hearth_sap_pool(hearth_did: String) -> ExternResult<HearthSapPoolResponse> {
-    let pool = get_or_create_hearth_pool(&hearth_did)?;
+    validate_did_format(&hearth_did, "hearth_did")?;
+
+    let Some((_, pool)) = find_hearth_pool_record(&hearth_did)? else {
+        return Ok(HearthSapPoolResponse {
+            hearth_did,
+            raw_balance: 0,
+            effective_balance: 0,
+            pending_demurrage: 0,
+            last_demurrage_at: Timestamp::from_micros(0),
+            member_count: 0,
+            total_contributed: 0,
+            total_withdrawn: 0,
+        });
+    };
+
     let now = sys_time()?;
     let elapsed = elapsed_seconds(pool.last_demurrage_at, now);
     let deduction = compute_demurrage_deduction(
@@ -2261,6 +2278,55 @@ pub struct ApplyHearthDemurrageInput {
     pub local_commons_pool_id: Option<String>,
     pub regional_commons_pool_id: Option<String>,
     pub global_commons_pool_id: Option<String>,
+}
+
+/// Pure lookup for a HearthSapPool. Never creates state.
+fn find_hearth_pool_record(
+    hearth_did: &str,
+) -> ExternResult<Option<(Record, HearthSapPool)>> {
+    let anchor_key = format!("hearth-sap:{}", hearth_did);
+    let links = get_links(
+        LinkQuery::try_new(anchor_hash(&anchor_key)?, LinkTypes::HearthDidToSapPool)?,
+        GetStrategy::default(),
+    )?;
+
+    if links.is_empty() {
+        return Ok(None);
+    }
+    if links.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "HearthDidToSapPool index is ambiguous for {}: {} roots",
+            hearth_did,
+            links.len()
+        ))));
+    }
+
+    let action_hash = links
+        .into_iter()
+        .next()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "HearthDidToSapPool index unexpectedly empty".into()
+        )))?
+        .target
+        .into_action_hash()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid HearthSapPool index target".into()
+        )))?;
+    let record = follow_update_chain(action_hash)?;
+    let pool = record
+        .entry()
+        .to_app_option::<HearthSapPool>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "HearthSapPool deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "HearthSapPool index points to a non-pool record".into()
+        )))?;
+
+    Ok(Some((record, pool)))
 }
 
 fn get_or_create_hearth_pool(hearth_did: &str) -> ExternResult<HearthSapPool> {
