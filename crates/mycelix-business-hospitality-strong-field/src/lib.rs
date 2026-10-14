@@ -32,9 +32,7 @@ use mycelix_business_shadow::{
     ForecastCase, ForecastDisposition, ForecastScorecard, ScaledValue, ShadowForecast,
     ShadowPromotionDecision, evaluate_forecast_gate,
 };
-use mycelix_business_time_evidence::{
-    LocalTimeSchedule, ResolveError, ScheduleError,
-};
+use mycelix_business_time_evidence::{LocalTimeSchedule, ResolveError, ScheduleError};
 use sha2::{Digest, Sha256};
 
 pub const STRONG_HOSPITALITY_FIELD_IS_READ_ONLY: bool = true;
@@ -170,9 +168,8 @@ pub fn evaluate_strong_hospitality_field(
         verify_observation_membership(adapter, &campaign, source_files, &actuals)
             .map_err(StrongFieldError::Membership)?;
 
-    let overall_scorecard =
-        ForecastScorecard::score_for_protocol(&registration.protocol, &cases)
-            .map_err(|_| StrongFieldError::ScoringFailed)?;
+    let overall_scorecard = ForecastScorecard::score_for_protocol(&registration.protocol, &cases)
+        .map_err(|_| StrongFieldError::ScoringFailed)?;
     let overall_case_set_digest = case_set_digest(&cases);
     let overall_decision = evaluate_forecast_gate(&registration.protocol, &overall_scorecard)
         .map_err(|_| StrongFieldError::ProtocolGateFailed)?;
@@ -186,9 +183,8 @@ pub fn evaluate_strong_hospitality_field(
                 selected.push(case.clone());
             }
         }
-        let scorecard =
-            ForecastScorecard::score_for_protocol(&registration.protocol, &selected)
-                .map_err(|_| StrongFieldError::ScoringFailed)?;
+        let scorecard = ForecastScorecard::score_for_protocol(&registration.protocol, &selected)
+            .map_err(|_| StrongFieldError::ScoringFailed)?;
         let selected_digest = case_set_digest(&selected);
         let passed = scorecard.cases >= slice.minimum_cases
             && scorecard.abstention_bps() <= registration.protocol.maximum_abstention_bps
@@ -308,9 +304,7 @@ fn validate_schedule_binding(
     Ok(())
 }
 
-fn reject_retired_limitations(
-    limitations: &BTreeSet<ReferenceId>,
-) -> Result<(), StrongFieldError> {
+fn reject_retired_limitations(limitations: &BTreeSet<ReferenceId>) -> Result<(), StrongFieldError> {
     for retired in [
         fixed_offset_clock_limitation_ref(),
         forecast_actual_membership_limitation_ref(),
@@ -410,10 +404,7 @@ fn case_belongs_to_slice(
                 == resolved.end_inclusive.local_day_index
                 && resolved.start.weekday >= 5
                 && resolved.end_inclusive.weekday >= 5;
-            let saturday_to_sunday = resolved
-                .start
-                .local_day_index
-                .checked_add(1)
+            let saturday_to_sunday = resolved.start.local_day_index.checked_add(1)
                 == Some(resolved.end_inclusive.local_day_index)
                 && resolved.start.weekday == 5
                 && resolved.end_inclusive.weekday == 6;
@@ -424,9 +415,11 @@ fn case_belongs_to_slice(
             else {
                 return Ok(false);
             };
-            Ok(resolved.start.local_day_index == resolved.end_inclusive.local_day_index
-                && resolved.start.minute_of_day >= start
-                && resolved.end_inclusive.minute_of_day < end)
+            Ok(
+                resolved.start.local_day_index == resolved.end_inclusive.local_day_index
+                    && resolved.start.minute_of_day >= start
+                    && resolved.end_inclusive.minute_of_day < end,
+            )
         }
     }
 }
@@ -731,7 +724,10 @@ mod tests {
         }
     }
 
-    fn campaign(adapter: &DelimitedIngressAdapter, file: &CampaignSourceFile) -> ExtractionCampaignManifest {
+    fn campaign(
+        adapter: &DelimitedIngressAdapter,
+        file: &CampaignSourceFile,
+    ) -> ExtractionCampaignManifest {
         let manifest = diagnose_delimited_import(
             adapter,
             file.bytes.as_slice(),
@@ -789,7 +785,10 @@ mod tests {
         .unwrap()
     }
 
-    fn actuals(adapter: &DelimitedIngressAdapter, file: &CampaignSourceFile) -> Vec<mycelix_business_shadow::MetricObservation> {
+    fn actuals(
+        adapter: &DelimitedIngressAdapter,
+        file: &CampaignSourceFile,
+    ) -> Vec<mycelix_business_shadow::MetricObservation> {
         adapter
             .parse_batch(file.bytes.as_slice(), file.ingested_at_unix_ms)
             .unwrap()
@@ -896,7 +895,12 @@ mod tests {
             report.decision,
             StrongQualificationDecision::Field(FieldQualificationDecision::PassShadowFieldGate)
         );
-        assert!(report.campaign_integrity.validate_against(&campaign).is_ok());
+        assert!(
+            report
+                .campaign_integrity
+                .validate_against(&campaign)
+                .is_ok()
+        );
         assert!(report.validate_digest());
         assert!(report
             .unresolved_limitations
