@@ -663,5 +663,293 @@
         }
       ]
     }
+  ],
+  "lifecycle_transition_cases": [
+    {
+      "case_id": "proposed_to_accepted",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "accepted"
+    },
+    {
+      "case_id": "accepted_to_activated",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "accepted"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "activated"
+      },
+      "expected_outcome": "accepted"
+    },
+    {
+      "case_id": "activated_to_completed",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "activated"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "completed"
+      },
+      "expected_outcome": "accepted"
+    },
+    {
+      "case_id": "proposed_to_withdrawn",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "withdrawn"
+      },
+      "expected_outcome": "accepted"
+    },
+    {
+      "case_id": "illegal_accepted_to_completed",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "accepted"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "completed"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "sequence_gap",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 3,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "duplicate_sequence",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "time_reversal",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 99,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "issuer_changed",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "other-provider",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "trajectory_digest_changed",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:different-trajectory",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "time_basis_changed",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "another-time-epoch",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "withdrawn_terminal",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "withdrawn"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    },
+    {
+      "case_id": "empty_digest",
+      "previous": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 1,
+        "event_time_s": 100,
+        "state": "proposed"
+      },
+      "next": {
+        "intent_id": "intent-demo-001",
+        "issuer_id": "provider-demo-01",
+        "trajectory_digest": "sha256:fixture-trajectory-a",
+        "time_basis": "fixture-tai-epoch-v1",
+        "sequence": 2,
+        "event_time_s": 101,
+        "state": "accepted"
+      },
+      "expected_outcome": "rejected"
+    }
   ]
 }
