@@ -21,18 +21,13 @@ pub enum ReversibilityClass {
     Irreversible,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum UnknownOutcomePolicy {
     /// Retry is permitted only through a provider-supported stable idempotency identity.
     IdempotentRetryOnly,
     /// Reconciliation must establish state before any potentially duplicative retry.
+    #[default]
     ReconcileBeforeRetry,
-}
-
-impl Default for UnknownOutcomePolicy {
-    fn default() -> Self {
-        Self::ReconcileBeforeRetry
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
