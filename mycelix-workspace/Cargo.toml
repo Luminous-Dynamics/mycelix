@@ -730,7 +730,9 @@ members = [
     # "mycelix-hearth/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
     # "mycelix-legacy/crates/*", # legacy-types has no src/lib.rs — manifests-only scaffold, would break cargo check --workspace (task #43)
     "mycelix-manufacturing/crates/*",
-    "mycelix-music/apps/leptos",
+    # "mycelix-music/apps/leptos", # standalone browser workspace: the parent workspace's
+    # full dependency graph has an unrelated Holochain 0.6 / serde pin conflict; CI
+    # checks this frontend from its own [workspace] root (see its Cargo.toml).
     "mycelix-personal/crates/*",
     # "mycelix-personal/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
     "mycelix-praxis/apps/leptos",
