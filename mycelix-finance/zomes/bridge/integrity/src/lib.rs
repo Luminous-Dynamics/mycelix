@@ -99,6 +99,7 @@ pub struct FinanceBridgeEvent {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum FinanceEventType {
     PaymentCompleted,
+    PaymentAwaitingRecipientClaim,
     CollateralPledged,
     CollateralReleased,
     CollateralDeposited,
@@ -436,7 +437,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             | LinkTypes::AllNotifications
             | LinkTypes::NotificationSubscription => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterDeleteLink { link_type, .. } => match link_type {
+            // Exact-identity indexes are append-only. Deleting one can make an
+            // already-used identifier resolve differently on a later retry.
+            LinkTypes::PaymentReferenceToPayment
+            | LinkTypes::DepositIdToDeposit
+            | LinkTypes::CovenantIdToCovenant => Ok(ValidateCallbackResult::Invalid(
+                "Bridge identity indexes cannot be deleted".into(),
+            )),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
