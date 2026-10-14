@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # Keep runner-global Cargo configuration outside the qualification trust surface.
+  # Cargo probes CARGO_HOME/config.toml (or config) in addition to repository config.
+  CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home
+
 concurrency:
   group: d6u-runtime-reference-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: true
@@ -50,6 +55,51 @@ jobs:
           test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
           test "$(rustc +1.96.1 --version --verbose | sed -n 's/^commit-hash: //p')" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
           rustfmt +1.96.1 --version
+
+      - name: Initialize isolated Cargo home
+        run: |
+          set -euo pipefail
+          rm -rf "$CARGO_HOME"
+          mkdir -p "$CARGO_HOME"
+
+      - name: Assert isolated Cargo and Rust execution environment
+        run: |
+          set -euo pipefail
+          test -d "$CARGO_HOME"
+          test -z "$(find "$CARGO_HOME" -mindepth 1 -maxdepth 1 -print -quit)"
+          for variable in \
+            RUSTC \
+            RUSTDOC \
+            RUSTFLAGS \
+            RUSTDOCFLAGS \
+            CARGO_ENCODED_RUSTFLAGS \
+            CARGO_BUILD_RUSTFLAGS \
+            CARGO_BUILD_RUSTDOCFLAGS \
+            RUSTC_WRAPPER \
+            RUSTC_WORKSPACE_WRAPPER \
+            CARGO_BUILD_RUSTC_WRAPPER \
+            CARGO_BUILD_RUSTC \
+            CARGO_BUILD_RUSTDOC \
+            CARGO_BUILD_TARGET \
+            CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER \
+            RUSTUP_TOOLCHAIN \
+            RUSTUP_HOME \
+            RUSTUP_DIST_SERVER \
+            RUSTUP_UPDATE_ROOT; do
+            if [ -n "${!variable:-}" ]; then
+              echo "unexpected ambient toolchain override: $variable"
+              exit 1
+            fi
+          done
+
+          while IFS='=' read -r name _; do
+            case "$name" in
+              CARGO_REGISTRIES_*|CARGO_SOURCE_*|CARGO_HTTP_*|CARGO_NET_*)
+                echo "unexpected ambient Cargo supply-chain override: $name"
+                exit 1
+                ;;
+            esac
+          done < <(env)
 
       - name: Preflight evidence verifiers
         run: python3 -m py_compile scripts/integral/verify_d6u_runtime_manifest.py scripts/integral/verify_d6u_runtime_evidence.py scripts/integral/verify_d6u_runtime_lock.py scripts/integral/verify_d6u_runtime_record.py
