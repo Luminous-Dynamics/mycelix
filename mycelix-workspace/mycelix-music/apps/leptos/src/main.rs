@@ -8,6 +8,7 @@ mod app;
 mod audio_bridge;
 mod components;
 mod consciousness_viz;
+mod delivery;
 mod journey;
 mod live_synth;
 mod pages;
