@@ -5,7 +5,7 @@
 
 use serde_json::{json, Value};
 use sha1::{Digest, Sha1};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
@@ -50,13 +50,161 @@ fn git_blob_sha1(relative_path: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
+fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
+    let evidence = instance["evidence"]
+        .as_array()
+        .ok_or_else(|| "evidence must be an array".to_string())?;
+    let mut records: HashMap<String, (String, String)> = HashMap::new();
+
+    for item in evidence {
+        let id = item["evidence_id"]
+            .as_str()
+            .ok_or_else(|| "evidence record has no string evidence_id".to_string())?;
+        let kind = item["kind"]
+            .as_str()
+            .ok_or_else(|| format!("{id} has no string kind"))?;
+        let independence = item["independence"]
+            .as_str()
+            .ok_or_else(|| format!("{id} has no independence classification"))?;
+        if records
+            .insert(id.to_string(), (kind.to_string(), independence.to_string()))
+            .is_some()
+        {
+            return Err(format!("duplicate evidence_id: {id}"));
+        }
+        if item["retrieved_at"].as_str().is_none() {
+            return Err(format!("{id} lacks a source retrieval timestamp"));
+        }
+    }
+
+    let outcome = &instance["outcome"];
+    let status = outcome["status"]
+        .as_str()
+        .ok_or_else(|| "outcome has no string status".to_string())?;
+    let verification_ids = outcome["verification_evidence_ids"]
+        .as_array()
+        .ok_or_else(|| "verification_evidence_ids must be an array".to_string())?;
+    let verified_at = &outcome["verified_at"];
+
+    if status == "independently_verified_complete" {
+        if instance["review_required"] != true {
+            return Err("independent verification requires review_required=true".to_string());
+        }
+        if instance["review_status"] != "completed" {
+            return Err("independent verification requires completed review".to_string());
+        }
+        if verification_ids.is_empty() {
+            return Err("independent verification requires evidence IDs".to_string());
+        }
+        if verified_at.as_str().is_none() {
+            return Err("independent verification requires a timestamp".to_string());
+        }
+        let mut unique_ids = HashSet::new();
+        for value in verification_ids {
+            let id = value
+                .as_str()
+                .ok_or_else(|| "verification evidence ID must be a string".to_string())?;
+            if !unique_ids.insert(id) {
+                return Err(format!("duplicate verification evidence ID: {id}"));
+            }
+            let (kind, independence) = records
+                .get(id)
+                .ok_or_else(|| format!("verification evidence ID has no record: {id}"))?;
+            if kind != "independent_observation" && kind != "independent_measurement" {
+                return Err(format!(
+                    "verification evidence {id} is not an independent observation or measurement"
+                ));
+            }
+            if independence != "independent" {
+                return Err(format!(
+                    "verification evidence {id} is not explicitly marked independent"
+                ));
+            }
+        }
+    } else if !verification_ids.is_empty() || !verified_at.is_null() {
+        return Err(
+            "non-verified outcome must not carry verification IDs or verified_at".to_string(),
+        );
+    }
+
+    if let Some(conflicts) = instance["source_conflicts"].as_array() {
+        for conflict in conflicts {
+            let conflict_id = conflict["conflict_id"]
+                .as_str()
+                .unwrap_or("<missing-conflict-id>");
+            let ids = conflict["evidence_ids"]
+                .as_array()
+                .ok_or_else(|| format!("{conflict_id} evidence_ids must be an array"))?;
+            if ids.len() < 2 {
+                return Err(format!("{conflict_id} requires at least two claim evidence IDs"));
+            }
+            let mut unique_ids = HashSet::new();
+            for value in ids {
+                let id = value
+                    .as_str()
+                    .ok_or_else(|| format!("{conflict_id} evidence ID must be a string"))?;
+                if !unique_ids.insert(id) {
+                    return Err(format!("{conflict_id} repeats evidence ID {id}"));
+                }
+                if !records.contains_key(id) {
+                    return Err(format!(
+                        "{conflict_id} references evidence with no record: {id}"
+                    ));
+                }
+            }
+
+            let resolution_ids = conflict["resolution_evidence_ids"]
+                .as_array()
+                .ok_or_else(|| {
+                    format!("{conflict_id} resolution_evidence_ids must be an array")
+                })?;
+            if conflict["status"] == "resolved" && resolution_ids.is_empty() {
+                return Err(format!(
+                    "{conflict_id} cannot be marked resolved without resolution evidence"
+                ));
+            }
+            for value in resolution_ids {
+                let id = value.as_str().ok_or_else(|| {
+                    format!("{conflict_id} resolution evidence ID must be a string")
+                })?;
+                if !records.contains_key(id) {
+                    return Err(format!(
+                        "{conflict_id} references missing resolution evidence: {id}"
+                    ));
+                }
+            }
+        }
+    }
+
+    if instance["case_state"] == "source_conflict" {
+        if status != "conflicted" {
+            return Err("source_conflict case must have conflicted outcome status".to_string());
+        }
+        if instance["review_required"] != true || instance["review_status"] == "not_required" {
+            return Err("source_conflict case requires human review".to_string());
+        }
+        let unresolved = instance["source_conflicts"]
+            .as_array()
+            .is_some_and(|conflicts| {
+                conflicts
+                    .iter()
+                    .any(|conflict| conflict["status"] == "unresolved")
+            });
+        if !unresolved {
+            return Err("source_conflict case requires at least one unresolved conflict".to_string());
+        }
+    }
+
+    Ok(())
+}
+
 const INSTRUMENT_SCHEMA: &str = "schemas/life-civic/standard-instrument.schema.json";
 const ASSESSMENT_SCHEMA: &str = "schemas/life-civic/applicability-assessment.schema.json";
 const CORPUS_PATH: &str = "tests/reference/life-civic-standards/cases.json";
 const SERVICE_JOURNEY_SCHEMA: &str = "schemas/life-civic/service-journey-reference.schema.json";
-const SERVICE_JOURNEY_CASES: &str = "tests/reference/life-civic-service/cases-v0.2.0.json";
+const SERVICE_JOURNEY_CASES: &str = "tests/reference/life-civic-service/cases-v0.3.0.json";
 const SERVICE_JOURNEY_POSITIVE: &str =
-    "tests/reference/life-civic-service/independently-verified-local-restoration-v0.2.0.json";
+    "tests/reference/life-civic-service/independently-verified-local-restoration-v0.3.0.json";
 
 #[test]
 fn corpus_manifest_points_to_existing_versioned_assets() {
@@ -209,6 +357,10 @@ fn scoped_independent_restoration_positive_control_is_accepted() {
     assert_eq!(fixture["expected_schema_valid"], true);
     let instance = &fixture["instance"];
     assert!(check.is_valid(instance), "valid scoped positive control was rejected");
+    assert!(
+        validate_service_claim_semantics(instance).is_ok(),
+        "valid scoped positive control failed cross-field claim semantics"
+    );
     assert_eq!(instance["case_state"], "verified_resolved");
     assert_eq!(
         instance["outcome"]["status"],
@@ -252,6 +404,27 @@ fn scoped_independent_restoration_positive_control_is_accepted() {
         limitation.contains("does not establish restoration across the wider service area"),
         "positive control must not generalize one point observation to the whole area"
     );
+
+    let mut dangling_reference = instance.clone();
+    dangling_reference["outcome"]["verification_evidence_ids"] = json!(["MISSING-EVIDENCE"]);
+    assert!(
+        validate_service_claim_semantics(&dangling_reference).is_err(),
+        "dangling verification evidence ID must be rejected"
+    );
+
+    let mut wrong_kind = instance.clone();
+    wrong_kind["outcome"]["verification_evidence_ids"] = json!(["EV-REPORT-005"]);
+    assert!(
+        validate_service_claim_semantics(&wrong_kind).is_err(),
+        "a community report must not qualify as independent verification"
+    );
+
+    let mut incomplete_review = instance.clone();
+    incomplete_review["review_status"] = json!("requested");
+    assert!(
+        validate_service_claim_semantics(&incomplete_review).is_err(),
+        "independent verification must not pass before human review completes"
+    );
 }
 
 #[test]
@@ -293,6 +466,11 @@ fn service_journey_fixtures_preserve_reported_vs_verified_outcomes() {
             check.is_valid(instance),
             expected,
             "schema validity mismatch for {fixture_id}"
+        );
+        assert_eq!(
+            validate_service_claim_semantics(instance).is_ok(),
+            expected,
+            "claim-semantics validity mismatch for {fixture_id}"
         );
     }
 
