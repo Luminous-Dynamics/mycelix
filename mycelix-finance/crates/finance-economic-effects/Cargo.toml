@@ -1,0 +1,9 @@
+[package]
+name = "finance-economic-effects"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Pure economic-effect theorem kernel for exact Finance mutation accounting"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
