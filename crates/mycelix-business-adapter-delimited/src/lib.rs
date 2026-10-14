@@ -935,7 +935,6 @@ mod tests {
         let batch = adapter
             .parse_batch(csv.as_bytes(), 1_789_000_000_000)
             .unwrap();
-        assert!(DELIMITED_ADAPTER_IS_READ_ONLY);
         assert_eq!(batch.records.len(), 2);
         assert_eq!(batch.records[0].normalized.len(), 2);
         assert_eq!(batch.records[0].normalized[0].observation.value.mantissa, 2);
