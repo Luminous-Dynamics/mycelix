@@ -141,6 +141,28 @@
       "source_kind": "LegislationLandingPage",
       "allowed_use": "Legal review lead for stolen-goods and second-hand-trade controls",
       "legal_advice_or_compliance_certification": false
+    },
+    {
+      "source_id": "SA-JOBS-2",
+      "issuer": "Statistics South Africa",
+      "source_url": "https://www.statssa.gov.za/?p=19526",
+      "source_kind": "QuarterlyLabourForceSurveyNationalSummary",
+      "publication_date": "2026-05-12",
+      "reference_period": "2026-Q1",
+      "geography_scope": "South Africa nationally",
+      "measures": {
+        "unemployment_percent_age_15_24": 60.9,
+        "unemployment_percent_age_25_34": 40.6,
+        "neet_percent_age_15_24": 37.6,
+        "neet_percent_age_15_34": 45.6
+      },
+      "allowed_use": "National labour-market context supporting measurable pathways from paid entry work to recognized skills and sustained employment",
+      "local_johannesburg_estimate_claimed": false,
+      "prohibited_inference": [
+        "Johannesburg-specific unemployment or NEET rate",
+        "Pilot recruitment eligibility",
+        "Funding, positions, partner commitments or causal employment impact"
+      ]
     }
   ],
   "event_model": {
