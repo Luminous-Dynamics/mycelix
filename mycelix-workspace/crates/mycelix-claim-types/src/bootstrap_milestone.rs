@@ -77,6 +77,22 @@ pub enum EvidenceKind {
     PhysicalQualificationReport,
     /// Inspection or product-acceptance result.
     InspectionResult,
+    /// Calibration certificate and instrument traceability record.
+    CalibrationCertificate,
+    /// Requirement-to-verification mapping or matrix.
+    RequirementsTraceabilityMatrix,
+    /// Verification Control Document or equivalent evidence index.
+    VerificationControlDocument,
+    /// Hazard identification, risk assessment and control analysis.
+    HazardAnalysis,
+    /// Software assurance and software-safety assessment.
+    SoftwareAssuranceReport,
+    /// Independent software or system verification report.
+    IndependentVerificationReport,
+    /// Project-specific applicability/tailoring assessment for a standard.
+    StandardsApplicabilityAssessment,
+    /// Formal acceptance-test report for a stated configuration and envelope.
+    AcceptanceTestReport,
     /// Policy or authorization decision reference (not an authorization grant).
     PolicyDecision,
 }
@@ -838,6 +854,30 @@ mod tests {
         let mut value = serde_json::to_value(valid_milestone()).expect("serialize record");
         value["authority_basis"]["authority_granted"] = serde_json::Value::Bool(true);
         assert!(serde_json::from_value::<BootstrapMilestone>(value).is_err());
+    }
+
+    #[test]
+    fn calibration_and_standards_documents_do_not_replace_measurement_evidence() {
+        let mut milestone = valid_milestone();
+        milestone.fixture_class = FixtureClass::OperationalMeasured;
+        milestone.evidence = vec![evidence(
+            "https://example.invalid/evidence/calibration-certificate.json",
+            EvidenceKind::CalibrationCertificate,
+            '8',
+        )];
+        assert!(milestone.validate().is_err());
+
+        milestone.evidence.push(evidence(
+            "https://example.invalid/evidence/operational-measurement.json",
+            EvidenceKind::OperationalMeasurement,
+            '9',
+        ));
+        milestone.evidence.push(evidence(
+            "https://example.invalid/evidence/verification-control.json",
+            EvidenceKind::VerificationControlDocument,
+            'a',
+        ));
+        assert!(milestone.validate().is_ok());
     }
 
     #[test]
