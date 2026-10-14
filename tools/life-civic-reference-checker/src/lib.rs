@@ -55,6 +55,8 @@ const ASSESSMENT_SCHEMA: &str = "schemas/life-civic/applicability-assessment.sch
 const CORPUS_PATH: &str = "tests/reference/life-civic-standards/cases.json";
 const SERVICE_JOURNEY_SCHEMA: &str = "schemas/life-civic/service-journey-reference.schema.json";
 const SERVICE_JOURNEY_CASES: &str = "tests/reference/life-civic-service/cases.json";
+const SERVICE_JOURNEY_POSITIVE: &str =
+    "tests/reference/life-civic-service/independently-verified-local-restoration.json";
 
 #[test]
 fn corpus_manifest_points_to_existing_versioned_assets() {
@@ -163,14 +165,19 @@ fn service_journey_manifest_pins_exact_schema_and_case_bytes() {
     let frozen_inputs = manifest["frozen_inputs"]
         .as_array()
         .expect("service manifest frozen_inputs must be an array");
-    assert_eq!(frozen_inputs.len(), 2);
+    assert_eq!(frozen_inputs.len(), 3);
     let actual_paths: HashSet<&str> = frozen_inputs
         .iter()
         .map(|entry| entry["path"].as_str().expect("frozen path must be a string"))
         .collect();
     assert_eq!(actual_paths.len(), frozen_inputs.len());
-    let expected_paths: HashSet<&str> =
-        [SERVICE_JOURNEY_SCHEMA, SERVICE_JOURNEY_CASES].into_iter().collect();
+    let expected_paths: HashSet<&str> = [
+        SERVICE_JOURNEY_SCHEMA,
+        SERVICE_JOURNEY_CASES,
+        SERVICE_JOURNEY_POSITIVE,
+    ]
+    .into_iter()
+    .collect();
     assert_eq!(actual_paths, expected_paths);
 
     for entry in frozen_inputs {
@@ -189,6 +196,35 @@ fn service_journey_manifest_pins_exact_schema_and_case_bytes() {
             "frozen service input changed without updating the manifest: {path}"
         );
     }
+}
+
+#[test]
+fn scoped_independent_restoration_positive_control_is_accepted() {
+    let check = validator(SERVICE_JOURNEY_SCHEMA);
+    let fixture = read_json(SERVICE_JOURNEY_POSITIVE);
+    assert_eq!(
+        fixture["fixture_id"],
+        "independently-verified-local-restoration"
+    );
+    assert_eq!(fixture["expected_schema_valid"], true);
+    let instance = &fixture["instance"];
+    assert!(check.is_valid(instance), "valid scoped positive control was rejected");
+    assert_eq!(instance["case_state"], "verified_resolved");
+    assert_eq!(
+        instance["outcome"]["status"],
+        "independently_verified_complete"
+    );
+    assert_eq!(instance["outcome"]["verification_evidence_ids"][0], "EV-INDEP-005");
+    assert_eq!(instance["review_required"], true);
+    assert_eq!(instance["review_status"], "completed");
+    assert_eq!(instance["effects"]["effects_requested"], false);
+    let limitation = instance["evidence"][1]["limitations"]
+        .as_str()
+        .expect("independent observation must state its limitation");
+    assert!(
+        limitation.contains("does not establish restoration across the wider service area"),
+        "positive control must not generalize one point observation to the whole area"
+    );
 }
 
 #[test]
