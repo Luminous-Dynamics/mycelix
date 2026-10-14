@@ -551,7 +551,7 @@ fn draft_registry_directory_and_transparency_negative_controls_remain_present() 
             .as_array()
             .unwrap()
             .iter()
-            .any(|claim| claim.as_str().unwrap().contains("reduces crime")),
+            .any(|claim| claim.as_str().unwrap().contains("reduce crime")),
         "UNODC guidance control must not imply a robot intervention has a proven effect"
     );
 
