@@ -1,0 +1,104 @@
+{
+  "schema": "mycelix-integration-atlas-fixture-v0.1",
+  "authority_class": "descriptive-index-only",
+  "qualified_capability_minted": false,
+  "statuses": [
+    "Unavailable",
+    "Designed",
+    "SourceCandidate",
+    "ImplementedUnqualified",
+    "QualificationQueued",
+    "Qualified",
+    "Superseded",
+    "Conflict",
+    "Unknown"
+  ],
+  "atlas_dimensions": [
+    "IdentityLink",
+    "ReadObservation",
+    "HistoricalSync",
+    "ContentImport",
+    "ContentExport",
+    "ReplicaStorage",
+    "RealtimeSubscription",
+    "RelationshipObservation",
+    "ExternalEffect",
+    "EffectReconciliation"
+  ],
+  "initial_programs": [
+    {"provider_family":"Steam","domain_family":"Game","program_issue":2872,"profile_issue":2880,"status":"Designed"},
+    {"provider_family":"Matrix+Discord","domain_family":"Pulse","program_issue":2873,"profile_issue":2881,"status":"Designed"},
+    {"provider_family":"GitHub+GitLab","domain_family":"Forge","program_issue":2874,"profile_issue":2883,"status":"Designed"},
+    {"provider_family":"WebDAV+Nextcloud+S3","domain_family":"PersonalStorage","program_issue":2875,"profile_issue":2882,"status":"Designed"},
+    {"provider_family":"ActivityPub+ATProto","domain_family":"Social","program_issue":2876,"profile_issue":2884,"status":"Designed"},
+    {"provider_family":"ORCID+OpenAlex+Crossref+DataCite","domain_family":"Science","program_issue":2877,"profile_issue":2885,"status":"Designed"},
+    {"provider_family":"OpenStreetMap","domain_family":"AtlasCivic","program_issue":2878,"profile_issue":2886,"status":"Designed"},
+    {"provider_family":"Matter+HomeAssistant","domain_family":"HearthAutomation","program_issue":2879,"profile_issue":2887,"status":"Designed"}
+  ],
+  "cases": [
+    {
+      "id": "designed-is-not-qualified",
+      "input": {"status":"Designed","refs":["issue:2880"]},
+      "expected": {"positive_capability":false,"visible_status":"Designed"}
+    },
+    {
+      "id": "source-candidate-is-not-qualified",
+      "input": {"status":"SourceCandidate","refs":["commit:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]},
+      "expected": {"positive_capability":false,"visible_status":"SourceCandidate"}
+    },
+    {
+      "id": "queued-is-not-qualified",
+      "input": {"status":"QualificationQueued","refs":["run:123"]},
+      "expected": {"positive_capability":false,"visible_status":"QualificationQueued"}
+    },
+    {
+      "id": "forged-qualified-string-rejected",
+      "input": {"status":"Qualified","refs":["unresolvable:fake"]},
+      "expected": {"positive_capability":false,"classification":"UnresolvedPositiveReference"}
+    },
+    {
+      "id": "profile-substitution-rejected",
+      "input": {"cell_profile":"steam-app-A","ref_profile":"steam-app-B","status":"Qualified"},
+      "expected": {"positive_capability":false,"classification":"ProfileMismatch"}
+    },
+    {
+      "id": "conflicting-positive-refs",
+      "input": {"status":"Qualified","refs":["qualified-ref:A","qualified-ref:B"],"compatible":false},
+      "expected": {"positive_capability":false,"visible_status":"Conflict"}
+    },
+    {
+      "id": "superseded-remains-historical",
+      "input": {"status":"Superseded","refs":["qualified-ref:old"],"successor":"qualified-ref:new"},
+      "expected": {"positive_for_new_ingestion":false,"historical_reference_retained":true}
+    },
+    {
+      "id": "read-does-not-authorize-effect",
+      "input": {"atlas_dimension":"ReadObservation","status":"Qualified","ref":"qualified-ref:read"},
+      "expected": {"satisfies_external_effect_requirement":false}
+    },
+    {
+      "id": "unavailable-does-not-disable-other-cells",
+      "input": {"identity":"Unavailable","read":"Designed"},
+      "expected": {"identity":"Unavailable","read":"Designed"}
+    },
+    {
+      "id": "input-order-is-nonauthoritative",
+      "input": {"entries":["B","A"]},
+      "expected": {"canonical_entries":["A","B"]}
+    },
+    {
+      "id": "unknown-future-state-visible",
+      "input": {"status":"FutureStateV9"},
+      "expected": {"positive_capability":false,"classification":"UnknownStatus"}
+    }
+  ],
+  "nonclaims": [
+    "provider capability qualification",
+    "provider authentication",
+    "account ownership",
+    "currentness",
+    "external effect authority",
+    "provider truth",
+    "autonomous Symthaea authority"
+  ]
+}
