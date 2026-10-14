@@ -196,9 +196,28 @@ The first proposed reference artifacts are deliberately non-authoritative and ef
 - `schemas/life-civic/standard-instrument.schema.json` defines instrument metadata, including exact issuer role, version, lifecycle state, source provenance, access/license limits, mapping gaps, and a claim ceiling.
 - `schemas/life-civic/applicability-assessment.schema.json` defines a context-bound assessment. A result marked `applicable` requires evidence and a completed human review; schema validation alone never qualifies a legal conclusion.
 - `tests/reference/life-civic-standards/manifest.json` and `cases.json` define the reference corpus identity and expected dispositions. The manifest pins the exact Git blob identities of both schemas and the case corpus; the Rust verifier recomputes canonical Git blob IDs over the checked-out bytes to catch accidental or unreviewed drift. Git SHA-1 here is a repository-object identity, not a signature or source-authenticity proof. These files are test fixtures, not authoritative legal records or benchmark results.
+- `schemas/life-civic/service-journey-reference.schema.json` defines an effects-disabled service-case lifecycle and outcome model.
+- `tests/reference/life-civic-service/cases.json` and `manifest.json` contain four reference fixtures: a community report, a provider-reported completion, a real-source official guidance conflict, and a negative control that claims verification with only provider evidence. The service manifest pins its exact schema and fixture Git blob IDs separately from the standards corpus.
 - `tools/life-civic-reference-checker/` is an isolated Rust verifier; `.github/workflows/life-civic-reference-contract.yml` runs schema meta-validation and adversarial corpus checks when these paths change. It has no network-dependent reference resolution enabled and does not call service or Holochain effect paths.
 
 The instrument schema preserves an issuer's exact lifecycle label separately from its coarser categories. This matters for standards tracks and committee-stage drafts, where flattening every item to `published` or `standard` would lose consequential distinctions.
+
+## Service-journey reference slice
+
+The service-journey contract deliberately starts with effects disabled and an opaque, purpose-scoped service-area reference. It separates the state of the case from the evidential status of the claimed outcome:
+
+- `received` means a report was recorded, not independently confirmed.
+- `work_reported_complete` plus `provider_attested_complete` means the provider reported the work complete; it does not prove service restoration.
+- `routing_conflict` plus `conflicted` preserves a discrepancy across official sources and requires review.
+- `verified_resolved` plus `independently_verified_complete` requires independent observation or measurement and completed human review.
+
+The schema and Rust fixture check reject a deliberately invalid case that promotes a provider statement alone to independent verification. The reference workflow cannot submit a real request, authorize a provider action, or close a service case.
+
+## Checked civic-source conflict (2026-10-14)
+
+The official [Johannesburg Water Emergencies page](https://www.johannesburgwater.co.za/emergencies/) lists a 12-hour water-outage turnaround, while the official [Daily Water Notices page](https://www.johannesburgwater.co.za/daily-water-notices/) lists 24 hours. The [Contact Us page](https://www.johannesburgwater.co.za/contact-us/) is another official source for reporting details. This is a point-in-time content discrepancy—not proof that either page is false and not a guarantee of actual response time.
+
+The reference case therefore labels the source state `conflicted` and routes it for review. Any live pilot should store each source URL, its exact claim, retrieval time, and currentness state, then seek an authoritative resolution rather than silently choosing a number. If that cannot be resolved, present the discrepancy and give a verified contact pathway only when the current source supports it.
 
 ## Checked catalogue observations (2026-10-14)
 
