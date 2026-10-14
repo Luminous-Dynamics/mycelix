@@ -1,0 +1,144 @@
+name: Hearth Holochain 0.7 stacked qualification
+
+# Explicit, immutable qualification path for Hearth migration commits that are
+# intentionally stacked on another feature branch. Normal merge-gate CI remains
+# restricted to main-targeted pull requests.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Exact 40-character commit SHA to qualify"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Hearth 0.7 runtime qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Require immutable commit ref
+        shell: bash
+        run: |
+          ref="${{ inputs.ref }}"
+          if [[ ! "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "FAIL: qualification requires an exact 40-character commit SHA."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Initialize external evidence capsule
+        shell: bash
+        run: |
+          evidence="$RUNNER_TEMP/hearth-07-qualification-evidence.txt"
+          printf '%s\n' \
+            "requested_ref=${{ inputs.ref }}" \
+            "resolved_commit=$(git rev-parse HEAD)" \
+            "qualified_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            "runner_os=$RUNNER_OS" \
+            "runner_image=${ImageOS:-unknown}" \
+            "actions_checkout_sha=3d3c42e5aac5ba805825da76410c181273ba90b1" \
+            "cachix_install_nix_action_sha=8aa03977d8d733052d78f4e008a241fd1dbf36b3" \
+            "actions_upload_artifact_sha=043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" \
+            "workflow_ref=${{ github.workflow_ref }}" \
+            "workflow_sha=${{ github.workflow_sha }}" \
+            "run_id=$GITHUB_RUN_ID" \
+            "run_attempt=$GITHUB_RUN_ATTEMPT" \
+            > "$evidence"
+          test "$(git rev-parse HEAD)" = "${{ inputs.ref }}"
+
+      - name: Require committed dependency closure
+        working-directory: mycelix-workspace/mycelix-hearth
+        shell: bash
+        run: |
+          for file in flake.lock Cargo.lock tests/Cargo.lock sdk-ts/package-lock.json; do
+            test -s "$file" || { echo "FAIL: missing committed qualification input: $file"; exit 1; }
+          done
+
+      - name: Verify Holochain 0.7 source invariants
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: bash tools/verify-holochain-07.sh
+
+      - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31.10.6
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate locked dependency metadata
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          nix develop .#ci --locked --command cargo metadata --locked --format-version 1 >/dev/null
+
+      - name: Verify authority-boundary contract
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          python3 tools/verify-authority-boundary-contract.py
+          {
+            echo "=== authority-boundary qualification inputs ==="
+            sha256sum tests/hearth-07-authority-boundary-cases.json tests/sweettest_authority_boundary.rs tools/verify-authority-boundary-contract.py
+          } | tee -a "$RUNNER_TEMP/hearth-07-qualification-evidence.txt"
+
+      - name: Resolve toolchain versions
+        working-directory: mycelix-workspace/mycelix-hearth
+        shell: bash
+        run: |
+          nix develop .#ci --locked --command bash -lc '
+            holochain --version
+            hc --version
+            cargo --version
+            rustc --version
+          ' | tee -a "$RUNNER_TEMP/hearth-07-qualification-evidence.txt"
+
+      - name: Build all Hearth WASM zomes
+        working-directory: mycelix-workspace/mycelix-hearth
+        timeout-minutes: 60
+        run: |
+          nix develop .#ci --locked --command cargo build --locked --release --target wasm32-unknown-unknown --workspace
+
+      - name: Pack Hearth DNA
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          nix develop .#ci --locked --command hc dna pack dna/
+          test -s dna/mycelix_hearth.dna
+          sha256sum dna/mycelix_hearth.dna | tee -a "$RUNNER_TEMP/hearth-07-qualification-evidence.txt"
+          {
+            echo "=== exact source inputs ==="
+            sha256sum flake.nix flake.lock Cargo.lock tests/Cargo.lock tests/Cargo.toml sdk-ts/package.json sdk-ts/package-lock.json
+            echo "=== all tracked Cargo manifests ==="
+            git ls-files -- '*Cargo.toml' | sort | xargs -r sha256sum
+          } | tee -a "$RUNNER_TEMP/hearth-07-qualification-evidence.txt"
+
+      - name: Run dedicated Sweettest workspace against Holochain 0.7
+        working-directory: mycelix-workspace/mycelix-hearth/tests
+        timeout-minutes: 45
+        run: |
+          set -o pipefail
+          nix develop ../.#ci --locked --command cargo test --locked --release -- --ignored --test-threads=1 2>&1 | tee -a "$RUNNER_TEMP/hearth-07-qualification-evidence.txt"
+
+      - name: Seal post-test source tree
+        shell: bash
+        run: |
+          test -z "$(git status --short)"
+          printf '%s\n' "git_status_clean=true" | tee -a "$RUNNER_TEMP/hearth-07-qualification-evidence.txt"
+
+      - name: Publish immutable qualification evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hearth-07-qualification-${{ inputs.ref }}
+          path: |
+            ${{ runner.temp }}/hearth-07-qualification-evidence.txt
+            mycelix-workspace/mycelix-hearth/dna/mycelix_hearth.dna
+          if-no-files-found: error
+          retention-days: 30
