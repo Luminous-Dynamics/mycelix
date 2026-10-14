@@ -6,8 +6,8 @@
 //! These must be serde-compatible with the Holochain entry types.
 
 use crate::delivery::{
-    delivery_candidates_from_build_config, delivery_candidates_with_origins,
-    parse_gateway_origins, DeliveryCandidate, DeliveryPlanError, MediaAssetManifestV1,
+    delivery_candidates_for_preference, DeliveryCandidate, DeliveryPlanError,
+    MediaAssetManifestV1,
 };
 use serde::{Deserialize, Serialize};
 
@@ -114,17 +114,7 @@ impl Song {
         &self,
         preference: Option<&str>,
     ) -> Result<Vec<DeliveryCandidate>, DeliveryPlanError> {
-        let manifest = self.audio_manifest();
-        match preference {
-            None => delivery_candidates_from_build_config(&manifest),
-            Some(value) if value.trim().is_empty() => {
-                delivery_candidates_with_origins(&manifest, &[])
-            }
-            Some(value) => {
-                let origins = parse_gateway_origins(value)?;
-                delivery_candidates_with_origins(&manifest, &origins)
-            }
-        }
+        delivery_candidates_for_preference(&self.audio_manifest(), preference)
     }
 
     /// Construct the audio URL for a specific fallback attempt using the
@@ -160,14 +150,19 @@ impl Song {
         self.audio_url_at(0).unwrap_or_default()
     }
 
-    /// Construct the first explicitly configured gateway URL for the cover art.
+    /// Construct the first deployment-configured gateway URL for cover art.
     pub fn cover_url(&self) -> Option<String> {
+        self.cover_url_with_preference(None)
+    }
+
+    /// Construct cover art URL using this browser's selected gateway pool.
+    pub fn cover_url_with_preference(&self, preference: Option<&str>) -> Option<String> {
         let cid = self.cover_cid.as_ref()?;
         let manifest = MediaAssetManifestV1::for_ipfs(
             format!("{}:cover", self.song_hash),
             cid.clone(),
         );
-        delivery_candidates_from_build_config(&manifest)
+        delivery_candidates_for_preference(&manifest, preference)
             .ok()?
             .into_iter()
             .next()
