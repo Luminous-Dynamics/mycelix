@@ -282,7 +282,9 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
                     .any(|conflict| conflict["status"] == "unresolved")
             });
         if !unresolved {
-            return Err("source_conflict case requires at least one unresolved conflict".to_string());
+            return Err(
+                "source_conflict case requires at least one unresolved conflict".to_string(),
+            );
         }
     }
 
