@@ -485,5 +485,19 @@
     "Public suspect lists or doxxing",
     "Automated criminality/worker-misconduct determination",
     "Adverse decisions based solely on model output, poverty, address or association"
-  ]
+  ],
+  "synthetic_corpus": {
+    "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
+    "git_blob_sha": "1e75f7702e6e3c2e1a44956a9571ad7461c664c7",
+    "probe_count": 14,
+    "synthetic_only": true,
+    "qualification_status": "NotRun",
+    "authoring_preflight": {
+      "json_parse": "Passed",
+      "unique_probe_ids": 14,
+      "all_external_writes_disabled": true,
+      "all_automated_closures_disabled": true,
+      "all_production_sla_calculations_disabled": true
+    }
+  }
 }
