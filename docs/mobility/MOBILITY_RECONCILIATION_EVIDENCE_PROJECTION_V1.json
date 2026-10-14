@@ -1,0 +1,139 @@
+{
+  "schema": "mobility-reconciliation-evidence-projection-v1",
+  "scope": "semantic-provenance-only",
+  "projections": {
+    "conflict_reference_only": {
+      "allowed_classifications": [
+        "conflicting"
+      ],
+      "effects": [
+        "set_conflict_reference",
+        "preserve_epistemic_disposition"
+      ],
+      "forbidden": [
+        "promote_to_contradicted"
+      ]
+    },
+    "lifecycle_supersession": {
+      "allowed_classifications": [
+        "superseded"
+      ],
+      "effects": [
+        "set_lifecycle_superseded",
+        "preserve_epistemic_disposition"
+      ],
+      "forbidden": [
+        "delete_predecessor_history",
+        "promote_to_contradicted"
+      ]
+    },
+    "indeterminate_reference": {
+      "allowed_classifications": [
+        "indeterminate"
+      ],
+      "effects": [
+        "set_indeterminate_or_explicit_unresolved"
+      ],
+      "forbidden": [
+        "promote_to_contradicted",
+        "interpret_as_failure"
+      ]
+    },
+    "no_epistemic_promotion": {
+      "allowed_classifications": [
+        "coexistent",
+        "sequential",
+        "incomparable"
+      ],
+      "effects": [
+        "preserve_existing_epistemic_disposition"
+      ],
+      "forbidden": [
+        "promote_to_supported",
+        "infer_causality",
+        "infer_disagreement"
+      ]
+    }
+  },
+  "invariants": [
+    "conflicting_does_not_imply_contradicted",
+    "disputed_does_not_imply_contradicted",
+    "superseded_affects_lifecycle_not_epistemic_disposition",
+    "indeterminate_does_not_imply_failure",
+    "unresolved_does_not_imply_contradiction",
+    "external_authority_provenance_is_not_rewritten",
+    "evidence_modality_is_not_rewritten",
+    "projection_requires_valid_witness",
+    "projection_does_not_imply_physical_safety",
+    "projection_does_not_imply_certification",
+    "projection_does_not_imply_regulatory_approval",
+    "projection_does_not_imply_physical_equivalence",
+    "projection_does_not_imply_measurement_truth",
+    "projection_does_not_imply_engineering_correctness"
+  ],
+  "vectors": [
+    {
+      "id": "REP-001",
+      "scenario": "conflicting witness projects only to conflict reference",
+      "reconciliation_classification": "conflicting",
+      "projection": "conflict_reference_only",
+      "forbidden_inference": "preserve_epistemic_disposition"
+    },
+    {
+      "id": "REP-002",
+      "scenario": "conflicting witness cannot become contradiction through projection",
+      "reconciliation_classification": "conflicting",
+      "projection": "conflict_reference_only",
+      "forbidden_inference": "must_not_promote_to_contradicted"
+    },
+    {
+      "id": "REP-003",
+      "scenario": "disputed conflict remains orthogonal",
+      "reconciliation_classification": "conflicting",
+      "projection": "conflict_reference_only",
+      "forbidden_inference": "preserve_dispute_without_contradiction"
+    },
+    {
+      "id": "REP-004",
+      "scenario": "superseded witness changes lifecycle only",
+      "reconciliation_classification": "superseded",
+      "projection": "lifecycle_supersession",
+      "forbidden_inference": "preserve_epistemic_disposition"
+    },
+    {
+      "id": "REP-005",
+      "scenario": "indeterminate witness remains indeterminate",
+      "reconciliation_classification": "indeterminate",
+      "projection": "indeterminate_reference",
+      "forbidden_inference": "must_not_imply_failure_or_contradiction"
+    },
+    {
+      "id": "REP-006",
+      "scenario": "coexistent witness has no epistemic promotion",
+      "reconciliation_classification": "coexistent",
+      "projection": "no_epistemic_promotion",
+      "forbidden_inference": "must_not_promote_to_supported"
+    },
+    {
+      "id": "REP-007",
+      "scenario": "sequential witness does not imply causality",
+      "reconciliation_classification": "sequential",
+      "projection": "no_epistemic_promotion",
+      "forbidden_inference": "must_not_infer_causality"
+    },
+    {
+      "id": "REP-008",
+      "scenario": "incomparable witness does not imply disagreement",
+      "reconciliation_classification": "incomparable",
+      "projection": "no_epistemic_promotion",
+      "forbidden_inference": "must_not_infer_disagreement"
+    },
+    {
+      "id": "REP-009",
+      "scenario": "external authority provenance survives projection",
+      "reconciliation_classification": "conflicting",
+      "projection": "conflict_reference_only",
+      "forbidden_inference": "must_not_rewrite_authority_provenance"
+    }
+  ]
+}

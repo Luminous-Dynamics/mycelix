@@ -1,0 +1,23 @@
+{
+  "schema": "mobility-evidence-state-tuple-v1",
+  "scope": "semantic-provenance-only",
+  "dimensions": {
+    "epistemic_disposition": ["supported", "contradicted", "unresolved", "indeterminate"],
+    "lifecycle_disposition": ["current", "superseded", "retired"],
+    "conflict_disposition": ["uncontested", "disputed"],
+    "authority_provenance": ["commons", "external"],
+    "evidence_modality": ["observation", "measurement", "prediction", "simulation", "interpretation", "attestation"]
+  },
+  "invariants": [
+    "unresolved-is-not-contradicted",
+    "contradicted-requires-explicit-conflict",
+    "indeterminate-is-not-failure",
+    "superseded-preserves-history",
+    "retired-preserves-history",
+    "disputed-preserves-attributable-competing-evidence",
+    "external-authority-requires-explicit-reference",
+    "tuple-does-not-establish-physical-safety-or-regulatory-approval",
+    "holochain-validation-states-remain-protocol-layer",
+    "modality-remains-distinct-from-epistemic-disposition"
+  ]
+}
