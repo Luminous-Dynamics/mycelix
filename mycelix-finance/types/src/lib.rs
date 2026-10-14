@@ -15,6 +15,14 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Evidence-native financial intelligence contracts.
+/// See `docs/finance/FINANCIAL_INTELLIGENCE_CONSTITUTION.md` for invariants.
+pub mod financial_intelligence;
+/// Pure frontier/staleness/conflict qualification for market observations.
+pub mod financial_observation_qualification;
+/// Deterministic derived normalization; raw observations remain immutable.
+pub mod financial_normalization;
+
 // =============================================================================
 // CURRENCIES
 // =============================================================================
