@@ -49,7 +49,7 @@ pub struct EvidenceSnapshotRefV1 {
 pub enum DigestVerificationStatus {
     NotCaptured,
     CapturedNotVerified,
-    IndependentlyVerified { receipt_ref: String },
+    VerificationReceiptReferenced { receipt_ref: String },
 }
 
 /// A review state, not a confidence score. Only Verified assessments can
@@ -97,6 +97,13 @@ pub struct OperationPermission {
 pub struct RightsAndLicenseAssessmentV1 {
     pub schema_version: u16,
     pub assessment_id: String,
+    /// Exact provider/record/version to which this review applies.
+    pub subject_provider_id: String,
+    pub subject_record_id: String,
+    pub subject_version: Option<String>,
+    /// Optional artifact-specific scope. None means the reviewed terms apply
+    /// to this source record/version, rather than a single byte blob.
+    pub subject_artifact_sha256: Option<String>,
     pub review_status: LicenseReviewStatus,
     /// SPDX expression, license URL or another stable terms identifier.
     pub license_identifier: Option<String>,
@@ -125,8 +132,16 @@ pub enum ReuseBlockerCode {
     MissingArtifactDigest,
     InvalidArtifactDigest,
     DigestStateMismatch,
-    DigestNotIndependentlyVerified,
+    DigestNotVerificationReceiptReferenced,
     MissingDigestVerificationReceipt,
+    InvalidEvaluationTimestamp,
+    EmptyRightsProviderScope,
+    EmptyRightsRecordScope,
+    RightsProviderMismatch,
+    RightsRecordMismatch,
+    RightsVersionMismatch,
+    RightsArtifactMismatch,
+    SourceRetrievedInFuture,
     UnsupportedRightsSchema,
     EmptyAssessmentId,
     LicenseNotVerified,
@@ -202,11 +217,11 @@ impl EvidenceSnapshotRefV1 {
             (Some(_), DigestVerificationStatus::CapturedNotVerified) => {}
             (
                 Some(_),
-                DigestVerificationStatus::IndependentlyVerified { receipt_ref },
+                DigestVerificationStatus::VerificationReceiptReferenced { receipt_ref },
             ) if receipt_ref.trim().is_empty() => {
                 blockers.push(ReuseBlockerCode::MissingDigestVerificationReceipt);
             }
-            (Some(_), DigestVerificationStatus::IndependentlyVerified { .. }) => {}
+            (Some(_), DigestVerificationStatus::VerificationReceiptReferenced { .. }) => {}
         }
         blockers
     }
@@ -214,7 +229,7 @@ impl EvidenceSnapshotRefV1 {
     pub fn has_independent_digest_receipt(&self) -> bool {
         matches!(
             &self.digest_status,
-            DigestVerificationStatus::IndependentlyVerified { receipt_ref }
+            DigestVerificationStatus::VerificationReceiptReferenced { receipt_ref }
                 if !receipt_ref.trim().is_empty()
                     && self.artifact_sha256.as_deref().is_some_and(is_sha256)
         )
@@ -231,6 +246,25 @@ impl RightsAndLicenseAssessmentV1 {
         }
         if self.assessment_id.trim().is_empty() {
             blockers.push(ReuseBlockerCode::EmptyAssessmentId);
+        }
+        if self.subject_provider_id.trim().is_empty() {
+            blockers.push(ReuseBlockerCode::EmptyRightsProviderScope);
+        }
+        if self.subject_record_id.trim().is_empty() {
+            blockers.push(ReuseBlockerCode::EmptyRightsRecordScope);
+        }
+        if self.subject_version.as_deref().is_some_and(|v| v.trim().is_empty()) {
+            blockers.push(ReuseBlockerCode::EmptySourceVersion);
+        }
+        if self
+            .subject_artifact_sha256
+            .as_deref()
+            .is_some_and(|hash| !is_sha256(hash))
+        {
+            blockers.push(ReuseBlockerCode::InvalidArtifactDigest);
+        }
+        if parse_utc(now_utc).is_none() {
+            blockers.push(ReuseBlockerCode::InvalidEvaluationTimestamp);
         }
 
         if self.review_status != LicenseReviewStatus::Verified {
@@ -338,11 +372,28 @@ pub fn evaluate_reuse(
     }
 
     blockers.extend(assessment.validation_blockers(now_utc));
-
-    if assessment.review_status == LicenseReviewStatus::Verified
-        && !assessment.validation_blockers(now_utc).is_empty()
+    if assessment.subject_provider_id != snapshot.provider_id {
+        blockers.push(ReuseBlockerCode::RightsProviderMismatch);
+    }
+    if assessment.subject_record_id != snapshot.source_record_id {
+        blockers.push(ReuseBlockerCode::RightsRecordMismatch);
+    }
+    if assessment.subject_version != snapshot.source_version {
+        blockers.push(ReuseBlockerCode::RightsVersionMismatch);
+    }
+    if assessment
+        .subject_artifact_sha256
+        .as_deref()
+        .is_some_and(|hash| Some(hash) != snapshot.artifact_sha256.as_deref())
     {
-        // Validation reasons already added above; do not double count them.
+        blockers.push(ReuseBlockerCode::RightsArtifactMismatch);
+    }
+    if let (Some(now), Some(retrieved)) =
+        (parse_utc(now_utc), parse_utc(&snapshot.retrieved_at_utc))
+    {
+        if retrieved > now {
+            blockers.push(ReuseBlockerCode::SourceRetrievedInFuture);
+        }
     }
 
     if assessment.review_status == LicenseReviewStatus::Verified {
@@ -379,7 +430,7 @@ pub fn evaluate_reuse(
     if operation_requires_artifact_digest(operation)
         && !snapshot.has_independent_digest_receipt()
     {
-        blockers.push(ReuseBlockerCode::DigestNotIndependentlyVerified);
+        blockers.push(ReuseBlockerCode::DigestNotVerificationReceiptReferenced);
     }
 
     blockers.sort_by_key(|code| *code as u8);
@@ -461,6 +512,10 @@ mod tests {
         RightsAndLicenseAssessmentV1 {
             schema_version: RIGHTS_ASSESSMENT_SCHEMA_V1,
             assessment_id: "SYNTHETIC-RIGHTS-001".to_owned(),
+            subject_provider_id: "synthetic-provider".to_owned(),
+            subject_record_id: "SYNTHETIC-RECORD-001".to_owned(),
+            subject_version: Some("synthetic-v1".to_owned()),
+            subject_artifact_sha256: None,
             review_status: status,
             license_identifier: Some("SYNTHETIC-LICENSE-ID".to_owned()),
             reviewer_id: Some("synthetic-reviewer".to_owned()),
@@ -551,10 +606,10 @@ mod tests {
         assert!(!decision.allowed_by_supplied_assessment);
         assert!(includes(
             &decision,
-            ReuseBlockerCode::DigestNotIndependentlyVerified
+            ReuseBlockerCode::DigestNotVerificationReceiptReferenced
         ));
 
-        let source = snapshot(DigestVerificationStatus::IndependentlyVerified {
+        let source = snapshot(DigestVerificationStatus::VerificationReceiptReferenced {
             receipt_ref: "SYNTHETIC-DIGEST-RECEIPT".to_owned(),
         });
         let decision = evaluate_reuse(
@@ -568,7 +623,7 @@ mod tests {
 
     #[test]
     fn empty_digest_receipt_never_counts_as_verified() {
-        let source = snapshot(DigestVerificationStatus::IndependentlyVerified {
+        let source = snapshot(DigestVerificationStatus::VerificationReceiptReferenced {
             receipt_ref: " ".to_owned(),
         });
         let rights = assessment(
@@ -588,13 +643,13 @@ mod tests {
         ));
         assert!(includes(
             &decision,
-            ReuseBlockerCode::DigestNotIndependentlyVerified
+            ReuseBlockerCode::DigestNotVerificationReceiptReferenced
         ));
     }
 
     #[test]
     fn redistribution_does_not_imply_model_training_permission() {
-        let source = snapshot(DigestVerificationStatus::IndependentlyVerified {
+        let source = snapshot(DigestVerificationStatus::VerificationReceiptReferenced {
             receipt_ref: "SYNTHETIC-DIGEST-RECEIPT".to_owned(),
         });
         let rights = assessment(
@@ -764,6 +819,80 @@ mod tests {
             ReuseOperation::StoreFullArtifact,
             NOW
         ).allowed_by_supplied_assessment);
+    }
+
+    #[test]
+    fn rights_assessment_must_match_exact_source_record_and_version() {
+        let source = snapshot(DigestVerificationStatus::NotCaptured);
+        let mut rights = assessment(
+            LicenseReviewStatus::Verified,
+            vec![grant(ReuseOperation::StoreMinimalMetadata)],
+        );
+        rights.subject_record_id = "SYNTHETIC-OTHER-RECORD".to_owned();
+        let mismatched_record = evaluate_reuse(
+            &source,
+            &rights,
+            ReuseOperation::StoreMinimalMetadata,
+            NOW,
+        );
+        assert!(includes(
+            &mismatched_record,
+            ReuseBlockerCode::RightsRecordMismatch
+        ));
+
+        rights.subject_record_id = "SYNTHETIC-RECORD-001".to_owned();
+        rights.subject_version = Some("old-version".to_owned());
+        let mismatched_version = evaluate_reuse(
+            &source,
+            &rights,
+            ReuseOperation::StoreMinimalMetadata,
+            NOW,
+        );
+        assert!(includes(
+            &mismatched_version,
+            ReuseBlockerCode::RightsVersionMismatch
+        ));
+    }
+
+    #[test]
+    fn invalid_evaluation_timestamp_blocks_reuse() {
+        let source = snapshot(DigestVerificationStatus::NotCaptured);
+        let rights = assessment(
+            LicenseReviewStatus::Verified,
+            vec![grant(ReuseOperation::StoreMinimalMetadata)],
+        );
+        let decision = evaluate_reuse(
+            &source,
+            &rights,
+            ReuseOperation::StoreMinimalMetadata,
+            "not-a-time",
+        );
+        assert!(!decision.allowed_by_supplied_assessment);
+        assert!(includes(
+            &decision,
+            ReuseBlockerCode::InvalidEvaluationTimestamp
+        ));
+    }
+
+    #[test]
+    fn future_source_capture_blocks_reuse() {
+        let mut source = snapshot(DigestVerificationStatus::NotCaptured);
+        source.retrieved_at_utc = "2026-10-15T00:00:00Z".to_owned();
+        let rights = assessment(
+            LicenseReviewStatus::Verified,
+            vec![grant(ReuseOperation::StoreMinimalMetadata)],
+        );
+        let decision = evaluate_reuse(
+            &source,
+            &rights,
+            ReuseOperation::StoreMinimalMetadata,
+            NOW,
+        );
+        assert!(!decision.allowed_by_supplied_assessment);
+        assert!(includes(
+            &decision,
+            ReuseBlockerCode::SourceRetrievedInFuture
+        ));
     }
 
     #[test]
