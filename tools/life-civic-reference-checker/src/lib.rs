@@ -69,6 +69,22 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
         let source_uri = item["source_uri"]
             .as_str()
             .ok_or_else(|| format!("{id} has no source URI"))?;
+        let retrieval_state = item["retrieval_state"]
+            .as_str()
+            .ok_or_else(|| format!("{id} has no retrieval_state"))?;
+
+        match retrieval_state {
+            "captured" if item["retrieved_at"].as_str().is_some() => {}
+            "synthetic_fixture" | "unavailable" if item["retrieved_at"].is_null() => {}
+            "captured" => {
+                return Err(format!("{id} has captured state but no retrieval timestamp"));
+            }
+            "synthetic_fixture" | "unavailable" => {
+                return Err(format!("{id} must not claim a retrieval timestamp"));
+            }
+            _ => return Err(format!("{id} has an unknown retrieval_state")),
+        }
+
         if records
             .insert(
                 id.to_string(),
@@ -82,20 +98,6 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
             .is_some()
         {
             return Err(format!("duplicate evidence_id: {id}"));
-        }
-        let retrieval_state = item["retrieval_state"]
-            .as_str()
-            .ok_or_else(|| format!("{id} has no retrieval_state"))?;
-        match retrieval_state {
-            "captured" if item["retrieved_at"].as_str().is_some() => {}
-            "synthetic_fixture" | "unavailable" if item["retrieved_at"].is_null() => {}
-            "captured" => {
-                return Err(format!("{id} has captured state but no retrieval timestamp"));
-            }
-            "synthetic_fixture" | "unavailable" => {
-                return Err(format!("{id} must not claim a retrieval timestamp"));
-            }
-            _ => return Err(format!("{id} has an unknown retrieval_state")),
         }
     }
 
