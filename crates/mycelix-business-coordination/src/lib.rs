@@ -135,16 +135,27 @@ pub enum CoordinationError {
     InvalidContract(ActionContractError),
     InvalidPreparedAction(PreparedActionError),
     ContractIdentityMismatch,
-    PreparedLifetimeTooLong { actual_ms: u64, maximum_ms: u64 },
-    MissingReservationDomain { domain: ReferenceId },
-    MissingCapability { capability: CapabilityRef },
-    MissingFreshnessObservation { domain: ReferenceId },
+    PreparedLifetimeTooLong {
+        actual_ms: u64,
+        maximum_ms: u64,
+    },
+    MissingReservationDomain {
+        domain: ReferenceId,
+    },
+    MissingCapability {
+        capability: CapabilityRef,
+    },
+    MissingFreshnessObservation {
+        domain: ReferenceId,
+    },
     StaleObservation {
         domain: ReferenceId,
         actual_age_ms: u64,
         maximum_age_ms: u64,
     },
-    MissingAggregateCheck { key: ReferenceId },
+    MissingAggregateCheck {
+        key: ReferenceId,
+    },
 }
 
 impl CoordinationEnvelope {
