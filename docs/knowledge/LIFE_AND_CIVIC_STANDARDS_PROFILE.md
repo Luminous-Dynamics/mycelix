@@ -215,7 +215,7 @@ The schema and Rust fixture check reject a deliberately invalid case that promot
 
 ## Checked civic-source conflict (2026-10-14)
 
-The official [Johannesburg Water Emergencies page](https://www.johannesburgwater.co.za/emergencies/) lists a 12-hour water-outage turnaround, while the official [Daily Water Notices page](https://www.johannesburgwater.co.za/daily-water-notices/) lists 24 hours. The [Contact Us page](https://www.johannesburgwater.co.za/contact-us/) is another official source for reporting details. This is a point-in-time content discrepancy—not proof that either page is false and not a guarantee of actual response time.
+The official [Johannesburg Water URL labelled Emergencies](https://www.johannesburgwater.co.za/emergencies/) currently renders a “Daily water Notices” heading and lists a 12-hour water-outage turnaround, while the [Daily Water Notices URL](https://www.johannesburgwater.co.za/daily-water-notices/) lists 24 hours. The [Contact Us page](https://www.johannesburgwater.co.za/contact-us/) is another official source for reporting details, but does not resolve the target discrepancy. This is a point-in-time content discrepancy—including a URL/heading mismatch—not proof that either claim is false and not a guarantee of actual response time.
 
 The reference case therefore labels the source state `conflicted` and routes it for review. Any live pilot should store each source URL, its exact claim, retrieval time, and currentness state, then seek an authoritative resolution rather than silently choosing a number. If that cannot be resolved, present the discrepancy and give a verified contact pathway only when the current source supports it.
 
