@@ -87,6 +87,8 @@ REQUIRED_FLAGS = [
     "utility_customer_standards_source_pinned",
     "response_vs_resolution_semantics_preserved",
     "2025_26_charter_amendment_history_pinned",
+    "2026_27_council_sdbip_agenda_source_pinned",
+    "sdbip_tabling_vs_adoption_semantics_preserved",
 ]
 UNSAFE_FLAGS = [
     "city_reference_used_as_internal_identity",
@@ -123,6 +125,7 @@ UNSAFE_FLAGS = [
     "notification_subscription_treated_as_case_submission",
     "unversioned_utility_web_standard_treated_as_current_adopted_sla",
     "2025_26_charter_base_assumed_effective_entire_fiscal_year",
+    "sdbip_tabled_treated_as_adopted",
 ]
 EXPECTED_PROBE_IDS = [
     "city-reference-overpromotion",
@@ -137,6 +140,7 @@ EXPECTED_PROBE_IDS = [
     "unverified-status-is-not-authoritative",
     "prior-year-target-is-not-current",
     "2025-26-charter-base-not-full-year",
+    "sdbip-tabling-is-not-adoption",
     "planned-interruption-is-not-12h-general-target",
     "indexed-target-is-not-live-status",
     "stale-or-unverified-external-state",
@@ -311,7 +315,7 @@ def validate() -> None:
         "official_source_index_observed", "adopted_2026_27_water_sla_verified",
         "reporting_clock_status", "2026_27_water_standards_in_budget_book_indexed",
         "current_target_claim_ceiling", "direct_pdf_visual_review_complete",
-        "planned_interruption_metric_semantics", "2025_26_charter_revision_control", "2026_27_sdbip_listed",
+        "planned_interruption_metric_semantics", "2025_26_charter_revision_control", "2026_27_sdbip_agenda_control", "2026_27_sdbip_listed",
         "2026_27_sdbip_document_retrieval_status", "current_sdbip_water_metrics_reconciled_to_budget_book",
     }, "municipal SLA source posture")
     if posture["adopted_2026_27_water_sla_bound_into_this_census"] is not False:
@@ -367,6 +371,39 @@ def validate() -> None:
     if "not a single unchanged target set" not in revision["interpretation"] or "do not carry forward" not in revision["interpretation"]:
         fail("charter version-change boundary wording drift")
 
+    agenda = posture["2026_27_sdbip_agenda_control"]
+    exact_keys(agenda, {
+        "source_id", "source_url", "observed_on", "source_observation_status",
+        "meeting_start_date", "report_consideration_date", "agenda_item_number",
+        "agenda_item_label", "evidence_kind", "adoption_or_final_approval_established_by_notice",
+        "actual_minutes_or_final_resolution_reviewed", "exact_final_water_target_values_in_notice",
+        "sdbip_adoption_established_by_notice", "production_sla_use_authorized", "interpretation",
+    }, "2026/27 SDBIP agenda control")
+    if (agenda["source_id"], agenda["source_url"], agenda["observed_on"]) != (
+        "COJ_BUDGET_COUNCIL_NOTICE_2026_05_27_28",
+        "https://joburg.org.za/about_/government/Documents/Council-Legislature-2025-2026/COUNCIL-NOTICE-AND-INDEX-BUDGET-MEETING-27-28-MAY-2026.pdf",
+        "2026-10-14",
+    ):
+        fail("SDBIP agenda source identity/observation date mismatch")
+    if (agenda["source_observation_status"], agenda["meeting_start_date"], agenda["report_consideration_date"],
+        agenda["agenda_item_number"], agenda["agenda_item_label"], agenda["evidence_kind"]) != (
+        "OfficialNoticeIndexTextAndIndexPageScreenshotReviewed",
+        "2026-05-27",
+        "2026-05-28",
+        2,
+        "TABLING OF THE 2026/27 INSTITUTIONAL SERVICE DELIVERY BUDGET AND IMPLEMENTATION PLAN (SDBIP)",
+        "ScheduledAgendaIndexOnly",
+    ):
+        fail("SDBIP agenda evidence/event semantics drift")
+    for key in ("adoption_or_final_approval_established_by_notice", "actual_minutes_or_final_resolution_reviewed",
+                "sdbip_adoption_established_by_notice", "production_sla_use_authorized"):
+        if agenda[key] is not False:
+            fail(f"SDBIP agenda control must not overclaim approval/current authority: {key}")
+    if agenda["exact_final_water_target_values_in_notice"] != "NotListedInAgendaIndex":
+        fail("agenda index does not establish final water target values")
+    if "not proof of approval/adoption" not in agenda["interpretation"] or "were not verified" not in agenda["interpretation"]:
+        fail("SDBIP tabling/adoption boundary wording drift")
+
     book = data["current_year_budget_book_metrics"]
     exact_keys(book, {
         "source_id", "source_url", "source_section", "source_page", "effective_period",
@@ -415,6 +452,8 @@ def validate() -> None:
         fail("current-year budget-book source anchor missing or mismatched")
     if source_anchors.get("COJ_SDBIP_2026_27") != "https://joburg.org.za/documents_/Documents/2026-27_SDBIP.pdf":
         fail("official-index-listed 2026/27 SDBIP source anchor missing")
+    if source_anchors.get("COJ_BUDGET_COUNCIL_NOTICE_2026_05_27_28") != agenda["source_url"]:
+        fail("2026/27 SDBIP Council notice/index source anchor missing or mismatched")
     if source_anchors.get("JOHANNESBURG_WATER_PUBLIC_CHANNELS") != "https://www.johannesburgwater.co.za/":
         fail("Johannesburg Water public channel source anchor missing")
     if source_anchors.get("JOHANNESBURG_WATER_CUSTOMER_FAULT_PORTAL") != "https://customer.forcelink.net/joburg_water/login":
