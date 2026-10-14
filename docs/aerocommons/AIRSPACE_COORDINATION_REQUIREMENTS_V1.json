@@ -251,7 +251,7 @@
       "synthetic_pairwise_trajectory_conflict_screen",
       "horizontal_and_vertical_thresholds_remain_separate",
       "uncertainty_and_relative_motion_conservative_margins",
-      "space_time_reference_frame_and_vertical_datum_qualification",
+      "space_time_reference_frame_vertical_datum_and_time_basis_qualification",
       "intent_validity_window_checks",
       "proposed_accepted_activated_withdrawn_completed_lifecycle_type",
       "emergency_priority_requires_authority_review_without_granting_authority",
