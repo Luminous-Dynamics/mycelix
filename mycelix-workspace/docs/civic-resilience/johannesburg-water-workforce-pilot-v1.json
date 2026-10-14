@@ -754,14 +754,15 @@
     "git_blob_sha": "cdbc242a545daa6ed0b12a8c15b3a42d7df87ea2",
     "probe_count": 18,
     "synthetic_only": true,
-    "qualification_status": "NotRunAfterCorpusV1Revision",
+    "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",
     "authoring_preflight": {
       "json_parse": "Passed",
       "unique_probe_ids": 18,
       "all_external_writes_disabled": true,
       "all_automated_closures_disabled": true,
       "all_production_sla_calculations_disabled": true
-    }
+    },
+    "qualification_status_note": "The exact-head workflow result must be read from GitHub Actions; this committed manifest must not assert its own qualification result."
   },
   "pilot_selection_matrix": {
     "selection_status": "NotSelected;PartnerDiscoveryRequired",
