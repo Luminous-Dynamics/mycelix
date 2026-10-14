@@ -132,7 +132,7 @@ pub enum ReuseBlockerCode {
     MissingArtifactDigest,
     InvalidArtifactDigest,
     DigestStateMismatch,
-    DigestNotVerificationReceiptReferenced,
+    DigestVerificationReceiptRequired,
     MissingDigestVerificationReceipt,
     InvalidEvaluationTimestamp,
     EmptyRightsProviderScope,
@@ -226,7 +226,7 @@ impl EvidenceSnapshotRefV1 {
         blockers
     }
 
-    pub fn has_independent_digest_receipt(&self) -> bool {
+    pub fn has_digest_verification_receipt(&self) -> bool {
         matches!(
             &self.digest_status,
             DigestVerificationStatus::VerificationReceiptReferenced { receipt_ref }
@@ -317,7 +317,8 @@ impl RightsAndLicenseAssessmentV1 {
             if reviewed.is_none() {
                 blockers.push(ReuseBlockerCode::InvalidReviewTimestamp);
             } else if now
-                .zip(reviewed)
+                .as_ref()
+                .zip(reviewed.as_ref())
                 .is_some_and(|(now, reviewed)| reviewed > now)
             {
                 blockers.push(ReuseBlockerCode::ReviewInFuture);
@@ -428,9 +429,9 @@ pub fn evaluate_reuse(
     }
 
     if operation_requires_artifact_digest(operation)
-        && !snapshot.has_independent_digest_receipt()
+        && !snapshot.has_digest_verification_receipt()
     {
-        blockers.push(ReuseBlockerCode::DigestNotVerificationReceiptReferenced);
+        blockers.push(ReuseBlockerCode::DigestVerificationReceiptRequired);
     }
 
     blockers.sort_by_key(|code| *code as u8);
@@ -606,7 +607,7 @@ mod tests {
         assert!(!decision.allowed_by_supplied_assessment);
         assert!(includes(
             &decision,
-            ReuseBlockerCode::DigestNotVerificationReceiptReferenced
+            ReuseBlockerCode::DigestVerificationReceiptRequired
         ));
 
         let source = snapshot(DigestVerificationStatus::VerificationReceiptReferenced {
@@ -643,7 +644,7 @@ mod tests {
         ));
         assert!(includes(
             &decision,
-            ReuseBlockerCode::DigestNotVerificationReceiptReferenced
+            ReuseBlockerCode::DigestVerificationReceiptRequired
         ));
     }
 
