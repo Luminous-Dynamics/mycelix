@@ -1,0 +1,43 @@
+name: Local Capability Profile validation
+
+on:
+  pull_request:
+    paths:
+      - "schemas/local-capability-profile-v0.1.schema.json"
+      - "fixtures/local-capability/**"
+      - "scripts/local-capability/**"
+      - "docs/architecture/LOCAL_CAPABILITY_COMPILER_V0_1.md"
+      - ".github/workflows/local-capability-schema.yml"
+  push:
+    branches: [main]
+    paths:
+      - "schemas/local-capability-profile-v0.1.schema.json"
+      - "fixtures/local-capability/**"
+      - "scripts/local-capability/**"
+      - "docs/architecture/LOCAL_CAPABILITY_COMPILER_V0_1.md"
+      - ".github/workflows/local-capability-schema.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-capability-schema-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate profile schema and negative controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned validator
+        run: python -m pip install --disable-pip-version-check "jsonschema[format]==4.23.0"
+      - name: Validate schema, profiles, and semantic controls
+        run: python scripts/local-capability/validate_profiles.py
+      - name: Run targeted schema mutation controls
+        run: python scripts/local-capability/test_schema_mutations.py
