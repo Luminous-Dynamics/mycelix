@@ -8,7 +8,7 @@
   "no_real_case_references": true,
   "no_precise_sensitive_asset_locations": true,
   "intended_use": "Future deterministic G1 validator/evaluator input; this file itself is not executable qualification and does not establish runtime or field behavior.",
-  "expected_probe_count": 14,
+  "expected_probe_count": 15,
   "probes": [
     {
       "id": "issuer-reference-collision",
@@ -404,6 +404,38 @@
       "guards": [
         "PovertyIsNotEvidenceOfWrongdoing",
         "ModelFlagIsNotAdjudication"
+      ]
+    },
+    {
+      "id": "working-on-infrastructure-geography-mismatch",
+      "category": "EmploymentIntegrity",
+      "scenario": "A national Working on Infrastructure pilot is announced for KwaZulu-Natal and Limpopo, but a proposed Joburg/Gauteng pilot treats it as a confirmed local funding or placement route.",
+      "input": {
+        "programme_source": "South African Government speech dated 2026-05-04",
+        "announced_launch_provinces": [
+          "KwaZulu-Natal",
+          "Limpopo"
+        ],
+        "proposed_pilot_province": "Gauteng",
+        "explicit_gauteng_launch_confirmation": false,
+        "local_payer_identified": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "TreatAsPartnerDiscoveryOnly",
+        "issue_status_effect": "NoFundingOrPartnerClaim",
+        "required_human_review": true,
+        "source_status": "GeographyNotInAnnouncedLaunchScope"
+      },
+      "guards": [
+        "DoNotInferGautengPilotEligibility",
+        "NationalProgrammeAnnouncementIsNotLocalFunding",
+        "NoSpeculativePayroll"
       ]
     }
   ]
