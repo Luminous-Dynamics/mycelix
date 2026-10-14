@@ -113,14 +113,25 @@ pub struct ThermodynamicClaim {
 /// 2. Mints SAP directly into the Local Commons (HEARTH).
 /// 3. Updates the steward's reputation (MYCEL) in D1/D5 dimensions.
 #[hdk_extern]
-pub fn mint_genesis_sap(input: MintGenesisSapInput) -> ExternResult<ActionHash> {
-    // 1. VERIFY PROOF (Vector 2: Proof-of-Physical-State)
-    // In production, this calls mycelix-zkp-core to verify the STARK proof.
-    if input.proof_bytes.is_empty() {
+fn require_verified_thermodynamic_proof(proof_bytes: &[u8]) -> ExternResult<()> {
+    if proof_bytes.is_empty() {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Missing thermodynamic proof".into()
         )));
     }
+
+    // The cryptographic verifier is not yet implemented and exact-head qualified.
+    // Never treat proof presence or shape as evidence for monetary issuance.
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Thermodynamic Genesis issuance disabled: cryptographic proof verification is not yet implemented and qualified".into()
+    )))
+}
+
+#[hdk_extern]
+pub fn mint_genesis_sap(input: MintGenesisSapInput) -> ExternResult<ActionHash> {
+    // 1. VERIFY PROOF (Vector 2: Proof-of-Physical-State)
+    // Fail closed until an actual versioned proof verifier is implemented and qualified.
+    require_verified_thermodynamic_proof(&input.proof_bytes)?;
 
     // 1b. REPLAY PROTECTION: each (sensor_id, timestamp) claim may mint at most once.
     // Without this, the same proof re-mints SAP unlimited times. The dedup marker is

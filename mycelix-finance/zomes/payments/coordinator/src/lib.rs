@@ -2508,14 +2508,10 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
         )));
     }
 
-    // Domain-tagged proof verification
-    // Full STARK verification will be wired once Winterfell AIR range circuit is ready.
-    let proof_valid = !input.proof_bytes.is_empty() && input.balance_commitment.len() == 32;
-
-    Ok(ZkBalanceVerification {
-        sufficient: proof_valid,
-        currency: input.currency,
-        minimum_proven: input.minimum_balance,
-        domain_tag: domain_tag.as_str().to_string(),
-    })
+    // Fail closed until the actual versioned cryptographic verifier is available
+    // and exact-head qualified. A non-empty proof + correctly-sized commitment is
+    // only structural validity, not proof of sufficient balance.
+    return Err(wasm_error!(WasmErrorInner::Guest(
+        "Balance proof verification unavailable: refusing to claim sufficiency without a qualified cryptographic verifier".into()
+    )));
 }
