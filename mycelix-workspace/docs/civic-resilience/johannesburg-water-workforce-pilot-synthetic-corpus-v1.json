@@ -8,7 +8,7 @@
   "no_real_case_references": true,
   "no_precise_sensitive_asset_locations": true,
   "intended_use": "Future deterministic G1 validator/evaluator input; this file itself is not executable qualification and does not establish runtime or field behavior.",
-  "expected_probe_count": 19,
+  "expected_probe_count": 21,
   "probes": [
     {
       "id": "issuer-reference-collision",
@@ -572,6 +572,71 @@
         "PlannedCompletionDateIsNotEvidenceOfCompletion",
         "NoLaterConfirmationMeansUnknown",
         "SourceSearchScopeMustBeRecorded"
+      ]
+    },
+    {
+      "id": "unknown-wage-regime-cannot-default-to-epwp",
+      "category": "EmploymentIntegrity",
+      "scenario": "A proposed cooperative or technical role has no qualified worker/employment classification. A planner applies the lower EPWP hourly rate by default to make an unfunded cost estimate appear viable.",
+      "input": {
+        "worker_classification": "Unknown",
+        "attempted_rate_selection": "UseEPWPMinimum",
+        "written_work_scope": false,
+        "fully_funded_budget": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "BlockPositionUntilWageReview",
+        "issue_status_effect": "NoWageRateOrPositionClaim",
+        "required_human_review": true,
+        "source_status": "EmploymentClassificationUnqualified"
+      },
+      "guards": [
+        "WageRegimeRequiresQualifiedClassification",
+        "EPWPRateIsNotDefaultForUnknownStatus",
+        "NoSpeculativePayroll",
+        "NoPositionBeforeFullFunding"
+      ]
+    },
+    {
+      "id": "mixed-stage-tender-index-is-not-open-work",
+      "category": "ProcurementIntegrity",
+      "scenario": "A procurement landing page mixes cancelled, awarded, closed and older advertised notices. No matching current tender-specific notice, closing date or award/contract proof for the proposed cooperative/basic-removal work package has been captured.",
+      "input": {
+        "index_heading": "Current Tenders",
+        "visible_lifecycle_stages": [
+          "Cancelled",
+          "Awarded",
+          "Closed",
+          "AdvertisedOlder"
+        ],
+        "tender_specific_notice_id": null,
+        "closing_date": null,
+        "award_or_signed_contract_evidence": false
+      },
+      "expected": {
+        "automated_external_write": false,
+        "automated_closure": false,
+        "production_sla_calculation": "Disabled",
+        "criminality_conclusion": "None",
+        "real_resident_data_present": false,
+        "precise_sensitive_asset_coordinates_present": false,
+        "disposition": "PartnerDiscoveryOnlyNoOpenNotice",
+        "issue_status_effect": "NoAvailableWorkPackageClaim",
+        "required_human_review": true,
+        "source_status": "TenderStatusNotQualified"
+      },
+      "guards": [
+        "TenderLandingPageIsDiscoveryOnly",
+        "CaptureNoticeStageAndClosingDate",
+        "NoAbsenceProofFromListing",
+        "NoContractWithoutAwardAndAuthority",
+        "NoSpeculativePayroll"
       ]
     }
   ]

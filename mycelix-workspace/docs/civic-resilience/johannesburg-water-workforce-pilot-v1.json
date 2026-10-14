@@ -429,6 +429,82 @@
         "An announced work opportunity is a durable job",
         "Mycelix should duplicate SAYouth recruitment or store unnecessary applicant identity data"
       ]
+    },
+    {
+      "source_id": "SA-WAGE-2026-1",
+      "issuer": "South African Department of Employment and Labour",
+      "source_url": "https://www.labour.gov.za/Media-Desk/Media-Statements/Pages/Minister-of-Employment-and-Labour%2C-Meth-increases-the-statutory-National-Minimum-Wage-to-R30%2C23-per-hour.aspx",
+      "source_kind": "OfficialWageAnnouncement",
+      "publication_date": "2026-02-03",
+      "effective_date": "2026-03-01",
+      "observation_status": "OfficialDepartmentStatementObserved",
+      "associated_legal_instrument_url": "https://www.gov.za/sites/default/files/gcis_document/202602/54075rg11941gon7083.pdf",
+      "claims_recorded": [
+        "The ordinary national minimum wage is R30.23 per hour effective 1 March 2026.",
+        "The statutory EPWP minimum wage is R16.62 per hour under the separate EPWP dispensation."
+      ],
+      "authority_limit": "These rates do not classify a proposed worker or contract. A qualified human must establish the legally applicable arrangement and verify current rules before an offer or budget is issued.",
+      "allowed_use": "Preliminary source pin for a human-reviewed wage and cost model; refresh before contracting.",
+      "prohibited_inference": [
+        "EPWP classification may be selected by software or by whichever rate is cheaper",
+        "The lower EPWP rate applies to a generic cooperative, contractor or technical role without legal classification",
+        "Published wage rate proves funding, employment, eligibility, contract award or compliance",
+        "Gross hourly rate alone is a complete role cost"
+      ]
+    },
+    {
+      "source_id": "COJ-PROC-1",
+      "issuer": "City of Johannesburg",
+      "source_url": "https://joburg.org.za/work_/Pages/Work%20in%20Joburg/Tenders%20and%20Quotations/Tenders-and-Quotations.aspx",
+      "source_kind": "OfficialProcurementIndex",
+      "publication_date": null,
+      "checked_on": "2026-10-14",
+      "observation_status": "OfficialProcurementHubObserved",
+      "observed_navigation": [
+        "Request for Quotations",
+        "Bid Opening Registers",
+        "Current Bid Proposals",
+        "Closed Bid Proposals",
+        "Canceled Bid Proposals",
+        "List of Awarded Contracts",
+        "City Entities Procurement",
+        "Pikitup Tenders",
+        "Joburg Water Tender Awards"
+      ],
+      "relevant_open_basic_removal_or_water_work_package_identified_in_inspection": false,
+      "search_ceiling": "Navigation/index inspection only; no tender-specific notice for this proposed pilot was captured. This is not proof that no opportunity exists.",
+      "allowed_use": "Route future manual procurement discovery to the issuing entity's actual notice and authoritative current stage.",
+      "prohibited_inference": [
+        "Index membership is an open tender",
+        "A current-proposals landing page is a contract or budget",
+        "Search non-observation proves no tender exists",
+        "Tender status or closing date can be inferred without the tender-specific notice and latest addenda"
+      ]
+    },
+    {
+      "source_id": "PIKITUP-PROC-1",
+      "issuer": "Pikitup Johannesburg SOC Ltd",
+      "source_url": "https://pikitup.co.za/tenders/",
+      "source_kind": "OfficialTenderIndex",
+      "publication_date": null,
+      "checked_on": "2026-10-14",
+      "observation_status": "OfficialTenderIndexObserved",
+      "observed_listing_examples": [
+        "June 2026 notice shown as cancelled: PU147/2025 occupational hygiene survey services",
+        "May 2026 notice shown as awarded: PU127/2023 cleaning tools and materials",
+        "April 2026 notice shown as awarded: PU149/2025 specialised security services",
+        "Older advertised, closed, received and awarded items also remain visible"
+      ],
+      "relevant_open_basic_removal_or_cooperative_work_package_identified_in_inspection": false,
+      "currentness_assessment": "Mixed lifecycle stages appear under a page labelled Current Tenders; no tender-specific open cooperative/basic-removal work package was captured in this inspection.",
+      "search_ceiling": "Inspected index only, checked 2026-10-14. Not a complete procurement audit and not proof of absence.",
+      "allowed_use": "Discovery lead only; resolve the individual tender ID, current notice, addenda, closing date, eligibility, scope and award/contract evidence.",
+      "prohibited_inference": [
+        "The page heading Current Tenders proves all visible entries are open",
+        "Cancelled, closed, awarded or stale notices are available work",
+        "KPI text or a tender index proves a cooperative is eligible or a payer is committed",
+        "No matching item observed proves no future or separately published opportunity exists"
+      ]
     }
   ],
   "event_model": {
@@ -631,6 +707,27 @@
       "SafetyEvents",
       "6MonthWorkContinuity",
       "12MonthWorkContinuity"
+    ],
+    "wage_regime_gate": {
+      "source_id": "SA-WAGE-2026-1",
+      "effective_from": "2026-03-01",
+      "ordinary_national_minimum_zar_per_hour": 30.23,
+      "epwp_minimum_zar_per_hour": 16.62,
+      "classification_status": "QualifiedHumanReviewRequired",
+      "automated_classification_authorized": false,
+      "epwp_rate_is_not_default_for_unknown_classification": true,
+      "current_rate_refresh_required_before_offer_or_contract": true,
+      "hourly_rate_alone_is_complete_cost": false
+    },
+    "required_before_any_role_is_announced": [
+      "Named legal employer or authorized contracting entity",
+      "Written funded scope and lawful engagement route",
+      "Qualified human confirmation of worker and programme classification",
+      "Rate basis, effective date, hours, pay cycle, pay date and lawful deduction/allowance terms",
+      "Full-period committed budget, payroll route and responsible payment owner",
+      "Budget for applicable employer costs, supervision, tools/PPE, transport, training and credentials, safety/insurance, administration and evaluation",
+      "Worker grievance, correction, incident and non-retaliation process",
+      "Written safety plan and competent supervision"
     ]
   },
   "crime_profitability_controls": [
@@ -763,7 +860,9 @@
     "Unsupported production SLA claim",
     "Cannot reconstruct the basis of a decision",
     "No funded payer or lawful procurement path before field work",
-    "False or skipped qualification test presented as a pass"
+    "False or skipped qualification test presented as a pass",
+    "No position, wage promise or placement announcement before lawful worker classification, written scope and full-period funding are verified",
+    "No tender availability or cooperative award claim based only on a landing page, annual KPI, stale notice or search non-observation"
   ],
   "prohibited_capabilities": [
     "Automated municipal case submission",
@@ -776,8 +875,8 @@
   ],
   "synthetic_corpus": {
     "path": "mycelix-workspace/docs/civic-resilience/johannesburg-water-workforce-pilot-synthetic-corpus-v1.json",
-    "git_blob_sha": "3f97bb82b1fd8655d880c468ab75627f99a46496",
-    "probe_count": 19,
+    "git_blob_sha": "6a52962a5b5ea6c52c3ef8a97ef0b83223253c2a",
+    "probe_count": 21,
     "synthetic_only": true,
     "qualification_status": "ExternalToManifest;UseExactHeadWorkflowEvidence",
     "authoring_preflight": {
@@ -830,5 +929,29 @@
     ],
     "selected_candidate": null,
     "public_citywide_claim_authorized": false
+  },
+  "procurement_discovery_gate": {
+    "source_ids": [
+      "COJ-PROC-1",
+      "PIKITUP-PROC-1"
+    ],
+    "required_notice_record_fields": [
+      "issuer_and_tender_id",
+      "notice_url",
+      "lifecycle_status",
+      "published_at",
+      "closing_at_and_timezone",
+      "latest_addenda_and_q_and_a",
+      "scope_and_geography",
+      "supplier_or_cooperative_eligibility",
+      "budget_or_funding_authority",
+      "award_or_signed_contract_evidence",
+      "named_payer_and_payment_terms",
+      "checked_at"
+    ],
+    "listing_page_alone_proves_open_opportunity": false,
+    "current_finding": "NoMatchingOpenBasicRemovalOrCooperativeWorkPackageIdentifiedInInspectedListings;NotProofOfAbsence",
+    "source_search_ceiling": "Portal/index observations only; a tender-specific current notice and its amendments must be reviewed before any eligibility or funding claim.",
+    "status": "PartnerDiscoveryOnly"
   }
 }

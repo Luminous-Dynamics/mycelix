@@ -142,6 +142,19 @@ The pilot must name the payer before describing an opportunity as funded employm
 
 ### Potential paying routes (unconfirmed)
 
+### Paid-work integrity gate
+
+The wage floor is a legal classification question, not a model optimization. The Department of Employment and Labour's 3 February 2026 announcement states that, from 1 March 2026, the ordinary national minimum wage is **R30.23 per hour**, while workers employed under the separate EPWP dispensation have a minimum of **R16.62 per hour**. These figures are source pins, not a decision about which regime covers a particular cooperative, contractor, learner or technical role. A qualified human must confirm the applicable arrangement and recheck the rule in force before an offer or contract; software must never pick EPWP because it is cheaper.
+
+Before announcing a position, record the legal employer/contracting entity, written work scope, lawful programme/worker classification, wage basis and effective date, paid hours, pay period and date, funding committed for the full term, payroll/payment owner, and an accessible grievance/non-retaliation route. Budget the full cost—not only the headline hourly rate—including any applicable employer costs, supervision, tools and PPE, transport, training/credentials, safety and insurance, administration, and evaluation. Do not use unpaid “trials,” speculative savings, an unawarded grant or a work-opportunity count as substitutes for a funded job.
+
+### Procurement discovery is not an opportunity guarantee
+
+The City procurement hub links current bids, RFQs, canceled bids, awards and entity procurement. Pikitup's tender index, checked 14 October 2026, displays mixed lifecycle stages: the visible examples include a June 2026 cancellation and April/May 2026 awards alongside older advertised/closed notices. No tender-specific open cooperative/basic-removal work package was captured in the pages inspected for this pass. That bounded result is **not** proof that no opportunity exists and is not a complete procurement audit.
+
+For every candidate opportunity, follow the index to the individual notice and capture the tender ID, issuer, latest amendments/Q&A, lifecycle status, closing date and timezone, scope/geography, cooperative/supplier eligibility, budget/funding authority, award or signed contract evidence, named payer and payment terms. An annual SDBIP target, a page labeled “Current Tenders,” or an older award is not a currently open, eligible or funded work package. Keep the Pikitup candidate at partner-discovery-only until authoritative notice and payer evidence exist.
+
+
 - Existing authorized utility maintenance or operations procurement.
 - An already appointed service contractor that has budget and contractual permission to adopt a workflow tool.
 - An approved public-work or skills programme, subject to its current rules and real funding.
@@ -255,3 +268,6 @@ If these questions cannot be answered, remain in synthetic/shadow research. Do n
 6. South African Government, Second-Hand Goods Act: https://www.gov.za/documents/second-hand-goods-act
 7. Mycelix CIV-RES ownership/adapter census: https://github.com/Luminous-Dynamics/mycelix/issues/2028
 8. Mycelix service-standard semantics: https://github.com/Luminous-Dynamics/mycelix/pull/5008
+9. South African Department of Employment and Labour, 3 February 2026 wage-rate announcement (effective 1 March 2026): https://www.labour.gov.za/Media-Desk/Media-Statements/Pages/Minister-of-Employment-and-Labour%2C-Meth-increases-the-statutory-National-Minimum-Wage-to-R30%2C23-per-hour.aspx
+10. City of Johannesburg, Tenders and Quotations procurement hub (checked 14 October 2026): https://joburg.org.za/work_/Pages/Work%20in%20Joburg/Tenders%20and%20Quotations/Tenders-and-Quotations.aspx
+11. Pikitup, Tenders index (checked 14 October 2026): https://pikitup.co.za/tenders/

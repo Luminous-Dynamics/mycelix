@@ -20,8 +20,8 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "3f97bb82b1fd8655d880c468ab75627f99a46496"
-EXPECTED_SOURCE_IDS = ["JW-1", "JW-3", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3"]
+EXPECTED_CORPUS_BLOB_SHA = "6a52962a5b5ea6c52c3ef8a97ef0b83223253c2a"
+EXPECTED_SOURCE_IDS = ["JW-1", "JW-3", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3", "SA-WAGE-2026-1", "COJ-PROC-1", "PIKITUP-PROC-1"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
     "InternalServiceIssueId != external reference number",
@@ -56,6 +56,8 @@ EXPECTED_PROBES = {
     "national-epwp-target-vs-city-sdbip-target": ("EmploymentIntegrity", "PreserveSeparateTargetSeries", "DistinctProgrammeTargets"),
     "same-title-water-kpis-need-crosswalk": ("ServiceSemantics", "PreserveSeparateMetricSeries", "MetricCrosswalkUnqualified"),
     "planned-controller-rollout-date-is-not-completion": ("Currentness", "KeepRolloutStatusUnverified", "RolloutCompletionNotObserved"),
+    "unknown-wage-regime-cannot-default-to-epwp": ("EmploymentIntegrity", "BlockPositionUntilWageReview", "EmploymentClassificationUnqualified"),
+    "mixed-stage-tender-index-is-not-open-work": ("ProcurementIntegrity", "PartnerDiscoveryOnlyNoOpenNotice", "TenderStatusNotQualified"),
 }
 REQUIRED_GUARDS = {
     "issuer-reference-collision": {"DoNotMergeByReferenceStringAlone", "ExternalReferenceIsNotInternalIdentity"},
@@ -74,6 +76,8 @@ REQUIRED_GUARDS = {
     "national-epwp-target-vs-city-sdbip-target": {"NationalTargetIsNotCitySdbipTarget", "WorkOpportunityIsNotDurableJob", "DoNotReplacePublishedTarget"},
     "same-title-water-kpis-need-crosswalk": {"SameTitleDoesNotProveSameMetric", "UnqualifiedMetricCrosswalkFailsClosed", "NoProductionSlaCalculation"},
     "planned-controller-rollout-date-is-not-completion": {"PlannedCompletionDateIsNotEvidenceOfCompletion", "NoLaterConfirmationMeansUnknown", "SourceSearchScopeMustBeRecorded"},
+    "unknown-wage-regime-cannot-default-to-epwp": {"WageRegimeRequiresQualifiedClassification", "EPWPRateIsNotDefaultForUnknownStatus", "NoSpeculativePayroll", "NoPositionBeforeFullFunding"},
+    "mixed-stage-tender-index-is-not-open-work": {"TenderLandingPageIsDiscoveryOnly", "CaptureNoticeStageAndClosingDate", "NoAbsenceProofFromListing", "NoContractWithoutAwardAndAuthority", "NoSpeculativePayroll"},
 }
 EXPECTED_BASE_KEYS = {
     "automated_external_write", "automated_closure", "production_sla_calculation",
@@ -139,6 +143,7 @@ def validate() -> None:
         "event_model", "job_pathways", "payer_and_job_quality_gate",
         "crime_profitability_controls", "evaluation", "gates", "stop_conditions",
         "prohibited_capabilities", "synthetic_corpus", "pilot_selection_matrix",
+        "procurement_discovery_gate",
     }, "manifest")
     if manifest["schema"] != EXPECTED_SCHEMA or manifest["schema_version"] != 1:
         fail("manifest schema/version mismatch")
@@ -281,6 +286,44 @@ def validate() -> None:
         fail("structured programme-duration source claim drift")
     if programme_source.get("recruitment_platform") != "SAYouth.mobi" or programme_source.get("platform_support_partner") != "Harambee":
         fail("official programme recruitment platform record drift")
+    wage_source = source_by_id["SA-WAGE-2026-1"]
+    if wage_source.get("source_kind") != "OfficialWageAnnouncement" or wage_source.get("publication_date") != "2026-02-03" or wage_source.get("effective_date") != "2026-03-01":
+        fail("2026 wage source identity/effective date drift")
+    if "R30.23 per hour" not in " ".join(wage_source.get("claims_recorded", [])) or "R16.62 per hour" not in " ".join(wage_source.get("claims_recorded", [])):
+        fail("ordinary/EPWP wage-rate distinctions must be explicit")
+    wage_gate = manifest["payer_and_job_quality_gate"].get("wage_regime_gate", {})
+    if wage_gate.get("source_id") != "SA-WAGE-2026-1" or wage_gate.get("ordinary_national_minimum_zar_per_hour") != 30.23 or wage_gate.get("epwp_minimum_zar_per_hour") != 16.62:
+        fail("wage gate/source rates drift")
+    if wage_gate.get("automated_classification_authorized") is not False or wage_gate.get("epwp_rate_is_not_default_for_unknown_classification") is not True or wage_gate.get("hourly_rate_alone_is_complete_cost") is not False:
+        fail("wage regime must require qualified human classification and full-cost accounting")
+    required_paid_work = {
+        "Named legal employer or authorized contracting entity",
+        "Written funded scope and lawful engagement route",
+        "Qualified human confirmation of worker and programme classification",
+        "Full-period committed budget, payroll route and responsible payment owner",
+        "Budget for applicable employer costs, supervision, tools/PPE, transport, training and credentials, safety/insurance, administration and evaluation",
+    }
+    if not required_paid_work.issubset(set(manifest["payer_and_job_quality_gate"].get("required_before_any_role_is_announced", []))):
+        fail("paid-work integrity gate is missing mandatory role/funding/cost controls")
+
+    procurement = manifest["procurement_discovery_gate"]
+    if procurement.get("source_ids") != ["COJ-PROC-1", "PIKITUP-PROC-1"] or procurement.get("listing_page_alone_proves_open_opportunity") is not False:
+        fail("procurement discovery sources or landing-page authority limit drift")
+    if procurement.get("current_finding") != "NoMatchingOpenBasicRemovalOrCooperativeWorkPackageIdentifiedInInspectedListings;NotProofOfAbsence":
+        fail("bounded procurement non-observation must not become proof of absence")
+    notice_fields = set(procurement.get("required_notice_record_fields", []))
+    if not {"issuer_and_tender_id", "notice_url", "lifecycle_status", "closing_at_and_timezone", "latest_addenda_and_q_and_a", "award_or_signed_contract_evidence", "named_payer_and_payment_terms", "checked_at"}.issubset(notice_fields):
+        fail("procurement gate lacks tender-specific status, timing, authority or payer evidence")
+
+    city_proc = source_by_id["COJ-PROC-1"]
+    if city_proc.get("source_kind") != "OfficialProcurementIndex" or city_proc.get("checked_on") != "2026-10-14" or city_proc.get("relevant_open_basic_removal_or_water_work_package_identified_in_inspection") is not False:
+        fail("City procurement index observation/currentness drift")
+    pikitup_proc = source_by_id["PIKITUP-PROC-1"]
+    if pikitup_proc.get("source_kind") != "OfficialTenderIndex" or pikitup_proc.get("checked_on") != "2026-10-14" or pikitup_proc.get("relevant_open_basic_removal_or_cooperative_work_package_identified_in_inspection") is not False:
+        fail("Pikitup tender-index observation/currentness drift")
+    if "not proof of absence" not in pikitup_proc.get("search_ceiling", "").lower():
+        fail("tender listing non-observation must not be reported as proof no tender exists")
+
     job_source = source_by_id["SA-JOBS-2"]
     if job_source.get("geography_scope") != "South Africa nationally":
         fail("youth employment source must be labelled national, not Johannesburg-specific")
@@ -395,6 +438,12 @@ def validate() -> None:
         fail("same-title water-loss metrics must not auto-crosswalk")
     if water_metric_probe["expected"]["issue_status_effect"] != "NoDerivedValueOrSla":
         fail("unqualified water metric crosswalk cannot create a derived value or SLA")
+    wage_probe = by_id["unknown-wage-regime-cannot-default-to-epwp"]
+    if wage_probe["expected"]["disposition"] != "BlockPositionUntilWageReview" or wage_probe["expected"]["issue_status_effect"] != "NoWageRateOrPositionClaim":
+        fail("unknown legal classification must block a wage or position claim")
+    tender_probe = by_id["mixed-stage-tender-index-is-not-open-work"]
+    if tender_probe["expected"]["disposition"] != "PartnerDiscoveryOnlyNoOpenNotice" or tender_probe["expected"]["issue_status_effect"] != "NoAvailableWorkPackageClaim":
+        fail("mixed-stage tender landing page must not establish a live work package")
     rollout_probe = by_id["planned-controller-rollout-date-is-not-completion"]
     if rollout_probe["expected"]["disposition"] != "KeepRolloutStatusUnverified":
         fail("a passed planned completion date cannot establish rollout completion")
