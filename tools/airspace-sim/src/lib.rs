@@ -49,6 +49,8 @@ pub struct FlightIntent {
     pub state: IntentState,
     pub reference_frame: String,
     pub vertical_datum: String,
+    /// Identifier for the common synthetic time epoch used by this fixture.
+    pub time_basis: String,
     pub time_qualified: bool,
     pub valid_from_s: i64,
     pub valid_until_s: i64,
@@ -185,17 +187,21 @@ pub fn evaluate_scenario(scenario: &Scenario) -> SimulationReport {
     }
 
     let first = &scenario.flights[0];
-    if first.reference_frame.trim().is_empty() || first.vertical_datum.trim().is_empty() {
+    if first.reference_frame.trim().is_empty()
+        || first.vertical_datum.trim().is_empty()
+        || first.time_basis.trim().is_empty()
+    {
         return report(scenario, Classification::Unresolved, scenario.flights.len(), pair_count(scenario.flights.len()), 0,
-            Vec::new(), vec!["reference frame and vertical datum must be explicit".to_owned()]);
+            Vec::new(), vec!["reference frame, vertical datum, and time basis must be explicit".to_owned()]);
     }
 
     if scenario.flights.iter().any(|flight| {
         flight.reference_frame != first.reference_frame
             || flight.vertical_datum != first.vertical_datum
+            || flight.time_basis != first.time_basis
     }) {
         return report(scenario, Classification::Unresolved, scenario.flights.len(), pair_count(scenario.flights.len()), 0,
-            Vec::new(), vec!["flight intents use incompatible reference frames or vertical datums".to_owned()]);
+            Vec::new(), vec!["flight intents use incompatible reference frames, vertical datums, or time bases".to_owned()]);
     }
 
     for flight in &scenario.flights {
@@ -491,6 +497,27 @@ mod tests {
         let report = evaluate_scenario(&scenario);
         assert_eq!(report.classification, Classification::RequiresAuthorityReview);
         assert!(report.authority_ceiling.contains("never flight authorization"));
+    }
+
+    #[test]
+    fn proposed_intent_remains_planning_only() {
+        let mut scenario = fixture_set().scenarios
+            .into_iter()
+            .find(|item| item.scenario_id == "clear_separation")
+            .expect("clear case exists");
+        scenario.flights[0].state = IntentState::Proposed;
+        assert_eq!(evaluate_scenario(&scenario).classification, Classification::AcceptForPlanningOnly);
+        assert!(evaluate_scenario(&scenario).authority_ceiling.contains("never flight authorization"));
+    }
+
+    #[test]
+    fn incompatible_time_basis_is_unresolved() {
+        let mut scenario = fixture_set().scenarios
+            .into_iter()
+            .find(|item| item.scenario_id == "clear_separation")
+            .expect("clear case exists");
+        scenario.flights[1].time_basis = "unrelated-clock-epoch".to_owned();
+        assert_eq!(evaluate_scenario(&scenario).classification, Classification::Unresolved);
     }
 
     #[test]
