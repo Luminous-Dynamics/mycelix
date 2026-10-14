@@ -9,11 +9,13 @@
 use std::collections::BTreeSet;
 
 use mycelix_business_control_authenticity_coverage::{
-    AuthenticityCoverageError, AuthenticityQualificationTransition, ControlAuthenticityCoverageEvidence,
-    ControlAuthenticityCoveragePlan, ControlAuthenticityEntry,
+    AuthenticityCoverageError, AuthenticityQualificationTransition,
+    ControlAuthenticityCoverageEvidence, ControlAuthenticityCoveragePlan, ControlAuthenticityEntry,
     control_source_issuer_authority_unverified_ref,
 };
-use mycelix_business_control_coverage::{ControlCoverageEntry, ControlCoverageEvidence, ControlCoveragePlan};
+use mycelix_business_control_coverage::{
+    ControlCoverageEntry, ControlCoverageEvidence, ControlCoveragePlan,
+};
 use mycelix_business_control_reconciliation::control_source_authenticity_unverified_ref;
 use mycelix_business_controlled_hospitality_qualification::{
     ControlledHospitalityQualification, ControlledQualificationError,
@@ -191,7 +193,10 @@ fn apply_authenticity_transition(
 
 fn envelope_digest(value: &AuthenticatedHospitalityQualification) -> Digest32 {
     let mut hasher = Sha256::new();
-    hash_str(&mut hasher, "mycelix:authenticated-hospitality-qualification:v1");
+    hash_str(
+        &mut hasher,
+        "mycelix:authenticated-hospitality-qualification:v1",
+    );
     hasher.update(value.original_report_digest.0);
     hasher.update(value.controlled_qualification_digest.0);
     hasher.update(value.authenticity_plan_digest.0);
@@ -228,8 +233,12 @@ mod tests {
         let after = apply_authenticity_transition(&prior).unwrap();
         assert!(!after.contains(&control_source_authenticity_unverified_ref()));
         assert!(after.contains(&control_source_issuer_authority_unverified_ref()));
-        assert!(after.contains(&id("limitation:control-source-external-reality-unverified:v1")));
-        assert!(after.contains(&id("limitation:control-metric-semantic-authority-unverified:v1")));
+        assert!(after.contains(&id(
+            "limitation:control-source-external-reality-unverified:v1"
+        )));
+        assert!(after.contains(&id(
+            "limitation:control-metric-semantic-authority-unverified:v1"
+        )));
         assert!(after.contains(&id("limitation:time-rule-source-authority-unverified:v1")));
     }
 
@@ -258,7 +267,9 @@ mod tests {
         };
         value.envelope_digest = envelope_digest(&value);
         let original = value.envelope_digest;
-        value.narrowed_limitations.insert(id("limitation:tampered:v1"));
+        value
+            .narrowed_limitations
+            .insert(id("limitation:tampered:v1"));
         assert_ne!(original, envelope_digest(&value));
     }
 }
