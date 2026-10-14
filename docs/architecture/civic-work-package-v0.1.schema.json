@@ -404,14 +404,16 @@
             "integer",
             "null"
           ],
-          "minimum": 0
+          "minimum": 0,
+          "description": "Committed amount in integer minor units, using the declared currency scale."
         },
         "full_period_cost_estimate_minor_units": {
           "type": [
             "integer",
             "null"
           ],
-          "minimum": 0
+          "minimum": 0,
+          "description": "Whole-period cost estimate in integer minor units; must equal the sum of cost line items."
         },
         "minor_unit_digits": {
           "type": "integer",
@@ -453,6 +455,7 @@
                   "category": {
                     "enum": [
                       "wages",
+                      "employer_statutory_costs",
                       "supervision",
                       "training",
                       "tools_equipment",
@@ -464,6 +467,10 @@
                       "maintenance",
                       "independent_verification",
                       "administration_overheads",
+                      "community_engagement",
+                      "environmental_mitigation",
+                      "end_of_life_disposal",
+                      "permits_taxes_fees",
                       "contingency",
                       "other"
                     ]
@@ -474,7 +481,8 @@
                   },
                   "amount_minor_units": {
                     "type": "integer",
-                    "minimum": 0
+                    "minimum": 0,
+                    "description": "Integer minor units using funding.currency and funding.minor_unit_digits; exact sums are recomputed by the reference validator."
                   },
                   "basis_method": {
                     "enum": [
@@ -524,6 +532,7 @@
                   "category": {
                     "enum": [
                       "wages",
+                      "employer_statutory_costs",
                       "supervision",
                       "training",
                       "tools_equipment",
@@ -535,6 +544,10 @@
                       "maintenance",
                       "independent_verification",
                       "administration_overheads",
+                      "community_engagement",
+                      "environmental_mitigation",
+                      "end_of_life_disposal",
+                      "permits_taxes_fees",
                       "contingency",
                       "other"
                     ]
