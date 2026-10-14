@@ -4,7 +4,7 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 
 ## What it does
 
-- Replays eleven versioned, synthetic flight-trajectory fixtures plus thirteen lifecycle-transition fixtures.
+- Replays 11 versioned synthetic flight-trajectory fixtures, 13 lifecycle-transition fixtures, and 14 reservation-snapshot fixtures.
 - Uses explicit millimetre / millimetre-per-second integer units and a fixed simulation window.
 - Refuses to compare coordinates across unqualified clocks, incompatible reference frames, or vertical datums.
 - Rejects expired, withdrawn, ended, malformed, out-of-bounds, or over-budget flight-intent fixtures.
@@ -12,7 +12,12 @@ A small Rust-first, deterministic simulator/replay harness for the research cont
 - Compares horizontal and vertical separation independently.
 - Adds conservative relative-motion margins to the caller-supplied threshold so a potential encounter between sample instants is less likely to be missed.
 - Requires an authority review for an emergency-priority scenario if no geometric conflict has already been found.
-- Produces machine-readable JSON with expected-vs-actual classifications and evidence scope.
+- Checks half-open reservation intervals across providers without selecting a winner or applying last-writer-wins to duplicate reservation IDs.
+- Treats expired, withdrawn, or ended claims as non-current; flags duplicate versions and incompatible time bases for reconciliation.
+- Never reports a no-conflict result from a partitioned or stale/incomplete provider snapshot.
+- Keeps emergency claims from automatically preempting conflicting claims; emergency cases require the competent operational process.
+- Rejects snapshots above the bounded claim/pairwise-work budget.
+- Produces machine-readable JSON with expected-vs-actual classifications and explicit authority scope.
 
 ## Run
 
@@ -29,14 +34,21 @@ Or pass a specific scenario-set JSON path after `--verify`.
 
 - `accept_for_planning_only`: no conflict was found within the synthetic model and declared scope.
 - `conflict`: at least one pair meets the conservative synthetic conflict predicate.
-- `degraded`: reserved for future explicit degraded-service profiles; not currently emitted by the basic evaluator.
+- `degraded`: the supplied provider snapshot is partitioned, stale, or incomplete, so absence of a conflict cannot be established.
 - `reject`: malformed, expired, or out-of-bounds fixture inputs.
 - `unresolved`: missing time qualification or incompatible coordinate frame / vertical datum.
-- `requires_authority_review`: an emergency-priority intent remains subject to competent operational review.
+- `requires_authority_review`: an emergency-priority intent/claim remains subject to competent operational review.
+- `no_conflict_in_provided_snapshot`: no overlap was found in the supplied complete snapshot; this is not a slot grant, proof of globally conflict-free airspace, or flight authorization.
+
+## Reservation snapshot semantics
+
+Reservation intervals use half-open semantics: `[start_s, end_s)`, so `[100, 200)` and `[200, 300)` are adjacent but do not overlap. Two current claims conflict only when they name the same resource, share a qualified time basis, and their intervals overlap. Expiry and terminal state are considered before pairwise conflict checking.
+
+The evaluator accepts one asserted snapshot, not a replicated event log. Duplicate reservation IDs are unresolved rather than silently resolved by choosing the highest sequence. A `complete_fresh` marker is an explicit synthetic test input, not independently verified network evidence. Incomplete provider views always degrade a no-conflict result. Emergency priority does not automatically preempt another reservation.
 
 ## Important limitations
 
-This is **not** an aircraft simulator, flight dynamics model, UTM/ATM service, collision-avoidance system, regulator, or authorization service. It does not model turn/climb performance, acceleration, wind, terrain, weather, sensor error distributions, non-cooperative traffic, or actual certified operating procedures.
+This is **not** an aircraft simulator, flight dynamics model, UTM/ATM service, collision-avoidance system, regulator, or authorization service. It does not model provider-network replication, signatures/identity authentication, deterministic cross-provider event ordering, capacity greater than one, real scheduling/fairness, turn/climb performance, acceleration, wind, terrain, weather, sensor error distributions, non-cooperative traffic, or actual certified operating procedures.
 
 The trajectories are straight and constant-velocity. The conservative margin is based on relative velocity and the maximum sampling interval; it is useful for testing the contract but is not a formally validated reachability analysis. The coordinate frame and separation thresholds are synthetic fixture values. They are not official separation minima and must never be reused for live operations.
 
