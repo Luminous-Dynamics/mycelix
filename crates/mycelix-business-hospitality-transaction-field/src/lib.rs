@@ -214,7 +214,8 @@ pub fn evaluate_transaction_hospitality_field(
     )?;
     let derived_cases = build_derived_cases(request.target_plan, &submissions, actuals)?;
     let overall_scorecard =
-        score_derived_cases(&derived_cases).map_err(TransactionFieldError::DerivedScoring)?;
+        score_derived_cases(&request.registration.protocol, &derived_cases)
+            .map_err(TransactionFieldError::DerivedScoring)?;
     let overall_decision =
         evaluate_forecast_gate(&request.registration.protocol, &overall_scorecard)
             .map_err(|_| TransactionFieldError::ProtocolGateFailed)?;
@@ -233,7 +234,8 @@ pub fn evaluate_transaction_hospitality_field(
             }
         }
         let scorecard =
-            score_derived_cases(&selected).map_err(TransactionFieldError::DerivedScoring)?;
+            score_derived_cases(&request.registration.protocol, &selected)
+                .map_err(TransactionFieldError::DerivedScoring)?;
         let selected_digest = derived_case_set_digest(&selected);
         let passed = scorecard.cases >= slice.minimum_cases
             && scorecard.abstention_bps() <= request.registration.protocol.maximum_abstention_bps
