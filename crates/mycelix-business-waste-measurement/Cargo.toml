@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-business-waste-measurement"
+version = "0.1.0"
+edition = "2024"
+description = "Preregistered, non-authorizing measurement quality contracts for hospitality food waste"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/luminous-dynamics/mycelix"
+readme = "README.md"
+
+[lib]
+name = "mycelix_business_waste_measurement"
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-business-core = { path = "../mycelix-business-core" }
+sha2 = "0.10"
