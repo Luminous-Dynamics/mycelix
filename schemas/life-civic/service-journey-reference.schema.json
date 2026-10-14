@@ -17,7 +17,8 @@
     "review_required",
     "review_status",
     "effects",
-    "claim_ceiling"
+    "claim_ceiling",
+    "source_conflicts"
   ],
   "properties": {
     "case_id": {
@@ -25,7 +26,7 @@
       "minLength": 1
     },
     "schema_version": {
-      "const": "0.1.0"
+      "const": "0.2.0"
     },
     "scope": {
       "type": "object",
@@ -170,7 +171,8 @@
         "work_reported_complete",
         "verified_resolved",
         "closed_unresolved",
-        "human_review_required"
+        "human_review_required",
+        "source_conflict"
       ]
     },
     "evidence": {
@@ -317,6 +319,57 @@
           "minItems": 1,
           "items": {
             "type": "string"
+          }
+        }
+      }
+    },
+    "source_conflicts": {
+      "type": "array",
+      "description": "Explicit source-claim contradictions. Keep this distinct from conflicting service destinations/routes.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "conflict_id",
+          "topic",
+          "evidence_ids",
+          "status",
+          "summary"
+        ],
+        "properties": {
+          "conflict_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "topic": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_ids": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "status": {
+            "enum": [
+              "unresolved",
+              "resolved"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resolution_evidence_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
           }
         }
       }
@@ -542,6 +595,52 @@
                 "independence"
               ]
             }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "case_state": {
+            "const": "source_conflict"
+          }
+        },
+        "required": [
+          "case_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source_conflicts": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "const": "unresolved"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            }
+          },
+          "outcome": {
+            "properties": {
+              "status": {
+                "const": "conflicted"
+              }
+            }
+          },
+          "review_required": {
+            "const": true
+          },
+          "review_status": {
+            "enum": [
+              "not_started",
+              "requested",
+              "completed"
+            ]
           }
         }
       }
