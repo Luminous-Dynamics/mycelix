@@ -73,7 +73,7 @@
         "Commitment",
         "EconomicEvent"
       ],
-      "quantity_encoding": "canonical_integer_tend_units",
+      "quantity_encoding": "blocked_legacy_f32_needs_quantization_profile",
       "unit_profile": "mycelix:TEND-hour",
       "preserves_asset_identity": true,
       "preserves_origin_and_source_event": true,
@@ -82,7 +82,7 @@
       "source_event_is_authority_for_ledger_mutation": false,
       "maps_to_authoritative_balance": false,
       "transferable": true,
-      "notes": "Candidate commitment/fulfillment representation. Preserve exact hour-based meaning, counterparties, community/issuer scope, zero-sum obligation semantics and settlement evidence; this mapping does not implement or prove those invariants."
+      "notes": "The current TendExchange.hours and cumulative hours fields are f32. Export of an authoritative numeric TEND quantity is blocked until a versioned quantization/precision profile, error bound and round-trip test are defined. Do not imply the source float is an exact decimal."
     },
     {
       "id": "MYCEL-RECOGNITION-CLAIM-v1",
@@ -211,6 +211,16 @@
         "ontology_version_and_adapter_profile_separate",
         "exact_source_commit_pinned",
         "packaged_artifact_qualification_required"
+      ]
+    },
+    {
+      "id": "VF-TEND-F32-001",
+      "input_condition": "TEND service hours sourced from the legacy f32 fields are exported as an exact decimal quantity without a versioned quantization/precision profile.",
+      "expected_disposition": "block_unqualified_quantity_export",
+      "required_guards": [
+        "legacy_f32_source_explicitly_blocked",
+        "quantization_profile_required",
+        "round_trip_error_bound_required"
       ]
     }
   ]
