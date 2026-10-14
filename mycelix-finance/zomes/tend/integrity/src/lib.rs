@@ -862,36 +862,50 @@ fn validate_update_exchange(
     action: Update,
     exchange: TendExchange,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Only status can change (Proposed -> Confirmed/Disputed/Cancelled)
-    // Core data (provider, receiver, hours) cannot change
     if !exchange.hours.is_finite() || exchange.hours <= 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Hours must be a finite positive number".into(),
         ));
     }
 
-    // Enforce status transition rules and immutable field invariants
-    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
-        if let Ok(Some(original)) = original_record.entry().to_app_option::<TendExchange>() {
-            // Status transitions must follow the state machine
-            if original.status != exchange.status
-                && !original.status.can_transition_to(&exchange.status)
-            {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid exchange status transition: {:?} → {:?}",
-                    original.status, exchange.status
-                )));
-            }
-            // Core fields are immutable after creation
-            if original.provider_did != exchange.provider_did
-                || original.receiver_did != exchange.receiver_did
-                || original.hours != exchange.hours
-            {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Cannot change provider, receiver, or hours on an existing exchange".into(),
-                ));
-            }
-        }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record
+        .entry()
+        .to_app_option::<TendExchange>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode original TendExchange predecessor: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Original TEND exchange predecessor is not a TendExchange entry".into(),
+            ))
+        })?;
+
+    if original.status != exchange.status
+        && !original.status.can_transition_to(&exchange.status)
+    {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid exchange status transition: {:?} → {:?}",
+            original.status, exchange.status
+        )));
+    }
+
+    if original.id != exchange.id
+        || original.provider_did != exchange.provider_did
+        || original.receiver_did != exchange.receiver_did
+        || original.hours != exchange.hours
+        || original.service_description != exchange.service_description
+        || original.service_category != exchange.service_category
+        || original.cultural_alias != exchange.cultural_alias
+        || original.dao_did != exchange.dao_did
+        || original.timestamp != exchange.timestamp
+        || original.service_date != exchange.service_date
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "TEND exchange identity and economic/service terms are immutable across updates".into(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
