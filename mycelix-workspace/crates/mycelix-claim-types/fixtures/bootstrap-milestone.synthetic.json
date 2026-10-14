@@ -5,9 +5,9 @@
   "supersedes_milestone_id": null,
   "prior_state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "resulting_state_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "claimed_capability": "local_bulk_handling",
-  "closure_stage": "feedstock",
-  "source_repository": "https://github.com/Luminous-Dynamics/symtropy",
+  "claimed_capability": "synthetic_inventory_accounting_contract",
+  "closure_stage": "seed",
+  "source_repository": "https://example.invalid/source/symtropy",
   "source_commit_sha": "cccccccccccccccccccccccccccccccccccccccc",
   "scenario_manifest_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
   "fixture_class": "synthetic_software_contract",
@@ -21,7 +21,7 @@
   "dependency_deltas": [
     {
       "dependency_id": "imported_metrology",
-      "prior": "imported_durable",
+      "prior": "unknown",
       "resulting": "blocked"
     }
   ],
@@ -45,8 +45,8 @@
     {
       "scenario_id": "LEDGER-DUPLICATE-EVENT",
       "failure_class": "duplicate_event_identity",
-      "outcome": "recovered",
-      "recovery_duration_milliseconds": 0,
+      "outcome": "rejected_safely",
+      "recovery_duration_milliseconds": null,
       "evidence": [
         {
           "uri": "https://example.invalid/evidence/fault-result.json",
