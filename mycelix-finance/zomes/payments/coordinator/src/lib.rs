@@ -2408,21 +2408,26 @@ fn verify_hearth_membership(caller_did: &str, hearth_did: &str) -> ExternResult<
             }
         },
         Ok(other) => {
-            // SECURITY NOTE: Hearth cluster unreachable/unauthorized — allow in standalone mode.
-            // In production with a running hearth cluster, this path should not be reached.
+            // Membership is an authorization boundary for monetary mutation. An
+            // unexpected response is not evidence of membership and must fail closed.
             debug!(
-                "verify_hearth_membership: hearth_bridge returned {:?} for {}@{}, allowing (standalone mode)",
-                other, caller_did, hearth_did
+                "verify_hearth_membership: hearth_bridge returned unexpected response for {}@{}: {:?}",
+                caller_did, hearth_did, other
             );
-            Ok(())
+            Err(wasm_error!(WasmErrorInner::Guest(
+                "Unable to verify Hearth membership".into()
+            )))
         }
         Err(e) => {
-            // SECURITY NOTE: Hearth cluster unreachable — allow in standalone mode.
+            // Availability of the membership authority is a prerequisite for a
+            // monetary Hearth mutation; do not downgrade to implicit standalone mode.
             debug!(
-                "verify_hearth_membership: hearth_bridge unreachable for {}@{}: {:?}, allowing (standalone mode)",
+                "verify_hearth_membership: hearth_bridge unavailable for {}@{}: {:?}",
                 caller_did, hearth_did, e
             );
-            Ok(())
+            Err(wasm_error!(WasmErrorInner::Guest(
+                "Hearth membership authority unavailable".into()
+            )))
         }
     }
 }
