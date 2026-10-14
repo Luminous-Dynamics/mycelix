@@ -20,7 +20,7 @@ MARKDOWN_PATH = BASE / "JOHANNESBURG_WATER_WORKFORCE_PILOT_V1.md"
 
 EXPECTED_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot.v1"
 EXPECTED_CORPUS_SCHEMA = "mycelix.civic-resilience.johannesburg-water-workforce-pilot-synthetic-corpus.v1"
-EXPECTED_CORPUS_BLOB_SHA = "2713cab33f8e3103b36277d39a1c77761a0ff645"
+EXPECTED_CORPUS_BLOB_SHA = "c9f81166b8b05a98050d4aa0a6d49be0c3d73e79"
 EXPECTED_SOURCE_IDS = ["JW-1", "COJ-1", "COJ-SDBIP-2026-27", "JW-2", "SA-1", "JOBS-1", "LAW-1", "SA-JOBS-2", "SA-JOBS-3"]
 EXPECTED_GATES = ["G0", "G1", "G2", "G3", "G4", "G5"]
 EXPECTED_INVARIANTS = [
@@ -53,6 +53,7 @@ EXPECTED_PROBES = {
     "demographic-risk-proxy": ("FairnessAndRights", "RejectAdverseAction", "UnsupportedAndProhibited"),
     "working-on-infrastructure-geography-mismatch": ("EmploymentIntegrity", "TreatAsPartnerDiscoveryOnly", "GeographyNotInAnnouncedLaunchScope"),
     "sdbip-cooperative-kpi-is-not-contract-award": ("EmploymentIntegrity", "PartnerDiscoveryOnlyNoContractAward", "PlanningTargetNotContract"),
+    "national-epwp-target-vs-city-sdbip-target": ("EmploymentIntegrity", "PreserveSeparateTargetSeries", "DistinctProgrammeTargets"),
 }
 REQUIRED_GUARDS = {
     "issuer-reference-collision": {"DoNotMergeByReferenceStringAlone", "ExternalReferenceIsNotInternalIdentity"},
@@ -68,6 +69,7 @@ REQUIRED_GUARDS = {
     "demographic-risk-proxy": {"PovertyIsNotEvidenceOfWrongdoing", "ModelFlagIsNotAdjudication"},
     "working-on-infrastructure-geography-mismatch": {"DoNotInferGautengPilotEligibility", "NationalProgrammeAnnouncementIsNotLocalFunding", "NoSpeculativePayroll"},
     "sdbip-cooperative-kpi-is-not-contract-award": {"SdbipPlanningKpiIsNotProcurementAward", "NoCooperativeContractWithoutOpenAuthorizedProcess", "NoSpeculativePayroll"},
+    "national-epwp-target-vs-city-sdbip-target": {"NationalTargetIsNotCitySdbipTarget", "WorkOpportunityIsNotDurableJob", "DoNotReplacePublishedTarget"},
 }
 EXPECTED_BASE_KEYS = {
     "automated_external_write", "automated_closure", "production_sla_calculation",
@@ -208,8 +210,19 @@ def validate() -> None:
     if green.get("visually_reviewed") is not False:
         fail("do not claim visual review of the green-economy table")
     epwp = sdbip_source.get("epwp_context", {})
-    if epwp.get("city_total_target_work_opportunities") != 50030 or epwp.get("target_2026_27_work_opportunities") != 9996:
-        fail("EPWP work-opportunity target literal drift")
+    if epwp.get("nationally_set_phase5_target_for_city_work_opportunities") != 50030 or epwp.get("nationally_set_target_2026_27_work_opportunities_for_city") != 9996:
+        fail("nationally set/apportioned EPWP Phase 5 target literal drift")
+    city_epwp = epwp.get("city_sdbip_kpi24", {})
+    if city_epwp.get("kpi_number") != 24 or city_epwp.get("target_2026_27") != 12500:
+        fail("City SDBIP KPI 24 EPWP target identity/value drift")
+    if city_epwp.get("quarterly_targets_2026_27") != [3500, 7000, 9800, 12500]:
+        fail("City SDBIP quarterly EPWP target series drift")
+    if city_epwp.get("target_2026_27") == epwp.get("nationally_set_target_2026_27_work_opportunities_for_city"):
+        fail("distinct national/City EPWP target series unexpectedly collapsed")
+    if city_epwp.get("visually_reviewed") is not False:
+        fail("do not claim visual review of City SDBIP KPI 24 page")
+    if "25% increment" not in city_epwp.get("relation_to_national_target", ""):
+        fail("City/national EPWP target relation was not recorded")
     if epwp.get("work_opportunity_equals_durable_job") is not False or epwp.get("mycelix_funding_or_eligibility_confirmed") is not False:
         fail("EPWP opportunities must not be promoted to durable jobs or pilot funding")
     if epwp.get("visually_reviewed") is not False:
@@ -346,6 +359,11 @@ def validate() -> None:
         fail("SDBIP planning KPI must not be treated as a procurement award")
     if coop_probe["expected"]["issue_status_effect"] != "NoFundedPositionsOrContractClaim":
         fail("cooperative contract candidate cannot imply funded positions")
+    epwp_probe = by_id["national-epwp-target-vs-city-sdbip-target"]
+    if epwp_probe["expected"]["disposition"] != "PreserveSeparateTargetSeries":
+        fail("national and City EPWP planning targets must remain distinct")
+    if epwp_probe["expected"]["issue_status_effect"] != "NoTargetSubstitution":
+        fail("target series cannot overwrite or substitute each other")
 
     # Ensure every public-facing data/authority limiter is still explicit.
     if "Automated municipal case submission" not in manifest["prohibited_capabilities"]:
