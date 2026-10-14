@@ -137,6 +137,9 @@ impl PlayerState {
 #[derive(Clone, Debug)]
 pub struct DeliveryPreferences {
     pub gateway_origins: RwSignal<Option<String>>,
+    /// False until browser-local preferences have been loaded. The player must
+    /// not select a deployment gateway before that privacy choice is known.
+    pub loaded: RwSignal<bool>,
 }
 
 pub const MEDIA_GATEWAY_PREFERENCE_KEY: &str = "mycelix-media-gateway-origins";
@@ -170,6 +173,7 @@ pub fn App() -> impl IntoView {
 
     let delivery_preferences = DeliveryPreferences {
         gateway_origins: RwSignal::new(None),
+        loaded: RwSignal::new(false),
     };
     provide_context(delivery_preferences.clone());
 
@@ -187,6 +191,9 @@ pub fn App() -> impl IntoView {
         if let Some(saved) = saved {
             delivery_preferences.gateway_origins.set(Some(saved));
         }
+        // Publish readiness only after storage is read (or known unavailable),
+        // so the player never emits an initial request before honoring opt-out.
+        delivery_preferences.loaded.set(true);
     });
 
     Effect::new(move |_| {
