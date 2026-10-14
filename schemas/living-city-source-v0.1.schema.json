@@ -74,7 +74,8 @@
         "label",
         "scope",
         "verification_status",
-        "spatial_resolution_m"
+        "spatial_resolution_m",
+        "spatial_resolution_qualifier"
       ],
       "properties": {
         "label": {
@@ -107,6 +108,15 @@
             "null"
           ],
           "exclusiveMinimum": 0
+        },
+        "spatial_resolution_qualifier": {
+          "enum": [
+            "exact",
+            "approximate",
+            "unknown",
+            "not_applicable"
+          ],
+          "description": "Qualifies the numerical resolution; prevents an approximate value from being presented as exact."
         }
       }
     },

@@ -19,7 +19,7 @@
 
 The source schema describes one registry entry. The source fixture is a small source registry used by the first example set. The reuse state **open_license_verified** requires a license URL; it remains a recorded review assertion, not automated legal advice. Unknown licensing stays unknown.
 
-Important fields include source identifier, title/publisher, kind, HTTPS landing URL, publication and retrieval dates, declared version, geographic and temporal coverage, spatial resolution when known, reuse status, license URL if known, and limitations. The schema does not infer an API from a landing page or require external content to be copied into this repository.
+Important fields include source identifier, title/publisher, kind, HTTPS landing URL, publication and retrieval dates, declared version, geographic and temporal coverage, spatial resolution when known, an explicit resolution qualifier (exact/approximate/unknown/not applicable), reuse status, license URL if known, and limitations. The schema does not infer an API from a landing page or require external content to be copied into this repository.
 
 ### Evidence claim
 
@@ -27,10 +27,12 @@ The evidence schema describes a claim linked to concept ID, concept version, and
 
 An **unreviewed** claim is not an approval. A **contested** claim remains visible as contested. A **withdrawn** claim should not be erased from governance history; downstream visibility must follow policy. A **reviewed** state requires a reviewer and decision timestamp at semantic validation.
 
-## Johannesburg source inventory: first two leads, not complete coverage
+## Johannesburg source inventory: three initial leads, not complete coverage
 
 - **City of Johannesburg, Metroview announcement (15 September 2026):** [official announcement PDF](https://joburg.org.za/media_/Documents/2026-Media-Statements/Joburg-launches-Metroview-tool-during-Climate-Action-Plan-gathering.pdf). The sample claim records the announcement's reported future flood-exposure assessment as context only. It does not treat the announcement as the underlying dataset, verify its scenarios or spatial resolution, claim an API exists, or infer corridor-level flood conditions.
 - **National Climate Change Information System (NCCIS), Climate Services catalogue:** [catalogue page](https://nccis.environment.gov.za/climate-services/download-data). The source record captures this page as a discovery lead. Each downstream dataset still needs its own version, scenario, temporal coverage, spatial resolution, methodology, access check, and license review.
+
+- **South African Risk & Vulnerability Atlas (SARVA), South African Climate Risk Tool overview:** [SARVA portal](https://sarva.saeon.ac.za/). SARVA describes the tool as based on NASA NEX-GDDP-CMIP6 projections, bias-corrected and statistically downscaled to approximately 25 km, with information at local-municipality level. That is suitable as broad screening context, not as a street-level heat, flood, or intervention measurement. The underlying data/service version and reuse terms still need verification. The approximation qualifier is preserved so a map does not imply an exact 25,000 m resolution.
 
 The accessed timestamp documents this research snapshot, not a guarantee that the pages remain unchanged. Future ingestion should capture source-version metadata and checksums for lawfully archived artifacts where practical.
 
@@ -41,7 +43,7 @@ The validator must:
 - validate each source and evidence fixture, require unique IDs, and reject non-HTTPS links or URLs with embedded credentials;
 - resolve every evidence source reference and every concept/version/hypothesis triple;
 - reject reversed temporal ranges, unversioned simulations, observations lacking a named instrument-measurement method or temporal window, and reviewed states without reviewer/time;
-- check license conditional rules, source-reported uncertainty bounds, and self-supersession;
+- check license conditional rules, source-reported uncertainty bounds, self-supersession, temporal ordering, and consistency between a resolution value and its exact/approximate/unknown qualifier;
 - prove selected protections with mutations for malformed URI format, unknown properties, unresolved source references, and unresolved hypothesis references;
 - perform no external network calls and have no runtime side effects.
 

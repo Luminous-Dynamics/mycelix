@@ -13,7 +13,8 @@
       "label": "City of Johannesburg (as described by publisher)",
       "scope": "city",
       "verification_status": "source_declared",
-      "spatial_resolution_m": null
+      "spatial_resolution_m": null,
+      "spatial_resolution_qualifier": "unknown"
     },
     "temporal_coverage": {
       "start_date": null,
@@ -43,7 +44,8 @@
       "label": "South Africa; individual dataset coverage varies",
       "scope": "country",
       "verification_status": "source_declared",
-      "spatial_resolution_m": null
+      "spatial_resolution_m": null,
+      "spatial_resolution_qualifier": "not_applicable"
     },
     "temporal_coverage": {
       "start_date": null,
@@ -57,6 +59,37 @@
     "limitations": [
       "A catalogue listing does not prove that a specific download, API, or service is available.",
       "The portal links to heterogeneous products; no shared spatial resolution, time range, or reuse license can be inferred for all entries."
+    ]
+  },
+  {
+    "schema_version": "living-city-source/0.1",
+    "source_id": "sarva-climate-risk-tool-overview",
+    "title": "South African Climate Risk Tool overview (SARVA)",
+    "publisher": "South African Risk & Vulnerability Atlas (SARVA)",
+    "resource_kind": "dataset_catalog",
+    "landing_url": "https://sarva.saeon.ac.za/",
+    "published_at": null,
+    "accessed_at": "2026-10-14T20:31:00+02:00",
+    "version_label": "page-version-not-stated",
+    "geographic_coverage": {
+      "label": "South Africa; the portal describes multiple products with differing resolution",
+      "scope": "country",
+      "verification_status": "source_declared",
+      "spatial_resolution_m": null,
+      "spatial_resolution_qualifier": "not_applicable"
+    },
+    "temporal_coverage": {
+      "start_date": null,
+      "end_date": null
+    },
+    "reuse": {
+      "status": "unknown",
+      "license_url": null,
+      "review_notes": "This is a source-discovery page. Review terms for the specific climate tool and underlying data before downloading, adapting, or redistributing content."
+    },
+    "limitations": [
+      "The SARVA homepage describes a climate-risk product but this catalogue record is not the underlying gridded dataset.",
+      "A tool description does not establish an API, a downloadable file, the current model version, or rights to redistribute source data."
     ]
   }
 ]

@@ -51,9 +51,18 @@ def temporal_order(start, end, context: str) -> list[str]:
         return [f"{context}: start date is after end date"]
     return []
 
+def resolution_errors(value, qualifier: str, context: str) -> list[str]:
+    if value is None and qualifier in ("exact", "approximate"):
+        return [f"{context}: resolution qualifier mismatch; numeric value required"]
+    if value is not None and qualifier in ("unknown", "not_applicable"):
+        return [f"{context}: resolution qualifier mismatch; qualifier conflicts with numeric value"]
+    return []
+
 
 def source_semantic_errors(source: dict) -> list[str]:
     errors = []
+    geo = source["geographic_coverage"]
+    errors.extend(resolution_errors(geo["spatial_resolution_m"], geo["spatial_resolution_qualifier"], source["source_id"]))
     if not safe_https_uri(source["landing_url"]):
         errors.append(f"{source['source_id']}: landing_url must be HTTPS without embedded credentials")
     if source["reuse"]["status"] == "open_license_verified" and not source["reuse"]["license_url"]:
@@ -75,6 +84,7 @@ def claim_semantic_errors(claim: dict, sources_by_id: dict, concepts_by_key: dic
     elif cref["hypothesis_id"] not in {x["hypothesis_id"] for x in concept["design_hypotheses"]}:
         errors.append(f"{claim['evidence_id']}: unresolved hypothesis {cref['hypothesis_id']!r} for {key!r}")
     coverage = claim["coverage"]
+    errors.extend(resolution_errors(coverage["spatial_resolution_m"], coverage["spatial_resolution_qualifier"], claim["evidence_id"]))
     errors.extend(temporal_order(coverage["temporal_start"], coverage["temporal_end"], claim["evidence_id"]))
     method = claim["method"]
     if claim["evidence_kind"] == "simulation" and (method["kind"] != "simulation" or not method["model_or_protocol_version"]):
@@ -183,7 +193,14 @@ def main() -> None:
         fail("mutation: unresolved hypothesis reference not rejected")
     print("PASS mutation: unresolved concept hypothesis rejected")
 
-    print(f"PASS: {len(by_source)} sources; {len(by_evidence)} claims; concept/source references resolve; 4 targeted mutation controls.")
+    bad_resolution = copy.deepcopy(claims[0])
+    bad_resolution["coverage"]["spatial_resolution_m"] = None
+    bad_resolution["coverage"]["spatial_resolution_qualifier"] = "exact"
+    if not any("resolution qualifier mismatch" in e for e in claim_semantic_errors(bad_resolution, by_source, concepts)):
+        fail("mutation: contradictory spatial-resolution qualifier was not rejected")
+    print("PASS mutation: approximate/unknown resolution cannot be mislabeled as exact")
+
+    print(f"PASS: {len(by_source)} sources; {len(by_evidence)} claims; concept/source references resolve; 5 targeted mutation controls.")
 
 
 if __name__ == "__main__":

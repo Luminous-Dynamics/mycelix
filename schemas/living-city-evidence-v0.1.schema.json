@@ -96,7 +96,8 @@
         "place_label",
         "spatial_resolution_m",
         "temporal_start",
-        "temporal_end"
+        "temporal_end",
+        "spatial_resolution_qualifier"
       ],
       "properties": {
         "spatial_scope": {
@@ -135,6 +136,15 @@
             "null"
           ],
           "format": "date"
+        },
+        "spatial_resolution_qualifier": {
+          "enum": [
+            "exact",
+            "approximate",
+            "unknown",
+            "not_applicable"
+          ],
+          "description": "Qualifies the numerical resolution; prevents an approximate value from being presented as exact."
         }
       }
     },

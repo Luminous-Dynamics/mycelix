@@ -17,7 +17,8 @@
     "place_label": "South Africa; coverage varies by linked product",
     "spatial_resolution_m": null,
     "temporal_start": null,
-    "temporal_end": null
+    "temporal_end": null,
+    "spatial_resolution_qualifier": "not_applicable"
   },
   "method": {
     "kind": "source_reported",
