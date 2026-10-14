@@ -454,6 +454,8 @@ pub enum VerifiedHospitalityError {
 
 /// Strong qualification path: validate the ordinary derived report first, then prove every actual
 /// observation against the exact source campaign and emit a separate limitation-discharge record.
+// Independent source, schedule, and policy artifacts remain explicit at this boundary.
+#[allow(clippy::too_many_arguments)]
 pub fn derive_evaluate_and_verify_actual_membership(
     registration: &HospitalityForecastPilotRegistration,
     clock: &FixedOffsetSlicePlan,
@@ -709,7 +711,6 @@ event:weekend,{},a,40\n",
             &actuals,
         )
         .unwrap();
-        assert!(OBSERVATION_MEMBERSHIP_IS_READ_ONLY);
         assert_eq!(evidence.claims.len(), actuals.len());
         assert!(evidence.validate_against(&campaign, &actuals).is_ok());
     }
