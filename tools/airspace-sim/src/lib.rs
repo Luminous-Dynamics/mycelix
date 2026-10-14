@@ -78,6 +78,16 @@ pub struct VelocityMmS {
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+pub enum IntentState {
+    Proposed,
+    Accepted,
+    Activated,
+    Withdrawn,
+    Completed,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum FlightPriority {
     Routine,
     Emergency,
