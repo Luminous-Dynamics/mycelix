@@ -4,6 +4,7 @@
 //! legal applicability, certify conformance, or authorize service actions.
 
 use serde_json::{json, Value};
+use sha1::{Digest, Sha1};
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
@@ -30,6 +31,18 @@ fn validator(relative_schema: &str) -> jsonschema::Validator {
         .unwrap_or_else(|error| panic!("could not compile JSON Schema {relative_schema}: {error}"))
 }
 
+
+fn git_blob_sha1(relative_path: &str) -> String {
+    let path = repo_root().join(relative_path);
+    let bytes = fs::read(&path)
+        .unwrap_or_else(|error| panic!("failed to hash {}: {error}", path.display()));
+    let header = format!("blob {}\\0", bytes.len());
+    let mut hasher = Sha1::new();
+    hasher.update(header.as_bytes());
+    hasher.update(&bytes);
+    format!("{:x}", hasher.finalize())
+}
+
 const INSTRUMENT_SCHEMA: &str = "schemas/life-civic/standard-instrument.schema.json";
 const ASSESSMENT_SCHEMA: &str = "schemas/life-civic/applicability-assessment.schema.json";
 const CORPUS_PATH: &str = "tests/reference/life-civic-standards/cases.json";
@@ -41,6 +54,29 @@ fn corpus_manifest_points_to_existing_versioned_assets() {
     assert_eq!(manifest["corpus_id"], corpus["corpus_id"]);
     assert_eq!(manifest["version"], corpus["version"]);
     assert_eq!(manifest["cases_file"].as_str(), Some(CORPUS_PATH));
+
+    let frozen_inputs = manifest["frozen_inputs"]
+        .as_array()
+        .expect("manifest frozen_inputs must be an array");
+    assert_eq!(frozen_inputs.len(), 3, "all schema/corpus inputs must be pinned");
+    for entry in frozen_inputs {
+        let path = entry["path"]
+            .as_str()
+            .expect("frozen input path must be a string");
+        let expected = entry["git_blob_sha1"]
+            .as_str()
+            .expect("frozen input Git blob SHA-1 must be a string");
+        assert_eq!(expected.len(), 40, "{path} has malformed Git blob SHA");
+        assert!(
+            expected.bytes().all(|byte| byte.is_ascii_hexdigit()),
+            "{path} has non-hexadecimal Git blob SHA"
+        );
+        assert_eq!(
+            git_blob_sha1(path),
+            expected,
+            "frozen input changed without updating the reviewed manifest: {path}"
+        );
+    }
 
     let schema_paths = manifest["schemas"]
         .as_array()
