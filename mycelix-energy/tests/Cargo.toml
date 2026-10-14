@@ -8,8 +8,8 @@ autotests = false
 
 [dependencies]
 # Holochain testing dependencies (NO zome crate imports to avoid duplicate symbols)
-hdk = "0.6"
-hdi = "0.7"
+hdk = "=0.6.1"
+hdi = "=0.7.1"
 
 # Async runtime for tests
 
@@ -26,6 +26,6 @@ name = "sweettest_integration"
 path = "sweettest_integration.rs"
 
 [dev-dependencies]
-holochain = { version = "0.6", features = ["test_utils", "sweettest"] }
-holochain_types = "0.6"
+holochain = { version = "=0.6.1", features = ["test_utils", "sweettest"] }
+holochain_types = "=0.6.1"
 tokio = { version = "1", features = ["full", "test-util"] }

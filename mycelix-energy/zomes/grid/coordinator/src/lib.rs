@@ -6,8 +6,9 @@
 use grid_integrity::*;
 use hdk::prelude::*;
 use mycelix_bridge_proc::{mycelix_zome_fn, sovereign_gated};
+use std::collections::HashSet;
 use mycelix_energy_shared::anchors::anchor_hash;
-use mycelix_energy_shared::batch::{filter_records_by, links_to_records};
+use mycelix_energy_shared::batch::links_to_records;
 use mycelix_zome_helpers as _;
 
 #[hdk_extern]
@@ -125,83 +126,128 @@ pub struct CreateOfferInput {
     pub available_until: Timestamp,
 }
 
-/// Whether a trade offer's availability window still covers `now`. Pure and
-/// unit-testable — no Holochain host calls, unlike `sys_time()` at the call
-/// sites.
-fn offer_not_expired(offer: &TradeOffer, now: Timestamp) -> bool {
-    offer.available_until >= now
+/// Whether a trade offer is inside its complete availability window.
+/// Kept pure so boundary conditions can be unit-tested without HDK host calls.
+fn offer_is_current(offer: &TradeOffer, now: Timestamp) -> bool {
+    offer.available_from <= now && now <= offer.available_until
 }
 
-#[hdk_extern]
-pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::TradeOffer,
-        )?))
-        .include_entries(true);
-    for record in query(filter)? {
-        if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
-            if offer.id == input.offer_id && offer.status == OfferStatus::Active {
-                let now = sys_time()?;
-                if !offer_not_expired(&offer, now) {
-                    return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Offer has expired".into()
-                    )));
-                }
-                let total_price = input.amount_kwh * offer.price_per_kwh;
+/// Resolve a record's update chain to its latest valid version.
+///
+/// CRUD metadata is attached to action hashes, while links commonly continue
+/// to target the original create action. Reading the linked record alone can
+/// therefore return stale offer/trade state. Updates are restricted to the
+/// original author; if older data has multiple update branches, choose the
+/// branch with the newest action timestamp, matching Holochain's documented
+/// same-author conflict-resolution pattern.
+fn resolve_latest_record(mut record: Record) -> ExternResult<Record> {
+    const MAX_UPDATE_HOPS: usize = 256;
 
-                let trade = Trade {
-                    id: format!("trade:{}:{}", input.offer_id, now.as_micros()),
-                    offer_id: input.offer_id.clone(),
-                    seller_did: offer.seller_did.clone(),
-                    buyer_did: input.buyer_did.clone(),
-                    amount_kwh: input.amount_kwh,
-                    price_per_kwh: offer.price_per_kwh,
-                    total_price,
-                    currency: offer.currency.clone(),
-                    executed: now,
-                    settled: false,
-                    payment_reference: None,
-                };
-
-                let trade_hash = create_entry(&EntryTypes::Trade(trade))?;
-                create_link(
-                    anchor_hash(&input.offer_id)?,
-                    trade_hash.clone(),
-                    LinkTypes::OfferToTrades,
-                    (),
-                )?;
-                create_link(
-                    anchor_hash(&input.buyer_did)?,
-                    trade_hash.clone(),
-                    LinkTypes::BuyerToTrades,
-                    (),
-                )?;
-
-                // Update offer status
-                let remaining = offer.amount_kwh - input.amount_kwh;
-                let new_status = if remaining <= 0.0 {
-                    OfferStatus::Filled
-                } else {
-                    OfferStatus::PartiallyFilled
-                };
-                let updated_offer = TradeOffer {
-                    amount_kwh: remaining.max(0.0),
-                    status: new_status,
-                    ..offer
-                };
-                update_entry(
-                    record.action_address().clone(),
-                    &EntryTypes::TradeOffer(updated_offer),
-                )?;
-
-                return get(trade_hash, GetOptions::default())?
-                    .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())));
+    for _ in 0..MAX_UPDATE_HOPS {
+        let details = get_details(record.action_address().clone(), GetOptions::default())?
+            .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+                "Record update metadata is unavailable".into()
+            )))?;
+        let record_details = match details {
+            Details::Record(details) => details,
+            _ => {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Expected record metadata for action hash".into()
+                )));
             }
+        };
+
+        let latest_update = record_details
+            .updates
+            .into_iter()
+            .max_by_key(|update| update.action().timestamp().clone());
+        if let Some(update) = latest_update {
+            record = get(update.hashed.hash.clone(), GetOptions::default())?
+                .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+                    "Updated record is unavailable".into()
+                )))?;
+            continue;
+        }
+        if !record_details.deletes.is_empty() {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Record has been deleted and has no current update".into()
+            )));
+        }
+        return Ok(record);
+    }
+
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Record update chain exceeds the safe traversal limit".into()
+    )))
+}
+
+/// Resolve link targets to latest records and collapse repeated index entries.
+/// Re-indexing after repair may leave more than one live CreateLink action for
+/// the same record; callers should receive one current record, not duplicates.
+fn resolve_latest_unique_records(records: Vec<Record>) -> ExternResult<Vec<Record>> {
+    let mut seen_latest_actions = HashSet::new();
+    let mut resolved = Vec::new();
+    for record in records {
+        let latest = resolve_latest_record(record)?;
+        if seen_latest_actions.insert(latest.action_address().clone()) {
+            resolved.push(latest);
         }
     }
+    Ok(resolved)
+}
+
+/// Pure quantity guard retained as regression coverage for the successor
+/// reservation/fill protocol. The legacy execution endpoint is fail-closed.
+#[cfg(test)]
+fn checked_remaining_offer_amount(
+    current_amount_kwh: f64,
+    fill_amount_kwh: f64,
+) -> Result<f64, &'static str> {
+    if !current_amount_kwh.is_finite() || current_amount_kwh <= 0.0 {
+        return Err("Offer quantity must be finite and positive");
+    }
+    if !fill_amount_kwh.is_finite() || fill_amount_kwh <= 0.0 {
+        return Err("Trade amount must be finite and positive");
+    }
+    if fill_amount_kwh > current_amount_kwh {
+        return Err("Trade amount exceeds offer's remaining quantity");
+    }
+    let remaining = current_amount_kwh - fill_amount_kwh;
+    if !remaining.is_finite() || remaining < 0.0 {
+        return Err("Remaining offer quantity is invalid");
+    }
+    if remaining >= current_amount_kwh {
+        return Err("Trade amount is too small to reduce offer quantity at this precision");
+    }
+    Ok(remaining)
+}
+
+/// Bind a buyer claim to the current cell's canonical Holochain agent key.
+/// Syntax alone is not identity: accepting arbitrary `did:mycelix:...` strings
+/// would let a caller attempt to transact as another participant.
+fn did_matches_agent(did: &str, author: &AgentPubKey) -> bool {
+    did.strip_prefix("did:mycelix:")
+        .and_then(|value| AgentPubKey::try_from(value).ok())
+        .as_ref()
+        == Some(author)
+}
+
+/// Fail closed until the append-only cross-agent reservation/fill protocol is
+/// implemented. This legacy mutable-offer path cannot safely coordinate seller
+/// and buyer source chains or guarantee replay-safe quantity reservations.
+/// See https://github.com/Luminous-Dynamics/mycelix/issues/4940.
+#[hdk_extern]
+pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    if !did_matches_agent(&input.buyer_did, &caller) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Buyer DID must identify the agent executing this trade".into()
+        )));
+    }
+
     Err(wasm_error!(WasmErrorInner::Guest(
-        "Offer not found or not active".into()
+        "Trade execution is disabled until append-only cross-agent reservation/fill semantics are implemented (#4940)"
+            .into()
     )))
 }
 
@@ -214,7 +260,8 @@ pub struct ExecuteTradeInput {
 
 /// Get all active trade offers
 ///
-/// OPTIMIZED: Uses batch query to avoid N+1 pattern
+/// Batch-fetches each time shard, then resolves the offer's update chain to
+/// avoid showing stale amounts/statuses from the original create action.
 ///
 /// Expiry is enforced here on read rather than by mutating stored offers:
 /// only an offer's own seller agent can `update_entry` it in Holochain, so a
@@ -232,19 +279,37 @@ pub struct ExecuteTradeInput {
 pub fn get_active_offers(_: ()) -> ExternResult<Vec<Record>> {
     let now = sys_time()?;
     let mut all_records = Vec::new();
+    let mut seen_link_targets = HashSet::new();
     for key in offer_anchor_keys_for_lookback(now, OFFER_ANCHOR_LOOKBACK_DAYS) {
         let anchor = anchor_hash(&key)?;
         let links = get_links(
             LinkQuery::try_new(anchor, LinkTypes::ActiveOffers)?,
             GetStrategy::default(),
         )?;
-        // FIXED N+1: Batch fetch all records per shard, then filter
-        all_records.extend(links_to_records(links)?);
+        // Batch-fetch linked records, skip repeated source actions before the
+        // more expensive metadata traversal, then resolve the newest version.
+        for record in links_to_records(links)? {
+            if seen_link_targets.insert(record.action_address().clone()) {
+                all_records.push(resolve_latest_record(record)?);
+            }
+        }
     }
-    Ok(filter_records_by::<TradeOffer, _>(&all_records, |offer| {
-        (offer.status == OfferStatus::Active || offer.status == OfferStatus::PartiallyFilled)
-            && offer_not_expired(offer, now)
-    }))
+
+    let mut active_records = Vec::new();
+    let mut seen_latest_actions = HashSet::new();
+    for record in all_records {
+        if !seen_latest_actions.insert(record.action_address().clone()) {
+            continue;
+        }
+        if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
+            if (offer.status == OfferStatus::Active || offer.status == OfferStatus::PartiallyFilled)
+                && offer_is_current(&offer, now)
+            {
+                active_records.push(record);
+            }
+        }
+    }
+    Ok(active_records)
 }
 
 /// Micro-units per whole SAP/TEND, matching the display convention used
@@ -262,35 +327,69 @@ fn currency_has_real_settlement_rail(currency: &str) -> bool {
 /// Convert a whole-unit SAP/TEND amount (as stored in `Trade::total_price`)
 /// to the micro-unit integer `payments::send_payment` expects. Pure and
 /// unit-testable.
-fn whole_units_to_micro(whole_units: f64) -> u64 {
-    (whole_units * SAP_MICRO_UNITS_PER_UNIT).round() as u64
-}
-
-/// Attempt real settlement via the finance cluster's payment rail.
-///
-/// Only SAP and TEND can be settled this way -- they're the only
-/// currencies `payments::send_payment` accepts (`mycelix-finance/zomes/
-/// payments/coordinator/src/lib.rs`). P2P grid trades denominated in
-/// fiat-like currencies (USD, EUR, etc. -- used throughout this crate's
-/// existing tests and offer data) have no real settlement rail anywhere
-/// in this system; those fall back to the caller-supplied manual
-/// `payment_reference`, exactly as `settle_trade` behaved before this
-/// change.
-///
-/// Note: `send_payment` internally requires the CALLING agent's key to
-/// match `from_did` (`verify_caller_is_did`), so real settlement only
-/// succeeds when the buyer's own agent calls `settle_trade` -- this is
-/// the correct authorization boundary (a payer must authorize their own
-/// payment), not a bug to route around.
-///
-/// Returns `Some(payment_reference)` on a successful real payment, `None`
-/// if the currency isn't SAP/TEND or the finance cluster call fails --
-/// the caller falls back to the manual reference in either case.
-fn settle_via_finance(trade: &Trade) -> Option<String> {
-    if !currency_has_real_settlement_rail(&trade.currency) {
+fn whole_units_to_micro(whole_units: f64) -> Option<u64> {
+    if !whole_units.is_finite() || whole_units <= 0.0 {
         return None;
     }
-    let micro_amount = whole_units_to_micro(trade.total_price);
+    let micro_units = whole_units * SAP_MICRO_UNITS_PER_UNIT;
+    if !micro_units.is_finite() {
+        return None;
+    }
+    let rounded = micro_units.round();
+    // u64::MAX is not exactly representable as f64; its f64 conversion is
+    // 2^64. Reject that boundary before the saturating float-to-int cast.
+    if rounded < 1.0 || rounded >= u64::MAX as f64 {
+        return None;
+    }
+    Some(rounded as u64)
+}
+
+/// Gate paid settlements until the caller can validate the finance payment's
+/// signed receipt, use a deterministic rail idempotency key, and recover
+/// ambiguous outcomes. The finance zome returns a Payment record while storing
+/// its signed Receipt separately; a payment-record hash alone is not proof.
+fn settlement_gate_error(trade: &Trade) -> Option<&'static str> {
+    if !trade.amount_kwh.is_finite() || trade.amount_kwh <= 0.0 {
+        return Some("Trade amount must be finite and positive; settlement refused");
+    }
+    if !trade.price_per_kwh.is_finite()
+        || trade.price_per_kwh < 0.0
+        || !trade.total_price.is_finite()
+        || trade.total_price < 0.0
+    {
+        return Some("Trade price must be finite and non-negative; settlement refused");
+    }
+
+    let expected_total = trade.amount_kwh * trade.price_per_kwh;
+    let tolerance = expected_total.abs().max(1.0) * 1.0e-9;
+    if !expected_total.is_finite() || (trade.total_price - expected_total).abs() > tolerance {
+        return Some("Trade total price must equal amount multiplied by unit price");
+    }
+
+    if trade.total_price == 0.0 && trade.price_per_kwh == 0.0 {
+        return None;
+    }
+    Some(
+        "Paid trade settlement is disabled until authenticated receipt verification, rail idempotency, and indeterminate-outcome recovery are implemented (#4940)",
+    )
+}
+
+/// Legacy helper retained for the zero-price path and regression coverage.
+/// Defense in depth: it cannot initiate a positive-value payment even if a new
+/// caller is added before #4940's idempotent receipt protocol is ready.
+fn settle_via_finance(trade: &Trade) -> Result<Option<String>, &'static str> {
+    if let Some(message) = settlement_gate_error(trade) {
+        return Err(message);
+    }
+    // Explicitly priced-at-zero trades need no transfer on any currency rail.
+    if trade.total_price == 0.0 {
+        return Ok(Some(format!("no-payment-required:{}", trade.id)));
+    }
+    if !currency_has_real_settlement_rail(&trade.currency) {
+        return Ok(None);
+    }
+    let micro_amount = whole_units_to_micro(trade.total_price)
+        .ok_or("Trade amount is outside the representable payment range")?;
 
     #[derive(Serialize, Debug)]
     struct SendPaymentPayload {
@@ -319,8 +418,10 @@ fn settle_via_finance(trade: &Trade) -> Option<String> {
         Ok(ZomeCallResponse::Ok(result)) => result
             .decode::<Record>()
             .ok()
-            .map(|record| format!("payments:{}", record.action_address())),
-        _ => None,
+            .map(|record| Some(format!("payments:{}", record.action_address())))
+            .ok_or("Payment rail response did not contain a decodable Payment record"),
+        Ok(_) => Err("Payment rail did not confirm the payment"),
+        Err(_) => Err("Payment rail call failed; trade remains unsettled"),
     }
 }
 
@@ -330,24 +431,53 @@ pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Trade,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
     for record in query(filter)? {
         if let Some(trade) = record.entry().to_app_option::<Trade>().ok().flatten() {
-            if trade.id == input.trade_id {
-                let payment_reference =
-                    settle_via_finance(&trade).unwrap_or(input.payment_reference);
-                let settled_trade = Trade {
-                    settled: true,
-                    payment_reference: Some(payment_reference),
-                    ..trade
-                };
-                let action_hash = update_entry(
-                    record.action_address().clone(),
-                    &EntryTypes::Trade(settled_trade),
-                )?;
-                return get(action_hash, GetOptions::default())?
-                    .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())));
+            if trade.id != input.trade_id {
+                continue;
             }
+            let caller = agent_info()?.agent_initial_pubkey;
+            if !did_matches_agent(&trade.buyer_did, &caller) {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Only the trade buyer may settle this trade".into()
+                )));
+            }
+            // Retries are idempotent at the local record level: never submit a
+            // second payment after this trade already has a settled reference.
+            if trade.settled {
+                return Ok(record);
+            }
+            if let Some(message) = settlement_gate_error(&trade) {
+                return Err(wasm_error!(WasmErrorInner::Guest(message.into())));
+            }
+            let payment_reference = match settle_via_finance(&trade) {
+                Ok(Some(reference)) => reference,
+                Ok(None) => {
+                    // A caller-supplied string is not evidence that payment
+                    // occurred. External rails need authenticated receipt lookup
+                    // and validation before a trade can transition to settled.
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "External settlement cannot be marked complete from a caller-supplied reference (#4940)"
+                            .into()
+                    )));
+                }
+                Err(message) => {
+                    return Err(wasm_error!(WasmErrorInner::Guest(message.into())));
+                }
+            };
+            let settled_trade = Trade {
+                settled: true,
+                payment_reference: Some(payment_reference),
+                ..trade
+            };
+            let action_hash = update_entry(
+                record.action_address().clone(),
+                &EntryTypes::Trade(settled_trade),
+            )?;
+            return get(action_hash, GetOptions::default())?
+                .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())));
         }
     }
     Err(wasm_error!(WasmErrorInner::Guest("Trade not found".into())))
@@ -356,6 +486,9 @@ pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SettleTradeInput {
     pub trade_id: String,
+    /// Retained for request compatibility. A caller-supplied string is not
+    /// evidence of payment; positive-value settlement remains gated until the
+    /// referenced rail receipt can be authenticated and recovered idempotently.
     pub payment_reference: String,
 }
 
@@ -381,8 +514,7 @@ pub fn get_seller_offers(seller_did: String) -> ExternResult<Vec<Record>> {
         LinkQuery::try_new(anchor_hash(&seller_did)?, LinkTypes::SellerToOffers)?,
         GetStrategy::default(),
     )?;
-    // FIXED N+1: Use batch fetch instead of individual get() calls
-    links_to_records(links)
+    resolve_latest_unique_records(links_to_records(links)?)
 }
 
 /// Get buyer's trade history
@@ -394,8 +526,7 @@ pub fn get_buyer_trades(buyer_did: String) -> ExternResult<Vec<Record>> {
         LinkQuery::try_new(anchor_hash(&buyer_did)?, LinkTypes::BuyerToTrades)?,
         GetStrategy::default(),
     )?;
-    // FIXED N+1: Use batch fetch instead of individual get() calls
-    links_to_records(links)
+    resolve_latest_unique_records(links_to_records(links)?)
 }
 
 /// Get trades for an offer
@@ -407,8 +538,7 @@ pub fn get_offer_trades(offer_id: String) -> ExternResult<Vec<Record>> {
         LinkQuery::try_new(anchor_hash(&offer_id)?, LinkTypes::OfferToTrades)?,
         GetStrategy::default(),
     )?;
-    // FIXED N+1: Use batch fetch instead of individual get() calls
-    links_to_records(links)
+    resolve_latest_unique_records(links_to_records(links)?)
 }
 
 /// Wire-compatible mirror of `mycelix-identity`'s `trust_credential::TrustTier`
@@ -418,6 +548,7 @@ pub fn get_offer_trades(offer_id: String) -> ExternResult<Vec<Record>> {
 /// only the serde wire shape). Variant names and their absence of
 /// associated data must stay in sync with the real enum in
 /// `mycelix-identity/zomes/trust_credential/integrity/src/lib.rs`.
+#[cfg(test)]
 #[derive(Deserialize, Debug, Clone, Copy, PartialEq)]
 enum TrustTier {
     Observer,
@@ -433,9 +564,18 @@ enum TrustTier {
 /// locally, no cross-cluster call needed for this step. Returns `None` for
 /// any DID that isn't a real, well-formed mycelix DID (including this
 /// crate's own test-data placeholders like "did:mycelix:verifier1").
+#[cfg(test)]
 fn agent_pub_key_from_did(did: &str) -> Option<AgentPubKey> {
     let agent_str = did.strip_prefix("did:mycelix:")?;
     AgentPubKey::try_from(agent_str).ok()
+}
+
+/// Bind a claimed verifier DID to the actual agent making this zome call.
+/// Credential lookup alone is insufficient: otherwise any caller could name
+/// a trusted verifier and borrow that verifier's authorization.
+#[cfg(test)]
+fn verifier_did_matches_agent_key(verifier_did: &str, caller: &AgentPubKey) -> bool {
+    agent_pub_key_from_did(verifier_did).as_ref() == Some(caller)
 }
 
 /// Minimum trust tier required to verify energy-production records.
@@ -445,6 +585,7 @@ fn agent_pub_key_from_did(did: &str) -> Option<AgentPubKey> {
 /// marketplace is a comparable trust responsibility to that tier's
 /// existing bar, not a rubber stamp (Observer/Basic) but also not
 /// requiring full governance rights (Guardian).
+#[cfg(test)]
 fn tier_meets_verification_threshold(tier: TrustTier) -> bool {
     matches!(
         tier,
@@ -458,6 +599,7 @@ fn tier_meets_verification_threshold(tier: TrustTier) -> bool {
 /// into `mycelix-identity`'s actual `dna.yaml`, so it can't be called
 /// cross-cluster today). Returns `None` if the DID doesn't parse or the
 /// cross-cluster call fails.
+#[cfg(test)]
 fn verifier_trust_tier(verifier_did: &str) -> Option<TrustTier> {
     let agent = agent_pub_key_from_did(verifier_did)?;
     match call(
@@ -472,56 +614,15 @@ fn verifier_trust_tier(verifier_did: &str) -> Option<TrustTier> {
     }
 }
 
-/// Verify energy production (by verifier)
-///
-/// Previously an unauthenticated bool flip: any caller passing ANY
-/// `verifier_did` string could mark ANY production record verified,
-/// regardless of whether that DID belonged to a real, trusted identity.
-/// Now requires the claimed verifier to hold a real `trust_credential` at
-/// or above `tier_meets_verification_threshold` -- trust-weighted
-/// verification, not simple existence, per this repo's own DHT scalability
-/// rules (see feedback_dht_scalability_traps.md's "Translation Verification"
-/// section).
+/// Production verification is intentionally disabled until a signed,
+/// append-only ProductionVerification attestation is linked to the exact
+/// production action hash. Mutating EnergyProduction is forbidden by the
+/// integrity zome, so a boolean-flip implementation cannot be a valid verifier.
 #[hdk_extern]
-pub fn verify_production(input: VerifyProductionInput) -> ExternResult<Record> {
-    let trust_tier = verifier_trust_tier(&input.verifier_did);
-    if !trust_tier.is_some_and(tier_meets_verification_threshold) {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Verifier {} does not hold a trust credential meeting the tier required \
-             to verify production records (tier: {:?})",
-            input.verifier_did, trust_tier
-        ))));
-    }
-
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::EnergyProduction,
-        )?))
-        .include_entries(true);
-
-    for record in query(filter)? {
-        if let Some(production) = record
-            .entry()
-            .to_app_option::<EnergyProduction>()
-            .ok()
-            .flatten()
-        {
-            if production.id == input.production_id {
-                let verified = EnergyProduction {
-                    verified: true,
-                    ..production
-                };
-                let action_hash = update_entry(
-                    record.action_address().clone(),
-                    &EntryTypes::EnergyProduction(verified),
-                )?;
-                return get(action_hash, GetOptions::default())?
-                    .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())));
-            }
-        }
-    }
+pub fn verify_production(_input: VerifyProductionInput) -> ExternResult<Record> {
     Err(wasm_error!(WasmErrorInner::Guest(
-        "Production record not found".into()
+        "Production verification is disabled until append-only attestations bound to exact production action hashes are implemented (#4944)"
+            .into()
     )))
 }
 
@@ -541,6 +642,7 @@ pub struct VerifyProductionInput {
 /// requiring an exact field-for-field mirror (map-based formats tolerate
 /// unknown keys; this would NOT be safe for a positional/array-based format).
 #[derive(Debug, Serialize, Deserialize, SerializedBytes)]
+#[cfg(test)]
 struct EnergyProjectTypeOnly {
     project_type: ProjectType,
 }
@@ -549,6 +651,7 @@ struct EnergyProjectTypeOnly {
 /// names and shapes (all fieldless except `Other`) must stay in sync with
 /// `mycelix-energy/zomes/projects/integrity/src/lib.rs`.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[cfg(test)]
 enum ProjectType {
     Solar,
     Wind,
@@ -568,6 +671,7 @@ enum ProjectType {
 /// generation. Hydrogen and Other are excluded because they don't carry an
 /// unambiguous displaced-fossil-fuel story (grey/blue/green hydrogen have
 /// very different real emissions profiles; "Other" is arbitrary).
+#[cfg(test)]
 fn project_type_is_renewable_eligible(project_type: &ProjectType) -> bool {
     matches!(
         project_type,
@@ -588,10 +692,12 @@ fn project_type_is_renewable_eligible(project_type: &ProjectType) -> bool {
 /// (e.g. eGRID subregion data, already vendored as a dataset in
 /// sol-atlas/terra-atlas-mvp/data/egrid2022.xlsx per this repo's own reuse
 /// map for this plan).
+#[cfg(test)]
 const ILLUSTRATIVE_GRID_EMISSION_FACTOR_KG_CO2_PER_KWH: f64 = 0.4;
 
 /// Estimated tonnes of CO2e avoided by `amount_kwh` of verified renewable
 /// generation, using `ILLUSTRATIVE_GRID_EMISSION_FACTOR_KG_CO2_PER_KWH`.
+#[cfg(test)]
 fn kwh_to_tonnes_co2e_avoided(amount_kwh: f64) -> f64 {
     amount_kwh * ILLUSTRATIVE_GRID_EMISSION_FACTOR_KG_CO2_PER_KWH / 1000.0
 }
@@ -601,136 +707,29 @@ fn kwh_to_tonnes_co2e_avoided(amount_kwh: f64) -> f64 {
 /// exact calendar/leap-year arithmetic -- adequate for a REC-style vintage
 /// label (which conventionally tolerates being off by one near a Dec
 /// 31/Jan 1 boundary) but NOT a general-purpose date library replacement.
+#[cfg(test)]
 fn approximate_vintage_year(timestamp: Timestamp) -> u32 {
     const MICROS_PER_YEAR: f64 = 365.25 * 24.0 * 3600.0 * 1_000_000.0;
     let years_since_epoch = timestamp.as_micros() as f64 / MICROS_PER_YEAR;
     (1970.0 + years_since_epoch).floor() as u32
 }
 
-/// Issue a renewable-energy carbon credit for a verified `EnergyProduction`
-/// record.
-///
-/// Deliberately a separate extern from `verify_production` rather than an
-/// automatic side effect of verification: crediting is an economically
-/// consequential, auditable action that callers should trigger explicitly,
-/// not something that happens invisibly the moment a verifier signs off.
-///
-/// Requires: the production record is already verified (via the
-/// credentialed path in `verify_production`), and its linked project's type
-/// is renewable-eligible (`project_type_is_renewable_eligible`) -- checked
-/// via a real local cross-zome call to `projects::get_project`, not
-/// assumed. Issues the credit via a real cross-cluster call to
-/// `climate::carbon::create_carbon_credit`.
+/// Carbon-credit issuance is deliberately fail-closed until the attestation
+/// scheme exists. A legacy `verified` boolean is not sufficient evidence of
+/// meter-backed production, even when reading records authored under an older
+/// integrity schema.
 #[hdk_extern]
 pub fn issue_renewable_carbon_credit(
-    input: IssueCarbonCreditInput,
+    _input: IssueCarbonCreditInput,
 ) -> ExternResult<CarbonCreditIssuance> {
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::EnergyProduction,
-        )?))
-        .include_entries(true);
-
-    let production = query(filter)?
-        .into_iter()
-        .find_map(|record| {
-            record
-                .entry()
-                .to_app_option::<EnergyProduction>()
-                .ok()
-                .flatten()
-                .filter(|p| p.id == input.production_id)
-        })
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Production record not found".into())))?;
-
-    if !production.verified {
-        return Ok(CarbonCreditIssuance {
-            issued: false,
-            reason: Some("Production record is not verified".into()),
-            credit_id: None,
-        });
-    }
-
-    let project_record = match call(
-        CallTargetCell::Local,
-        ZomeName::from("projects"),
-        FunctionName::from("get_project"),
-        None,
-        production.project_id.clone(),
-    ) {
-        Ok(ZomeCallResponse::Ok(result)) => result.decode::<Option<Record>>().ok().flatten(),
-        _ => None,
-    };
-    let project_type = project_record.and_then(|record| {
-        record
-            .entry()
-            .to_app_option::<EnergyProjectTypeOnly>()
-            .ok()
-            .flatten()
-            .map(|p| p.project_type)
-    });
-    let Some(project_type) = project_type else {
-        return Ok(CarbonCreditIssuance {
-            issued: false,
-            reason: Some(format!(
-                "Could not resolve project {} to determine renewable eligibility",
-                production.project_id
-            )),
-            credit_id: None,
-        });
-    };
-    if !project_type_is_renewable_eligible(&project_type) {
-        return Ok(CarbonCreditIssuance {
-            issued: false,
-            reason: Some(format!(
-                "Project type {project_type:?} is not renewable-eligible for carbon-credit issuance"
-            )),
-            credit_id: None,
-        });
-    }
-
-    let tonnes_co2e = kwh_to_tonnes_co2e_avoided(production.amount_kwh);
-    let vintage_year = approximate_vintage_year(production.timestamp);
-    let credit_id = format!("credit:{}:{}", production.id, sys_time()?.as_micros());
-
-    #[derive(Serialize, Debug)]
-    struct CreateCreditPayload {
-        id: String,
-        project_id: String,
-        vintage_year: u32,
-        tonnes_co2e: f64,
-        owner_did: String,
-    }
-
-    match call(
-        CallTargetCell::OtherRole("climate".into()),
-        ZomeName::from("carbon"),
-        FunctionName::from("create_carbon_credit"),
-        None,
-        CreateCreditPayload {
-            id: credit_id.clone(),
-            project_id: production.project_id.clone(),
-            vintage_year,
-            tonnes_co2e,
-            owner_did: production.producer_did.clone(),
-        },
-    ) {
-        Ok(ZomeCallResponse::Ok(_)) => Ok(CarbonCreditIssuance {
-            issued: true,
-            reason: None,
-            credit_id: Some(credit_id),
-        }),
-        Ok(other) => Ok(CarbonCreditIssuance {
-            issued: false,
-            reason: Some(format!("Climate cluster returned: {other:?}")),
-            credit_id: None,
-        }),
-        Err(e) => Ok(CarbonCreditIssuance {
-            issued: false,
-            reason: Some(format!("Climate cluster unreachable: {e:?}")),
-            credit_id: None,
-        }),
-    }
+    Ok(CarbonCreditIssuance {
+        issued: false,
+        reason: Some(
+            "Carbon-credit issuance is disabled until append-only ProductionVerification attestations bound to exact production action hashes are implemented (#4944)"
+                .into(),
+        ),
+        credit_id: None,
+    })
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -752,7 +751,8 @@ pub fn cancel_offer(input: CancelOfferInput) -> ExternResult<Record> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::TradeOffer,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     for record in query(filter)? {
         if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
@@ -800,7 +800,8 @@ pub fn get_trade(trade_id: String) -> ExternResult<Option<Record>> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Trade,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     for record in query(filter)? {
         if let Some(trade) = record.entry().to_app_option::<Trade>().ok().flatten() {
@@ -819,7 +820,8 @@ pub fn get_offer(offer_id: String) -> ExternResult<Option<Record>> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::TradeOffer,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     for record in query(filter)? {
         if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
@@ -838,17 +840,32 @@ pub fn get_unsettled_trades(_: ()) -> ExternResult<Vec<Record>> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Trade,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     let mut trades = Vec::new();
+    let mut seen_trade_ids = HashSet::new();
     for record in query(filter)? {
         if let Some(trade) = record.entry().to_app_option::<Trade>().ok().flatten() {
+            // The descending source-chain query returns the newest version first.
+            // Process each logical trade exactly once, so a settled update doesn't
+            // leave its original unsettled create record in this result.
+            if !seen_trade_ids.insert(trade.id.clone()) {
+                continue;
+            }
             if !trade.settled {
                 trades.push(record);
             }
         }
     }
     Ok(trades)
+}
+
+/// The legacy `EnergyProduction.verified` boolean is not an attestation.
+/// Keep trusted verified volume at zero until #4944 defines and verifies
+/// append-only attestations linked to exact production action hashes.
+fn verified_kwh_until_attestations_exist(_production: &EnergyProduction) -> f64 {
+    0.0
 }
 
 /// Get total production for a producer
@@ -873,9 +890,7 @@ pub fn get_producer_total_production(producer_did: String) -> ExternResult<Produ
         {
             if production.producer_did == producer_did {
                 total_kwh += production.amount_kwh;
-                if production.verified {
-                    verified_kwh += production.amount_kwh;
-                }
+                verified_kwh += verified_kwh_until_attestations_exist(&production);
                 record_count += 1;
             }
         }
@@ -893,6 +908,7 @@ pub fn get_producer_total_production(producer_did: String) -> ExternResult<Produ
 pub struct ProducerStats {
     pub producer_did: String,
     pub total_kwh: f64,
+    /// Stays zero until verification is backed by an append-only attestation (#4944).
     pub verified_kwh: f64,
     pub record_count: u32,
 }
@@ -901,6 +917,8 @@ pub struct ProducerStats {
 ///
 /// Normalizes verified energy production: 30+ verified records = saturation.
 /// Quality = verified_kwh / total_kwh (higher = more trustworthy production).
+/// Until #4944's attestation protocol exists, the verified-quality component is
+/// intentionally zero: the legacy boolean is not authoritative verification.
 ///
 /// Used by the 8D Sovereign Profile (D1: Thermodynamic Yield).
 #[hdk_extern]
@@ -925,7 +943,8 @@ pub fn update_offer_price(input: UpdateOfferPriceInput) -> ExternResult<Record> 
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::TradeOffer,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     for record in query(filter)? {
         if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
@@ -976,13 +995,18 @@ pub fn get_grid_summary(_: ()) -> ExternResult<GridSummary> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::TradeOffer,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     let mut active_offers = 0;
     let mut total_kwh_available = 0.0;
+    let mut seen_offer_ids = HashSet::new();
 
     for record in query(offer_filter)? {
         if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
+            if !seen_offer_ids.insert(offer.id.clone()) {
+                continue;
+            }
             if offer.status == OfferStatus::Active || offer.status == OfferStatus::PartiallyFilled {
                 active_offers += 1;
                 total_kwh_available += offer.amount_kwh;
@@ -994,14 +1018,19 @@ pub fn get_grid_summary(_: ()) -> ExternResult<GridSummary> {
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Trade,
         )?))
-        .include_entries(true);
+        .include_entries(true)
+        .descending();
 
     let mut total_trades = 0;
     let mut total_kwh_traded = 0.0;
     let mut total_value_traded = 0.0;
+    let mut seen_trade_ids = HashSet::new();
 
     for record in query(trade_filter)? {
         if let Some(trade) = record.entry().to_app_option::<Trade>().ok().flatten() {
+            if !seen_trade_ids.insert(trade.id.clone()) {
+                continue;
+            }
             total_trades += 1;
             total_kwh_traded += trade.amount_kwh;
             total_value_traded += trade.total_price;
@@ -1313,6 +1342,17 @@ mod tests {
     }
 
     #[test]
+    fn buyer_did_must_match_exact_author_key() {
+        let author = AgentPubKey::from_raw_32(vec![7u8; 32]);
+        let other = AgentPubKey::from_raw_32(vec![8u8; 32]);
+
+        assert!(did_matches_agent(&format!("did:mycelix:{author}"), &author));
+        assert!(!did_matches_agent(&format!("did:mycelix:{other}"), &author));
+        assert!(!did_matches_agent("did:mycelix:not-a-public-key", &author));
+        assert!(!did_matches_agent(&format!("did:test:{author}"), &author));
+    }
+
+    #[test]
     fn test_execute_trade_input_valid() {
         let input = valid_execute_trade_input();
         assert!(!input.offer_id.is_empty());
@@ -1453,6 +1493,18 @@ mod tests {
     }
 
     #[test]
+    fn test_verifier_did_must_match_the_calling_agent() {
+        let caller = AgentPubKey::from_raw_32(vec![7u8; 32]);
+        let other_agent = AgentPubKey::from_raw_32(vec![8u8; 32]);
+        let caller_did = format!("did:mycelix:{caller}");
+        let other_agent_did = format!("did:mycelix:{other_agent}");
+
+        assert!(verifier_did_matches_agent_key(&caller_did, &caller));
+        assert!(!verifier_did_matches_agent_key(&other_agent_did, &caller));
+        assert!(!verifier_did_matches_agent_key("did:mycelix:verifier1", &caller));
+    }
+
+    #[test]
     fn test_agent_pub_key_from_did_rejects_missing_prefix() {
         assert_eq!(agent_pub_key_from_did("mycelix:verifier1"), None);
     }
@@ -1563,6 +1615,21 @@ mod tests {
         };
         assert!(stats.producer_did.starts_with("did:"));
         assert!(stats.total_kwh >= stats.verified_kwh);
+    }
+
+    #[test]
+    fn legacy_verified_boolean_does_not_count_as_attested_energy() {
+        let production = EnergyProduction {
+            id: "legacy-verified-flag".into(),
+            producer_did: "did:test:producer".into(),
+            project_id: "project-test".into(),
+            amount_kwh: 123.0,
+            timestamp: Timestamp::from_micros(1_700_000_000_000_000),
+            period_hours: 24.0,
+            meter_reading: Some(123.0),
+            verified: true,
+        };
+        assert_eq!(verified_kwh_until_attestations_exist(&production), 0.0);
     }
 
     #[test]
@@ -1743,5 +1810,189 @@ mod tests {
             ..valid_execute_trade_input()
         };
         assert!(!input.offer_id.is_empty());
+    }
+}
+
+
+#[cfg(test)]
+mod offer_window_regression_tests {
+    use super::*;
+
+    fn test_offer() -> TradeOffer {
+        let start = Timestamp::from_micros(1_700_000_000_000_000);
+        TradeOffer {
+            id: "offer-window-test".into(),
+            seller_did: "did:test:seller".into(),
+            project_id: None,
+            amount_kwh: 5.0,
+            price_per_kwh: 0.1,
+            currency: "USD".into(),
+            available_from: start,
+            available_until: Timestamp::from_micros(1_700_000_360_000_000),
+            status: OfferStatus::Active,
+            created: start,
+        }
+    }
+
+    #[test]
+    fn offer_window_includes_start_and_end_boundaries_only() {
+        let offer = test_offer();
+        assert!(!offer_is_current(&offer, Timestamp::from_micros(1_699_999_999_999_999)));
+        assert!(offer_is_current(&offer, offer.available_from));
+        assert!(offer_is_current(&offer, offer.available_until));
+        assert!(!offer_is_current(&offer, Timestamp::from_micros(1_700_000_360_000_001)));
+    }
+}
+
+
+#[cfg(test)]
+mod settlement_amount_regression_tests {
+    use super::*;
+
+    #[test]
+    fn zero_value_trades_get_an_explicit_no_payment_receipt() {
+        let trade = Trade {
+            id: "free-energy-trade".into(),
+            offer_id: "offer-free".into(),
+            seller_did: "did:test:seller".into(),
+            buyer_did: "did:test:buyer".into(),
+            amount_kwh: 1.0,
+            price_per_kwh: 0.0,
+            total_price: 0.0,
+            currency: "SAP".into(),
+            executed: Timestamp::from_micros(1_700_000_000_000_000),
+            settled: false,
+            payment_reference: None,
+        };
+        assert_eq!(
+            settle_via_finance(&trade),
+            Ok(Some("no-payment-required:free-energy-trade".to_string()))
+        );
+    }
+
+    fn settlement_test_trade(unit_price: f64, total_price: f64) -> Trade {
+        Trade {
+            id: "settlement-gate-test".into(),
+            offer_id: "offer-settlement-gate-test".into(),
+            seller_did: "did:test:seller".into(),
+            buyer_did: "did:test:buyer".into(),
+            amount_kwh: 1.0,
+            price_per_kwh: unit_price,
+            total_price,
+            currency: "USD".into(),
+            executed: Timestamp::from_micros(1_700_000_000_000_000),
+            settled: false,
+            payment_reference: None,
+        }
+    }
+
+    #[test]
+    fn paid_finance_settlement_fails_before_any_payment_call() {
+        let mut sap_trade = settlement_test_trade(0.12, 0.12);
+        sap_trade.currency = "SAP".into();
+        assert_eq!(
+            settle_via_finance(&sap_trade),
+            Err(
+                "Paid trade settlement is disabled until authenticated receipt verification, rail idempotency, and indeterminate-outcome recovery are implemented (#4940)"
+            )
+        );
+
+        let external_trade = settlement_test_trade(0.12, 0.12);
+        assert_eq!(
+            settle_via_finance(&external_trade),
+            Err(
+                "Paid trade settlement is disabled until authenticated receipt verification, rail idempotency, and indeterminate-outcome recovery are implemented (#4940)"
+            )
+        );
+    }
+
+    #[test]
+    fn only_genuinely_free_trades_pass_the_settlement_gate() {
+        assert_eq!(settlement_gate_error(&settlement_test_trade(0.0, 0.0)), None);
+        assert_eq!(
+            settlement_gate_error(&settlement_test_trade(0.12, 0.12)),
+            Some(
+                "Paid trade settlement is disabled until authenticated receipt verification, rail idempotency, and indeterminate-outcome recovery are implemented (#4940)"
+            )
+        );
+        assert_eq!(
+            settlement_gate_error(&settlement_test_trade(0.12, 0.0)),
+            Some("Trade total price must equal amount multiplied by unit price")
+        );
+        assert_eq!(
+            settlement_gate_error(&settlement_test_trade(f64::NAN, f64::NAN)),
+            Some("Trade price must be finite and non-negative; settlement refused")
+        );
+        assert_eq!(
+            settlement_gate_error(&settlement_test_trade(-0.1, -0.1)),
+            Some("Trade price must be finite and non-negative; settlement refused")
+        );
+
+        let mut invalid_amount = settlement_test_trade(0.0, 0.0);
+        invalid_amount.amount_kwh = f64::NAN;
+        assert_eq!(
+            settlement_gate_error(&invalid_amount),
+            Some("Trade amount must be finite and positive; settlement refused")
+        );
+    }
+
+    #[test]
+    fn converts_representable_positive_whole_unit_amounts() {
+        assert_eq!(whole_units_to_micro(1.25), Some(1_250_000));
+        assert_eq!(whole_units_to_micro(0.000_001), Some(1));
+    }
+
+    #[test]
+    fn rejects_zero_negative_and_sub_micro_amounts() {
+        assert_eq!(whole_units_to_micro(0.0), None);
+        assert_eq!(whole_units_to_micro(-1.0), None);
+        assert_eq!(whole_units_to_micro(0.000_000_1), None);
+    }
+
+    #[test]
+    fn rejects_non_finite_and_overflowing_amounts() {
+        assert_eq!(whole_units_to_micro(f64::NAN), None);
+        assert_eq!(whole_units_to_micro(f64::INFINITY), None);
+        assert_eq!(whole_units_to_micro(f64::MAX), None);
+        assert_eq!(whole_units_to_micro((u64::MAX as f64) / SAP_MICRO_UNITS_PER_UNIT), None);
+    }
+}
+
+#[cfg(test)]
+mod checked_remaining_offer_regression_tests {
+    use super::*;
+
+    #[test]
+    fn computes_valid_partial_and_full_fill_residuals() {
+        assert_eq!(checked_remaining_offer_amount(5.0, 2.0), Ok(3.0));
+        assert_eq!(checked_remaining_offer_amount(5.0, 5.0), Ok(0.0));
+    }
+
+    #[test]
+    fn rejects_non_representable_noop_fills_before_trade_creation() {
+        assert_eq!(
+            checked_remaining_offer_amount(5.0, f64::MIN_POSITIVE),
+            Err("Trade amount is too small to reduce offer quantity at this precision")
+        );
+        assert_eq!(
+            checked_remaining_offer_amount(f64::MAX, 1.0),
+            Err("Trade amount is too small to reduce offer quantity at this precision")
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_or_excessive_fill_amounts() {
+        assert_eq!(
+            checked_remaining_offer_amount(5.0, f64::NAN),
+            Err("Trade amount must be finite and positive")
+        );
+        assert_eq!(
+            checked_remaining_offer_amount(5.0, 6.0),
+            Err("Trade amount exceeds offer's remaining quantity")
+        );
+        assert_eq!(
+            checked_remaining_offer_amount(0.0, 1.0),
+            Err("Offer quantity must be finite and positive")
+        );
     }
 }

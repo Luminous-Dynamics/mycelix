@@ -184,6 +184,32 @@ pub struct ExecuteTradeInput {
     pub amount_kwh: f64,
 }
 
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct VerifyProductionInput {
+    pub production_id: String,
+    pub verifier_did: String,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct IssueCarbonCreditInput {
+    pub production_id: String,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct CarbonCreditIssuance {
+    pub issued: bool,
+    pub reason: Option<String>,
+    pub credit_id: Option<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ProducerStats {
+    pub producer_did: String,
+    pub total_kwh: f64,
+    pub verified_kwh: f64,
+    pub record_count: u32,
+}
+
 // --- investments types ---
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -385,6 +411,12 @@ fn dna_path() -> PathBuf {
         .join("mycelix_energy.dna")
 }
 
+/// Canonical identity string expected by the grid integrity zome for this
+/// Sweettest cell. Avoid placeholder DIDs: the author key is part of the rule.
+fn did_for_cell(cell: &SweetCell) -> String {
+    format!("did:mycelix:{}", cell.agent_pubkey())
+}
+
 async fn load_dna() -> DnaFile {
     SweetDnaFile::from_bundle(&dna_path())
         .await
@@ -532,10 +564,12 @@ mod grid_tests {
         let cell = app.cells()[0].clone();
 
         let now = Timestamp::now();
+        let later = Timestamp::from_micros(now.as_micros() + 86_400_000_000);
+        let producer_did = did_for_cell(&cell);
 
         // Record production
         let prod_input = RecordProductionInput {
-            producer_did: "did:mycelix:producer".to_string(),
+            producer_did: producer_did.clone(),
             project_id: "proj:solar-1".to_string(),
             amount_kwh: 5000.0,
             period_hours: 24.0,
@@ -551,13 +585,13 @@ mod grid_tests {
 
         // Create trade offer
         let offer_input = CreateOfferInput {
-            seller_did: "did:mycelix:producer".to_string(),
+            seller_did: producer_did,
             project_id: Some("proj:solar-1".to_string()),
             amount_kwh: 2000.0,
             price_per_kwh: 0.08,
             currency: "USD".to_string(),
             available_from: now,
-            available_until: now,
+            available_until: later,
         };
 
         let offer_record: Record = conductor
@@ -863,7 +897,7 @@ mod lifecycle_tests {
 
         // 3. Record production
         let prod_input = RecordProductionInput {
-            producer_did: "did:mycelix:lc-developer".to_string(),
+            producer_did: did_for_cell(&cell),
             project_id: project.id.clone(),
             amount_kwh: 10000.0,
             period_hours: 24.0,
@@ -986,7 +1020,7 @@ mod cross_zome_tests {
 
         // Record production
         let prod_input = RecordProductionInput {
-            producer_did: "did:mycelix:prod-ref-dev".to_string(),
+            producer_did: did_for_cell(&cell),
             project_id: project.id.clone(),
             amount_kwh: 5000.0,
             period_hours: 12.0,
@@ -1093,21 +1127,109 @@ mod cross_zome_tests {
         assert_eq!(summary.unique_projects, 2, "Should span 2 projects");
     }
 
-    /// Trade offer lifecycle: create → partial fill → query
+    /// Production records are immutable and carbon credits must not trust the
+    /// legacy `verified` bool. Until #4944's append-only attestations exist,
+    /// verification is unavailable, no credit is issued, and verified totals
+    /// remain zero even if a legacy entry carries a true flag.
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
-    async fn test_trade_offer_partial_fill() {
+    async fn test_production_verification_and_credit_issuance_fail_closed() {
         let mut conductor = SweetConductor::from_standard_config().await;
         let dna = load_dna().await;
         let app = conductor.setup_app("test-app", &[dna]).await.unwrap();
         let cell = app.cells()[0].clone();
 
-        // Create offer
-        let now = Timestamp::now();
-        let later = Timestamp::from_micros(now.as_micros() + 86_400_000_000); // +24h
+        let producer_did = did_for_cell(&cell);
+        let production_input = RecordProductionInput {
+            producer_did: producer_did.clone(),
+            project_id: "project:attestation-gate".to_string(),
+            amount_kwh: 250.0,
+            period_hours: 5.0,
+            meter_reading: Some(250.0),
+        };
+        let production_record: Record = conductor
+            .call(&cell.zome("grid"), "record_production", production_input)
+            .await;
+        let production: EnergyProduction =
+            decode_entry(&production_record).expect("decode production record");
+        assert!(!production.verified);
 
+        let verify_input = VerifyProductionInput {
+            production_id: production.id.clone(),
+            verifier_did: producer_did.clone(),
+        };
+        let verify_result: Result<Record, _> = conductor
+            .call_fallible(&cell.zome("grid"), "verify_production", verify_input)
+            .await;
+        assert!(
+            verify_result.is_err(),
+            "verification must fail closed until signed append-only attestations are supported"
+        );
+
+        let credit_input = IssueCarbonCreditInput {
+            production_id: production.id.clone(),
+        };
+        let credit: CarbonCreditIssuance = conductor
+            .call(
+                &cell.zome("grid"),
+                "issue_renewable_carbon_credit",
+                credit_input,
+            )
+            .await;
+        assert!(!credit.issued, "no carbon credit may be issued from a bool flag");
+        assert!(credit.credit_id.is_none());
+        assert!(
+            credit
+                .reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("#4944")),
+            "the disabled result must explain the attestation prerequisite"
+        );
+
+        let stored_production: Vec<Record> = conductor
+            .call(
+                &cell.zome("grid"),
+                "get_producer_production",
+                producer_did.clone(),
+            )
+            .await;
+        let still_unverified = stored_production.iter().filter_map(decode_entry::<EnergyProduction>)
+            .any(|entry| entry.id == production.id && !entry.verified);
+        assert!(
+            still_unverified,
+            "failed verification must not mutate the production record"
+        );
+
+        let stats: ProducerStats = conductor
+            .call(
+                &cell.zome("grid"),
+                "get_producer_total_production",
+                producer_did,
+            )
+            .await;
+        assert_eq!(stats.total_kwh, 250.0);
+        assert_eq!(
+            stats.verified_kwh, 0.0,
+            "the legacy verified boolean must not contribute to trusted stats"
+        );
+    }
+
+    /// Integrity binds the buyer DID to the action author. Until the
+    /// append-only cross-agent offer/fill protocol tracked in mycelix#4940 is
+    /// implemented, a same-agent test must not pretend a placeholder buyer DID
+    /// proves a second participant's identity.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore]
+    async fn test_execute_trade_fails_closed_without_reservation_protocol() {
+        let mut conductor = SweetConductor::from_standard_config().await;
+        let dna = load_dna().await;
+        let app = conductor.setup_app("test-app", &[dna]).await.unwrap();
+        let cell = app.cells()[0].clone();
+
+        let now = Timestamp::now();
+        let later = Timestamp::from_micros(now.as_micros() + 86_400_000_000);
         let offer_input = CreateOfferInput {
-            seller_did: "did:mycelix:seller".to_string(),
+            seller_did: did_for_cell(&cell),
             project_id: None,
             amount_kwh: 1000.0,
             price_per_kwh: 0.12,
@@ -1115,31 +1237,46 @@ mod cross_zome_tests {
             available_from: now,
             available_until: later,
         };
-
         let offer_record: Record = conductor
             .call(&cell.zome("grid"), "create_trade_offer", offer_input)
             .await;
         let offer: TradeOffer = decode_entry(&offer_record).expect("decode offer");
-        assert!(matches!(offer.status, OfferStatus::Active));
 
-        // Partial fill (buy 400 of 1000 kWh)
         let trade_input = ExecuteTradeInput {
             offer_id: offer.id.clone(),
-            buyer_did: "did:mycelix:buyer-1".to_string(),
+            buyer_did: "did:mycelix:forged-buyer".to_string(),
             amount_kwh: 400.0,
         };
-
-        let _: Record = conductor
-            .call(&cell.zome("grid"), "execute_trade", trade_input)
-            .await;
-
-        // Query active offers — should still show (partially filled)
-        let active: Vec<Record> = conductor
-            .call(&cell.zome("grid"), "get_active_offers", ())
+        let result: Result<Record, _> = conductor
+            .call_fallible(&cell.zome("grid"), "execute_trade", trade_input)
             .await;
         assert!(
-            !active.is_empty(),
-            "Partially filled offer should still be listed"
+            result.is_err(),
+            "a caller must not transact under a buyer DID that is not its agent key"
+        );
+
+        // Even a caller whose buyer DID matches its real key must not fall
+        // through to the legacy mutable-offer implementation. No trade is
+        // committed until the append-only reservation protocol is implemented.
+        let valid_buyer_input = ExecuteTradeInput {
+            offer_id: offer.id,
+            buyer_did: did_for_cell(&cell),
+            amount_kwh: 400.0,
+        };
+        let valid_buyer_result: Result<Record, _> = conductor
+            .call_fallible(&cell.zome("grid"), "execute_trade", valid_buyer_input)
+            .await;
+        assert!(
+            valid_buyer_result.is_err(),
+            "valid caller identity must still fail closed while reservation/fill protocol is absent"
+        );
+
+        let unsettled: Vec<Record> = conductor
+            .call(&cell.zome("grid"), "get_unsettled_trades", ())
+            .await;
+        assert!(
+            unsettled.is_empty(),
+            "failed trade attempts must not append a trade record"
         );
     }
 
@@ -1161,7 +1298,7 @@ mod cross_zome_tests {
         let later = Timestamp::from_micros(now.as_micros() + 86_400_000_000);
 
         let offer_input = CreateOfferInput {
-            seller_did: "did:mycelix:shard-seller".to_string(),
+            seller_did: did_for_cell(&cell),
             project_id: None,
             amount_kwh: 500.0,
             price_per_kwh: 0.10,
@@ -1188,24 +1325,21 @@ mod cross_zome_tests {
         );
     }
 
-    /// `execute_trade` must reject a trade against an offer whose
-    /// `available_until` has already passed, even though the stored
-    /// `OfferStatus` still reads `Active` (expiry is enforced on read, not
-    /// by mutating stored offers -- see `offer_not_expired` in grid coordinator).
+    /// Expired offers are omitted from active-offer discovery even while the
+    /// immutable creation record's stored status still says Active. This test
+    /// covers read-side expiry only; execute_trade is gated until #4940 lands.
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
-    async fn test_execute_trade_rejects_expired_offer() {
+    async fn test_expired_offer_is_not_discoverable() {
         let mut conductor = SweetConductor::from_standard_config().await;
         let dna = load_dna().await;
         let app = conductor.setup_app("test-app", &[dna]).await.unwrap();
         let cell = app.cells()[0].clone();
 
         let now = Timestamp::now();
-        // Expired a day ago.
         let expired_at = Timestamp::from_micros(now.as_micros() - 86_400_000_000);
-
         let offer_input = CreateOfferInput {
-            seller_did: "did:mycelix:expired-seller".to_string(),
+            seller_did: did_for_cell(&cell),
             project_id: None,
             amount_kwh: 300.0,
             price_per_kwh: 0.09,
@@ -1218,34 +1352,17 @@ mod cross_zome_tests {
             .await;
         let offer: TradeOffer = decode_entry(&offer_record).expect("decode offer");
 
-        // Read side: an expired offer must not appear as active even though
-        // its stored status is still `Active`.
         let active: Vec<Record> = conductor
             .call(&cell.zome("grid"), "get_active_offers", ())
             .await;
         let still_listed = active.iter().any(|r| {
             decode_entry::<TradeOffer>(r)
-                .map(|o| o.id == offer.id)
+                .map(|candidate| candidate.id == offer.id)
                 .unwrap_or(false)
         });
         assert!(
             !still_listed,
-            "Expired offer must be excluded from active offers"
-        );
-
-        // Write side: attempting to trade against it must fail, not silently
-        // execute against a stale price/quantity.
-        let trade_input = ExecuteTradeInput {
-            offer_id: offer.id.clone(),
-            buyer_did: "did:mycelix:late-buyer".to_string(),
-            amount_kwh: 100.0,
-        };
-        let result: Result<Record, _> = conductor
-            .call_fallible(&cell.zome("grid"), "execute_trade", trade_input)
-            .await;
-        assert!(
-            result.is_err(),
-            "execute_trade must reject a trade against an expired offer"
+            "expired offer must be excluded from active-offer discovery"
         );
     }
 }
