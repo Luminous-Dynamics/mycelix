@@ -29,6 +29,9 @@ PRODUCT_UNIT_POLICY = {
     "urn:mycelix:product-profile:cheese-v1": {"KGM"},
     "urn:mycelix:product-profile:strawberries-v1": {"KGM"},
 }
+# H0-only quantity precision policy. This constrains fixture semantics, not the
+# full Rec. 20 vocabulary or every product's commercial packaging policy.
+H0_MAX_FRACTIONAL_DIGITS = {"C62": 0, "DZN": 0, "KGM": 3, "LTR": 3}
 
 
 def git_blob_sha1(path: Path) -> str:
@@ -93,6 +96,15 @@ def main() -> int:
                     continue
                 code = quantity.get("unitCode")
                 profile_ref = entry.get("productProfileRef")
+                quantity_value = quantity.get("value")
+                max_scale = H0_MAX_FRACTIONAL_DIGITS.get(code)
+                if isinstance(quantity_value, str) and "." in quantity_value and max_scale is not None:
+                    scale = len(quantity_value.split(".", 1)[1])
+                    if scale > max_scale:
+                        errors.append(
+                            f"{collection_name}: unit {code!r} permits at most "
+                            f"{max_scale} fractional digits in the H0 fixture policy"
+                        )
                 if code not in REC20_FIXTURE_CODES:
                     errors.append(f"{collection_name}: unit code {code!r} is outside the pinned H0 fixture subset")
                 allowed = PRODUCT_UNIT_POLICY.get(profile_ref)
@@ -281,6 +293,20 @@ def main() -> int:
     bad = copy.deepcopy(example)
     bad["subjects"][0]["quantity"]["value"] = "1e3"
     invalid("exponent notation is not canonical decimal", bad)
+
+    bad = copy.deepcopy(example)
+    bad["subjects"][0]["quantity"]["value"] = "8.0"
+    invalid("canonical decimal must not contain trailing fractional zeroes", bad)
+
+    bad = copy.deepcopy(example)
+    bad["subjects"][0]["quantity"]["unitCode"] = "C62"
+    bad["subjects"][0]["quantity"]["value"] = "96.5"
+    invalid("individual egg count must be a whole item in the H0 policy", bad)
+
+    bad = copy.deepcopy(example)
+    bad["subjects"][0]["quantity"]["unitCode"] = "KGM"
+    bad["subjects"][0]["quantity"]["value"] = "1.2345"
+    invalid("mass quantity exceeds the H0 three-decimal precision ceiling", bad)
 
     bad = copy.deepcopy(example)
     bad["subjects"][0]["quantity"]["value"] = "NaN"
