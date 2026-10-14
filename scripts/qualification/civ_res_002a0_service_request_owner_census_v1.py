@@ -50,6 +50,8 @@ EXPECTED_MATRIX = [
     ("water_specific_channel_interoperability", "city_provider_adapter", "Missing"),
     ("public_turnaround_semantics_vs_adopted_sla", "service_level_registry", "Missing"),
     ("official_utility_source_conflict_precedence", "service_level_registry", "Missing"),
+    ("utility_contact_instructions_by_role", "city_provider_adapter", "Missing"),
+    ("utility_customer_service_standard_semantics", "service_level_registry", "Missing"),
     ("completion_claim_and_independent_verification", "municipal_completion_verifier", "Missing"),
     ("service_level_contract_and_clock", "service_level_registry", "Missing"),
     ("offline_retry_and_idempotency", "external_idempotency_adapter", "Missing"),
@@ -82,6 +84,8 @@ REQUIRED_FLAGS = [
     "utility_channel_contract_pinned",
     "operational_turnaround_semantics_separated",
     "source_precedence_or_conflict_resolution_bound",
+    "utility_customer_standards_source_pinned",
+    "response_vs_resolution_semantics_preserved",
 ]
 UNSAFE_FLAGS = [
     "city_reference_used_as_internal_identity",
@@ -112,6 +116,11 @@ UNSAFE_FLAGS = [
     "page_crawl_date_treated_as_service_target_effective_date",
     "uncorroborated_emergency_contact_treated_as_verified_contact",
     "route_name_used_as_proof_of_service_scope",
+    "service_response_treated_as_restoration_deadline",
+    "working_days_treated_as_calendar_days",
+    "notification_lead_time_treated_as_repair_window",
+    "notification_subscription_treated_as_case_submission",
+    "unversioned_utility_web_standard_treated_as_current_adopted_sla",
 ]
 EXPECTED_PROBE_IDS = [
     "city-reference-overpromotion",
@@ -156,6 +165,13 @@ EXPECTED_PROBE_IDS = [
     "unverified-emergency-contact-is-not-authoritative",
     "route-name-does-not-establish-scope",
     "source-precedence-gate-is-required",
+    "response-is-not-restoration",
+    "working-days-are-not-calendar-days",
+    "advance-notice-is-not-repair-window",
+    "notification-channel-is-not-intake",
+    "unversioned-web-target-needs-adoption",
+    "customer-standards-source-is-required",
+    "response-resolution-semantics-is-required",
     "all-shadow-preconditions-explicit",
 ]
 
@@ -372,6 +388,10 @@ def validate() -> None:
         fail("daily notices source anchor missing")
     if source_anchors.get("JOHANNESBURG_WATER_EMERGENCIES_PAGE") != "https://www.johannesburgwater.co.za/emergencies/":
         fail("official emergencies route source anchor missing")
+    if source_anchors.get("JOHANNESBURG_WATER_CONTACT_US") != "https://www.johannesburgwater.co.za/contact-us/":
+        fail("dedicated Contact Us source anchor missing")
+    if source_anchors.get("JOHANNESBURG_WATER_SERVICES_STANDARDS") != "https://www.johannesburgwater.co.za/services/":
+        fail("customer service standards source anchor missing")
 
     utility_channels = data["external_utility_channel_contract"]
     exact_keys(utility_channels, {
@@ -386,7 +406,7 @@ def validate() -> None:
         "customer_fault_portal_url", "portal_authentication_boundary", "daily_water_notices_url",
         "published_turnaround_rows", "turnaround_semantics_policy",
         "contact_number_source_conflict", "contact_number_values_by_section", "contact_numbers_use_policy",
-        "published_page_conflicts",
+        "published_page_conflicts", "customer_contact_instructions", "customer_service_standards",
     }, "external utility channel contract")
     if (utility_channels["schema"], utility_channels["source_id"], utility_channels["source_url"]) != (
         "mycelix.civic-resilience.utility-channel-boundary.v1",
@@ -424,6 +444,8 @@ def validate() -> None:
         ("fault_logging_portal", "ResidentFacingPortalLink"),
         ("published_turnaround_times", "CustomerFacingTurnaroundStatement"),
         ("emergencies_route_turnaround_and_contact_variant", "OfficialPageVariantConflict"),
+        ("official_contact_us_role_specific_instructions", "RoleSpecificContactInstruction"),
+        ("customer_service_standards_response_and_clock_semantics", "CustomerServiceStandardWithoutObservedEffectiveDate"),
     ])
     if claims != expected_claims:
         fail("documented water channel claim census drift")
@@ -434,6 +456,8 @@ def validate() -> None:
         ("JohannesburgWaterSOC", "daily_water_notices"),
         ("JohannesburgWaterSOC", "daily_water_status_bulletin"),
         ("JohannesburgWaterSOC", "emergencies_page"),
+        ("JohannesburgWaterSOC", "contact_us_calls_queries"),
+        ("JohannesburgWaterSOC", "interruption_notifications_email"),
     ]
     channel_ids = []
     for channel in utility_channels["channel_records"]:
@@ -530,6 +554,76 @@ def validate() -> None:
         fail("cross-issuer/channel reference collision policy drift")
     if "cannot set an individual issue to resolved" not in utility_channels["system_status_update_policy"]:
         fail("system-wide status update must not resolve an individual issue")
+
+    contact = utility_channels["customer_contact_instructions"]
+    exact_keys(contact, {
+        "source_id", "url", "source_observation_status", "page_effective_date",
+        "body_entries", "footer_entries", "interpretation",
+        "global_precedence_over_other_pages", "automated_submission_authorized",
+        "per_case_status_readback_qualified", "subscriber_api_contract_identified",
+    }, "customer contact instructions")
+    if (contact["source_id"], contact["url"]) != ("JOHANNESBURG_WATER_CONTACT_US", "https://www.johannesburgwater.co.za/contact-us/"):
+        fail("Contact Us source identity mismatch")
+    if contact["source_observation_status"] != "OfficialPageTextObserved" or contact["page_effective_date"] != "NotObserved":
+        fail("do not infer Contact Us page effective date")
+    if contact["global_precedence_over_other_pages"] != "NotEstablished":
+        fail("Contact Us body does not establish global website precedence")
+    for key in ("automated_submission_authorized", "per_case_status_readback_qualified", "subscriber_api_contract_identified"):
+        if contact[key] is not False:
+            fail(f"contact instructions must not grant API/currentness capability: {key}")
+    exact_body_entries = [
+        ("log_calls_queries", "To log calls/queries", "+27 (0) 10 061 4470", "fault@jwater.co.za", "ResidentIncidentIntakeInstruction"),
+        ("interruption_notifications", "To receive notifications on interruptions", None, "sms@jwater.co.za", "NotificationChannelInstruction"),
+        ("reception", "Reception", "+27 (0) 0 061 4450", None, "GeneralReception"),
+    ]
+    body_rows = []
+    for row in contact["body_entries"]:
+        exact_keys(row, {"role_id", "heading", "phone", "email", "semantic_kind"}, "role-specific contact entry")
+        body_rows.append((row["role_id"], row["heading"], row["phone"], row["email"], row["semantic_kind"]))
+    if body_rows != exact_body_entries:
+        fail("purpose-labelled contact instruction census drift")
+    if len(contact["footer_entries"]) != 1:
+        fail("generic footer contact row count drift")
+    for row in contact["footer_entries"]:
+        exact_keys(row, {"role_id", "heading", "phone_values", "email", "semantic_kind"}, "generic footer contact entry")
+        if (row["role_id"], row["heading"], row["phone_values"], row["email"], row["semantic_kind"]) != (
+            "generic_contact_center", "Contact Center", ["+27 (0) 0 061 4470", "+27 (0) 86 056 2874"], "fault@jwater.co.za", "GenericSiteFooterContact"
+        ):
+            fail("generic footer contact detail drift")
+
+    standards = utility_channels["customer_service_standards"]
+    exact_keys(standards, {
+        "source_id", "url", "source_observation_status", "page_heading", "table_heading",
+        "effective_date", "version", "production_sla_use_authorized", "rows", "semantics_policy",
+    }, "customer service standards source")
+    if (standards["source_id"], standards["url"]) != ("JOHANNESBURG_WATER_SERVICES_CUSTOMER_STANDARDS", "https://www.johannesburgwater.co.za/services/"):
+        fail("Services standards source identity mismatch")
+    if standards["source_observation_status"] != "OfficialPageTextObserved" or standards["effective_date"] != "NotObserved" or standards["version"] != "NotObserved":
+        fail("do not infer Services page standard version/effective date")
+    if standards["page_heading"] != "Services" or standards["table_heading"] != "CUSTOMER SERVICE STANDARDS TARGET" or standards["production_sla_use_authorized"] is not False:
+        fail("customer standard source claim ceiling drift")
+    expected_standard_rows = [
+        ("appointments", "Appointments", "ArrangeAppointment", None, None, "UponRequest", "AppointmentScheduling"),
+        ("domestic_faulty_meter", "Domestic faulty meter", "RepairOrReplace", 2, "WorkingDays", "Notification", "RepairOrReplace"),
+        ("water_meter_installation", "Requested water meter installation", "Install", 25, "WorkingDays", "PaymentOrAgreedPaymentMethod", "Install"),
+        ("monthly_billing_and_actual_reading", "Metered supply bills/readings", "BillAndSeekActualReading", 1, "Months", "MonthlyWithUnrestrictedMeterAccess", "BillingAndReadingCadence"),
+        ("moving_house_meter_reading", "Meter reading when moving house", "ReadMeterOnMoveDay", 5, "WorkingDaysNotice", "AdvanceNoticeBeforeMoveDay", "PrerequisiteNoticeAndSameDayReading"),
+        ("planned_interruptions_over_4h_notice", "Planned supply interruption over 4 hours", "Notify", 7, "DaysConventionUnspecified", "BeforePlannedInterruption", "AdvanceNotice"),
+        ("planned_interruptions_1_to_4h_notice", "Planned supply interruption 1–4 hours", "Notify", 12, "Hours", "BeforePlannedInterruption", "AdvanceNotice"),
+        ("planned_restoration", "Restoration after planned work", "AttemptRestoreBySpecifiedTime", None, None, "SpecifiedTime", "AttemptedRestoration"),
+        ("unplanned_emergency_response", "Unplanned supply interruptions (emergencies)", "Respond", 12, "Hours", "Unspecified", "ResponseNotRestoration"),
+        ("in_home_water_or_sewage_flooding", "Water/sewage flooding in customer home from Johannesburg Water pipe", "RespondAndOfferImmediateHelp", 2, "HoursUpperBoundTextWithImmediatelyAlternative", "Unspecified", "EmergencyResponse"),
+        ("water_quality_customer_response", "Respond to customers on water quality", "Respond", 12, "Hours", "Unspecified", "CustomerResponse"),
+        ("water_quality_first_sample_results", "Water quality sample", "ProvideFirstSampleResults", 12, "Hours", "Unspecified", "TestResult"),
+    ]
+    standard_rows = []
+    for row in standards["rows"]:
+        exact_keys(row, {"standard_id", "published_text", "subject", "action", "window_value", "window_unit", "clock_start", "verb_semantics"}, "customer standard row")
+        standard_rows.append((row["standard_id"], row["subject"], row["action"], row["window_value"], row["window_unit"], row["clock_start"], row["verb_semantics"]))
+    if standard_rows != expected_standard_rows:
+        fail("customer service standard rows/semantics drift")
+    if "Notify != Respond != Restore" not in standards["semantics_policy"] or "WorkingDays != calendar days" not in standards["semantics_policy"]:
+        fail("response/restoration/working-day semantic boundaries missing")
 
     pilot = data["channel_first_pilot_contract"]
     exact_keys(pilot, {

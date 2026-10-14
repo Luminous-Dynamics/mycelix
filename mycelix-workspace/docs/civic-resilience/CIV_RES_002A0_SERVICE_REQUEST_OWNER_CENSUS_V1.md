@@ -106,6 +106,8 @@ Official source anchors:
 - Johannesburg Water Customer Fault Logging link (third-party Forcelink login): https://customer.forcelink.net/joburg_water/login
 - Johannesburg Water Daily Water Notices (published turnaround-time list and logging/contact section): https://www.johannesburgwater.co.za/daily-water-notices/
 - Johannesburg Water Emergencies route (currently renders a Daily water Notices heading and different values): https://www.johannesburgwater.co.za/emergencies/
+- Johannesburg Water Contact Us (purpose-labelled incident logging and interruption notifications): https://www.johannesburgwater.co.za/contact-us/
+- Johannesburg Water Services (customer service standards target table): https://www.johannesburgwater.co.za/services/
 - 2025/26 Institutional Service Level Standards Charter: https://joburg.org.za/documents_/Documents/2025-2026-Institutional-Service-Level-Standards-Charter/Institutional-Service-Standards-Charter-2025-26.pdf
 - Joburg Connect channel information: https://joburg.org.za/services_/JoburgCares/Pages/call-centre.aspx
 - City eServices "Report a city problem": https://edit.eservices.joburg.org.za/Pages/Reportacityproblem.aspx
@@ -130,6 +132,28 @@ Treat these as different source identities:
 The external reference key must include `issuer_id + channel_id + provider_reference`. Equal reference strings from different issuers/channels must not be auto-merged. If an email interaction returns no provider reference, do not invent one; retain an explicitly unreferenced interaction and require manual matching for a later follow-up. A system-wide bulletin may inform context only; it cannot close a resident's case, prove a specific property's supply was restored, or satisfy completion verification without case linkage and an independent predicate.
 
 The companion may explain published channels and let residents initiate contact themselves. This census authorizes no automated email, API call, or City/utility write. Provider currentness, per-case acceptance, and physical repair remain unqualified.
+
+## Contact instructions and customer-service standards carry different semantics
+
+Two additional official Johannesburg Water pages improve the source census:
+
+- The [Contact Us page](https://www.johannesburgwater.co.za/contact-us/) explicitly labels “To log calls/queries” as +27 (0) 10 061 4470 and fault@jwater.co.za; it separately lists sms@jwater.co.za for interruption notifications. Its page body is more purpose-specific than generic footer blocks on the site, but no source rule says it globally supersedes every other page. Retain the role/page/section provenance instead of flattening all contact values into one “official phone”.
+- The [Services page](https://www.johannesburgwater.co.za/services/) labels its table “CUSTOMER SERVICE STANDARDS TARGET”. It says domestic faulty meters should be repaired or replaced within **2 working days** of notification; planned outages over four hours should be notified at least **7 days beforehand**, and planned outages lasting 1–4 hours at least **12 hours beforehand**; for unplanned emergency interruptions the utility “endeavour[s] to respond within 12 hours”; in-home flooding from a Johannesburg Water pipe receives an immediate/within-2-hours response and immediate help. It also distinguishes attempted restoration after planned work, water-quality customer responses and sample-result timings. The page extraction provides no effective date/version.
+
+These standards make important verb/clock distinctions explicit:
+
+| Published statement type | Example | Must not be interpreted as |
+|---|---|---|
+| Advance notice | Notify 7 days / 12 hours before planned interruption | A repair window after resident intake |
+| Response | Endeavour to respond within 12 hours for unplanned emergencies | Guaranteed water restoration within 12 hours |
+| Emergency response | In-home water/sewage flooding: immediately/within 2 hours and immediate help | A universal SLA for every sewer/water report |
+| Repair/replace | Domestic faulty meter within 2 working days | Two calendar days or the 72-hour Daily Notices leaking-meter line |
+| Attempted restoration | Attempt restoration by the specified time after planned work | An unconditional completed-repair guarantee |
+| Test result | First water-quality sample results within 12 hours | A repair or restoration target |
+
+Thus a public table’s “12 hours” cannot be cross-walked by number alone to the Daily Water Notices “Water outage: 12 hours” entry on the /emergencies/ route or to the City budget book’s planned-interruption percentage metric. One is explicitly a **response** statement, another a customer-facing **turnaround** string, and the budget-book metric reports a percentage under a “prescribed timeline” whose duration remains unresolved in the extracted row. No current effective SLA clock is established by these page observations. Keep all three source classes separate until Johannesburg Water or the responsible City source owner identifies the controlling version, definitions and effective date.
+
+The official Contact Us page’s body-level logging instructions may be displayed as resident contact guidance with that exact source link. They still do not establish provider API authority, subscriber automation, a case number, per-case currentness, or physical repair evidence.
 
 ## Official Johannesburg Water pages diverge; precedence is unknown
 
@@ -214,6 +238,7 @@ The next implementation tranche must remain blocked until:
 - A utility-wide water-status bulletin is not per-case status readback or physical-repair evidence.
 - Customer-facing turnaround listings do not establish an adopted SLA clock, and mismatched service categories must not be cross-walked automatically.
 - Conflicting official page variants do not establish which turnaround or contact value is authoritative; crawler observation date is not an effective date.
+- Preserve notification, response, attempted restoration, repair/replacement and test-result verbs as different predicates; preserve working-day windows and notice lead times rather than coercing them to resolution SLAs.
 - Existing municipal channels remain available; no new app is required for the census to be useful.
 
 ## Evidence ceiling

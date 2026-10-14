@@ -213,6 +213,30 @@
       "decision": "Johannesburg Water's public incident email/call-centre and system-wide bulletin are distinct resident-facing channels; no machine API or per-case status/repair proof is established."
     },
     {
+      "concern_id": "public_turnaround_semantics_vs_adopted_sla",
+      "candidate_id": "service_level_registry",
+      "classification": "Missing",
+      "decision": "The public Daily Water Notices turnaround list uses operational categories/times that are not proven equivalent to budget-book percentage targets or the listed prior-year charter; no adopted crosswalk/clock registry is pinned."
+    },
+    {
+      "concern_id": "official_utility_source_conflict_precedence",
+      "candidate_id": "service_level_registry",
+      "classification": "Missing",
+      "decision": "The official /daily-water-notices/ and /emergencies/ routes render the same Daily water Notices heading with different sewer/water-outage windows, logging channels and contact numbers. No effective-date or page-precedence rule is present in the observed text; preserve both source variants and block canonical target/contact claims."
+    },
+    {
+      "concern_id": "utility_contact_instructions_by_role",
+      "candidate_id": "city_provider_adapter",
+      "classification": "Missing",
+      "decision": "The dedicated Contact Us body provides purpose-labelled incident logging and interruption-notification details, while generic footers/other routes diverge. Preserve the exact page/section/role; do not infer cross-page precedence or automation authority."
+    },
+    {
+      "concern_id": "utility_customer_service_standard_semantics",
+      "candidate_id": "service_level_registry",
+      "classification": "Missing",
+      "decision": "The Services page mixes notice lead times, response targets, attempted restoration, working-day repair/install windows and test-result targets. Preserve verb/clock semantics and unknown effective date; do not treat the 12-hour emergency response target as a restoration deadline."
+    },
+    {
       "concern_id": "completion_claim_and_independent_verification",
       "candidate_id": "municipal_completion_verifier",
       "classification": "Missing",
@@ -283,18 +307,6 @@
       "candidate_id": "commons_support_coordinator",
       "classification": "OperationalOwner",
       "decision": "Support autonomy/approved/executed/success fields are Support-domain state and must not confer civic or municipal action authority."
-    },
-    {
-      "concern_id": "public_turnaround_semantics_vs_adopted_sla",
-      "candidate_id": "service_level_registry",
-      "classification": "Missing",
-      "decision": "The public Daily Water Notices turnaround list uses operational categories/times that are not proven equivalent to budget-book percentage targets or the listed prior-year charter; no adopted crosswalk/clock registry is pinned."
-    },
-    {
-      "concern_id": "official_utility_source_conflict_precedence",
-      "candidate_id": "service_level_registry",
-      "classification": "Missing",
-      "decision": "The official /daily-water-notices/ and /emergencies/ routes render the same Daily water Notices heading with different sewer/water-outage windows, logging channels and contact numbers. No effective-date or page-precedence rule is present in the observed text; preserve both source variants and block canonical target/contact claims."
     }
   ],
   "branch_only_proposals": [
@@ -407,6 +419,16 @@
       "id": "JOHANNESBURG_WATER_EMERGENCIES_PAGE",
       "url": "https://www.johannesburgwater.co.za/emergencies/",
       "purpose": "Official route titled Emergencies was crawled on 2026-10-13 but renders a Daily water Notices heading and a different turnaround/contact block from /daily-water-notices/. No effective-date, version or cross-page precedence rule is given; scope relationship is unresolved."
+    },
+    {
+      "id": "JOHANNESBURG_WATER_CONTACT_US",
+      "url": "https://www.johannesburgwater.co.za/contact-us/",
+      "purpose": "Official Contact Us body explicitly labels a contact centre number and email for logging calls/queries, and a separate email for interruption notifications. Its generic footer has different formatting/details; treat purpose-labelled body fields separately and do not infer global precedence over other official routes."
+    },
+    {
+      "id": "JOHANNESBURG_WATER_SERVICES_STANDARDS",
+      "url": "https://www.johannesburgwater.co.za/services/",
+      "purpose": "Official Services page labels a table CUSTOMER SERVICE STANDARDS TARGET. It mixes advance notification lead times, response targets, repair/replace windows in working days, attempts to restore supplies, and customer-response/sample-result targets. No effective date/version was visible in the extracted page text; these are not automatically the City's adopted institutional SLA or equivalent to Daily Water Notices turnaround rows."
     }
   ],
   "municipal_sla_source_posture": {
@@ -496,7 +518,9 @@
     "support_autonomy_boundary_qualified",
     "utility_channel_contract_pinned",
     "operational_turnaround_semantics_separated",
-    "source_precedence_or_conflict_resolution_bound"
+    "source_precedence_or_conflict_resolution_bound",
+    "utility_customer_standards_source_pinned",
+    "response_vs_resolution_semantics_preserved"
   ],
   "unsafe_flags": [
     "city_reference_used_as_internal_identity",
@@ -526,7 +550,12 @@
     "one_official_page_silently_preferred_over_conflicting_page",
     "page_crawl_date_treated_as_service_target_effective_date",
     "uncorroborated_emergency_contact_treated_as_verified_contact",
-    "route_name_used_as_proof_of_service_scope"
+    "route_name_used_as_proof_of_service_scope",
+    "service_response_treated_as_restoration_deadline",
+    "working_days_treated_as_calendar_days",
+    "notification_lead_time_treated_as_repair_window",
+    "notification_subscription_treated_as_case_submission",
+    "unversioned_utility_web_standard_treated_as_current_adopted_sla"
   ],
   "probe_cases": [
     {
@@ -585,7 +614,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -645,7 +681,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -705,7 +748,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -765,7 +815,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -825,7 +882,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -885,7 +949,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -945,7 +1016,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1005,7 +1083,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1065,7 +1150,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1125,7 +1217,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1185,7 +1284,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1245,7 +1351,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1305,7 +1418,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1365,7 +1485,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1425,7 +1552,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1485,7 +1619,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1545,7 +1686,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1605,7 +1753,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1665,7 +1820,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1725,7 +1887,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -1785,7 +1954,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1845,7 +2021,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1905,7 +2088,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -1965,7 +2155,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2025,7 +2222,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2085,7 +2289,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2145,7 +2356,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2205,7 +2423,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2265,7 +2490,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2325,7 +2557,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2385,7 +2624,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2445,7 +2691,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2505,7 +2758,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2565,7 +2825,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2625,7 +2892,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2685,7 +2959,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2745,7 +3026,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -2805,7 +3093,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": true,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2865,7 +3160,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": true,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2925,7 +3227,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": true,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -2985,7 +3294,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": true
+        "route_name_used_as_proof_of_service_scope": true,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "REJECT"
     },
@@ -3045,7 +3361,483 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+      },
+      "expected_disposition": "UNRESOLVED"
+    },
+    {
+      "case_id": "response-is-not-restoration",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": true,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "working-days-are-not-calendar-days",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": true,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "advance-notice-is-not-repair-window",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": true,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "notification-channel-is-not-intake",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": true,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "unversioned-web-target-needs-adoption",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": true
+      },
+      "expected_disposition": "REJECT"
+    },
+    {
+      "case_id": "customer-standards-source-is-required",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": false,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
+      },
+      "expected_disposition": "UNRESOLVED"
+    },
+    {
+      "case_id": "response-resolution-semantics-is-required",
+      "facts": {
+        "source_access_authorized": true,
+        "external_reference_preserved": true,
+        "external_currentness_verified": true,
+        "stable_mapping_explicitly_approved": true,
+        "idempotency_contract_qualified": true,
+        "privacy_and_legal_review_bound": true,
+        "human_approval_required": true,
+        "symthaea_advisory_only": true,
+        "per_report_sla_clocks_preserved": true,
+        "completion_verification_separate": true,
+        "service_level_source_pinned": true,
+        "production_side_effects_disabled": true,
+        "external_reference_namespace_bound": true,
+        "source_reference_origin_recorded": true,
+        "official_channel_instructions_present": true,
+        "current_adopted_sla_source_verified": true,
+        "2026_27_budget_book_source_pinned": true,
+        "metric_definition_and_period_preserved": true,
+        "source_pdf_review_and_clock_semantics_qualified": true,
+        "city_reference_used_as_internal_identity": false,
+        "municipal_acceptance_treated_as_physical_resolution": false,
+        "ticket_closed_treated_as_physical_resolution": false,
+        "symthaea_recommendation_exercises_authority": false,
+        "unmerged_branch_assumed_qualified": false,
+        "duplicate_merge_resets_individual_sla_clock": false,
+        "protected_resident_data_written_to_public_dht": false,
+        "portal_access_treated_as_api_authorization": false,
+        "same_reference_follow_up_creates_new_external_intake": false,
+        "unverified_city_status_claimed_authoritative": false,
+        "prior_year_target_substituted_for_current": false,
+        "planned_metric_reinterpreted_as_unplanned_12h_target": false,
+        "indexed_budget_target_claimed_as_live_status": false,
+        "support_immutable_field_rules_qualified": true,
+        "support_status_index_currentness_qualified": true,
+        "support_transition_algebra_qualified": true,
+        "support_autonomy_boundary_qualified": true,
+        "whole_ticket_replacement_treated_as_civic_safe": false,
+        "status_index_assumed_current_after_update": false,
+        "untyped_support_transition_accepted": false,
+        "support_autonomy_boolean_treated_as_civic_authority": false,
+        "utility_channel_contract_pinned": true,
+        "utility_email_treated_as_api_authority": false,
+        "systemwide_water_bulletin_treated_as_case_resolution": false,
+        "same_external_reference_across_issuers_treated_as_same_identity": false,
+        "operational_turnaround_semantics_separated": true,
+        "customer_fault_portal_access_treated_as_api_authority": false,
+        "published_turnaround_treated_as_adopted_sla": false,
+        "non_equivalent_service_category_crosswalked_automatically": false,
+        "official_contact_conflict_silently_canonicalized": false,
+        "source_precedence_or_conflict_resolution_bound": true,
+        "one_official_page_silently_preferred_over_conflicting_page": false,
+        "page_crawl_date_treated_as_service_target_effective_date": false,
+        "uncorroborated_emergency_contact_treated_as_verified_contact": false,
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": false,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "UNRESOLVED"
     },
@@ -3105,7 +3897,14 @@
         "one_official_page_silently_preferred_over_conflicting_page": false,
         "page_crawl_date_treated_as_service_target_effective_date": false,
         "uncorroborated_emergency_contact_treated_as_verified_contact": false,
-        "route_name_used_as_proof_of_service_scope": false
+        "route_name_used_as_proof_of_service_scope": false,
+        "utility_customer_standards_source_pinned": true,
+        "response_vs_resolution_semantics_preserved": true,
+        "service_response_treated_as_restoration_deadline": false,
+        "working_days_treated_as_calendar_days": false,
+        "notification_lead_time_treated_as_repair_window": false,
+        "notification_subscription_treated_as_case_submission": false,
+        "unversioned_utility_web_standard_treated_as_current_adopted_sla": false
       },
       "expected_disposition": "ADVISORY_SHADOW_ELIGIBLE"
     }
@@ -3321,6 +4120,16 @@
         "claim_id": "emergencies_route_turnaround_and_contact_variant",
         "published_fact": "The official /emergencies/ route currently renders the same Daily water Notices heading but lists sewer 24 hours and water outage 12 hours, plus a different logging email and contact-centre number, compared with /daily-water-notices/.",
         "fact_kind": "OfficialPageVariantConflict"
+      },
+      {
+        "claim_id": "official_contact_us_role_specific_instructions",
+        "published_fact": "Contact Us body says To log calls/queries: +27 (0)10 061 4470 and fault@jwater.co.za; for interruption notifications it lists sms@jwater.co.za. The footer separately displays a differently formatted contact-centre number.",
+        "fact_kind": "RoleSpecificContactInstruction"
+      },
+      {
+        "claim_id": "customer_service_standards_response_and_clock_semantics",
+        "published_fact": "The Services page publishes targets mixing meter repair/replacement in 2 working days, advance notices for planned interruptions, attempted restoration, 12-hour response to unplanned emergencies, response to in-home water/sewage flooding within 2 hours, and water-quality responses/results.",
+        "fact_kind": "CustomerServiceStandardWithoutObservedEffectiveDate"
       }
     ],
     "channel_records": [
@@ -3373,6 +4182,24 @@
         "issuer_id": "JohannesburgWaterSOC",
         "channel_id": "emergencies_page",
         "reference_semantics": "Official /emergencies/ route rendering a Daily water Notices content block; its turnaround and contact variant has no pinned scope/effective-date/precedence rule",
+        "resident_facing_channel_published": true,
+        "automated_mycelix_access_authorized": false,
+        "per_case_status_readback_qualified": false,
+        "physical_repair_evidence_qualified": false
+      },
+      {
+        "issuer_id": "JohannesburgWaterSOC",
+        "channel_id": "contact_us_calls_queries",
+        "reference_semantics": "The explicit Contact Us body instruction for logging calls/queries provides a resident-facing phone/email route; not a machine API or per-case status readback",
+        "resident_facing_channel_published": true,
+        "automated_mycelix_access_authorized": false,
+        "per_case_status_readback_qualified": false,
+        "physical_repair_evidence_qualified": false
+      },
+      {
+        "issuer_id": "JohannesburgWaterSOC",
+        "channel_id": "interruption_notifications_email",
+        "reference_semantics": "Contact Us page lists sms@jwater.co.za to receive notifications on interruptions; not established as an API or incident-submission endpoint",
         "resident_facing_channel_published": true,
         "automated_mycelix_access_authorized": false,
         "per_case_status_readback_qualified": false,
@@ -3547,6 +4374,185 @@
         "Do not claim any phone/email value is verified current solely from the page block.",
         "Do not infer the 12-hour water outage figure is equivalent to the budget-book planned-interruption target."
       ]
+    },
+    "customer_contact_instructions": {
+      "source_id": "JOHANNESBURG_WATER_CONTACT_US",
+      "url": "https://www.johannesburgwater.co.za/contact-us/",
+      "source_observation_status": "OfficialPageTextObserved",
+      "page_effective_date": "NotObserved",
+      "body_entries": [
+        {
+          "role_id": "log_calls_queries",
+          "heading": "To log calls/queries",
+          "phone": "+27 (0) 10 061 4470",
+          "email": "fault@jwater.co.za",
+          "semantic_kind": "ResidentIncidentIntakeInstruction"
+        },
+        {
+          "role_id": "interruption_notifications",
+          "heading": "To receive notifications on interruptions",
+          "phone": null,
+          "email": "sms@jwater.co.za",
+          "semantic_kind": "NotificationChannelInstruction"
+        },
+        {
+          "role_id": "reception",
+          "heading": "Reception",
+          "phone": "+27 (0) 0 061 4450",
+          "email": null,
+          "semantic_kind": "GeneralReception"
+        }
+      ],
+      "footer_entries": [
+        {
+          "role_id": "generic_contact_center",
+          "heading": "Contact Center",
+          "phone_values": [
+            "+27 (0) 0 061 4470",
+            "+27 (0) 86 056 2874"
+          ],
+          "email": "fault@jwater.co.za",
+          "semantic_kind": "GenericSiteFooterContact"
+        }
+      ],
+      "interpretation": "The explicit body labels are evidence for their named purposes. The body/footer differ in contact-number format/value; no source rule establishes a global override of other official routes. Preserve page, section, role and observation time.",
+      "global_precedence_over_other_pages": "NotEstablished",
+      "automated_submission_authorized": false,
+      "per_case_status_readback_qualified": false,
+      "subscriber_api_contract_identified": false
+    },
+    "customer_service_standards": {
+      "source_id": "JOHANNESBURG_WATER_SERVICES_CUSTOMER_STANDARDS",
+      "url": "https://www.johannesburgwater.co.za/services/",
+      "source_observation_status": "OfficialPageTextObserved",
+      "page_heading": "Services",
+      "table_heading": "CUSTOMER SERVICE STANDARDS TARGET",
+      "effective_date": "NotObserved",
+      "version": "NotObserved",
+      "production_sla_use_authorized": false,
+      "rows": [
+        {
+          "standard_id": "appointments",
+          "published_text": "We will make appointments with the customer either before or after 12pm upon request",
+          "subject": "Appointments",
+          "action": "ArrangeAppointment",
+          "window_value": null,
+          "window_unit": null,
+          "clock_start": "UponRequest",
+          "verb_semantics": "AppointmentScheduling"
+        },
+        {
+          "standard_id": "domestic_faulty_meter",
+          "published_text": "If a domestic meter is found to be faulty to have it repaired or replaced within 2 working days of being notified",
+          "subject": "Domestic faulty meter",
+          "action": "RepairOrReplace",
+          "window_value": 2,
+          "window_unit": "WorkingDays",
+          "clock_start": "Notification",
+          "verb_semantics": "RepairOrReplace"
+        },
+        {
+          "standard_id": "water_meter_installation",
+          "published_text": "If customers request a water meter we endeavour to install it 25 working days of receiving their payment or agreeing the method of payment",
+          "subject": "Requested water meter installation",
+          "action": "Install",
+          "window_value": 25,
+          "window_unit": "WorkingDays",
+          "clock_start": "PaymentOrAgreedPaymentMethod",
+          "verb_semantics": "Install"
+        },
+        {
+          "standard_id": "monthly_billing_and_actual_reading",
+          "published_text": "To provide a monthly bill for metered customers and aim to obtain an actual reading to produce an actual bill at least every month, providing we have unrestricted access to the meter",
+          "subject": "Metered supply bills/readings",
+          "action": "BillAndSeekActualReading",
+          "window_value": 1,
+          "window_unit": "Months",
+          "clock_start": "MonthlyWithUnrestrictedMeterAccess",
+          "verb_semantics": "BillingAndReadingCadence"
+        },
+        {
+          "standard_id": "moving_house_meter_reading",
+          "published_text": "To take a meter reading on the day a customer is moving property provided 5 working days notice has been given",
+          "subject": "Meter reading when moving house",
+          "action": "ReadMeterOnMoveDay",
+          "window_value": 5,
+          "window_unit": "WorkingDaysNotice",
+          "clock_start": "AdvanceNoticeBeforeMoveDay",
+          "verb_semantics": "PrerequisiteNoticeAndSameDayReading"
+        },
+        {
+          "standard_id": "planned_interruptions_over_4h_notice",
+          "published_text": "Informing customers at least 7 days before",
+          "subject": "Planned supply interruption over 4 hours",
+          "action": "Notify",
+          "window_value": 7,
+          "window_unit": "DaysConventionUnspecified",
+          "clock_start": "BeforePlannedInterruption",
+          "verb_semantics": "AdvanceNotice"
+        },
+        {
+          "standard_id": "planned_interruptions_1_to_4h_notice",
+          "published_text": "Informing customers at least 12 hours before",
+          "subject": "Planned supply interruption 1–4 hours",
+          "action": "Notify",
+          "window_value": 12,
+          "window_unit": "Hours",
+          "clock_start": "BeforePlannedInterruption",
+          "verb_semantics": "AdvanceNotice"
+        },
+        {
+          "standard_id": "planned_restoration",
+          "published_text": "We will attempt to restore water services by time specified",
+          "subject": "Restoration after planned work",
+          "action": "AttemptRestoreBySpecifiedTime",
+          "window_value": null,
+          "window_unit": null,
+          "clock_start": "SpecifiedTime",
+          "verb_semantics": "AttemptedRestoration"
+        },
+        {
+          "standard_id": "unplanned_emergency_response",
+          "published_text": "We endeavour to respond within 12 hours",
+          "subject": "Unplanned supply interruptions (emergencies)",
+          "action": "Respond",
+          "window_value": 12,
+          "window_unit": "Hours",
+          "clock_start": "Unspecified",
+          "verb_semantics": "ResponseNotRestoration"
+        },
+        {
+          "standard_id": "in_home_water_or_sewage_flooding",
+          "published_text": "If water or sewage from a JW pipe enters a customer’s home we will respond immediately/ within 2 hours and offer immediate help",
+          "subject": "Water/sewage flooding in customer home from Johannesburg Water pipe",
+          "action": "RespondAndOfferImmediateHelp",
+          "window_value": 2,
+          "window_unit": "HoursUpperBoundTextWithImmediatelyAlternative",
+          "clock_start": "Unspecified",
+          "verb_semantics": "EmergencyResponse"
+        },
+        {
+          "standard_id": "water_quality_customer_response",
+          "published_text": "Within 12 hours",
+          "subject": "Respond to customers on water quality",
+          "action": "Respond",
+          "window_value": 12,
+          "window_unit": "Hours",
+          "clock_start": "Unspecified",
+          "verb_semantics": "CustomerResponse"
+        },
+        {
+          "standard_id": "water_quality_first_sample_results",
+          "published_text": "First sample results within 12 hours",
+          "subject": "Water quality sample",
+          "action": "ProvideFirstSampleResults",
+          "window_value": 12,
+          "window_unit": "Hours",
+          "clock_start": "Unspecified",
+          "verb_semantics": "TestResult"
+        }
+      ],
+      "semantics_policy": "Do not collapse action verbs: Notify != Respond != Restore != RepairOrReplace != Install != ProvideTestResult. WorkingDays != calendar days; 'endeavour/attempt' is not an unconditional completion guarantee. Advance notice is not a post-report repair clock. No production breach/status calculation until version/effective period, clock start/end, exclusions and adopted authority are qualified."
     }
   }
 }
