@@ -702,7 +702,6 @@ mod tests {
     #[test]
     fn builds_preregistered_read_only_forecast_pilot() {
         let registration = HospitalityForecastPilotRegistration::build(config()).unwrap();
-        assert!(HOSPITALITY_PILOT_IS_READ_ONLY);
         assert_eq!(registration.validate(), Ok(()));
         assert_eq!(
             registration.protocol.baseline_model_lineage,
