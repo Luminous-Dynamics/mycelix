@@ -472,8 +472,12 @@ impl BootstrapMilestone {
             }
         }
 
+        let mut scenario_ids = BTreeSet::new();
         for observation in &self.failure_recovery {
             validate_nonempty("failure.scenario_id", &observation.scenario_id)?;
+            if !scenario_ids.insert(observation.scenario_id.as_str()) {
+                return Err(ValidationError::new("duplicate failure/recovery scenario identifier"));
+            }
             validate_nonempty("failure.failure_class", &observation.failure_class)?;
             validate_evidence_list_allow_empty(&observation.evidence)?;
             if observation.outcome == FailureRecoveryOutcome::Recovered
@@ -497,6 +501,11 @@ impl BootstrapMilestone {
         validate_nonempty("authority_basis.scope", &self.authority_basis.scope)?;
         if let Some(reference) = &self.authority_basis.decision_evidence {
             reference.validate()?;
+            if reference.kind != EvidenceKind::PolicyDecision {
+                return Err(ValidationError::new(
+                    "authority decision evidence must be typed as a policy decision",
+                ));
+            }
         }
 
         Ok(())
@@ -518,10 +527,14 @@ impl BootstrapMilestone {
                 has(EvidenceKind::RelevantEnvironmentTestReport)
             }
             FixtureClass::OperationalMeasured => has(EvidenceKind::OperationalMeasurement),
-            FixtureClass::PhysicalQualification => {
-                has(EvidenceKind::PhysicalQualificationReport)
-                    && has(EvidenceKind::IndependentReview)
-            }
+            FixtureClass::PhysicalQualification => self.evidence.iter().any(|qualification| {
+                qualification.kind == EvidenceKind::PhysicalQualificationReport
+                    && self.evidence.iter().any(|review| {
+                        review.kind == EvidenceKind::IndependentReview
+                            && (qualification.uri != review.uri
+                                || qualification.sha256 != review.sha256)
+                    })
+            })
         };
         if !valid {
             return Err(ValidationError::new(
@@ -612,8 +625,14 @@ fn validate_evidence_list(evidence: &[EvidenceReference]) -> Result<(), Validati
 fn validate_evidence_list_allow_empty(
     evidence: &[EvidenceReference],
 ) -> Result<(), ValidationError> {
+    let mut identities = BTreeSet::new();
     for reference in evidence {
         reference.validate()?;
+        if !identities.insert((reference.uri.as_str(), reference.sha256.as_str())) {
+            return Err(ValidationError::new(
+                "duplicate evidence bytes cannot be reclassified as separate evidence",
+            ));
+        }
     }
     Ok(())
 }
@@ -854,6 +873,46 @@ mod tests {
         let mut value = serde_json::to_value(valid_milestone()).expect("serialize record");
         value["authority_basis"]["authority_granted"] = serde_json::Value::Bool(true);
         assert!(serde_json::from_value::<BootstrapMilestone>(value).is_err());
+    }
+
+    #[test]
+    fn one_artifact_cannot_be_relabelled_as_independent_qualification_review() {
+        let mut milestone = valid_milestone();
+        let qualification = evidence(
+            "https://example.invalid/evidence/same-artifact.json",
+            EvidenceKind::PhysicalQualificationReport,
+            '6',
+        );
+        let mut duplicate_review_label = qualification.clone();
+        duplicate_review_label.kind = EvidenceKind::IndependentReview;
+        milestone.fixture_class = FixtureClass::PhysicalQualification;
+        milestone.evidence = vec![qualification, duplicate_review_label];
+        assert!(milestone.validate().is_err());
+    }
+
+    #[test]
+    fn duplicate_fault_scenario_ids_are_rejected() {
+        let mut milestone = valid_milestone();
+        milestone.failure_recovery.push(milestone.failure_recovery[0].clone());
+        assert!(milestone.validate().is_err());
+    }
+
+    #[test]
+    fn authority_decision_reference_must_be_typed_as_policy_decision() {
+        let mut milestone = valid_milestone();
+        milestone.authority_basis.decision_evidence = Some(evidence(
+            "https://example.invalid/evidence/unrelated-test.json",
+            EvidenceKind::TestReport,
+            '9',
+        ));
+        assert!(milestone.validate().is_err());
+
+        milestone.authority_basis.decision_evidence = Some(evidence(
+            "https://example.invalid/evidence/policy-decision.json",
+            EvidenceKind::PolicyDecision,
+            'a',
+        ));
+        assert!(milestone.validate().is_ok());
     }
 
     #[test]
