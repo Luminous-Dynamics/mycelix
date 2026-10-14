@@ -19,8 +19,8 @@ use mycelix_business_field_qualification::{
 };
 use mycelix_business_ingress::IngressQualificationBinding;
 use mycelix_business_pilot_hospitality::{
-    HospitalityForecastPilotRegistration, HospitalityPilotEvidence,
-    HospitalityPilotEvidenceError, evaluate_hospitality_forecast_pilot, sales_input_ref,
+    HospitalityForecastPilotRegistration, HospitalityPilotEvidence, HospitalityPilotEvidenceError,
+    evaluate_hospitality_forecast_pilot, sales_input_ref,
 };
 use sha2::{Digest, Sha256};
 
@@ -254,8 +254,7 @@ pub fn diagnose_delimited_import<R: Read>(
             }
         };
 
-        let one_row =
-            serialize_single_record(adapter.config.delimiter, &actual_headers, &record)?;
+        let one_row = serialize_single_record(adapter.config.delimiter, &actual_headers, &record)?;
         match adapter.parse_batch(one_row.as_slice(), ingested_at_unix_ms) {
             Ok(batch) => {
                 let Some(parsed) = batch.records.first() else {
@@ -281,8 +280,10 @@ pub fn diagnose_delimited_import<R: Read>(
                 } else {
                     maximum_delay = maximum_delay.max(ingested_at_unix_ms - observed);
                 }
-                first_observed = Some(first_observed.map_or(observed, |value: u64| value.min(observed)));
-                last_observed = Some(last_observed.map_or(observed, |value: u64| value.max(observed)));
+                first_observed =
+                    Some(first_observed.map_or(observed, |value: u64| value.min(observed)));
+                last_observed =
+                    Some(last_observed.map_or(observed, |value: u64| value.max(observed)));
                 accepted_rows = accepted_rows.saturating_add(1);
             }
             Err(error) => {
@@ -346,7 +347,9 @@ fn serialize_single_record(
 ) -> Result<Vec<u8>, DiagnosticError> {
     let mut bytes = Vec::new();
     {
-        let mut writer = WriterBuilder::new().delimiter(delimiter).from_writer(&mut bytes);
+        let mut writer = WriterBuilder::new()
+            .delimiter(delimiter)
+            .from_writer(&mut bytes);
         writer.write_record(headers).map_err(DiagnosticError::Csv)?;
         writer.write_record(record).map_err(DiagnosticError::Csv)?;
         writer.flush().map_err(DiagnosticError::Io)?;
@@ -803,7 +806,8 @@ mod tests {
 
     #[test]
     fn rejected_parser_rows_must_count_as_missing() {
-        let csv = b"event_id,occurred_at,location,quantity\nevent:1,1000,a,1\nevent:2,1100,a,oops\n";
+        let csv =
+            b"event_id,occurred_at,location,quantity\nevent:1,1000,a,1\nevent:2,1100,a,oops\n";
         let manifest = diagnose_delimited_import(&adapter(), csv.as_slice(), 2_000).unwrap();
         let campaign = ExtractionCampaignManifest::from_files(vec![manifest]).unwrap();
         let registration = pilot_registration(campaign.connector.clone());
