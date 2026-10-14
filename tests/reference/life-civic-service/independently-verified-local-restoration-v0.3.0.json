@@ -42,7 +42,8 @@
         "claim_scope": "Initial report of an interruption.",
         "limitations": "Community report only. Synthetic fixture evidence only; the example.invalid URL was not retrieved.",
         "retrieved_at": null,
-        "retrieval_state": "synthetic_fixture"
+        "retrieval_state": "synthetic_fixture",
+        "checked_at": null
       },
       {
         "evidence_id": "EV-INDEP-005",
@@ -53,7 +54,8 @@
         "claim_scope": "Synthetic independent check observed water supply at one sampling point at this time.",
         "limitations": "Confirms only this point and observation time; it does not establish restoration across the wider service area. Synthetic fixture evidence only; the example.invalid URL was not retrieved.",
         "retrieved_at": null,
-        "retrieval_state": "synthetic_fixture"
+        "retrieval_state": "synthetic_fixture",
+        "checked_at": null
       },
       {
         "evidence_id": "EV-CONTACT-005",
@@ -64,7 +66,8 @@
         "independence": "same_origin",
         "claim_scope": "The official contact page publishes contact information for Johannesburg Water.",
         "limitations": "Identifies an official contact source only; does not prove this is the correct channel for this specific case or establish an applicable legal/service obligation. Source page was inspected at the recorded retrieval time; the rendered page bytes were not independently hashed, so this is not a cryptographic content-integrity claim.",
-        "retrieval_state": "captured"
+        "retrieval_state": "captured",
+        "checked_at": "2026-10-14T19:54:08+02:00"
       }
     ],
     "outcome": {
