@@ -54,7 +54,7 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
     let evidence = instance["evidence"]
         .as_array()
         .ok_or_else(|| "evidence must be an array".to_string())?;
-    let mut records: HashMap<String, (String, String)> = HashMap::new();
+    let mut records: HashMap<String, (String, String, String)> = HashMap::new();
 
     for item in evidence {
         let id = item["evidence_id"]
@@ -66,8 +66,14 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
         let independence = item["independence"]
             .as_str()
             .ok_or_else(|| format!("{id} has no independence classification"))?;
+        let source_uri = item["source_uri"]
+            .as_str()
+            .ok_or_else(|| format!("{id} has no source URI"))?;
         if records
-            .insert(id.to_string(), (kind.to_string(), independence.to_string()))
+            .insert(
+                id.to_string(),
+                (kind.to_string(), independence.to_string(), source_uri.to_string()),
+            )
             .is_some()
         {
             return Err(format!("duplicate evidence_id: {id}"));
@@ -107,7 +113,7 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
             if !unique_ids.insert(id) {
                 return Err(format!("duplicate verification evidence ID: {id}"));
             }
-            let (kind, independence) = records
+            let (kind, independence, _source_uri) = records
                 .get(id)
                 .ok_or_else(|| format!("verification evidence ID has no record: {id}"))?;
             if kind != "independent_observation" && kind != "independent_measurement" {
@@ -125,6 +131,54 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
         return Err(
             "non-verified outcome must not carry verification IDs or verified_at".to_string(),
         );
+    }
+
+    let route = &instance["route"];
+    let route_status = route["status"]
+        .as_str()
+        .ok_or_else(|| "route has no status".to_string())?;
+    let route_uris: HashSet<&str> = route["source_references"]
+        .as_array()
+        .ok_or_else(|| "route source_references must be an array".to_string())?
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .ok_or_else(|| "route source reference must be a string".to_string())
+        })
+        .collect::<Result<HashSet<_>, _>>()?;
+    let route_evidence_ids = route["source_evidence_ids"]
+        .as_array()
+        .ok_or_else(|| "route source_evidence_ids must be an array".to_string())?;
+    if route_status == "official_contact_source_found" {
+        if route_evidence_ids.is_empty() {
+            return Err("official contact source status requires evidence IDs".to_string());
+        }
+        if route["checked_on"].as_str().is_none() {
+            return Err("official contact source status requires checked_on date".to_string());
+        }
+    }
+    let mut route_id_set = HashSet::new();
+    for value in route_evidence_ids {
+        let id = value
+            .as_str()
+            .ok_or_else(|| "route source evidence ID must be a string".to_string())?;
+        if !route_id_set.insert(id) {
+            return Err(format!("route source evidence ID is duplicated: {id}"));
+        }
+        let (kind, _independence, source_uri) = records
+            .get(id)
+            .ok_or_else(|| format!("route source evidence ID has no evidence record: {id}"))?;
+        if kind != "official_notice" {
+            return Err(format!(
+                "route source evidence {id} must be an official_notice record"
+            ));
+        }
+        if !route_uris.contains(source_uri.as_str()) {
+            return Err(format!(
+                "route source evidence {id} URI is not listed in route.source_references"
+            ));
+        }
     }
 
     if let Some(conflicts) = instance["source_conflicts"].as_array() {
@@ -424,6 +478,20 @@ fn scoped_independent_restoration_positive_control_is_accepted() {
     assert!(
         validate_service_claim_semantics(&incomplete_review).is_err(),
         "independent verification must not pass before human review completes"
+    );
+
+    let mut route_wrong_evidence = instance.clone();
+    route_wrong_evidence["route"]["source_evidence_ids"] = json!(["EV-INDEP-005"]);
+    assert!(
+        validate_service_claim_semantics(&route_wrong_evidence).is_err(),
+        "measurement evidence must not masquerade as official contact-source evidence"
+    );
+
+    let mut route_dangling_evidence = instance.clone();
+    route_dangling_evidence["route"]["source_evidence_ids"] = json!(["MISSING-CONTACT-SOURCE"]);
+    assert!(
+        validate_service_claim_semantics(&route_dangling_evidence).is_err(),
+        "route source evidence IDs must resolve to evidence records"
     );
 }
 
