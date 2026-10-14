@@ -1,0 +1,47 @@
+name: Music Plays Canonical Settlement
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/music-plays-canonical-settlement.yml"
+      - "mycelix-workspace/mycelix-music/dnas/mycelix-music/zomes/plays/integrity/**"
+      - "mycelix-workspace/mycelix-music/dnas/mycelix-music/zomes/plays/coordinator/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/music-plays-canonical-settlement.yml"
+      - "mycelix-workspace/mycelix-music/dnas/mycelix-music/zomes/plays/integrity/**"
+      - "mycelix-workspace/mycelix-music/dnas/mycelix-music/zomes/plays/coordinator/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: music-plays-canonical-settlement-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact event revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Install stable Rust and rustfmt
+        uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249
+        with:
+          components: rustfmt
+
+      - name: Check formatting of affected zomes
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-music/dnas/mycelix-music/Cargo.toml -p plays_integrity -- --check
+          cargo fmt --manifest-path mycelix-workspace/mycelix-music/dnas/mycelix-music/Cargo.toml -p plays -- --check
+
+      - name: Test Plays integrity invariants
+        run: cargo test --manifest-path mycelix-workspace/mycelix-music/dnas/mycelix-music/Cargo.toml -p plays_integrity
+
+      - name: Test Plays coordinator accounting
+        run: cargo test --manifest-path mycelix-workspace/mycelix-music/dnas/mycelix-music/Cargo.toml -p plays
