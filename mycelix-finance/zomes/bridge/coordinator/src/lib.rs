@@ -1487,8 +1487,11 @@ pub fn health_check(_: ()) -> ExternResult<FinanceBridgeHealth> {
 
 /// Verify that the claimed oracle rate is within tolerance of consensus.
 ///
-/// Fetches consensus from the price-oracle zome. If the oracle is unreachable
-/// (bootstrap/standalone), accepts the claimed rate with a warning.
+/// Fetches consensus from the price-oracle zome.
+///
+/// This is a monetary issuance boundary, so missing, malformed, or
+/// non-qualified consensus fails closed. The caller-supplied rate is never
+/// treated as a fallback authority.
 fn verify_oracle_rate_against_consensus(
     collateral_type: &str,
     claimed_rate: f64,
@@ -1529,21 +1532,23 @@ fn verify_oracle_rate_against_consensus(
                 }
                 Ok(())
             }
-            _ => {
-                debug!(
-                    "verify_oracle_rate: consensus invalid, accepting claimed rate {:.6}",
-                    claimed_rate
-                );
-                Ok(())
-            }
+            Ok(_) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Reserve oracle consensus for {} is invalid; claimed rate {:.6} rejected",
+                collateral_type, claimed_rate
+            )))),
+            Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Reserve oracle consensus decode failed for {}: {:?}",
+                collateral_type, e
+            )))),
         },
-        _ => {
-            debug!(
-                "verify_oracle_rate: price oracle unreachable, accepting claimed rate {:.6}",
-                claimed_rate
-            );
-            Ok(())
-        }
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Reserve oracle returned an unexpected response for {}: {:?}",
+            collateral_type, other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Reserve oracle unavailable for {}: {:?}",
+            collateral_type, e
+        )))),
     }
 }
 

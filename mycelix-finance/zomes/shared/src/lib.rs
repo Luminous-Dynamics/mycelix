@@ -854,8 +854,12 @@ pub mod oracle_verification {
     /// Fetches the current consensus price from the price-oracle zome
     /// and rejects the claimed rate if it deviates more than ORACLE_RATE_TOLERANCE (5%).
     ///
-    /// Falls back to accepting the claimed rate if the oracle is unreachable
-    /// (bootstrap/standalone mode), with a warning logged.
+    /// Reserve-safe oracle verification.
+    ///
+    /// A collateral-backed monetary operation must fail closed whenever a
+    /// qualified consensus value is unavailable or malformed. Operational
+    /// callers that need bootstrap/standalone behavior should not use this
+    /// function as a monetary authority.
     pub fn verify_oracle_rate(item: &str, claimed_rate: f64) -> ExternResult<()> {
         if !claimed_rate.is_finite() || claimed_rate <= 0.0 {
             return Err(wasm_error!(WasmErrorInner::Guest(
@@ -899,26 +903,25 @@ pub mod oracle_verification {
                     }
                     Ok(())
                 }
-                Ok(_) => {
-                    debug!("verify_oracle_rate: consensus price invalid, accepting claimed rate");
-                    Ok(())
-                }
-                Err(e) => {
-                    debug!(
-                        "verify_oracle_rate: decode error: {:?}, accepting claimed rate",
-                        e
-                    );
-                    Ok(())
-                }
+                Ok(_) => Err(wasm_error!(WasmErrorInner::Guest(
+                    format!(
+                        "Reserve oracle consensus for {} is invalid or unavailable; claimed rate {:.6} rejected",
+                        item, claimed_rate
+                    )
+                ))),
+                Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Reserve oracle consensus decode failed for {}: {:?}",
+                    item, e
+                )))),
             },
-            _ => {
-                // Oracle unreachable — accept with warning (bootstrap/standalone)
-                debug!(
-                    "verify_oracle_rate: price oracle unreachable, accepting claimed rate {}",
-                    claimed_rate
-                );
-                Ok(())
-            }
+            Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Reserve oracle returned an unexpected response for {}: {:?}",
+                item, other
+            )))),
+            Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Reserve oracle unavailable for {}: {:?}",
+                item, e
+            )))),
         }
     }
 }
