@@ -1,0 +1,21 @@
+{
+  "schema": "mycelix.effective-contestability-formal-tool-pins.v1",
+  "nixpkgs_rev": "a50bf0c1b07873c1a53892292017041a8f0a1288",
+  "tools": {
+    "tla2tools": {
+      "version": "1.7.4",
+      "url": "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar",
+      "sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
+    },
+    "alloy": {
+      "version": "6.2.0",
+      "url": "https://github.com/AlloyTools/org.alloytools.alloy/releases/download/v6.2.0/org.alloytools.alloy.dist.jar",
+      "sha256": "6b8c1cb5bc93bedfc7c61435c4e1ab6e688a242dc702a394628d9a9801edb78d"
+    }
+  },
+  "github_actions": {
+    "checkout": "11d5960a326750d5838078e36cf38b85af677262",
+    "install_nix": "ba0dd844c9180cbf77aa72a116d6fbc515d0e87b",
+    "upload_artifact": "ea165f8d65b6e75b540449e92b4886f43607fa02"
+  }
+}
