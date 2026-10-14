@@ -86,6 +86,17 @@ Keep company/cooperative/farm/vendor credentials separate from natural-person id
 
 Map this to the AfCFTA Digital Trade Protocol and regional mechanisms, while verifying domestic implementation and each participating country's rules. Make translation and multilingual forms part of conformance; English-only integration is not continent-ready.
 
+## Start with projects that do not require identity APIs
+
+The best first Africa-facing pilot should not be blocked on a government identity API. Start with services that can deliver value using public data, clearly licensed datasets, or community-provided information with consent:
+
+1. **Official service navigator:** a multilingual, source-linked guide to municipal and national service requirements, application steps, opening/access routes, accessibility and appeals. Show source dates and flag stale pages; never infer an individual's legal eligibility or ask for identity documents.
+2. **Local resilience atlas:** show public infrastructure, water points, clinics, public transport, power assets, flood and heat exposure, and published maintenance notices. Attach provenance, license, update date and correction channel to every layer. Aggregate or suppress sensitive locations and personal details.
+3. **Community maintenance workflow:** let residents and field workers submit consentful water-leak, streetlight, road, sanitation or clinic-stock reports; route them to a participating operator; publish aggregate status, time-to-repair and reopening evidence. Do not publish reporters' identities or treat an unconfirmed report as fact.
+4. **Local planning and learning:** model a school, clinic, market or neighbourhood's water, power, heat and transport alternatives from explicit assumptions and locally validated measurements. Compare costs, resilience and distributional impacts before introducing any high-impact automation.
+
+These pilots create evidence of public benefit and learn how local institutions operate without building a person-surveillance layer. Then add identity-dependent functions only where a specific public authority has approved a concrete use case and verification route.
+
 ## What Symthaea, Mycelix, Sol-Atlas and Symtropy can contribute
 
 | Project | Best role | Concrete Africa-facing deliverable |
@@ -161,6 +172,7 @@ Avoid person-level surveillance dashboards and national rankings that reward exc
 
 - African Union, [Interoperability Framework for Digital ID](https://au.int/en/documents/20231211/au-interoperability-framework-digital-id) and [full English PDF](https://au.int/sites/default/files/documents/43393-doc-AU_Interoperability_framework_for_D_ID_English.pdf).
 - African Union, [Data Policy Framework](https://www.au.int/en/documents/20220728/au-data-policy-framework) and [AfCFTA Digital Trade Protocol](https://www.au.int/en/treaties/protocol-agreement-establishing-african-continental-free-trade-area-digital-trade).
+- African Union, [Science, Technology and Innovation Strategy for Africa (STISA) 2034](https://au.int/en/documents/20250718/science-technology-and-innovation-strategy-africa-stisa-2034).
 - Smart Africa, [Digital Identity / Smart Africa Trust Alliance](https://smartafrica.org/service-post/digital-identity-for-africa/).
 - South Africa DHA, [1 October 2026 ministerial address](https://www.gov.za/news/speeches/minister-leon-schreiber-home-affairs-quantum-leap-vision-future-government-01-oct), [draft regulation announcement](https://www.gov.za/news/media-statements/minister-leon-schreiber-invites-public-comment-draft-digital-identity), and [Annual Performance Plan 2026/27](https://www.dha.gov.za/images/AnnualReports/DHA-APP-2026-27_260326.pdf).
 - Ghana NIA, [identity verification services](https://nia.gov.gh/service/verification-services/) and [2026 verification notice](https://nia.gov.gh/government-makes-biometric-verification-mandatory-for-ghana-card-verification-under-new-l-i-2523/).
