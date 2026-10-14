@@ -29,6 +29,7 @@ jobs:
       civic: ${{ steps.filter.outputs.civic }}
       hearth: ${{ steps.filter.outputs.hearth }}
       finance: ${{ steps.filter.outputs.finance }}
+      finance_raw_credit_audit: ${{ steps.filter.outputs.finance_raw_credit_audit }}
       governance: ${{ steps.filter.outputs.governance }}
       identity: ${{ steps.filter.outputs.identity }}
       personal: ${{ steps.filter.outputs.personal }}
@@ -55,6 +56,12 @@ jobs:
             finance:
               - 'mycelix-finance/**'
               - 'crates/mycelix-bridge-*/**'
+            finance_raw_credit_audit:
+              - 'mycelix-finance/**'
+              - 'mycelix-workspace/mycelix-finance/**'
+              - 'scripts/security/finance_raw_credit_caller_audit.py'
+              - 'scripts/security/test_finance_raw_credit_caller_audit.py'
+              - '.github/workflows/ci.yml'
             governance:
               - 'mycelix-governance/**'
               - 'crates/mycelix-bridge-*/**'
@@ -186,6 +193,23 @@ jobs:
           workspaces: mycelix-hearth
       - name: Test hearth
         run: cd mycelix-hearth && cargo test --workspace
+
+  # Fail closed if raw credit is publicly exported or another zome still
+  # invokes it by string. String-dispatched calls can survive Rust compilation.
+  finance-raw-credit-caller-audit:
+    needs: changes
+    if: needs.changes.outputs.finance_raw_credit_audit == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Test raw-credit caller audit and ABI guard
+        run: python3 -m unittest discover -s scripts/security -p 'test_finance_raw_credit_caller_audit.py' -v
+      - name: Audit cross-zome raw SAP credit callers
+        run: python3 scripts/security/finance_raw_credit_caller_audit.py
 
   test-finance:
     needs: changes
@@ -438,11 +462,13 @@ jobs:
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
     needs:
+      - changes
       - format
       - test-cos-conformance
       - test-commons
       - test-civic
       - test-hearth
+      - finance-raw-credit-caller-audit
       - test-finance
       - test-finance-integration
       - test-governance
@@ -461,6 +487,7 @@ jobs:
           echo "Commons: ${{ needs.test-commons.result }}"
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
+          echo "Raw SAP credit caller audit: ${{ needs.finance-raw-credit-caller-audit.result }}"
           echo "Finance: ${{ needs.test-finance.result }}"
           # Reported but not gated below — expected red until the finance
           # zomes/tests are synced from the monorepo. See the job's own comment.
@@ -473,8 +500,21 @@ jobs:
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
-          # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          # The change-path filter is required to decide whether the audit is optional.
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "Required change-path filter failed or was skipped: ${{ needs.changes.result }}" >&2
+            exit 1
+          fi
+          # The audit may be skipped on a PR only when its dedicated path filter is false;
+          # pushes and manual dispatches always require a successful audit.
+          if [ "${{ needs.changes.outputs.finance_raw_credit_audit }}" = "true" ] || [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ needs.finance-raw-credit-caller-audit.result }}" != "success" ]; then
+              echo "Raw SAP credit caller audit was required but result was '${{ needs.finance-raw-credit-caller-audit.result }}'." >&2
+              exit 1
+            fi
+          fi
+          # Existing optional cluster jobs may be skipped; the security audit is success-gated above when required.
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.finance-raw-credit-caller-audit.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"

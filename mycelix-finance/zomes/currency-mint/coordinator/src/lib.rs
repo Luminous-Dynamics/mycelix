@@ -106,104 +106,13 @@ pub struct ThermodynamicClaim {
     pub location_h3: String, // Geo-anchored
 }
 
-/// MINT GENESIS SAP: Tether currency creation to planetary regeneration.
-///
-/// This is the 'Thermodynamic Genesis' (Action 1).
-/// 1. Verifies the STARK proof of solar/ecological yield.
-/// 2. Mints SAP directly into the Local Commons (HEARTH).
-/// 3. Updates the steward's reputation (MYCEL) in D1/D5 dimensions.
+/// DISABLED: thermodynamic genesis has no qualified proof verifier or source-specific SAP issuance receipt.
+/// Non-empty proof bytes are not proof verification, and this endpoint makes no durable writes.
 #[hdk_extern]
-pub fn mint_genesis_sap(input: MintGenesisSapInput) -> ExternResult<ActionHash> {
-    // 1. VERIFY PROOF (Vector 2: Proof-of-Physical-State)
-    // In production, this calls mycelix-zkp-core to verify the STARK proof.
-    if input.proof_bytes.is_empty() {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Missing thermodynamic proof".into()
-        )));
-    }
-
-    // 1b. REPLAY PROTECTION: each (sensor_id, timestamp) claim may mint at most once.
-    // Without this, the same proof re-mints SAP unlimited times. The dedup marker is
-    // written BEFORE crediting so a replay is rejected here even if it races the credit.
-    let dedup_anchor = anchor_hash(&format!(
-        "genesis-mint:{}:{}",
-        input.claim.sensor_id, input.claim.timestamp
-    ))?;
-    let already_minted = get_links(
-        LinkQuery::try_new(dedup_anchor.clone(), LinkTypes::AnchorLinks)?,
-        GetStrategy::default(),
-    )?;
-    if !already_minted.is_empty() {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Thermodynamic claim already minted (sensor {}, timestamp {}) — replay rejected",
-            input.claim.sensor_id, input.claim.timestamp
-        ))));
-    }
-
-    // Record the genesis event + dedup marker up front (audit trail + replay guard).
-    let action_hash = create_entry(EntryTypes::ThermodynamicGenesis(ThermodynamicGenesis {
-        sensor_id: input.claim.sensor_id.clone(),
-        yield_kwh: input.claim.yield_kwh,
-        timestamp: input.claim.timestamp,
-        location_h3: input.claim.location_h3.clone(),
-    }))?;
-    create_link(
-        dedup_anchor,
-        action_hash.clone(),
-        LinkTypes::AnchorLinks,
-        (),
-    )?;
-
-    // 2. MINT TO COMMONS (Economic Law 1)
-    // Genesis SAP belongs to the collective, not the individual.
-    //
-    // Credits payments::SapBalance directly (the authoritative SAP ledger —
-    // see MYCELIX_REVIEW.md P1 #4) instead of writing a currency-mint
-    // MintedBalance entry under currency_id="SAP". MintedBalance was a
-    // second, disconnected SAP ledger: nothing in payments (send_payment,
-    // escrow, channels, or the cross-cluster settlement wired up for
-    // supplychain/marketplace) ever reads it, and the finance frontend's
-    // SAP balance display already reads payments::get_sap_balance
-    // exclusively. Minting into MintedBalance alone stranded every
-    // thermodynamic-genesis SAP credit somewhere no spending path could
-    // ever reach it.
-    let commons_did = format!("did:mycelix:hearth:local"); // Anchor to Local Commons
-
-    // We mint 1 SAP per kWh of thermodynamic yield
-    let amount = input.claim.yield_kwh;
-    let sap_amount = amount.max(0.0).round() as u64;
-
-    call(
-        CallTargetCell::Local,
-        "payments",
-        "credit_sap".into(),
-        None,
-        serde_json::json!({
-            "member_did": commons_did,
-            "amount": sap_amount,
-            "reason": format!(
-                "Thermodynamic genesis mint: {} kWh yield (sensor {})",
-                amount, input.claim.sensor_id
-            ),
-        }),
-    )?;
-
-    // 3. RECOGNIZE STEWARDSHIP (Vector 3: Recognition)
-    // The steward earns MYCEL (Soulbound Reputation), not SAP.
-    call(
-        CallTargetCell::Local,
-        "recognition",
-        "record_stewardship_signal".into(),
-        None,
-        serde_json::json!({
-            "steward_did": input.steward_did,
-            "dimension": "D1_Thermodynamic_Yield",
-            "weight": amount
-        }),
-    )?;
-
-    // The genesis event + replay-guard marker were already written up front.
-    Ok(action_hash)
+pub fn mint_genesis_sap(_input: MintGenesisSapInput) -> ExternResult<ActionHash> {
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Thermodynamic genesis issuance is disabled until the proof verifier and a source-specific, non-replayable SAP issuance receipt are implemented and qualified".into()
+    )))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
