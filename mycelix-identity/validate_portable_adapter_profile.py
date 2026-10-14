@@ -284,6 +284,49 @@ def validate_profile(data: Any) -> list[str]:
                     errors.append(f"production_authorized requires evidence.{key}")
             if evidence.get("positive_control_count", 0) < 1 or evidence.get("negative_control_count", 0) < 1:
                 errors.append("production_authorized requires positive and negative controls")
+    elif maturity == "sandbox_authorized":
+        # Sandbox authorization is still a real external permission, not a maturity label
+        # that can be selected by filling in booleans. It must not imply production approval.
+        required_sandbox_gates = {
+            "legal_basis_reviewed",
+            "written_authority_or_partner_approval",
+            "official_protocol_and_trust_metadata_verified",
+            "status_lifecycle_and_key_rotation_reviewed",
+        }
+        if not isinstance(gates, dict) or any(gates.get(k) is not True for k in required_sandbox_gates):
+            errors.append("sandbox_authorized requires legal, written-authority, official-protocol and trust-lifecycle gates")
+        if isinstance(authority, dict):
+            if not isinstance(authority.get("authority_name"), str) or not authority["authority_name"].strip():
+                errors.append("sandbox_authorized requires an identified authority")
+            if not isinstance(authority.get("written_authorization_ref"), str) or not authority["written_authorization_ref"].strip():
+                errors.append("sandbox_authorized requires written authorization evidence")
+            if not isinstance(authority.get("official_sources"), list) or not authority["official_sources"]:
+                errors.append("sandbox_authorized requires official source references")
+        if isinstance(protocol, dict):
+            if protocol.get("route_kind") == "synthetic_only":
+                errors.append("synthetic_only route cannot be sandbox_authorized")
+            required_protocol_fields = ("name", "version", "verifier_endpoint", "official_specification_url", "official_spec_sha256")
+            if any(not isinstance(protocol.get(k), str) or not protocol[k].strip() for k in required_protocol_fields):
+                errors.append("sandbox_authorized requires reviewed official protocol identity, endpoint, specification URL and digest")
+            if protocol.get("reviewed") is not True or protocol.get("externally_authorized") is not True:
+                errors.append("sandbox_authorized requires reviewed and externally authorized protocol")
+        if isinstance(trust, dict):
+            if not trust.get("issuer_ids") or not isinstance(trust.get("metadata_url"), str) or not trust.get("status_method") or not trust.get("revocation_method") or trust.get("key_rotation_policy_reviewed") is not True:
+                errors.append("sandbox_authorized requires issuer metadata, status/revocation methods and key-rotation review")
+        if isinstance(service, dict) and (
+            not isinstance(service.get("lawful_basis_status"), str)
+            or service.get("lawful_basis_status") not in {"reviewed", "approved"}
+            or not isinstance(service.get("purpose_grant_id"), str)
+            or not service["purpose_grant_id"].strip()
+        ):
+            errors.append("sandbox_authorized requires reviewed lawful basis and a purpose-grant reference")
+        if isinstance(evidence, dict):
+            if not isinstance(evidence.get("source_commit"), str) or not COMMIT_RE.fullmatch(evidence["source_commit"]):
+                errors.append("sandbox_authorized requires evidence.source_commit")
+            if not isinstance(evidence.get("release_approval_commit"), str) or evidence.get("release_approval_commit") != evidence.get("source_commit"):
+                errors.append("sandbox authorization must bind the exact source commit")
+            if not isinstance(evidence.get("release_approval_ref"), str) or not evidence["release_approval_ref"].strip():
+                errors.append("sandbox_authorized requires evidence.release_approval_ref")
     elif isinstance(gates, dict) and gates.get("human_approval_for_exact_release_commit") is True:
         # Approval is the final gate and must never appear open on a non-production profile.
         errors.append("human release approval cannot be open on a non-production profile")
