@@ -41,6 +41,19 @@ jobs:
       - name: Run the delivery contract tests
         run: "$RUNNER_TEMP/mycelix-media-delivery-tests"
 
+  video-ui-contract-tests:
+    name: Run video UX contract tests on host
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run video UX unit tests
+        run: >-
+          cargo test
+          --manifest-path mycelix-workspace/mycelix-music/apps/leptos/Cargo.toml
+          --no-default-features
+          pages::videos::tests
+
   music-ui-wasm-check:
     name: Compile Music UI for browser WASM
     runs-on: ubuntu-latest
