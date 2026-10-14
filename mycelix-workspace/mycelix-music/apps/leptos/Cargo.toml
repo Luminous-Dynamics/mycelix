@@ -9,6 +9,10 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Leptos CSR frontend for Mycelix Music — zero-cost streaming with Holochain"
 
+# Resolve this browser frontend independently from unrelated Holochain conductor/test
+# packages in mycelix-workspace. The shared Leptos crates remain ordinary path dependencies.
+[workspace]
+
 [features]
 default = []
 # Enables clearly-labelled sample catalog data and mock connection status for
