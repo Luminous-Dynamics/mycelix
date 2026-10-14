@@ -2,6 +2,7 @@
 
 **Research snapshot:** 2026-10-14  
 **Status:** Research and implementation plan. No cross-border production adapter is authorized or implemented.  
+**Portable architecture:** [Portable sovereign interoperability framework](portable-sovereign-interoperability-framework.md) compares EU, ASEAN and Latin American/Caribbean approaches without treating them as interchangeable.  
 **Related work:** [South African DHA Digital ID profile](sa-digital-id-interoperability.md), [Mycelix identity module](../mycelix-identity/README.md), [machine-readable contract](../mycelix-identity/AFRICA_DPI_INTEROP_CONTRACT_V1.json).
 
 ## Executive recommendation
@@ -160,6 +161,8 @@ Measure public value and failure modes, not credentials issued alone:
 - share of hosting, support, training, procurement and operating ownership retained by local institutions and businesses.
 
 Avoid person-level surveillance dashboards and national rankings that reward exclusion of people who are harder to serve.
+
+Before claiming the design travels across regions, map each target framework's published architecture and conformance process. In particular, learn from the EU's published wallet reference framework, ASEAN's stated cross-border interoperability objective, and IdLAC's regional public-good identity broker in Latin America and the Caribbean. The appropriate action may be mapping, integration, or contribution to an existing public good—not creating a parallel regional broker. See the [portable framework](portable-sovereign-interoperability-framework.md).
 
 ## Immediate next actions
 
