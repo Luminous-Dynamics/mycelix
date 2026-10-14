@@ -199,6 +199,8 @@ pub enum FailureRecoveryOutcome {
     NotRun,
     /// Scenario executed and no failure was observed.
     NoFailureObserved,
+    /// Unsafe or invalid operation was rejected without a state mutation.
+    RejectedSafely,
     /// Failure was detected; recovery has not been demonstrated.
     Detected,
     /// Failure was recovered successfully within the declared envelope.
@@ -620,9 +622,9 @@ mod tests {
             supersedes_milestone_id: None,
             prior_state_sha256: "a".repeat(64),
             resulting_state_sha256: "b".repeat(64),
-            claimed_capability: "local_bulk_handling".to_string(),
-            closure_stage: ClosureStage::Feedstock,
-            source_repository: "https://github.com/Luminous-Dynamics/symtropy".to_string(),
+            claimed_capability: "synthetic_inventory_accounting_contract".to_string(),
+            closure_stage: ClosureStage::Seed,
+            source_repository: "https://example.invalid/source/symtropy".to_string(),
             source_commit_sha: "c".repeat(40),
             scenario_manifest_sha256: "d".repeat(64),
             fixture_class: FixtureClass::SyntheticSoftwareContract,
@@ -633,7 +635,7 @@ mod tests {
             )],
             dependency_deltas: vec![DependencyDelta {
                 dependency_id: "imported_metrology".to_string(),
-                prior: DependencyDisposition::ImportedDurable,
+                prior: DependencyDisposition::Unknown,
                 resulting: DependencyDisposition::Blocked,
             }],
             imported_mass_delta_milligrams: -250_000,
@@ -650,8 +652,8 @@ mod tests {
             failure_recovery: vec![FailureRecoveryObservation {
                 scenario_id: "LEDGER-DUPLICATE-EVENT".to_string(),
                 failure_class: "duplicate_event_identity".to_string(),
-                outcome: FailureRecoveryOutcome::Recovered,
-                recovery_duration_milliseconds: Some(0),
+                outcome: FailureRecoveryOutcome::RejectedSafely,
+                recovery_duration_milliseconds: None,
                 evidence: vec![evidence(
                     "https://example.invalid/evidence/fault-result.json",
                     EvidenceKind::TestReport,
