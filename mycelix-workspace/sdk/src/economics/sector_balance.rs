@@ -1,0 +1,594 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
+
+//! Sector balance-sheet reconciliation.
+//!
+//! This is the bridge between actor-level accounting and a Godley-style
+//! sector matrix. The matrix is deliberately an accounting representation:
+//! it does not encode behavioral preferences or policy recommendations.
+
+use serde::{Deserialize, Serialize};
+
+use super::sector_flow::EconomicSector;
+use super::stock_flow::{ActorId, EconomicState};
+
+/// A signed sector balance-sheet entry.
+///
+/// Positive values are sector assets; negative values are sector liabilities.
+/// Monetary-valued real assets survive consolidation because they have no
+/// matching financial liability inside the closed financial matrix.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum BalanceSheetInstrument {
+    Cash,
+    Deposits,
+    Loans,
+    TradeReceivables,
+    Debt,
+    DepositLiabilities,
+    TradePayables,
+    Equity,
+    ProductiveCapital,
+    InventoryCarryingValue,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BalanceSheetEntry {
+    pub sector: EconomicSector,
+    pub instrument: BalanceSheetInstrument,
+    pub amount: i128,
+}
+
+impl BalanceSheetEntry {
+    pub fn new(
+        sector: EconomicSector,
+        instrument: BalanceSheetInstrument,
+        amount: i128,
+    ) -> Self {
+        Self {
+            sector,
+            instrument,
+            amount,
+        }
+    }
+}
+
+/// Actor-to-sector assignment used for deterministic consolidation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SectorAssignment {
+    pub actor: ActorId,
+    pub sector: EconomicSector,
+}
+
+/// Consolidated sector balance sheet.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct SectorBalanceSheet {
+    pub entries: Vec<BalanceSheetEntry>,
+}
+
+/// A physical stock dimension kept separate from monetary balance-sheet
+/// values. Quantities have no currency unit and therefore do not participate in
+/// the financial balance-sheet identity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PhysicalStockInstrument {
+    Inventories,
+    Resources,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PhysicalStockEntry {
+    pub sector: EconomicSector,
+    pub instrument: PhysicalStockInstrument,
+    pub amount: i128,
+}
+
+impl PhysicalStockEntry {
+    pub const fn new(
+        sector: EconomicSector,
+        instrument: PhysicalStockInstrument,
+        amount: i128,
+    ) -> Self {
+        Self { sector, instrument, amount }
+    }
+}
+
+/// Consolidated physical stocks. These values are intentionally not required
+/// to clear to zero: the economy can possess inventories/resources in aggregate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct SectorPhysicalStock {
+    pub entries: Vec<PhysicalStockEntry>,
+}
+
+impl SectorPhysicalStock {
+    pub fn from_state(
+        state: &EconomicState,
+        assignments: &[SectorAssignment],
+    ) -> Result<Self, String> {
+        state.validate()?;
+        validate_sector_assignments(state, assignments)?;
+        let mut actors = state.actors.clone();
+        actors.sort_by(|a, b| a.actor.cmp(&b.actor));
+
+        let mut entries = Vec::new();
+        for actor in actors {
+            let matching = assignments
+                .iter()
+                .filter(|assignment| assignment.actor == actor.actor)
+                .collect::<Vec<_>>();
+            if matching.len() != 1 {
+                return Err(format!(
+                    "actor {} must have exactly one sector assignment",
+                    actor.actor
+                ));
+            }
+            let assignment = matching[0];
+
+            entries.extend([
+                PhysicalStockEntry::new(
+                    assignment.sector,
+                    PhysicalStockInstrument::Inventories,
+                    actor.real.inventories,
+                ),
+                PhysicalStockEntry::new(
+                    assignment.sector,
+                    PhysicalStockInstrument::Resources,
+                    actor.real.resources,
+                ),
+            ]);
+        }
+
+        entries.sort_by_key(|entry| (entry.sector as u8, entry.instrument as u8));
+        Ok(Self { entries })
+    }
+
+    pub fn try_sector_stock_total(
+        &self,
+        sector: EconomicSector,
+        instrument: PhysicalStockInstrument,
+    ) -> Result<i128, String> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.sector == sector && entry.instrument == instrument)
+            .try_fold(0i128, |sum, entry| {
+                sum.checked_add(entry.amount)
+                    .ok_or_else(|| "sector physical-stock total overflow".to_string())
+            })
+    }
+
+    pub fn sector_stock_total(
+        &self,
+        sector: EconomicSector,
+        instrument: PhysicalStockInstrument,
+    ) -> i128 {
+        self.try_sector_stock_total(sector, instrument)
+            .expect("sector physical-stock total overflow")
+    }
+}
+
+fn validate_sector_assignments(
+    state: &EconomicState,
+    assignments: &[SectorAssignment],
+) -> Result<(), String> {
+    if state.actors.len() != assignments.len() {
+        return Err("sector assignments must cover every actor exactly once".into());
+    }
+
+    for assignment in assignments {
+        if !state.actors.iter().any(|actor| actor.actor == assignment.actor) {
+            return Err(format!(
+                "sector assignment references unknown actor {}",
+                assignment.actor
+            ));
+        }
+    }
+
+    for actor in &state.actors {
+        let count = assignments
+            .iter()
+            .filter(|assignment| assignment.actor == actor.actor)
+            .count();
+        match count {
+            0 => {
+                return Err(format!(
+                    "missing sector assignment for actor {}",
+                    actor.actor
+                ))
+            }
+            1 => {}
+            _ => {
+                return Err(format!(
+                    "actor {} must have exactly one sector assignment",
+                    actor.actor
+                ))
+            }
+        }
+    }
+
+    Ok(())
+}
+
+impl SectorBalanceSheet {
+    /// Build a deterministic sector consolidation from actor state.
+    pub fn from_state(
+        state: &EconomicState,
+        assignments: &[SectorAssignment],
+    ) -> Result<Self, String> {
+        state.validate()?;
+        validate_sector_assignments(state, assignments)?;
+        let mut actors = state.actors.clone();
+        actors.sort_by(|a, b| a.actor.cmp(&b.actor));
+
+        let mut entries = Vec::new();
+
+        for actor in actors {
+            let matching = assignments
+                .iter()
+                .filter(|assignment| assignment.actor == actor.actor)
+                .collect::<Vec<_>>();
+            if matching.len() != 1 {
+                return Err(format!(
+                    "actor {} must have exactly one sector assignment",
+                    actor.actor
+                ));
+            }
+            let assignment = matching[0];
+
+            let m = actor.monetary;
+            let r = actor.real;
+
+            entries.extend([
+                BalanceSheetEntry::new(assignment.sector, BalanceSheetInstrument::Cash, m.cash),
+                BalanceSheetEntry::new(
+                    assignment.sector,
+                    BalanceSheetInstrument::Deposits,
+                    m.deposits,
+                ),
+                BalanceSheetEntry::new(
+                    assignment.sector,
+                    BalanceSheetInstrument::Loans,
+                    m.claims,
+                ),
+                BalanceSheetEntry::new(
+                    assignment.sector,
+                    BalanceSheetInstrument::TradeReceivables,
+                    m.trade_receivables,
+                ),
+                BalanceSheetEntry::new(
+                    assignment.sector,
+                    BalanceSheetInstrument::Debt,
+                    -m.liabilities,
+                ),
+                BalanceSheetEntry::new(
+                    assignment.sector,
+                    BalanceSheetInstrument::DepositLiabilities,
+                    -m.deposit_liabilities,
+                ),
+                BalanceSheetEntry::new(
+                    assignment.sector,
+                    BalanceSheetInstrument::TradePayables,
+                    -m.trade_payables,
+                ),
+                // Equity/net worth is the balance-sheet residual, not an
+                // independent asset. Store it on the signed liability side.
+                BalanceSheetEntry::new(
+                    assignment.sector,
+                    BalanceSheetInstrument::Equity,
+                    -actor.try_net_worth()?,
+                ),
+                BalanceSheetEntry::new(
+                    assignment.sector,
+                    BalanceSheetInstrument::ProductiveCapital,
+                    r.productive_capital,
+                ),
+                BalanceSheetEntry::new(
+                    assignment.sector,
+                    BalanceSheetInstrument::InventoryCarryingValue,
+                    actor.inventory_carrying_value,
+                ),
+            ]);
+        }
+
+        entries.sort_by_key(|entry| (entry.sector as u8, entry.instrument as u8));
+        Ok(Self { entries })
+    }
+
+    /// Net monetary working capital for a sector:
+    /// inventory carrying value + trade receivables - trade payables.
+    pub fn sector_net_working_capital(&self, sector: EconomicSector) -> i128 {
+        self.sector_instrument_total_checked(
+            sector,
+            BalanceSheetInstrument::InventoryCarryingValue,
+        )
+        .and_then(|value| {
+            value.checked_add(self.sector_instrument_total_checked(
+                sector,
+                BalanceSheetInstrument::TradeReceivables,
+            )?)
+        })
+        .and_then(|value| {
+            value.checked_add(self.sector_instrument_total_checked(
+                sector,
+                BalanceSheetInstrument::TradePayables,
+            )?)
+        })
+        .expect("sector working-capital overflow")
+    }
+
+    /// Return the sector total for one instrument.
+    pub fn sector_instrument_total_checked(
+        &self,
+        sector: EconomicSector,
+        instrument: BalanceSheetInstrument,
+    ) -> Result<i128, String> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.sector == sector && entry.instrument == instrument)
+            .try_fold(0i128, |sum, entry| {
+                sum.checked_add(entry.amount)
+                    .ok_or_else(|| "sector instrument total overflow".to_string())
+            })
+    }
+
+    pub fn sector_instrument_total(
+        &self,
+        sector: EconomicSector,
+        instrument: BalanceSheetInstrument,
+    ) -> i128 {
+        self.sector_instrument_total_checked(sector, instrument)
+            .expect("sector instrument total overflow")
+    }
+
+    /// Financial claim/liability rows should consolidate to zero.
+    ///
+    /// Equity is intentionally excluded: it is the balancing item against
+    /// real assets, not a claim held by another sector. Cash is also excluded
+    /// until its issuer is explicitly modeled.
+    pub fn financial_rows_clear(&self) -> bool {
+        [
+            // Cash/reserves may have an issuer outside the modeled sectors.
+            BalanceSheetInstrument::Deposits,
+            BalanceSheetInstrument::Loans,
+            BalanceSheetInstrument::TradeReceivables,
+            BalanceSheetInstrument::Debt,
+            BalanceSheetInstrument::DepositLiabilities,
+            BalanceSheetInstrument::TradePayables,
+        ]
+        .iter()
+        .all(|instrument| {
+            self.entries
+                .iter()
+                .filter(|entry| entry.instrument == *instrument)
+                .try_fold(0i128, |sum, entry| sum.checked_add(entry.amount))
+                == Some(0)
+        })
+    }
+
+    /// Each sector's signed monetary balance sheet must satisfy assets +
+    /// liabilities + equity = 0. Physical quantities are reconciled separately
+    /// and are never added to currency-denominated rows.
+    pub fn balance_sheet_identity_holds(&self) -> bool {
+        let mut sectors = self.entries.iter().map(|e| e.sector).collect::<Vec<_>>();
+        sectors.sort_by_key(|s| *s as u8);
+        sectors.dedup();
+        sectors.into_iter().all(|sector| {
+            self.entries
+                .iter()
+                .filter(|entry| entry.sector == sector)
+                .try_fold(0i128, |sum, entry| sum.checked_add(entry.amount))
+                == Some(0)
+        })
+    }
+
+    /// Validate that every state actor has exactly one sector assignment and
+    /// that the resulting financial matrix is internally coherent.
+    pub fn validate(
+        &self,
+        state: &EconomicState,
+        assignments: &[SectorAssignment],
+    ) -> Result<(), String> {
+        validate_sector_assignments(state, assignments)?;
+
+        if !self.financial_rows_clear() {
+            return Err("sector financial balance-sheet rows do not clear".into());
+        }
+        if !self.balance_sheet_identity_holds() {
+            return Err("sector balance-sheet identities do not hold".into());
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::economics::stock_flow::{ActorBalanceSheet, CreditCreation};
+
+    #[test]
+    fn consolidation_reconciles_bank_credit() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.cash = 1_000;
+        let mut state = EconomicState::new(vec![
+            bank,
+            ActorBalanceSheet::new("household"),
+        ]);
+
+        state
+            .create_credit(&CreditCreation::new("bank", "household", 500).unwrap())
+            .unwrap();
+
+        let assignments = vec![
+            SectorAssignment {
+                actor: "bank".into(),
+                sector: EconomicSector::Bank,
+            },
+            SectorAssignment {
+                actor: "household".into(),
+                sector: EconomicSector::Household,
+            },
+        ];
+
+        let sheet = SectorBalanceSheet::from_state(&state, &assignments).unwrap();
+        assert!(sheet.financial_rows_clear());
+        assert!(sheet.balance_sheet_identity_holds());
+        sheet.validate(&state, &assignments).unwrap();
+        assert_eq!(
+            sheet.sector_instrument_total(
+                EconomicSector::Bank,
+                BalanceSheetInstrument::Loans
+            ),
+            500
+        );
+        assert_eq!(
+            sheet.sector_instrument_total(
+                EconomicSector::Household,
+                BalanceSheetInstrument::Deposits
+            ),
+            500
+        );
+    }
+
+    #[test]
+    fn duplicate_assignment_is_rejected_deterministically() {
+        let state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
+        let assignments = vec![
+            SectorAssignment { actor: "household".into(), sector: EconomicSector::Household },
+            SectorAssignment { actor: "household".into(), sector: EconomicSector::Firm },
+        ];
+        let error = SectorBalanceSheet::from_state(&state, &assignments).unwrap_err();
+        assert!(error.contains("exactly one sector assignment"));
+    }
+
+    #[test]
+    fn missing_assignment_is_rejected() {
+        let state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
+        let error = SectorBalanceSheet::from_state(&state, &[]).unwrap_err();
+        assert!(error.contains("missing sector assignment"));
+    }
+
+    #[test]
+    fn sector_projection_rejects_invalid_state() {
+        let mut state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
+        state.actors[0].monetary.deposits = -1;
+        let assignments = vec![SectorAssignment {
+            actor: "household".into(),
+            sector: EconomicSector::Household,
+        }];
+
+        assert!(SectorBalanceSheet::from_state(&state, &assignments).is_err());
+        assert!(SectorPhysicalStock::from_state(&state, &assignments).is_err());
+    }
+
+    #[test]
+    fn unknown_assignment_is_rejected() {
+        let state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
+        let assignments = vec![SectorAssignment {
+            actor: "ghost".into(),
+            sector: EconomicSector::Firm,
+        }];
+        let error = SectorBalanceSheet::from_state(&state, &assignments).unwrap_err();
+        assert!(error.contains("unknown actor ghost"));
+
+        let physical = SectorPhysicalStock::from_state(&state, &assignments).unwrap_err();
+        assert!(physical.contains("unknown actor ghost"));
+    }
+
+    #[test]
+    fn sector_working_capital_consolidates_inventory_and_trade_credit() {
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.inventory_carrying_value = 50;
+        firm.monetary.trade_receivables = 30;
+        let mut household = ActorBalanceSheet::new("household");
+        household.monetary.trade_payables = 20;
+        let state = EconomicState::new(vec![firm, household]);
+
+        let assignments = vec![
+            SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
+            SectorAssignment { actor: "household".into(), sector: EconomicSector::Household },
+        ];
+        let sheet = SectorBalanceSheet::from_state(&state, &assignments).unwrap();
+        assert_eq!(sheet.sector_net_working_capital(EconomicSector::Firm), 80);
+        assert_eq!(sheet.sector_net_working_capital(EconomicSector::Household), -20);
+    }
+
+    #[test]
+    fn trade_credit_consolidates_as_matching_financial_rows() {
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.trade_receivables = 80;
+        let mut household = ActorBalanceSheet::new("household");
+        household.monetary.trade_payables = 80;
+        let state = EconomicState::new(vec![firm, household]);
+
+        let assignments = vec![
+            SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
+            SectorAssignment { actor: "household".into(), sector: EconomicSector::Household },
+        ];
+        let sheet = SectorBalanceSheet::from_state(&state, &assignments).unwrap();
+        assert_eq!(
+            sheet.sector_instrument_total(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::TradeReceivables
+            ),
+            80
+        );
+        assert_eq!(
+            sheet.sector_instrument_total(
+                EconomicSector::Household,
+                BalanceSheetInstrument::TradePayables
+            ),
+            -80
+        );
+        assert!(sheet.financial_rows_clear());
+        assert!(sheet.balance_sheet_identity_holds());
+    }
+
+    #[test]
+    fn balance_sheet_predicates_fail_closed_on_overflow() {
+        let sheet = SectorBalanceSheet {
+            entries: vec![
+                BalanceSheetEntry::new(
+                    EconomicSector::Firm,
+                    BalanceSheetInstrument::Deposits,
+                    i128::MAX,
+                ),
+                BalanceSheetEntry::new(
+                    EconomicSector::Firm,
+                    BalanceSheetInstrument::Deposits,
+                    1,
+                ),
+            ],
+        };
+        assert!(!sheet.financial_rows_clear());
+        assert!(!sheet.balance_sheet_identity_holds());
+        assert!(sheet
+            .sector_instrument_total_checked(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::Deposits
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn real_assets_do_not_have_to_clear() {
+        let mut household = ActorBalanceSheet::new("household");
+        household.real.resources = 100;
+        let state = EconomicState::new(vec![household]);
+
+        let assignments = vec![SectorAssignment {
+            actor: "household".into(),
+            sector: EconomicSector::Household,
+        }];
+
+        let sheet = SectorBalanceSheet::from_state(&state, &assignments).unwrap();
+        assert!(sheet.financial_rows_clear());
+        assert!(sheet.balance_sheet_identity_holds());
+        let physical = SectorPhysicalStock::from_state(&state, &assignments).unwrap();
+        assert_eq!(
+            physical.sector_stock_total(
+                EconomicSector::Household,
+                PhysicalStockInstrument::Resources
+            ),
+            100
+        );
+    }
+}
