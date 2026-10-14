@@ -11,6 +11,7 @@
   "source_commit_sha": "cccccccccccccccccccccccccccccccccccccccc",
   "scenario_manifest_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
   "fixture_class": "synthetic_software_contract",
+  "qualification_scope": null,
   "evidence": [
     {
       "uri": "https://example.invalid/evidence/reference-run.json",
