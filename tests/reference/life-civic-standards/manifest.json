@@ -50,5 +50,6 @@
       "git_blob_sha1": "6fef3b6248c528ea58bf96113e88ba840b9c5a72",
       "purpose": "adversarial and lifecycle fixture corpus"
     }
-  ]
+  ],
+  "integrity_semantics": "git_blob_sha1 binds exact repository object bytes to detect accidental or unreviewed drift. It is a Git object identity, not a signature, source-authenticity proof, or independent collision-resistant trust claim."
 }
