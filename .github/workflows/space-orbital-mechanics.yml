@@ -82,4 +82,9 @@ jobs:
         run: cargo test --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p conjunctions_coordinator
 
       - name: Compile conjunction coordinator for Holochain WASM
+        # Holochain 0.6 uses getrandom's custom WASM backend supplied by the
+        # conductor. getrandom 0.3.4 requires this cfg explicitly on raw
+        # wasm32-unknown-unknown builds; do not select the browser wasm_js backend.
+        env:
+          RUSTFLAGS: '--cfg getrandom_backend="custom"'
         run: cargo check --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p conjunctions_coordinator --target wasm32-unknown-unknown
