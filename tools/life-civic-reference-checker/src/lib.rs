@@ -145,7 +145,7 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
             if !unique_ids.insert(id) {
                 return Err(format!("duplicate verification evidence ID: {id}"));
             }
-            let (kind, independence, _source_uri, _retrieval_state) = records
+            let (kind, independence, _source_uri, retrieval_state) = records
                 .get(id)
                 .ok_or_else(|| format!("verification evidence ID has no record: {id}"))?;
             if kind != "independent_observation" && kind != "independent_measurement" {
@@ -156,6 +156,11 @@ fn validate_service_claim_semantics(instance: &Value) -> Result<(), String> {
             if independence != "independent" {
                 return Err(format!(
                     "verification evidence {id} is not explicitly marked independent"
+                ));
+            }
+            if retrieval_state == "unavailable" {
+                return Err(format!(
+                    "verification evidence {id} is unavailable and cannot substantiate a completed outcome"
                 ));
             }
         }
@@ -517,6 +522,25 @@ fn scoped_independent_restoration_positive_control_is_accepted() {
     assert!(
         validate_service_claim_semantics(&incomplete_review).is_err(),
         "independent verification must not pass before human review completes"
+    );
+
+    let mut unavailable_verification = instance.clone();
+    let unavailable_evidence = unavailable_verification["evidence"]
+        .as_array_mut()
+        .expect("evidence must be an array")
+        .iter_mut()
+        .find(|item| item["evidence_id"] == "EV-INDEP-005")
+        .expect("independent evidence must exist");
+    unavailable_evidence["retrieved_at"] = Value::Null;
+    unavailable_evidence["retrieval_state"] = json!("unavailable");
+    unavailable_evidence["checked_at"] = json!("2026-10-14T11:00:00Z");
+    assert!(
+        check.is_valid(&unavailable_verification),
+        "unavailable-evidence control must remain schema-valid so the semantic guard is exercised"
+    );
+    assert!(
+        validate_service_claim_semantics(&unavailable_verification).is_err(),
+        "unavailable evidence must not substantiate an independently verified completion"
     );
 
     let mut route_wrong_evidence = instance.clone();
