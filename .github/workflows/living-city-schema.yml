@@ -37,3 +37,5 @@ jobs:
         run: python -m pip install --disable-pip-version-check "jsonschema[format]==4.23.0"
       - name: Validate schema, positive fixtures, and negative controls
         run: python scripts/living-city/validate_fixtures.py
+      - name: Run targeted schema mutation controls
+        run: python scripts/living-city/test_schema_mutations.py
