@@ -287,3 +287,73 @@ Expand the research to Moss, Flowsta Vault, AD4M, Nondominium and other active p
 ## Scope and limitations
 
 This is an evidence-backed research/design change. It does not claim that external repositories have been independently audited, that all findings in their READMEs are verified, or that any builds/tests were run during this review. The SAP conservation comment should trigger a complete source/test investigation before modifying ledger code; a narrow patch without tracing all producers could break valid paths or preserve a bypass.
+
+
+## Follow-up qualification snapshot — 2026-10-14
+
+This update adds an explicit, machine-readable decision matrix and refreshes the runtime-compatibility boundary against the Holochain developer documentation. It does not claim external hApps were built, integrated, or independently security-audited in this pass.
+
+### Current Holochain compatibility decision
+
+The official Holochain compatibility table currently recommends the 0.7 stack: conductor/CLI 0.7.0, HDK 0.7.0, HDI 0.8.0, JavaScript client 0.21.0, Rust client 0.9.0 and Lair 0.7.1. Holochain 0.8.0-dev releases exist, including dev.11 dated 2026-10-12, but a development prerelease is not the correct default qualification target for a stable integration. Sources: https://developer.holochain.org/resources/compatibility/holochain-0.7/ and https://github.com/holochain/holochain/releases
+
+The official 0.6 → 0.7 guide identifies three system-level consequences that must shape Mycelix planning:
+
+1. The action model and integrity validation API change substantially, including Action/ActionData and FlatOp changes.
+2. tx5/WebRTC are removed in favor of Iroh over QUIC.
+3. There is no built-in data migration path: 0.7 cannot read 0.6 conductor databases, and DNA hashes change. Existing installs have to clear the old conductor data to join the 0.7 network.
+
+Source: https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/
+
+**Decision:** a Mycelix subproject is not “0.7-compatible” merely because a different subproject has migrated, a dependency manifest has changed, or unit tests compile. Each deployable hApp needs an exact compatibility tuple and its own source/runtime evidence. Any user data that must survive a 0.6 → 0.7 transition requires a separately designed application-level export, validation, re-import and recovery procedure; do not describe a database clear as a data migration or silently imply old and new DNA networks interoperate.
+
+Minimum compatibility record per deployable target:
+
+- exact source commit and hApp/DNA artifact identity;
+- conductor and CLI versions;
+- HDK/HDI versions and all direct Holochain dependencies;
+- JavaScript/Rust client and Tryorama/Sweettest versions, where used;
+- network transport and conductor configuration;
+- whether the target is a clean install, migration/import test, or an existing-user upgrade;
+- source-level, unit, integrity, multi-agent, packaged UI and recovery evidence recorded as separate states.
+
+### Interoperability contract derived from the ecosystem review
+
+Use standards and external projects to reduce translation cost, not to outsource Mycelix authority:
+
+- **ValueFlows/hREA:** map economic facts and relationships through a versioned, read-only export first. Preserve exact asset identity, units, integer amounts, issuer/community scope, provenance and correction lineage. ValueFlows defines economic concepts; it does not make an incoming event authoritative for Mycelix balances, membership, policy or settlement.
+- **Nondominium:** benchmark resource-scoped network boundaries and private participation receipts. A person’s membership in one group must not silently grant access or authority over another group’s resources.
+- **Moss:** benchmark user-composable tools and private tool/group boundaries. Favor small interoperable experiences rather than assuming every domain must be exposed as one large application.
+- **AD4M:** evaluate portable signed expressions and semantic adapters for exchange, but do not substitute a semantic graph for integrity validation, authorization or an explicit domain model.
+- **ValiChord:** consider commit/reveal for blind review or pre-registered evaluation where early visibility creates a real attack surface. A commitment proves only that the revealed payload matches the earlier commitment under the specified hash/encoding; it does not prove the payload is true or the validator is competent.
+- **Epistemic Resonance Protocol:** represent claims, evidence and critiques as structured, attributable records; preserve disagreement and corrections rather than reducing truth to a single reputation/confidence number.
+- **Hearth and Flowsta Vault:** benchmark person-controlled care data, local custody, visible action approval, backup, export and recovery. Treat early-demo limitations and licensing/implementation details as explicit review items; do not place real health data into a demo.
+- **Requests and Offers:** benchmark a narrow request → offer → agreement/commitment → delivery evidence → settlement journey. The source describes an alpha, so reuse its scope discipline rather than treating it as a production dependency.
+
+Machine-readable decision matrix: [HAPP_RADAR_INTEROPERABILITY_MATRIX_2026-10.json](HAPP_RADAR_INTEROPERABILITY_MATRIX_2026-10.json).
+
+### New negative controls for future adapter/qualification tests
+
+The matrix records expected dispositions for high-value failure classes. At minimum, the adapter and vertical-slice qualification should reject or leave indeterminate:
+
+- a 0.6 artifact/database presented as a qualified 0.7 deployment;
+- a successful external API/GraphQL response represented as proof of DHT validation or settlement;
+- an external ValueFlows event treated as authority to mutate SAP/TEND balances;
+- MYCEL recognition exported as a transferable economic balance;
+- TEND events translated without preserving time units, issuer/community scope, and zero-sum obligations;
+- identical resource identifiers from different networks treated as the same resource without an explicit cross-network binding;
+- a valid signature or commitment interpreted as proof that the signed statement is true;
+- a commit/reveal payload accepted after mismatch, replay, or a phase violation;
+- dissent, unknown status, stale evidence, or unavailable verification collapsed into a positive/negative fact;
+- unit-test or build success represented as multi-agent or deployment qualification;
+- README feature claims, hAppRadar listing status or a live demo represented as independent security review or production adoption.
+
+### Recommended execution order
+
+1. **Compatibility inventory:** close the current version truth for each hApp and select an exact stable target; keep 0.8 development builds out of the baseline unless a separate experimental lane is explicitly intended.
+2. **Read-only interoperability fixture:** freeze one ValueFlows mapping corpus with exact-unit examples and adversarial cases. Export only; external input must not directly mutate an authoritative Mycelix balance.
+3. **One vertical workflow:** complete a small requests/offers or commons-resource journey, including cancellation, dispute, idempotent replay, evidence export and recovery.
+4. **Independent qualification:** exercise at least two agents against the exact target conductor/DNA, include response loss and duplicate operations, and have a verifier that does not reuse the production reducer as its oracle.
+5. **Only then broaden:** consider write-through adapters, blind commit/reveal or multi-domain UI expansion only after the relevant threat model and exact-head evidence pass.
+
+This ordering is intentionally conservative: Mycelix's differentiator should be cross-domain coordination with verifiable authority boundaries, not an unverified claim that it contains more features than other hApps.
