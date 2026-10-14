@@ -338,12 +338,8 @@ impl HospitalityForecastPilotRegistration {
             })
             .collect::<Vec<_>>();
 
-        let registration_digest = registration_digest(
-            &config,
-            protocol_digest,
-            &data_quality,
-            &slices,
-        );
+        let registration_digest =
+            registration_digest(&config, protocol_digest, &data_quality, &slices);
         let field_plan = FieldQualificationPlan {
             plan_id: config.plan_id,
             profile: food_service_profile_ref(),
@@ -376,7 +372,9 @@ impl HospitalityForecastPilotRegistration {
 
     pub fn validate(&self) -> Result<(), PilotError> {
         self.policy.validate()?;
-        self.protocol.validate().map_err(|_| PilotError::ProtocolInvalid)?;
+        self.protocol
+            .validate()
+            .map_err(|_| PilotError::ProtocolInvalid)?;
         self.field_plan
             .validate()
             .map_err(|_| PilotError::FieldPlanInvalid)?;
@@ -436,7 +434,12 @@ impl HospitalityForecastPilotRegistration {
             .field_plan
             .slices
             .iter()
-            .map(|slice| (slice.slice.clone(), (slice.criterion_digest, slice.minimum_cases)))
+            .map(|slice| {
+                (
+                    slice.slice.clone(),
+                    (slice.criterion_digest, slice.minimum_cases),
+                )
+            })
             .collect::<std::collections::BTreeMap<_, _>>();
         let expected_slices = self
             .slices
@@ -701,10 +704,20 @@ mod tests {
         let registration = HospitalityForecastPilotRegistration::build(config()).unwrap();
         assert!(HOSPITALITY_PILOT_IS_READ_ONLY);
         assert_eq!(registration.validate(), Ok(()));
-        assert_eq!(registration.protocol.baseline_model_lineage, seasonal_naive_baseline_ref());
-        assert!(registration.protocol.require_candidate_not_worse_than_baseline);
+        assert_eq!(
+            registration.protocol.baseline_model_lineage,
+            seasonal_naive_baseline_ref()
+        );
+        assert!(
+            registration
+                .protocol
+                .require_candidate_not_worse_than_baseline
+        );
         assert_eq!(registration.slices.len(), 4);
-        assert_eq!(registration.field_plan.plan_digest, registration.registration_digest);
+        assert_eq!(
+            registration.field_plan.plan_digest,
+            registration.registration_digest
+        );
     }
 
     #[test]
@@ -791,7 +804,13 @@ mod tests {
     #[test]
     fn conservative_policy_requires_zero_conflicting_records() {
         let registration = HospitalityForecastPilotRegistration::build(config()).unwrap();
-        assert_eq!(registration.field_plan.data_quality[0].maximum_conflicting_bps, 0);
-        assert_eq!(registration.field_plan.data_quality[0].maximum_missing_bps, 100);
+        assert_eq!(
+            registration.field_plan.data_quality[0].maximum_conflicting_bps,
+            0
+        );
+        assert_eq!(
+            registration.field_plan.data_quality[0].maximum_missing_bps,
+            100
+        );
     }
 }
