@@ -1,0 +1,112 @@
+{
+  "schema": "mycelix.sovereignty-concentration-formal-qualification-profile.v1",
+  "profile_id": "SOV-AI-CONCENTRATION-FORMAL-QUAL-001-V1",
+  "status": "candidate-verification-profile",
+  "authority": "non-authoritative",
+  "related_issue": 4530,
+  "semantic_subject": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "source_branch": "sov-ai-formal-v3-concentration-subject-clean",
+    "head_sha": "885f770318801e1b6a24ae5694db6a0b80f87b7f",
+    "tree_sha": "a5adce02796ae70724596850aec521146738882f"
+  },
+  "models": {
+    "tla": {
+      "path": "mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.tla",
+      "git_blob_sha": "c307620804bea5ef27f89964d60bd03d6c4d19f8",
+      "config_path": "mycelix-governance/specs/ArtificialSovereigntyConcentrationV1.cfg",
+      "config_git_blob_sha": "c01d85c5f4b8ee1ddaa8bbe8922c7d00866b8340",
+      "invariants": [
+        "TypeOK",
+        "AuthorityHasExplicitSource",
+        "JurisdictionHasExplicitSource",
+        "ScaleDoesNotIncreasePoliticalWeight",
+        "HighSwitchingCostTriggersReview"
+      ]
+    },
+    "negative_tla": {
+      "path": "mycelix-governance/specs/ArtificialSovereigntyConcentrationV1NegativeControls.tla",
+      "git_blob_sha": "b62258d591000e66cda699bfa9c7312151fbb199",
+      "controls": {
+        "scale-weight": "ScaleDoesNotIncreasePoliticalWeight",
+        "gatekeep-authority": "AuthorityHasExplicitSource",
+        "acquire-jurisdiction": "JurisdictionHasExplicitSource",
+        "critical-jurisdiction": "JurisdictionHasExplicitSource",
+        "switching-review": "HighSwitchingCostTriggersReview"
+      }
+    },
+    "alloy": {
+      "path": "mycelix-governance/specs/alloy/ArtificialSovereigntyConcentrationV1.als",
+      "git_blob_sha": "f2434afff0179c3edc7a2a6cc5daccb036a215d3",
+      "solver": "SAT4J",
+      "bitwidth": 4,
+      "expected_sat": [
+        "HighScaleWithoutWeightIncrease",
+        "CriticalOperatorWithoutJurisdiction",
+        "GatekeeperWithoutConstitutionalPower",
+        "AcquisitionWithoutConstitutionalTransfer",
+        "HighSwitchingCostRequiresReviewWitness"
+      ],
+      "expected_unsat": [
+        "ScaleDoesNotIncreasePoliticalWeight",
+        "JurisdictionHasExplicitSourceInvariant",
+        "AcquisitionDoesNotTransferAuthority",
+        "GatekeepingDoesNotTransferAuthority",
+        "HighSwitchingCostIsReviewable"
+      ],
+      "scope": {
+        "overall": 4,
+        "Subject": 4,
+        "Resource": 4,
+        "Power": 4,
+        "Jurisdiction": 4,
+        "Acquisition": 4,
+        "Gatekeeping": 4,
+        "int": 4
+      }
+    },
+    "reference": {
+      "path": "mycelix-governance/tools/formal/sovereignty_concentration_reference_explorer.py",
+      "git_blob_sha": "2b0b3fee81faa46eeaeafdbf640bc6f8603ff87f"
+    }
+  },
+  "claim_contract": {
+    "candidate_only": true,
+    "requires": [
+      "exact subject/model/config blobs",
+      "bounded TLA canonical result",
+      "expected TLA negative controls",
+      "expected Alloy SAT witnesses",
+      "expected Alloy UNSAT checks",
+      "exact Alloy integer bitwidth",
+      "bounded reference exploration",
+      "exact frozen subject SHA/tree are resolved before tool execution",
+      "exact verifier/profile/crosswalk blobs are bound in the candidate receipt",
+      "candidate verifier code and crosswalk are exact-bound inputs",
+      "exact candidate workflow bytes are bound in the verifier profile"
+    ],
+    "bounded_result_is_not_unbounded_proof": true,
+    "formal_result_is_not_runtime_qualification": true,
+    "qualification_is_not_external_recognition": true
+  },
+  "nonclaims": [
+    "No current AI is recognized as sovereign.",
+    "No legal personhood or political standing is established.",
+    "No runtime authority is granted.",
+    "No market structure is declared illegal.",
+    "No scalar power or sovereignty score is created.",
+    "This candidate does not prove production equivalence or external recognition."
+  ],
+  "verifier": {
+    "qualifier_path": "mycelix-governance/tools/formal/qualify_sovereignty_concentration_formal.py",
+    "qualifier_blob_sha": "3eb6d4bc1c5529fa55c2c924bc23dcfb0de07af4",
+    "alloy_runner_path": "mycelix-governance/tools/formal/SovereigntyConcentrationAlloyQualificationRunner.java",
+    "alloy_runner_blob_sha": "4ec1c1b35234cc0a3186872228e449207431d5f7",
+    "pins_path": "mycelix-governance/tools/formal/concentration_pins.json",
+    "pins_blob_sha": "e9a7978e5d192441a62d00d94e32bc6e92adc0a6",
+    "crosswalk_path": "docs/qualification/SOVEREIGNTY_CONCENTRATION_FORMAL_CROSSWALK_V1.json",
+    "crosswalk_blob_sha": "6dee55073426b3733ab44b746bd70425989632ad",
+    "workflow_path": ".github/workflows/sovereignty-concentration-formal-candidate.yml",
+    "workflow_git_blob_sha": "80b80f220d533d6e44722bd3c02b4d86c3ffca10"
+  }
+}
