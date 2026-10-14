@@ -84,6 +84,31 @@ Status is not a quality badge: each transition requires recorded evidence and a 
 
 Keep the governance decision separate from model results. A decision records the responsible body/person or privacy-preserving credential, authority/mandate, decision time, rationale, dissent/appeal path, and links to the reviewed result version. An outcome record stores later measured effects, measurement method, time window, and deviations from the prediction. Never overwrite a prediction with its eventual outcome.
 
+### 5. Work package, funding, and labor protection
+
+A civic plan becomes an economic program only after a separate, auditable work-package decision. Do not infer a funded job from a need, a model recommendation, a budget headline, a programme target, or a procurement index page.
+
+The work-package contract should be owned by Mycelix and link—not duplicate—the upstream case, analysis, and simulation records. At minimum, it should bind:
+
+- the stable work-package ID/version; linked Sol-Atlas case IDs and coarse public-area references; scenario/result versions; deliverables and completion criteria;
+- the proposing party, legally/organizationally authorized commissioning party, decision receipt, accountable asset/service owner, and a recorded human authorization;
+- the funding source and payer, currency/price year, full-period committed amount, commitment evidence, start/end period, and whole-life labor/support costs including supervision, training, tools, protective equipment, accessibility needs, transport, insurance where applicable, and independent verification;
+- the procurement/contract issuer and namespaced external reference, source and retrieval time, lifecycle stage, closing date where applicable, award/contract evidence, and applicable open-data mapping (use the [Open Contracting Data Standard](https://standard.open-contracting.org/latest/en/) where relevant rather than inventing a parallel procurement ontology);
+- role/employment classification, applicable wage basis, authoritative source, qualified human reviewer, and review time. The system must never infer a legal employment regime from a programme label or default an unknown classification to a cheaper wage;
+- written terms, pay cadence, worker protections, accessibility accommodations, dispute/grievance route, and separately specified outcome-acceptance and verification procedures.
+
+Suggested lifecycle states are `discovery`, `proposed`, `classification_review`, `funding_committed`, `authorized`, `announced`, `active`, `completion_claimed`, `independently_verified`, and `closed_or_cancelled`. Treat this as a proposed state vocabulary, not an existing runtime API. State transitions require evidence: a discovery lead is not an open contract; a funding estimate is not a commitment; a commitment is not authorization; and an announced role is not proof of hiring or durable employment.
+
+**Non-negotiable labor boundary:** service completion, public-outcome verification, and causal impact are different records. Independent review may qualify a service-resolution claim, but it must not silently erase or delay wages already earned under applicable law and written terms. Model outputs cannot classify workers, determine entitlement, blacklist a contractor, or make adverse decisions about a resident or worker.
+
+The first useful cross-stack path is deliberately narrow:
+
+`Sol-Atlas CivicServiceCase` → `Symthaea AnalysisReport` and, only where useful, `Symtropy SimulationResult` → human-authorized Mycelix work package and funding receipt → real-world activity recorded as an append-only case event → independently evidenced service outcome → later outcome assessment.
+
+For Johannesburg, the existing [Sol-Atlas civic case ledger PR #109](https://github.com/Luminous-Dynamics/sol-atlas-leptos/pull/109) and [Mycelix workforce pilot PR #5016](https://github.com/Luminous-Dynamics/mycelix/pull/5016) are candidate source contracts for this flow; both remain proposals until reviewed and qualified. The [Humanity Atlas scenario contract PR #1571](https://github.com/Luminous-Dynamics/symtropy/pull/1571) can provide simulation/run provenance, while [Symthaea life/civic domain mastery PR #7443](https://github.com/Luminous-Dynamics/symthaea/pull/7443) is a reasoning/evaluation proposal—not an authorization service.
+
+Add synthetic negative controls before enabling any such flow: missing payer, uncommitted or insufficient full-period funding, unknown human-reviewed wage classification, stale/cancelled/awarded procurement notice mislabelled as open, unapproved scope, provider self-verification, and a disputed service result incorrectly used to deny wages. None of those conditions may silently advance a work package.
+
 ## Boundary interfaces
 
 Prefer small versioned Rust types and adapter traits. These are conceptual signatures, not existing APIs:
