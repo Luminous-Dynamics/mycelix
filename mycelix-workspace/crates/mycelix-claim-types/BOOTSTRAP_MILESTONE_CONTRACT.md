@@ -13,7 +13,7 @@ A versioned BootstrapMilestone binds:
 - dependency-state deltas;
 - signed imported-mass and energy deltas with fixed integer units;
 - typed resource statements;
-- explicit failure/recovery outcomes, including NotRun;
+- explicit failure/recovery outcomes, including rejected_safely and NotRun;
 - policy identity, digest and scope;
 - append-only correction/retraction links.
 
@@ -38,6 +38,6 @@ A dedicated GitHub Actions workflow runs these commands because the standalone c
 
 ## Security and claim ceiling
 
-The schema fails closed on unsupported schema versions, malformed digests, unknown serialized fields, duplicate dependency changes, no-op dependency deltas, conflicting correction links, incomplete recovery outcomes and inventory mutations lacking measurement evidence. Tests include a deserialization negative control for an attempted unknown authority-grant field.
+The schema fails closed on unsupported schema versions, malformed digests, unknown serialized fields, duplicate dependency changes, no-op dependency deltas, conflicting correction links, incomplete recovery outcomes and inventory mutations lacking measurement evidence. Tests include a deserialization negative control for an attempted unknown authority-grant field and parse a canonical synthetic JSON fixture. The fixture uses invalid example-domain links and placeholder digests so it cannot be mistaken for evidence from a real run.
 
 Validation does **not** fetch or hash external content, verify signatures, establish the truth of evidence, prove that source commits built the claimed artifact, authenticate the named policy issuer, or grant execution authority. Consuming services must independently resolve and hash evidence bytes, verify identities/signatures and policy, enforce append-only persistence, and check the scenario manifest and source revision. A well-formed record is a verifiable claim envelope—not proof that a robot or factory is physically qualified.
