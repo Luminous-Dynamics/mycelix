@@ -64,8 +64,7 @@ impl WasteMeasurementProtocol {
         {
             return Err(WasteMeasurementError::InvalidPlannedSlotCount);
         }
-        let mut slots_by_category: BTreeMap<ReferenceId, Vec<&PlannedWasteSlot>> =
-            BTreeMap::new();
+        let mut slots_by_category: BTreeMap<ReferenceId, Vec<&PlannedWasteSlot>> = BTreeMap::new();
         for slot in self.planned_slots.values() {
             if slot.observation_window.start_unix_ms < self.window.start_unix_ms
                 || slot.observation_window.start_unix_ms >= slot.observation_window.end_unix_ms
@@ -83,8 +82,7 @@ impl WasteMeasurementProtocol {
         for slots in slots_by_category.values_mut() {
             slots.sort_by_key(|slot| slot.observation_window.start_unix_ms);
             if slots.windows(2).any(|pair| {
-                pair[0].observation_window.end_unix_ms
-                    > pair[1].observation_window.start_unix_ms
+                pair[0].observation_window.end_unix_ms > pair[1].observation_window.start_unix_ms
             }) {
                 return Err(WasteMeasurementError::InvalidPlannedSlot);
             }
@@ -389,7 +387,8 @@ pub fn assess_waste_measurement_coverage(
                         }
                         // A value recorded before the slot closes is a forecast, not a
                         // retrospective imputation for an unobserved outcome.
-                        if record.recorded_at_unix_ms < planned_slot.observation_window.end_unix_ms {
+                        if record.recorded_at_unix_ms < planned_slot.observation_window.end_unix_ms
+                        {
                             return Err(WasteMeasurementError::ImputationBeforeSlotClosed);
                         }
                         imputed_mass = imputed_mass
@@ -574,7 +573,10 @@ fn measurement_evidence_digest(
     assessed_at_unix_ms: u64,
 ) -> Digest32 {
     let mut hasher = Sha256::new();
-    hash_text(&mut hasher, "mycelix:hospitality-waste-measurement-evidence:v1");
+    hash_text(
+        &mut hasher,
+        "mycelix:hospitality-waste-measurement-evidence:v1",
+    );
     hash_ref(&mut hasher, &protocol.protocol_id);
     hash_ref(&mut hasher, &protocol.source_system);
     hash_scope(&mut hasher, &protocol.scope);
@@ -1033,7 +1035,10 @@ mod tests {
     #[test]
     fn rejects_evaluation_before_window_closes() {
         let result = assess_waste_measurement_coverage(&protocol(), &outcomes(), 5_999);
-        assert_eq!(result, Err(WasteMeasurementError::EvaluationBeforeWindowCloses));
+        assert_eq!(
+            result,
+            Err(WasteMeasurementError::EvaluationBeforeWindowCloses)
+        );
     }
 
     #[test]
@@ -1064,7 +1069,9 @@ mod tests {
         values.pop();
         assert_eq!(
             assess_waste_measurement_coverage(&protocol(), &values, 7_000),
-            Err(WasteMeasurementError::UnaccountedSlots(vec![ref_id("slot:four")]))
+            Err(WasteMeasurementError::UnaccountedSlots(vec![ref_id(
+                "slot:four"
+            )]))
         );
     }
 
