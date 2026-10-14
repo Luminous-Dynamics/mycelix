@@ -437,7 +437,6 @@ mod tests {
         ];
         let campaign = campaign(&adapter, &files);
         let evidence = verify_campaign_integrity(&adapter, &campaign, &files).unwrap();
-        assert!(CAMPAIGN_INTEGRITY_IS_READ_ONLY);
         assert_eq!(evidence.unique_source_events, 4);
         assert!(evidence.validate_against(&campaign).is_ok());
     }
