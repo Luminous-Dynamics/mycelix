@@ -1,0 +1,30 @@
+name: Mobility Identity Lineage Qualification
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-commons/crates/mobility-configuration-qualification/**"
+      - "docs/mobility/MOBILITY_IDENTITY_LINEAGE_ALGEBRA_V1.*"
+      - "tools/mobility_identity_lineage_reference.py"
+      - ".github/workflows/mobility-identity-lineage-qualification.yml"
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mycelix-commons
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --all -- --check
+      - run: cargo test -p mobility-configuration-qualification
+
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python tools/mobility_identity_lineage_reference.py

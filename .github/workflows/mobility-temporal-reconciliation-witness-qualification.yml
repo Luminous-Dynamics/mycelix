@@ -1,0 +1,34 @@
+name: Mobility temporal reconciliation witness qualification
+on:
+  push:
+    paths:
+      - 'mycelix-commons/crates/mobility-configuration-qualification/**'
+      - 'tools/mobility_temporal_reconciliation_witness_reference.py'
+      - 'docs/mobility/MOBILITY_TEMPORAL_RECONCILIATION_WITNESS_V1.*'
+      - '.github/workflows/mobility-temporal-reconciliation-witness-qualification.yml'
+  pull_request:
+    paths:
+      - 'mycelix-commons/crates/mobility-configuration-qualification/**'
+      - 'tools/mobility_temporal_reconciliation_witness_reference.py'
+      - 'docs/mobility/MOBILITY_TEMPORAL_RECONCILIATION_WITNESS_V1.*'
+      - '.github/workflows/mobility-temporal-reconciliation-witness-qualification.yml'
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+        working-directory: mycelix-commons
+      - run: cargo test -p mobility-configuration-qualification
+        working-directory: mycelix-commons
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: python3 tools/mobility_temporal_reconciliation_witness_reference.py
