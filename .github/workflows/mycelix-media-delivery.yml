@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - ".github/workflows/mycelix-media-delivery.yml"
+      - "mycelix-workspace/Cargo.toml"
       - "mycelix-workspace/mycelix-music/apps/leptos/Cargo.toml"
       - "mycelix-workspace/mycelix-music/apps/leptos/src/**"
   push:
     branches: [main]
     paths:
       - ".github/workflows/mycelix-media-delivery.yml"
+      - "mycelix-workspace/Cargo.toml"
       - "mycelix-workspace/mycelix-music/apps/leptos/Cargo.toml"
       - "mycelix-workspace/mycelix-music/apps/leptos/src/**"
 
