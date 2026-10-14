@@ -535,7 +535,7 @@
         "Infer closing date, eligibility, funding, award, or contract from a title row",
         "Treat two unrelated equipment/service tenders as a basic-removal or cooperative work package"
       ],
-      "search_ceiling": "The page listing was inspected, not every linked notice or all City/Pikitup procurement channels. Missing date/status on the listing means unqualified, not closed or open."
+      "search_ceiling": "The page listing was inspected, not every linked notice or all City/Pikitup procurement channels. Missing date/status on the listing means unqualified, not closed or open. The /17 suffix is not independently interpreted as a date."
     }
   ],
   "event_model": {
