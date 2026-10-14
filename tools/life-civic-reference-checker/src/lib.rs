@@ -24,7 +24,9 @@ fn validator(relative_schema: &str) -> jsonschema::Validator {
     let schema = read_json(relative_schema);
     jsonschema::meta::validate(&schema)
         .unwrap_or_else(|error| panic!("invalid JSON Schema {relative_schema}: {error}"));
-    jsonschema::validator_for(&schema)
+    jsonschema::options()
+        .should_validate_formats(true)
+        .build(&schema)
         .unwrap_or_else(|error| panic!("could not compile JSON Schema {relative_schema}: {error}"))
 }
 
@@ -119,6 +121,21 @@ fn working_draft_is_representable_without_claiming_publication() {
         }
     });
     assert!(check.is_valid(&draft), "valid draft metadata was rejected");
+
+    let mut malformed_uri = draft.clone();
+    malformed_uri["source_evidence"][0]["uri"] = json!("not-a-uri");
+    assert!(
+        !check.is_valid(&malformed_uri),
+        "malformed source URI must be rejected when format checks are enabled"
+    );
+
+    let mut malformed_time = draft.clone();
+    malformed_time["source_evidence"][0]["retrieved_at"] = json!("yesterday");
+    assert!(
+        !check.is_valid(&malformed_time),
+        "malformed retrieval time must be rejected when format checks are enabled"
+    );
+
     let mut mislabeled = draft;
     mislabeled["publication_status"] = json!("published_and_current");
     assert!(
