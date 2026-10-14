@@ -52,6 +52,23 @@ class PortableAdapterProfileTests(unittest.TestCase):
         errors = validate_portable_adapter_profile.validate_profile(changed)
         self.assertTrue(any("every non-compensatory release gate" in e for e in errors))
 
+    def test_all_open_gates_do_not_substitute_for_authority_and_protocol_evidence(self) -> None:
+        changed = copy.deepcopy(self.profile)
+        changed["maturity"] = "production_authorized"
+        changed["production_enabled"] = True
+        changed["release_gates"] = {key: True for key in validate_portable_adapter_profile.REQUIRED_RELEASE_GATES}
+        errors = validate_portable_adapter_profile.validate_profile(changed)
+        self.assertTrue(any("requires an identified authority" in e for e in errors))
+        self.assertTrue(any("requires reviewed and authorized protocol" in e for e in errors))
+
+    def test_synthetic_route_cannot_be_promoted_to_production(self) -> None:
+        changed = copy.deepcopy(self.profile)
+        changed["maturity"] = "production_authorized"
+        changed["production_enabled"] = True
+        changed["release_gates"] = {key: True for key in validate_portable_adapter_profile.REQUIRED_RELEASE_GATES}
+        errors = validate_portable_adapter_profile.validate_profile(changed)
+        self.assertTrue(any("synthetic_only route cannot be production_authorized" in e for e in errors))
+
     def test_release_gates_must_be_booleans_not_truthy_values(self) -> None:
         changed = copy.deepcopy(self.profile)
         changed["release_gates"]["legal_basis_reviewed"] = 1
