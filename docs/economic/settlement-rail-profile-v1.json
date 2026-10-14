@@ -1,0 +1,34 @@
+{
+  "registry_id":"MYC-ECO-SETTLEMENT-RAIL-001",
+  "version":"1.0.0",
+  "status":"bounded_reference",
+  "state_order":["Observed","Validated","Authorized","Executed","IncludedOrBooked","Confirmed","FinalityQualified","Reconciled","OutcomeObserved"],
+  "rails":[
+    {"rail_id":"bank-payment","family":"fiat_payment","finality_model":"provider_or_rail_specific","required":["message_identity","instruction_identity","provider_evidence","booking_or_settlement_evidence"]},
+    {"rail_id":"bitcoin-probabilistic","family":"native_chain","finality_model":"probabilistic","required":["chain_id","tx_id","block_evidence","confirmation_policy"]},
+    {"rail_id":"ethereum-consensus","family":"native_chain","finality_model":"consensus_finalized","required":["chain_id","tx_id","block_evidence","checkpoint_or_finality_evidence"]},
+    {"rail_id":"evm-token-transfer","family":"token","finality_model":"underlying_chain_profile","required":["chain_id","contract_or_mint","tx_id","log_or_transfer_evidence","chain_finality_profile"]},
+    {"rail_id":"stablecoin-transfer","family":"stablecoin","finality_model":"underlying_chain_or_issuer_profile","required":["instrument_profile","chain_or_issuer_evidence","transfer_evidence","finality_profile"]},
+    {"rail_id":"exchange-execution","family":"market","finality_model":"venue_specific","required":["order_identity","execution_evidence","venue_status","settlement_mapping"]},
+    {"rail_id":"bridge-transfer","family":"bridge","finality_model":"bridge_and_source_destination_profile","required":["source_identity","bridge_identity","message_or_proof","destination_identity","reconciliation_evidence"]},
+    {"rail_id":"mutual-credit","family":"mutual_credit","finality_model":"ledger_policy_specific","required":["instrument_identity","ledger_event","issuer_or_steward_policy"]},
+    {"rail_id":"tend","family":"mycelix_mutual_credit","finality_model":"profile_specific","required":["instrument_identity","ledger_event","authorization"]},
+    {"rail_id":"holo-fuel-style","family":"mutual_credit_reference","finality_model":"profile_specific","required":["instrument_identity","ledger_event","credit_policy"]},
+    {"rail_id":"mycelix-internal","family":"internal","finality_model":"kernel_policy_specific","required":["economic_event_identity","authorization","settlement_receipt"]},
+    {"rail_id":"accounting-projection","family":"projection","finality_model":"not_a_settlement_rail","required":["source_event_identity","projection_policy"]}
+  ],
+  "receipt_fields":["receipt_id","source_event_identity","instrument_identity","rail_identity","execution_evidence","inclusion_or_booking_evidence","confirmation_state","finality_profile","authorization_reference","settlement_identity","reconciliation_identity","correction_lineage","claim_ceiling"],
+  "invariants":[
+    "confirmation_is_not_universal_finality",
+    "provider_ack_is_not_finality",
+    "transfer_is_not_market_fill",
+    "market_fill_is_not_settlement",
+    "accounting_projection_is_not_source_event",
+    "bridge_representation_is_not_native_asset",
+    "reconciliation_mismatch_is_not_success",
+    "indeterminate_does_not_become_settled_without_fresh_qualified_evidence",
+    "correction_appends_lineage",
+    "rail_profile_cannot_widen_instrument_claim_ceiling"
+  ],
+  "claim_ceiling":"Semantic settlement-rail interoperability only."
+}

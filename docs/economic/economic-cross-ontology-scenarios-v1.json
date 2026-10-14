@@ -1,0 +1,96 @@
+{
+  "scenario_id": "ECO-XONT-001",
+  "version": "1.0.0",
+  "status": "Reference conformance scenarios",
+  "purpose": "Verify that one source economic occurrence can be represented across heterogeneous economic systems without semantic promotion or provenance loss.",
+  "source_event": {
+    "event_id": "WORK-2026-001",
+    "kind": "verified_labor",
+    "actor": "agent-A",
+    "counterparty": "coop-B",
+    "quantity": 4,
+    "unit": "hour",
+    "observed_at": "T0",
+    "evidence_ref": "EVID-001",
+    "origin": "coop-B"
+  },
+  "representations": [
+    {
+      "system": "Valueflows",
+      "native_type": "EconomicEvent",
+      "expected": "Exact",
+      "preserve": [
+        "action",
+        "provider",
+        "receiver",
+        "resource",
+        "quantity",
+        "time",
+        "fulfillment/settlement links"
+      ]
+    },
+    {
+      "system": "Integral",
+      "native_type": "COS production observation",
+      "expected": "BoundedAdapter",
+      "preserve": [
+        "source event",
+        "evidence",
+        "origin",
+        "time"
+      ],
+      "forbidden": [
+        "automatic ITC minting"
+      ]
+    },
+    {
+      "system": "MutualCredit",
+      "native_type": "CreditTransactionCandidate",
+      "expected": "PolicyDependent",
+      "preserve": [
+        "source event",
+        "instrument",
+        "issuer",
+        "limits"
+      ],
+      "forbidden": [
+        "credit without explicit issuance policy"
+      ]
+    },
+    {
+      "system": "Accounting",
+      "native_type": "JournalProjection",
+      "expected": "DerivedProjection",
+      "preserve": [
+        "source event",
+        "accounts",
+        "period",
+        "posting policy"
+      ],
+      "forbidden": [
+        "journal entry becoming physical evidence"
+      ]
+    }
+  ],
+  "required_invariants": [
+    "same source event identity remains traceable",
+    "origin remains unchanged",
+    "evidence references remain traceable",
+    "unit identity remains explicit",
+    "source observation does not become entitlement automatically",
+    "external representation does not rewrite source semantics",
+    "different economic interpretations are permitted",
+    "settlement requires explicit authorization",
+    "correction creates lineage rather than mutating source history"
+  ],
+  "adversarial_variants": [
+    "Valueflows Intent misrepresented as EconomicEvent",
+    "Integral COS observation auto-issued as ITC",
+    "mutual-credit adapter changes source unit",
+    "accounting journal entry treated as physical occurrence",
+    "foreign instrument recognition rewritten as local issuance",
+    "duplicate settlement across two adapters",
+    "correction in one adapter overwrites source event"
+  ],
+  "claim_ceiling": "Cross-ontology semantic conformance only; no claim of financial, legal, regulatory, or physical-world validity."
+}
