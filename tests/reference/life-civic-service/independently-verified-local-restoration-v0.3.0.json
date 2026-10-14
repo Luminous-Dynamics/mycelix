@@ -26,7 +26,10 @@
         "https://www.johannesburgwater.co.za/contact-us/"
       ],
       "checked_on": "2026-10-14",
-      "notes": "Synthetic route metadata only; not a live integration."
+      "notes": "Synthetic route metadata only; not a live integration.",
+      "source_evidence_ids": [
+        "EV-CONTACT-005"
+      ]
     },
     "case_state": "verified_resolved",
     "evidence": [
@@ -49,6 +52,16 @@
         "claim_scope": "Synthetic independent check observed water supply at one sampling point at this time.",
         "limitations": "Confirms only this point and observation time; it does not establish restoration across the wider service area.",
         "retrieved_at": "2026-10-14T10:00:00+02:00"
+      },
+      {
+        "evidence_id": "EV-CONTACT-005",
+        "kind": "official_notice",
+        "source_uri": "https://www.johannesburgwater.co.za/contact-us/",
+        "observed_on": "2026-10-14",
+        "retrieved_at": "2026-10-14T10:00:00+02:00",
+        "independence": "same_origin",
+        "claim_scope": "The official contact page publishes contact information for Johannesburg Water.",
+        "limitations": "Identifies an official contact source only; does not prove this is the correct channel for this specific case or establish an applicable legal/service obligation."
       }
     ],
     "outcome": {
