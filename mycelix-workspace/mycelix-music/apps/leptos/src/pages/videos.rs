@@ -560,21 +560,11 @@ pub fn VideosPage() -> impl IntoView {
                     let duration = listing.duration_label();
                     let description = listing.description.clone();
                     let has_cid = listing.content_cid.is_some();
-                    let source_url = move || {
-                        selected_video().and_then(|current| {
-                            if !preferences.loaded.get() {
-                                return None;
-                            }
-                            listing_candidates(
-                                &current,
-                                "content",
-                                current.content_cid.as_deref(),
-                                preferences.gateway_origins.get().as_deref(),
-                            )
-                            .get(source_index.get())
-                            .map(|candidate| candidate.url.clone())
-                        })
-                    };
+                    let has_captions = listing.has_captions();
+                    let has_transcript = listing.has_transcript();
+                    let has_visual_description = listing.has_visual_description();
+                    let status_listing = listing.clone();
+                    let status_preferences = preferences.clone();
                     let source_preferences = preferences.clone();
                     let source_video = listing.clone();
                     let current_source_index = source_index;
@@ -657,7 +647,6 @@ pub fn VideosPage() -> impl IntoView {
                     let progress_pct = saved_time.map(|seconds| {
                         ((seconds as f64 / listing.duration_seconds.max(1) as f64) * 100.0).clamp(0.0, 100.0)
                     }).unwrap_or(0.0);
-                    let close_id = id.clone();
                     view! {
                         <section class="video-watch-panel" aria-labelledby="video-watch-title">
                             <div class="video-watch-heading">
@@ -750,10 +739,10 @@ pub fn VideosPage() -> impl IntoView {
                                             } else if !preferences.loaded.get() {
                                                 "Loading this browser's delivery preference before selecting a source…".to_string()
                                             } else if listing_candidates(
-                                                &listing,
+                                                &status_listing,
                                                 "content",
-                                                listing.content_cid.as_deref(),
-                                                preferences.gateway_origins.get().as_deref(),
+                                                status_listing.content_cid.as_deref(),
+                                                status_preferences.gateway_origins.get().as_deref(),
                                             ).is_empty() {
                                                 "No delivery route is selected. Configure a trusted gateway in Delivery Settings.".to_string()
                                             } else if delivery_failed.get() {
@@ -777,7 +766,7 @@ pub fn VideosPage() -> impl IntoView {
                                     <section class="video-accessibility">
                                         <h3>"Accessibility"</h3>
                                         {move || {
-                                            if !listing.has_captions() {
+                                            if !has_captions {
                                                 view! { <p class="video-capability unavailable">"Captions not provided"</p> }.into_any()
                                             } else if caption_url.get().is_some() {
                                                 view! { <p class="video-capability available">"✓ Captions track linked"</p> }.into_any()
@@ -786,7 +775,7 @@ pub fn VideosPage() -> impl IntoView {
                                             }
                                         }}
                                         {move || {
-                                            if !listing.has_transcript() {
+                                            if !has_transcript {
                                                 view! { <p class="video-capability unavailable">"Transcript not provided"</p> }.into_any()
                                             } else if let Some(url) = transcript_url.get() {
                                                 view! { <a class="video-resource-link" href=url target="_blank" rel="noopener noreferrer">"Open transcript ↗"</a> }.into_any()
@@ -795,7 +784,7 @@ pub fn VideosPage() -> impl IntoView {
                                             }
                                         }}
                                         {move || {
-                                            if !listing.has_visual_description() {
+                                            if !has_visual_description {
                                                 view! { <p class="video-capability unavailable">"Visual description not provided"</p> }.into_any()
                                             } else if let Some(url) = description_url.get() {
                                                 view! { <a class="video-resource-link" href=url target="_blank" rel="noopener noreferrer">"Open visual description ↗"</a> }.into_any()
