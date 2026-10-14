@@ -445,7 +445,7 @@ fn service_journey_manifest_pins_exact_schema_and_case_bytes() {
 }
 
 #[test]
-fn scoped_independent_restoration_positive_control_is_accepted() {
+fn scoped_independent_restoration_requires_captured_evidence() {
     let check = validator(SERVICE_JOURNEY_SCHEMA);
     let fixture = read_json(SERVICE_JOURNEY_POSITIVE);
     assert_eq!(
@@ -524,14 +524,14 @@ fn scoped_independent_restoration_positive_control_is_accepted() {
         "positive control must not generalize one point observation to the whole area"
     );
 
-    let mut dangling_reference = instance.clone();
+    let mut dangling_reference = captured_verification.clone();
     dangling_reference["outcome"]["verification_evidence_ids"] = json!(["MISSING-EVIDENCE"]);
     assert!(
         validate_service_claim_semantics(&dangling_reference).is_err(),
         "dangling verification evidence ID must be rejected"
     );
 
-    let mut wrong_kind = instance.clone();
+    let mut wrong_kind = captured_verification.clone();
     wrong_kind["outcome"]["verification_evidence_ids"] = json!(["EV-REPORT-005"]);
     assert!(
         validate_service_claim_semantics(&wrong_kind).is_err(),
