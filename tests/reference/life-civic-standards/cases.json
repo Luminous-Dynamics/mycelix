@@ -57,6 +57,20 @@
       "observed_status": "published International Standard; second edition; publication date 2025-02",
       "as_of_date": "2026-10-14",
       "notes": "ISO catalogue describes safety requirements for industrial robot applications and robot cells. It lists service robots accessible to the public and law-enforcement uses among exclusions. A published industrial-robot standard cannot be treated as universal coverage for all public-facing or security robots."
+    },
+    {
+      "snapshot_id": "STATSSA-QLFS-Q2-2026",
+      "source_uri": "https://www.statssa.gov.za/?PPN=P0211&SCH=74512&page_id=1856",
+      "observed_status": "published official labour-market statistics; Q2 2026; publication date 2026-08-11; official unemployment rate 33.6%",
+      "as_of_date": "2026-10-14",
+      "notes": "Descriptive national labour-market statistics with published definitions, metadata, and downloadable QLFS series. Not a causal crime estimate, local Johannesburg service-area baseline, or predictor of individual behavior."
+    },
+    {
+      "snapshot_id": "ILO-DECENT-WORK-INDICATORS-2013",
+      "source_uri": "https://www.ilo.org/publications/decent-work-indicators-concepts-and-definitions",
+      "observed_status": "published measurement framework; publication date 2013-12-18",
+      "as_of_date": "2026-10-14",
+      "notes": "Supports multidimensional measurement of decent work, including earnings, work safety, stability/security, and social protection. Does not set the viability fixture's numeric gates, create local legal requirements, or establish an effect on crime."
     }
   ],
   "cases": [
@@ -406,6 +420,68 @@
         ]
       },
       "rationale": "The official ISO catalogue describes ISO 10218-2:2025 as covering industrial robot applications and robot cells and lists public-access service robots and law-enforcement applications among exclusions. The publication status and industrial scope must be preserved; a different robot category requires separate hazard, standards-applicability, legal, and operational review.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-013",
+      "title": "Stats SA national unemployment statistics must not be used as a local crime coefficient or individual propensity signal",
+      "input_projection": {
+        "instrument_id": "STATSSA:P0211:QLFS:2026Q2",
+        "artifact_kind": "other",
+        "version": "QLFS Q2 2026; published 2026-08-11",
+        "publication_status": "published",
+        "normative_status": "informational",
+        "source_uri": "https://www.statssa.gov.za/?PPN=P0211&SCH=74512&page_id=1856"
+      },
+      "context": {
+        "use_case": "decide whether the South African national unemployment statistic should calibrate a crime-prevention model or stand in for a Johannesburg service-area baseline",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the national unemployment statistic is a causal crime coefficient",
+          "the QLFS national estimate is a Johannesburg service-area baseline without local evidence",
+          "national unemployment statistics predict an individual's criminal propensity",
+          "the QLFS statistic validates the simulator's synthetic crime parameters"
+        ]
+      },
+      "rationale": "The QLFS is authoritative descriptive labour-market evidence for its target population and period. A model-specific causal estimate, local service-area baseline, and any individual inference are separate claims requiring different evidence and must not be fabricated from the national rate.",
+      "synthetic": false
+    },
+    {
+      "case_id": "MYC-LCA-014",
+      "title": "The ILO decent-work measurement framework does not establish universal numeric viability thresholds or crime effects",
+      "input_projection": {
+        "instrument_id": "ILO:DECENT-WORK-INDICATORS:2013",
+        "artifact_kind": "guidance",
+        "version": "Decent Work Indicators — Concepts and Definitions; published 2013-12-18",
+        "publication_status": "published",
+        "normative_status": "informational",
+        "source_uri": "https://www.ilo.org/publications/decent-work-indicators-concepts-and-definitions"
+      },
+      "context": {
+        "use_case": "choose measures and thresholds for an aggregate lawful-alternative viability contract in South Africa",
+        "jurisdiction": "ZA",
+        "evaluated_at": "2026-10-14T10:00:00+02:00"
+      },
+      "expected": {
+        "status": "unknown",
+        "required_reason_codes": [
+          "context_insufficient"
+        ],
+        "forbidden_claims": [
+          "the ILO framework establishes the prototype's universal 0.80 fair-pay adequacy threshold",
+          "the measurement framework is itself binding law for this service",
+          "decent-work indicators prove a causal reduction in crime",
+          "aggregate decent-work indicators authorize individual criminal-risk scoring"
+        ]
+      },
+      "rationale": "The ILO source helps structure a multidimensional measurement plan. Local legal duties, community-approved adequacy benchmarks, data operationalization, and causal claims require separate evidence and review.",
       "synthetic": false
     }
   ]
