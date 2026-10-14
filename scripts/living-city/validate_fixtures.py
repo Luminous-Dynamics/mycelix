@@ -36,9 +36,12 @@ def main() -> None:
     manifest = load_json(MANIFEST_PATH)
     if manifest.get("schema_dialect") != "https://json-schema.org/draft/2020-12/schema":
         fail("manifest schema_dialect is not Draft 2020-12")
-    schema_path = ROOT / manifest.get("schema_path", "")
+    schema_rel = manifest.get("schema_path")
+    if not isinstance(schema_rel, str) or not schema_rel or Path(schema_rel).is_absolute() or ".." in Path(schema_rel).parts:
+        fail(f"schema_path must be a safe repository-relative path: {schema_rel!r}")
+    schema_path = ROOT / schema_rel
     if not schema_path.is_file():
-        fail(f"schema file missing: {manifest.get('schema_path')!r}")
+        fail(f"schema file missing: {schema_rel!r}")
     schema = load_json(schema_path)
     try:
         Draft202012Validator.check_schema(schema)
@@ -53,9 +56,14 @@ def main() -> None:
     seen_paths = set()
     valid_count = invalid_count = 0
     for entry in fixtures:
+        if not isinstance(entry, dict):
+            fail(f"manifest fixture entry must be an object: {entry!r}")
         rel = entry.get("path")
         if not isinstance(rel, str) or rel in seen_paths:
             fail(f"fixture path missing, invalid, or duplicated: {rel!r}")
+        rel_path = Path(rel)
+        if rel_path.is_absolute() or ".." in rel_path.parts:
+            fail(f"fixture path must stay within repository: {rel!r}")
         seen_paths.add(rel)
         path = ROOT / rel
         if not path.is_file():
@@ -97,6 +105,17 @@ def main() -> None:
             fail(f"negative fixture {rel} has unexpected additional validation errors: {details}")
         print(f"PASS negative control: {rel} -> {description}")
         invalid_count += 1
+
+    discovered_paths = {
+        path.relative_to(ROOT).as_posix()
+        for folder in (ROOT / "fixtures/living-city/concepts", ROOT / "fixtures/living-city/invalid")
+        if folder.is_dir()
+        for path in folder.rglob("*.json")
+    }
+    if discovered_paths != seen_paths:
+        missing_from_manifest = sorted(discovered_paths - seen_paths)
+        missing_from_disk = sorted(seen_paths - discovered_paths)
+        fail(f"manifest/disk fixture drift: unlisted files={missing_from_manifest}; missing files={missing_from_disk}")
 
     if valid_count == 0 or invalid_count == 0:
         fail(f"need positive and negative controls; found {valid_count} positive, {invalid_count} negative")
